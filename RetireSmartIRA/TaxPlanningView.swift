@@ -472,9 +472,28 @@ struct TaxPlanningView: View {
                 }
 
                 if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
-                    let savings = dataManager.stockDonationTaxSavings
-                    let _ = netImpact -= savings
-                    impactRow(label: "Stock Donation", amount: savings, isPositive: true, color: .orange)
+                    // Itemized deduction benefit (reduces cash taxes owed)
+                    let deductionSavings = dataManager.stockDeductionTaxSavings
+                    if deductionSavings > 0 {
+                        let _ = netImpact -= deductionSavings
+                        impactRow(label: "Stock Deduction", amount: deductionSavings, isPositive: true, color: .orange)
+                    }
+
+                    // Capital gains tax avoided (by donating instead of selling)
+                    let gainsAvoided = dataManager.stockCapGainsTaxAvoided
+                    if gainsAvoided > 0 {
+                        let _ = netImpact -= gainsAvoided
+                        impactRow(label: "Cap Gains Avoided", amount: gainsAvoided, isPositive: true, color: .orange)
+                    }
+
+                    // Note if not itemizing (deduction provides no benefit)
+                    if deductionSavings == 0 && !dataManager.scenarioEffectiveItemize {
+                        Text("Taking standard deduction \u{2014} stock FMV deduction not applied")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 28)
+                            .padding(.top, -4)
+                    }
                 }
 
                 if dataManager.cashDonationAmount > 0 {
@@ -487,7 +506,7 @@ struct TaxPlanningView: View {
 
                 // Net impact
                 let displayNet = dataManager.rothConversionTaxImpact + dataManager.extraWithdrawalTaxImpact
-                    - dataManager.qcdTaxSavings - dataManager.stockDonationTaxSavings - dataManager.cashDonationTaxSavings
+                    - dataManager.qcdTaxSavings - dataManager.stockDeductionTaxSavings - dataManager.stockCapGainsTaxAvoided - dataManager.cashDonationTaxSavings
 
                 HStack {
                     Text("Net Tax Impact")

@@ -1146,23 +1146,37 @@ class DataManager: ObservableObject {
         return withoutQCD - scenarioTotalTax
     }
 
-    /// Tax savings from stock donation (deduction + avoided cap gains).
-    /// The avoided gain is already subtracted from scenarioGrossIncome, so the
-    /// counterfactual adds it back (gain would have been realized income).
-    var stockDonationTaxSavings: Double {
-        guard stockDonationEnabled, stockCurrentValue > 0 else { return 0 }
-        // Without stock donation: no charitable deduction for stock, gain IS realized
-        let charWithout = scenarioCharitableDeductions - (scenarioStockIsLongTerm ? stockCurrentValue : stockPurchasePrice)
-        let deductionWithout = scenarioEffectiveItemize
-            ? (baseItemizedDeductions + charWithout)
-            : standardDeductionAmount
+    /// Tax savings from the stock donation's itemized deduction (FMV for long-term, cost basis for short-term).
+    /// This represents the reduction in cash the user must pay in taxes.
+    var stockDeductionTaxSavings: Double {
+        guard stockDonationEnabled, stockCurrentValue > 0, scenarioEffectiveItemize else { return 0 }
+        let stockDeduction = scenarioStockIsLongTerm ? stockCurrentValue : stockPurchasePrice
+        let charWithout = scenarioCharitableDeductions - stockDeduction
+        let deductionWithout = baseItemizedDeductions + charWithout
         let effectiveDeductionWithout = max(deductionWithout, standardDeductionAmount)
-        // Add back the avoided gain — it would have been part of gross income
-        let withoutStock = totalTaxFor(
-            grossIncome: scenarioGrossIncome + scenarioStockGainAvoided,
+        let withoutDeduction = totalTaxFor(
+            grossIncome: scenarioGrossIncome,
             deduction: effectiveDeductionWithout
         )
-        return withoutStock - scenarioTotalTax
+        return withoutDeduction - scenarioTotalTax
+    }
+
+    /// Capital gains tax avoided by donating appreciated stock instead of selling.
+    /// Only applies to long-term holdings with an unrealized gain.
+    var stockCapGainsTaxAvoided: Double {
+        guard stockDonationEnabled, scenarioStockGainAvoided > 0 else { return 0 }
+        // Compare: current scenario vs. scenario where gain IS realized (added to gross income)
+        // but stock deduction is still present (isolates just the gain effect)
+        let withGainRealized = totalTaxFor(
+            grossIncome: scenarioGrossIncome + scenarioStockGainAvoided,
+            deduction: effectiveDeductionAmount
+        )
+        return withGainRealized - scenarioTotalTax
+    }
+
+    /// Total tax savings from stock donation (deduction + avoided cap gains)
+    var stockDonationTaxSavings: Double {
+        stockDeductionTaxSavings + stockCapGainsTaxAvoided
     }
 
     /// Tax savings from cash donation
