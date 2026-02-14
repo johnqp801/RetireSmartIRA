@@ -815,9 +815,7 @@ struct TaxPlanningView: View {
                                             .foregroundStyle(.secondary)
                                     }
                                     Spacer()
-                                    Text(dataManager.yourQCDAmount, format: .currency(code: "USD"))
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.green)
+                                    CurrencyField(value: $dataManager.yourQCDAmount, range: 0...yourMaxQCD, color: .green)
                                 }
 
                                 Slider(value: $dataManager.yourQCDAmount, in: 0...yourMaxQCD, step: 500)
@@ -843,9 +841,7 @@ struct TaxPlanningView: View {
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                     Spacer()
-                                    Text(dataManager.spouseQCDAmount, format: .currency(code: "USD"))
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.green)
+                                    CurrencyField(value: $dataManager.spouseQCDAmount, range: 0...spouseMaxQCD, color: .green)
                                 }
 
                                 Slider(value: $dataManager.spouseQCDAmount, in: 0...spouseMaxQCD, step: 500)
@@ -1068,8 +1064,7 @@ struct TaxPlanningView: View {
                         Text("Cash Donation Amount")
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Text(dataManager.cashDonationAmount, format: .currency(code: "USD"))
-                            .fontWeight(.semibold)
+                        CurrencyField(value: $dataManager.cashDonationAmount, range: 0...200_000, color: .primary)
                     }
 
                     Slider(value: $dataManager.cashDonationAmount, in: 0...200_000, step: 500)
@@ -1298,8 +1293,7 @@ struct ConversionSliderCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(amount, format: .currency(code: "USD"))
-                    .fontWeight(.semibold)
+                CurrencyField(value: $amount, range: 0...sliderMax, color: .primary)
             }
 
             Slider(value: $amount, in: 0...sliderMax, step: 1_000)
@@ -1332,8 +1326,7 @@ struct WithdrawalSliderCard: View {
                 Text(label)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(amount, format: .currency(code: "USD"))
-                    .fontWeight(.semibold)
+                CurrencyField(value: $amount, range: 0...sliderMax, color: .primary)
             }
 
             Slider(value: $amount, in: 0...sliderMax, step: 1_000)
@@ -1344,7 +1337,7 @@ struct WithdrawalSliderCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("$200,000")
+                Text(sliderMax, format: .currency(code: "USD"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -1649,6 +1642,50 @@ struct TaxImpactView: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+}
+
+// MARK: - Currency Input Field
+
+/// An editable text field that syncs with a Double binding.
+/// Shows the current value formatted as currency; typing a number updates the binding
+/// (and any connected slider). Clamps to min...max on commit.
+struct CurrencyField: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let color: Color
+
+    @State private var text: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("$0", text: $text)
+            .keyboardType(.numberPad)
+            .multilineTextAlignment(.trailing)
+            .font(.subheadline)
+            .fontWeight(.semibold)
+            .foregroundStyle(color)
+            .frame(width: 100)
+            .focused($isFocused)
+            .onAppear { text = formatValue(value) }
+            .onChange(of: value) { _, newValue in
+                if !isFocused { text = formatValue(newValue) }
+            }
+            .onChange(of: isFocused) { _, focused in
+                if focused {
+                    // Show raw number for easier editing
+                    text = value == 0 ? "" : "\(Int(value))"
+                } else {
+                    // Parse, clamp, and re-format on blur
+                    let parsed = Double(text.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "")) ?? 0
+                    value = min(max(parsed, range.lowerBound), range.upperBound)
+                    text = formatValue(value)
+                }
+            }
+    }
+
+    private func formatValue(_ v: Double) -> String {
+        v.formatted(.currency(code: "USD").precision(.fractionLength(0)))
     }
 }
 
