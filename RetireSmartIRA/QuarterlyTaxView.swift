@@ -105,6 +105,28 @@ struct QuarterlyTaxView: View {
                         scenarioItem("Cash Donation", amount: dataManager.cashDonationAmount)
                     }
                 }
+
+                // Timing summary
+                if dataManager.scenarioTotalRothConversion > 0 || dataManager.scenarioTotalExtraWithdrawal > 0 || dataManager.scenarioCombinedRMD > 0 {
+                    Divider()
+                    Text("Timing")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+
+                    if dataManager.isRMDRequired || dataManager.yourExtraWithdrawal > 0 {
+                        timingItem(dataManager.enableSpouse ? "Your Withdrawals" : "Withdrawals", quarter: dataManager.yourWithdrawalQuarter)
+                    }
+                    if dataManager.enableSpouse && (dataManager.spouseIsRMDRequired || dataManager.spouseExtraWithdrawal > 0) {
+                        timingItem("\(dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName) Withdrawals", quarter: dataManager.spouseWithdrawalQuarter)
+                    }
+                    if dataManager.yourRothConversion > 0 {
+                        timingItem(dataManager.enableSpouse ? "Your Roth Conv." : "Roth Conv.", quarter: dataManager.yourRothConversionQuarter)
+                    }
+                    if dataManager.enableSpouse && dataManager.spouseRothConversion > 0 {
+                        timingItem("\(dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName) Roth Conv.", quarter: dataManager.spouseRothConversionQuarter)
+                    }
+                }
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,6 +142,18 @@ struct QuarterlyTaxView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Text(amount, format: .currency(code: "USD"))
+                .font(.caption)
+                .fontWeight(.medium)
+        }
+    }
+
+    private func timingItem(_ label: String, quarter: Int) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text("Q\(quarter)")
                 .font(.caption)
                 .fontWeight(.medium)
         }
@@ -162,19 +196,30 @@ struct QuarterlyTaxView: View {
                 Divider()
 
                 HStack {
+                    let payments = dataManager.scenarioQuarterlyPayments
+                    let minQ = min(payments.q1, payments.q2, payments.q3, payments.q4)
+                    let maxQ = max(payments.q1, payments.q2, payments.q3, payments.q4)
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text("90% Safe Harbor")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text("Per Quarter Payment")
+                        Text(minQ == maxQ ? "Per Quarter Payment" : "Quarterly Range")
                             .font(.callout)
                             .fontWeight(.semibold)
                     }
                     Spacer()
-                    Text(dataManager.scenarioQuarterlyPayment, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.purple)
+                    if minQ == maxQ {
+                        Text(payments.q1, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.purple)
+                    } else {
+                        Text("\(minQ.formatted(.currency(code: "USD"))) \u{2013} \(maxQ.formatted(.currency(code: "USD")))")
+                            .font(.callout)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.purple)
+                    }
                 }
             }
         }
@@ -256,13 +301,13 @@ struct QuarterlyTaxView: View {
                 .font(.headline)
 
             let year = dataManager.currentYear
-            let amount = dataManager.scenarioQuarterlyPayment
+            let payments = dataManager.scenarioQuarterlyPayments
 
             VStack(spacing: 12) {
-                QuarterRow(quarter: "Q1", dueDate: "April 15, \(year)", amount: amount)
-                QuarterRow(quarter: "Q2", dueDate: "June 15, \(year)", amount: amount)
-                QuarterRow(quarter: "Q3", dueDate: "September 15, \(year)", amount: amount)
-                QuarterRow(quarter: "Q4", dueDate: "January 15, \(year + 1)", amount: amount)
+                QuarterRow(quarter: "Q1", dueDate: "April 15, \(year)", amount: payments.q1, events: eventsForQuarter(1))
+                QuarterRow(quarter: "Q2", dueDate: "June 15, \(year)", amount: payments.q2, events: eventsForQuarter(2))
+                QuarterRow(quarter: "Q3", dueDate: "September 15, \(year)", amount: payments.q3, events: eventsForQuarter(3))
+                QuarterRow(quarter: "Q4", dueDate: "January 15, \(year + 1)", amount: payments.q4, events: eventsForQuarter(4))
             }
 
             Divider()
@@ -272,7 +317,7 @@ struct QuarterlyTaxView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(amount * 4, format: .currency(code: "USD"))
+                Text(payments.total, format: .currency(code: "USD"))
                     .font(.callout)
                     .fontWeight(.bold)
             }
@@ -281,6 +326,28 @@ struct QuarterlyTaxView: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    /// Returns event labels for a given quarter (e.g., "Your Withdrawal", "Roth Conv.")
+    private func eventsForQuarter(_ q: Int) -> [String] {
+        var events: [String] = []
+        let dm = dataManager
+        let spouseEnabled = dm.enableSpouse
+        let spouseName = dm.spouseName.isEmpty ? "Spouse" : dm.spouseName
+
+        if (dm.isRMDRequired || dm.yourExtraWithdrawal > 0) && dm.yourWithdrawalQuarter == q {
+            events.append(spouseEnabled ? "Your Withdrawal" : "Withdrawal")
+        }
+        if spouseEnabled && (dm.spouseIsRMDRequired || dm.spouseExtraWithdrawal > 0) && dm.spouseWithdrawalQuarter == q {
+            events.append("\(spouseName) Withdrawal")
+        }
+        if dm.yourRothConversion > 0 && dm.yourRothConversionQuarter == q {
+            events.append(spouseEnabled ? "Your Roth Conv." : "Roth Conv.")
+        }
+        if spouseEnabled && dm.spouseRothConversion > 0 && dm.spouseRothConversionQuarter == q {
+            events.append("\(spouseName) Roth Conv.")
+        }
+        return events
     }
 
     // MARK: - Important Notes
@@ -327,6 +394,7 @@ struct QuarterRow: View {
     let quarter: String
     let dueDate: String
     let amount: Double
+    var events: [String] = []
 
     var body: some View {
         HStack {
@@ -337,6 +405,11 @@ struct QuarterRow: View {
                 Text(dueDate)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !events.isEmpty {
+                    Text(events.joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
             }
 
             Spacer()

@@ -409,7 +409,23 @@ struct DashboardView: View {
 
             if dataManager.scenarioQuarterlyPayment > 0 {
                 Divider()
-                taxRow(label: "Per-Quarter Payment", value: dataManager.scenarioQuarterlyPayment, isBold: true, color: .orange)
+                let payments = dataManager.scenarioQuarterlyPayments
+                let minQ = min(payments.q1, payments.q2, payments.q3, payments.q4)
+                let maxQ = max(payments.q1, payments.q2, payments.q3, payments.q4)
+                if minQ == maxQ {
+                    taxRow(label: "Per-Quarter Payment", value: payments.q1, isBold: true, color: .orange)
+                } else {
+                    HStack {
+                        Text("Quarterly Range")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text("\(minQ.formatted(.currency(code: "USD"))) \u{2013} \(maxQ.formatted(.currency(code: "USD")))")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.orange)
+                    }
+                }
                 Text("Based on 90% safe harbor rule")
                     .font(.caption)
                     .foregroundStyle(.secondary)

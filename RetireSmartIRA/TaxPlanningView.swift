@@ -223,6 +223,10 @@ struct TaxPlanningView: View {
             dataManager.stockCurrentValue = Double(newValue.replacingOccurrences(of: ",", with: "")) ?? 0
             dataManager.saveAllData()
         }
+        .onChange(of: dataManager.yourWithdrawalQuarter) { dataManager.saveAllData() }
+        .onChange(of: dataManager.spouseWithdrawalQuarter) { dataManager.saveAllData() }
+        .onChange(of: dataManager.yourRothConversionQuarter) { dataManager.saveAllData() }
+        .onChange(of: dataManager.spouseRothConversionQuarter) { dataManager.saveAllData() }
     }
 
     // MARK: - Layout variants
@@ -594,6 +598,10 @@ struct TaxPlanningView: View {
                 tint: .orange
             )
 
+            if dataManager.yourRothConversion > 0 {
+                QuarterPicker(label: "Timing", quarter: $dataManager.yourRothConversionQuarter)
+            }
+
             // Spouse Roth conversion
             if spouseEnabled && dataManager.spouseTraditionalIRABalance > 0 {
                 ConversionSliderCard(
@@ -604,6 +612,10 @@ struct TaxPlanningView: View {
                     sliderMax: spouseSliderMax,
                     tint: .orange
                 )
+
+                if dataManager.spouseRothConversion > 0 {
+                    QuarterPicker(label: "Timing", quarter: $dataManager.spouseRothConversionQuarter)
+                }
             }
 
             // Combined total
@@ -679,6 +691,10 @@ struct TaxPlanningView: View {
                         sliderMax: 200_000,
                         tint: .blue
                     )
+
+                    if dataManager.isRMDRequired || dataManager.yourExtraWithdrawal > 0 {
+                        QuarterPicker(label: "Withdrawal Timing", quarter: $dataManager.yourWithdrawalQuarter)
+                    }
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground))
@@ -718,6 +734,10 @@ struct TaxPlanningView: View {
                         sliderMax: 200_000,
                         tint: .blue
                     )
+
+                    if dataManager.spouseIsRMDRequired || dataManager.spouseExtraWithdrawal > 0 {
+                        QuarterPicker(label: "Withdrawal Timing", quarter: $dataManager.spouseWithdrawalQuarter)
+                    }
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground))
@@ -1629,6 +1649,30 @@ struct TaxImpactView: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+}
+
+// MARK: - Quarter Picker
+
+struct QuarterPicker: View {
+    let label: String
+    @Binding var quarter: Int
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Picker(label, selection: $quarter) {
+                Text("Q1").tag(1)
+                Text("Q2").tag(2)
+                Text("Q3").tag(3)
+                Text("Q4").tag(4)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 200)
+        }
     }
 }
 

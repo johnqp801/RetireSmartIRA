@@ -388,6 +388,7 @@ struct GuideView: View {
     private var taxPlanningGuide: some View {
         tabGuideSection(icon: "slider.horizontal.3", title: "Tax Planning", color: .orange, isExpanded: $taxPlanningGuideExpanded) {
             guidePoint("This is the scenario modeling engine \u{2014} changes here flow to Dashboard and Quarterly Tax")
+            guidePoint("Withdrawal Timing: choose which quarter you plan to take each withdrawal or conversion \u{2014} this shifts the tax obligation to that quarter\u{2019}s estimated payment")
             guidePoint("Roth Conversions: set conversion amounts and see real-time bracket impact")
             guidePoint("QCD (Qualified Charitable Distribution): donate up to $111k/person directly from IRA to charity; satisfies RMD tax-free; requires age 70\u{00BD}+")
             guidePoint("Appreciated Stock Donation: donate long-term stock to avoid capital gains tax and get a fair market value deduction")
@@ -403,6 +404,7 @@ struct GuideView: View {
             guidePoint("Annual tax summary: gross income, deductions, taxable income, federal + state tax")
             guidePoint("Withholding from income sources is credited against your total liability")
             guidePoint("Payment schedule with IRS deadlines: April 15, June 15, September 15, January 15")
+            guidePoint("Payment amounts vary by quarter based on when withdrawals and conversions are planned")
             guidePoint("Based on 90% safe harbor rule: pay 90% of current year tax to avoid underpayment penalties")
             guidePoint("Automatically recalculates when Tax Planning decisions change")
         }

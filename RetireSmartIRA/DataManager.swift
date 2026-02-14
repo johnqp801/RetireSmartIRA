@@ -40,6 +40,10 @@ class DataManager: ObservableObject {
     @Published var spouseExtraWithdrawal: Double = 0
     @Published var yourQCDAmount: Double = 0
     @Published var spouseQCDAmount: Double = 0
+    @Published var yourWithdrawalQuarter: Int = 4       // 1-4, Q4 default (Dec 31 pattern)
+    @Published var spouseWithdrawalQuarter: Int = 4
+    @Published var yourRothConversionQuarter: Int = 4
+    @Published var spouseRothConversionQuarter: Int = 4
     @Published var stockDonationEnabled: Bool = false
     @Published var stockPurchasePrice: Double = 0
     @Published var stockCurrentValue: Double = 0
@@ -588,6 +592,23 @@ class DataManager: ObservableObject {
            defaults.object(forKey: StorageKey.qcdAmount) != nil {
             self.yourQCDAmount = defaults.double(forKey: StorageKey.qcdAmount)
         }
+        // Withdrawal/conversion quarter timing
+        if defaults.object(forKey: StorageKey.yourWithdrawalQuarter) != nil {
+            let v = defaults.integer(forKey: StorageKey.yourWithdrawalQuarter)
+            self.yourWithdrawalQuarter = (1...4).contains(v) ? v : 4
+        }
+        if defaults.object(forKey: StorageKey.spouseWithdrawalQuarter) != nil {
+            let v = defaults.integer(forKey: StorageKey.spouseWithdrawalQuarter)
+            self.spouseWithdrawalQuarter = (1...4).contains(v) ? v : 4
+        }
+        if defaults.object(forKey: StorageKey.yourRothConversionQuarter) != nil {
+            let v = defaults.integer(forKey: StorageKey.yourRothConversionQuarter)
+            self.yourRothConversionQuarter = (1...4).contains(v) ? v : 4
+        }
+        if defaults.object(forKey: StorageKey.spouseRothConversionQuarter) != nil {
+            let v = defaults.integer(forKey: StorageKey.spouseRothConversionQuarter)
+            self.spouseRothConversionQuarter = (1...4).contains(v) ? v : 4
+        }
         if defaults.object(forKey: StorageKey.stockDonationEnabled) != nil {
             self.stockDonationEnabled = defaults.bool(forKey: StorageKey.stockDonationEnabled)
         }
@@ -648,6 +669,10 @@ class DataManager: ObservableObject {
         static let yourQCDAmount = "yourQCDAmount"
         static let spouseQCDAmount = "spouseQCDAmount"
         static let qcdAmount = "qcdAmount"  // legacy key for migration
+        static let yourWithdrawalQuarter = "yourWithdrawalQuarter"
+        static let spouseWithdrawalQuarter = "spouseWithdrawalQuarter"
+        static let yourRothConversionQuarter = "yourRothConversionQuarter"
+        static let spouseRothConversionQuarter = "spouseRothConversionQuarter"
         static let stockDonationEnabled = "stockDonationEnabled"
         static let stockPurchasePrice = "stockPurchasePrice"
         static let stockCurrentValue = "stockCurrentValue"
@@ -684,6 +709,10 @@ class DataManager: ObservableObject {
         defaults.set(spouseExtraWithdrawal, forKey: StorageKey.spouseExtraWithdrawal)
         defaults.set(yourQCDAmount, forKey: StorageKey.yourQCDAmount)
         defaults.set(spouseQCDAmount, forKey: StorageKey.spouseQCDAmount)
+        defaults.set(yourWithdrawalQuarter, forKey: StorageKey.yourWithdrawalQuarter)
+        defaults.set(spouseWithdrawalQuarter, forKey: StorageKey.spouseWithdrawalQuarter)
+        defaults.set(yourRothConversionQuarter, forKey: StorageKey.yourRothConversionQuarter)
+        defaults.set(spouseRothConversionQuarter, forKey: StorageKey.spouseRothConversionQuarter)
         defaults.set(stockDonationEnabled, forKey: StorageKey.stockDonationEnabled)
         defaults.set(stockPurchasePrice, forKey: StorageKey.stockPurchasePrice)
         defaults.set(stockCurrentValue, forKey: StorageKey.stockCurrentValue)
@@ -963,10 +992,55 @@ class DataManager: ObservableObject {
         max(0, scenarioTotalTax - totalWithholding)
     }
 
-    /// Quarterly estimated tax payment (90% safe harbor minus withholding)
+    /// Quarterly estimated tax payment (90% safe harbor minus withholding) — uniform fallback
     var scenarioQuarterlyPayment: Double {
         let safeHarbor = scenarioTotalTax * 0.90 - totalWithholding
         return max(0, safeHarbor / 4.0)
+    }
+
+    /// Per-quarter estimated tax payments considering withdrawal/conversion timing.
+    /// Base tax (from regular income) is spread evenly; incremental tax from scenario
+    /// events is allocated to the quarter each event is planned.
+    var scenarioQuarterlyPayments: QuarterlyBreakdown {
+        let totalTax = scenarioTotalTax
+
+        // Base tax: from regular income sources only, no scenario additions
+        let baseTaxable = max(0, scenarioBaseIncome - effectiveDeductionAmount)
+        let baseTax = calculateFederalTax(income: baseTaxable, filingStatus: filingStatus)
+                    + calculateCaliforniaTax(income: baseTaxable, filingStatus: filingStatus)
+        let incrementalTax = max(0, totalTax - baseTax)
+
+        let basePerQ = max(0, baseTax * 0.90) / 4.0
+        var payments = QuarterlyBreakdown(q1: basePerQ, q2: basePerQ, q3: basePerQ, q4: basePerQ)
+
+        // Assign incremental taxable income to the quarter each event occurs
+        var qIncome = QuarterlyBreakdown()
+        let yourWdl = max(0, calculatePrimaryRMD() - (isQCDEligible ? yourQCDAmount : 0)) + yourExtraWithdrawal
+        qIncome[yourWithdrawalQuarter] += yourWdl
+        if enableSpouse {
+            let spWdl = max(0, calculateSpouseRMD() - (spouseIsQCDEligible ? spouseQCDAmount : 0)) + spouseExtraWithdrawal
+            qIncome[spouseWithdrawalQuarter] += spWdl
+        }
+        qIncome[yourRothConversionQuarter] += yourRothConversion
+        if enableSpouse {
+            qIncome[spouseRothConversionQuarter] += spouseRothConversion
+        }
+
+        // Distribute incremental tax proportionally to quarters by income share
+        if qIncome.total > 0 && incrementalTax > 0 {
+            let incSafeHarbor = incrementalTax * 0.90
+            for q in 1...4 {
+                payments[q] += incSafeHarbor * (qIncome[q] / qIncome.total)
+            }
+        }
+
+        // Subtract withholding (from income sources, spread evenly)
+        let wPerQ = totalWithholding / 4.0
+        for q in 1...4 {
+            payments[q] = max(0, payments[q] - wPerQ)
+        }
+
+        return payments
     }
 
     /// Whether any Tax Planning decisions are active
@@ -1093,13 +1167,25 @@ class DataManager: ObservableObject {
             ))
         }
 
-        // Quarterly estimated tax payments
-        if scenarioQuarterlyPayment > 0 {
-            let amount = scenarioQuarterlyPayment.formatted(.currency(code: "USD"))
-            items.append(ActionItem(id: "tax-q1-\(year)", title: "Q1 Estimated Tax: \(amount)", detail: "Federal + state estimated tax payment", deadline: "Apr 15, \(year)", category: .estimatedTax))
-            items.append(ActionItem(id: "tax-q2-\(year)", title: "Q2 Estimated Tax: \(amount)", detail: "Federal + state estimated tax payment", deadline: "Jun 15, \(year)", category: .estimatedTax))
-            items.append(ActionItem(id: "tax-q3-\(year)", title: "Q3 Estimated Tax: \(amount)", detail: "Federal + state estimated tax payment", deadline: "Sep 15, \(year)", category: .estimatedTax))
-            items.append(ActionItem(id: "tax-q4-\(year)", title: "Q4 Estimated Tax: \(amount)", detail: "Federal + state estimated tax payment", deadline: "Jan 15, \(year + 1)", category: .estimatedTax))
+        // Quarterly estimated tax payments (per-quarter amounts based on timing)
+        let qPayments = scenarioQuarterlyPayments
+        let quarterInfo: [(Int, String, String)] = [
+            (1, "Q1", "Apr 15, \(year)"),
+            (2, "Q2", "Jun 15, \(year)"),
+            (3, "Q3", "Sep 15, \(year)"),
+            (4, "Q4", "Jan 15, \(year + 1)")
+        ]
+        for (q, label, deadline) in quarterInfo {
+            let amount = qPayments[q]
+            if amount > 0 {
+                items.append(ActionItem(
+                    id: "tax-\(label.lowercased())-\(year)",
+                    title: "\(label) Estimated Tax: \(amount.formatted(.currency(code: "USD")))",
+                    detail: "Federal + state estimated tax payment",
+                    deadline: deadline,
+                    category: .estimatedTax
+                ))
+            }
         }
 
         return items
@@ -1221,6 +1307,38 @@ struct SetupProgress {
     }
     var totalSteps: Int { 4 }
     var isComplete: Bool { completedSteps == totalSteps }
+}
+
+// MARK: - Quarterly Breakdown Model
+
+struct QuarterlyBreakdown {
+    var q1: Double = 0
+    var q2: Double = 0
+    var q3: Double = 0
+    var q4: Double = 0
+
+    var total: Double { q1 + q2 + q3 + q4 }
+
+    subscript(quarter: Int) -> Double {
+        get {
+            switch quarter {
+            case 1: return q1
+            case 2: return q2
+            case 3: return q3
+            case 4: return q4
+            default: return 0
+            }
+        }
+        set {
+            switch quarter {
+            case 1: q1 = newValue
+            case 2: q2 = newValue
+            case 3: q3 = newValue
+            case 4: q4 = newValue
+            default: break
+            }
+        }
+    }
 }
 
 // MARK: - Data Models
