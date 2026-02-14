@@ -38,7 +38,8 @@ class DataManager: ObservableObject {
     @Published var spouseRothConversion: Double = 0
     @Published var yourExtraWithdrawal: Double = 0
     @Published var spouseExtraWithdrawal: Double = 0
-    @Published var qcdAmount: Double = 0
+    @Published var yourQCDAmount: Double = 0
+    @Published var spouseQCDAmount: Double = 0
     @Published var stockDonationEnabled: Bool = false
     @Published var stockPurchasePrice: Double = 0
     @Published var stockCurrentValue: Double = 0
@@ -576,8 +577,16 @@ class DataManager: ObservableObject {
         if defaults.object(forKey: StorageKey.spouseExtraWithdrawal) != nil {
             self.spouseExtraWithdrawal = defaults.double(forKey: StorageKey.spouseExtraWithdrawal)
         }
-        if defaults.object(forKey: StorageKey.qcdAmount) != nil {
-            self.qcdAmount = defaults.double(forKey: StorageKey.qcdAmount)
+        if defaults.object(forKey: StorageKey.yourQCDAmount) != nil {
+            self.yourQCDAmount = defaults.double(forKey: StorageKey.yourQCDAmount)
+        }
+        if defaults.object(forKey: StorageKey.spouseQCDAmount) != nil {
+            self.spouseQCDAmount = defaults.double(forKey: StorageKey.spouseQCDAmount)
+        }
+        // Migrate from legacy single qcdAmount → assign to primary
+        if self.yourQCDAmount == 0 && self.spouseQCDAmount == 0,
+           defaults.object(forKey: StorageKey.qcdAmount) != nil {
+            self.yourQCDAmount = defaults.double(forKey: StorageKey.qcdAmount)
         }
         if defaults.object(forKey: StorageKey.stockDonationEnabled) != nil {
             self.stockDonationEnabled = defaults.bool(forKey: StorageKey.stockDonationEnabled)
@@ -636,7 +645,9 @@ class DataManager: ObservableObject {
         static let spouseRothConversion = "spouseRothConversion"
         static let yourExtraWithdrawal = "yourExtraWithdrawal"
         static let spouseExtraWithdrawal = "spouseExtraWithdrawal"
-        static let qcdAmount = "qcdAmount"
+        static let yourQCDAmount = "yourQCDAmount"
+        static let spouseQCDAmount = "spouseQCDAmount"
+        static let qcdAmount = "qcdAmount"  // legacy key for migration
         static let stockDonationEnabled = "stockDonationEnabled"
         static let stockPurchasePrice = "stockPurchasePrice"
         static let stockCurrentValue = "stockCurrentValue"
@@ -671,7 +682,8 @@ class DataManager: ObservableObject {
         defaults.set(spouseRothConversion, forKey: StorageKey.spouseRothConversion)
         defaults.set(yourExtraWithdrawal, forKey: StorageKey.yourExtraWithdrawal)
         defaults.set(spouseExtraWithdrawal, forKey: StorageKey.spouseExtraWithdrawal)
-        defaults.set(qcdAmount, forKey: StorageKey.qcdAmount)
+        defaults.set(yourQCDAmount, forKey: StorageKey.yourQCDAmount)
+        defaults.set(spouseQCDAmount, forKey: StorageKey.spouseQCDAmount)
         defaults.set(stockDonationEnabled, forKey: StorageKey.stockDonationEnabled)
         defaults.set(stockPurchasePrice, forKey: StorageKey.stockPurchasePrice)
         defaults.set(stockCurrentValue, forKey: StorageKey.stockCurrentValue)
@@ -807,26 +819,31 @@ class DataManager: ObservableObject {
         calculateCombinedRMD()
     }
 
+    var scenarioTotalQCD: Double {
+        yourQCDAmount + (enableSpouse ? spouseQCDAmount : 0)
+    }
+
     var scenarioQCDEligible: Bool {
         isQCDEligible || (enableSpouse && spouseIsQCDEligible)
     }
 
-    var scenarioMaxQCDAmount: Double {
-        var cap = 0.0
-        if isQCDEligible { cap += 111_000 }
-        if enableSpouse && spouseIsQCDEligible { cap += 111_000 }
-        return cap
+    var yourMaxQCDAmount: Double {
+        isQCDEligible ? 111_000 : 0
+    }
+
+    var spouseMaxQCDAmount: Double {
+        (enableSpouse && spouseIsQCDEligible) ? 111_000 : 0
     }
 
     /// RMD remaining after QCD offset
     var scenarioAdjustedRMD: Double {
         guard scenarioCombinedRMD > 0 else { return 0 }
-        return scenarioQCDEligible ? max(0, scenarioCombinedRMD - qcdAmount) : scenarioCombinedRMD
+        return scenarioQCDEligible ? max(0, scenarioCombinedRMD - scenarioTotalQCD) : scenarioCombinedRMD
     }
 
     /// Taxable withdrawals: RMD after QCD + extra withdrawals
     var scenarioTotalWithdrawals: Double {
-        let rmdTaxableAfterQCD = max(0, scenarioCombinedRMD - (scenarioQCDEligible ? qcdAmount : 0))
+        let rmdTaxableAfterQCD = max(0, scenarioCombinedRMD - (scenarioQCDEligible ? scenarioTotalQCD : 0))
         return rmdTaxableAfterQCD + scenarioTotalExtraWithdrawal
     }
 
@@ -955,13 +972,13 @@ class DataManager: ObservableObject {
     /// Whether any Tax Planning decisions are active
     var hasActiveScenario: Bool {
         scenarioTotalRothConversion > 0 || scenarioTotalExtraWithdrawal > 0
-        || qcdAmount > 0 || (stockDonationEnabled && stockCurrentValue > 0)
+        || scenarioTotalQCD > 0 || (stockDonationEnabled && stockCurrentValue > 0)
         || cashDonationAmount > 0
     }
 
     /// Total charitable giving (QCD + stock + cash)
     var scenarioTotalCharitable: Double {
-        var total = qcdAmount
+        var total = scenarioTotalQCD
         if stockDonationEnabled { total += stockCurrentValue }
         total += cashDonationAmount
         return total
@@ -1039,11 +1056,20 @@ class DataManager: ObservableObject {
                 category: .withdrawal
             ))
         }
-        if qcdAmount > 0 {
+        if yourQCDAmount > 0 {
             items.append(ActionItem(
-                id: "qcd-\(year)",
-                title: "Make QCD: \(qcdAmount.formatted(.currency(code: "USD")))",
+                id: "qcd-primary-\(year)",
+                title: "Make QCD: \(yourQCDAmount.formatted(.currency(code: "USD")))",
                 detail: "Direct distribution from IRA to qualified charity",
+                deadline: "Dec 31, \(year)",
+                category: .qcd
+            ))
+        }
+        if enableSpouse && spouseQCDAmount > 0 {
+            items.append(ActionItem(
+                id: "qcd-spouse-\(year)",
+                title: "\(spouseName.isEmpty ? "Spouse" : spouseName) QCD: \(spouseQCDAmount.formatted(.currency(code: "USD")))",
+                detail: "Direct distribution from spouse's IRA to qualified charity",
                 deadline: "Dec 31, \(year)",
                 category: .qcd
             ))
@@ -1112,9 +1138,9 @@ class DataManager: ObservableObject {
 
     /// Tax savings from QCD (reduces taxable withdrawals)
     var qcdTaxSavings: Double {
-        guard qcdAmount > 0, scenarioQCDEligible else { return 0 }
+        guard scenarioTotalQCD > 0, scenarioQCDEligible else { return 0 }
         let withoutQCD = totalTaxFor(
-            grossIncome: scenarioGrossIncome + qcdAmount,  // QCD portion would be taxable
+            grossIncome: scenarioGrossIncome + scenarioTotalQCD,  // QCD portion would be taxable
             deduction: effectiveDeductionAmount
         )
         return withoutQCD - scenarioTotalTax

@@ -95,11 +95,16 @@ struct TaxPlanningView: View {
         dataManager.isQCDEligible || (spouseEnabled && dataManager.spouseIsQCDEligible)
     }
 
-    private var maxQCDAmount: Double {
-        var cap = 0.0
-        if dataManager.isQCDEligible { cap += 111_000 }
-        if spouseEnabled && dataManager.spouseIsQCDEligible { cap += 111_000 }
-        return cap
+    private var yourMaxQCD: Double {
+        dataManager.isQCDEligible ? 111_000 : 0
+    }
+
+    private var spouseMaxQCD: Double {
+        (spouseEnabled && dataManager.spouseIsQCDEligible) ? 111_000 : 0
+    }
+
+    private var totalQCD: Double {
+        dataManager.yourQCDAmount + (spouseEnabled ? dataManager.spouseQCDAmount : 0)
     }
 
     // MARK: - Withdrawal math
@@ -107,12 +112,12 @@ struct TaxPlanningView: View {
     /// RMD remaining after QCD offset
     private var adjustedCombinedRMD: Double {
         guard combinedRMD > 0 else { return 0 }
-        return qcdEligible ? max(0, combinedRMD - dataManager.qcdAmount) : combinedRMD
+        return qcdEligible ? max(0, combinedRMD - totalQCD) : combinedRMD
     }
 
     /// Taxable withdrawals (QCD portion excluded from taxable income)
     private var totalWithdrawals: Double {
-        let rmdTaxableAfterQCD = max(0, combinedRMD - (qcdEligible ? dataManager.qcdAmount : 0))
+        let rmdTaxableAfterQCD = max(0, combinedRMD - (qcdEligible ? totalQCD : 0))
         return rmdTaxableAfterQCD + totalExtraWithdrawal
     }
 
@@ -137,14 +142,14 @@ struct TaxPlanningView: View {
 
     /// Total charitable giving for display
     private var totalCharitable: Double {
-        var total = dataManager.qcdAmount
+        var total = totalQCD
         if dataManager.stockDonationEnabled { total += stockCurrentValueNum }
         total += dataManager.cashDonationAmount
         return total
     }
 
     private var hasAnyCharitable: Bool {
-        dataManager.qcdAmount > 0 || (dataManager.stockDonationEnabled && stockCurrentValueNum > 0) || dataManager.cashDonationAmount > 0
+        totalQCD > 0 || (dataManager.stockDonationEnabled && stockCurrentValueNum > 0) || dataManager.cashDonationAmount > 0
     }
 
     // MARK: - Opportunity window helpers
@@ -455,7 +460,7 @@ struct TaxPlanningView: View {
                     impactRow(label: "Extra Withdrawals", amount: impact, isPositive: false, color: .blue)
                 }
 
-                if dataManager.qcdAmount > 0 {
+                if totalQCD > 0 {
                     let savings = dataManager.qcdTaxSavings
                     let _ = netImpact -= savings
                     impactRow(label: "QCD", amount: savings, isPositive: true, color: .green)
@@ -757,43 +762,92 @@ struct TaxPlanningView: View {
             DisclosureGroup(isExpanded: $qcdSectionExpanded) {
                 if qcdEligible {
                     VStack(spacing: 12) {
-                        HStack {
-                            Text("QCD Amount")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(dataManager.qcdAmount, format: .currency(code: "USD"))
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.green)
-                        }
+                        // Your QCD slider
+                        if dataManager.isQCDEligible {
+                            VStack(spacing: 10) {
+                                HStack {
+                                    if spouseEnabled {
+                                        Label("Your QCD", systemImage: "person.fill")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("QCD Amount")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text(dataManager.yourQCDAmount, format: .currency(code: "USD"))
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.green)
+                                }
 
-                        if maxQCDAmount > 0 {
-                            Slider(value: $dataManager.qcdAmount, in: 0...maxQCDAmount, step: 500)
-                                .tint(.green)
+                                Slider(value: $dataManager.yourQCDAmount, in: 0...yourMaxQCD, step: 500)
+                                    .tint(.green)
 
-                            HStack {
-                                Text("$0")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("Max: \(maxQCDAmount, format: .currency(code: "USD"))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                HStack {
+                                    Text("$0")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("Max: \(yourMaxQCD, format: .currency(code: "USD"))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
-                        } else {
-                            Text("No eligible accounts for QCD")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .italic()
                         }
 
-                        if dataManager.qcdAmount > 0 && combinedRMD > 0 {
+                        // Spouse QCD slider
+                        if spouseEnabled && dataManager.spouseIsQCDEligible {
+                            VStack(spacing: 10) {
+                                HStack {
+                                    Label("\(spouseLabel)'s QCD", systemImage: "person.fill")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(dataManager.spouseQCDAmount, format: .currency(code: "USD"))
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.green)
+                                }
+
+                                Slider(value: $dataManager.spouseQCDAmount, in: 0...spouseMaxQCD, step: 500)
+                                    .tint(.green)
+
+                                HStack {
+                                    Text("$0")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("Max: \(spouseMaxQCD, format: .currency(code: "USD"))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+
+                        // Combined total (only when spouse enabled and either has amount)
+                        if spouseEnabled && totalQCD > 0 {
+                            Divider()
+                            HStack {
+                                Text("Combined QCD")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text(totalQCD, format: .currency(code: "USD"))
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.green)
+                            }
+                        }
+
+                        // RMD satisfaction (when RMD exists)
+                        if totalQCD > 0 && combinedRMD > 0 {
                             Divider()
                             HStack {
                                 Text("RMD Satisfied by QCD")
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Text(min(dataManager.qcdAmount, combinedRMD), format: .currency(code: "USD"))
+                                Text(min(totalQCD, combinedRMD), format: .currency(code: "USD"))
                                     .font(.callout)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.green)
@@ -810,7 +864,8 @@ struct TaxPlanningView: View {
                             }
                         }
 
-                        if dataManager.qcdAmount > 0 && combinedRMD == 0 {
+                        // No-RMD note
+                        if totalQCD > 0 && combinedRMD == 0 {
                             Divider()
                             Text("No RMD requirement yet \u{2014} QCD is excluded from taxable income as a direct IRA-to-charity transfer")
                                 .font(.caption)
@@ -1041,7 +1096,7 @@ struct TaxPlanningView: View {
                 spouseWithdrawalAmount: spouseEnabled ? (spouseRMD + dataManager.spouseExtraWithdrawal) : 0,
                 totalWithdrawals: totalWithdrawals,
                 totalRothConversion: totalRothConversion,
-                qcdAmount: dataManager.qcdAmount,
+                qcdAmount: totalQCD,
                 stockDonationValue: dataManager.stockDonationEnabled ? stockCurrentValueNum : 0,
                 stockDonationGain: stockGainAvoided,
                 cashDonationAmount: dataManager.cashDonationAmount,

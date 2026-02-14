@@ -95,8 +95,8 @@ struct QuarterlyTaxView: View {
                     if dataManager.scenarioTotalExtraWithdrawal > 0 {
                         scenarioItem("Extra Withdrawals", amount: dataManager.scenarioTotalExtraWithdrawal)
                     }
-                    if dataManager.qcdAmount > 0 {
-                        scenarioItem("QCD", amount: dataManager.qcdAmount)
+                    if dataManager.scenarioTotalQCD > 0 {
+                        scenarioItem("QCD", amount: dataManager.scenarioTotalQCD)
                     }
                     if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
                         scenarioItem("Stock Donation", amount: dataManager.stockCurrentValue)

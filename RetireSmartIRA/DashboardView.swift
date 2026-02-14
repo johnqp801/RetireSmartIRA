@@ -286,11 +286,11 @@ struct DashboardView: View {
                         color: .blue
                     )
                 }
-                if dataManager.qcdAmount > 0 {
+                if dataManager.scenarioTotalQCD > 0 {
                     decisionRow(
                         icon: "heart.fill",
                         label: "Qualified Charitable Distribution",
-                        amount: dataManager.qcdAmount,
+                        amount: dataManager.scenarioTotalQCD,
                         color: .green
                     )
                 }
