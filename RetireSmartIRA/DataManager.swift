@@ -815,7 +815,7 @@ class DataManager: ObservableObject {
         var cap = 0.0
         if isQCDEligible { cap += 111_000 }
         if enableSpouse && spouseIsQCDEligible { cap += 111_000 }
-        return min(scenarioCombinedRMD, cap)
+        return cap
     }
 
     /// RMD remaining after QCD offset

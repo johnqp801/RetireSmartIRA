@@ -99,7 +99,7 @@ struct TaxPlanningView: View {
         var cap = 0.0
         if dataManager.isQCDEligible { cap += 111_000 }
         if spouseEnabled && dataManager.spouseIsQCDEligible { cap += 111_000 }
-        return min(combinedRMD, cap)
+        return cap
     }
 
     // MARK: - Withdrawal math
@@ -780,7 +780,7 @@ struct TaxPlanningView: View {
                                     .foregroundStyle(.secondary)
                             }
                         } else {
-                            Text("No RMD requirement \u{2014} QCD not applicable")
+                            Text("No eligible accounts for QCD")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .italic()
@@ -808,6 +808,14 @@ struct TaxPlanningView: View {
                                     .fontWeight(.semibold)
                                     .foregroundStyle(adjustedCombinedRMD > 0 ? .red : .green)
                             }
+                        }
+
+                        if dataManager.qcdAmount > 0 && combinedRMD == 0 {
+                            Divider()
+                            Text("No RMD requirement yet \u{2014} QCD is excluded from taxable income as a direct IRA-to-charity transfer")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .italic()
                         }
                     }
                     .padding(.top, 8)
