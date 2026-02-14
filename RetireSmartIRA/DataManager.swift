@@ -11,11 +11,17 @@ import Combine
 
 class DataManager: ObservableObject {
     // User Profile
-    @Published var birthYear: Int = 1953
+    @Published var birthDate: Date = {
+        var c = DateComponents(); c.year = 1953; c.month = 1; c.day = 1
+        return Calendar.current.date(from: c)!
+    }()
     @Published var currentYear: Int = Calendar.current.component(.year, from: Date())
     @Published var filingStatus: FilingStatus = .single
     @Published var spouseName: String = ""
-    @Published var spouseBirthYear: Int = 1955
+    @Published var spouseBirthDate: Date = {
+        var c = DateComponents(); c.year = 1955; c.month = 1; c.day = 1
+        return Calendar.current.date(from: c)!
+    }()
     @Published var enableSpouse: Bool = false  // Toggle to enable spouse features
     
     // IRA Accounts
@@ -118,11 +124,21 @@ class DataManager: ObservableObject {
     )
     
     
-    // Computed Properties
+    // Computed Properties — derived from birthDate
+
+    /// Extract birth year from birthDate for RMD age bracket calculation
+    var birthYear: Int {
+        Calendar.current.component(.year, from: birthDate)
+    }
+
+    var spouseBirthYear: Int {
+        Calendar.current.component(.year, from: spouseBirthDate)
+    }
+
     var currentAge: Int {
         currentYear - birthYear
     }
-    
+
     var rmdAge: Int {
         // Born 1951-1959: RMD age is 73
         // Born 1960+: RMD age is 75
@@ -134,50 +150,60 @@ class DataManager: ObservableObject {
             return 72 // Born 1950 or earlier
         }
     }
-    
+
     var yearsUntilRMD: Int {
         max(0, rmdAge - currentAge)
     }
-    
+
     var isRMDRequired: Bool {
         currentAge >= rmdAge
     }
-    
+
+    /// Returns true if the given birth date results in age 70½ or older as of today.
+    /// Age 70½ = exactly 6 calendar months after the 70th birthday.
+    private func hasReachedAge70AndHalf(from dob: Date) -> Bool {
+        let calendar = Calendar.current
+        guard let seventieth = calendar.date(byAdding: .year, value: 70, to: dob) else { return false }
+        guard let seventyAndHalf = calendar.date(byAdding: .month, value: 6, to: seventieth) else { return false }
+        return Date() >= seventyAndHalf
+    }
+
     var isQCDEligible: Bool {
-            currentAge >= 71
-        }
-    
+        hasReachedAge70AndHalf(from: birthDate)
+    }
+
     // Spouse Computed Properties
-        var spouseCurrentAge: Int {
-            guard enableSpouse else { return 0 }
-            return currentYear - spouseBirthYear
+
+    var spouseCurrentAge: Int {
+        guard enableSpouse else { return 0 }
+        return currentYear - spouseBirthYear
+    }
+
+    var spouseRmdAge: Int {
+        guard enableSpouse else { return 0 }
+        if spouseBirthYear >= 1951 && spouseBirthYear <= 1959 {
+            return 73
+        } else if spouseBirthYear >= 1960 {
+            return 75
+        } else {
+            return 72
         }
-        
-        var spouseRmdAge: Int {
-            guard enableSpouse else { return 0 }
-            if spouseBirthYear >= 1951 && spouseBirthYear <= 1959 {
-                return 73
-            } else if spouseBirthYear >= 1960 {
-                return 75
-            } else {
-                return 72
-            }
-        }
-        
-        var spouseYearsUntilRMD: Int {
-            guard enableSpouse else { return 0 }
-            return max(0, spouseRmdAge - spouseCurrentAge)
-        }
-        
-        var spouseIsRMDRequired: Bool {
-            guard enableSpouse else { return false }
-            return spouseCurrentAge >= spouseRmdAge
-        }
-        
-        var spouseIsQCDEligible: Bool {
-            guard enableSpouse else { return false }
-            return spouseCurrentAge >= 71
-        }
+    }
+
+    var spouseYearsUntilRMD: Int {
+        guard enableSpouse else { return 0 }
+        return max(0, spouseRmdAge - spouseCurrentAge)
+    }
+
+    var spouseIsRMDRequired: Bool {
+        guard enableSpouse else { return false }
+        return spouseCurrentAge >= spouseRmdAge
+    }
+
+    var spouseIsQCDEligible: Bool {
+        guard enableSpouse else { return false }
+        return hasReachedAge70AndHalf(from: spouseBirthDate)
+    }
     
     
     // Total IRA Balance
@@ -495,9 +521,16 @@ class DataManager: ObservableObject {
 
         // Load persisted user data
         let defaults = UserDefaults.standard
-        if defaults.object(forKey: StorageKey.birthYear) != nil {
-            self.birthYear = defaults.integer(forKey: StorageKey.birthYear)
+
+        // Birth date: try new Date key first, then migrate from legacy Int birth year
+        if let birthInterval = defaults.object(forKey: StorageKey.birthDate) as? Double {
+            self.birthDate = Date(timeIntervalSince1970: birthInterval)
+        } else if defaults.object(forKey: StorageKey.birthYear) != nil {
+            let year = defaults.integer(forKey: StorageKey.birthYear)
+            var c = DateComponents(); c.year = year; c.month = 1; c.day = 1
+            if let date = Calendar.current.date(from: c) { self.birthDate = date }
         }
+
         if let raw = defaults.string(forKey: StorageKey.filingStatus),
            let status = FilingStatus(rawValue: raw) {
             self.filingStatus = status
@@ -505,8 +538,14 @@ class DataManager: ObservableObject {
         if let name = defaults.string(forKey: StorageKey.spouseName) {
             self.spouseName = name
         }
-        if defaults.object(forKey: StorageKey.spouseBirthYear) != nil {
-            self.spouseBirthYear = defaults.integer(forKey: StorageKey.spouseBirthYear)
+
+        // Spouse birth date: try new Date key first, then migrate from legacy Int
+        if let spouseInterval = defaults.object(forKey: StorageKey.spouseBirthDate) as? Double {
+            self.spouseBirthDate = Date(timeIntervalSince1970: spouseInterval)
+        } else if defaults.object(forKey: StorageKey.spouseBirthYear) != nil {
+            let year = defaults.integer(forKey: StorageKey.spouseBirthYear)
+            var c = DateComponents(); c.year = year; c.month = 1; c.day = 1
+            if let date = Calendar.current.date(from: c) { self.spouseBirthDate = date }
         }
         if defaults.object(forKey: StorageKey.enableSpouse) != nil {
             self.enableSpouse = defaults.bool(forKey: StorageKey.enableSpouse)
@@ -581,10 +620,13 @@ class DataManager: ObservableObject {
 
     // MARK: - Persistence Keys
     private enum StorageKey {
+        static let birthDate = "birthDate"
+        static let spouseBirthDate = "spouseBirthDate"
+        // Legacy keys for migration from Int birth year
         static let birthYear = "birthYear"
+        static let spouseBirthYear = "spouseBirthYear"
         static let filingStatus = "filingStatus"
         static let spouseName = "spouseName"
-        static let spouseBirthYear = "spouseBirthYear"
         static let enableSpouse = "enableSpouse"
         static let iraAccounts = "iraAccounts"
         static let incomeSources = "incomeSources"
@@ -608,10 +650,10 @@ class DataManager: ObservableObject {
     /// Saves all user data to UserDefaults for persistence across rebuilds.
     func saveAllData() {
         let defaults = UserDefaults.standard
-        defaults.set(birthYear, forKey: StorageKey.birthYear)
+        defaults.set(birthDate.timeIntervalSince1970, forKey: StorageKey.birthDate)
         defaults.set(filingStatus.rawValue, forKey: StorageKey.filingStatus)
         defaults.set(spouseName, forKey: StorageKey.spouseName)
-        defaults.set(spouseBirthYear, forKey: StorageKey.spouseBirthYear)
+        defaults.set(spouseBirthDate.timeIntervalSince1970, forKey: StorageKey.spouseBirthDate)
         defaults.set(enableSpouse, forKey: StorageKey.enableSpouse)
 
         if let data = try? JSONEncoder().encode(iraAccounts) {
@@ -771,8 +813,8 @@ class DataManager: ObservableObject {
 
     var scenarioMaxQCDAmount: Double {
         var cap = 0.0
-        if isQCDEligible { cap += 105_000 }
-        if enableSpouse && spouseIsQCDEligible { cap += 105_000 }
+        if isQCDEligible { cap += 111_000 }
+        if enableSpouse && spouseIsQCDEligible { cap += 111_000 }
         return min(scenarioCombinedRMD, cap)
     }
 
@@ -1115,8 +1157,10 @@ class DataManager: ObservableObject {
     // MARK: - Setup Progress
 
     var setupProgress: SetupProgress {
-        SetupProgress(
-            hasSetBirthYear: birthYear != 1953,
+        let defaultComponents = DateComponents(year: 1953, month: 1, day: 1)
+        let defaultDate = Calendar.current.date(from: defaultComponents)!
+        return SetupProgress(
+            hasSetBirthDate: birthDate != defaultDate,
             hasAccounts: !iraAccounts.isEmpty,
             hasIncomeSources: !incomeSources.isEmpty,
             hasDeductions: !deductionItems.isEmpty
@@ -1127,13 +1171,13 @@ class DataManager: ObservableObject {
 // MARK: - Setup Progress Model
 
 struct SetupProgress {
-    let hasSetBirthYear: Bool
+    let hasSetBirthDate: Bool
     let hasAccounts: Bool
     let hasIncomeSources: Bool
     let hasDeductions: Bool
 
     var completedSteps: Int {
-        [hasSetBirthYear, hasAccounts, hasIncomeSources, hasDeductions].filter { $0 }.count
+        [hasSetBirthDate, hasAccounts, hasIncomeSources, hasDeductions].filter { $0 }.count
     }
     var totalSteps: Int { 4 }
     var isComplete: Bool { completedSteps == totalSteps }

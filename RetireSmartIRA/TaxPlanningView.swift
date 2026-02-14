@@ -97,8 +97,8 @@ struct TaxPlanningView: View {
 
     private var maxQCDAmount: Double {
         var cap = 0.0
-        if dataManager.isQCDEligible { cap += 105_000 }
-        if spouseEnabled && dataManager.spouseIsQCDEligible { cap += 105_000 }
+        if dataManager.isQCDEligible { cap += 111_000 }
+        if spouseEnabled && dataManager.spouseIsQCDEligible { cap += 111_000 }
         return min(combinedRMD, cap)
     }
 

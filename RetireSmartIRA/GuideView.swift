@@ -151,7 +151,7 @@ struct GuideView: View {
             .frame(height: 8)
 
             VStack(alignment: .leading, spacing: 10) {
-                setupStepRow(title: "Set your birth year", isComplete: progress.hasSetBirthYear)
+                setupStepRow(title: "Set your date of birth", isComplete: progress.hasSetBirthDate)
                 setupStepRow(title: "Add retirement accounts", isComplete: progress.hasAccounts)
                 setupStepRow(title: "Enter income sources", isComplete: progress.hasIncomeSources)
                 setupStepRow(title: "Add deductions", isComplete: progress.hasDeductions)
@@ -196,7 +196,7 @@ struct GuideView: View {
                 quickStartStep(
                     number: 1,
                     title: "Settings",
-                    description: "Set your birth year and filing status. If married filing jointly, enable and configure your spouse.",
+                    description: "Set your date of birth and filing status. If married filing jointly, enable and configure your spouse.",
                     tabIcon: "gearshape.fill",
                     tabColor: .gray
                 )
@@ -334,9 +334,9 @@ struct GuideView: View {
 
     private var settingsGuide: some View {
         tabGuideSection(icon: "gearshape.fill", title: "Settings", color: .gray, isExpanded: $settingsGuideExpanded) {
-            guidePoint("Set your birth year to determine current age and RMD age")
+            guidePoint("Set your date of birth to determine current age, RMD age, and QCD eligibility")
             guidePoint("Choose Single or Married Filing Jointly")
-            guidePoint("If married, enable spouse tracking with name and birth year")
+            guidePoint("If married, enable spouse tracking with name and date of birth")
             guidePoint("RMD age is calculated automatically: 72 (born before 1951), 73 (1951\u{2013}1959), or 75 (1960+)")
             guidePoint("Changes save automatically")
         }
@@ -389,7 +389,7 @@ struct GuideView: View {
         tabGuideSection(icon: "slider.horizontal.3", title: "Tax Planning", color: .orange, isExpanded: $taxPlanningGuideExpanded) {
             guidePoint("This is the scenario modeling engine \u{2014} changes here flow to Dashboard and Quarterly Tax")
             guidePoint("Roth Conversions: set conversion amounts and see real-time bracket impact")
-            guidePoint("QCD (Qualified Charitable Distribution): donate up to $105k/person directly from IRA to charity; satisfies RMD tax-free; requires age 70\u{00BD}+")
+            guidePoint("QCD (Qualified Charitable Distribution): donate up to $111k/person directly from IRA to charity; satisfies RMD tax-free; requires age 70\u{00BD}+")
             guidePoint("Appreciated Stock Donation: donate long-term stock to avoid capital gains tax and get a fair market value deduction")
             guidePoint("Cash Donations: direct cash gifts that provide a tax benefit when itemizing")
             guidePoint("Bracket Analysis shows whether your scenario pushes you into a higher federal or state bracket")
@@ -426,7 +426,7 @@ struct GuideView: View {
                 conceptItem(
                     icon: "heart.fill",
                     title: "QCD Strategy",
-                    description: "Qualified Charitable Distributions (up to $105,000/person/year) go directly from your IRA to charity. They satisfy your RMD but are excluded from taxable income. Available at age 70\u{00BD}+."
+                    description: "Qualified Charitable Distributions (up to $111,000/person/year) go directly from your IRA to charity. They satisfy your RMD but are excluded from taxable income. Available at age 70\u{00BD}+."
                 )
                 conceptItem(
                     icon: "doc.plaintext",
