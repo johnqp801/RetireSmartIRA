@@ -476,7 +476,7 @@ struct TaxPlanningView: View {
                     let deductionSavings = dataManager.stockDeductionTaxSavings
                     if deductionSavings > 0 {
                         let _ = netImpact -= deductionSavings
-                        impactRow(label: "Stock Deduction", amount: deductionSavings, isPositive: true, color: .orange)
+                        impactRow(label: "Stock Donation Tax Reduction", amount: deductionSavings, isPositive: true, color: .orange)
                     }
 
                     // Capital gains tax avoided (by donating instead of selling)
