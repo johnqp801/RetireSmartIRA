@@ -1111,9 +1111,34 @@ class DataManager: ObservableObject {
         )
         return withoutCash - scenarioTotalTax
     }
+
+    // MARK: - Setup Progress
+
+    var setupProgress: SetupProgress {
+        SetupProgress(
+            hasSetBirthYear: birthYear != 1953,
+            hasAccounts: !iraAccounts.isEmpty,
+            hasIncomeSources: !incomeSources.isEmpty,
+            hasDeductions: !deductionItems.isEmpty
+        )
+    }
 }
-    // MARK: - Data Models
-    
+
+// MARK: - Setup Progress Model
+
+struct SetupProgress {
+    let hasSetBirthYear: Bool
+    let hasAccounts: Bool
+    let hasIncomeSources: Bool
+    let hasDeductions: Bool
+
+    var completedSteps: Int {
+        [hasSetBirthYear, hasAccounts, hasIncomeSources, hasDeductions].filter { $0 }.count
+    }
+    var totalSteps: Int { 4 }
+    var isComplete: Bool { completedSteps == totalSteps }
+}
+
 // MARK: - Data Models
 
 enum Owner: String, Codable, CaseIterable {
