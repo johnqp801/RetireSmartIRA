@@ -177,7 +177,7 @@ struct IncomeSourcesView: View {
                                         .fontWeight(.medium)
                                 }
                                 HStack {
-                                    Text("7.5% of AGI Floor")
+                                    Text("7.5% of AGI Floor (\(dataManager.estimatedAGI.formatted(.currency(code: "USD"))))")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                     Spacer()
@@ -199,7 +199,7 @@ struct IncomeSourcesView: View {
                                 }
                             }
 
-                            Text("Only medical expenses exceeding 7.5% of your adjusted gross income are deductible. Enter total expenses — the app calculates the deductible portion automatically.")
+                            Text("Only medical expenses exceeding 7.5% of your adjusted gross income (AGI) are deductible. AGI is estimated from your entered income sources and Scenario decisions. If you have above-the-line deductions (HSA, IRA contributions), your actual AGI may be slightly lower.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -545,7 +545,7 @@ struct IncomeSourcesView: View {
 
                     if deductionType == .medicalExpenses {
                         Section("About Medical Deductions") {
-                            Text("Enter your total unreimbursed medical expenses (insurance premiums, copays, prescriptions, dental, vision, long-term care, etc.). Only the amount exceeding 7.5% of your adjusted gross income (AGI) is deductible. The app calculates this automatically.")
+                            Text("Enter your total unreimbursed medical expenses (insurance premiums, copays, prescriptions, dental, vision, long-term care, etc.). Only the amount exceeding 7.5% of your adjusted gross income (AGI) is deductible — the app calculates this automatically. For most retirees, AGI is essentially your total taxable income before itemized/standard deductions.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

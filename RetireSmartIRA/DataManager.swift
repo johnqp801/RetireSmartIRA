@@ -935,9 +935,17 @@ class DataManager: ObservableObject {
         deductionItems.filter { $0.type == .medicalExpenses }.reduce(0) { $0 + $1.annualAmount }
     }
 
+    /// Estimated AGI used for the medical deduction floor. For retirees this is
+    /// effectively gross income (pensions, taxable SS, dividends, cap gains, Roth
+    /// conversions, withdrawals). True AGI would subtract any above-the-line
+    /// deductions (IRA contributions, HSA, etc.) which are typically zero in retirement.
+    var estimatedAGI: Double {
+        scenarioGrossIncome
+    }
+
     /// The 7.5% AGI floor for medical deductions.
     var medicalAGIFloor: Double {
-        scenarioGrossIncome * 0.075
+        estimatedAGI * 0.075
     }
 
     /// Deductible medical expenses (only the portion exceeding 7.5% of AGI).
