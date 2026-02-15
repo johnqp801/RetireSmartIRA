@@ -155,6 +155,59 @@ struct IncomeSourcesView: View {
                         }
                     }
 
+                    // Medical deduction threshold note
+                    if dataManager.totalMedicalExpenses > 0 {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "cross.case.fill")
+                                    .foregroundStyle(.red)
+                                Text("Medical Deduction")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("Total Medical Expenses")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(dataManager.totalMedicalExpenses, format: .currency(code: "USD"))
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                }
+                                HStack {
+                                    Text("7.5% of AGI Floor")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("−\(dataManager.medicalAGIFloor.formatted(.currency(code: "USD")))")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(.red)
+                                }
+                                Divider()
+                                HStack {
+                                    Text("Deductible Amount")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text(dataManager.deductibleMedicalExpenses, format: .currency(code: "USD"))
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(dataManager.deductibleMedicalExpenses > 0 ? .green : .secondary)
+                                }
+                            }
+
+                            Text("Only medical expenses exceeding 7.5% of your adjusted gross income are deductible. Enter total expenses — the app calculates the deductible portion automatically.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(Color.red.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
                     // Note about charitable deductions
                     if dataManager.scenarioTotalCharitable > 0 {
                         HStack(spacing: 8) {
@@ -487,6 +540,14 @@ struct IncomeSourcesView: View {
                             ForEach(Owner.allCases, id: \.self) { owner in
                                 Text(owner.rawValue).tag(owner)
                             }
+                        }
+                    }
+
+                    if deductionType == .medicalExpenses {
+                        Section("About Medical Deductions") {
+                            Text("Enter your total unreimbursed medical expenses (insurance premiums, copays, prescriptions, dental, vision, long-term care, etc.). Only the amount exceeding 7.5% of your adjusted gross income (AGI) is deductible. The app calculates this automatically.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }

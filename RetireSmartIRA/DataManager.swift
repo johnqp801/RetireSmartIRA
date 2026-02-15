@@ -930,9 +930,25 @@ class DataManager: ObservableObject {
         return amount
     }
 
-    /// Total user-entered itemized deductions (mortgage, property tax, etc.)
+    /// Total medical expenses entered by the user (before AGI floor).
+    var totalMedicalExpenses: Double {
+        deductionItems.filter { $0.type == .medicalExpenses }.reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// The 7.5% AGI floor for medical deductions.
+    var medicalAGIFloor: Double {
+        scenarioGrossIncome * 0.075
+    }
+
+    /// Deductible medical expenses (only the portion exceeding 7.5% of AGI).
+    var deductibleMedicalExpenses: Double {
+        max(0, totalMedicalExpenses - medicalAGIFloor)
+    }
+
+    /// Total user-entered itemized deductions with medical AGI floor applied.
     var baseItemizedDeductions: Double {
-        deductionItems.reduce(0) { $0 + $1.annualAmount }
+        let nonMedical = deductionItems.filter { $0.type != .medicalExpenses }.reduce(0) { $0 + $1.annualAmount }
+        return nonMedical + deductibleMedicalExpenses
     }
 
     /// Charitable deductions from Tax Planning (stock + cash, NOT QCD which is pre-tax)
