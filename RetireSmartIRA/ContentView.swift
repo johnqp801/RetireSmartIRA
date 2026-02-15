@@ -21,13 +21,13 @@ struct ContentView: View {
 
             DashboardView()
                 .tabItem {
-                    Label("Dashboard", systemImage: "chart.bar.fill")
+                    Label("Tax Summary", systemImage: "chart.bar.fill")
                 }
                 .tag(1)
 
             TaxPlanningView()
                 .tabItem {
-                    Label("Tax Planning", systemImage: "slider.horizontal.3")
+                    Label("Scenarios", systemImage: "slider.horizontal.3")
                 }
                 .tag(2)
 

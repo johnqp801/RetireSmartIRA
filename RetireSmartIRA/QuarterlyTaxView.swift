@@ -82,7 +82,7 @@ struct QuarterlyTaxView: View {
                 HStack {
                     Image(systemName: "slider.horizontal.3")
                         .foregroundStyle(.orange)
-                    Text("Reflects Tax Planning Decisions")
+                    Text("Reflects Scenario Decisions")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.orange)
@@ -372,7 +372,7 @@ struct QuarterlyTaxView: View {
 
                 NoteRow(
                     icon: "dollarsign.circle",
-                    text: "Adjust payments if income or Tax Planning decisions change significantly during the year",
+                    text: "Adjust payments if income or Scenario decisions change significantly during the year",
                     color: .purple
                 )
 

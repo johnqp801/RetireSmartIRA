@@ -2,7 +2,7 @@
 //  TaxPlanningView.swift
 //  RetireSmartIRA
 //
-//  Tax planning and scenario modeling — unified with Roth conversion analysis
+//  Scenario modeling — Roth conversions, withdrawals, and charitable giving
 //
 
 import SwiftUI
@@ -309,7 +309,7 @@ struct TaxPlanningView: View {
 
     private var summaryCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Tax Planning Scenario")
+            Text("Scenario Builder")
                 .font(.title2)
                 .fontWeight(.bold)
 

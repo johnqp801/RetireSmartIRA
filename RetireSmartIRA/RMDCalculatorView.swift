@@ -213,7 +213,7 @@ struct RMDCalculatorView: View {
                     Label("Key Insight", systemImage: "lightbulb")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                    Text("Higher growth means larger future balances but also larger future RMDs, which increases taxable income. Use the Tax Planning tab to model the tax impact of different withdrawal strategies.")
+                    Text("Higher growth means larger future balances but also larger future RMDs, which increases taxable income. Use the Scenarios tab to model the tax impact of different withdrawal strategies.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -2,7 +2,7 @@
 //  DashboardView.swift
 //  RetireSmartIRA
 //
-//  Dashboard: income breakdown, live tax projection, action to-do list
+//  Tax Summary: income breakdown, live tax projection, action to-do list
 //
 
 import SwiftUI
@@ -266,7 +266,7 @@ struct DashboardView: View {
     @ViewBuilder
     private var taxPlanningDecisions: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Tax Planning Decisions")
+            Text("Scenario Decisions")
                 .font(.headline)
 
             if dataManager.hasActiveScenario {
@@ -333,7 +333,7 @@ struct DashboardView: View {
                 HStack {
                     Image(systemName: "slider.horizontal.3")
                         .foregroundStyle(.blue)
-                    Text("Visit Tax Planning to model Roth conversions, withdrawals, and charitable giving")
+                    Text("Visit Scenarios to model Roth conversions, withdrawals, and charitable giving")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -386,7 +386,7 @@ struct DashboardView: View {
                 .font(.headline)
 
             if dataManager.hasActiveScenario {
-                Text("Includes Tax Planning decisions")
+                Text("Includes Scenario decisions")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -539,7 +539,7 @@ struct DashboardView: View {
                 HStack {
                     Image(systemName: "checkmark.circle")
                         .foregroundStyle(.green)
-                    Text("No action items yet. Add income sources and explore Tax Planning to generate your to-do list.")
+                    Text("No action items yet. Add income sources and explore Scenarios to generate your to-do list.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

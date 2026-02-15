@@ -160,7 +160,7 @@ struct IncomeSourcesView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "info.circle")
                                 .foregroundStyle(.blue)
-                            Text("Charitable contributions of \(dataManager.scenarioTotalCharitable.formatted(.currency(code: "USD"))) from Tax Planning are included in your itemized total.")
+                            Text("Charitable contributions of \(dataManager.scenarioTotalCharitable.formatted(.currency(code: "USD"))) from Scenarios are included in your itemized total.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

@@ -18,9 +18,9 @@ struct GuideView: View {
     @State private var settingsGuideExpanded: Bool = false
     @State private var accountsGuideExpanded: Bool = false
     @State private var incomeGuideExpanded: Bool = false
-    @State private var dashboardGuideExpanded: Bool = false
+    @State private var taxSummaryGuideExpanded: Bool = false
     @State private var rmdGuideExpanded: Bool = false
-    @State private var taxPlanningGuideExpanded: Bool = false
+    @State private var scenariosGuideExpanded: Bool = false
     @State private var quarterlyTaxGuideExpanded: Bool = false
     @State private var keyConceptsExpanded: Bool = false
     @State private var tipsExpanded: Bool = false
@@ -48,9 +48,9 @@ struct GuideView: View {
                 settingsGuide
                 accountsGuide
                 incomeGuide
-                dashboardGuide
+                taxSummaryGuide
                 rmdGuide
-                taxPlanningGuide
+                scenariosGuide
                 quarterlyTaxGuide
                 keyConceptsSection
                 tipsSection
@@ -81,9 +81,9 @@ struct GuideView: View {
                     settingsGuide
                     accountsGuide
                     incomeGuide
-                    dashboardGuide
+                    taxSummaryGuide
                     rmdGuide
-                    taxPlanningGuide
+                    scenariosGuide
                     quarterlyTaxGuide
                 }
                 .padding()
@@ -216,7 +216,7 @@ struct GuideView: View {
                 )
                 quickStartStep(
                     number: 4,
-                    title: "Dashboard",
+                    title: "Tax Summary",
                     description: "Review your income breakdown, tax projection, and action items. Everything updates automatically.",
                     tabIcon: "chart.bar.fill",
                     tabColor: .purple
@@ -230,7 +230,7 @@ struct GuideView: View {
                 )
                 quickStartStep(
                     number: 6,
-                    title: "Tax Planning",
+                    title: "Scenarios",
                     description: "Model Roth conversions, QCDs, stock and cash donations, and extra withdrawals. See real-time tax impact and bracket analysis.",
                     tabIcon: "slider.horizontal.3",
                     tabColor: .orange
@@ -238,7 +238,7 @@ struct GuideView: View {
                 quickStartStep(
                     number: 7,
                     title: "Quarterly Tax",
-                    description: "Review estimated quarterly tax payments based on all your Tax Planning decisions.",
+                    description: "Review estimated quarterly tax payments based on all your Scenario decisions.",
                     tabIcon: "dollarsign.circle.fill",
                     tabColor: .purple
                 )
@@ -359,12 +359,12 @@ struct GuideView: View {
             guidePoint("Social Security is taxed at 0%, 50%, or 85% based on combined income thresholds")
             guidePoint("Long-term capital gains and qualified dividends receive preferential federal tax rates")
             guidePoint("Add itemized deductions (mortgage interest, property tax, medical, SALT) to compare against the standard deduction")
-            guidePoint("The app automatically picks whichever deduction is higher, or you can override in Tax Planning")
+            guidePoint("The app automatically picks whichever deduction is higher, or you can override in Scenarios")
         }
     }
 
-    private var dashboardGuide: some View {
-        tabGuideSection(icon: "chart.bar.fill", title: "Dashboard", color: .purple, isExpanded: $dashboardGuideExpanded) {
+    private var taxSummaryGuide: some View {
+        tabGuideSection(icon: "chart.bar.fill", title: "Tax Summary", color: .purple, isExpanded: $taxSummaryGuideExpanded) {
             guidePoint("Shows your complete financial picture at a glance")
             guidePoint("Income Breakdown: all sources plus RMD amounts")
             guidePoint("Tax Projection: federal + state tax, withholding credit, quarterly payment estimate")
@@ -385,9 +385,9 @@ struct GuideView: View {
         }
     }
 
-    private var taxPlanningGuide: some View {
-        tabGuideSection(icon: "slider.horizontal.3", title: "Tax Planning", color: .orange, isExpanded: $taxPlanningGuideExpanded) {
-            guidePoint("This is the scenario modeling engine \u{2014} changes here flow to Dashboard and Quarterly Tax")
+    private var scenariosGuide: some View {
+        tabGuideSection(icon: "slider.horizontal.3", title: "Scenarios", color: .orange, isExpanded: $scenariosGuideExpanded) {
+            guidePoint("This is the scenario modeling engine \u{2014} changes here flow to Tax Summary and Quarterly Tax")
             guidePoint("Withdrawal Timing: choose which quarter you plan to take each withdrawal or conversion \u{2014} this shifts the tax obligation to that quarter\u{2019}s estimated payment")
             guidePoint("Roth Conversions: set conversion amounts and see real-time bracket impact")
             guidePoint("QCD (Qualified Charitable Distribution): donate up to $111k/person directly from IRA to charity; satisfies RMD tax-free; requires age 70\u{00BD}+")
@@ -400,13 +400,13 @@ struct GuideView: View {
 
     private var quarterlyTaxGuide: some View {
         tabGuideSection(icon: "dollarsign.circle.fill", title: "Quarterly Tax", color: .purple, isExpanded: $quarterlyTaxGuideExpanded) {
-            guidePoint("Shows estimated quarterly tax payments based on all income and Tax Planning decisions")
+            guidePoint("Shows estimated quarterly tax payments based on all income and Scenario decisions")
             guidePoint("Annual tax summary: gross income, deductions, taxable income, federal + state tax")
             guidePoint("Withholding from income sources is credited against your total liability")
             guidePoint("Payment schedule with IRS deadlines: April 15, June 15, September 15, January 15")
             guidePoint("Payment amounts vary by quarter based on when withdrawals and conversions are planned")
             guidePoint("Based on 90% safe harbor rule: pay 90% of current year tax to avoid underpayment penalties")
-            guidePoint("Automatically recalculates when Tax Planning decisions change")
+            guidePoint("Automatically recalculates when Scenario decisions change")
         }
     }
 
@@ -433,12 +433,12 @@ struct GuideView: View {
                 conceptItem(
                     icon: "doc.plaintext",
                     title: "Standard vs. Itemized",
-                    description: "The app compares your standard deduction (including age-based senior bonuses) against your itemized total. Charitable contributions from Tax Planning are included automatically."
+                    description: "The app compares your standard deduction (including age-based senior bonuses) against your itemized total. Charitable contributions from Scenarios are included automatically."
                 )
                 conceptItem(
                     icon: "arrow.triangle.2.circlepath",
                     title: "Scenario Flow",
-                    description: "Tax Planning decisions flow through to Dashboard (tax projection, action items) and Quarterly Tax (estimated payments). All three views stay in sync."
+                    description: "Scenario decisions flow through to Tax Summary (tax projection, action items) and Quarterly Tax (estimated payments). All three views stay in sync."
                 )
                 conceptItem(
                     icon: "chart.line.uptrend.xyaxis",
@@ -504,7 +504,7 @@ struct GuideView: View {
                     icon: "chart.bar.fill",
                     color: .blue,
                     title: "Watch the Brackets",
-                    description: "Use Tax Planning\u{2019}s bracket analysis to find the sweet spot where you maximize conversions without jumping to a higher marginal rate."
+                    description: "Use Scenarios\u{2019} bracket analysis to find the sweet spot where you maximize conversions without jumping to a higher marginal rate."
                 )
                 tipItem(
                     icon: "dollarsign.circle",
