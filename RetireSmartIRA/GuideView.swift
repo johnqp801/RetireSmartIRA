@@ -46,11 +46,11 @@ struct GuideView: View {
                 quickStartChecklist
                 tabGuidesHeader
                 settingsGuide
-                accountsGuide
                 incomeGuide
-                taxSummaryGuide
+                accountsGuide
                 rmdGuide
                 scenariosGuide
+                taxSummaryGuide
                 quarterlyTaxGuide
                 keyConceptsSection
                 tipsSection
@@ -79,11 +79,11 @@ struct GuideView: View {
                 VStack(spacing: 24) {
                     tabGuidesHeader
                     settingsGuide
-                    accountsGuide
                     incomeGuide
-                    taxSummaryGuide
+                    accountsGuide
                     rmdGuide
                     scenariosGuide
+                    taxSummaryGuide
                     quarterlyTaxGuide
                 }
                 .padding()
@@ -202,38 +202,38 @@ struct GuideView: View {
                 )
                 quickStartStep(
                     number: 2,
-                    title: "Accounts",
-                    description: "Add your Traditional IRA, Roth IRA, Traditional 401(k), and Roth 401(k) accounts with current balances.",
-                    tabIcon: "building.columns.fill",
-                    tabColor: .blue
-                )
-                quickStartStep(
-                    number: 3,
                     title: "Income & Deductions",
                     description: "Enter all income sources with tax withholding amounts. Optionally add itemized deductions.",
                     tabIcon: "banknote.fill",
                     tabColor: .green
                 )
                 quickStartStep(
-                    number: 4,
-                    title: "Tax Summary",
-                    description: "Review your income breakdown, tax projection, and action items. Everything updates automatically.",
-                    tabIcon: "chart.bar.fill",
-                    tabColor: .purple
+                    number: 3,
+                    title: "Accounts",
+                    description: "Add your Traditional IRA, Roth IRA, Traditional 401(k), and Roth 401(k) accounts with current balances.",
+                    tabIcon: "building.columns.fill",
+                    tabColor: .blue
                 )
                 quickStartStep(
-                    number: 5,
+                    number: 4,
                     title: "RMD Calculator",
                     description: "Check your Required Minimum Distribution status, deadlines, and project future RMDs under different growth scenarios.",
                     tabIcon: "calendar.badge.clock",
                     tabColor: .red
                 )
                 quickStartStep(
-                    number: 6,
+                    number: 5,
                     title: "Scenarios",
                     description: "Model Roth conversions, QCDs, stock and cash donations, and extra withdrawals. See real-time tax impact and bracket analysis.",
                     tabIcon: "slider.horizontal.3",
                     tabColor: .orange
+                )
+                quickStartStep(
+                    number: 6,
+                    title: "Tax Summary",
+                    description: "Review your income breakdown, tax projection, and action items. Everything updates automatically.",
+                    tabIcon: "chart.bar.fill",
+                    tabColor: .purple
                 )
                 quickStartStep(
                     number: 7,

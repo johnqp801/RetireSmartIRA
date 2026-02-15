@@ -19,45 +19,45 @@ struct ContentView: View {
                 }
                 .tag(0)
 
-            DashboardView()
+            SettingsView()
                 .tabItem {
-                    Label("Tax Summary", systemImage: "chart.bar.fill")
+                    Label("Settings", systemImage: "gearshape.fill")
                 }
                 .tag(1)
-
-            TaxPlanningView()
-                .tabItem {
-                    Label("Scenarios", systemImage: "slider.horizontal.3")
-                }
-                .tag(2)
-
-            RMDCalculatorView()
-                .tabItem {
-                    Label("RMD Calculator", systemImage: "calendar.badge.clock")
-                }
-                .tag(3)
-
-            QuarterlyTaxView()
-                .tabItem {
-                    Label("Quarterly Tax", systemImage: "dollarsign.circle.fill")
-                }
-                .tag(4)
-
-            AccountsView()
-                .tabItem {
-                    Label("Accounts", systemImage: "building.columns.fill")
-                }
-                .tag(5)
 
             IncomeSourcesView()
                 .tabItem {
                     Label("Income & Deductions", systemImage: "banknote.fill")
                 }
+                .tag(2)
+
+            AccountsView()
+                .tabItem {
+                    Label("Accounts", systemImage: "building.columns.fill")
+                }
+                .tag(3)
+
+            RMDCalculatorView()
+                .tabItem {
+                    Label("RMD Calculator", systemImage: "calendar.badge.clock")
+                }
+                .tag(4)
+
+            TaxPlanningView()
+                .tabItem {
+                    Label("Scenarios", systemImage: "slider.horizontal.3")
+                }
+                .tag(5)
+
+            DashboardView()
+                .tabItem {
+                    Label("Tax Summary", systemImage: "chart.bar.fill")
+                }
                 .tag(6)
 
-            SettingsView()
+            QuarterlyTaxView()
                 .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
+                    Label("Quarterly Tax", systemImage: "dollarsign.circle.fill")
                 }
                 .tag(7)
         }
