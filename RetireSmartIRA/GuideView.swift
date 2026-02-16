@@ -105,11 +105,11 @@ struct GuideView: View {
                     .fontWeight(.bold)
             }
 
-            Text("Your all-in-one retirement tax planning toolkit. Manage IRAs and 401(k)s, calculate RMDs, model Roth conversions, plan QCDs and charitable giving, project federal and California taxes, and stay on top of quarterly estimated payments \u{2014} all in one place.")
+            Text("Your all-in-one retirement tax planning toolkit. Manage IRAs and 401(k)s, calculate RMDs, model Roth conversions, plan QCDs and charitable giving, project federal and state taxes, and stay on top of quarterly estimated payments \u{2014} all in one place.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
-            Text("Uses 2026 federal tax brackets and California state tax rates. Supports single and married filing jointly.")
+            Text("Uses 2026 federal tax brackets and all 50 state tax rates. Supports single and married filing jointly.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .italic()
