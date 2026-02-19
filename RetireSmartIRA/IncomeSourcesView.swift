@@ -29,7 +29,7 @@ struct IncomeSourcesView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.systemBackground))
+                .background(Color(PlatformColor.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
 
@@ -95,7 +95,7 @@ struct IncomeSourcesView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemBackground))
+                .background(Color(PlatformColor.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
 
@@ -208,6 +208,59 @@ struct IncomeSourcesView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
 
+                    // SALT cap note
+                    if dataManager.totalSALTBeforeCap > 0 {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "building.columns.fill")
+                                    .foregroundStyle(.purple)
+                                Text("SALT Deduction Cap")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("Total SALT (Property Tax + State & Local)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(dataManager.totalSALTBeforeCap, format: .currency(code: "USD"))
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                }
+                                HStack {
+                                    Text("Federal Cap")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(dataManager.saltCap, format: .currency(code: "USD"))
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(dataManager.totalSALTBeforeCap > dataManager.saltCap ? .red : .secondary)
+                                }
+                                Divider()
+                                HStack {
+                                    Text("Deductible Amount")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text(dataManager.saltAfterCap, format: .currency(code: "USD"))
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(dataManager.totalSALTBeforeCap > dataManager.saltCap ? .orange : .green)
+                                }
+                            }
+
+                            Text("State and local tax (SALT) deductions \u{2014} including property tax, state income tax, and local taxes \u{2014} are capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA (2025\u{2013}2029: $40,000 base with 1% inflation; phases out for MAGI over $500K; reverts to $10,000 in 2030). For state income tax, enter the total state taxes you expect to pay during this calendar year: withholding, estimated payments, and any balance paid with your prior year\u{2019}s state return. If you received a state tax refund and itemized last year, enter it as a \u{201C}State Tax Refund\u{201D} income source \u{2014} it\u{2019}s taxable on your federal return.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(Color.purple.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
                     // Note about charitable deductions
                     if dataManager.scenarioTotalCharitable > 0 {
                         HStack(spacing: 8) {
@@ -223,13 +276,13 @@ struct IncomeSourcesView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemBackground))
+                .background(Color(PlatformColor.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(PlatformColor.systemGroupedBackground))
         .sheet(isPresented: $showingAddIncome, onDismiss: {
             selectedIncomeSource = nil
         }) {
@@ -265,7 +318,7 @@ struct IncomeSourcesView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background((!dataManager.scenarioEffectiveItemize ? Color.green.opacity(0.1) : Color(.secondarySystemBackground)))
+                .background((!dataManager.scenarioEffectiveItemize ? Color.green.opacity(0.1) : Color(PlatformColor.secondarySystemBackground)))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 // Itemized
@@ -283,7 +336,7 @@ struct IncomeSourcesView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background((dataManager.scenarioEffectiveItemize ? Color.green.opacity(0.1) : Color(.secondarySystemBackground)))
+                .background((dataManager.scenarioEffectiveItemize ? Color.green.opacity(0.1) : Color(PlatformColor.secondarySystemBackground)))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
@@ -325,7 +378,7 @@ struct IncomeSourcesView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -365,19 +418,26 @@ struct IncomeSourcesView: View {
                         .fontWeight(.bold)
                 }
 
-                if source.taxWithholding > 0 {
-                    HStack {
+                if source.federalWithholding > 0 || source.stateWithholding > 0 {
+                    HStack(spacing: 8) {
                         Text("Withholding:")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(source.taxWithholding, format: .currency(code: "USD"))
-                            .font(.caption)
-                            .fontWeight(.medium)
+                        if source.federalWithholding > 0 {
+                            Text("Fed \(source.federalWithholding, format: .currency(code: "USD"))")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        if source.stateWithholding > 0 {
+                            Text("State \(source.stateWithholding, format: .currency(code: "USD"))")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
                     }
                 }
             }
             .padding()
-            .background(Color(.secondarySystemBackground))
+            .background(Color(PlatformColor.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
 
@@ -412,7 +472,7 @@ struct IncomeSourcesView: View {
                     .foregroundStyle(.orange)
             }
             .padding()
-            .background(Color(.secondarySystemBackground))
+            .background(Color(PlatformColor.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
@@ -427,7 +487,8 @@ struct IncomeSourcesView: View {
         @State private var name: String
         @State private var incomeType: IncomeType
         @State private var annualAmount: String
-        @State private var taxWithholding: String
+        @State private var federalWithholding: String
+        @State private var stateWithholding: String
         @State private var owner: Owner
 
         init(incomeToEdit: IncomeSource? = nil) {
@@ -435,7 +496,8 @@ struct IncomeSourcesView: View {
             _name = State(initialValue: incomeToEdit?.name ?? "")
             _incomeType = State(initialValue: incomeToEdit?.type ?? .socialSecurity)
             _annualAmount = State(initialValue: incomeToEdit?.annualAmount.formatted() ?? "")
-            _taxWithholding = State(initialValue: incomeToEdit?.taxWithholding.formatted() ?? "")
+            _federalWithholding = State(initialValue: incomeToEdit?.federalWithholding.formatted() ?? "")
+            _stateWithholding = State(initialValue: incomeToEdit?.stateWithholding.formatted() ?? "")
             _owner = State(initialValue: incomeToEdit?.owner ?? .primary)
         }
 
@@ -452,10 +514,19 @@ struct IncomeSourcesView: View {
                         }
 
                         TextField("Annual Amount", text: $annualAmount)
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
 
-                        TextField("Tax Withholding (optional)", text: $taxWithholding)
+                        TextField("Federal Withholding (optional)", text: $federalWithholding)
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
+
+                        TextField("State Withholding (optional)", text: $stateWithholding)
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
 
                         Picker("Owner", selection: $owner) {
                             ForEach(Owner.allCases, id: \.self) { owner in
@@ -463,9 +534,20 @@ struct IncomeSourcesView: View {
                             }
                         }
                     }
+
+                    if incomeType == .stateTaxRefund {
+                        Section("About State Tax Refunds") {
+                            Text("If you itemized deductions last year and received a state tax refund, that refund is taxable as income on your federal return (tax benefit rule). If you took the standard deduction last year, the refund is not taxable and does not need to be entered here.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
+                .formStyle(.grouped)
                 .navigationTitle(incomeToEdit == nil ? "Add Income" : "Edit Income")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }
@@ -480,20 +562,22 @@ struct IncomeSourcesView: View {
 
         private func saveIncome() {
             let cleanAmount = annualAmount.replacingOccurrences(of: ",", with: "")
-            let cleanWithholding = taxWithholding.replacingOccurrences(of: ",", with: "")
+            let cleanFederal = federalWithholding.replacingOccurrences(of: ",", with: "")
+            let cleanState = stateWithholding.replacingOccurrences(of: ",", with: "")
             guard let amount = Double(cleanAmount) else { return }
-            let withholding = Double(cleanWithholding) ?? 0
+            let fedWH = Double(cleanFederal) ?? 0
+            let stateWH = Double(cleanState) ?? 0
 
             if let existing = incomeToEdit,
                let index = dataManager.incomeSources.firstIndex(where: { $0.id == existing.id }) {
                 dataManager.incomeSources[index] = IncomeSource(
                     id: existing.id, name: name, type: incomeType,
-                    annualAmount: amount, taxWithholding: withholding, owner: owner
+                    annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner
                 )
             } else {
                 dataManager.incomeSources.append(IncomeSource(
                     name: name, type: incomeType,
-                    annualAmount: amount, taxWithholding: withholding, owner: owner
+                    annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner
                 ))
             }
             dataManager.saveAllData()
@@ -534,7 +618,9 @@ struct IncomeSourcesView: View {
                         }
 
                         TextField("Annual Amount", text: $annualAmount)
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
 
                         Picker("Owner", selection: $owner) {
                             ForEach(Owner.allCases, id: \.self) { owner in
@@ -545,14 +631,33 @@ struct IncomeSourcesView: View {
 
                     if deductionType == .medicalExpenses {
                         Section("About Medical Deductions") {
-                            Text("Enter your total unreimbursed medical expenses (insurance premiums, copays, prescriptions, dental, vision, long-term care, etc.). Only the amount exceeding 7.5% of your adjusted gross income (AGI) is deductible — the app calculates this automatically. For most retirees, AGI is essentially your total taxable income before itemized/standard deductions.")
+                            Text("Enter your total unreimbursed medical expenses (insurance premiums, copays, prescriptions, dental, vision, long-term care, etc.). Only the amount exceeding 7.5% of your adjusted gross income (AGI) is deductible \u{2014} the app calculates this automatically. For most retirees, AGI is essentially your total taxable income before itemized/standard deductions.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if deductionType == .saltTax {
+                        Section("About SALT Deductions") {
+                            Text("Enter the total state and local income taxes you expect to pay during this calendar year. This includes: state tax withholding from all income sources, estimated quarterly state tax payments made this year, and any balance paid with your prior year\u{2019}s state return (typically in April). Combined with property taxes, SALT is capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA (2025\u{2013}2029: $40,000 base with 1% inflation; phases out for MAGI over $500K; reverts to $10,000 in 2030).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if deductionType == .propertyTax {
+                        Section("About Property Tax Deductions") {
+                            Text("Enter your annual property tax amount. Property taxes are combined with state and local income taxes for the SALT deduction, which is capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA (2025\u{2013}2029: $40,000 base with 1% inflation; phases out for MAGI over $500K; reverts to $10,000 in 2030).")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
+                .formStyle(.grouped)
                 .navigationTitle(deductionToEdit == nil ? "Add Deduction" : "Edit Deduction")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }

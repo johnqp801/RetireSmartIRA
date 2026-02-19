@@ -21,7 +21,7 @@ struct QuarterlyTaxView: View {
                 compactBody
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(PlatformColor.systemGroupedBackground))
     }
 
     // MARK: - Layout Variants
@@ -182,15 +182,21 @@ struct QuarterlyTaxView: View {
                 Divider()
 
                 summaryRow(label: "Federal Tax", value: dataManager.scenarioFederalTax, color: .blue)
-                summaryRow(label: "State Tax", value: dataManager.scenarioStateTax, color: .orange)
+                summaryRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax, color: .orange)
 
                 Divider()
 
                 summaryRow(label: "Total Estimated Tax", value: dataManager.scenarioTotalTax, isBold: true)
 
                 if dataManager.totalWithholding > 0 {
-                    summaryRow(label: "Withholding Already Paid", value: dataManager.totalWithholding, color: .green, prefix: "−")
-                    summaryRow(label: "Remaining Tax Due", value: dataManager.scenarioRemainingTax, isBold: true)
+                    if dataManager.totalFederalWithholding > 0 {
+                        summaryRow(label: "Federal Withholding Paid", value: dataManager.totalFederalWithholding, color: .green, prefix: "−")
+                    }
+                    if dataManager.totalStateWithholding > 0 {
+                        summaryRow(label: "State Withholding Paid", value: dataManager.totalStateWithholding, color: .green, prefix: "−")
+                    }
+                    summaryRow(label: "Remaining Federal Tax", value: dataManager.scenarioRemainingFederalTax, isBold: true)
+                    summaryRow(label: "Remaining State Tax", value: dataManager.scenarioRemainingStateTax, isBold: true)
                 }
 
                 Divider()
@@ -224,7 +230,7 @@ struct QuarterlyTaxView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -246,7 +252,7 @@ struct QuarterlyTaxView: View {
 
     @ViewBuilder
     private var withholdingBreakdown: some View {
-        let sourcesWithWithholding = dataManager.incomeSources.filter { $0.taxWithholding > 0 }
+        let sourcesWithWithholding = dataManager.incomeSources.filter { $0.federalWithholding > 0 || $0.stateWithholding > 0 }
 
         if !sourcesWithWithholding.isEmpty {
             VStack(alignment: .leading, spacing: 16) {
@@ -264,30 +270,56 @@ struct QuarterlyTaxView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Text(source.taxWithholding, format: .currency(code: "USD"))
-                                .font(.callout)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.green)
+                            VStack(alignment: .trailing, spacing: 2) {
+                                if source.federalWithholding > 0 {
+                                    Text("Fed \(source.federalWithholding, format: .currency(code: "USD"))")
+                                        .font(.callout)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.green)
+                                }
+                                if source.stateWithholding > 0 {
+                                    Text("State \(source.stateWithholding, format: .currency(code: "USD"))")
+                                        .font(.callout)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.green)
+                                }
+                            }
                         }
                     }
 
                     if sourcesWithWithholding.count > 1 {
                         Divider()
-                        HStack {
-                            Text("Total Withholding")
-                                .font(.callout)
-                                .fontWeight(.semibold)
-                            Spacer()
-                            Text(dataManager.totalWithholding, format: .currency(code: "USD"))
-                                .font(.callout)
-                                .fontWeight(.bold)
-                                .foregroundStyle(.green)
+                        VStack(spacing: 4) {
+                            if dataManager.totalFederalWithholding > 0 {
+                                HStack {
+                                    Text("Total Federal")
+                                        .font(.callout)
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text(dataManager.totalFederalWithholding, format: .currency(code: "USD"))
+                                        .font(.callout)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.green)
+                                }
+                            }
+                            if dataManager.totalStateWithholding > 0 {
+                                HStack {
+                                    Text("Total State")
+                                        .font(.callout)
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text(dataManager.totalStateWithholding, format: .currency(code: "USD"))
+                                        .font(.callout)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.green)
+                                }
+                            }
                         }
                     }
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -323,7 +355,7 @@ struct QuarterlyTaxView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -378,13 +410,13 @@ struct QuarterlyTaxView: View {
 
                 NoteRow(
                     icon: "checkmark.shield",
-                    text: "Withholding from income sources (Social Security, pensions) is credited against your total tax liability",
+                    text: "Federal and state withholding from income sources is credited against each tax liability separately",
                     color: .green
                 )
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -420,7 +452,7 @@ struct QuarterRow: View {
                 .foregroundStyle(.blue)
         }
         .padding()
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

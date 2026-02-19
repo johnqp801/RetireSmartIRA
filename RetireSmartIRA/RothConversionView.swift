@@ -80,7 +80,7 @@ struct RothConversionView: View {
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(PlatformColor.systemGroupedBackground))
         .onChange(of: selectedOwner) { _, _ in
             enhancedAnalysis = nil
             conversionAmount = ""
@@ -125,7 +125,7 @@ struct RothConversionView: View {
                 .pickerStyle(.segmented)
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -199,7 +199,9 @@ struct RothConversionView: View {
 
                     TextField("Enter amount", text: $conversionAmount)
                         .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
                         .keyboardType(.decimalPad)
+                        #endif
                         .font(.title3)
                 }
 
@@ -233,7 +235,7 @@ struct RothConversionView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -256,7 +258,7 @@ struct RothConversionView: View {
                     )
 
                     TaxRow(
-                        label: "California Tax on Conversion",
+                        label: "\(dataManager.selectedState.rawValue) Tax on Conversion",
                         amount: analysis.stateTax,
                         color: .orange
                     )
@@ -276,7 +278,7 @@ struct RothConversionView: View {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
 
@@ -294,7 +296,7 @@ struct RothConversionView: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
                         .frame(width: 72, alignment: .trailing)
-                    Text("California")
+                    Text(dataManager.selectedState.abbreviation)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
@@ -332,7 +334,7 @@ struct RothConversionView: View {
                 )
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
 
@@ -351,18 +353,54 @@ struct RothConversionView: View {
                     color: .blue
                 )
 
-                BracketAnalysisCard(
-                    title: "California",
-                    bracketBefore: analysis.stateBracketBefore,
-                    bracketAfter: analysis.stateBracketAfter,
-                    marginalBefore: analysis.stateMarginalBefore,
-                    marginalAfter: analysis.stateMarginalAfter,
-                    crosses: analysis.crossesStateBracket,
-                    color: .orange
-                )
+                // State bracket analysis — conditional on tax system type
+                if case .progressive = dataManager.selectedStateConfig.taxSystem {
+                    BracketAnalysisCard(
+                        title: dataManager.selectedState.rawValue,
+                        bracketBefore: analysis.stateBracketBefore,
+                        bracketAfter: analysis.stateBracketAfter,
+                        marginalBefore: analysis.stateMarginalBefore,
+                        marginalAfter: analysis.stateMarginalAfter,
+                        crosses: analysis.crossesStateBracket,
+                        color: .orange
+                    )
+                } else if case .flat(let rate) = dataManager.selectedStateConfig.taxSystem {
+                    HStack {
+                        Text(dataManager.selectedState.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Text(String(format: "Flat rate: %.2f%%", rate * 100))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if case .noIncomeTax = dataManager.selectedStateConfig.taxSystem {
+                    HStack {
+                        Text(dataManager.selectedState.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Text("No state income tax")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                    }
+                } else if case .specialLimited = dataManager.selectedStateConfig.taxSystem {
+                    HStack {
+                        Text(dataManager.selectedState.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Text("No general income tax")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                    }
+                }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -396,7 +434,7 @@ struct RothConversionView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -510,7 +548,7 @@ struct BracketAnalysisCard: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

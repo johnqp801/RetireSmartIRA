@@ -15,7 +15,7 @@ struct GuideView: View {
 
     // Section expansion states
     @State private var quickStartExpanded: Bool = true
-    @State private var settingsGuideExpanded: Bool = false
+    @State private var myProfileGuideExpanded: Bool = false
     @State private var accountsGuideExpanded: Bool = false
     @State private var incomeGuideExpanded: Bool = false
     @State private var taxSummaryGuideExpanded: Bool = false
@@ -33,7 +33,7 @@ struct GuideView: View {
                 compactBody
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(PlatformColor.systemGroupedBackground))
     }
 
     // MARK: - Layout Variants
@@ -45,7 +45,7 @@ struct GuideView: View {
                 setupProgressCard
                 quickStartChecklist
                 tabGuidesHeader
-                settingsGuide
+                myProfileGuide
                 incomeGuide
                 accountsGuide
                 rmdGuide
@@ -78,7 +78,7 @@ struct GuideView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     tabGuidesHeader
-                    settingsGuide
+                    myProfileGuide
                     incomeGuide
                     accountsGuide
                     rmdGuide
@@ -109,14 +109,14 @@ struct GuideView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
-            Text("Uses 2026 federal tax brackets and California state tax rates.")
+            Text("Uses 2026 federal tax brackets and state tax rates for all 50 states.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .italic()
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -141,7 +141,7 @@ struct GuideView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray5))
+                        .fill(Color(PlatformColor.systemGray5))
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 4)
                         .fill(progress.isComplete ? Color.green : Color.blue)
@@ -170,7 +170,7 @@ struct GuideView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -195,15 +195,15 @@ struct GuideView: View {
             VStack(alignment: .leading, spacing: 16) {
                 quickStartStep(
                     number: 1,
-                    title: "Settings",
+                    title: "My Profile",
                     description: "Set your date of birth and filing status. If married filing jointly, enable and configure your spouse.",
-                    tabIcon: "gearshape.fill",
+                    tabIcon: "person.crop.circle.fill",
                     tabColor: .gray
                 )
                 quickStartStep(
                     number: 2,
                     title: "Income & Deductions",
-                    description: "Enter all income sources with tax withholding amounts. Optionally add itemized deductions.",
+                    description: "Enter all income sources with federal and state withholding amounts. Optionally add itemized deductions.",
                     tabIcon: "banknote.fill",
                     tabColor: .green
                 )
@@ -254,7 +254,7 @@ struct GuideView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -315,7 +315,7 @@ struct GuideView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -332,8 +332,8 @@ struct GuideView: View {
         }
     }
 
-    private var settingsGuide: some View {
-        tabGuideSection(icon: "gearshape.fill", title: "Settings", color: .gray, isExpanded: $settingsGuideExpanded) {
+    private var myProfileGuide: some View {
+        tabGuideSection(icon: "person.crop.circle.fill", title: "My Profile", color: .gray, isExpanded: $myProfileGuideExpanded) {
             guidePoint("Set your date of birth to determine current age, RMD age, and QCD eligibility")
             guidePoint("Choose Single or Married Filing Jointly")
             guidePoint("If married, enable spouse tracking with name and date of birth")
@@ -345,17 +345,19 @@ struct GuideView: View {
     private var accountsGuide: some View {
         tabGuideSection(icon: "building.columns.fill", title: "Accounts", color: .blue, isExpanded: $accountsGuideExpanded) {
             guidePoint("Add all retirement accounts: Traditional IRA, Roth IRA, Traditional 401(k), Roth 401(k)")
+            guidePoint("Inherited IRAs: select Inherited Traditional IRA or Inherited Roth IRA, then fill in beneficiary type, year inherited, and birth years")
             guidePoint("Enter current balances \u{2014} these drive RMD calculations")
             guidePoint("Assign each account to an owner (You, Spouse, or Joint)")
             guidePoint("Only Traditional accounts have RMD requirements; Roth IRAs do not")
+            guidePoint("Inherited IRA RMDs follow different rules \u{2014} see RMD Calculator for details and deadlines")
             guidePoint("Tap any account to edit; swipe to delete")
         }
     }
 
     private var incomeGuide: some View {
         tabGuideSection(icon: "banknote.fill", title: "Income & Deductions", color: .green, isExpanded: $incomeGuideExpanded) {
-            guidePoint("Add every income source: Social Security, pensions, dividends, interest, capital gains, consulting")
-            guidePoint("Enter tax withholding for each source \u{2014} this reduces quarterly payment estimates")
+            guidePoint("Add every income source: Social Security, pensions, dividends, interest, capital gains, employment/other income")
+            guidePoint("Enter federal and state withholding for each source \u{2014} this reduces quarterly payment estimates")
             guidePoint("Social Security is taxed at 0%, 50%, or 85% based on combined income thresholds")
             guidePoint("Long-term capital gains and qualified dividends receive preferential federal tax rates")
             guidePoint("Add itemized deductions (mortgage interest, property tax, medical, SALT) to compare against the standard deduction")
@@ -368,7 +370,7 @@ struct GuideView: View {
             guidePoint("Shows your complete financial picture at a glance")
             guidePoint("Income Breakdown: all sources plus RMD amounts")
             guidePoint("Tax Projection: federal + state tax, withholding credit, quarterly payment estimate")
-            guidePoint("Tax Rates: marginal and average rates for both federal and California")
+            guidePoint("Tax Rates: marginal and average rates for both federal and your selected state")
             guidePoint("Action Items: a to-do list generated from your RMDs, conversions, QCDs, and quarterly payments")
             guidePoint("Account Balances: Traditional vs. Roth totals with per-owner breakdown if married")
         }
@@ -394,7 +396,8 @@ struct GuideView: View {
             guidePoint("Appreciated Stock Donation: donate long-term stock to avoid capital gains tax and get a fair market value deduction")
             guidePoint("Cash Donations: direct cash gifts that provide a tax benefit when itemizing")
             guidePoint("Bracket Analysis shows whether your scenario pushes you into a higher federal or state bracket")
-            guidePoint("Per-Decision Tax Impact shows the incremental tax cost or savings of each decision")
+            guidePoint("Medicare IRMAA shows your current tier, annual surcharge, and how close you are to the next cliff \u{2014} scenario decisions that push you into a higher tier are flagged with a warning")
+            guidePoint("Per-Decision Tax Impact shows the incremental tax cost or savings of each decision, including IRMAA surcharge changes")
         }
     }
 
@@ -402,7 +405,7 @@ struct GuideView: View {
         tabGuideSection(icon: "dollarsign.circle.fill", title: "Quarterly Tax", color: .purple, isExpanded: $quarterlyTaxGuideExpanded) {
             guidePoint("Shows estimated quarterly tax payments based on all income and Scenario decisions")
             guidePoint("Annual tax summary: gross income, deductions, taxable income, federal + state tax")
-            guidePoint("Withholding from income sources is credited against your total liability")
+            guidePoint("Federal and state withholding from income sources is credited against each tax liability")
             guidePoint("Payment schedule with IRS deadlines: April 15, June 15, September 15, January 15")
             guidePoint("Payment amounts vary by quarter based on when withdrawals and conversions are planned")
             guidePoint("Based on 90% safe harbor rule: pay 90% of current year tax to avoid underpayment penalties")
@@ -443,12 +446,22 @@ struct GuideView: View {
                 conceptItem(
                     icon: "chart.line.uptrend.xyaxis",
                     title: "Preferential Tax Rates",
-                    description: "Long-term capital gains and qualified dividends are taxed at 0%, 15%, or 20% federally. California taxes all income as ordinary."
+                    description: "Long-term capital gains and qualified dividends are taxed at 0%, 15%, or 20% federally. Some states (like California) tax capital gains as ordinary income."
                 )
                 conceptItem(
                     icon: "person.2.fill",
                     title: "Filing Status Impact",
                     description: "Married Filing Jointly has wider tax brackets, a higher standard deduction, and different Social Security taxation thresholds compared to Single."
+                )
+                conceptItem(
+                    icon: "arrow.down.doc.fill",
+                    title: "Inherited IRAs (BDAs)",
+                    description: "Inherited IRAs have different rules based on your relationship to the decedent. Eligible Designated Beneficiaries (spouse, disabled, chronically ill, minor child, not >10 years younger) get lifetime stretch. All others must empty the account within 10 years. If the decedent had already begun RMDs, annual distributions are also required in years 1\u{2013}9. RMDs are calculated using the account balance as of December 31 of the prior year. Inherited IRA distributions are NOT eligible for QCDs."
+                )
+                conceptItem(
+                    icon: "cross.case.fill",
+                    title: "Medicare IRMAA",
+                    description: "Income-Related Monthly Adjustment Amount adds surcharges to Medicare Parts B and D premiums when your MAGI exceeds thresholds. Unlike tax brackets, IRMAA uses cliffs \u{2014} crossing a threshold by even $1 triggers the full surcharge for that tier. IRMAA is based on income from 2 years prior, so this year\u{2019}s Roth conversions and withdrawals affect future premiums."
                 )
             }
             .padding(.top, 8)
@@ -462,7 +475,7 @@ struct GuideView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -507,10 +520,16 @@ struct GuideView: View {
                     description: "Use Scenarios\u{2019} bracket analysis to find the sweet spot where you maximize conversions without jumping to a higher marginal rate."
                 )
                 tipItem(
+                    icon: "cross.case.fill",
+                    color: .pink,
+                    title: "Watch IRMAA Cliffs",
+                    description: "IRMAA surcharges are cliff-based \u{2014} crossing a threshold by even $1 can add over $1,100/year per person in Medicare premiums. Check the IRMAA section in Scenarios before finalizing Roth conversions or withdrawals. Your income this year affects premiums two years from now."
+                )
+                tipItem(
                     icon: "dollarsign.circle",
                     color: .green,
                     title: "Track Withholding",
-                    description: "Enter tax withholding on each income source so quarterly payment estimates reflect what you have already paid."
+                    description: "Enter federal and state withholding on each income source so quarterly payment estimates reflect what you have already paid."
                 )
                 tipItem(
                     icon: "doc.text.fill",
@@ -536,7 +555,7 @@ struct GuideView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -574,7 +593,7 @@ struct GuideView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }

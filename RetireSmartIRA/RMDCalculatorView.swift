@@ -26,7 +26,7 @@ struct RMDCalculatorView: View {
                 compactBody
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(PlatformColor.systemGroupedBackground))
     }
 
     // MARK: - Layout Variants
@@ -37,6 +37,7 @@ struct RMDCalculatorView: View {
                 statusCard
                 guideCard
                 currentYearRMD
+                inheritedIRASection
                 accountBreakdown
                 projectionsSection
                 aboutRMDs
@@ -52,6 +53,7 @@ struct RMDCalculatorView: View {
                     statusCard
                     guideCard
                     currentYearRMD
+                    inheritedIRASection
                     accountBreakdown
                 }
                 .padding()
@@ -148,7 +150,7 @@ struct RMDCalculatorView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -225,7 +227,7 @@ struct RMDCalculatorView: View {
                 .fontWeight(.semibold)
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -292,7 +294,7 @@ struct RMDCalculatorView: View {
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .padding()
-                    .background(Color(.secondarySystemBackground))
+                    .background(Color(PlatformColor.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
 
@@ -349,7 +351,7 @@ struct RMDCalculatorView: View {
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .padding()
-                    .background(Color(.secondarySystemBackground))
+                    .background(Color(PlatformColor.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 } else if dataManager.enableSpouse && !dataManager.spouseIsRMDRequired {
                     HStack {
@@ -363,7 +365,7 @@ struct RMDCalculatorView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding()
-                    .background(Color(.secondarySystemBackground))
+                    .background(Color(PlatformColor.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
 
@@ -408,7 +410,128 @@ struct RMDCalculatorView: View {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
+    }
+
+    // MARK: - Inherited IRA RMDs
+
+    @ViewBuilder
+    private var inheritedIRASection: some View {
+        if dataManager.hasInheritedAccounts {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Label("Inherited IRA RMDs", systemImage: "arrow.down.doc.fill")
+                        .font(.headline)
+                    Spacer()
+                }
+
+                ForEach(dataManager.inheritedAccounts) { account in
+                    let result = dataManager.calculateInheritedIRARMD(account: account, forYear: dataManager.currentYear)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(account.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    if dataManager.enableSpouse {
+                                        Text(account.owner.rawValue)
+                                            .font(.caption2)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 1)
+                                            .background(Color.purple.opacity(0.2))
+                                            .foregroundStyle(.purple)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                if let beneficiary = account.beneficiaryType {
+                                    Text(beneficiary.rawValue)
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+
+                            Spacer()
+
+                            Text(account.balance, format: .currency(code: "USD"))
+                                .font(.callout)
+                                .fontWeight(.medium)
+                        }
+
+                        // RMD amount
+                        HStack {
+                            Text("Required Withdrawal")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            if result.annualRMD > 0 {
+                                Text(result.annualRMD, format: .currency(code: "USD"))
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.orange)
+                            } else {
+                                Text("None required")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        // Deadline warning
+                        if let deadline = result.mustEmptyByYear {
+                            let remaining = result.yearsRemaining ?? 0
+                            HStack(spacing: 6) {
+                                Image(systemName: remaining <= 1 ? "exclamationmark.triangle.fill" : "clock")
+                                    .foregroundStyle(remaining <= 1 ? .red : (remaining <= 3 ? .orange : .secondary))
+                                Text("Must empty by end of \(String(deadline))")
+                                    .font(.caption)
+                                if remaining > 0 {
+                                    Text("(\(remaining) years)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+
+                        // Rule description
+                        Text(result.rule)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .background(Color(PlatformColor.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
+                // Total inherited RMD
+                if dataManager.inheritedAccounts.count > 1 {
+                    Divider()
+                    HStack {
+                        Text("Total Inherited IRA RMD")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(dataManager.inheritedIRARMDTotal, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                // QCD ineligibility notice
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.blue)
+                    Text("Inherited IRA distributions are not eligible for Qualified Charitable Distributions (QCDs).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -472,7 +595,7 @@ struct RMDCalculatorView: View {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -531,7 +654,7 @@ struct RMDCalculatorView: View {
                     }
                 }
                 .padding()
-                .background(Color(.secondarySystemBackground))
+                .background(Color(PlatformColor.secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
@@ -698,7 +821,7 @@ struct RMDCalculatorView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -738,7 +861,7 @@ struct RMDCalculatorView: View {
                 .font(.headline)
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -828,7 +951,7 @@ struct AccountRMDRow: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -880,7 +1003,7 @@ struct CombinedRMDProjectionRow: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .background(isCurrentYear ? Color.blue.opacity(0.1) : Color(.secondarySystemBackground))
+        .background(isCurrentYear ? Color.blue.opacity(0.1) : Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
@@ -957,7 +1080,7 @@ struct RMDProjectionRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(isCurrentYear ? Color.blue.opacity(0.1) : Color(.secondarySystemBackground))
+        .background(isCurrentYear ? Color.blue.opacity(0.1) : Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

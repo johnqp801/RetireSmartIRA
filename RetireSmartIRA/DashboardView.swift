@@ -21,7 +21,7 @@ struct DashboardView: View {
                 compactBody
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(PlatformColor.systemGroupedBackground))
     }
 
     // MARK: - Layout Variants
@@ -127,7 +127,7 @@ struct DashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -239,8 +239,46 @@ struct DashboardView: View {
                 }
             }
 
+            // Inherited IRA RMDs
+            let inheritedRMD = dataManager.inheritedIRARMDTotal
+            if inheritedRMD > 0 {
+                Divider()
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Inherited IRA RMD")
+                            .font(.subheadline)
+                        Text("Not eligible for QCD")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    Spacer()
+                    Text(inheritedRMD, format: .currency(code: "USD"))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            // Inherited IRA deadline warnings
+            let urgentAccounts = dataManager.inheritedAccounts.compactMap { account -> (String, Int)? in
+                let result = dataManager.calculateInheritedIRARMD(account: account, forYear: dataManager.currentYear)
+                guard result.mustEmptyByYear != nil, let remaining = result.yearsRemaining, remaining <= 2 else { return nil }
+                return (account.name, remaining)
+            }
+            if !urgentAccounts.isEmpty {
+                ForEach(urgentAccounts, id: \.0) { name, remaining in
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                        Text("\(name): \(remaining == 0 ? "deadline this year!" : "\(remaining) year\(remaining == 1 ? "" : "s") until 10-year deadline")")
+                            .font(.caption)
+                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                    }
+                }
+            }
+
             // Total baseline income
-            let totalBaseline = dataManager.totalAnnualIncome() + combinedRMD
+            let totalBaseline = dataManager.totalAnnualIncome() + combinedRMD + inheritedRMD
             if totalBaseline > 0 {
                 Divider()
                 HStack {
@@ -256,7 +294,7 @@ struct DashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -358,7 +396,7 @@ struct DashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -397,14 +435,41 @@ struct DashboardView: View {
                 Divider()
 
                 taxRow(label: "Federal Tax", value: dataManager.scenarioFederalTax, color: .red)
-                taxRow(label: "State Tax", value: dataManager.scenarioStateTax, color: .red)
+                taxRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax, color: .red)
                 taxRow(label: "Total Tax", value: dataManager.scenarioTotalTax, isBold: true, color: .red)
+            }
+
+            // IRMAA surcharge (separate from income tax — Medicare premium surcharge)
+            if dataManager.medicareMemberCount > 0 && dataManager.scenarioIRMAA.tier > 0 {
+                let irmaa = dataManager.scenarioIRMAA
+                let memberCount = dataManager.medicareMemberCount
+
+                Divider()
+
+                taxRow(label: "IRMAA Surcharge (per person)", value: irmaa.annualSurchargePerPerson, color: .pink)
+
+                if memberCount > 1 {
+                    taxRow(label: "IRMAA Household (\(memberCount) on Medicare)", value: dataManager.scenarioIRMAATotalSurcharge, isBold: true, color: .pink)
+                }
+
+                taxRow(label: "Total Tax + IRMAA", value: dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge, isBold: true, color: .red)
+
+                Text("IRMAA is based on income from 2 years prior")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .italic()
             }
 
             if dataManager.totalWithholding > 0 {
                 Divider()
-                taxRow(label: "Withholding Already Paid", value: dataManager.totalWithholding, color: .green)
-                taxRow(label: "Remaining Estimated Tax", value: dataManager.scenarioRemainingTax, isBold: true)
+                if dataManager.totalFederalWithholding > 0 {
+                    taxRow(label: "Federal Withholding Paid", value: dataManager.totalFederalWithholding, color: .green)
+                }
+                if dataManager.totalStateWithholding > 0 {
+                    taxRow(label: "State Withholding Paid", value: dataManager.totalStateWithholding, color: .green)
+                }
+                taxRow(label: "Remaining Federal Tax", value: dataManager.scenarioRemainingFederalTax, isBold: true)
+                taxRow(label: "Remaining State Tax", value: dataManager.scenarioRemainingStateTax, isBold: true)
             }
 
             if dataManager.scenarioQuarterlyPayment > 0 {
@@ -497,7 +562,7 @@ struct DashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -551,7 +616,7 @@ struct DashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -634,6 +699,14 @@ struct DashboardView: View {
                     amount: dataManager.totalRothBalance,
                     color: .green
                 )
+
+                if dataManager.hasInheritedAccounts {
+                    BalanceCard(
+                        title: "Inherited IRA",
+                        amount: dataManager.totalInheritedBalance,
+                        color: .orange
+                    )
+                }
             }
 
             if dataManager.enableSpouse {
@@ -654,7 +727,7 @@ struct DashboardView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -680,7 +753,7 @@ struct BalanceCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -765,7 +838,7 @@ struct OwnerBalanceRow: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

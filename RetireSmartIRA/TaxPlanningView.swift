@@ -81,9 +81,9 @@ struct TaxPlanningView: View {
         }
     }
 
-    /// Capital gain avoided by donating long-term stock instead of selling
+    /// Unrealized gain avoided by donating stock instead of selling
     private var stockGainAvoided: Double {
-        guard dataManager.stockDonationEnabled, stockIsLongTerm else { return 0 }
+        guard dataManager.stockDonationEnabled else { return 0 }
         return max(0, stockCurrentValueNum - stockPurchasePriceValue)
     }
 
@@ -96,11 +96,11 @@ struct TaxPlanningView: View {
     }
 
     private var yourMaxQCD: Double {
-        dataManager.isQCDEligible ? 111_000 : 0
+        dataManager.yourMaxQCDAmount
     }
 
     private var spouseMaxQCD: Double {
-        (spouseEnabled && dataManager.spouseIsQCDEligible) ? 111_000 : 0
+        dataManager.spouseMaxQCDAmount
     }
 
     private var totalQCD: Double {
@@ -202,7 +202,7 @@ struct TaxPlanningView: View {
                 compactBody
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(PlatformColor.systemGroupedBackground))
         .onAppear {
             // Populate text fields from DataManager on first appear
             if stockPurchasePriceText.isEmpty && dataManager.stockPurchasePrice > 0 {
@@ -236,13 +236,15 @@ struct TaxPlanningView: View {
             VStack(spacing: 24) {
                 summaryCard
                 opportunityWindowSection
-                rothConversionSection
-                withdrawalSection
-                charitableSection
+                rothConversionStep
+                withdrawalStep
+                inheritedWithdrawalStep
+                charitableStep
                 taxImpactSection
                 perDecisionImpact
                 rateBreakdownSection
                 bracketAnalysisSection
+                irmaaAnalysisSection
                 strategyTipsSection
             }
             .padding()
@@ -256,9 +258,10 @@ struct TaxPlanningView: View {
                 VStack(spacing: 24) {
                     summaryCard
                     opportunityWindowSection
-                    rothConversionSection
-                    withdrawalSection
-                    charitableSection
+                    rothConversionStep
+                    withdrawalStep
+                    inheritedWithdrawalStep
+                    charitableStep
                 }
                 .padding()
             }
@@ -271,6 +274,7 @@ struct TaxPlanningView: View {
                     perDecisionImpact
                     rateBreakdownSection
                     bracketAnalysisSection
+                    irmaaAnalysisSection
                     strategyTipsSection
                     emptyAnalysisPlaceholder
                 }
@@ -299,7 +303,7 @@ struct TaxPlanningView: View {
             }
             .padding(40)
             .frame(maxWidth: .infinity)
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -313,9 +317,16 @@ struct TaxPlanningView: View {
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("Model Roth conversions, withdrawals, and charitable giving to find your optimal tax strategy.")
+            Text("Work through each step below to build your tax scenario. Adjust conversions, withdrawals, and charitable giving \u{2014} the tax impact updates in real time.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+
+            if isWideLayout {
+                Text("Adjust inputs on the left and see results on the right.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .italic()
+            }
 
             HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -353,7 +364,7 @@ struct TaxPlanningView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -437,7 +448,7 @@ struct TaxPlanningView: View {
             }
         }
         .padding(12)
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -456,23 +467,56 @@ struct TaxPlanningView: View {
                     let impact = dataManager.rothConversionTaxImpact
                     let _ = netImpact += impact
                     impactRow(label: "Roth Conversions", amount: impact, isPositive: false, color: .purple)
+
+                    let irmaaImpact = dataManager.rothConversionIRMAAImpact
+                    if irmaaImpact > 0 {
+                        let _ = netImpact += irmaaImpact
+                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
+                    }
                 }
 
                 if dataManager.scenarioTotalExtraWithdrawal > 0 {
                     let impact = dataManager.extraWithdrawalTaxImpact
                     let _ = netImpact += impact
                     impactRow(label: "Extra Withdrawals", amount: impact, isPositive: false, color: .blue)
+
+                    let irmaaImpact = dataManager.extraWithdrawalIRMAAImpact
+                    if irmaaImpact > 0 {
+                        let _ = netImpact += irmaaImpact
+                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
+                    }
+                }
+
+                if dataManager.inheritedTraditionalExtraTotal > 0 {
+                    let impact = dataManager.inheritedExtraWithdrawalTaxImpact
+                    let _ = netImpact += impact
+                    impactRow(label: "Inherited IRA Withdrawals", amount: impact, isPositive: false, color: .indigo)
+
+                    let irmaaImpact = dataManager.inheritedExtraWithdrawalIRMAAImpact
+                    if irmaaImpact > 0 {
+                        let _ = netImpact += irmaaImpact
+                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
+                    }
                 }
 
                 if totalQCD > 0 {
                     let savings = dataManager.qcdTaxSavings
                     let _ = netImpact -= savings
                     impactRow(label: "QCD", amount: savings, isPositive: true, color: .green)
-                    Text("QCD also lowers your Adjusted Gross Income (AGI), which may provide additional savings not shown here — such as lower Medicare IRMAA premiums and reduced Social Security taxation.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 28)
-                        .padding(.top, -4)
+
+                    let irmaaSavings = dataManager.qcdIRMAASavings
+                    if irmaaSavings > 0 {
+                        let _ = netImpact -= irmaaSavings
+                        impactRow(label: "  IRMAA Savings", amount: irmaaSavings, isPositive: true, color: .pink)
+                    }
+
+                    if irmaaSavings == 0 {
+                        Text("QCD also lowers your AGI, which may reduce Social Security taxation.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 28)
+                            .padding(.top, -4)
+                    }
                 }
 
                 if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
@@ -483,16 +527,16 @@ struct TaxPlanningView: View {
                         impactRow(label: "Stock Donation Tax Reduction", amount: deductionSavings, isPositive: true, color: .orange)
                     }
 
-                    // Capital gains tax avoided (by donating instead of selling)
+                    // Tax on gain avoided (by donating instead of selling)
                     let gainsAvoided = dataManager.stockCapGainsTaxAvoided
                     if gainsAvoided > 0 {
                         let _ = netImpact -= gainsAvoided
-                        impactRow(label: "Cap Gains Avoided", amount: gainsAvoided, isPositive: true, color: .orange)
+                        impactRow(label: dataManager.scenarioStockIsLongTerm ? "Cap Gains Avoided" : "Gain Tax Avoided", amount: gainsAvoided, isPositive: true, color: .orange)
                     }
 
                     // Note if not itemizing (deduction provides no benefit)
                     if deductionSavings == 0 && !dataManager.scenarioEffectiveItemize {
-                        Text("Taking standard deduction \u{2014} stock FMV deduction not applied")
+                        Text("Taking standard deduction \u{2014} stock donation deduction not applied")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .padding(.leading, 28)
@@ -508,9 +552,12 @@ struct TaxPlanningView: View {
 
                 Divider()
 
-                // Net impact
+                // Net impact (including IRMAA surcharge changes)
                 let displayNet = dataManager.rothConversionTaxImpact + dataManager.extraWithdrawalTaxImpact
+                    + dataManager.inheritedExtraWithdrawalTaxImpact
                     - dataManager.qcdTaxSavings - dataManager.stockDeductionTaxSavings - dataManager.stockCapGainsTaxAvoided - dataManager.cashDonationTaxSavings
+                    + dataManager.rothConversionIRMAAImpact + dataManager.extraWithdrawalIRMAAImpact
+                    + dataManager.inheritedExtraWithdrawalIRMAAImpact - dataManager.qcdIRMAASavings
 
                 HStack {
                     Text("Net Tax Impact")
@@ -529,7 +576,7 @@ struct TaxPlanningView: View {
                     .italic()
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -581,541 +628,750 @@ struct TaxPlanningView: View {
         }
     }
 
-    // MARK: - Roth Conversion Section
+    // MARK: - Step 1: Roth Conversions
 
-    private var rothConversionSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Roth Conversions")
-                .font(.headline)
+    private var rothConversionStep: some View {
+        ScenarioStepSection(
+            stepNumber: 1,
+            title: "Roth Conversions",
+            description: "Move funds from a Traditional IRA to a Roth IRA. You\u{2019}ll pay tax now, but future growth and withdrawals are tax-free. There\u{2019}s no age restriction \u{2014} this is especially valuable before RMDs begin, when your income may be lower. As you adjust the amount, watch the tax impact update on the right.",
+            stepColor: .orange,
+            icon: "arrow.right.arrow.left"
+        ) {
+            rothConversionContent
+        }
+    }
 
-            // Your Roth conversion
+    @ViewBuilder
+    private var rothConversionContent: some View {
+        // Your Roth conversion
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your Conversion" : "Conversion Amount",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: dataManager.primaryTraditionalIRABalance,
+            amount: $dataManager.yourRothConversion,
+            sliderMax: yourSliderMax,
+            tint: .orange
+        )
+
+        if dataManager.yourRothConversion > 0 {
+            QuarterPicker(label: "Timing", quarter: $dataManager.yourRothConversionQuarter)
+        }
+
+        // Spouse Roth conversion
+        if spouseEnabled && dataManager.spouseTraditionalIRABalance > 0 {
             ConversionSliderCard(
-                label: spouseEnabled ? "Your Conversion" : "Conversion Amount",
-                icon: spouseEnabled ? "person.fill" : nil,
-                balance: dataManager.primaryTraditionalIRABalance,
-                amount: $dataManager.yourRothConversion,
-                sliderMax: yourSliderMax,
+                label: "\(spouseLabel)'s Conversion",
+                icon: "person.fill",
+                balance: dataManager.spouseTraditionalIRABalance,
+                amount: $dataManager.spouseRothConversion,
+                sliderMax: spouseSliderMax,
                 tint: .orange
             )
 
-            if dataManager.yourRothConversion > 0 {
-                QuarterPicker(label: "Timing", quarter: $dataManager.yourRothConversionQuarter)
+            if dataManager.spouseRothConversion > 0 {
+                QuarterPicker(label: "Timing", quarter: $dataManager.spouseRothConversionQuarter)
             }
+        }
 
-            // Spouse Roth conversion
-            if spouseEnabled && dataManager.spouseTraditionalIRABalance > 0 {
-                ConversionSliderCard(
-                    label: "\(spouseLabel)'s Conversion",
-                    icon: "person.fill",
-                    balance: dataManager.spouseTraditionalIRABalance,
-                    amount: $dataManager.spouseRothConversion,
-                    sliderMax: spouseSliderMax,
-                    tint: .orange
-                )
-
-                if dataManager.spouseRothConversion > 0 {
-                    QuarterPicker(label: "Timing", quarter: $dataManager.spouseRothConversionQuarter)
-                }
+        // Combined total
+        if spouseEnabled && (dataManager.yourRothConversion > 0 || dataManager.spouseRothConversion > 0) {
+            Divider()
+            HStack {
+                Text("Combined Roth Conversions")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(totalRothConversion, format: .currency(code: "USD"))
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.orange)
             }
+        }
 
-            // Combined total
-            if spouseEnabled && (dataManager.yourRothConversion > 0 || dataManager.spouseRothConversion > 0) {
-                Divider()
-                HStack {
-                    Text("Combined Roth Conversions")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text(totalRothConversion, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.orange)
-                }
-            }
-
-            // Bracket room indicator
-            if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
-                let room = federalBracketRoom
-                let bracketPct = String(format: "%.0f", room.currentRate * 100)
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
-                    if room.roomRemaining > 0 {
-                        Text("Federal: \(room.roomRemaining.formatted(.currency(code: "USD"))) remaining in \(bracketPct)% bracket")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Federal: At top of \(bracketPct)% bracket")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+        // Bracket room indicator
+        if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
+            let room = federalBracketRoom
+            let bracketPct = String(format: "%.0f", room.currentRate * 100)
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.blue)
+                if room.roomRemaining > 0 {
+                    Text("Federal: \(room.roomRemaining.formatted(.currency(code: "USD"))) remaining in \(bracketPct)% bracket")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Federal: At top of \(bracketPct)% bracket")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    // MARK: - Withdrawal Section
+    // MARK: - Step 2: IRA/401(k) Withdrawals
 
-    private var withdrawalSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("IRA/401(k) Withdrawals")
-                .font(.headline)
+    private var withdrawalStep: some View {
+        ScenarioStepSection(
+            stepNumber: 2,
+            title: "IRA/401(k) Withdrawals",
+            description: "Withdraw cash from your retirement savings for living expenses or other needs. Withdrawals are penalty-free after age 59\u{00BD}. Required Minimum Distributions (RMDs) are shown automatically. Any extra withdrawals add to your taxable income \u{2014} see the impact on tax rates and IRMAA on the right.",
+            stepColor: .blue,
+            icon: "banknote"
+        ) {
+            withdrawalContent
+        }
+    }
 
-            // Your RMD & extra withdrawal
-            if dataManager.primaryTraditionalIRABalance > 0 {
-                VStack(alignment: .leading, spacing: 12) {
-                    if spouseEnabled {
-                        Label("Your Withdrawals", systemImage: "person.fill")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                    }
-
-                    if dataManager.isRMDRequired {
-                        HStack {
-                            Text("Required RMD")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(yourRMD, format: .currency(code: "USD"))
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.red)
-                        }
-                    }
-
-                    WithdrawalSliderCard(
-                        label: "Extra Withdrawal",
-                        amount: $dataManager.yourExtraWithdrawal,
-                        sliderMax: 200_000,
-                        tint: .blue
-                    )
-
-                    if dataManager.isRMDRequired || dataManager.yourExtraWithdrawal > 0 {
-                        QuarterPicker(label: "Withdrawal Timing", quarter: $dataManager.yourWithdrawalQuarter)
-                    }
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-
-            // Spouse RMD & extra withdrawal
-            if spouseEnabled && dataManager.spouseTraditionalIRABalance > 0 {
-                VStack(alignment: .leading, spacing: 12) {
-                    Label("\(spouseLabel)'s Withdrawals", systemImage: "person.fill")
+    @ViewBuilder
+    private var withdrawalContent: some View {
+        // Your RMD & extra withdrawal
+        if dataManager.primaryTraditionalIRABalance > 0 {
+            VStack(alignment: .leading, spacing: 12) {
+                if spouseEnabled {
+                    Label("Your Withdrawals", systemImage: "person.fill")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-
-                    if dataManager.spouseIsRMDRequired {
-                        HStack {
-                            Text("Required RMD")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(spouseRMD, format: .currency(code: "USD"))
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.red)
-                        }
-                    } else {
-                        HStack {
-                            Text("RMD")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text("Not yet required")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    WithdrawalSliderCard(
-                        label: "Extra Withdrawal",
-                        amount: $dataManager.spouseExtraWithdrawal,
-                        sliderMax: 200_000,
-                        tint: .blue
-                    )
-
-                    if dataManager.spouseIsRMDRequired || dataManager.spouseExtraWithdrawal > 0 {
-                        QuarterPicker(label: "Withdrawal Timing", quarter: $dataManager.spouseWithdrawalQuarter)
-                    }
                 }
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
 
-            // Combined totals
-            if totalWithdrawals > 0 {
-                Divider()
-
-                if spouseEnabled && combinedRMD > 0 {
+                if dataManager.isRMDRequired {
                     HStack {
-                        Text("Combined RMDs")
+                        Text("Required RMD")
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Text(combinedRMD, format: .currency(code: "USD"))
+                        Text(yourRMD, format: .currency(code: "USD"))
                             .fontWeight(.semibold)
                             .foregroundStyle(.red)
                     }
                 }
 
+                WithdrawalSliderCard(
+                    label: "Extra Withdrawal",
+                    amount: $dataManager.yourExtraWithdrawal,
+                    sliderMax: 200_000,
+                    tint: .blue
+                )
+
+                if dataManager.isRMDRequired || dataManager.yourExtraWithdrawal > 0 {
+                    QuarterPicker(label: "Withdrawal Timing", quarter: $dataManager.yourWithdrawalQuarter)
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+
+        // Spouse RMD & extra withdrawal
+        if spouseEnabled && dataManager.spouseTraditionalIRABalance > 0 {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("\(spouseLabel)'s Withdrawals", systemImage: "person.fill")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                if dataManager.spouseIsRMDRequired {
+                    HStack {
+                        Text("Required RMD")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(spouseRMD, format: .currency(code: "USD"))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.red)
+                    }
+                } else {
+                    HStack {
+                        Text("RMD")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("Not yet required")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                WithdrawalSliderCard(
+                    label: "Extra Withdrawal",
+                    amount: $dataManager.spouseExtraWithdrawal,
+                    sliderMax: 200_000,
+                    tint: .blue
+                )
+
+                if dataManager.spouseIsRMDRequired || dataManager.spouseExtraWithdrawal > 0 {
+                    QuarterPicker(label: "Withdrawal Timing", quarter: $dataManager.spouseWithdrawalQuarter)
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+
+        // Combined totals
+        if totalWithdrawals > 0 {
+            Divider()
+
+            if spouseEnabled && combinedRMD > 0 {
                 HStack {
-                    Text(spouseEnabled ? "Combined Total Distribution" : "Total IRA/401(k) Distribution")
-                        .fontWeight(.semibold)
+                    Text("Combined RMDs")
+                        .foregroundStyle(.secondary)
                     Spacer()
-                    Text(totalWithdrawals, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.blue)
+                    Text(combinedRMD, format: .currency(code: "USD"))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            HStack {
+                Text(spouseEnabled ? "Combined Total Distribution" : "Total IRA/401(k) Distribution")
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(totalWithdrawals, format: .currency(code: "USD"))
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.blue)
+            }
+        }
+    }
+
+    // MARK: - Step 3: Inherited IRA Withdrawals (conditional)
+
+    @ViewBuilder
+    private var inheritedWithdrawalStep: some View {
+        if dataManager.hasInheritedAccounts {
+            ScenarioStepSection(
+                stepNumber: 3,
+                title: "Inherited IRA Withdrawals",
+                description: "If you\u{2019}ve inherited a Traditional IRA, required annual distributions may apply depending on the original owner\u{2019}s RBD status and your beneficiary type. You can take extra withdrawals beyond the required amount. Inherited Traditional distributions are taxable but not eligible for QCDs.",
+                stepColor: .indigo,
+                icon: "archivebox"
+            ) {
+                inheritedWithdrawalContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inheritedWithdrawalContent: some View {
+        ForEach(dataManager.inheritedAccounts) { account in
+            let result = dataManager.calculateInheritedIRARMD(account: account, forYear: dataManager.currentYear)
+            let extraMax = max(0, account.balance - result.annualRMD)
+            let isRoth = account.accountType == .inheritedRothIRA
+
+            VStack(alignment: .leading, spacing: 12) {
+                // Account name + owner badge
+                HStack {
+                    Text(account.name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    if spouseEnabled {
+                        Text(account.owner.rawValue)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.indigo.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
+                    Spacer()
+                    Text(isRoth ? "Roth" : "Traditional")
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(isRoth ? .green : .orange)
+                }
+
+                // Balance
+                HStack {
+                    Text("Balance")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(account.balance, format: .currency(code: "USD"))
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                }
+
+                // Beneficiary type
+                if let beneficiary = account.beneficiaryType {
+                    HStack {
+                        Text("Beneficiary")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(beneficiary.rawValue)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                // Required annual RMD
+                if result.annualRMD > 0 {
+                    HStack {
+                        Text("Required Distribution")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(result.annualRMD, format: .currency(code: "USD"))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.red)
+                    }
+                } else {
+                    HStack {
+                        Text("Required Distribution")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("None")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // 10-year deadline warning
+                if let deadline = result.mustEmptyByYear, let remaining = result.yearsRemaining {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                        Text("Must empty by end of \(deadline) (\(remaining) year\(remaining == 1 ? "" : "s") remaining)")
+                            .font(.caption)
+                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                    }
+                }
+
+                // Extra withdrawal slider
+                if extraMax > 0 {
+                    Divider()
+                    WithdrawalSliderCard(
+                        label: "Extra Withdrawal",
+                        amount: inheritedWithdrawalBinding(for: account.id),
+                        sliderMax: extraMax,
+                        tint: .indigo
+                    )
+                }
+
+                // Roth tax-free note
+                if isRoth {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Roth \u{2014} withdrawals are tax-free")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+
+        // Combined total
+        if dataManager.inheritedExtraWithdrawalTotal > 0 {
+            Divider()
+            HStack {
+                Text("Total Inherited Extra Withdrawals")
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(dataManager.inheritedExtraWithdrawalTotal, format: .currency(code: "USD"))
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.indigo)
+            }
+            if dataManager.inheritedTraditionalExtraTotal > 0 && dataManager.inheritedTraditionalExtraTotal < dataManager.inheritedExtraWithdrawalTotal {
+                HStack {
+                    Text("Taxable (Traditional)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(dataManager.inheritedTraditionalExtraTotal, format: .currency(code: "USD"))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
                 }
             }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    // MARK: - Charitable Section
-
-    private var charitableSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Charitable Contributions")
-                    .font(.headline)
-                Spacer()
-                if hasAnyCharitable {
-                    Text("Total: \(totalCharitable, format: .currency(code: "USD"))")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.green)
-                }
-            }
-
-            // Deduction comparison card
-            deductionComparisonCard
-
-            Divider()
-
-            // MARK: QCD Sub-section
-            DisclosureGroup(isExpanded: $qcdSectionExpanded) {
-                if qcdEligible {
-                    VStack(spacing: 12) {
-                        // Your QCD slider
-                        if dataManager.isQCDEligible {
-                            VStack(spacing: 10) {
-                                HStack {
-                                    if spouseEnabled {
-                                        Label("Your QCD", systemImage: "person.fill")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    } else {
-                                        Text("QCD Amount")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    CurrencyField(value: $dataManager.yourQCDAmount, range: 0...yourMaxQCD, color: .green)
-                                }
-
-                                Slider(value: $dataManager.yourQCDAmount, in: 0...yourMaxQCD, step: 500)
-                                    .tint(.green)
-
-                                HStack {
-                                    Text("$0")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("Max: \(yourMaxQCD, format: .currency(code: "USD"))")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-
-                        // Spouse QCD slider
-                        if spouseEnabled && dataManager.spouseIsQCDEligible {
-                            VStack(spacing: 10) {
-                                HStack {
-                                    Label("\(spouseLabel)'s QCD", systemImage: "person.fill")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    CurrencyField(value: $dataManager.spouseQCDAmount, range: 0...spouseMaxQCD, color: .green)
-                                }
-
-                                Slider(value: $dataManager.spouseQCDAmount, in: 0...spouseMaxQCD, step: 500)
-                                    .tint(.green)
-
-                                HStack {
-                                    Text("$0")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("Max: \(spouseMaxQCD, format: .currency(code: "USD"))")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-
-                        // Combined total (only when spouse enabled and either has amount)
-                        if spouseEnabled && totalQCD > 0 {
-                            Divider()
-                            HStack {
-                                Text("Combined QCD")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                Spacer()
-                                Text(totalQCD, format: .currency(code: "USD"))
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.green)
-                            }
-                        }
-
-                        // RMD satisfaction (when RMD exists)
-                        if totalQCD > 0 && combinedRMD > 0 {
-                            Divider()
-                            HStack {
-                                Text("RMD Satisfied by QCD")
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text(min(totalQCD, combinedRMD), format: .currency(code: "USD"))
-                                    .font(.callout)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.green)
-                            }
-                            HStack {
-                                Text("Remaining RMD")
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text(adjustedCombinedRMD, format: .currency(code: "USD"))
-                                    .font(.callout)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(adjustedCombinedRMD > 0 ? .red : .green)
-                            }
-                        }
-
-                        // No-RMD note
-                        if totalQCD > 0 && combinedRMD == 0 {
-                            Divider()
-                            Text("No RMD requirement yet \u{2014} QCD is excluded from taxable income as a direct IRA-to-charity transfer")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .italic()
-                        }
-                    }
-                    .padding(.top, 8)
+    /// Creates a Binding into the inheritedExtraWithdrawals dictionary for a specific account UUID.
+    private func inheritedWithdrawalBinding(for accountId: UUID) -> Binding<Double> {
+        Binding<Double>(
+            get: { dataManager.inheritedExtraWithdrawals[accountId] ?? 0 },
+            set: { newValue in
+                if newValue > 0 {
+                    dataManager.inheritedExtraWithdrawals[accountId] = newValue
                 } else {
-                    Text("QCD requires age 70\u{00BD} or older")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .italic()
-                        .padding(.top, 8)
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "heart.circle.fill")
-                        .foregroundStyle(.green)
-                    Text("QCD \u{2014} From RMD")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                    dataManager.inheritedExtraWithdrawals.removeValue(forKey: accountId)
                 }
             }
+        )
+    }
 
-            Divider()
+    /// Dynamic step number for charitable contributions (shifts when inherited accounts exist)
+    private var charitableStepNumber: Int {
+        dataManager.hasInheritedAccounts ? 4 : 3
+    }
 
-            // MARK: Appreciated Stock Sub-section
-            DisclosureGroup(isExpanded: $stockSectionExpanded) {
+    // MARK: - Charitable Contributions
+
+    private var charitableStep: some View {
+        ScenarioStepSection(
+            stepNumber: charitableStepNumber,
+            title: "Charitable Contributions",
+            description: "Reduce your tax burden through charitable giving. QCDs (age 70\u{00BD}+) transfer IRA funds directly to charity and can satisfy RMDs tax-free. Donating appreciated stock avoids tax on unrealized gains \u{2014} long-term holdings get a fair market value deduction, while short-term holdings are deductible at cost basis. Cash donations provide a deduction when itemizing. Each method has different tax benefits \u{2014} combine them to optimize your strategy.",
+            stepColor: .green,
+            icon: "heart.circle"
+        ) {
+            charitableContent
+        }
+    }
+
+    @ViewBuilder
+    private var charitableContent: some View {
+        if hasAnyCharitable {
+            HStack {
+                Spacer()
+                Text("Total: \(totalCharitable, format: .currency(code: "USD"))")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.green)
+            }
+        }
+
+        // Deduction comparison card
+        deductionComparisonCard
+
+        Divider()
+
+        // MARK: QCD Sub-section
+        DisclosureGroup(isExpanded: $qcdSectionExpanded) {
+            if qcdEligible {
                 VStack(spacing: 12) {
-                    Toggle("Enable Stock Donation", isOn: $dataManager.stockDonationEnabled)
-                        .font(.subheadline)
-
-                    if dataManager.stockDonationEnabled {
+                    // Your QCD slider
+                    if dataManager.isQCDEligible {
                         VStack(spacing: 10) {
                             HStack {
-                                Text("Purchase Price")
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                HStack {
-                                    Text("$")
+                                if spouseEnabled {
+                                    Label("Your QCD", systemImage: "person.fill")
+                                        .font(.subheadline)
                                         .foregroundStyle(.secondary)
-                                    TextField("0", text: $stockPurchasePriceText)
-                                        .keyboardType(.decimalPad)
-                                        .multilineTextAlignment(.trailing)
-                                        .frame(width: 120)
+                                } else {
+                                    Text("QCD Amount")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
                                 }
+                                Spacer()
+                                CurrencyField(value: $dataManager.yourQCDAmount, range: 0...yourMaxQCD, color: .green)
                             }
+
+                            Slider(value: $dataManager.yourQCDAmount, in: 0...yourMaxQCD, step: 500)
+                                .tint(.green)
 
                             HStack {
-                                Text("Current Value")
-                                    .font(.callout)
+                                Text("$0")
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                HStack {
-                                    Text("$")
-                                        .foregroundStyle(.secondary)
-                                    TextField("0", text: $stockCurrentValueText)
-                                        .keyboardType(.decimalPad)
-                                        .multilineTextAlignment(.trailing)
-                                        .frame(width: 120)
-                                }
-                            }
-
-                            DatePicker("Purchase Date", selection: $dataManager.stockPurchaseDate, in: ...Date(), displayedComponents: .date)
-                                .font(.callout)
-                        }
-
-                        if stockCurrentValueNum > 0 || stockPurchasePriceValue > 0 {
-                            Divider()
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Holding Period")
-                                        .font(.callout)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("\(stockHoldingPeriodText) (\(stockIsLongTerm ? "Long-term \u{2713}" : "Short-term"))")
-                                        .font(.callout)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(stockIsLongTerm ? .green : .red)
-                                }
-
-                                if !stockIsLongTerm {
-                                    Text("Short-term holding \u{2014} only cost basis is deductible, not fair market value")
-                                        .font(.caption2)
-                                        .foregroundStyle(.red)
-                                        .italic()
-                                }
-
-                                if stockCurrentValueNum > stockPurchasePriceValue {
-                                    HStack {
-                                        Text("Unrealized Gain")
-                                            .font(.callout)
-                                            .foregroundStyle(.secondary)
-                                        Spacer()
-                                        Text(stockCurrentValueNum - stockPurchasePriceValue, format: .currency(code: "USD"))
-                                            .font(.callout)
-                                            .fontWeight(.semibold)
-                                            .foregroundStyle(.green)
-                                    }
-
-                                    if stockIsLongTerm {
-                                        HStack {
-                                            Text("Capital Gains Tax Avoided")
-                                                .font(.callout)
-                                                .foregroundStyle(.secondary)
-                                            Spacer()
-                                            Text(stockGainAvoided, format: .currency(code: "USD"))
-                                                .font(.callout)
-                                                .fontWeight(.semibold)
-                                                .foregroundStyle(.green)
-                                        }
-                                        .padding(.leading, 8)
-                                    }
-                                } else if stockCurrentValueNum > 0 {
-                                    Text("No unrealized gain \u{2014} consider cash donation instead")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .italic()
-                                }
-
-                                if itemizeDeductions {
-                                    HStack {
-                                        Text("Deduction")
-                                            .font(.callout)
-                                            .foregroundStyle(.secondary)
-                                        Spacer()
-                                        let deduction = stockIsLongTerm ? stockCurrentValueNum : stockPurchasePriceValue
-                                        Text(deduction, format: .currency(code: "USD"))
-                                            .font(.callout)
-                                            .fontWeight(.semibold)
-                                            .foregroundStyle(.orange)
-                                    }
-                                    Text(stockIsLongTerm ? "Fair market value deduction" : "Cost basis deduction (short-term)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text("Max: \(yourMaxQCD, format: .currency(code: "USD"))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
-                }
-                .padding(.top, 8)
-            } label: {
-                HStack {
-                    Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
-                        .foregroundStyle(.blue)
-                    Text("Appreciated Stock Donation")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-            }
 
-            Divider()
+                    // Spouse QCD slider
+                    if spouseEnabled && dataManager.spouseIsQCDEligible {
+                        VStack(spacing: 10) {
+                            HStack {
+                                Label("\(spouseLabel)'s QCD", systemImage: "person.fill")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                CurrencyField(value: $dataManager.spouseQCDAmount, range: 0...spouseMaxQCD, color: .green)
+                            }
 
-            // MARK: Cash/Bank Sub-section
-            DisclosureGroup(isExpanded: $cashSectionExpanded) {
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("Cash Donation Amount")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        CurrencyField(value: $dataManager.cashDonationAmount, range: 0...200_000, color: .primary)
+                            Slider(value: $dataManager.spouseQCDAmount, in: 0...spouseMaxQCD, step: 500)
+                                .tint(.green)
+
+                            HStack {
+                                Text("$0")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("Max: \(spouseMaxQCD, format: .currency(code: "USD"))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
 
-                    Slider(value: $dataManager.cashDonationAmount, in: 0...200_000, step: 500)
-                        .tint(.purple)
-
-                    HStack {
-                        Text("$0")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text("$200,000")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if dataManager.cashDonationAmount > 0 {
+                    // Combined total (only when spouse enabled and either has amount)
+                    if spouseEnabled && totalQCD > 0 {
                         Divider()
                         HStack {
-                            Text(itemizeDeductions ? "Tax Deduction" : "No Tax Benefit")
+                            Text("Combined QCD")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Text(totalQCD, format: .currency(code: "USD"))
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.green)
+                        }
+                    }
+
+                    // RMD satisfaction (when RMD exists)
+                    if totalQCD > 0 && combinedRMD > 0 {
+                        Divider()
+                        HStack {
+                            Text("RMD Satisfied by QCD")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(itemizeDeductions ? dataManager.cashDonationAmount : 0, format: .currency(code: "USD"))
+                            Text(min(totalQCD, combinedRMD), format: .currency(code: "USD"))
                                 .font(.callout)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(itemizeDeductions ? .orange : .red)
+                                .foregroundStyle(.green)
                         }
+                        HStack {
+                            Text("Remaining RMD")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(adjustedCombinedRMD, format: .currency(code: "USD"))
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(adjustedCombinedRMD > 0 ? .red : .green)
+                        }
+                    }
 
-                        if !itemizeDeductions {
-                            Text("Taking standard deduction \u{2014} cash donations don't reduce taxes")
-                                .font(.caption2)
-                                .foregroundStyle(.red)
-                                .italic()
-                        }
+                    // No-RMD note
+                    if totalQCD > 0 && combinedRMD == 0 {
+                        Divider()
+                        Text("No RMD requirement yet \u{2014} QCD is excluded from taxable income as a direct IRA-to-charity transfer")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .italic()
                     }
                 }
                 .padding(.top, 8)
-            } label: {
-                HStack {
-                    Image(systemName: "banknote.fill")
-                        .foregroundStyle(.purple)
-                    Text("Cash / Bank Account Donation")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
+            } else {
+                Text("QCD requires age 70\u{00BD} or older")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .italic()
+                    .padding(.top, 8)
+            }
+        } label: {
+            HStack {
+                Image(systemName: "heart.circle.fill")
+                    .foregroundStyle(.green)
+                Text("QCD \u{2014} From RMD")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
             }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+
+        if dataManager.hasInheritedAccounts {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundStyle(.orange)
+                Text("Inherited IRA distributions are not eligible for QCDs. Only distributions from your own Traditional IRA qualify for QCD treatment.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+
+        Divider()
+
+        // MARK: Appreciated Stock Sub-section
+        DisclosureGroup(isExpanded: $stockSectionExpanded) {
+            VStack(spacing: 12) {
+                Toggle("Enable Stock Donation", isOn: $dataManager.stockDonationEnabled)
+                    .font(.subheadline)
+
+                if dataManager.stockDonationEnabled {
+                    VStack(spacing: 10) {
+                        HStack {
+                            Text("Purchase Price")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            HStack {
+                                Text("$")
+                                    .foregroundStyle(.secondary)
+                                TextField("0", text: $stockPurchasePriceText)
+                                    #if os(iOS)
+                                    .keyboardType(.decimalPad)
+                                    #endif
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 120)
+                            }
+                        }
+
+                        HStack {
+                            Text("Current Value")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            HStack {
+                                Text("$")
+                                    .foregroundStyle(.secondary)
+                                TextField("0", text: $stockCurrentValueText)
+                                    #if os(iOS)
+                                    .keyboardType(.decimalPad)
+                                    #endif
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 120)
+                            }
+                        }
+
+                        DatePicker("Purchase Date", selection: $dataManager.stockPurchaseDate, in: ...Date(), displayedComponents: .date)
+                            .font(.callout)
+                    }
+
+                    if stockCurrentValueNum > 0 || stockPurchasePriceValue > 0 {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Holding Period")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(stockHoldingPeriodText) (\(stockIsLongTerm ? "Long-term \u{2713}" : "Short-term"))")
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(stockIsLongTerm ? .green : .orange)
+                            }
+
+                            if !stockIsLongTerm {
+                                Text("Short-term holding \u{2014} deduction limited to cost basis, but donating still avoids tax on the gain")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                                    .italic()
+                            }
+
+                            if stockCurrentValueNum > stockPurchasePriceValue {
+                                HStack {
+                                    Text("Unrealized Gain")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(stockCurrentValueNum - stockPurchasePriceValue, format: .currency(code: "USD"))
+                                        .font(.callout)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.green)
+                                }
+
+                                HStack {
+                                    Text(stockIsLongTerm ? "Cap Gains Tax Avoided" : "Income Tax Avoided")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(stockGainAvoided, format: .currency(code: "USD"))
+                                        .font(.callout)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.green)
+                                }
+                                .padding(.leading, 8)
+
+                                if !stockIsLongTerm {
+                                    Text("Short-term gain would be taxed as ordinary income if sold")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .italic()
+                                        .padding(.leading, 8)
+                                }
+                            } else if stockCurrentValueNum > 0 {
+                                Text("No unrealized gain \u{2014} consider cash donation instead")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .italic()
+                            }
+
+                            if itemizeDeductions {
+                                HStack {
+                                    Text("Deduction")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    let deduction = stockIsLongTerm ? stockCurrentValueNum : stockPurchasePriceValue
+                                    Text(deduction, format: .currency(code: "USD"))
+                                        .font(.callout)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.orange)
+                                }
+                                Text(stockIsLongTerm ? "Fair market value deduction" : "Cost basis deduction (short-term)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.top, 8)
+        } label: {
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
+                    .foregroundStyle(.blue)
+                Text("Appreciated Stock Donation")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+        }
+
+        Divider()
+
+        // MARK: Cash/Bank Sub-section
+        DisclosureGroup(isExpanded: $cashSectionExpanded) {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Cash Donation Amount")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    CurrencyField(value: $dataManager.cashDonationAmount, range: 0...200_000, color: .primary)
+                }
+
+                Slider(value: $dataManager.cashDonationAmount, in: 0...200_000, step: 500)
+                    .tint(.purple)
+
+                HStack {
+                    Text("$0")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("$200,000")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if dataManager.cashDonationAmount > 0 {
+                    Divider()
+                    HStack {
+                        Text(itemizeDeductions ? "Tax Deduction" : "No Tax Benefit")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(itemizeDeductions ? dataManager.cashDonationAmount : 0, format: .currency(code: "USD"))
+                            .font(.callout)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(itemizeDeductions ? .orange : .red)
+                    }
+
+                    if !itemizeDeductions {
+                        Text("Taking standard deduction \u{2014} cash donations don't reduce taxes")
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                            .italic()
+                    }
+                }
+            }
+            .padding(.top, 8)
+        } label: {
+            HStack {
+                Image(systemName: "banknote.fill")
+                    .foregroundStyle(.purple)
+                Text("Cash / Bank Account Donation")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+        }
     }
 
     // MARK: - Tax Impact Section
@@ -1132,6 +1388,7 @@ struct TaxPlanningView: View {
                 totalRothConversion: totalRothConversion,
                 qcdAmount: totalQCD,
                 stockDonationValue: dataManager.stockDonationEnabled ? stockCurrentValueNum : 0,
+                stockDeductionAmount: dataManager.stockDonationEnabled ? (stockIsLongTerm ? stockCurrentValueNum : stockPurchasePriceValue) : 0,
                 stockDonationGain: stockGainAvoided,
                 cashDonationAmount: dataManager.cashDonationAmount,
                 itemizeDeductions: itemizeDeductions,
@@ -1160,7 +1417,7 @@ struct TaxPlanningView: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
                         .frame(width: 72, alignment: .trailing)
-                    Text("California")
+                    Text(dataManager.selectedState.abbreviation)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
@@ -1191,7 +1448,7 @@ struct TaxPlanningView: View {
                 )
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -1216,18 +1473,165 @@ struct TaxPlanningView: View {
                     color: .blue
                 )
 
-                BracketAnalysisCard(
-                    title: "California",
-                    bracketBefore: analysis.stateBracketBefore,
-                    bracketAfter: analysis.stateBracketAfter,
-                    marginalBefore: analysis.stateMarginalBefore,
-                    marginalAfter: analysis.stateMarginalAfter,
-                    crosses: analysis.crossesStateBracket,
-                    color: .orange
-                )
+                // State bracket analysis — conditional on tax system type
+                if case .progressive = dataManager.selectedStateConfig.taxSystem {
+                    BracketAnalysisCard(
+                        title: dataManager.selectedState.rawValue,
+                        bracketBefore: analysis.stateBracketBefore,
+                        bracketAfter: analysis.stateBracketAfter,
+                        marginalBefore: analysis.stateMarginalBefore,
+                        marginalAfter: analysis.stateMarginalAfter,
+                        crosses: analysis.crossesStateBracket,
+                        color: .orange
+                    )
+                } else if case .flat(let rate) = dataManager.selectedStateConfig.taxSystem {
+                    HStack {
+                        Text(dataManager.selectedState.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Text(String(format: "Flat rate: %.2f%%", rate * 100))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if case .noIncomeTax = dataManager.selectedStateConfig.taxSystem {
+                    HStack {
+                        Text(dataManager.selectedState.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Text("No state income tax")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                    }
+                } else if case .specialLimited = dataManager.selectedStateConfig.taxSystem {
+                    HStack {
+                        Text(dataManager.selectedState.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Text("No general income tax")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                    }
+                }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
+    }
+
+    // MARK: - IRMAA Analysis Section
+
+    @ViewBuilder
+    private var irmaaAnalysisSection: some View {
+        if dataManager.medicareMemberCount > 0 {
+            let irmaa = dataManager.scenarioIRMAA
+            let baseline = dataManager.baselineIRMAA
+            let memberCount = dataManager.medicareMemberCount
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "cross.case.fill")
+                        .foregroundStyle(.pink)
+                    Text("Medicare IRMAA")
+                        .font(.headline)
+                }
+
+                // Current MAGI and Tier
+                HStack {
+                    Text("Estimated MAGI")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(dataManager.estimatedAGI, format: .currency(code: "USD"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+
+                HStack {
+                    Text("IRMAA Tier")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(irmaa.tier == 0 ? "Standard (no surcharge)" : "Tier \(irmaa.tier)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(irmaa.tier > 0 ? .red : .green)
+                }
+
+                // Surcharge amount
+                if irmaa.tier > 0 {
+                    HStack {
+                        Text("Annual Surcharge")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(irmaa.annualSurchargePerPerson, format: .currency(code: "USD"))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.red)
+                            if memberCount > 1 {
+                                Text("per person")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if memberCount > 1 {
+                        HStack {
+                            Text("Household Total (\(memberCount) on Medicare)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(dataManager.scenarioIRMAATotalSurcharge, format: .currency(code: "USD"))
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Distance to next cliff
+                if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
+                    HStack(spacing: 6) {
+                        Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
+                            .foregroundStyle(distanceToNext < 10_000 ? .orange : .blue)
+                        Text("\(distanceToNext, format: .currency(code: "USD")) until next IRMAA tier")
+                            .font(.caption)
+                            .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                    }
+                }
+
+                // Tier change warning
+                if dataManager.scenarioPushedToHigherIRMAATier {
+                    let additionalCost = (irmaa.annualSurchargePerPerson - baseline.annualSurchargePerPerson) * Double(memberCount)
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                        Text("Scenario decisions push you from Tier \(baseline.tier) to Tier \(irmaa.tier) — adding \(additionalCost, format: .currency(code: "USD"))/year in surcharges")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                // 2-year lookback note
+                Text("IRMAA is based on income from 2 years prior. Your \(String(dataManager.currentYear)) income decisions will affect \(String(dataManager.currentYear + 2)) Medicare premiums.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .italic()
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -1263,7 +1667,7 @@ struct TaxPlanningView: View {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -1355,7 +1759,8 @@ struct TaxImpactView: View {
     let totalWithdrawals: Double
     let totalRothConversion: Double
     let qcdAmount: Double
-    let stockDonationValue: Double
+    let stockDonationValue: Double      // FMV — what the charity receives
+    let stockDeductionAmount: Double    // FMV for long-term, cost basis for short-term
     let stockDonationGain: Double
     let cashDonationAmount: Double
     let itemizeDeductions: Bool
@@ -1375,9 +1780,9 @@ struct TaxImpactView: View {
     private var adjustedTaxableIncome: Double {
         var income = baseIncome + totalRothConversion + totalWithdrawals
 
-        // Stock donation FMV deduction (if itemizing and long-term — gain > 0 implies long-term)
-        if stockDonationValue > 0 && itemizeDeductions {
-            income -= stockDonationValue
+        // Stock donation deduction (if itemizing — FMV for long-term, cost basis for short-term)
+        if stockDeductionAmount > 0 && itemizeDeductions {
+            income -= stockDeductionAmount
         }
 
         // Cash donation deduction (if itemizing)
@@ -1607,7 +2012,7 @@ struct TaxImpactView: View {
                 }
 
                 HStack {
-                    Text("State Tax")
+                    Text("State Tax (\(dataManager.selectedState.abbreviation))")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(scenarioAnalysis.stateTax, format: .currency(code: "USD"))
@@ -1639,7 +2044,7 @@ struct TaxImpactView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -1660,7 +2065,9 @@ struct CurrencyField: View {
 
     var body: some View {
         TextField("$0", text: $text)
+            #if os(iOS)
             .keyboardType(.numberPad)
+            #endif
             .multilineTextAlignment(.trailing)
             .font(.subheadline)
             .fontWeight(.semibold)
@@ -1710,6 +2117,52 @@ struct QuarterPicker: View {
             .pickerStyle(.segmented)
             .frame(width: 200)
         }
+    }
+}
+
+// MARK: - Scenario Step Section
+
+struct ScenarioStepSection<Content: View>: View {
+    let stepNumber: Int
+    let title: String
+    let description: String
+    let stepColor: Color
+    let icon: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Step header with numbered circle
+            HStack(alignment: .top, spacing: 12) {
+                Text("\(stepNumber)")
+                    .font(.callout)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(stepColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: icon)
+                            .foregroundStyle(stepColor)
+                            .font(.subheadline)
+                        Text(title)
+                            .font(.headline)
+                    }
+                    Text(description)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            content()
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 }
 

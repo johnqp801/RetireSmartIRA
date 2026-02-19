@@ -17,6 +17,7 @@ class DataManager: ObservableObject {
     }()
     @Published var currentYear: Int = Calendar.current.component(.year, from: Date())
     @Published var filingStatus: FilingStatus = .single
+    @Published var selectedState: USState = .california
     @Published var spouseName: String = ""
     @Published var spouseBirthDate: Date = {
         var c = DateComponents(); c.year = 1955; c.month = 1; c.day = 1
@@ -49,6 +50,7 @@ class DataManager: ObservableObject {
     @Published var stockCurrentValue: Double = 0
     @Published var stockPurchaseDate: Date = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
     @Published var cashDonationAmount: Double = 0
+    @Published var inheritedExtraWithdrawals: [UUID: Double] = [:]  // accountId → extra withdrawal amount
     @Published var deductionOverride: DeductionChoice? = nil  // nil = auto-pick best
     @Published var completedActionKeys: Set<String> = []
 
@@ -65,70 +67,126 @@ class DataManager: ObservableObject {
     struct TaxBrackets: Codable {
         var federalSingle: [TaxBracket]
         var federalMarried: [TaxBracket]
-        var stateSingle: [TaxBracket]
-        var stateMarried: [TaxBracket]
         var federalCapGainsSingle: [TaxBracket]
         var federalCapGainsMarried: [TaxBracket]
+        // Note: State brackets moved to StateTaxData.swift for multi-state support
     }
     
+    // MARK: - IRMAA (Medicare Premium Surcharge) Models
+
+    /// A single IRMAA tier with cliff thresholds and premium amounts.
+    /// Unlike tax brackets, IRMAA is cliff-based: crossing a threshold by $1
+    /// triggers the FULL surcharge for that tier.
+    struct IRMAATier {
+        let tier: Int                // 0 = standard (no surcharge), 1–5 = surcharge tiers
+        let singleThreshold: Double  // MAGI threshold for Single filers
+        let mfjThreshold: Double     // MAGI threshold for Married Filing Jointly
+        let partBMonthly: Double     // Total Part B monthly premium at this tier
+        let partDMonthly: Double     // Part D monthly surcharge at this tier
+    }
+
+    /// Result of an IRMAA tier lookup for a given MAGI.
+    struct IRMAAResult {
+        let tier: Int
+        let annualSurchargePerPerson: Double  // (Part B surcharge + Part D surcharge) × 12
+        let monthlyPartB: Double
+        let monthlyPartD: Double
+        let distanceToNextTier: Double?       // $ until next cliff (nil if top tier)
+        let distanceToPreviousTier: Double?   // $ above current tier threshold (nil if tier 0)
+        let magi: Double
+    }
+
+    /// Detailed breakdown of state tax calculation for a specific state.
+    /// Used by the State Comparison detail sheet to explain WHY a state's tax is what it is.
+    struct StateTaxBreakdown {
+        let state: USState
+        let totalIncome: Double                   // scenarioTaxableIncome
+
+        // Income by category (raw amounts before exemptions)
+        let socialSecurityIncome: Double
+        let pensionIncome: Double
+        let iraRmdIncome: Double
+        let otherIncome: Double
+
+        // Exemption results per category
+        let socialSecurityExempt: Bool
+        let socialSecurityExemptAmount: Double
+        let pensionExemptionLevel: RetirementIncomeExemptions.ExemptionLevel
+        let pensionExemptAmount: Double
+        let iraExemptionLevel: RetirementIncomeExemptions.ExemptionLevel
+        let iraExemptAmount: Double
+        let capitalGainsTreatment: RetirementIncomeExemptions.CapGainsTreatment
+
+        // After exemptions
+        let totalExempted: Double
+        let adjustedTaxableIncome: Double
+
+        // Tax calculation detail
+        let taxSystemDescription: String          // "No income tax" / "Flat 4.95%" / "Progressive 2%–9.9%"
+        let bracketBreakdown: [BracketDetail]     // empty for flat/no-tax states
+        let flatRate: Double?                     // only for flat-tax states
+        let totalStateTax: Double
+        let effectiveRate: Double                 // (totalStateTax / totalIncome) * 100
+
+        struct BracketDetail: Identifiable {
+            let id = UUID()
+            let bracketFloor: Double
+            let bracketCeiling: Double?           // nil for top bracket
+            let rate: Double
+            let taxableInBracket: Double
+            let taxFromBracket: Double            // taxableInBracket * rate
+        }
+    }
+
     // MARK: - Tax Bracket Storage
     @Published var currentTaxBrackets: TaxBrackets
     
-    // Initialize with 2026 defaults
+    // Initialize with 2026 defaults (IRS Rev. Proc. 2025-32, OBBBA-adjusted)
     static let default2026Brackets = TaxBrackets(
         federalSingle: [
             TaxBracket(threshold: 0, rate: 0.10),
-            TaxBracket(threshold: 11_925, rate: 0.12),
-            TaxBracket(threshold: 48_475, rate: 0.22),
-            TaxBracket(threshold: 103_350, rate: 0.24),
-            TaxBracket(threshold: 197_300, rate: 0.32),
-            TaxBracket(threshold: 250_525, rate: 0.35),
-            TaxBracket(threshold: 626_350, rate: 0.37)
+            TaxBracket(threshold: 12_400, rate: 0.12),
+            TaxBracket(threshold: 50_400, rate: 0.22),
+            TaxBracket(threshold: 105_700, rate: 0.24),
+            TaxBracket(threshold: 201_775, rate: 0.32),
+            TaxBracket(threshold: 256_225, rate: 0.35),
+            TaxBracket(threshold: 640_600, rate: 0.37)
         ],
         federalMarried: [
             TaxBracket(threshold: 0, rate: 0.10),
-            TaxBracket(threshold: 23_850, rate: 0.12),
-            TaxBracket(threshold: 96_950, rate: 0.22),
-            TaxBracket(threshold: 206_700, rate: 0.24),
-            TaxBracket(threshold: 394_600, rate: 0.32),
-            TaxBracket(threshold: 501_050, rate: 0.35),
-            TaxBracket(threshold: 751_600, rate: 0.37)
+            TaxBracket(threshold: 24_800, rate: 0.12),
+            TaxBracket(threshold: 100_800, rate: 0.22),
+            TaxBracket(threshold: 211_400, rate: 0.24),
+            TaxBracket(threshold: 403_550, rate: 0.32),
+            TaxBracket(threshold: 512_450, rate: 0.35),
+            TaxBracket(threshold: 768_700, rate: 0.37)
         ],
-        stateSingle: [
-            TaxBracket(threshold: 0, rate: 0.01),
-            TaxBracket(threshold: 10_412, rate: 0.02),
-            TaxBracket(threshold: 24_684, rate: 0.04),
-            TaxBracket(threshold: 38_959, rate: 0.06),
-            TaxBracket(threshold: 54_081, rate: 0.08),
-            TaxBracket(threshold: 68_350, rate: 0.093),
-            TaxBracket(threshold: 349_137, rate: 0.103),
-            TaxBracket(threshold: 418_961, rate: 0.113),
-            TaxBracket(threshold: 698_271, rate: 0.123)
-        ],
-        stateMarried: [
-            TaxBracket(threshold: 0, rate: 0.01),
-            TaxBracket(threshold: 20_824, rate: 0.02),
-            TaxBracket(threshold: 49_368, rate: 0.04),
-            TaxBracket(threshold: 77_918, rate: 0.06),
-            TaxBracket(threshold: 108_162, rate: 0.08),
-            TaxBracket(threshold: 136_700, rate: 0.093),
-            TaxBracket(threshold: 698_274, rate: 0.103),
-            TaxBracket(threshold: 837_922, rate: 0.113),
-            TaxBracket(threshold: 1_396_542, rate: 0.123)
-        ],
+        // State brackets moved to StateTaxData.swift for multi-state support
         federalCapGainsSingle: [
             TaxBracket(threshold: 0, rate: 0.0),
-            TaxBracket(threshold: 48_350, rate: 0.15),
-            TaxBracket(threshold: 533_400, rate: 0.20)
+            TaxBracket(threshold: 49_450, rate: 0.15),
+            TaxBracket(threshold: 545_500, rate: 0.20)
         ],
         federalCapGainsMarried: [
             TaxBracket(threshold: 0, rate: 0.0),
-            TaxBracket(threshold: 96_700, rate: 0.15),
-            TaxBracket(threshold: 600_050, rate: 0.20)
+            TaxBracket(threshold: 98_900, rate: 0.15),
+            TaxBracket(threshold: 613_700, rate: 0.20)
         ]
     )
-    
-    
+
+    // MARK: - 2026 IRMAA Tier Data (CMS finalized)
+    // Based on 2024 MAGI. Standard Part B premium: $202.90/month.
+    static let irmaaStandardPartB: Double = 202.90
+
+    static let irmaa2026Tiers: [IRMAATier] = [
+        IRMAATier(tier: 0, singleThreshold: 0,       mfjThreshold: 0,       partBMonthly: 202.90, partDMonthly: 0),
+        IRMAATier(tier: 1, singleThreshold: 109_001,  mfjThreshold: 218_001,  partBMonthly: 284.10, partDMonthly: 14.50),
+        IRMAATier(tier: 2, singleThreshold: 137_001,  mfjThreshold: 274_001,  partBMonthly: 405.50, partDMonthly: 37.40),
+        IRMAATier(tier: 3, singleThreshold: 171_001,  mfjThreshold: 342_001,  partBMonthly: 527.00, partDMonthly: 60.30),
+        IRMAATier(tier: 4, singleThreshold: 205_001,  mfjThreshold: 410_001,  partBMonthly: 608.40, partDMonthly: 83.10),
+        IRMAATier(tier: 5, singleThreshold: 500_001,  mfjThreshold: 750_001,  partBMonthly: 689.90, partDMonthly: 91.00),
+    ]
+
     // Computed Properties — derived from birthDate
 
     /// Extract birth year from birthDate for RMD age bracket calculation
@@ -250,7 +308,64 @@ class DataManager: ObservableObject {
             .filter { ($0.accountType == .rothIRA || $0.accountType == .roth401k) && $0.owner == .spouse }
             .reduce(0) { $0 + $1.balance }
     }
-    
+
+    // Inherited IRA Balances
+    var primaryInheritedTraditionalBalance: Double {
+        iraAccounts
+            .filter { $0.accountType == .inheritedTraditionalIRA && $0.owner == .primary }
+            .reduce(0) { $0 + $1.balance }
+    }
+
+    var spouseInheritedTraditionalBalance: Double {
+        guard enableSpouse else { return 0 }
+        return iraAccounts
+            .filter { $0.accountType == .inheritedTraditionalIRA && $0.owner == .spouse }
+            .reduce(0) { $0 + $1.balance }
+    }
+
+    var primaryInheritedRothBalance: Double {
+        iraAccounts
+            .filter { $0.accountType == .inheritedRothIRA && $0.owner == .primary }
+            .reduce(0) { $0 + $1.balance }
+    }
+
+    var spouseInheritedRothBalance: Double {
+        guard enableSpouse else { return 0 }
+        return iraAccounts
+            .filter { $0.accountType == .inheritedRothIRA && $0.owner == .spouse }
+            .reduce(0) { $0 + $1.balance }
+    }
+
+    var totalInheritedBalance: Double {
+        iraAccounts
+            .filter { $0.accountType.isInherited }
+            .reduce(0) { $0 + $1.balance }
+    }
+
+    /// All inherited IRA accounts
+    var inheritedAccounts: [IRAAccount] {
+        iraAccounts.filter { $0.accountType.isInherited }
+    }
+
+    /// Whether the user has any inherited IRA accounts
+    var hasInheritedAccounts: Bool {
+        iraAccounts.contains { $0.accountType.isInherited }
+    }
+
+    /// Extra withdrawals from inherited Traditional IRAs only (taxable as ordinary income)
+    var inheritedTraditionalExtraTotal: Double {
+        iraAccounts
+            .filter { $0.accountType == .inheritedTraditionalIRA }
+            .reduce(0) { $0 + (inheritedExtraWithdrawals[$1.id] ?? 0) }
+    }
+
+    /// Extra withdrawals from all inherited accounts (for display totals)
+    var inheritedExtraWithdrawalTotal: Double {
+        iraAccounts
+            .filter { $0.accountType.isInherited }
+            .reduce(0) { $0 + (inheritedExtraWithdrawals[$1.id] ?? 0) }
+    }
+
     // MARK: - RMD Calculations
     
     func calculateRMD(for age: Int, balance: Double) -> Double {
@@ -275,7 +390,43 @@ class DataManager: ObservableObject {
         
         return table[age] ?? 2.0 // Default to 2.0 for ages beyond table
     }
-    
+
+    // MARK: - IRS Single Life Expectancy Table I (for Inherited IRAs)
+
+    /// IRS Single Life Expectancy Table I — used for inherited IRA RMD calculations.
+    /// This is a DIFFERENT table from the Uniform Lifetime Table III used for regular RMDs.
+    /// Updated per IRS regulations effective 2022+.
+    func singleLifeExpectancyFactor(for age: Int) -> Double {
+        let table: [Int: Double] = [
+            0: 84.6, 1: 83.6, 2: 82.6, 3: 81.6, 4: 80.6,
+            5: 79.7, 6: 78.7, 7: 77.7, 8: 76.7, 9: 75.8,
+            10: 74.8, 11: 73.8, 12: 72.8, 13: 71.8, 14: 70.8,
+            15: 69.9, 16: 68.9, 17: 67.9, 18: 66.9, 19: 66.0,
+            20: 65.0, 21: 64.0, 22: 63.0, 23: 62.1, 24: 61.1,
+            25: 60.2, 26: 59.2, 27: 58.2, 28: 57.3, 29: 56.3,
+            30: 55.3, 31: 54.4, 32: 53.4, 33: 52.5, 34: 51.5,
+            35: 50.5, 36: 49.6, 37: 48.6, 38: 47.7, 39: 46.7,
+            40: 45.7, 41: 44.8, 42: 43.8, 43: 42.9, 44: 41.9,
+            45: 41.0, 46: 40.0, 47: 39.0, 48: 38.1, 49: 37.1,
+            50: 36.2, 51: 35.3, 52: 34.3, 53: 33.4, 54: 32.5,
+            55: 31.6, 56: 30.6, 57: 29.8, 58: 28.9, 59: 28.0,
+            60: 27.1, 61: 26.2, 62: 25.4, 63: 24.5, 64: 23.7,
+            65: 22.9, 66: 22.0, 67: 21.2, 68: 20.4, 69: 19.6,
+            70: 18.8, 71: 18.0, 72: 17.2, 73: 16.4, 74: 15.6,
+            75: 14.8, 76: 14.1, 77: 13.3, 78: 12.6, 79: 11.9,
+            80: 11.2, 81: 10.5, 82: 9.9, 83: 9.3, 84: 8.7,
+            85: 8.1, 86: 7.5, 87: 7.1, 88: 6.6, 89: 6.1,
+            90: 5.7, 91: 5.3, 92: 4.9, 93: 4.6, 94: 4.3,
+            95: 4.0, 96: 3.7, 97: 3.4, 98: 3.2, 99: 2.9,
+            100: 2.7, 101: 2.5, 102: 2.3, 103: 2.1, 104: 1.9,
+            105: 1.8, 106: 1.6, 107: 1.4, 108: 1.3, 109: 1.1,
+            110: 1.0, 111: 0.9, 112: 0.8, 113: 0.7, 114: 0.6,
+            115: 0.5, 116: 0.4, 117: 0.3, 118: 0.2, 119: 0.1
+        ]
+        let clamped = max(0, min(119, age))
+        return table[clamped] ?? 1.0
+    }
+
     func calculatePrimaryRMD() -> Double {
         guard isRMDRequired else { return 0 }
         return calculateRMD(for: currentAge, balance: primaryTraditionalIRABalance)
@@ -289,7 +440,227 @@ class DataManager: ObservableObject {
     func calculateCombinedRMD() -> Double {
         calculatePrimaryRMD() + calculateSpouseRMD()
     }
-    
+
+    // MARK: - Inherited IRA RMD Calculations
+
+    struct InheritedRMDResult {
+        let annualRMD: Double           // required withdrawal this year (0 if none)
+        let mustEmptyByYear: Int?       // year account must be fully emptied (nil if lifetime stretch)
+        let yearsRemaining: Int?        // years until must-empty deadline
+        let rule: String                // human-readable description of the rule
+    }
+
+    /// Calculates the required distribution for an inherited IRA account in the given year.
+    func calculateInheritedIRARMD(account: IRAAccount, forYear year: Int) -> InheritedRMDResult {
+        guard account.accountType.isInherited,
+              let beneficiaryType = account.beneficiaryType,
+              let yearOfInheritance = account.yearOfInheritance,
+              let beneficiaryBirthYear = account.beneficiaryBirthYear else {
+            return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil, rule: "Missing inherited IRA data")
+        }
+
+        let yearsElapsed = year - yearOfInheritance
+        let beneficiaryAge = year - beneficiaryBirthYear
+        let isRothInherited = account.accountType == .inheritedRothIRA
+        let deadline = yearOfInheritance + 10
+
+        // Inherited Roth IRAs: EDBs get lifetime stretch (no RMDs, no deadline).
+        // Non-EDBs get 10-year rule with no annual RMDs, just must empty by year 10.
+        if isRothInherited {
+            if beneficiaryType.isEligibleDesignated {
+                // EDB Roth: no RMDs required, no deadline (lifetime stretch, tax-free)
+                return InheritedRMDResult(
+                    annualRMD: 0,
+                    mustEmptyByYear: nil,
+                    yearsRemaining: nil,
+                    rule: "Eligible designated beneficiary — lifetime stretch, no RMDs (Roth)"
+                )
+            } else {
+                // Non-EDB Roth: 10-year rule, no annual RMDs
+                let remaining = max(0, deadline - year)
+                if year >= deadline {
+                    return InheritedRMDResult(
+                        annualRMD: account.balance,
+                        mustEmptyByYear: deadline,
+                        yearsRemaining: 0,
+                        rule: "10-year deadline reached — full balance must be withdrawn (Roth)"
+                    )
+                }
+                return InheritedRMDResult(
+                    annualRMD: 0,
+                    mustEmptyByYear: deadline,
+                    yearsRemaining: remaining,
+                    rule: "10-year rule — no annual RMDs, must empty by \(deadline) (Roth)"
+                )
+            }
+        }
+
+        // Traditional Inherited IRA logic by beneficiary type
+        switch beneficiaryType {
+        case .spouse:
+            // Spouse: lifetime stretch, recalculated annually using SLE Table I at beneficiary's current age
+            guard yearsElapsed >= 1 else {
+                return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
+                                          rule: "Spouse — RMDs begin the year after inheritance")
+            }
+            let factor = singleLifeExpectancyFactor(for: beneficiaryAge)
+            let rmd = factor > 0 ? account.balance / factor : account.balance
+            return InheritedRMDResult(
+                annualRMD: rmd,
+                mustEmptyByYear: nil,
+                yearsRemaining: nil,
+                rule: "Spouse — lifetime stretch (SLE factor \(String(format: "%.1f", factor)) at age \(beneficiaryAge))"
+            )
+
+        case .disabled, .chronicallyIll:
+            // Lifetime stretch using SLE Table I, recalculated annually
+            guard yearsElapsed >= 1 else {
+                return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
+                                          rule: "\(beneficiaryType.rawValue) — RMDs begin the year after inheritance")
+            }
+            let factor = singleLifeExpectancyFactor(for: beneficiaryAge)
+            let rmd = factor > 0 ? account.balance / factor : account.balance
+            return InheritedRMDResult(
+                annualRMD: rmd,
+                mustEmptyByYear: nil,
+                yearsRemaining: nil,
+                rule: "\(beneficiaryType.rawValue) — lifetime stretch (SLE factor \(String(format: "%.1f", factor)) at age \(beneficiaryAge))"
+            )
+
+        case .notTenYearsYounger:
+            // Lifetime stretch: initial SLE factor at beneficiary's age in year after death, reduced by 1 each year
+            guard yearsElapsed >= 1 else {
+                return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
+                                          rule: "Not >10 years younger — RMDs begin the year after inheritance")
+            }
+            let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
+            let initialFactor = singleLifeExpectancyFactor(for: initialAge)
+            let yearsOfReduction = year - (yearOfInheritance + 1) // 0 in first RMD year
+            let factor = max(1.0, initialFactor - Double(yearsOfReduction))
+            let rmd = account.balance / factor
+            return InheritedRMDResult(
+                annualRMD: rmd,
+                mustEmptyByYear: nil,
+                yearsRemaining: nil,
+                rule: "Not >10 years younger — lifetime stretch (factor \(String(format: "%.1f", factor)))"
+            )
+
+        case .minorChild:
+            // SLE stretch until age 21, then 10-year rule kicks in
+            let majorityYear = account.minorChildMajorityYear ?? (beneficiaryBirthYear + 21)
+            if year < majorityYear {
+                // Still a minor — SLE stretch
+                guard yearsElapsed >= 1 else {
+                    return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
+                                              rule: "Minor child — RMDs begin the year after inheritance")
+                }
+                let factor = singleLifeExpectancyFactor(for: beneficiaryAge)
+                let rmd = factor > 0 ? account.balance / factor : account.balance
+                return InheritedRMDResult(
+                    annualRMD: rmd,
+                    mustEmptyByYear: nil,
+                    yearsRemaining: nil,
+                    rule: "Minor child — SLE stretch until age 21 (factor \(String(format: "%.1f", factor)))"
+                )
+            } else {
+                // Reached majority — 10-year rule from majority year
+                let tenYearDeadline = majorityYear + 10
+                let remaining = max(0, tenYearDeadline - year)
+                if year >= tenYearDeadline {
+                    return InheritedRMDResult(
+                        annualRMD: account.balance,
+                        mustEmptyByYear: tenYearDeadline,
+                        yearsRemaining: 0,
+                        rule: "Minor child (now adult) — 10-year deadline reached, full balance due"
+                    )
+                }
+                let rbdStatus = account.decedentRBDStatus ?? .beforeRBD
+                if rbdStatus == .afterRBD {
+                    // Annual RMDs required using SLE factor at age in year after majority, reduced by 1 each year
+                    let ageAtMajorityPlus1 = (majorityYear + 1) - beneficiaryBirthYear
+                    let initialFactor = singleLifeExpectancyFactor(for: ageAtMajorityPlus1)
+                    let yearsOfReduction = year - (majorityYear + 1)
+                    let factor = max(1.0, initialFactor - Double(max(0, yearsOfReduction)))
+                    let rmd = account.balance / factor
+                    return InheritedRMDResult(
+                        annualRMD: rmd,
+                        mustEmptyByYear: tenYearDeadline,
+                        yearsRemaining: remaining,
+                        rule: "Minor child (now adult) — annual RMDs + must empty by \(tenYearDeadline) (factor \(String(format: "%.1f", factor)))"
+                    )
+                } else {
+                    return InheritedRMDResult(
+                        annualRMD: 0,
+                        mustEmptyByYear: tenYearDeadline,
+                        yearsRemaining: remaining,
+                        rule: "Minor child (now adult) — no annual RMDs, must empty by \(tenYearDeadline)"
+                    )
+                }
+            }
+
+        case .nonEligibleDesignated:
+            // 10-year rule
+            let remaining = max(0, deadline - year)
+            let rbdStatus = account.decedentRBDStatus ?? .beforeRBD
+
+            if year >= deadline {
+                return InheritedRMDResult(
+                    annualRMD: account.balance,
+                    mustEmptyByYear: deadline,
+                    yearsRemaining: 0,
+                    rule: "10-year deadline reached — full balance must be withdrawn"
+                )
+            }
+
+            if rbdStatus == .beforeRBD {
+                // No annual RMDs, just 10-year emptying
+                return InheritedRMDResult(
+                    annualRMD: 0,
+                    mustEmptyByYear: deadline,
+                    yearsRemaining: remaining,
+                    rule: "10-year rule (before RBD) — no annual RMDs, must empty by \(deadline)"
+                )
+            } else {
+                // Annual RMDs years 1-9 using SLE, remaining balance in year 10
+                guard yearsElapsed >= 1 else {
+                    return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: deadline, yearsRemaining: remaining,
+                                              rule: "10-year rule (after RBD) — RMDs begin the year after inheritance")
+                }
+                let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
+                let initialFactor = singleLifeExpectancyFactor(for: initialAge)
+                let yearsOfReduction = year - (yearOfInheritance + 1)
+                let factor = max(1.0, initialFactor - Double(yearsOfReduction))
+                let rmd = account.balance / factor
+                return InheritedRMDResult(
+                    annualRMD: rmd,
+                    mustEmptyByYear: deadline,
+                    yearsRemaining: remaining,
+                    rule: "10-year rule (after RBD) — annual RMDs required, must empty by \(deadline) (factor \(String(format: "%.1f", factor)))"
+                )
+            }
+        }
+    }
+
+    /// Total inherited IRA RMD across all inherited accounts for the current year
+    var inheritedIRARMDTotal: Double {
+        iraAccounts
+            .filter { $0.accountType.isInherited }
+            .reduce(0) { $0 + calculateInheritedIRARMD(account: $1, forYear: currentYear).annualRMD }
+    }
+
+    var primaryInheritedRMD: Double {
+        iraAccounts
+            .filter { $0.accountType.isInherited && $0.owner == .primary }
+            .reduce(0) { $0 + calculateInheritedIRARMD(account: $1, forYear: currentYear).annualRMD }
+    }
+
+    var spouseInheritedRMD: Double {
+        guard enableSpouse else { return 0 }
+        return iraAccounts
+            .filter { $0.accountType.isInherited && $0.owner == .spouse }
+            .reduce(0) { $0 + calculateInheritedIRARMD(account: $1, forYear: currentYear).annualRMD }
+    }
+
     // MARK: - Tax Calculations
 
     /// Progressive tax helper — applies bracket rates to income.
@@ -327,16 +698,232 @@ class DataManager: ObservableObject {
         return tax
     }
 
-    func calculateCaliforniaTax(income: Double, filingStatus: FilingStatus = .single) -> Double {
-        // California taxes capital gains as ordinary income — no preferential rates
-        let brackets = filingStatus == .single ? currentTaxBrackets.stateSingle : currentTaxBrackets.stateMarried
-        return progressiveTax(income: income, brackets: brackets)
+    // MARK: - Multi-State Tax Calculation
+
+    /// The tax configuration for the user's selected state of residence.
+    var selectedStateConfig: StateTaxConfig {
+        StateTaxData.config(for: selectedState)
     }
-    
+
+    /// Calculates state income tax for the selected state, applying retirement income exemptions.
+    func calculateStateTax(income: Double, filingStatus: FilingStatus = .single) -> Double {
+        calculateStateTax(income: income, forState: selectedState, filingStatus: filingStatus)
+    }
+
+    /// Calculates state tax for a specific state (used for cross-state comparison).
+    /// Unlike the default overload, this accepts any state rather than using `selectedState`.
+    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single) -> Double {
+        let config = StateTaxData.config(for: state)
+        let adjustedIncome = applyRetirementExemptions(income: income, config: config)
+
+        switch config.taxSystem {
+        case .noIncomeTax, .specialLimited:
+            return 0
+        case .flat(let rate):
+            return max(0, adjustedIncome) * rate
+        case .progressive(let single, let married):
+            let brackets = filingStatus == .single ? single : married
+            return progressiveTax(income: max(0, adjustedIncome), brackets: brackets)
+        }
+    }
+
+    /// Applies state-specific retirement income exemptions to reduce state taxable income.
+    /// Different states exempt different combinations of Social Security, pensions, and IRA withdrawals.
+    private func applyRetirementExemptions(income: Double, config: StateTaxConfig) -> Double {
+        var adjusted = income
+        let exemptions = config.retirementExemptions
+
+        // Social Security exemption: most states (42) exempt SS from state tax
+        if exemptions.socialSecurityExempt {
+            let ssIncome = incomeSources.filter { $0.type == .socialSecurity }.reduce(0) { $0 + $1.annualAmount }
+            adjusted -= ssIncome
+        }
+
+        // Pension exemption
+        let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
+        switch exemptions.pensionExemption {
+        case .full:
+            adjusted -= pensionIncome
+        case .partial(let maxExempt):
+            adjusted -= min(pensionIncome, maxExempt)
+        case .none:
+            break
+        }
+
+        // IRA withdrawal exemption (applies to RMDs and other retirement account distributions)
+        let iraIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
+        switch exemptions.iraWithdrawalExemption {
+        case .full:
+            adjusted -= iraIncome
+        case .partial(let maxExempt):
+            adjusted -= min(iraIncome, maxExempt)
+        case .none:
+            break
+        }
+
+        return max(0, adjusted)
+    }
+
+    /// Returns a detailed breakdown of how state tax is calculated for a specific state.
+    /// Mirrors the logic of `applyRetirementExemptions` + `calculateStateTax` but captures
+    /// every intermediate value for the State Comparison detail sheet.
+    func stateTaxBreakdown(forState state: USState, filingStatus: FilingStatus) -> StateTaxBreakdown {
+        let income = scenarioTaxableIncome
+        let config = StateTaxData.config(for: state)
+        let exemptions = config.retirementExemptions
+
+        // 1. Gather income by category from income sources
+        let ssIncome = incomeSources.filter { $0.type == .socialSecurity }.reduce(0) { $0 + $1.annualAmount }
+        let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
+        let iraIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
+        let otherIncome = max(0, income - ssIncome - pensionIncome - iraIncome)
+
+        // 2. Calculate each exemption amount (mirrors applyRetirementExemptions logic)
+        let ssExemptAmt = exemptions.socialSecurityExempt ? ssIncome : 0
+
+        let pensionExemptAmt: Double
+        switch exemptions.pensionExemption {
+        case .full: pensionExemptAmt = pensionIncome
+        case .partial(let maxExempt): pensionExemptAmt = min(pensionIncome, maxExempt)
+        case .none: pensionExemptAmt = 0
+        }
+
+        let iraExemptAmt: Double
+        switch exemptions.iraWithdrawalExemption {
+        case .full: iraExemptAmt = iraIncome
+        case .partial(let maxExempt): iraExemptAmt = min(iraIncome, maxExempt)
+        case .none: iraExemptAmt = 0
+        }
+
+        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt
+        let adjustedIncome = max(0, income - totalExempted)
+
+        // 3. Calculate tax with bracket-level detail
+        var bracketDetails: [StateTaxBreakdown.BracketDetail] = []
+        var flatRate: Double? = nil
+        var totalTax = 0.0
+        var taxSystemDesc = ""
+
+        switch config.taxSystem {
+        case .noIncomeTax:
+            taxSystemDesc = "No income tax"
+        case .specialLimited:
+            taxSystemDesc = "No general income tax"
+        case .flat(let rate):
+            flatRate = rate
+            taxSystemDesc = String(format: "Flat %.2f%%", rate * 100)
+            totalTax = max(0, adjustedIncome) * rate
+        case .progressive(let single, let married):
+            let brackets = filingStatus == .single ? single : married
+            if let first = brackets.first?.rate, let last = brackets.last?.rate {
+                taxSystemDesc = String(format: "Progressive %.1f%%–%.1f%%", first * 100, last * 100)
+            } else {
+                taxSystemDesc = "Progressive brackets"
+            }
+
+            // Walk brackets to build per-bracket breakdown
+            for i in brackets.indices {
+                let bracket = brackets[i]
+                if adjustedIncome > bracket.threshold {
+                    let ceiling = i + 1 < brackets.count ? brackets[i + 1].threshold : nil
+                    let effectiveCeiling = ceiling ?? adjustedIncome
+                    let taxable = min(adjustedIncome, effectiveCeiling) - bracket.threshold
+                    let taxAtRate = taxable * bracket.rate
+                    totalTax += taxAtRate
+                    bracketDetails.append(StateTaxBreakdown.BracketDetail(
+                        bracketFloor: bracket.threshold,
+                        bracketCeiling: ceiling,
+                        rate: bracket.rate,
+                        taxableInBracket: taxable,
+                        taxFromBracket: taxAtRate
+                    ))
+                }
+            }
+        }
+
+        let effectiveRate = income > 0 ? (totalTax / income) * 100 : 0
+
+        return StateTaxBreakdown(
+            state: state,
+            totalIncome: income,
+            socialSecurityIncome: ssIncome,
+            pensionIncome: pensionIncome,
+            iraRmdIncome: iraIncome,
+            otherIncome: otherIncome,
+            socialSecurityExempt: exemptions.socialSecurityExempt,
+            socialSecurityExemptAmount: ssExemptAmt,
+            pensionExemptionLevel: exemptions.pensionExemption,
+            pensionExemptAmount: pensionExemptAmt,
+            iraExemptionLevel: exemptions.iraWithdrawalExemption,
+            iraExemptAmount: iraExemptAmt,
+            capitalGainsTreatment: exemptions.capitalGainsTreatment,
+            totalExempted: totalExempted,
+            adjustedTaxableIncome: adjustedIncome,
+            taxSystemDescription: taxSystemDesc,
+            bracketBreakdown: bracketDetails,
+            flatRate: flatRate,
+            totalStateTax: totalTax,
+            effectiveRate: effectiveRate
+        )
+    }
+
     func totalAnnualIncome() -> Double {
         incomeSources.reduce(0) { $0 + $1.annualAmount }
     }
-    
+
+    // MARK: - IRMAA Calculations
+
+    /// Determines the IRMAA tier and annual surcharge for a given MAGI and filing status.
+    /// CRITICAL: IRMAA is cliff-based — the ENTIRE surcharge applies once a threshold is crossed.
+    /// This is NOT progressive like tax brackets. Do NOT use progressiveTax() here.
+    func calculateIRMAA(magi: Double, filingStatus: FilingStatus) -> IRMAAResult {
+        let tiers = DataManager.irmaa2026Tiers
+        let standardB = DataManager.irmaaStandardPartB
+
+        // Walk tiers in reverse to find the highest tier the MAGI qualifies for
+        var matchedTier = tiers[0]
+        for tier in tiers.reversed() {
+            let threshold = filingStatus == .single ? tier.singleThreshold : tier.mfjThreshold
+            if magi >= threshold {
+                matchedTier = tier
+                break
+            }
+        }
+
+        let surchargeB = matchedTier.partBMonthly - standardB
+        let surchargeD = matchedTier.partDMonthly
+        let annualSurcharge = (surchargeB + surchargeD) * 12
+
+        // Distance to next tier cliff
+        let nextTierIndex = matchedTier.tier + 1
+        var distanceToNext: Double? = nil
+        if nextTierIndex < tiers.count {
+            let nextThreshold = filingStatus == .single
+                ? tiers[nextTierIndex].singleThreshold
+                : tiers[nextTierIndex].mfjThreshold
+            distanceToNext = nextThreshold - magi
+        }
+
+        // Distance above current tier threshold
+        var distanceToPrevious: Double? = nil
+        if matchedTier.tier > 0 {
+            let currentThreshold = filingStatus == .single
+                ? matchedTier.singleThreshold
+                : matchedTier.mfjThreshold
+            distanceToPrevious = magi - currentThreshold
+        }
+
+        return IRMAAResult(
+            tier: matchedTier.tier,
+            annualSurchargePerPerson: annualSurcharge,
+            monthlyPartB: matchedTier.partBMonthly,
+            monthlyPartD: matchedTier.partDMonthly,
+            distanceToNextTier: distanceToNext,
+            distanceToPreviousTier: distanceToPrevious,
+            magi: magi
+        )
+    }
+
     // MARK: - Roth Conversion Analysis
     
     func analyzeRothConversion(conversionAmount: Double) -> RothConversionAnalysis {
@@ -347,8 +934,8 @@ class DataManager: ObservableObject {
         let newFederalTax = calculateFederalTax(income: newIncome, filingStatus: filingStatus)
         let federalTaxOnConversion = newFederalTax - currentFederalTax
 
-        let currentCATax = calculateCaliforniaTax(income: currentIncome, filingStatus: filingStatus)
-        let newCATax = calculateCaliforniaTax(income: newIncome, filingStatus: filingStatus)
+        let currentCATax = calculateStateTax(income: currentIncome, filingStatus: filingStatus)
+        let newCATax = calculateStateTax(income: newIncome, filingStatus: filingStatus)
         let caTaxOnConversion = newCATax - currentCATax
 
         let totalTaxOnConversion = federalTaxOnConversion + caTaxOnConversion
@@ -372,9 +959,18 @@ class DataManager: ObservableObject {
     }
 
     /// Returns bracket detail for the given income against state brackets.
+    /// For progressive states, uses actual brackets. For flat/no-tax states, returns synthetic info.
     func stateBracketInfo(income: Double, filingStatus: FilingStatus) -> BracketInfo {
-        let brackets = filingStatus == .single ? currentTaxBrackets.stateSingle : currentTaxBrackets.stateMarried
-        return bracketInfo(income: income, brackets: brackets)
+        let config = selectedStateConfig
+        switch config.taxSystem {
+        case .noIncomeTax, .specialLimited:
+            return BracketInfo(currentRate: 0, currentThreshold: 0, nextThreshold: .infinity, roomRemaining: 0)
+        case .flat(let rate):
+            return BracketInfo(currentRate: rate, currentThreshold: 0, nextThreshold: .infinity, roomRemaining: 0)
+        case .progressive(let single, let married):
+            let brackets = filingStatus == .single ? single : married
+            return bracketInfo(income: income, brackets: brackets)
+        }
     }
 
     private func bracketInfo(income: Double, brackets: [TaxBracket]) -> BracketInfo {
@@ -412,8 +1008,8 @@ class DataManager: ObservableObject {
         let fedTaxAfter = calculateFederalTax(income: newIncome, filingStatus: filingStatus)
         let federalTax = fedTaxAfter - fedTaxBefore
 
-        let stateTaxBefore = calculateCaliforniaTax(income: currentIncome, filingStatus: filingStatus)
-        let stateTaxAfter = calculateCaliforniaTax(income: newIncome, filingStatus: filingStatus)
+        let stateTaxBefore = calculateStateTax(income: currentIncome, filingStatus: filingStatus)
+        let stateTaxAfter = calculateStateTax(income: newIncome, filingStatus: filingStatus)
         let stateTax = stateTaxAfter - stateTaxBefore
 
         let totalTax = federalTax + stateTax
@@ -463,8 +1059,8 @@ class DataManager: ObservableObject {
         let fedTaxAfter = calculateFederalTax(income: scenarioIncome, filingStatus: fs)
         let federalTax = fedTaxAfter - fedTaxBefore
 
-        let stateTaxBefore = calculateCaliforniaTax(income: baseIncome, filingStatus: fs)
-        let stateTaxAfter = calculateCaliforniaTax(income: scenarioIncome, filingStatus: fs)
+        let stateTaxBefore = calculateStateTax(income: baseIncome, filingStatus: fs)
+        let stateTaxAfter = calculateStateTax(income: scenarioIncome, filingStatus: fs)
         let stateTax = stateTaxAfter - stateTaxBefore
 
         let totalTax = federalTax + stateTax
@@ -507,7 +1103,7 @@ class DataManager: ObservableObject {
     func calculateQuarterlyEstimatedTax() -> Double {
         let totalIncome = taxableIncome(filingStatus: filingStatus)
         let federalTax = calculateFederalTax(income: totalIncome, filingStatus: filingStatus)
-        let caTax = calculateCaliforniaTax(income: totalIncome, filingStatus: filingStatus)
+        let caTax = calculateStateTax(income: totalIncome, filingStatus: filingStatus)
         let totalAnnualTax = federalTax + caTax
 
         // 90% safe harbor rule
@@ -539,6 +1135,10 @@ class DataManager: ObservableObject {
         if let raw = defaults.string(forKey: StorageKey.filingStatus),
            let status = FilingStatus(rawValue: raw) {
             self.filingStatus = status
+        }
+        if let raw = defaults.string(forKey: StorageKey.selectedState),
+           let state = USState(rawValue: raw) {
+            self.selectedState = state
         }
         if let name = defaults.string(forKey: StorageKey.spouseName) {
             self.spouseName = name
@@ -627,6 +1227,16 @@ class DataManager: ObservableObject {
         if defaults.object(forKey: StorageKey.cashDonationAmount) != nil {
             self.cashDonationAmount = defaults.double(forKey: StorageKey.cashDonationAmount)
         }
+        // Load inherited extra withdrawals (UUID string keys → Double values)
+        if let data = defaults.data(forKey: StorageKey.inheritedExtraWithdrawals),
+           let decoded = try? JSONDecoder().decode([String: Double].self, from: data) {
+            self.inheritedExtraWithdrawals = Dictionary(uniqueKeysWithValues:
+                decoded.compactMap { key, value in
+                    guard let uuid = UUID(uuidString: key) else { return nil }
+                    return (uuid, value)
+                }
+            )
+        }
         if let raw = defaults.string(forKey: StorageKey.deductionOverride),
            let choice = DeductionChoice(rawValue: raw) {
             self.deductionOverride = choice
@@ -656,6 +1266,7 @@ class DataManager: ObservableObject {
         static let birthYear = "birthYear"
         static let spouseBirthYear = "spouseBirthYear"
         static let filingStatus = "filingStatus"
+        static let selectedState = "selectedState"
         static let spouseName = "spouseName"
         static let enableSpouse = "enableSpouse"
         static let iraAccounts = "iraAccounts"
@@ -678,6 +1289,7 @@ class DataManager: ObservableObject {
         static let stockCurrentValue = "stockCurrentValue"
         static let stockPurchaseDate = "stockPurchaseDate"
         static let cashDonationAmount = "cashDonationAmount"
+        static let inheritedExtraWithdrawals = "inheritedExtraWithdrawals"
         static let deductionOverride = "deductionOverride"
         static let completedActionKeys = "completedActionKeys"
         static let deductionItems = "deductionItems"
@@ -688,6 +1300,7 @@ class DataManager: ObservableObject {
         let defaults = UserDefaults.standard
         defaults.set(birthDate.timeIntervalSince1970, forKey: StorageKey.birthDate)
         defaults.set(filingStatus.rawValue, forKey: StorageKey.filingStatus)
+        defaults.set(selectedState.rawValue, forKey: StorageKey.selectedState)
         defaults.set(spouseName, forKey: StorageKey.spouseName)
         defaults.set(spouseBirthDate.timeIntervalSince1970, forKey: StorageKey.spouseBirthDate)
         defaults.set(enableSpouse, forKey: StorageKey.enableSpouse)
@@ -718,6 +1331,11 @@ class DataManager: ObservableObject {
         defaults.set(stockCurrentValue, forKey: StorageKey.stockCurrentValue)
         defaults.set(stockPurchaseDate.timeIntervalSince1970, forKey: StorageKey.stockPurchaseDate)
         defaults.set(cashDonationAmount, forKey: StorageKey.cashDonationAmount)
+        // Save inherited extra withdrawals as JSON dictionary (UUID string keys → Double values)
+        let inheritedDict = Dictionary(uniqueKeysWithValues: inheritedExtraWithdrawals.map { ($0.key.uuidString, $0.value) })
+        if let data = try? JSONEncoder().encode(inheritedDict) {
+            defaults.set(data, forKey: StorageKey.inheritedExtraWithdrawals)
+        }
         if let override = deductionOverride {
             defaults.set(override.rawValue, forKey: StorageKey.deductionOverride)
         } else {
@@ -757,19 +1375,26 @@ class DataManager: ObservableObject {
     }
     
     func stateMarginalRate(income: Double, filingStatus: FilingStatus = .single) -> Double {
-        let brackets = filingStatus == .single ? currentTaxBrackets.stateSingle : currentTaxBrackets.stateMarried
-        
-        for bracket in brackets.reversed() {
-            if income > bracket.threshold {
-                return bracket.rate * 100
+        let config = selectedStateConfig
+        switch config.taxSystem {
+        case .noIncomeTax, .specialLimited:
+            return 0
+        case .flat(let rate):
+            return rate * 100
+        case .progressive(let single, let married):
+            let brackets = filingStatus == .single ? single : married
+            for bracket in brackets.reversed() {
+                if income > bracket.threshold {
+                    return bracket.rate * 100
+                }
             }
+            return (brackets.first?.rate ?? 0) * 100
         }
-        return (brackets.first?.rate ?? 0.01) * 100
     }
-    
+
     func stateAverageRate(income: Double, filingStatus: FilingStatus = .single) -> Double {
         guard income > 0 else { return 0.0 }
-        let tax = calculateCaliforniaTax(income: income, filingStatus: filingStatus)
+        let tax = calculateStateTax(income: income, filingStatus: filingStatus)
         return (tax / income) * 100
     }
     
@@ -841,11 +1466,11 @@ class DataManager: ObservableObject {
     }
 
     var scenarioTotalExtraWithdrawal: Double {
-        yourExtraWithdrawal + (enableSpouse ? spouseExtraWithdrawal : 0)
+        yourExtraWithdrawal + (enableSpouse ? spouseExtraWithdrawal : 0) + inheritedTraditionalExtraTotal
     }
 
     var scenarioCombinedRMD: Double {
-        calculateCombinedRMD()
+        calculateCombinedRMD() + inheritedIRARMDTotal
     }
 
     var scenarioTotalQCD: Double {
@@ -856,24 +1481,41 @@ class DataManager: ObservableObject {
         isQCDEligible || (enableSpouse && spouseIsQCDEligible)
     }
 
+    /// Annual QCD limit per person, inflation-adjusted per SECURE 2.0 Act.
+    /// 2025: $108,000 (IRS confirmed). 2026: $111,000 (IRS Notice 2025-67).
+    var qcdAnnualLimit: Double {
+        switch currentYear {
+        case ...2024: return 105_000
+        case 2025: return 108_000
+        default: return 111_000  // 2026+ (will need future IRS updates)
+        }
+    }
+
     var yourMaxQCDAmount: Double {
-        isQCDEligible ? 111_000 : 0
+        isQCDEligible ? qcdAnnualLimit : 0
     }
 
     var spouseMaxQCDAmount: Double {
-        (enableSpouse && spouseIsQCDEligible) ? 111_000 : 0
+        (enableSpouse && spouseIsQCDEligible) ? qcdAnnualLimit : 0
     }
 
     /// RMD remaining after QCD offset
+    /// RMD remaining after QCD offset. QCD only applies to regular (non-inherited) IRA RMDs.
     var scenarioAdjustedRMD: Double {
-        guard scenarioCombinedRMD > 0 else { return 0 }
-        return scenarioQCDEligible ? max(0, scenarioCombinedRMD - scenarioTotalQCD) : scenarioCombinedRMD
+        let regularRMD = calculateCombinedRMD()
+        let inheritedRMD = inheritedIRARMDTotal
+        guard (regularRMD + inheritedRMD) > 0 else { return 0 }
+        let regularAfterQCD = scenarioQCDEligible ? max(0, regularRMD - scenarioTotalQCD) : regularRMD
+        return regularAfterQCD + inheritedRMD
     }
 
-    /// Taxable withdrawals: RMD after QCD + extra withdrawals
+    /// Taxable withdrawals: RMD after QCD + extra withdrawals.
+    /// QCD offset only applies to regular (non-inherited) RMDs.
     var scenarioTotalWithdrawals: Double {
-        let rmdTaxableAfterQCD = max(0, scenarioCombinedRMD - (scenarioQCDEligible ? scenarioTotalQCD : 0))
-        return rmdTaxableAfterQCD + scenarioTotalExtraWithdrawal
+        let regularRMD = calculateCombinedRMD()
+        let inheritedRMD = inheritedIRARMDTotal
+        let regularAfterQCD = max(0, regularRMD - (scenarioQCDEligible ? scenarioTotalQCD : 0))
+        return regularAfterQCD + inheritedRMD + scenarioTotalExtraWithdrawal
     }
 
     var scenarioStockIsLongTerm: Bool {
@@ -881,14 +1523,27 @@ class DataManager: ObservableObject {
         return stockPurchaseDate <= oneYearAgo
     }
 
+    /// Unrealized gain avoided by donating stock instead of selling.
+    /// Applies to both long-term and short-term holdings — either way, the gain
+    /// is never realized and should not appear in gross income.
     var scenarioStockGainAvoided: Double {
-        guard stockDonationEnabled, scenarioStockIsLongTerm else { return 0 }
+        guard stockDonationEnabled else { return 0 }
         return max(0, stockCurrentValue - stockPurchasePrice)
     }
 
-    /// Total withholding from all income sources
+    /// Federal withholding from all income sources
+    var totalFederalWithholding: Double {
+        incomeSources.reduce(0) { $0 + $1.federalWithholding }
+    }
+
+    /// State withholding from all income sources
+    var totalStateWithholding: Double {
+        incomeSources.reduce(0) { $0 + $1.stateWithholding }
+    }
+
+    /// Combined federal + state withholding from all income sources
     var totalWithholding: Double {
-        incomeSources.reduce(0) { $0 + $1.taxWithholding }
+        totalFederalWithholding + totalStateWithholding
     }
 
     /// Base income before any scenario decisions (pre-deduction)
@@ -897,34 +1552,77 @@ class DataManager: ObservableObject {
     }
 
     /// Gross income including RMDs + scenario decisions (pre-deduction).
-    /// Subtracts avoided capital gains from donated stock — that gain was never realized.
+    /// Subtracts avoided gains from donated stock — that gain was never realized.
     var scenarioGrossIncome: Double {
         scenarioBaseIncome + scenarioTotalRothConversion + scenarioTotalWithdrawals - scenarioStockGainAvoided
     }
 
     // MARK: - Standard vs. Itemized Deduction
 
-    /// 2026 standard deduction based on filing status and age
+    /// Standard deduction based on filing status, age, and tax year.
+    /// Reflects OBBBA (signed July 4, 2025) changes:
+    /// - 2025: $15,750 Single / $31,500 MFJ (OBBBA retroactive boost)
+    /// - 2026: $16,100 Single / $32,200 MFJ (IRS Rev. Proc. 2025-32)
+    /// - Age 65+ additional: $2,050 Single / $1,650 MFJ per person (2026)
+    /// - OBBBA Senior Bonus (2025-2028): $6,000 per qualifying person 65+,
+    ///   phases out at 6% of MAGI over $75K (Single) / $150K (MFJ).
+    ///   Not available for Married Filing Separately.
     var standardDeductionAmount: Double {
+        let year = currentYear
         var amount: Double
+
         switch filingStatus {
         case .single:
-            amount = 16_100
+            // Base standard deduction
+            if year == 2025 {
+                amount = 15_750
+            } else {
+                amount = 16_100  // 2026 (IRS Rev. Proc. 2025-32)
+            }
             // Age 65+ additional deduction
-            if currentAge >= 65 { amount += 2_050 }
-            // 2025-2028 senior bonus (phases out above $75k)
-            if currentAge >= 65 && scenarioGrossIncome <= 75_000 {
-                amount += 4_000
+            if currentAge >= 65 {
+                amount += (year == 2025) ? 2_000 : 2_050
+            }
+            // OBBBA Senior Bonus (2025-2028): $6,000 with gradual phaseout
+            if currentAge >= 65 && year >= 2025 && year <= 2028 {
+                let seniorBonusBase = 6_000.0
+                let phaseoutThreshold = 75_000.0
+                let phaseoutRate = 0.06
+                let magi = scenarioGrossIncome
+                let reduction = max(0, (magi - phaseoutThreshold) * phaseoutRate)
+                let bonus = max(0, seniorBonusBase - reduction)
+                amount += bonus
             }
         case .marriedFilingJointly:
-            amount = 32_200
+            // Base standard deduction
+            if year == 2025 {
+                amount = 31_500
+            } else {
+                amount = 32_200  // 2026 (IRS Rev. Proc. 2025-32)
+            }
             // Age 65+ additional per person
-            if currentAge >= 65 { amount += 1_650 }
-            if enableSpouse && spouseCurrentAge >= 65 { amount += 1_650 }
-            // 2025-2028 senior bonus (phases out above $150k)
-            if (currentAge >= 65 || (enableSpouse && spouseCurrentAge >= 65))
-                && scenarioGrossIncome <= 150_000 {
-                amount += 8_000
+            let additionalPer65 = (year == 2025) ? 1_600.0 : 1_650.0
+            if currentAge >= 65 { amount += additionalPer65 }
+            if enableSpouse && spouseCurrentAge >= 65 { amount += additionalPer65 }
+            // OBBBA Senior Bonus (2025-2028): $6,000 per qualifying person 65+
+            // with gradual phaseout at 6% of MAGI over $150K
+            if year >= 2025 && year <= 2028 {
+                let seniorBonusPerPerson = 6_000.0
+                let phaseoutThreshold = 150_000.0
+                let phaseoutRate = 0.06
+                let magi = scenarioGrossIncome
+
+                // Count qualifying seniors
+                var qualifyingSeniors = 0
+                if currentAge >= 65 { qualifyingSeniors += 1 }
+                if enableSpouse && spouseCurrentAge >= 65 { qualifyingSeniors += 1 }
+
+                if qualifyingSeniors > 0 {
+                    let totalBonusBase = seniorBonusPerPerson * Double(qualifyingSeniors)
+                    let reduction = max(0, (magi - phaseoutThreshold) * phaseoutRate)
+                    let bonus = max(0, totalBonusBase - reduction)
+                    amount += bonus
+                }
             }
         }
         return amount
@@ -953,10 +1651,54 @@ class DataManager: ObservableObject {
         max(0, totalMedicalExpenses - medicalAGIFloor)
     }
 
-    /// Total user-entered itemized deductions with medical AGI floor applied.
+    /// Raw total of SALT-eligible deductions (property tax + state & local tax) before the cap.
+    var totalSALTBeforeCap: Double {
+        deductionItems
+            .filter { $0.type == .propertyTax || $0.type == .saltTax }
+            .reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// SALT cap based on tax year and filing status (OBBBA, signed July 4, 2025).
+    /// - 2018–2024: $10,000 per TCJA
+    /// - 2025–2029: $40,000 base with 1% annual inflation, but phased out by
+    ///   30% of MAGI exceeding $500,000 (MFJ, +1%/year). Floor of $10,000.
+    /// - 2030+: Reverts permanently to $10,000
+    var saltCap: Double {
+        let year = currentYear
+        if year >= 2025 && year <= 2029 {
+            // OBBBA base cap with 1% annual inflation adjustment from 2025
+            let yearsFromBase = Double(year - 2025)
+            let inflationMultiplier = pow(1.01, yearsFromBase)
+            let expandedCap = (40_000.0 * inflationMultiplier).rounded()
+
+            // Income-based phaseout: reduced by 30% of MAGI over threshold
+            // Threshold: $500,000 MFJ in 2025, also inflated 1%/year
+            let phaseoutThreshold = (500_000.0 * inflationMultiplier).rounded()
+            let magi = scenarioGrossIncome
+            let phaseoutReduction = max(0, (magi - phaseoutThreshold) * 0.30)
+            let afterPhaseout = expandedCap - phaseoutReduction
+
+            // Floor: never less than $10,000 regardless of phaseout
+            return max(10_000, afterPhaseout)
+        } else if year >= 2018 && year <= 2024 {
+            return 10_000
+        } else {
+            // 2030+ reverts to TCJA cap
+            return 10_000
+        }
+    }
+
+    /// SALT deduction after applying the federal cap.
+    var saltAfterCap: Double {
+        min(totalSALTBeforeCap, saltCap)
+    }
+
+    /// Total user-entered itemized deductions with SALT cap and medical AGI floor applied.
     var baseItemizedDeductions: Double {
-        let nonMedical = deductionItems.filter { $0.type != .medicalExpenses }.reduce(0) { $0 + $1.annualAmount }
-        return nonMedical + deductibleMedicalExpenses
+        let nonSALTNonMedical = deductionItems
+            .filter { $0.type != .propertyTax && $0.type != .saltTax && $0.type != .medicalExpenses }
+            .reduce(0) { $0 + $1.annualAmount }
+        return nonSALTNonMedical + saltAfterCap + deductibleMedicalExpenses
     }
 
     /// Charitable deductions from Tax Planning (stock + cash, NOT QCD which is pre-tax)
@@ -1004,16 +1746,56 @@ class DataManager: ObservableObject {
     }
 
     var scenarioStateTax: Double {
-        calculateCaliforniaTax(income: scenarioTaxableIncome, filingStatus: filingStatus)
+        calculateStateTax(income: scenarioTaxableIncome, filingStatus: filingStatus)
     }
 
     var scenarioTotalTax: Double {
         scenarioFederalTax + scenarioStateTax
     }
 
-    /// Tax remaining after withholding
+    // MARK: - IRMAA Scenario Properties
+
+    /// Number of Medicare enrollees in household (age 65+).
+    var medicareMemberCount: Int {
+        var count = 0
+        if currentAge >= 65 { count += 1 }
+        if enableSpouse && spouseCurrentAge >= 65 { count += 1 }
+        return count
+    }
+
+    /// Current scenario IRMAA result based on estimatedAGI (≈ MAGI for retirees).
+    var scenarioIRMAA: IRMAAResult {
+        calculateIRMAA(magi: estimatedAGI, filingStatus: filingStatus)
+    }
+
+    /// Total household annual IRMAA surcharge (per-person × number of Medicare members).
+    var scenarioIRMAATotalSurcharge: Double {
+        scenarioIRMAA.annualSurchargePerPerson * Double(medicareMemberCount)
+    }
+
+    /// Baseline IRMAA (without any scenario decisions) for comparison.
+    var baselineIRMAA: IRMAAResult {
+        calculateIRMAA(magi: scenarioBaseIncome, filingStatus: filingStatus)
+    }
+
+    /// Whether scenario decisions pushed into a higher IRMAA tier.
+    var scenarioPushedToHigherIRMAATier: Bool {
+        scenarioIRMAA.tier > baselineIRMAA.tier
+    }
+
+    /// Total tax remaining after all withholding
     var scenarioRemainingTax: Double {
         max(0, scenarioTotalTax - totalWithholding)
+    }
+
+    /// Federal tax remaining after federal withholding
+    var scenarioRemainingFederalTax: Double {
+        max(0, scenarioFederalTax - totalFederalWithholding)
+    }
+
+    /// State tax remaining after state withholding
+    var scenarioRemainingStateTax: Double {
+        max(0, scenarioStateTax - totalStateWithholding)
     }
 
     /// Quarterly estimated tax payment (90% safe harbor minus withholding) — uniform fallback
@@ -1031,7 +1813,7 @@ class DataManager: ObservableObject {
         // Base tax: from regular income sources only, no scenario additions
         let baseTaxable = max(0, scenarioBaseIncome - effectiveDeductionAmount)
         let baseTax = calculateFederalTax(income: baseTaxable, filingStatus: filingStatus)
-                    + calculateCaliforniaTax(income: baseTaxable, filingStatus: filingStatus)
+                    + calculateStateTax(income: baseTaxable, filingStatus: filingStatus)
         let incrementalTax = max(0, totalTax - baseTax)
 
         let basePerQ = max(0, baseTax * 0.90) / 4.0
@@ -1072,6 +1854,7 @@ class DataManager: ObservableObject {
         scenarioTotalRothConversion > 0 || scenarioTotalExtraWithdrawal > 0
         || scenarioTotalQCD > 0 || (stockDonationEnabled && stockCurrentValue > 0)
         || cashDonationAmount > 0
+        || inheritedExtraWithdrawalTotal > 0
     }
 
     /// Total charitable giving (QCD + stock + cash)
@@ -1222,7 +2005,7 @@ class DataManager: ObservableObject {
     private func totalTaxFor(grossIncome: Double, deduction: Double) -> Double {
         let taxable = max(0, grossIncome - deduction)
         let fed = calculateFederalTax(income: taxable, filingStatus: filingStatus)
-        let state = calculateCaliforniaTax(income: taxable, filingStatus: filingStatus)
+        let state = calculateStateTax(income: taxable, filingStatus: filingStatus)
         return fed + state
     }
 
@@ -1256,6 +2039,54 @@ class DataManager: ObservableObject {
         return withoutQCD - scenarioTotalTax
     }
 
+    // MARK: - Per-Decision IRMAA Impact
+
+    /// IRMAA surcharge increase caused by Roth conversions (cliff-based).
+    var rothConversionIRMAAImpact: Double {
+        guard scenarioTotalRothConversion > 0, medicareMemberCount > 0 else { return 0 }
+        let magiWithout = estimatedAGI - scenarioTotalRothConversion
+        let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
+        let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
+        return delta * Double(medicareMemberCount)
+    }
+
+    /// IRMAA surcharge increase caused by extra withdrawals (cliff-based).
+    var extraWithdrawalIRMAAImpact: Double {
+        guard scenarioTotalExtraWithdrawal > 0, medicareMemberCount > 0 else { return 0 }
+        let magiWithout = estimatedAGI - scenarioTotalExtraWithdrawal
+        let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
+        let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
+        return delta * Double(medicareMemberCount)
+    }
+
+    /// Tax impact of inherited IRA extra withdrawals (Traditional only — Roth is tax-free)
+    var inheritedExtraWithdrawalTaxImpact: Double {
+        guard inheritedTraditionalExtraTotal > 0 else { return 0 }
+        let withoutInherited = totalTaxFor(
+            grossIncome: scenarioGrossIncome - inheritedTraditionalExtraTotal,
+            deduction: effectiveDeductionAmount
+        )
+        return scenarioTotalTax - withoutInherited
+    }
+
+    /// IRMAA surcharge increase caused by inherited IRA extra withdrawals (cliff-based).
+    var inheritedExtraWithdrawalIRMAAImpact: Double {
+        guard inheritedTraditionalExtraTotal > 0, medicareMemberCount > 0 else { return 0 }
+        let magiWithout = estimatedAGI - inheritedTraditionalExtraTotal
+        let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
+        let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
+        return delta * Double(medicareMemberCount)
+    }
+
+    /// IRMAA surcharge savings from QCD (QCD reduces MAGI, may drop below a cliff).
+    var qcdIRMAASavings: Double {
+        guard scenarioTotalQCD > 0, medicareMemberCount > 0 else { return 0 }
+        let magiWithoutQCD = estimatedAGI + scenarioTotalQCD  // QCD portion would be taxable
+        let irmaaWithoutQCD = calculateIRMAA(magi: magiWithoutQCD, filingStatus: filingStatus)
+        let delta = irmaaWithoutQCD.annualSurchargePerPerson - scenarioIRMAA.annualSurchargePerPerson
+        return delta * Double(medicareMemberCount)
+    }
+
     /// Tax savings from the stock donation's itemized deduction (FMV for long-term, cost basis for short-term).
     /// This represents the reduction in cash the user must pay in taxes.
     var stockDeductionTaxSavings: Double {
@@ -1271,8 +2102,9 @@ class DataManager: ObservableObject {
         return withoutDeduction - scenarioTotalTax
     }
 
-    /// Capital gains tax avoided by donating appreciated stock instead of selling.
-    /// Only applies to long-term holdings with an unrealized gain.
+    /// Tax avoided by donating appreciated stock instead of selling.
+    /// Long-term gains would be taxed at capital gains rates; short-term gains
+    /// at ordinary income rates. Either way, donating avoids realizing the gain.
     var stockCapGainsTaxAvoided: Double {
         guard stockDonationEnabled, scenarioStockGainAvoided > 0 else { return 0 }
         // Compare: current scenario vs. scenario where gain IS realized (added to gross income)
@@ -1380,14 +2212,31 @@ struct IRAAccount: Identifiable, Codable {
     var balance: Double
     var institution: String
     var owner: Owner
-    
-    init(id: UUID = UUID(), name: String, accountType: AccountType, balance: Double, institution: String = "", owner: Owner = .primary) {
+
+    // Inherited IRA fields (nil for regular accounts)
+    var beneficiaryType: BeneficiaryType?
+    var decedentRBDStatus: DecedentRBDStatus?
+    var yearOfInheritance: Int?
+    var decedentBirthYear: Int?
+    var beneficiaryBirthYear: Int?
+    var minorChildMajorityYear: Int?
+
+    init(id: UUID = UUID(), name: String, accountType: AccountType, balance: Double, institution: String = "", owner: Owner = .primary,
+         beneficiaryType: BeneficiaryType? = nil, decedentRBDStatus: DecedentRBDStatus? = nil,
+         yearOfInheritance: Int? = nil, decedentBirthYear: Int? = nil,
+         beneficiaryBirthYear: Int? = nil, minorChildMajorityYear: Int? = nil) {
         self.id = id
         self.name = name
         self.accountType = accountType
         self.balance = balance
         self.institution = institution
         self.owner = owner
+        self.beneficiaryType = beneficiaryType
+        self.decedentRBDStatus = decedentRBDStatus
+        self.yearOfInheritance = yearOfInheritance
+        self.decedentBirthYear = decedentBirthYear
+        self.beneficiaryBirthYear = beneficiaryBirthYear
+        self.minorChildMajorityYear = minorChildMajorityYear
     }
 }
 
@@ -1396,6 +2245,44 @@ enum AccountType: String, Codable, CaseIterable {
     case rothIRA = "Roth IRA"
     case traditional401k = "Traditional 401(k)"
     case roth401k = "Roth 401(k)"
+    case inheritedTraditionalIRA = "Inherited Traditional IRA"
+    case inheritedRothIRA = "Inherited Roth IRA"
+
+    var isInherited: Bool {
+        self == .inheritedTraditionalIRA || self == .inheritedRothIRA
+    }
+
+    var isTraditionalType: Bool {
+        self == .traditionalIRA || self == .traditional401k || self == .inheritedTraditionalIRA
+    }
+
+    var isRothType: Bool {
+        self == .rothIRA || self == .roth401k || self == .inheritedRothIRA
+    }
+}
+
+enum BeneficiaryType: String, Codable, CaseIterable {
+    case spouse = "Spouse"
+    case minorChild = "Minor Child"
+    case disabled = "Disabled Individual"
+    case chronicallyIll = "Chronically Ill Individual"
+    case notTenYearsYounger = "Not >10 Years Younger"
+    case nonEligibleDesignated = "Non-Eligible Designated"
+
+    /// Eligible Designated Beneficiaries get lifetime stretch; others get 10-year rule
+    var isEligibleDesignated: Bool {
+        switch self {
+        case .spouse, .minorChild, .disabled, .chronicallyIll, .notTenYearsYounger:
+            return true
+        case .nonEligibleDesignated:
+            return false
+        }
+    }
+}
+
+enum DecedentRBDStatus: String, Codable, CaseIterable {
+    case beforeRBD = "Before RBD"
+    case afterRBD = "After RBD"
 }
 
 struct IncomeSource: Identifiable, Codable {
@@ -1403,16 +2290,57 @@ struct IncomeSource: Identifiable, Codable {
     var name: String
     var type: IncomeType
     var annualAmount: Double
-    var taxWithholding: Double
+    var federalWithholding: Double
+    var stateWithholding: Double
     var owner: Owner
-    
-    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, taxWithholding: Double = 0, owner: Owner = .primary) {
+
+    /// Combined federal + state withholding for this source
+    var totalWithholding: Double { federalWithholding + stateWithholding }
+
+    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary) {
         self.id = id
         self.name = name
         self.type = type
         self.annualAmount = annualAmount
-        self.taxWithholding = taxWithholding
+        self.federalWithholding = federalWithholding
+        self.stateWithholding = stateWithholding
         self.owner = owner
+    }
+
+    // MARK: - Data Migration
+    // Decode legacy data that used a single "taxWithholding" field
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        type = try container.decode(IncomeType.self, forKey: .type)
+        annualAmount = try container.decode(Double.self, forKey: .annualAmount)
+        owner = try container.decode(Owner.self, forKey: .owner)
+
+        // Try new keys first; fall back to legacy "taxWithholding" → federalWithholding
+        if let fed = try? container.decode(Double.self, forKey: .federalWithholding) {
+            federalWithholding = fed
+            stateWithholding = (try? container.decode(Double.self, forKey: .stateWithholding)) ?? 0
+        } else {
+            let legacy = (try? container.decode(Double.self, forKey: .taxWithholding)) ?? 0
+            federalWithholding = legacy
+            stateWithholding = 0
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(type, forKey: .type)
+        try container.encode(annualAmount, forKey: .annualAmount)
+        try container.encode(federalWithholding, forKey: .federalWithholding)
+        try container.encode(stateWithholding, forKey: .stateWithholding)
+        try container.encode(owner, forKey: .owner)
     }
 }
     
@@ -1424,7 +2352,8 @@ struct IncomeSource: Identifiable, Codable {
         case interest = "Interest"
         case capitalGainsShort = "Capital Gains (Short-term)"
         case capitalGainsLong = "Capital Gains (Long-term)"
-        case consulting = "Consulting/1099"
+        case consulting = "Employment/Other Income"
+        case stateTaxRefund = "State Tax Refund"
         case rmd = "RMD"
         case rothConversion = "Roth Conversion"
         case other = "Other"
