@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Charts
 
 struct TaxPlanningView: View {
     @EnvironmentObject var dataManager: DataManager
@@ -21,6 +22,15 @@ struct TaxPlanningView: View {
     @State private var qcdSectionExpanded: Bool = true
     @State private var stockSectionExpanded: Bool = false
     @State private var cashSectionExpanded: Bool = false
+    @State private var showResetConfirmation: Bool = false
+
+    // MARK: - Sheet presentation state for scenario steps
+    @State private var showRothSheet: Bool = false
+    @State private var showWithdrawalSheet: Bool = false
+    @State private var showInheritedSheet: Bool = false
+    @State private var showCharitableSheet: Bool = false
+    @State private var showRothGuide: Bool = false
+    @State private var showCharitableGuide: Bool = false
 
     // MARK: - Computed helpers
 
@@ -236,18 +246,40 @@ struct TaxPlanningView: View {
             VStack(spacing: 24) {
                 summaryCard
                 opportunityWindowSection
-                rothConversionStep
-                withdrawalStep
-                inheritedWithdrawalStep
-                charitableStep
+                rothConversionCard
+                rothConversionGuideCard
+                withdrawalCard
+                inheritedWithdrawalCard
+                charitableCard
+                charitableGuideCard
                 taxImpactSection
+                taxImpactWaterfallChart
                 perDecisionImpact
                 rateBreakdownSection
                 bracketAnalysisSection
                 irmaaAnalysisSection
+                niitAnalysisSection
                 strategyTipsSection
             }
             .padding()
+        }
+        .sheet(isPresented: $showRothSheet) {
+            scenarioSheet(title: "Roth Conversions") { rothConversionContent }
+        }
+        .sheet(isPresented: $showWithdrawalSheet) {
+            scenarioSheet(title: "IRA/401(k) Withdrawals") { withdrawalContent }
+        }
+        .sheet(isPresented: $showInheritedSheet) {
+            scenarioSheet(title: "Inherited IRA Withdrawals") { inheritedWithdrawalContent }
+        }
+        .sheet(isPresented: $showCharitableSheet) {
+            scenarioSheet(title: "Charitable Contributions") { charitableContent }
+        }
+        .sheet(isPresented: $showRothGuide) {
+            rothConversionGuideSheet
+        }
+        .sheet(isPresented: $showCharitableGuide) {
+            charitableGuideSheet
         }
     }
 
@@ -258,10 +290,12 @@ struct TaxPlanningView: View {
                 VStack(spacing: 24) {
                     summaryCard
                     opportunityWindowSection
-                    rothConversionStep
-                    withdrawalStep
-                    inheritedWithdrawalStep
-                    charitableStep
+                    rothConversionCard
+                    rothConversionGuideCard
+                    withdrawalCard
+                    inheritedWithdrawalCard
+                    charitableCard
+                    charitableGuideCard
                 }
                 .padding()
             }
@@ -271,16 +305,63 @@ struct TaxPlanningView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     taxImpactSection
+                    taxImpactWaterfallChart
                     perDecisionImpact
                     rateBreakdownSection
                     bracketAnalysisSection
                     irmaaAnalysisSection
+                    niitAnalysisSection
                     strategyTipsSection
                     emptyAnalysisPlaceholder
                 }
                 .padding()
             }
             .frame(maxWidth: .infinity)
+        }
+        .sheet(isPresented: $showRothSheet) {
+            scenarioSheet(title: "Roth Conversions") { rothConversionContent }
+        }
+        .sheet(isPresented: $showWithdrawalSheet) {
+            scenarioSheet(title: "IRA/401(k) Withdrawals") { withdrawalContent }
+        }
+        .sheet(isPresented: $showInheritedSheet) {
+            scenarioSheet(title: "Inherited IRA Withdrawals") { inheritedWithdrawalContent }
+        }
+        .sheet(isPresented: $showCharitableSheet) {
+            scenarioSheet(title: "Charitable Contributions") { charitableContent }
+        }
+        .sheet(isPresented: $showRothGuide) {
+            rothConversionGuideSheet
+        }
+        .sheet(isPresented: $showCharitableGuide) {
+            charitableGuideSheet
+        }
+    }
+
+    /// Reusable sheet wrapper with NavigationStack, title, and Done button
+    private func scenarioSheet<Content: View>(title: String, @ViewBuilder content: @escaping () -> Content) -> some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    content()
+                }
+                .padding()
+            }
+            .background(Color(PlatformColor.systemGroupedBackground))
+            .navigationTitle(title)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        showRothSheet = false
+                        showWithdrawalSheet = false
+                        showInheritedSheet = false
+                        showCharitableSheet = false
+                    }
+                }
+            }
         }
     }
 
@@ -361,6 +442,25 @@ struct TaxPlanningView: View {
                 Text("Filing jointly \u{2013} all scenarios model joint tax impact")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if dataManager.hasActiveScenario {
+                Button(role: .destructive) {
+                    showResetConfirmation = true
+                } label: {
+                    Label("Reset Scenario", systemImage: "arrow.counterclockwise")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .confirmationDialog("Reset all scenario values to defaults?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
+                    Button("Reset Scenario", role: .destructive) {
+                        dataManager.resetScenario()
+                        stockPurchasePriceText = ""
+                        stockCurrentValueText = ""
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
             }
         }
         .padding()
@@ -473,6 +573,17 @@ struct TaxPlanningView: View {
                         let _ = netImpact += irmaaImpact
                         impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
                     }
+
+                    // NIIT breakdown (informational — already included in tax impact above)
+                    let rothNIIT = dataManager.rothConversionNIITImpact
+                    if rothNIIT > 0 {
+                        Text("    incl. \(rothNIIT, format: .currency(code: "USD")) NIIT")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .padding(.leading, 28)
+                            .padding(.top, -4)
+                    }
                 }
 
                 if dataManager.scenarioTotalExtraWithdrawal > 0 {
@@ -485,6 +596,16 @@ struct TaxPlanningView: View {
                         let _ = netImpact += irmaaImpact
                         impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
                     }
+
+                    let wdlNIIT = dataManager.extraWithdrawalNIITImpact
+                    if wdlNIIT > 0 {
+                        Text("    incl. \(wdlNIIT, format: .currency(code: "USD")) NIIT")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .padding(.leading, 28)
+                            .padding(.top, -4)
+                    }
                 }
 
                 if dataManager.inheritedTraditionalExtraTotal > 0 {
@@ -496,6 +617,16 @@ struct TaxPlanningView: View {
                     if irmaaImpact > 0 {
                         let _ = netImpact += irmaaImpact
                         impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
+                    }
+
+                    let inhNIIT = dataManager.inheritedExtraWithdrawalNIITImpact
+                    if inhNIIT > 0 {
+                        Text("    incl. \(inhNIIT, format: .currency(code: "USD")) NIIT")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .padding(.leading, 28)
+                            .padding(.top, -4)
                     }
                 }
 
@@ -510,7 +641,17 @@ struct TaxPlanningView: View {
                         impactRow(label: "  IRMAA Savings", amount: irmaaSavings, isPositive: true, color: .pink)
                     }
 
-                    if irmaaSavings == 0 {
+                    let qcdNIIT = dataManager.qcdNIITSavings
+                    if qcdNIIT > 0 {
+                        Text("    incl. \(qcdNIIT, format: .currency(code: "USD")) NIIT savings")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .padding(.leading, 28)
+                            .padding(.top, -4)
+                    }
+
+                    if irmaaSavings == 0 && qcdNIIT == 0 {
                         Text("QCD also lowers your AGI, which may reduce Social Security taxation.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -594,6 +735,201 @@ struct TaxPlanningView: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .foregroundStyle(isPositive ? .green : .red)
+        }
+    }
+
+    // MARK: - Chart 4: Tax Impact Waterfall
+
+    private struct WaterfallBar: Identifiable {
+        let id = UUID()
+        let label: String
+        let yStart: Double
+        let yEnd: Double
+        let color: Color
+        let isTotal: Bool
+    }
+
+    private var waterfallBars: [WaterfallBar] {
+        var bars: [WaterfallBar] = []
+
+        // Compute base tax (tax before any scenario decisions)
+        let rothImpact = dataManager.rothConversionTaxImpact
+        let rothIRMAA = dataManager.rothConversionIRMAAImpact
+        let wdlImpact = dataManager.extraWithdrawalTaxImpact
+        let wdlIRMAA = dataManager.extraWithdrawalIRMAAImpact
+        let inhImpact = dataManager.inheritedExtraWithdrawalTaxImpact
+        let inhIRMAA = dataManager.inheritedExtraWithdrawalIRMAAImpact
+        let qcdSavings = dataManager.qcdTaxSavings
+        let qcdIRMAA = dataManager.qcdIRMAASavings
+        let stockSavings = dataManager.stockDeductionTaxSavings + dataManager.stockCapGainsTaxAvoided
+        let cashSavings = dataManager.cashDonationTaxSavings
+
+        let finalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
+        let baseTax = finalTax
+            - (rothImpact + rothIRMAA)
+            - (wdlImpact + wdlIRMAA)
+            - (inhImpact + inhIRMAA)
+            + (qcdSavings + qcdIRMAA)
+            + stockSavings
+            + cashSavings
+
+        // Base bar
+        bars.append(WaterfallBar(label: "Base Tax", yStart: 0, yEnd: baseTax, color: .gray, isTotal: true))
+
+        var runningTotal = baseTax
+
+        // Costs (go UP)
+        let rothTotal = rothImpact + rothIRMAA
+        if rothTotal > 0 {
+            bars.append(WaterfallBar(label: "Roth", yStart: runningTotal, yEnd: runningTotal + rothTotal, color: .purple, isTotal: false))
+            runningTotal += rothTotal
+        }
+
+        let wdlTotal = wdlImpact + wdlIRMAA
+        if wdlTotal > 0 {
+            bars.append(WaterfallBar(label: "Withdrawals", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: .blue, isTotal: false))
+            runningTotal += wdlTotal
+        }
+
+        let inhTotal = inhImpact + inhIRMAA
+        if inhTotal > 0 {
+            bars.append(WaterfallBar(label: "Inherited", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: .indigo, isTotal: false))
+            runningTotal += inhTotal
+        }
+
+        // Savings (go DOWN)
+        let qcdTotal = qcdSavings + qcdIRMAA
+        if qcdTotal > 0 {
+            bars.append(WaterfallBar(label: "QCD", yStart: runningTotal, yEnd: runningTotal - qcdTotal, color: .green, isTotal: false))
+            runningTotal -= qcdTotal
+        }
+
+        if stockSavings > 0 {
+            bars.append(WaterfallBar(label: "Stock", yStart: runningTotal, yEnd: runningTotal - stockSavings, color: .orange, isTotal: false))
+            runningTotal -= stockSavings
+        }
+
+        if cashSavings > 0 {
+            bars.append(WaterfallBar(label: "Cash", yStart: runningTotal, yEnd: runningTotal - cashSavings, color: .teal, isTotal: false))
+            runningTotal -= cashSavings
+        }
+
+        // Final bar
+        bars.append(WaterfallBar(label: "Final Tax", yStart: 0, yEnd: finalTax, color: .gray.opacity(0.8), isTotal: true))
+
+        return bars
+    }
+
+    private func waterfallYAxisLabel(_ amount: Double) -> String {
+        if amount >= 1_000_000 {
+            return "$\(String(format: "%.1f", amount / 1_000_000))M"
+        } else if amount >= 1000 {
+            return "$\(Int(amount / 1000))K"
+        } else {
+            return "$\(Int(amount))"
+        }
+    }
+
+    @ViewBuilder
+    private var taxImpactWaterfallChart: some View {
+        if dataManager.hasActiveScenario {
+            let bars = waterfallBars
+            // Only show if there are decision bars (more than just base + final)
+            if bars.count > 2 {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.purple.opacity(0.85), .green.opacity(0.85)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "arrow.up.arrow.down")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Tax Impact Waterfall")
+                                .font(.headline)
+                            Text("How each decision affects your total tax")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+                    }
+
+                    // Waterfall chart
+                    Chart(bars) { bar in
+                        BarMark(
+                            x: .value("Decision", bar.label),
+                            yStart: .value("Start", bar.yStart),
+                            yEnd: .value("End", bar.yEnd)
+                        )
+                        .foregroundStyle(bar.color)
+                        .cornerRadius(3)
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { value in
+                            AxisValueLabel {
+                                if let amount = value.as(Double.self) {
+                                    Text(waterfallYAxisLabel(amount))
+                                        .font(.caption2)
+                                }
+                            }
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                        }
+                    }
+                    .chartXAxis {
+                        AxisMarks { value in
+                            AxisValueLabel {
+                                if let label = value.as(String.self) {
+                                    Text(label)
+                                        .font(.caption2)
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 220)
+
+                    // Legend
+                    let activeBars = bars.filter { !$0.isTotal }
+                    let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
+                        ForEach(activeBars) { bar in
+                            HStack(spacing: 4) {
+                                Circle().fill(bar.color).frame(width: 6, height: 6)
+                                let amount = abs(bar.yEnd - bar.yStart)
+                                let isSavings = bar.yEnd < bar.yStart
+                                Text("\(bar.label): \(isSavings ? "-" : "+")\(waterfallYAxisLabel(amount))")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(isSavings ? .green : .red)
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(PlatformColor.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.purple.opacity(0.3), .green.opacity(0.3)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+            }
         }
     }
 
@@ -748,7 +1084,7 @@ struct TaxPlanningView: View {
                 WithdrawalSliderCard(
                     label: "Extra Withdrawal",
                     amount: $dataManager.yourExtraWithdrawal,
-                    sliderMax: 200_000,
+                    sliderMax: max(200_000, dataManager.primaryTraditionalIRABalance),
                     tint: .blue
                 )
 
@@ -791,7 +1127,7 @@ struct TaxPlanningView: View {
                 WithdrawalSliderCard(
                     label: "Extra Withdrawal",
                     amount: $dataManager.spouseExtraWithdrawal,
-                    sliderMax: 200_000,
+                    sliderMax: max(200_000, dataManager.spouseTraditionalIRABalance),
                     tint: .blue
                 )
 
@@ -1004,6 +1340,413 @@ struct TaxPlanningView: View {
     /// Dynamic step number for charitable contributions (shifts when inherited accounts exist)
     private var charitableStepNumber: Int {
         dataManager.hasInheritedAccounts ? 4 : 3
+    }
+
+    // MARK: - Collapsed Summary Cards (open sheets on tap)
+
+    private var rothConversionCard: some View {
+        ScenarioStepCard(
+            stepNumber: 1,
+            title: "Roth Conversions",
+            description: "Move funds from a Traditional IRA to a Roth IRA. You\u{2019}ll pay tax now, but future growth and withdrawals are tax-free.",
+            stepColor: .orange,
+            icon: "arrow.right.arrow.left",
+            action: { showRothSheet = true }
+        ) {
+            rothSummary
+        }
+    }
+
+    // MARK: - Why Consider Roth Conversions Guide
+
+    private var rothConversionGuideCard: some View {
+        Button {
+            showRothGuide = true
+        } label: {
+            HStack(spacing: 14) {
+                VStack {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.title2)
+                        .foregroundStyle(.yellow)
+                }
+                .frame(width: 44, height: 44)
+                .background(Color.orange.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Why Consider Roth Conversions?")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    Text("6 key reasons conversions can save your household thousands in taxes across your lifetime, your spouse\u{2019}s, and your heirs\u{2019}.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .background(
+                LinearGradient(
+                    colors: [Color.orange.opacity(0.08), Color.yellow.opacity(0.05)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var rothConversionGuideSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+
+                    // Intro
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("For households with large Traditional IRAs, the strategy is less about minimizing this year\u{2019}s tax bill and more about managing taxes across your entire retirement.")
+                            .font(.callout)
+
+                        Text("The goal: shift money from tax-deferred accounts into tax-free accounts at favorable rates, before RMDs begin.")
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.orange)
+                    }
+
+                    Divider()
+
+                    // Section 1: Low Tax Years
+                    rothGuideSection(
+                        number: 1,
+                        icon: "calendar.badge.clock",
+                        color: .blue,
+                        title: "Convert During Low-Tax Years",
+                        body: "Many retirees have a window between retirement and the start of RMDs (age 73) when taxable income is lower. Converting during these years lets you pay tax at moderate rates \u{2014} often the 22% or 24% brackets \u{2014} rather than higher rates that may apply later when RMDs stack on top of Social Security, dividends, and other income."
+                    )
+
+                    // Section 2: Fill Up Bracket
+                    rothGuideSection(
+                        number: 2,
+                        icon: "chart.bar.fill",
+                        color: .green,
+                        title: "Fill Up the Current Tax Bracket",
+                        body: "Many planners recommend converting just enough each year to stay within a desired bracket \u{2014} often the top of the 24% bracket. The logic: if RMDs later push income into the 32% bracket or higher, paying 24% today is advantageous."
+                    )
+
+                    // Section 3: Surviving Spouse
+                    rothGuideSection(
+                        number: 3,
+                        icon: "person.fill.xmark",
+                        color: .red,
+                        title: "Protect the Surviving Spouse",
+                        body: "When one spouse dies, the survivor files as Single, and tax brackets compress dramatically. The same income that was comfortably in the 24% bracket when filing jointly can quickly fall into the 32% bracket for a single filer. Converting while both spouses are alive lets you pay tax at joint rates and reduces future RMDs that could push the surviving spouse into higher brackets."
+                    )
+
+                    // Section 4: Better for Heirs
+                    rothGuideSection(
+                        number: 4,
+                        icon: "gift.fill",
+                        color: .purple,
+                        title: "Roth Assets Are Better for Heirs",
+                        body: "Under current law, most non-spouse heirs must withdraw inherited retirement accounts within 10 years. If they inherit a Traditional IRA, every dollar is taxable \u{2014} often at their own high marginal rates during peak earning years. If they inherit a Roth IRA, withdrawals are generally tax-free. Many families prefer leaving heirs larger Roth balances and smaller Traditional IRAs."
+                    )
+
+                    // Section 5: Reduce Future RMDs
+                    rothGuideSection(
+                        number: 5,
+                        icon: "arrow.down.right",
+                        color: .orange,
+                        title: "Reduce Future RMDs",
+                        body: "Every dollar moved into a Roth reduces the Traditional IRA balance that generates RMDs. This can lower lifetime taxable income, reduce the chance of hitting higher tax brackets, and potentially avoid Medicare premium surcharges (IRMAA)."
+                    )
+
+                    // Section 6: Gradual Approach
+                    rothGuideSection(
+                        number: 6,
+                        icon: "stairs",
+                        color: .teal,
+                        title: "Convert Gradually, Not All at Once",
+                        body: "Rather than converting everything at once, most strategies involve annual conversions over many years, carefully balancing tax brackets, Medicare premium thresholds (IRMAA), and cash available to pay the conversion tax."
+                    )
+
+                    Divider()
+
+                    // Summary callout
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("The Three Phases", systemImage: "arrow.triangle.branch")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            rothGuidePhaseRow(
+                                phase: "1",
+                                title: "Joint Lifetime",
+                                detail: "Convert at favorable joint tax rates",
+                                color: .blue
+                            )
+                            rothGuidePhaseRow(
+                                phase: "2",
+                                title: "Surviving Spouse",
+                                detail: "Smaller RMDs mean lower single-filer taxes",
+                                color: .orange
+                            )
+                            rothGuidePhaseRow(
+                                phase: "3",
+                                title: "Inheritance",
+                                detail: "Heirs receive tax-free Roth withdrawals",
+                                color: .purple
+                            )
+                        }
+
+                        Text("Converting portions of Traditional IRA assets to Roth before RMDs begin can smooth taxes across all three phases and shift more wealth into accounts that grow and pass to heirs tax-free.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 4)
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                    // CTA
+                    HStack(spacing: 8) {
+                        Image(systemName: "hand.point.up.left.fill")
+                            .foregroundStyle(.blue)
+                        Text("Use Step 1 above to model different Roth conversion amounts and see the tax impact in real time.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.bottom, 8)
+                }
+                .padding()
+            }
+            .background(Color(PlatformColor.systemGroupedBackground))
+            .navigationTitle("Why Consider Roth Conversions?")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showRothGuide = false }
+                }
+            }
+        }
+    }
+
+    private func rothGuideSection(number: Int, icon: String, color: Color, title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.subheadline)
+                        .foregroundStyle(color)
+                }
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+            Text(body)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func rothGuidePhaseRow(phase: String, title: String, detail: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            Text(phase)
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(color)
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var rothSummary: some View {
+        if totalRothConversion > 0 {
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                if dataManager.yourRothConversion > 0 {
+                    summaryRow(label: spouseEnabled ? "Your Conversion" : "Conversion", value: dataManager.yourRothConversion, color: .orange)
+                }
+                if spouseEnabled && dataManager.spouseRothConversion > 0 {
+                    summaryRow(label: "\(spouseLabel)'s Conversion", value: dataManager.spouseRothConversion, color: .orange)
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("No conversions configured")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var withdrawalCard: some View {
+        ScenarioStepCard(
+            stepNumber: 2,
+            title: "IRA/401(k) Withdrawals",
+            description: "Withdraw cash from your retirement savings. RMDs are shown automatically. Extra withdrawals add to taxable income.",
+            stepColor: .blue,
+            icon: "banknote",
+            action: { showWithdrawalSheet = true }
+        ) {
+            withdrawalSummary
+        }
+    }
+
+    @ViewBuilder
+    private var withdrawalSummary: some View {
+        if combinedRMD > 0 || totalExtraWithdrawal > 0 {
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                if combinedRMD > 0 {
+                    summaryRow(label: "Required RMD", value: combinedRMD, color: .red)
+                }
+                if totalExtraWithdrawal > 0 {
+                    summaryRow(label: "Extra Withdrawals", value: totalExtraWithdrawal, color: .blue)
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text(dataManager.isRMDRequired ? "RMD required \u{2014} tap Adjust" : "No withdrawals configured")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inheritedWithdrawalCard: some View {
+        if dataManager.hasInheritedAccounts {
+            ScenarioStepCard(
+                stepNumber: 3,
+                title: "Inherited IRA Withdrawals",
+                description: "Required distributions from inherited IRAs. You can take extra withdrawals beyond the required amount.",
+                stepColor: .indigo,
+                icon: "archivebox",
+                action: { showInheritedSheet = true }
+            ) {
+                inheritedSummary
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inheritedSummary: some View {
+        let totalRequired = dataManager.inheritedIRARMDTotal
+        let totalExtra = dataManager.inheritedExtraWithdrawalTotal
+        if totalRequired > 0 || totalExtra > 0 {
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                if totalRequired > 0 {
+                    summaryRow(label: "Required Distribution", value: totalRequired, color: .red)
+                }
+                if totalExtra > 0 {
+                    summaryRow(label: "Extra Withdrawals", value: totalExtra, color: .indigo)
+                }
+                HStack(spacing: 4) {
+                    Text("\(dataManager.inheritedAccounts.count) account\(dataManager.inheritedAccounts.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("\(dataManager.inheritedAccounts.count) inherited account\(dataManager.inheritedAccounts.count == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var charitableCard: some View {
+        ScenarioStepCard(
+            stepNumber: charitableStepNumber,
+            title: "Charitable Contributions",
+            description: "Reduce your tax burden through QCDs, appreciated stock donations, and cash gifts.",
+            stepColor: .green,
+            icon: "heart.circle",
+            action: { showCharitableSheet = true }
+        ) {
+            charitableSummary
+        }
+    }
+
+    @ViewBuilder
+    private var charitableSummary: some View {
+        if hasAnyCharitable {
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                if totalQCD > 0 {
+                    summaryRow(label: "QCD", value: totalQCD, color: .green)
+                }
+                if dataManager.stockDonationEnabled && stockCurrentValueNum > 0 {
+                    summaryRow(label: "Stock Donation", value: stockCurrentValueNum, color: .green)
+                }
+                if dataManager.cashDonationAmount > 0 {
+                    summaryRow(label: "Cash Donation", value: dataManager.cashDonationAmount, color: .green)
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("No donations configured")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Reusable summary row for collapsed cards
+    private func summaryRow(label: String, value: Double, color: Color) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value, format: .currency(code: "USD"))
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+        }
     }
 
     // MARK: - Charitable Contributions
@@ -1223,6 +1966,9 @@ struct TaxPlanningView: View {
 
                         DatePicker("Purchase Date", selection: $dataManager.stockPurchaseDate, in: ...Date(), displayedComponents: .date)
                             .font(.callout)
+                            #if os(macOS)
+                            .datePickerStyle(.field)
+                            #endif
                     }
 
                     if stockCurrentValueNum > 0 || stockPurchasePriceValue > 0 {
@@ -1370,6 +2116,145 @@ struct TaxPlanningView: View {
                 Text("Cash / Bank Account Donation")
                     .font(.subheadline)
                     .fontWeight(.medium)
+            }
+        }
+    }
+
+    // MARK: - Charitable Info Sheet
+
+    // MARK: - How Contribution Types Impact Taxes Guide
+
+    private var charitableGuideCard: some View {
+        Button {
+            showCharitableGuide = true
+        } label: {
+            HStack(spacing: 14) {
+                VStack {
+                    Image(systemName: "heart.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.green)
+                }
+                .frame(width: 44, height: 44)
+                .background(Color.green.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("How Contribution Types Impact Taxes")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    Text("Learn how QCDs, stock donations, and cash gifts each reduce your tax burden in different ways.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .background(
+                LinearGradient(
+                    colors: [Color.green.opacity(0.08), Color.blue.opacity(0.05)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.green.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var charitableGuideSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Section 1: Traditional Deductions & Roth Strategy
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Traditional Charitable Deductions", systemImage: "gift.fill")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+
+                        Text("Charitable giving can play a useful role in managing taxes and smoothing income over time, especially for retirees who are trying to stay within a specific tax bracket while doing Roth conversions. Traditional charitable contributions\u{2014}whether made in cash or appreciated stock\u{2014}generally reduce taxable income if you itemize deductions. By lowering taxable income, these deductions can create additional \u{201C}room\u{201D} within a tax bracket, which can allow you to convert more money from a traditional IRA to a Roth IRA without moving into a higher marginal tax rate.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding()
+                    .background(Color(PlatformColor.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
+
+                    // Section 2: Appreciated Stock
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Donating Appreciated Stock", systemImage: "chart.line.uptrend.xyaxis.circle.fill")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.blue)
+
+                        Text("Donating appreciated stock can be particularly efficient because you typically receive a charitable deduction equal to the market value of the shares while avoiding the capital gains tax that would have been owed if the stock were sold. This makes stock donations a powerful way to support charities while simultaneously reducing the taxable income reported on your return. Cash donations work similarly from a deduction standpoint, though they do not provide the added benefit of eliminating embedded capital gains.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding()
+                    .background(Color(PlatformColor.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
+
+                    // Section 3: QCDs
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Qualified Charitable Distributions (QCDs)", systemImage: "heart.circle.fill")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+
+                        Text("For retirees over age 70\u{00BD}, Qualified Charitable Distributions (QCDs) from an IRA offer an even more powerful planning tool. A QCD sends funds directly from the IRA to a charity and the distribution is excluded from taxable income, even though it can count toward satisfying required minimum distributions (RMDs). Because the distribution never appears in adjusted gross income (AGI), QCDs can reduce both taxable income and modified AGI, which may help manage tax brackets and potentially reduce exposure to IRMAA Medicare surcharges.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding()
+                    .background(Color(PlatformColor.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
+
+                    // Section 4: Combined Strategy
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Combining Strategies", systemImage: "arrow.triangle.merge")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.purple)
+
+                        Text("Used strategically, a combination of charitable deductions, appreciated stock donations, and QCDs can help manage income levels while creating more flexibility to perform Roth conversions within a targeted tax bracket.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding()
+                    .background(Color(PlatformColor.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
+                }
+                .padding()
+            }
+            .background(Color(PlatformColor.systemGroupedBackground))
+            .navigationTitle("Contribution Tax Impact")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showCharitableGuide = false }
+                }
             }
         }
     }
@@ -1597,6 +2482,28 @@ struct TaxPlanningView: View {
                                 .foregroundStyle(.red)
                         }
                     }
+
+                    // Monthly premium breakdown
+                    HStack {
+                        Text("Monthly Part B Premium")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(irmaa.monthlyPartB, format: .currency(code: "USD"))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+                    if irmaa.monthlyPartD > 0 {
+                        HStack {
+                            Text("Monthly Part D Surcharge")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(irmaa.monthlyPartD, format: .currency(code: "USD"))
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
+                    }
                 }
 
                 Divider()
@@ -1609,6 +2516,24 @@ struct TaxPlanningView: View {
                         Text("\(distanceToNext, format: .currency(code: "USD")) until next IRMAA tier")
                             .font(.caption)
                             .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                    }
+                }
+
+                // Distance above current tier — actionable: drop a tier
+                if irmaa.tier > 0, let distanceToPrev = irmaa.distanceToPreviousTier {
+                    let savingsPerPerson = irmaa.annualSurchargePerPerson - dataManager.scenarioIRMAAPreviousTierAnnualSurcharge
+                    let householdSavings = savingsPerPerson * Double(memberCount)
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("You're \(distanceToPrev + 1, format: .currency(code: "USD")) above the Tier \(irmaa.tier) cliff")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Text("Reduce income by that amount to save \(householdSavings, format: .currency(code: "USD"))/year\(memberCount > 1 ? " household" : "")")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
                     }
                 }
 
@@ -1626,6 +2551,130 @@ struct TaxPlanningView: View {
 
                 // 2-year lookback note
                 Text("IRMAA is based on income from 2 years prior. Your \(String(dataManager.currentYear)) income decisions will affect \(String(dataManager.currentYear + 2)) Medicare premiums.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .italic()
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
+    }
+
+    // MARK: - NIIT Analysis Section
+
+    @ViewBuilder
+    private var niitAnalysisSection: some View {
+        if dataManager.scenarioNetInvestmentIncome > 0 {
+            let niit = dataManager.scenarioNIIT
+            let baseline = dataManager.baselineNIIT
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "percent")
+                        .foregroundStyle(.red)
+                    Text("Net Investment Income Tax")
+                        .font(.headline)
+                }
+
+                HStack {
+                    Text("Net Investment Income")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(niit.netInvestmentIncome, format: .currency(code: "USD"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+
+                HStack {
+                    Text("Estimated MAGI")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(niit.magi, format: .currency(code: "USD"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+
+                HStack {
+                    Text("NIIT Threshold (\(dataManager.filingStatus == .single ? "Single" : "MFJ"))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(niit.threshold, format: .currency(code: "USD"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+
+                Divider()
+
+                if niit.annualNIITax > 0 {
+                    HStack {
+                        Text("MAGI Excess Over Threshold")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(niit.magiExcess, format: .currency(code: "USD"))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+
+                    HStack {
+                        Text("Taxable NII (lesser of NII or excess)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(niit.taxableNII, format: .currency(code: "USD"))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+
+                    HStack {
+                        Text("NIIT (3.8%)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(niit.annualNIITax, format: .currency(code: "USD"))
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.red)
+                    }
+
+                    if dataManager.scenarioIncreasedNIIT {
+                        let additionalNIIT = niit.annualNIITax - baseline.annualNIITax
+                        if additionalNIIT > 0 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.red)
+                                Text("Scenario decisions add \(additionalNIIT, format: .currency(code: "USD")) in NIIT by raising MAGI above the threshold")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: niit.distanceToThreshold < 10_000 ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .green)
+                        Text("NIIT: Below threshold (no surtax)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .green)
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: niit.distanceToThreshold < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .blue)
+                            .font(.caption)
+                        Text("\(niit.distanceToThreshold, format: .currency(code: "USD")) below NIIT threshold")
+                            .font(.caption)
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .secondary)
+                    }
+                }
+
+                Text("NIIT applies to the lesser of your net investment income or MAGI above \(niit.threshold, format: .currency(code: "USD")). Roth conversions and withdrawals raise MAGI but are not investment income.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .italic()
@@ -2075,20 +3124,33 @@ struct CurrencyField: View {
             .frame(width: 100)
             .focused($isFocused)
             .onAppear { text = formatValue(value) }
+            .onSubmit { commitText() }
             .onChange(of: value) { _, newValue in
                 if !isFocused { text = formatValue(newValue) }
+            }
+            .onChange(of: text) { _, newText in
+                // Live-parse while typing so slider and model stay in sync
+                if isFocused {
+                    let cleaned = newText.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "")
+                    if let parsed = Double(cleaned), parsed >= range.lowerBound {
+                        value = min(parsed, range.upperBound)
+                    }
+                }
             }
             .onChange(of: isFocused) { _, focused in
                 if focused {
                     // Show raw number for easier editing
                     text = value == 0 ? "" : "\(Int(value))"
                 } else {
-                    // Parse, clamp, and re-format on blur
-                    let parsed = Double(text.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "")) ?? 0
-                    value = min(max(parsed, range.lowerBound), range.upperBound)
-                    text = formatValue(value)
+                    commitText()
                 }
             }
+    }
+
+    private func commitText() {
+        let parsed = Double(text.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "")) ?? 0
+        value = min(max(parsed, range.lowerBound), range.upperBound)
+        text = formatValue(value)
     }
 
     private func formatValue(_ v: Double) -> String {
@@ -2117,6 +3179,67 @@ struct QuarterPicker: View {
             .pickerStyle(.segmented)
             .frame(width: 200)
         }
+    }
+}
+
+// MARK: - Scenario Step Card (collapsed summary with Adjust button)
+
+struct ScenarioStepCard<Summary: View>: View {
+    let stepNumber: Int
+    let title: String
+    let description: String
+    let stepColor: Color
+    let icon: String
+    let action: () -> Void
+    @ViewBuilder let summary: () -> Summary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header row: number + icon + title + Adjust button
+            HStack(alignment: .top, spacing: 12) {
+                Text("\(stepNumber)")
+                    .font(.callout)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(stepColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: icon)
+                            .foregroundStyle(stepColor)
+                            .font(.subheadline)
+                        Text(title)
+                            .font(.headline)
+                    }
+                    Text(description)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Button(action: action) {
+                    Text("Adjust")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(stepColor.opacity(0.12))
+                        .foregroundStyle(stepColor)
+                        .clipShape(Capsule())
+                }
+            }
+
+            // Summary of current values
+            summary()
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 }
 

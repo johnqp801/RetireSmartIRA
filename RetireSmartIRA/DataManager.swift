@@ -18,6 +18,7 @@ class DataManager: ObservableObject {
     @Published var currentYear: Int = Calendar.current.component(.year, from: Date())
     @Published var filingStatus: FilingStatus = .single
     @Published var selectedState: USState = .california
+    @Published var userName: String = ""
     @Published var spouseName: String = ""
     @Published var spouseBirthDate: Date = {
         var c = DateComponents(); c.year = 1955; c.month = 1; c.day = 1
@@ -53,6 +54,13 @@ class DataManager: ObservableObject {
     @Published var inheritedExtraWithdrawals: [UUID: Double] = [:]  // accountId → extra withdrawal amount
     @Published var deductionOverride: DeductionChoice? = nil  // nil = auto-pick best
     @Published var completedActionKeys: Set<String> = []
+
+    // RMD Projection Growth Rates
+    @Published var primaryGrowthRate: Double = 5.0
+    @Published var spouseGrowthRate: Double = 5.0
+
+    // Prior Year State Tax
+    @Published var priorYearStateBalance: Double = 0  // positive = balance due paid; negative = refund
 
     // Itemized Deductions
     @Published var deductionItems: [DeductionItem] = []
@@ -94,6 +102,29 @@ class DataManager: ObservableObject {
         let distanceToNextTier: Double?       // $ until next cliff (nil if top tier)
         let distanceToPreviousTier: Double?   // $ above current tier threshold (nil if tier 0)
         let magi: Double
+    }
+
+    /// Result of a NIIT calculation (IRC §1411 — 3.8% Net Investment Income Tax).
+    /// NIIT = 3.8% × min(Net Investment Income, max(0, MAGI − threshold))
+    struct NIITResult {
+        let netInvestmentIncome: Double      // Total NII from qualifying sources
+        let magi: Double                     // MAGI used for threshold comparison
+        let threshold: Double                // $200K Single / $250K MFJ
+        let magiExcess: Double               // max(0, MAGI - threshold)
+        let taxableNII: Double               // min(NII, magiExcess) — the base for 3.8%
+        let annualNIITax: Double             // taxableNII × 0.038
+        let distanceToThreshold: Double      // threshold - MAGI (positive = below, negative = above)
+    }
+
+    /// Result of an AMT calculation (IRC §55 — Alternative Minimum Tax).
+    /// AMT = max(0, tentativeMinimumTax − regularTax)
+    struct AMTResult {
+        let amti: Double                    // Alternative Minimum Taxable Income
+        let exemption: Double               // After phaseout
+        let taxableAMTI: Double             // max(0, AMTI - exemption)
+        let tentativeMinimumTax: Double     // 26%/28% on taxableAMTI
+        let regularTax: Double              // Regular federal tax for comparison
+        let amt: Double                     // max(0, TMT - regularTax)
     }
 
     /// Detailed breakdown of state tax calculation for a specific state.
@@ -186,6 +217,30 @@ class DataManager: ObservableObject {
         IRMAATier(tier: 4, singleThreshold: 205_001,  mfjThreshold: 410_001,  partBMonthly: 608.40, partDMonthly: 83.10),
         IRMAATier(tier: 5, singleThreshold: 500_001,  mfjThreshold: 750_001,  partBMonthly: 689.90, partDMonthly: 91.00),
     ]
+
+    // MARK: - NIIT Constants (IRC §1411)
+    // Net Investment Income Tax — 3.8% surtax, thresholds NOT indexed for inflation (fixed since 2013).
+    static let niitRate: Double = 0.038
+    static let niitThresholdSingle: Double = 200_000
+    static let niitThresholdMFJ: Double = 250_000
+
+    /// Income types that qualify as Net Investment Income under IRC §1411.
+    static let niitQualifyingTypes: Set<IncomeType> = [
+        .dividends, .qualifiedDividends, .interest,
+        .capitalGainsShort, .capitalGainsLong
+    ]
+
+    // MARK: - AMT Constants (IRC §55)
+    // Alternative Minimum Tax — 26%/28% rates with exemption phaseout.
+    // 2026 values from IRS Rev. Proc. 2025-32; OBBBA raised phaseout thresholds.
+    static let amtExemptionSingle: Double = 90_100
+    static let amtExemptionMFJ: Double = 140_200
+    static let amtPhaseoutThresholdSingle: Double = 500_000
+    static let amtPhaseoutThresholdMFJ: Double = 1_000_000
+    static let amtPhaseoutRate: Double = 0.50       // 50¢ per $1 of AMTI over threshold
+    static let amt26PercentLimit: Double = 244_500  // AMTI above this → 28% rate
+    static let amtRate26: Double = 0.26
+    static let amtRate28: Double = 0.28
 
     // Computed Properties — derived from birthDate
 
@@ -706,15 +761,18 @@ class DataManager: ObservableObject {
     }
 
     /// Calculates state income tax for the selected state, applying retirement income exemptions.
+    /// Calculates state tax using pre-deduction income for the selected state.
+    /// Applies the state's own standard deduction and retirement exemptions.
     func calculateStateTax(income: Double, filingStatus: FilingStatus = .single) -> Double {
         calculateStateTax(income: income, forState: selectedState, filingStatus: filingStatus)
     }
 
     /// Calculates state tax for a specific state (used for cross-state comparison).
-    /// Unlike the default overload, this accepts any state rather than using `selectedState`.
-    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single) -> Double {
+    /// `income` is post-state-deduction income (state taxable income before retirement exemptions).
+    /// `taxableSocialSecurity` is the SS amount included in income (to correctly subtract for SS-exempt states).
+    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0) -> Double {
         let config = StateTaxData.config(for: state)
-        let adjustedIncome = applyRetirementExemptions(income: income, config: config)
+        let adjustedIncome = applyRetirementExemptions(income: income, config: config, taxableSocialSecurity: taxableSocialSecurity)
 
         switch config.taxSystem {
         case .noIncomeTax, .specialLimited:
@@ -727,16 +785,36 @@ class DataManager: ObservableObject {
         }
     }
 
+    /// Calculates state tax starting from gross income (pre-deduction).
+    /// Applies the state's own standard deduction, then retirement exemptions, then tax.
+    /// Used by state comparison and scenarioStateTax to ensure correct state-specific deductions.
+    func calculateStateTaxFromGross(grossIncome: Double, forState state: USState, filingStatus: FilingStatus, taxableSocialSecurity: Double) -> Double {
+        let config = StateTaxData.config(for: state)
+        let stateDeduction: Double
+        switch config.stateDeduction {
+        case .none:
+            stateDeduction = 0
+        case .conformsToFederal:
+            stateDeduction = effectiveDeductionAmount
+        case .fixed(let single, let married):
+            stateDeduction = filingStatus == .single ? single : married
+        }
+        let stateTaxableIncome = max(0, grossIncome - stateDeduction)
+        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity)
+    }
+
     /// Applies state-specific retirement income exemptions to reduce state taxable income.
     /// Different states exempt different combinations of Social Security, pensions, and IRA withdrawals.
-    private func applyRetirementExemptions(income: Double, config: StateTaxConfig) -> Double {
+    /// `taxableSocialSecurity` is the amount of SS actually included in the income figure
+    /// (the federally-taxable portion: 0/50/85%), NOT the full SS benefit.
+    private func applyRetirementExemptions(income: Double, config: StateTaxConfig, taxableSocialSecurity: Double) -> Double {
         var adjusted = income
         let exemptions = config.retirementExemptions
 
-        // Social Security exemption: most states (42) exempt SS from state tax
+        // Social Security exemption: most states (42) exempt SS from state tax.
+        // Subtract only the taxable portion that was included in income, not the full benefit.
         if exemptions.socialSecurityExempt {
-            let ssIncome = incomeSources.filter { $0.type == .socialSecurity }.reduce(0) { $0 + $1.annualAmount }
-            adjusted -= ssIncome
+            adjusted -= taxableSocialSecurity
         }
 
         // Pension exemption
@@ -765,21 +843,34 @@ class DataManager: ObservableObject {
     }
 
     /// Returns a detailed breakdown of how state tax is calculated for a specific state.
-    /// Mirrors the logic of `applyRetirementExemptions` + `calculateStateTax` but captures
+    /// Mirrors the logic of `calculateStateTaxFromGross` but captures
     /// every intermediate value for the State Comparison detail sheet.
     func stateTaxBreakdown(forState state: USState, filingStatus: FilingStatus) -> StateTaxBreakdown {
-        let income = scenarioTaxableIncome
+        let grossIncome = scenarioGrossIncome
         let config = StateTaxData.config(for: state)
         let exemptions = config.retirementExemptions
 
+        // 0. Apply state-specific standard deduction
+        let stateDeduction: Double
+        switch config.stateDeduction {
+        case .none:
+            stateDeduction = 0
+        case .conformsToFederal:
+            stateDeduction = effectiveDeductionAmount
+        case .fixed(let single, let married):
+            stateDeduction = filingStatus == .single ? single : married
+        }
+        let income = max(0, grossIncome - stateDeduction)
+
         // 1. Gather income by category from income sources
-        let ssIncome = incomeSources.filter { $0.type == .socialSecurity }.reduce(0) { $0 + $1.annualAmount }
+        let taxableSS = scenarioTaxableSocialSecurity
         let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
         let iraIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
-        let otherIncome = max(0, income - ssIncome - pensionIncome - iraIncome)
+        let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
 
         // 2. Calculate each exemption amount (mirrors applyRetirementExemptions logic)
-        let ssExemptAmt = exemptions.socialSecurityExempt ? ssIncome : 0
+        // SS exemption uses the taxable portion (what was included), not the full benefit
+        let ssExemptAmt = exemptions.socialSecurityExempt ? taxableSS : 0
 
         let pensionExemptAmt: Double
         switch exemptions.pensionExemption {
@@ -846,7 +937,7 @@ class DataManager: ObservableObject {
         return StateTaxBreakdown(
             state: state,
             totalIncome: income,
-            socialSecurityIncome: ssIncome,
+            socialSecurityIncome: taxableSS,
             pensionIncome: pensionIncome,
             iraRmdIncome: iraIncome,
             otherIncome: otherIncome,
@@ -924,8 +1015,101 @@ class DataManager: ObservableObject {
         )
     }
 
+    // MARK: - NIIT Calculations (IRC §1411)
+
+    /// Calculates the Net Investment Income Tax for a given NII, MAGI, and filing status.
+    /// NIIT = 3.8% × min(NII, max(0, MAGI − threshold))
+    ///
+    /// Key nuance: Roth conversions and IRA withdrawals are NOT NII themselves, but they
+    /// increase MAGI, which can cause existing investment income to become subject to NIIT.
+    func calculateNIIT(nii: Double, magi: Double, filingStatus: FilingStatus) -> NIITResult {
+        let threshold = filingStatus == .single
+            ? DataManager.niitThresholdSingle
+            : DataManager.niitThresholdMFJ
+
+        let magiExcess = max(0, magi - threshold)
+        let taxableNII = min(nii, magiExcess)
+        let tax = taxableNII * DataManager.niitRate
+        let distance = threshold - magi
+
+        return NIITResult(
+            netInvestmentIncome: nii,
+            magi: magi,
+            threshold: threshold,
+            magiExcess: magiExcess,
+            taxableNII: taxableNII,
+            annualNIITax: tax,
+            distanceToThreshold: distance
+        )
+    }
+
+    // MARK: - AMT Calculations (IRC §55)
+
+    /// Calculates Alternative Minimum Tax for 2026.
+    ///
+    /// For retirees, AMTI = taxable income + add-back of SALT deduction
+    /// + add-back of deductible medical expenses (only when itemizing).
+    /// If taking the standard deduction, AMTI ≈ taxable income (no add-backs).
+    ///
+    /// Cap gains within AMTI are taxed at federal preferential rates (0/15/20%),
+    /// not the 26/28% AMT rates, matching Form 6251 line 12 treatment.
+    func calculateAMT(taxableIncome: Double, regularTax: Double, filingStatus: FilingStatus) -> AMTResult {
+        // 1. Calculate AMTI add-backs (only when itemizing — standard deduction has none)
+        var addBacks = 0.0
+        if scenarioEffectiveItemize {
+            addBacks += saltAfterCap              // SALT fully added back for AMT
+            addBacks += deductibleMedicalExpenses  // medical expenses added back for AMT
+        }
+        let amti = taxableIncome + addBacks
+
+        // 2. Exemption with phaseout (50¢ per $1 of AMTI over threshold)
+        let baseExemption = filingStatus == .single
+            ? DataManager.amtExemptionSingle : DataManager.amtExemptionMFJ
+        let phaseoutThreshold = filingStatus == .single
+            ? DataManager.amtPhaseoutThresholdSingle : DataManager.amtPhaseoutThresholdMFJ
+        let phaseout = max(0, (amti - phaseoutThreshold) * DataManager.amtPhaseoutRate)
+        let exemption = max(0, baseExemption - phaseout)
+
+        // 3. Taxable AMTI (after exemption)
+        let taxableAMTI = max(0, amti - exemption)
+
+        // 4. Tentative minimum tax: 26%/28% on ordinary, preferential rates on cap gains
+        let capGains = max(0, preferentialIncome())
+        let ordinaryAMTI = max(0, taxableAMTI - capGains)
+
+        // 26%/28% on ordinary portion of AMTI
+        var tmt = 0.0
+        if ordinaryAMTI <= DataManager.amt26PercentLimit {
+            tmt = ordinaryAMTI * DataManager.amtRate26
+        } else {
+            tmt = DataManager.amt26PercentLimit * DataManager.amtRate26
+                + (ordinaryAMTI - DataManager.amt26PercentLimit) * DataManager.amtRate28
+        }
+
+        // Cap gains taxed at federal preferential rates (stacked on top of ordinary AMTI)
+        if capGains > 0 {
+            let capGainsBrackets = filingStatus == .single
+                ? currentTaxBrackets.federalCapGainsSingle : currentTaxBrackets.federalCapGainsMarried
+            let taxOnTotal = progressiveTax(income: taxableAMTI, brackets: capGainsBrackets)
+            let taxOnOrdinary = progressiveTax(income: ordinaryAMTI, brackets: capGainsBrackets)
+            tmt += taxOnTotal - taxOnOrdinary
+        }
+
+        // 5. AMT = excess of tentative minimum tax over regular tax
+        let amt = max(0, tmt - regularTax)
+
+        return AMTResult(
+            amti: amti,
+            exemption: exemption,
+            taxableAMTI: taxableAMTI,
+            tentativeMinimumTax: tmt,
+            regularTax: regularTax,
+            amt: amt
+        )
+    }
+
     // MARK: - Roth Conversion Analysis
-    
+
     func analyzeRothConversion(conversionAmount: Double) -> RothConversionAnalysis {
         let currentIncome = taxableIncome(filingStatus: filingStatus)
         let newIncome = currentIncome + conversionAmount
@@ -1110,9 +1294,11 @@ class DataManager: ObservableObject {
         return (totalAnnualTax * 0.90) / 4.0
     }
     
-    init() {
+    init(skipPersistence: Bool = false) {
         // Initialize with defaults first
         self.currentTaxBrackets = DataManager.default2026Brackets
+
+        guard !skipPersistence else { return }
 
         // Then try to load tax brackets from UserDefaults
         if let data = UserDefaults.standard.data(forKey: "taxBrackets"),
@@ -1142,6 +1328,9 @@ class DataManager: ObservableObject {
         }
         if let name = defaults.string(forKey: StorageKey.spouseName) {
             self.spouseName = name
+        }
+        if let name = defaults.string(forKey: StorageKey.userName) {
+            self.userName = name
         }
 
         // Spouse birth date: try new Date key first, then migrate from legacy Int
@@ -1249,6 +1438,15 @@ class DataManager: ObservableObject {
            let decoded = try? JSONDecoder().decode([DeductionItem].self, from: data) {
             self.deductionItems = decoded
         }
+        if defaults.object(forKey: StorageKey.priorYearStateBalance) != nil {
+            self.priorYearStateBalance = defaults.double(forKey: StorageKey.priorYearStateBalance)
+        }
+        if defaults.object(forKey: StorageKey.primaryGrowthRate) != nil {
+            self.primaryGrowthRate = defaults.double(forKey: StorageKey.primaryGrowthRate)
+        }
+        if defaults.object(forKey: StorageKey.spouseGrowthRate) != nil {
+            self.spouseGrowthRate = defaults.double(forKey: StorageKey.spouseGrowthRate)
+        }
     }
     
     // Save tax brackets whenever they change
@@ -1293,6 +1491,10 @@ class DataManager: ObservableObject {
         static let deductionOverride = "deductionOverride"
         static let completedActionKeys = "completedActionKeys"
         static let deductionItems = "deductionItems"
+        static let priorYearStateBalance = "priorYearStateBalance"
+        static let userName = "userName"
+        static let primaryGrowthRate = "primaryGrowthRate"
+        static let spouseGrowthRate = "spouseGrowthRate"
     }
 
     /// Saves all user data to UserDefaults for persistence across rebuilds.
@@ -1302,6 +1504,7 @@ class DataManager: ObservableObject {
         defaults.set(filingStatus.rawValue, forKey: StorageKey.filingStatus)
         defaults.set(selectedState.rawValue, forKey: StorageKey.selectedState)
         defaults.set(spouseName, forKey: StorageKey.spouseName)
+        defaults.set(userName, forKey: StorageKey.userName)
         defaults.set(spouseBirthDate.timeIntervalSince1970, forKey: StorageKey.spouseBirthDate)
         defaults.set(enableSpouse, forKey: StorageKey.enableSpouse)
 
@@ -1347,8 +1550,61 @@ class DataManager: ObservableObject {
         if let data = try? JSONEncoder().encode(deductionItems) {
             defaults.set(data, forKey: StorageKey.deductionItems)
         }
+        defaults.set(priorYearStateBalance, forKey: StorageKey.priorYearStateBalance)
+        defaults.set(primaryGrowthRate, forKey: StorageKey.primaryGrowthRate)
+        defaults.set(spouseGrowthRate, forKey: StorageKey.spouseGrowthRate)
     }
     
+    /// Resets all scenario properties to defaults.
+    func resetScenario() {
+        yourRothConversion = 0
+        spouseRothConversion = 0
+        yourExtraWithdrawal = 0
+        spouseExtraWithdrawal = 0
+        yourQCDAmount = 0
+        spouseQCDAmount = 0
+        yourWithdrawalQuarter = 4
+        spouseWithdrawalQuarter = 4
+        yourRothConversionQuarter = 4
+        spouseRothConversionQuarter = 4
+        stockDonationEnabled = false
+        stockPurchasePrice = 0
+        stockCurrentValue = 0
+        stockPurchaseDate = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
+        cashDonationAmount = 0
+        inheritedExtraWithdrawals = [:]
+        deductionOverride = nil
+        completedActionKeys = []
+        saveAllData()
+    }
+
+    /// Ensures quarterlyPayments has entries for the current year, syncing estimated amounts.
+    func syncQuarterlyPayments() {
+        let payments = scenarioQuarterlyPayments
+        let amounts = [payments.q1, payments.q2, payments.q3, payments.q4]
+        let calendar = Calendar.current
+        let dueDates = [
+            calendar.date(from: DateComponents(year: currentYear, month: 4, day: 15))!,
+            calendar.date(from: DateComponents(year: currentYear, month: 6, day: 15))!,
+            calendar.date(from: DateComponents(year: currentYear, month: 9, day: 15))!,
+            calendar.date(from: DateComponents(year: currentYear + 1, month: 1, day: 15))!
+        ]
+
+        for q in 1...4 {
+            if let idx = quarterlyPayments.firstIndex(where: { $0.quarter == q && $0.year == currentYear }) {
+                quarterlyPayments[idx].estimatedAmount = amounts[q - 1]
+            } else {
+                let payment = QuarterlyPayment(
+                    quarter: q,
+                    year: currentYear,
+                    dueDate: dueDates[q - 1],
+                    estimatedAmount: amounts[q - 1]
+                )
+                quarterlyPayments.append(payment)
+            }
+        }
+    }
+
     // Reset to default 2026 brackets
     func resetToDefaultBrackets() {
         currentTaxBrackets = DataManager.default2026Brackets
@@ -1401,19 +1657,23 @@ class DataManager: ObservableObject {
     // MARK: - Social Security Taxation
         
     // Calculate taxable portion of Social Security benefits
-    func calculateTaxableSocialSecurity(filingStatus: FilingStatus = .single) -> Double {
+    /// Calculates the taxable portion of Social Security benefits.
+    /// `additionalIncome` includes Roth conversions, extra withdrawals, etc. that
+    /// aren't in `incomeSources` but affect the IRS combined income test.
+    func calculateTaxableSocialSecurity(filingStatus: FilingStatus = .single, additionalIncome: Double = 0) -> Double {
         // Get Social Security income
         let ssIncome = incomeSources
             .filter { $0.type == .socialSecurity }
             .reduce(0) { $0 + $1.annualAmount }
-        
+
         // Get other income (everything except Social Security)
         let otherIncome = incomeSources
             .filter { $0.type != .socialSecurity }
             .reduce(0) { $0 + $1.annualAmount }
-        
-        // Combined income = Other income + 50% of Social Security
-        let combinedIncome = otherIncome + (ssIncome * 0.5)
+
+        // Combined income = Other income + additional scenario income + 50% of Social Security
+        // Per IRS, Roth conversions and IRA withdrawals count toward combined income
+        let combinedIncome = otherIncome + additionalIncome + (ssIncome * 0.5)
         
         // Determine taxable portion based on thresholds
         let (threshold1, threshold2) = filingStatus == .single ? (25_000.0, 34_000.0) : (32_000.0, 44_000.0)
@@ -1546,9 +1806,22 @@ class DataManager: ObservableObject {
         totalFederalWithholding + totalStateWithholding
     }
 
-    /// Base income before any scenario decisions (pre-deduction)
+    /// Taxable portion of Social Security with scenario income included in combined income test.
+    /// Per IRS rules, Roth conversions and IRA withdrawals affect the SS taxation thresholds.
+    var scenarioTaxableSocialSecurity: Double {
+        let scenarioExtra = scenarioTotalRothConversion + scenarioTotalWithdrawals
+        return calculateTaxableSocialSecurity(filingStatus: filingStatus, additionalIncome: scenarioExtra)
+    }
+
+    /// Base income before any scenario decisions (pre-deduction).
+    /// Uses scenario-aware SS taxation that includes Roth conversions and withdrawals
+    /// in the IRS combined income test for determining how much SS is taxable.
     var scenarioBaseIncome: Double {
-        taxableIncome(filingStatus: filingStatus)
+        let otherIncome = incomeSources
+            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends }
+            .reduce(0) { $0 + $1.annualAmount }
+        let capGains = preferentialIncome()
+        return otherIncome + scenarioTaxableSocialSecurity + capGains
     }
 
     /// Gross income including RMDs + scenario decisions (pre-deduction).
@@ -1651,11 +1924,26 @@ class DataManager: ObservableObject {
         max(0, totalMedicalExpenses - medicalAGIFloor)
     }
 
-    /// Raw total of SALT-eligible deductions (property tax + state & local tax) before the cap.
+    /// Property tax from deduction items
+    var propertyTaxAmount: Double {
+        deductionItems.filter { $0.type == .propertyTax }.reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// Additional manual SALT entries (city/local taxes not auto-captured)
+    var additionalSALTAmount: Double {
+        deductionItems.filter { $0.type == .saltTax }.reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// Prior year state balance due that's SALT-deductible (only positive amounts)
+    var priorYearSALTDeductible: Double {
+        max(0, priorYearStateBalance)
+    }
+
+    /// Raw total of SALT-eligible amounts before the federal cap.
+    /// Auto-includes: property tax, state withholding from income sources,
+    /// prior year state balance due (if positive), and any manual SALT entries.
     var totalSALTBeforeCap: Double {
-        deductionItems
-            .filter { $0.type == .propertyTax || $0.type == .saltTax }
-            .reduce(0) { $0 + $1.annualAmount }
+        propertyTaxAmount + totalStateWithholding + priorYearSALTDeductible + additionalSALTAmount
     }
 
     /// SALT cap based on tax year and filing status (OBBBA, signed July 4, 2025).
@@ -1746,11 +2034,16 @@ class DataManager: ObservableObject {
     }
 
     var scenarioStateTax: Double {
-        calculateStateTax(income: scenarioTaxableIncome, filingStatus: filingStatus)
+        calculateStateTaxFromGross(
+            grossIncome: scenarioGrossIncome,
+            forState: selectedState,
+            filingStatus: filingStatus,
+            taxableSocialSecurity: scenarioTaxableSocialSecurity
+        )
     }
 
     var scenarioTotalTax: Double {
-        scenarioFederalTax + scenarioStateTax
+        scenarioFederalTax + scenarioStateTax + scenarioNIITAmount + scenarioAMTAmount
     }
 
     // MARK: - IRMAA Scenario Properties
@@ -1783,6 +2076,71 @@ class DataManager: ObservableObject {
         scenarioIRMAA.tier > baselineIRMAA.tier
     }
 
+    /// Annual surcharge per person at the tier BELOW the current scenario tier.
+    /// Returns 0 if already at Tier 0 (standard). Used to compute savings from dropping a tier.
+    var scenarioIRMAAPreviousTierAnnualSurcharge: Double {
+        let irmaa = scenarioIRMAA
+        guard irmaa.tier > 0 else { return 0 }
+        let tiers = DataManager.irmaa2026Tiers
+        let currentThreshold = filingStatus == .single
+            ? tiers[irmaa.tier].singleThreshold
+            : tiers[irmaa.tier].mfjThreshold
+        let lowerResult = calculateIRMAA(magi: currentThreshold - 1, filingStatus: filingStatus)
+        return lowerResult.annualSurchargePerPerson
+    }
+
+    // MARK: - NIIT Scenario Properties
+
+    /// Total Net Investment Income from income sources.
+    /// Includes: dividends, qualified dividends, interest, short/long-term capital gains.
+    /// Excludes: Social Security, pensions, RMDs, Roth conversions, employment, state tax refunds.
+    /// Stock donation avoids realizing capital gains, so scenarioStockGainAvoided reduces NII.
+    var scenarioNetInvestmentIncome: Double {
+        let baseNII = incomeSources
+            .filter { DataManager.niitQualifyingTypes.contains($0.type) }
+            .reduce(0) { $0 + $1.annualAmount }
+        return max(0, baseNII - scenarioStockGainAvoided)
+    }
+
+    /// Current scenario NIIT result based on estimatedAGI (effectively MAGI for retirees).
+    var scenarioNIIT: NIITResult {
+        calculateNIIT(nii: scenarioNetInvestmentIncome, magi: estimatedAGI, filingStatus: filingStatus)
+    }
+
+    /// The annual NIIT tax amount for the current scenario.
+    var scenarioNIITAmount: Double {
+        scenarioNIIT.annualNIITax
+    }
+
+    /// Baseline NIIT (without scenario decisions) for comparison.
+    var baselineNIIT: NIITResult {
+        let baseNII = incomeSources
+            .filter { DataManager.niitQualifyingTypes.contains($0.type) }
+            .reduce(0) { $0 + $1.annualAmount }
+        return calculateNIIT(nii: baseNII, magi: scenarioBaseIncome, filingStatus: filingStatus)
+    }
+
+    /// Whether scenario decisions triggered or increased NIIT.
+    var scenarioIncreasedNIIT: Bool {
+        scenarioNIITAmount > baselineNIIT.annualNIITax
+    }
+
+    // MARK: - AMT Scenario Properties
+
+    /// Full AMT result for current scenario.
+    var scenarioAMT: AMTResult {
+        calculateAMT(
+            taxableIncome: scenarioTaxableIncome,
+            regularTax: scenarioFederalTax,
+            filingStatus: filingStatus
+        )
+    }
+
+    /// AMT amount (0 for most retirees; > 0 only if tentative minimum tax exceeds regular tax).
+    var scenarioAMTAmount: Double {
+        scenarioAMT.amt
+    }
+
     /// Total tax remaining after all withholding
     var scenarioRemainingTax: Double {
         max(0, scenarioTotalTax - totalWithholding)
@@ -1800,24 +2158,35 @@ class DataManager: ObservableObject {
 
     /// Quarterly estimated tax payment (90% safe harbor minus withholding) — uniform fallback
     var scenarioQuarterlyPayment: Double {
-        let safeHarbor = scenarioTotalTax * 0.90 - totalWithholding
-        return max(0, safeHarbor / 4.0)
+        let payments = scenarioQuarterlyPayments
+        return payments.total > 0 ? payments.total / 4.0 : 0
     }
 
-    /// Per-quarter estimated tax payments considering withdrawal/conversion timing.
+    /// Per-quarter estimated tax payments with federal/state split.
     /// Base tax (from regular income) is spread evenly; incremental tax from scenario
     /// events is allocated to the quarter each event is planned.
-    var scenarioQuarterlyPayments: QuarterlyBreakdown {
-        let totalTax = scenarioTotalTax
-
+    var scenarioQuarterlyPayments: FederalStateQuarterlyBreakdown {
         // Base tax: from regular income sources only, no scenario additions
         let baseTaxable = max(0, scenarioBaseIncome - effectiveDeductionAmount)
-        let baseTax = calculateFederalTax(income: baseTaxable, filingStatus: filingStatus)
-                    + calculateStateTax(income: baseTaxable, filingStatus: filingStatus)
-        let incrementalTax = max(0, totalTax - baseTax)
+        let baseFederalTax = calculateFederalTax(income: baseTaxable, filingStatus: filingStatus)
+        let baseStateTax = calculateStateTax(income: baseTaxable, filingStatus: filingStatus)
 
-        let basePerQ = max(0, baseTax * 0.90) / 4.0
-        var payments = QuarterlyBreakdown(q1: basePerQ, q2: basePerQ, q3: basePerQ, q4: basePerQ)
+        // Total federal and state tax (including scenario decisions)
+        let totalFederal = scenarioFederalTax + scenarioNIITAmount + scenarioAMTAmount
+        let totalState = scenarioStateTax
+
+        // Incremental tax from scenario events
+        let incrementalFederal = max(0, totalFederal - baseFederalTax)
+        let incrementalState = max(0, totalState - baseStateTax)
+
+        // Base per-quarter (90% safe harbor, spread evenly)
+        let baseFedPerQ = max(0, baseFederalTax * 0.90) / 4.0
+        let baseStatePerQ = max(0, baseStateTax * 0.90) / 4.0
+
+        var fedPayments = QuarterlyBreakdown(q1: baseFedPerQ, q2: baseFedPerQ,
+                                              q3: baseFedPerQ, q4: baseFedPerQ)
+        var statePayments = QuarterlyBreakdown(q1: baseStatePerQ, q2: baseStatePerQ,
+                                                q3: baseStatePerQ, q4: baseStatePerQ)
 
         // Assign incremental taxable income to the quarter each event occurs
         var qIncome = QuarterlyBreakdown()
@@ -1833,20 +2202,35 @@ class DataManager: ObservableObject {
         }
 
         // Distribute incremental tax proportionally to quarters by income share
-        if qIncome.total > 0 && incrementalTax > 0 {
-            let incSafeHarbor = incrementalTax * 0.90
+        if qIncome.total > 0 {
+            let incFedSH = incrementalFederal * 0.90
+            let incStateSH = incrementalState * 0.90
             for q in 1...4 {
-                payments[q] += incSafeHarbor * (qIncome[q] / qIncome.total)
+                let share = qIncome[q] / qIncome.total
+                fedPayments[q] += incFedSH * share
+                statePayments[q] += incStateSH * share
             }
         }
 
-        // Subtract withholding (from income sources, spread evenly)
-        let wPerQ = totalWithholding / 4.0
+        // Subtract withholding separately (spread evenly)
+        let fedWPerQ = totalFederalWithholding / 4.0
+        let stateWPerQ = totalStateWithholding / 4.0
         for q in 1...4 {
-            payments[q] = max(0, payments[q] - wPerQ)
+            fedPayments[q] = max(0, fedPayments[q] - fedWPerQ)
+            statePayments[q] = max(0, statePayments[q] - stateWPerQ)
         }
 
-        return payments
+        return FederalStateQuarterlyBreakdown(federal: fedPayments, state: statePayments)
+    }
+
+    /// Label for the primary user: their name if set, otherwise "Your".
+    var primaryLabel: String {
+        userName.isEmpty ? "Your" : userName + "'s"
+    }
+
+    /// Short label for the primary user: name if set, otherwise "You".
+    var primaryShortLabel: String {
+        userName.isEmpty ? "You" : userName
     }
 
     /// Whether any Tax Planning decisions are active
@@ -1985,10 +2369,20 @@ class DataManager: ObservableObject {
         for (q, label, deadline) in quarterInfo {
             let amount = qPayments[q]
             if amount > 0 {
+                let fedAmt = qPayments.federal[q]
+                let stateAmt = qPayments.state[q]
+                let detail: String
+                if fedAmt > 0 && stateAmt > 0 {
+                    detail = "Federal: \(fedAmt.formatted(.currency(code: "USD"))) + State: \(stateAmt.formatted(.currency(code: "USD")))"
+                } else if fedAmt > 0 {
+                    detail = "Federal estimated tax payment"
+                } else {
+                    detail = "State estimated tax payment"
+                }
                 items.append(ActionItem(
                     id: "tax-\(label.lowercased())-\(year)",
                     title: "\(label) Estimated Tax: \(amount.formatted(.currency(code: "USD")))",
-                    detail: "Federal + state estimated tax payment",
+                    detail: detail,
                     deadline: deadline,
                     category: .estimatedTax
                 ))
@@ -2002,11 +2396,13 @@ class DataManager: ObservableObject {
 
     /// Computes total tax for a hypothetical gross income and deduction scenario.
     /// Used internally to measure incremental impact of individual decisions.
-    private func totalTaxFor(grossIncome: Double, deduction: Double) -> Double {
+    private func totalTaxFor(grossIncome: Double, deduction: Double, nii: Double? = nil) -> Double {
         let taxable = max(0, grossIncome - deduction)
         let fed = calculateFederalTax(income: taxable, filingStatus: filingStatus)
         let state = calculateStateTax(income: taxable, filingStatus: filingStatus)
-        return fed + state
+        let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
+        let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt
+        return fed + state + niit + amt
     }
 
     /// Tax impact of Roth conversions alone (approximate — removes conversions and measures difference)
@@ -2087,6 +2483,42 @@ class DataManager: ObservableObject {
         return delta * Double(medicareMemberCount)
     }
 
+    // MARK: - Per-Decision NIIT Impact
+    // These are for display breakdown only — the base tax impact properties already include
+    // NIIT via totalTaxFor(). NII stays constant; only MAGI changes.
+
+    /// NIIT increase caused by Roth conversions (not NII, but raises MAGI).
+    var rothConversionNIITImpact: Double {
+        guard scenarioTotalRothConversion > 0, scenarioNetInvestmentIncome > 0 else { return 0 }
+        let magiWithout = estimatedAGI - scenarioTotalRothConversion
+        let niitWithout = calculateNIIT(nii: scenarioNetInvestmentIncome, magi: magiWithout, filingStatus: filingStatus)
+        return scenarioNIITAmount - niitWithout.annualNIITax
+    }
+
+    /// NIIT increase caused by extra withdrawals (not NII, but raises MAGI).
+    var extraWithdrawalNIITImpact: Double {
+        guard scenarioTotalExtraWithdrawal > 0, scenarioNetInvestmentIncome > 0 else { return 0 }
+        let magiWithout = estimatedAGI - scenarioTotalExtraWithdrawal
+        let niitWithout = calculateNIIT(nii: scenarioNetInvestmentIncome, magi: magiWithout, filingStatus: filingStatus)
+        return scenarioNIITAmount - niitWithout.annualNIITax
+    }
+
+    /// NIIT increase caused by inherited IRA extra withdrawals.
+    var inheritedExtraWithdrawalNIITImpact: Double {
+        guard inheritedTraditionalExtraTotal > 0, scenarioNetInvestmentIncome > 0 else { return 0 }
+        let magiWithout = estimatedAGI - inheritedTraditionalExtraTotal
+        let niitWithout = calculateNIIT(nii: scenarioNetInvestmentIncome, magi: magiWithout, filingStatus: filingStatus)
+        return scenarioNIITAmount - niitWithout.annualNIITax
+    }
+
+    /// NIIT savings from QCD (reduces MAGI, may reduce or eliminate NIIT).
+    var qcdNIITSavings: Double {
+        guard scenarioTotalQCD > 0, scenarioNetInvestmentIncome > 0 else { return 0 }
+        let magiWithoutQCD = estimatedAGI + scenarioTotalQCD
+        let niitWithoutQCD = calculateNIIT(nii: scenarioNetInvestmentIncome, magi: magiWithoutQCD, filingStatus: filingStatus)
+        return niitWithoutQCD.annualNIITax - scenarioNIITAmount
+    }
+
     /// Tax savings from the stock donation's itemized deduction (FMV for long-term, cost basis for short-term).
     /// This represents the reduction in cash the user must pay in taxes.
     var stockDeductionTaxSavings: Double {
@@ -2111,7 +2543,8 @@ class DataManager: ObservableObject {
         // but stock deduction is still present (isolates just the gain effect)
         let withGainRealized = totalTaxFor(
             grossIncome: scenarioGrossIncome + scenarioStockGainAvoided,
-            deduction: effectiveDeductionAmount
+            deduction: effectiveDeductionAmount,
+            nii: scenarioNetInvestmentIncome + scenarioStockGainAvoided
         )
         return withGainRealized - scenarioTotalTax
     }
@@ -2195,6 +2628,23 @@ struct QuarterlyBreakdown {
             }
         }
     }
+}
+
+struct FederalStateQuarterlyBreakdown {
+    var federal: QuarterlyBreakdown = QuarterlyBreakdown()
+    var state: QuarterlyBreakdown = QuarterlyBreakdown()
+
+    /// Combined payment per quarter (backward-compatible)
+    var q1: Double { federal.q1 + state.q1 }
+    var q2: Double { federal.q2 + state.q2 }
+    var q3: Double { federal.q3 + state.q3 }
+    var q4: Double { federal.q4 + state.q4 }
+
+    var total: Double { federal.total + state.total }
+    var federalTotal: Double { federal.total }
+    var stateTotal: Double { state.total }
+
+    subscript(quarter: Int) -> Double { federal[quarter] + state[quarter] }
 }
 
 // MARK: - Data Models

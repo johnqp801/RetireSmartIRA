@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import StoreKit
 
 // MARK: - Cross-platform color support
 #if canImport(UIKit)
@@ -26,13 +25,11 @@ typealias PlatformColor = NSColor
 @main
 struct RetireSmartIRAApp: App {
     @StateObject private var dataManager = DataManager()
-    @StateObject private var subscriptionManager = SubscriptionManager()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(dataManager)
-                .environmentObject(subscriptionManager)
         }
     }
 }

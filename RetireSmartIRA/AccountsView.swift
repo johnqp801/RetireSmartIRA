@@ -224,6 +224,7 @@ struct AddAccountView: View {
     @State private var beneficiaryBirthYear: String
     @State private var minorChildMajorityYear: String
     @State private var showBeneficiaryGuide = false
+    @State private var showDeleteConfirmation = false
 
     init(accountToEdit: IRAAccount? = nil) {
         self.accountToEdit = accountToEdit
@@ -322,23 +323,23 @@ struct AddAccountView: View {
                             .padding(.top, 8)
                         }
 
-                        TextField("Year Inherited", text: $yearOfInheritance)
+                        TextField("Year Inherited *", text: $yearOfInheritance)
                             #if os(iOS)
                             .keyboardType(.numberPad)
                             #endif
 
-                        TextField("Decedent's Birth Year", text: $decedentBirthYear)
+                        TextField("Decedent's Birth Year *", text: $decedentBirthYear)
                             #if os(iOS)
                             .keyboardType(.numberPad)
                             #endif
 
-                        TextField("Beneficiary's Birth Year", text: $beneficiaryBirthYear)
+                        TextField("Beneficiary's Birth Year *", text: $beneficiaryBirthYear)
                             #if os(iOS)
                             .keyboardType(.numberPad)
                             #endif
 
                         if beneficiaryType == .nonEligibleDesignated {
-                            Picker("Decedent RBD Status", selection: $decedentRBDStatus) {
+                            Picker("Decedent RBD Status *", selection: $decedentRBDStatus) {
                                 ForEach(DecedentRBDStatus.allCases, id: \.self) { status in
                                     Text(status.rawValue).tag(status)
                                 }
@@ -346,17 +347,36 @@ struct AddAccountView: View {
                         }
 
                         if beneficiaryType == .minorChild {
-                            TextField("Year Child Reaches Age 21", text: $minorChildMajorityYear)
+                            TextField("Year Child Reaches Age 21 *", text: $minorChildMajorityYear)
                                 #if os(iOS)
                                 .keyboardType(.numberPad)
                                 #endif
                         }
+
+                        Text("* Required for RMD calculations")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     Section {
                         inheritedInfoText
                     } header: {
                         Text("Rule Summary")
+                    }
+                }
+
+                // Delete button — only visible when editing an existing account
+                if accountToEdit != nil {
+                    Section {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Label("Delete Account", systemImage: "trash")
+                                Spacer()
+                            }
+                        }
                     }
                 }
             }
@@ -378,6 +398,19 @@ struct AddAccountView: View {
                     }
                     .disabled(name.isEmpty || balance.isEmpty)
                 }
+            }
+            .alert("Delete Account", isPresented: $showDeleteConfirmation) {
+                Button("Delete", role: .destructive) {
+                    if let account = accountToEdit,
+                       let index = dataManager.iraAccounts.firstIndex(where: { $0.id == account.id }) {
+                        dataManager.iraAccounts.remove(at: index)
+                        dataManager.saveAllData()
+                        dismiss()
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Are you sure you want to delete this account? This cannot be undone.")
             }
         }
     }

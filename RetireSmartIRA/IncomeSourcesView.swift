@@ -208,6 +208,57 @@ struct IncomeSourcesView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
 
+                    // Prior Year State Tax Balance
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .foregroundStyle(.indigo)
+                            Text("Prior Year State Tax Balance")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
+
+                        HStack {
+                            Text("Balance Due Paid (or Refund)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            TextField("0", value: $dataManager.priorYearStateBalance, format: .currency(code: "USD"))
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 120)
+                                #if os(iOS)
+                                .keyboardType(.numbersAndPunctuation)
+                                #endif
+                                .onChange(of: dataManager.priorYearStateBalance) {
+                                    dataManager.saveAllData()
+                                }
+                        }
+
+                        if dataManager.priorYearStateBalance > 0 {
+                            Text("The balance due you paid with your prior year\u{2019}s state return is included in your SALT deduction.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        } else if dataManager.priorYearStateBalance < 0 {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                                    .font(.caption2)
+                                Text("A state tax refund may be taxable on your federal return if you itemized last year. Consider adding a \u{201C}State Tax Refund\u{201D} income source for \(abs(dataManager.priorYearStateBalance).formatted(.currency(code: "USD"))).")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+
+                        Text("Enter the amount you paid with your prior year\u{2019}s state tax return (positive for balance due paid, negative for refund received).")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(Color.indigo.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
                     // SALT cap note
                     if dataManager.totalSALTBeforeCap > 0 {
                         VStack(alignment: .leading, spacing: 8) {
@@ -219,9 +270,62 @@ struct IncomeSourcesView: View {
                                     .fontWeight(.semibold)
                             }
 
+                            // Component breakdown
                             VStack(alignment: .leading, spacing: 4) {
+                                if dataManager.propertyTaxAmount > 0 {
+                                    HStack {
+                                        Text("Property Tax")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text(dataManager.propertyTaxAmount, format: .currency(code: "USD"))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                if dataManager.totalStateWithholding > 0 {
+                                    HStack {
+                                        HStack(spacing: 4) {
+                                            Text("State Withholding")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            Text("(from income sources)")
+                                                .font(.caption2)
+                                                .foregroundStyle(.green)
+                                        }
+                                        Spacer()
+                                        Text(dataManager.totalStateWithholding, format: .currency(code: "USD"))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                if dataManager.priorYearSALTDeductible > 0 {
+                                    HStack {
+                                        Text("Prior Year Balance Due")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text(dataManager.priorYearSALTDeductible, format: .currency(code: "USD"))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                if dataManager.additionalSALTAmount > 0 {
+                                    HStack {
+                                        Text("Additional SALT")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text(dataManager.additionalSALTAmount, format: .currency(code: "USD"))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+
+                                Divider()
+
                                 HStack {
-                                    Text("Total SALT (Property Tax + State & Local)")
+                                    Text("Total SALT Before Cap")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                     Spacer()
@@ -252,7 +356,19 @@ struct IncomeSourcesView: View {
                                 }
                             }
 
-                            Text("State and local tax (SALT) deductions \u{2014} including property tax, state income tax, and local taxes \u{2014} are capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA (2025\u{2013}2029: $40,000 base with 1% inflation; phases out for MAGI over $500K; reverts to $10,000 in 2030). For state income tax, enter the total state taxes you expect to pay during this calendar year: withholding, estimated payments, and any balance paid with your prior year\u{2019}s state return. If you received a state tax refund and itemized last year, enter it as a \u{201C}State Tax Refund\u{201D} income source \u{2014} it\u{2019}s taxable on your federal return.")
+                            // Double-count warning
+                            if dataManager.additionalSALTAmount > 0 && dataManager.totalStateWithholding > 0 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.caption2)
+                                    Text("State withholding is now auto-included. If your \u{201C}State & Local Tax\u{201D} entries include withholding amounts, remove them to avoid double-counting.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+
+                            Text("SALT deductions \u{2014} property tax, state withholding, prior year balance due, and local taxes \u{2014} are capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA. State withholding from your income sources and prior year balance due are included automatically. If you received a state tax refund and itemized last year, enter it as a \u{201C}State Tax Refund\u{201D} income source \u{2014} it\u{2019}s taxable on your federal return.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -490,6 +606,7 @@ struct IncomeSourcesView: View {
         @State private var federalWithholding: String
         @State private var stateWithholding: String
         @State private var owner: Owner
+        @State private var showDeleteConfirmation = false
 
         init(incomeToEdit: IncomeSource? = nil) {
             self.incomeToEdit = incomeToEdit
@@ -542,6 +659,21 @@ struct IncomeSourcesView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+
+                    // Delete button — only visible when editing an existing income source
+                    if incomeToEdit != nil {
+                        Section {
+                            Button(role: .destructive) {
+                                showDeleteConfirmation = true
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    Label("Delete Income Source", systemImage: "trash")
+                                    Spacer()
+                                }
+                            }
+                        }
+                    }
                 }
                 .formStyle(.grouped)
                 .navigationTitle(incomeToEdit == nil ? "Add Income" : "Edit Income")
@@ -556,6 +688,19 @@ struct IncomeSourcesView: View {
                         Button("Save") { saveIncome() }
                             .disabled(name.isEmpty || annualAmount.isEmpty)
                     }
+                }
+                .alert("Delete Income Source", isPresented: $showDeleteConfirmation) {
+                    Button("Delete", role: .destructive) {
+                        if let source = incomeToEdit,
+                           let index = dataManager.incomeSources.firstIndex(where: { $0.id == source.id }) {
+                            dataManager.incomeSources.remove(at: index)
+                            dataManager.saveAllData()
+                            dismiss()
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("Are you sure you want to delete this income source? This cannot be undone.")
                 }
             }
         }
@@ -596,6 +741,7 @@ struct IncomeSourcesView: View {
         @State private var deductionType: DeductionType
         @State private var annualAmount: String
         @State private var owner: Owner
+        @State private var showDeleteConfirmation = false
 
         init(deductionToEdit: DeductionItem? = nil) {
             self.deductionToEdit = deductionToEdit
@@ -639,7 +785,7 @@ struct IncomeSourcesView: View {
 
                     if deductionType == .saltTax {
                         Section("About SALT Deductions") {
-                            Text("Enter the total state and local income taxes you expect to pay during this calendar year. This includes: state tax withholding from all income sources, estimated quarterly state tax payments made this year, and any balance paid with your prior year\u{2019}s state return (typically in April). Combined with property taxes, SALT is capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA (2025\u{2013}2029: $40,000 base with 1% inflation; phases out for MAGI over $500K; reverts to $10,000 in 2030).")
+                            Text("State withholding from your income sources and any prior year state tax balance due are now automatically included in your SALT deduction. Use this field only for additional local or city income taxes not already captured. Combined with property taxes, SALT is capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA (2025\u{2013}2029: $40,000 base with 1% inflation; phases out for MAGI over $500K; reverts to $10,000 in 2030).")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -650,6 +796,21 @@ struct IncomeSourcesView: View {
                             Text("Enter your annual property tax amount. Property taxes are combined with state and local income taxes for the SALT deduction, which is capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA (2025\u{2013}2029: $40,000 base with 1% inflation; phases out for MAGI over $500K; reverts to $10,000 in 2030).")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // Delete button — only visible when editing an existing deduction
+                    if deductionToEdit != nil {
+                        Section {
+                            Button(role: .destructive) {
+                                showDeleteConfirmation = true
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    Label("Delete Deduction", systemImage: "trash")
+                                    Spacer()
+                                }
+                            }
                         }
                     }
                 }
@@ -666,6 +827,19 @@ struct IncomeSourcesView: View {
                         Button("Save") { saveDeduction() }
                             .disabled(name.isEmpty || annualAmount.isEmpty)
                     }
+                }
+                .alert("Delete Deduction", isPresented: $showDeleteConfirmation) {
+                    Button("Delete", role: .destructive) {
+                        if let item = deductionToEdit,
+                           let index = dataManager.deductionItems.firstIndex(where: { $0.id == item.id }) {
+                            dataManager.deductionItems.remove(at: index)
+                            dataManager.saveAllData()
+                            dismiss()
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("Are you sure you want to delete this deduction? This cannot be undone.")
                 }
             }
         }

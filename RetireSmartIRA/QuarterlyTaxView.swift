@@ -184,6 +184,14 @@ struct QuarterlyTaxView: View {
                 summaryRow(label: "Federal Tax", value: dataManager.scenarioFederalTax, color: .blue)
                 summaryRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax, color: .orange)
 
+                if dataManager.scenarioNIITAmount > 0 {
+                    summaryRow(label: "NIIT (3.8% Surtax)", value: dataManager.scenarioNIITAmount, color: .red)
+                }
+
+                if dataManager.scenarioAMTAmount > 0 {
+                    summaryRow(label: "AMT (26%/28%)", value: dataManager.scenarioAMTAmount, color: .red)
+                }
+
                 Divider()
 
                 summaryRow(label: "Total Estimated Tax", value: dataManager.scenarioTotalTax, isBold: true)
@@ -201,11 +209,11 @@ struct QuarterlyTaxView: View {
 
                 Divider()
 
-                HStack {
-                    let payments = dataManager.scenarioQuarterlyPayments
-                    let minQ = min(payments.q1, payments.q2, payments.q3, payments.q4)
-                    let maxQ = max(payments.q1, payments.q2, payments.q3, payments.q4)
+                let payments = dataManager.scenarioQuarterlyPayments
+                let minQ = min(payments.q1, payments.q2, payments.q3, payments.q4)
+                let maxQ = max(payments.q1, payments.q2, payments.q3, payments.q4)
 
+                HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("90% Safe Harbor")
                             .font(.caption)
@@ -225,6 +233,32 @@ struct QuarterlyTaxView: View {
                             .font(.callout)
                             .fontWeight(.bold)
                             .foregroundStyle(.purple)
+                    }
+                }
+
+                // Federal/State estimated payment subtotals
+                if payments.federalTotal > 0 {
+                    HStack {
+                        Text("Federal Estimated Payments")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(payments.federalTotal, format: .currency(code: "USD"))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.blue)
+                    }
+                }
+                if payments.stateTotal > 0 {
+                    HStack {
+                        Text("State Estimated Payments")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(payments.stateTotal, format: .currency(code: "USD"))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
                     }
                 }
             }
@@ -334,18 +368,50 @@ struct QuarterlyTaxView: View {
 
             let year = dataManager.currentYear
             let payments = dataManager.scenarioQuarterlyPayments
+            let currentYearPayments = dataManager.quarterlyPayments
+                .filter { $0.year == year }
+                .sorted { $0.quarter < $1.quarter }
 
             VStack(spacing: 12) {
-                QuarterRow(quarter: "Q1", dueDate: "April 15, \(year)", amount: payments.q1, events: eventsForQuarter(1))
-                QuarterRow(quarter: "Q2", dueDate: "June 15, \(year)", amount: payments.q2, events: eventsForQuarter(2))
-                QuarterRow(quarter: "Q3", dueDate: "September 15, \(year)", amount: payments.q3, events: eventsForQuarter(3))
-                QuarterRow(quarter: "Q4", dueDate: "January 15, \(year + 1)", amount: payments.q4, events: eventsForQuarter(4))
+                ForEach(currentYearPayments) { payment in
+                    QuarterRow(
+                        payment: bindingForPayment(payment.id),
+                        federalAmount: federalForQuarter(payment.quarter, payments: payments),
+                        stateAmount: stateForQuarter(payment.quarter, payments: payments),
+                        events: eventsForQuarter(payment.quarter)
+                    )
+                }
             }
 
             Divider()
 
+            if payments.federalTotal > 0 {
+                HStack {
+                    Text("Federal Annual Total")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(payments.federalTotal, format: .currency(code: "USD"))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.blue)
+                }
+            }
+            if payments.stateTotal > 0 {
+                HStack {
+                    Text("State Annual Total")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(payments.stateTotal, format: .currency(code: "USD"))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
+                }
+            }
+
             HStack {
-                Text("Annual Total (4 payments)")
+                Text("Combined Annual Total")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -353,11 +419,71 @@ struct QuarterlyTaxView: View {
                     .font(.callout)
                     .fontWeight(.bold)
             }
+
+            paidSummary
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        .onAppear { dataManager.syncQuarterlyPayments() }
+    }
+
+    private var paidSummary: some View {
+        let currentYearPayments = dataManager.quarterlyPayments
+            .filter { $0.year == dataManager.currentYear }
+        let totalPaid = currentYearPayments.filter { $0.isPaid }.reduce(0.0) { $0 + $1.paidAmount }
+        let totalEstimated = dataManager.scenarioQuarterlyPayments.total
+        let hasPaidAny = currentYearPayments.contains { $0.isPaid }
+
+        return Group {
+            if hasPaidAny {
+                Divider()
+                HStack {
+                    Text("Paid So Far")
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(totalPaid, format: .currency(code: "USD"))
+                        .font(.callout)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.green)
+                }
+                HStack {
+                    Text("Remaining")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(max(0, totalEstimated - totalPaid), format: .currency(code: "USD"))
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
+
+    private func bindingForPayment(_ id: UUID) -> Binding<QuarterlyPayment> {
+        Binding(
+            get: {
+                dataManager.quarterlyPayments.first { $0.id == id }
+                    ?? QuarterlyPayment(quarter: 1, year: dataManager.currentYear, dueDate: Date(), estimatedAmount: 0)
+            },
+            set: { newValue in
+                if let idx = dataManager.quarterlyPayments.firstIndex(where: { $0.id == id }) {
+                    dataManager.quarterlyPayments[idx] = newValue
+                    dataManager.saveAllData()
+                }
+            }
+        )
+    }
+
+    private func federalForQuarter(_ q: Int, payments: FederalStateQuarterlyBreakdown) -> Double {
+        payments.federal[q]
+    }
+
+    private func stateForQuarter(_ q: Int, payments: FederalStateQuarterlyBreakdown) -> Double {
+        payments.state[q]
     }
 
     /// Returns event labels for a given quarter (e.g., "Your Withdrawal", "Roth Conv.")
@@ -368,13 +494,13 @@ struct QuarterlyTaxView: View {
         let spouseName = dm.spouseName.isEmpty ? "Spouse" : dm.spouseName
 
         if (dm.isRMDRequired || dm.yourExtraWithdrawal > 0) && dm.yourWithdrawalQuarter == q {
-            events.append(spouseEnabled ? "Your Withdrawal" : "Withdrawal")
+            events.append(spouseEnabled ? "\(dm.primaryLabel) Withdrawal" : "Withdrawal")
         }
         if spouseEnabled && (dm.spouseIsRMDRequired || dm.spouseExtraWithdrawal > 0) && dm.spouseWithdrawalQuarter == q {
             events.append("\(spouseName) Withdrawal")
         }
         if dm.yourRothConversion > 0 && dm.yourRothConversionQuarter == q {
-            events.append(spouseEnabled ? "Your Roth Conv." : "Roth Conv.")
+            events.append(spouseEnabled ? "\(dm.primaryLabel) Roth Conv." : "Roth Conv.")
         }
         if spouseEnabled && dm.spouseRothConversion > 0 && dm.spouseRothConversionQuarter == q {
             events.append("\(spouseName) Roth Conv.")
@@ -413,6 +539,12 @@ struct QuarterlyTaxView: View {
                     text: "Federal and state withholding from income sources is credited against each tax liability separately",
                     color: .green
                 )
+
+                NoteRow(
+                    icon: "building.2",
+                    text: "Local and city income taxes (e.g. NYC, Yonkers) are not included in these estimates",
+                    color: .secondary
+                )
             }
         }
         .padding()
@@ -423,33 +555,98 @@ struct QuarterlyTaxView: View {
 }
 
 struct QuarterRow: View {
-    let quarter: String
-    let dueDate: String
-    let amount: Double
+    @Binding var payment: QuarterlyPayment
+    var federalAmount: Double = 0
+    var stateAmount: Double = 0
     var events: [String] = []
 
+    private var showSplit: Bool { federalAmount > 0 && stateAmount > 0 }
+
+    private static let dueDateFormatter: DateFormatter = {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMMM d, yyyy"
+        return fmt
+    }()
+
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(quarter)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Q\(payment.quarter)")
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                    Text(Self.dueDateFormatter.string(from: payment.dueDate))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !events.isEmpty {
+                        Text(events.joined(separator: " · "))
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                Spacer()
+
+                Text(payment.estimatedAmount, format: .currency(code: "USD"))
                     .font(.callout)
                     .fontWeight(.semibold)
-                Text(dueDate)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if !events.isEmpty {
-                    Text(events.joined(separator: " · "))
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                }
+                    .foregroundStyle(.blue)
             }
 
-            Spacer()
+            // Federal/State sub-rows
+            if showSplit {
+                HStack {
+                    Text("Federal")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(federalAmount, format: .currency(code: "USD"))
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.blue.opacity(0.7))
+                }
+                .padding(.leading, 8)
 
-            Text(amount, format: .currency(code: "USD"))
-                .font(.callout)
-                .fontWeight(.semibold)
-                .foregroundStyle(.blue)
+                HStack {
+                    Text("State")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(stateAmount, format: .currency(code: "USD"))
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.orange.opacity(0.8))
+                }
+                .padding(.leading, 8)
+            }
+
+            Divider()
+
+            // Payment tracking
+            HStack {
+                Toggle(isOn: $payment.isPaid) {
+                    Text(payment.isPaid ? "Paid" : "Not Paid")
+                        .font(.caption)
+                        .foregroundStyle(payment.isPaid ? .green : .secondary)
+                }
+                .toggleStyle(.switch)
+                .onChange(of: payment.isPaid) {
+                    if payment.isPaid && payment.paidAmount == 0 {
+                        payment.paidAmount = payment.estimatedAmount
+                    }
+                }
+
+                if payment.isPaid {
+                    Spacer()
+                    TextField("Amount", value: $payment.paidAmount, format: .currency(code: "USD"))
+                        .font(.caption)
+                        #if canImport(UIKit)
+                        .keyboardType(.decimalPad)
+                        #endif
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 120)
+                }
+            }
         }
         .padding()
         .background(Color(PlatformColor.secondarySystemBackground))

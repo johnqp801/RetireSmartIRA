@@ -6,13 +6,12 @@
 //
 
 import SwiftUI
+import Charts
 
 struct RMDCalculatorView: View {
     @EnvironmentObject var dataManager: DataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var projectionYears = 10
-    @State private var primaryGrowthRate: Double = 5.0
-    @State private var spouseGrowthRate: Double = 5.0
     @State private var showGuide: Bool = false
     @State private var showAboutRMDs: Bool = false
 
@@ -27,6 +26,8 @@ struct RMDCalculatorView: View {
             }
         }
         .background(Color(PlatformColor.systemGroupedBackground))
+        .onChange(of: dataManager.primaryGrowthRate) { dataManager.saveAllData() }
+        .onChange(of: dataManager.spouseGrowthRate) { dataManager.saveAllData() }
     }
 
     // MARK: - Layout Variants
@@ -39,7 +40,9 @@ struct RMDCalculatorView: View {
                 currentYearRMD
                 inheritedIRASection
                 accountBreakdown
+                rmdProjectionChart
                 projectionsSection
+                inheritedIRAProjectionsSection
                 aboutRMDs
             }
             .padding()
@@ -62,7 +65,9 @@ struct RMDCalculatorView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
+                    rmdProjectionChart
                     projectionsSection
+                    inheritedIRAProjectionsSection
                     aboutRMDs
                 }
                 .padding()
@@ -72,6 +77,10 @@ struct RMDCalculatorView: View {
     }
 
     // MARK: - Status Card
+
+    private var hasInheritedRMDs: Bool {
+        dataManager.inheritedIRARMDTotal > 0
+    }
 
     private var statusCard: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -85,6 +94,14 @@ struct RMDCalculatorView: View {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.red)
                             Text("RMDs Required")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                        }
+                    } else if hasInheritedRMDs {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text("Inherited IRA RMDs Required")
                                 .font(.title3)
                                 .fontWeight(.semibold)
                         }
@@ -134,10 +151,25 @@ struct RMDCalculatorView: View {
                                 .font(.callout)
                         }
 
-                        Text("⚠️ Warning: Delaying means taking 2 RMDs in one year")
+                        Text("\u{26A0}\u{FE0F} Warning: Delaying means taking 2 RMDs in one year")
                             .font(.caption)
                             .foregroundStyle(.red)
                             .padding(.leading, 24)
+                    }
+                }
+            } else if hasInheritedRMDs {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "calendar")
+                            .foregroundStyle(.orange)
+                        Text("Inherited IRA: \(dataManager.inheritedIRARMDTotal, format: .currency(code: "USD")) due by December 31")
+                            .font(.callout)
+                    }
+                    HStack {
+                        Image(systemName: "clock")
+                            .foregroundStyle(.green)
+                        Text("Own IRA RMDs start in \(dataManager.yearsUntilRMD) years (age \(dataManager.rmdAge))")
+                            .font(.callout)
                     }
                 }
             } else {
@@ -234,10 +266,21 @@ struct RMDCalculatorView: View {
 
     // MARK: - Current Year RMD
 
+    /// Whether any RMDs (regular or inherited) are required this year
+    private var hasAnyRMDs: Bool {
+        (dataManager.isRMDRequired && dataManager.primaryTraditionalIRABalance > 0)
+        || (dataManager.enableSpouse && dataManager.spouseIsRMDRequired && dataManager.spouseTraditionalIRABalance > 0)
+        || hasInheritedRMDs
+    }
+
+    /// Grand total of all RMDs: regular + inherited
+    private var grandTotalRMD: Double {
+        dataManager.calculateCombinedRMD() + dataManager.inheritedIRARMDTotal
+    }
+
     @ViewBuilder
     private var currentYearRMD: some View {
-        if (dataManager.isRMDRequired && dataManager.primaryTraditionalIRABalance > 0)
-            || (dataManager.enableSpouse && dataManager.spouseIsRMDRequired && dataManager.spouseTraditionalIRABalance > 0) {
+        if hasAnyRMDs {
             VStack(alignment: .leading, spacing: 16) {
                 Text("\(dataManager.currentYear) Required Minimum Distribution")
                     .font(.headline)
@@ -369,44 +412,99 @@ struct RMDCalculatorView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
 
-                // Combined Total
-                if dataManager.enableSpouse &&
-                    dataManager.isRMDRequired && dataManager.primaryTraditionalIRABalance > 0 &&
-                    dataManager.spouseIsRMDRequired && dataManager.spouseTraditionalIRABalance > 0 {
+                // Inherited IRA RMDs summary
+                if hasInheritedRMDs {
+                    ForEach(dataManager.inheritedAccounts) { account in
+                        let result = dataManager.calculateInheritedIRARMD(account: account, forYear: dataManager.currentYear)
+                        if result.annualRMD > 0 {
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Label {
+                                        HStack(spacing: 6) {
+                                            Text(account.name)
+                                            if dataManager.enableSpouse {
+                                                Text(account.owner.rawValue)
+                                                    .font(.caption2)
+                                                    .padding(.horizontal, 4)
+                                                    .padding(.vertical, 1)
+                                                    .background(Color.purple.opacity(0.2))
+                                                    .foregroundStyle(.purple)
+                                                    .clipShape(Capsule())
+                                            }
+                                        }
+                                    } icon: {
+                                        Image(systemName: "arrow.down.doc.fill")
+                                    }
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    Spacer()
+                                    Text("Inherited")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.orange.opacity(0.2))
+                                        .foregroundStyle(.orange)
+                                        .clipShape(Capsule())
+                                }
 
-                    let combinedRMD = dataManager.calculateCombinedRMD()
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Balance")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(account.balance, format: .currency(code: "USD"))
+                                            .font(.callout)
+                                            .fontWeight(.medium)
+                                    }
 
-                    Divider()
+                                    Spacer()
 
-                    HStack {
-                        Text("Combined Household RMD")
-                            .font(.title3)
-                            .fontWeight(.semibold)
+                                    if let deadline = result.mustEmptyByYear {
+                                        VStack(alignment: .trailing, spacing: 4) {
+                                            Text("Empty By")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            Text(String(deadline))
+                                                .font(.callout)
+                                                .fontWeight(.medium)
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
 
-                        Spacer()
+                                    Spacer()
 
-                        Text(combinedRMD, format: .currency(code: "USD"))
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.blue)
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        Text("Required")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(result.annualRMD, format: .currency(code: "USD"))
+                                            .font(.callout)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                            }
+                            .padding()
+                            .background(Color(PlatformColor.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
                     }
-                } else if !dataManager.enableSpouse && dataManager.isRMDRequired && dataManager.primaryTraditionalIRABalance > 0 {
-                    let primaryRMD = dataManager.calculatePrimaryRMD()
+                }
 
-                    Divider()
+                // Grand Total
+                Divider()
 
-                    HStack {
-                        Text("Required Withdrawal")
-                            .font(.title3)
-                            .fontWeight(.semibold)
+                HStack {
+                    Text(dataManager.enableSpouse ? "Total Household RMD" : "Total Required Withdrawal")
+                        .font(.title3)
+                        .fontWeight(.semibold)
 
-                        Spacer()
+                    Spacer()
 
-                        Text(primaryRMD, format: .currency(code: "USD"))
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.blue)
-                    }
+                    Text(grandTotalRMD, format: .currency(code: "USD"))
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(hasInheritedRMDs && !dataManager.isRMDRequired ? .orange : .blue)
                 }
             }
             .padding()
@@ -601,6 +699,289 @@ struct RMDCalculatorView: View {
         }
     }
 
+    // MARK: - RMD Projection Chart
+
+    private struct RMDChartDataPoint: Identifiable {
+        let id = UUID()
+        let year: Int
+        let yearLabel: String
+        let amount: Double
+        let category: String
+    }
+
+    private var hasChartData: Bool {
+        dataManager.primaryTraditionalIRABalance > 0
+        || (dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0)
+        || dataManager.hasInheritedAccounts
+    }
+
+    /// Combined stacked chart data for both IRA/401(k) and Inherited IRA RMDs
+    private var rmdChartData: [RMDChartDataPoint] {
+        var data: [RMDChartDataPoint] = []
+
+        for yearOffset in 0..<projectionYears {
+            let projectedYear = dataManager.currentYear + yearOffset
+            let label = "'\(String(projectedYear).suffix(2))"
+
+            // Regular IRA/401(k) RMDs
+            var regularRMD: Double = 0
+
+            if dataManager.primaryTraditionalIRABalance > 0 {
+                let pAge = dataManager.currentAge + yearOffset
+                if pAge >= dataManager.rmdAge {
+                    let balance = projectBalance(
+                        years: yearOffset,
+                        startingBalance: dataManager.primaryTraditionalIRABalance,
+                        startAge: dataManager.currentAge,
+                        rmdStartAge: dataManager.rmdAge,
+                        growthPercent: dataManager.primaryGrowthRate
+                    )
+                    regularRMD += dataManager.calculateRMD(for: pAge, balance: balance)
+                }
+            }
+
+            if dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0 {
+                let sAge = dataManager.spouseCurrentAge + yearOffset
+                if sAge >= dataManager.spouseRmdAge {
+                    let balance = projectBalance(
+                        years: yearOffset,
+                        startingBalance: dataManager.spouseTraditionalIRABalance,
+                        startAge: dataManager.spouseCurrentAge,
+                        rmdStartAge: dataManager.spouseRmdAge,
+                        growthPercent: dataManager.spouseGrowthRate
+                    )
+                    regularRMD += dataManager.calculateRMD(for: sAge, balance: balance)
+                }
+            }
+
+            data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: regularRMD, category: "IRA / 401(k)"))
+
+            // Inherited IRA RMDs
+            var inheritedRMD: Double = 0
+
+            if dataManager.hasInheritedAccounts {
+                for account in dataManager.inheritedAccounts {
+                    let growthRate = account.owner == .spouse
+                        ? dataManager.spouseGrowthRate
+                        : dataManager.primaryGrowthRate
+                    let projections = projectInheritedIRA(account: account, growthPercent: growthRate)
+                    if let row = projections.first(where: { $0.year == projectedYear }) {
+                        inheritedRMD += row.rmd
+                    }
+                }
+            }
+
+            data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: inheritedRMD, category: "Inherited IRA"))
+        }
+        return data
+    }
+
+    /// Formats Y-axis labels compactly ($5K, $150K, etc.)
+    private func chartYAxisLabel(_ amount: Double) -> String {
+        if amount >= 1_000_000 {
+            return "$\(String(format: "%.1f", amount / 1_000_000))M"
+        } else if amount >= 1000 {
+            return "$\(Int(amount / 1000))K"
+        } else {
+            return "$\(Int(amount))"
+        }
+    }
+
+    @ViewBuilder
+    private var rmdProjectionChart: some View {
+        if hasChartData {
+            let chartData = rmdChartData
+            let hasRegularRMDs = chartData.contains { $0.category == "IRA / 401(k)" && $0.amount > 0 }
+            let hasInheritedRMDs = chartData.contains { $0.category == "Inherited IRA" && $0.amount > 0 }
+            let anyRMDs = hasRegularRMDs || hasInheritedRMDs
+
+            VStack(alignment: .leading, spacing: 16) {
+                // Eye-catching header with gradient icon
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.blue.opacity(0.85), .orange.opacity(0.85)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "chart.bar.fill")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Projected Annual RMDs")
+                            .font(.headline)
+                        Text("\(projectionYears)-Year Outlook")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
+
+                if anyRMDs {
+                    // Legend
+                    HStack(spacing: 16) {
+                        if hasRegularRMDs {
+                            HStack(spacing: 6) {
+                                Circle().fill(.blue).frame(width: 8, height: 8)
+                                Text("IRA / 401(k)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        if hasInheritedRMDs {
+                            HStack(spacing: 6) {
+                                Circle().fill(.orange).frame(width: 8, height: 8)
+                                Text("Inherited IRA")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                    }
+
+                    // Single stacked bar chart
+                    Chart(chartData) { point in
+                        BarMark(
+                            x: .value("Year", point.yearLabel),
+                            y: .value("RMD", point.amount)
+                        )
+                        .foregroundStyle(by: .value("Type", point.category))
+                        .cornerRadius(3)
+                    }
+                    .chartForegroundStyleScale([
+                        "IRA / 401(k)": Color.blue,
+                        "Inherited IRA": Color.orange
+                    ])
+                    .chartLegend(.hidden)
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { value in
+                            AxisValueLabel {
+                                if let amount = value.as(Double.self) {
+                                    Text(chartYAxisLabel(amount))
+                                        .font(.caption2)
+                                }
+                            }
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                        }
+                    }
+                    .chartXAxis {
+                        AxisMarks { value in
+                            AxisValueLabel {
+                                if let label = value.as(String.self) {
+                                    Text(label).font(.caption2)
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 220)
+
+                    // Peak callouts
+                    VStack(alignment: .leading, spacing: 4) {
+                        if hasRegularRMDs,
+                           let peak = chartData.filter({ $0.category == "IRA / 401(k)" }).max(by: { $0.amount < $1.amount }),
+                           peak.amount > 0 {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.up.right")
+                                    .foregroundStyle(.blue)
+                                    .font(.caption)
+                                Text("IRA / 401(k) Peak:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(peak.amount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                Text("in \(String(peak.year))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        if hasInheritedRMDs,
+                           let peak = chartData.filter({ $0.category == "Inherited IRA" }).max(by: { $0.amount < $1.amount }),
+                           peak.amount > 0 {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.up.right")
+                                    .foregroundStyle(.orange)
+                                    .font(.caption)
+                                Text("Inherited IRA Peak:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(peak.amount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                Text("in \(String(peak.year))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        // Combined peak when both types present
+                        if hasRegularRMDs && hasInheritedRMDs {
+                            let totalsByYear: [(year: Int, total: Double)] = (0..<projectionYears).map { offset in
+                                let yr = dataManager.currentYear + offset
+                                let reg = chartData.first(where: { $0.year == yr && $0.category == "IRA / 401(k)" })?.amount ?? 0
+                                let inh = chartData.first(where: { $0.year == yr && $0.category == "Inherited IRA" })?.amount ?? 0
+                                return (year: yr, total: reg + inh)
+                            }
+                            if let peakTotal = totalsByYear.max(by: { $0.total < $1.total }), peakTotal.total > 0 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.up.right")
+                                        .foregroundStyle(.purple)
+                                        .font(.caption)
+                                    Text("Combined Peak:")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(peakTotal.total, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                    Text("in \(String(peakTotal.year))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        Image(systemName: "chart.bar.xaxis")
+                            .font(.title)
+                            .foregroundStyle(.secondary)
+                        Text("No RMDs projected in this period")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Text("Your first RMD begins at age \(dataManager.rmdAge)")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.blue.opacity(0.3), .orange.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+        }
+    }
+
     // MARK: - Projections Section
 
     private var projectionsSection: some View {
@@ -626,15 +1007,15 @@ struct RMDCalculatorView: View {
                 VStack(spacing: 12) {
                     if dataManager.primaryTraditionalIRABalance > 0 {
                         HStack {
-                            Text(dataManager.enableSpouse ? "Your Growth Rate" : "Growth Rate")
+                            Text(dataManager.enableSpouse ? "\(dataManager.primaryLabel) Growth Rate" : "Growth Rate")
                                 .font(.subheadline)
                             Spacer()
-                            Text("\(primaryGrowthRate, specifier: "%.1f")%")
+                            Text("\(dataManager.primaryGrowthRate, specifier: "%.1f")%")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .frame(width: 50, alignment: .trailing)
                         }
-                        Slider(value: $primaryGrowthRate, in: -5...12, step: 0.5)
+                        Slider(value: $dataManager.primaryGrowthRate, in: -5...12, step: 0.5)
                             .tint(.blue)
                     }
 
@@ -644,12 +1025,12 @@ struct RMDCalculatorView: View {
                             Text("\(spLabel)'s Growth Rate")
                                 .font(.subheadline)
                             Spacer()
-                            Text("\(spouseGrowthRate, specifier: "%.1f")%")
+                            Text("\(dataManager.spouseGrowthRate, specifier: "%.1f")%")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .frame(width: 50, alignment: .trailing)
                         }
-                        Slider(value: $spouseGrowthRate, in: -5...12, step: 0.5)
+                        Slider(value: $dataManager.spouseGrowthRate, in: -5...12, step: 0.5)
                             .tint(.green)
                     }
                 }
@@ -724,7 +1105,7 @@ struct RMDCalculatorView: View {
                                         startingBalance: dataManager.primaryTraditionalIRABalance,
                                         startAge: dataManager.currentAge,
                                         rmdStartAge: dataManager.rmdAge,
-                                        growthPercent: primaryGrowthRate
+                                        growthPercent: dataManager.primaryGrowthRate
                                     ) : nil
                                     let pRMD: Double? = pEligible ? dataManager.calculateRMD(
                                         for: pAge,
@@ -739,7 +1120,7 @@ struct RMDCalculatorView: View {
                                         startingBalance: dataManager.spouseTraditionalIRABalance,
                                         startAge: dataManager.spouseCurrentAge,
                                         rmdStartAge: dataManager.spouseRmdAge,
-                                        growthPercent: spouseGrowthRate
+                                        growthPercent: dataManager.spouseGrowthRate
                                     ) : nil
                                     let sRMD: Double? = sEligible ? dataManager.calculateRMD(
                                         for: sAge,
@@ -794,7 +1175,7 @@ struct RMDCalculatorView: View {
                                     startingBalance: dataManager.primaryTraditionalIRABalance,
                                     startAge: dataManager.currentAge,
                                     rmdStartAge: dataManager.rmdAge,
-                                    growthPercent: primaryGrowthRate
+                                    growthPercent: dataManager.primaryGrowthRate
                                 )
                                 let projectedRMD = dataManager.calculateRMD(
                                     for: projectedAge,
@@ -864,6 +1245,264 @@ struct RMDCalculatorView: View {
         .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    // MARK: - Inherited IRA Projections
+
+    private struct InheritedProjectionRow: Identifiable {
+        var id: Int { year }
+        let year: Int
+        let balance: Double
+        let rmd: Double
+        let remaining: Int?
+        let isDeadline: Bool
+    }
+
+    /// Projects an inherited IRA balance forward, computing annual RMDs, growth, and deadline tracking.
+    private func projectInheritedIRA(account: IRAAccount, growthPercent: Double) -> [InheritedProjectionRow] {
+        guard account.accountType.isInherited,
+              let beneficiaryType = account.beneficiaryType,
+              let yearOfInheritance = account.yearOfInheritance,
+              let beneficiaryBirthYear = account.beneficiaryBirthYear else { return [] }
+
+        let isRoth = account.accountType == .inheritedRothIRA
+        let rbdStatus = account.decedentRBDStatus ?? .beforeRBD
+        let growthRate = growthPercent / 100.0
+
+        // Determine deadline year (nil = lifetime stretch)
+        let deadlineYear: Int? = {
+            switch beneficiaryType {
+            case .spouse, .disabled, .chronicallyIll, .notTenYearsYounger:
+                return nil
+            case .minorChild:
+                let majorityYear = account.minorChildMajorityYear ?? (beneficiaryBirthYear + 21)
+                return majorityYear + 10
+            case .nonEligibleDesignated:
+                return yearOfInheritance + 10
+            }
+        }()
+
+        // Project until deadline or projectionYears for lifetime stretch
+        let lastYear: Int
+        if let deadline = deadlineYear {
+            lastYear = max(deadline, dataManager.currentYear)
+        } else {
+            lastYear = dataManager.currentYear + projectionYears - 1
+        }
+
+        var balance = account.balance
+        var rows: [InheritedProjectionRow] = []
+
+        for year in dataManager.currentYear...lastYear {
+            guard balance > 0.01 else { break }
+
+            let yearsElapsed = year - yearOfInheritance
+            let beneficiaryAge = year - beneficiaryBirthYear
+            let isDeadlineYear = (deadlineYear != nil && year >= deadlineYear!)
+
+            var rmd: Double = 0
+
+            if isDeadlineYear {
+                rmd = balance
+            } else if isRoth {
+                // Inherited Roth: no annual RMDs, just must empty by deadline
+                rmd = 0
+            } else {
+                switch beneficiaryType {
+                case .nonEligibleDesignated:
+                    if rbdStatus == .afterRBD && yearsElapsed >= 1 {
+                        let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
+                        let initialFactor = dataManager.singleLifeExpectancyFactor(for: initialAge)
+                        let yearsOfReduction = year - (yearOfInheritance + 1)
+                        let factor = max(1.0, initialFactor - Double(yearsOfReduction))
+                        rmd = balance / factor
+                    }
+
+                case .spouse, .disabled, .chronicallyIll:
+                    if yearsElapsed >= 1 {
+                        let factor = dataManager.singleLifeExpectancyFactor(for: beneficiaryAge)
+                        rmd = factor > 0 ? balance / factor : balance
+                    }
+
+                case .notTenYearsYounger:
+                    if yearsElapsed >= 1 {
+                        let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
+                        let initialFactor = dataManager.singleLifeExpectancyFactor(for: initialAge)
+                        let yearsOfReduction = year - (yearOfInheritance + 1)
+                        let factor = max(1.0, initialFactor - Double(yearsOfReduction))
+                        rmd = balance / factor
+                    }
+
+                case .minorChild:
+                    let majorityYear = account.minorChildMajorityYear ?? (beneficiaryBirthYear + 21)
+                    if year < majorityYear {
+                        if yearsElapsed >= 1 {
+                            let factor = dataManager.singleLifeExpectancyFactor(for: beneficiaryAge)
+                            rmd = factor > 0 ? balance / factor : balance
+                        }
+                    } else if rbdStatus == .afterRBD {
+                        let ageAtMajorityPlus1 = (majorityYear + 1) - beneficiaryBirthYear
+                        let initialFactor = dataManager.singleLifeExpectancyFactor(for: ageAtMajorityPlus1)
+                        let yearsOfReduction = year - (majorityYear + 1)
+                        let factor = max(1.0, initialFactor - Double(max(0, yearsOfReduction)))
+                        rmd = balance / factor
+                    }
+                }
+            }
+
+            rmd = min(rmd, balance)
+            let remaining: Int? = deadlineYear.map { max(0, $0 - year) }
+
+            rows.append(InheritedProjectionRow(
+                year: year,
+                balance: balance,
+                rmd: rmd,
+                remaining: remaining,
+                isDeadline: isDeadlineYear
+            ))
+
+            balance -= rmd
+            balance *= (1 + growthRate)
+            balance = max(0, balance)
+        }
+
+        return rows
+    }
+
+    @ViewBuilder
+    private var inheritedIRAProjectionsSection: some View {
+        if dataManager.hasInheritedAccounts {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Inherited IRA Projections")
+                    .font(.headline)
+
+                ForEach(dataManager.inheritedAccounts) { account in
+                    let growthRate = account.owner == .spouse ? dataManager.spouseGrowthRate : dataManager.primaryGrowthRate
+                    let projections = projectInheritedIRA(account: account, growthPercent: growthRate)
+
+                    if !projections.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Account header
+                            HStack {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.down.doc.fill")
+                                        .foregroundStyle(.orange)
+                                    Text(account.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    if dataManager.enableSpouse {
+                                        Text(account.owner.rawValue)
+                                            .font(.caption2)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 1)
+                                            .background(Color.purple.opacity(0.2))
+                                            .foregroundStyle(.purple)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                Spacer()
+                                if let beneficiary = account.beneficiaryType {
+                                    Text(beneficiary.rawValue)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.orange.opacity(0.2))
+                                        .foregroundStyle(.orange)
+                                        .clipShape(Capsule())
+                                }
+                            }
+
+                            // Growth rate note
+                            Text("Using \(growthRate, specifier: "%.1f")% annual growth rate")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+
+                            // Table header
+                            HStack(spacing: 0) {
+                                Text("Year")
+                                    .frame(width: 50, alignment: .leading)
+                                Text("Balance")
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                                Text("RMD")
+                                    .frame(width: 90, alignment: .trailing)
+                                if projections.first?.remaining != nil {
+                                    Text("Left")
+                                        .frame(width: 40, alignment: .trailing)
+                                }
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+
+                            // Rows
+                            VStack(spacing: 4) {
+                                ForEach(projections) { row in
+                                    HStack(spacing: 0) {
+                                        Text("\(row.year)")
+                                            .font(.caption)
+                                            .fontWeight(row.year == dataManager.currentYear ? .bold : .regular)
+                                            .frame(width: 50, alignment: .leading)
+
+                                        Text(row.balance, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                            .font(.caption2)
+                                            .frame(maxWidth: .infinity, alignment: .trailing)
+
+                                        Text(row.rmd > 0 ? row.rmd.formatted(.currency(code: "USD").precision(.fractionLength(0))) : "—")
+                                            .font(.caption)
+                                            .fontWeight(row.isDeadline ? .bold : .medium)
+                                            .foregroundStyle(row.isDeadline ? .red : (row.rmd > 0 ? .orange : .secondary))
+                                            .frame(width: 90, alignment: .trailing)
+
+                                        if projections.first?.remaining != nil {
+                                            if let remaining = row.remaining {
+                                                Text("\(remaining)")
+                                                    .font(.caption)
+                                                    .fontWeight(remaining <= 1 ? .bold : .regular)
+                                                    .foregroundStyle(remaining <= 1 ? .red : (remaining <= 3 ? .orange : .secondary))
+                                                    .frame(width: 40, alignment: .trailing)
+                                            } else {
+                                                Text("—")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                    .frame(width: 40, alignment: .trailing)
+                                            }
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .background(
+                                        row.year == dataManager.currentYear ? Color.orange.opacity(0.1) :
+                                        row.isDeadline ? Color.red.opacity(0.08) :
+                                        Color(PlatformColor.secondarySystemBackground)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                }
+                            }
+
+                            // Deadline note
+                            if let deadline = projections.last, deadline.isDeadline {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.red)
+                                        .font(.caption)
+                                    Text("Full remaining balance must be withdrawn by end of \(String(deadline.year))")
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                }
+                                .padding(.top, 4)
+                            }
+                        }
+                        .padding()
+                        .background(Color(PlatformColor.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
     }
 
     // MARK: - Helper Functions

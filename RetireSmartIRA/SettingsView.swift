@@ -6,11 +6,9 @@
 //
 
 import SwiftUI
-import StoreKit
 
 struct SettingsView: View {
     @EnvironmentObject var dataManager: DataManager
-    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @State private var stateSearchText = ""
 
     /// Date range for the birth date picker (1920 to today)
@@ -24,6 +22,12 @@ struct SettingsView: View {
         NavigationStack {
         Form {
             Section("Personal Information") {
+                LabeledContent("Your Name") {
+                    TextField("Name", text: $dataManager.userName)
+                        .multilineTextAlignment(.trailing)
+                        .foregroundStyle(.primary)
+                }
+
                 DatePicker("Date of Birth",
                            selection: $dataManager.birthDate,
                            in: birthDateRange,
@@ -94,41 +98,9 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Subscription") {
-                LabeledContent("Status") {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(.green)
-                        Text("Premium")
-                            .foregroundStyle(.green)
-                    }
-                }
-
-                LabeledContent("Plan") {
-                    Text("\(subscriptionManager.formattedPrice) / year")
-                        .foregroundStyle(.secondary)
-                }
-
-                Button("Manage Subscription") {
-                    Task {
-                        #if canImport(UIKit)
-                        if let windowScene = UIApplication.shared.connectedScenes
-                            .compactMap({ $0 as? UIWindowScene })
-                            .first {
-                            try? await AppStore.showManageSubscriptions(in: windowScene)
-                        }
-                        #elseif os(macOS)
-                        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                            NSWorkspace.shared.open(url)
-                        }
-                        #endif
-                    }
-                }
-            }
-
             Section("About") {
                 LabeledContent("Version") {
-                    Text("1.0.0")
+                    Text(bundleVersionString)
                         .foregroundStyle(.secondary)
                 }
 
@@ -154,7 +126,14 @@ struct SettingsView: View {
         .onChange(of: dataManager.enableSpouse) { dataManager.saveAllData() }
         .onChange(of: dataManager.spouseName) { dataManager.saveAllData() }
         .onChange(of: dataManager.spouseBirthDate) { dataManager.saveAllData() }
+        .onChange(of: dataManager.userName) { dataManager.saveAllData() }
         }
+    }
+
+    private var bundleVersionString: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "\(v) (\(b))"
     }
 
     // MARK: - State Picker
@@ -218,6 +197,5 @@ struct SettingsView: View {
     NavigationStack {
         SettingsView()
             .environmentObject(DataManager())
-            .environmentObject(SubscriptionManager())
     }
 }

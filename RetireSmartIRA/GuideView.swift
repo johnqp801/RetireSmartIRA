@@ -10,11 +10,12 @@ import SwiftUI
 struct GuideView: View {
     @EnvironmentObject var dataManager: DataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Binding var selectedTab: Int
 
     private var isWideLayout: Bool { horizontalSizeClass == .regular }
 
     // Section expansion states
-    @State private var quickStartExpanded: Bool = true
+    @State private var gatherExpanded: Bool = true
     @State private var myProfileGuideExpanded: Bool = false
     @State private var accountsGuideExpanded: Bool = false
     @State private var incomeGuideExpanded: Bool = false
@@ -22,6 +23,7 @@ struct GuideView: View {
     @State private var rmdGuideExpanded: Bool = false
     @State private var scenariosGuideExpanded: Bool = false
     @State private var quarterlyTaxGuideExpanded: Bool = false
+    @State private var stateComparisonGuideExpanded: Bool = false
     @State private var keyConceptsExpanded: Bool = false
     @State private var tipsExpanded: Bool = false
 
@@ -43,7 +45,7 @@ struct GuideView: View {
             VStack(spacing: 24) {
                 welcomeHeader
                 setupProgressCard
-                quickStartChecklist
+                gatherBeforeYouStart
                 tabGuidesHeader
                 myProfileGuide
                 incomeGuide
@@ -52,6 +54,7 @@ struct GuideView: View {
                 scenariosGuide
                 taxSummaryGuide
                 quarterlyTaxGuide
+                stateComparisonGuide
                 keyConceptsSection
                 tipsSection
                 disclaimerCard
@@ -66,7 +69,7 @@ struct GuideView: View {
                 VStack(spacing: 24) {
                     welcomeHeader
                     setupProgressCard
-                    quickStartChecklist
+                    gatherBeforeYouStart
                     keyConceptsSection
                     tipsSection
                     disclaimerCard
@@ -85,6 +88,7 @@ struct GuideView: View {
                     scenariosGuide
                     taxSummaryGuide
                     quarterlyTaxGuide
+                    stateComparisonGuide
                 }
                 .padding()
             }
@@ -151,10 +155,10 @@ struct GuideView: View {
             .frame(height: 8)
 
             VStack(alignment: .leading, spacing: 10) {
-                setupStepRow(title: "Set your date of birth", isComplete: progress.hasSetBirthDate)
-                setupStepRow(title: "Add retirement accounts", isComplete: progress.hasAccounts)
-                setupStepRow(title: "Enter income sources", isComplete: progress.hasIncomeSources)
-                setupStepRow(title: "Add deductions", isComplete: progress.hasDeductions)
+                setupStepRow(title: "Set your date of birth", isComplete: progress.hasSetBirthDate, targetTab: 1)
+                setupStepRow(title: "Add retirement accounts", isComplete: progress.hasAccounts, targetTab: 3)
+                setupStepRow(title: "Enter income sources", isComplete: progress.hasIncomeSources, targetTab: 2)
+                setupStepRow(title: "Add deductions", isComplete: progress.hasDeductions, targetTab: 2)
             }
 
             if progress.isComplete {
@@ -175,81 +179,141 @@ struct GuideView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    private func setupStepRow(title: String, isComplete: Bool) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isComplete ? .green : .secondary)
-                .font(.title3)
-            Text(title)
-                .font(.subheadline)
-                .strikethrough(isComplete)
-                .foregroundStyle(isComplete ? .secondary : .primary)
-            Spacer()
+    private func setupStepRow(title: String, isComplete: Bool, targetTab: Int) -> some View {
+        Button {
+            selectedTab = targetTab
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isComplete ? .green : .secondary)
+                    .font(.title3)
+                Text(title)
+                    .font(.subheadline)
+                    .strikethrough(isComplete)
+                    .foregroundStyle(isComplete ? .secondary : .primary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
+        .buttonStyle(.plain)
     }
 
-    // MARK: - Quick Start Checklist
+    // MARK: - Gather Before You Start
 
-    private var quickStartChecklist: some View {
-        DisclosureGroup(isExpanded: $quickStartExpanded) {
+    private var gatherBeforeYouStart: some View {
+        DisclosureGroup(isExpanded: $gatherExpanded) {
             VStack(alignment: .leading, spacing: 16) {
-                quickStartStep(
-                    number: 1,
-                    title: "My Profile",
-                    description: "Set your date of birth and filing status. If married filing jointly, enable and configure your spouse.",
-                    tabIcon: "person.crop.circle.fill",
-                    tabColor: .gray
+                Text("Have these documents and numbers handy to get the most out of the app right away.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                gatherCategory(
+                    icon: "calendar",
+                    title: "Personal Information",
+                    color: .gray,
+                    items: [
+                        "Date of birth (yours and spouse\u{2019}s if married filing jointly)",
+                        "State of residence",
+                        "Filing status"
+                    ]
                 )
-                quickStartStep(
-                    number: 2,
-                    title: "Income & Deductions",
-                    description: "Enter all income sources with federal and state withholding amounts. Optionally add itemized deductions.",
-                    tabIcon: "banknote.fill",
-                    tabColor: .green
+
+                gatherCategory(
+                    icon: "building.columns.fill",
+                    title: "Account Balances (as of Dec. 31 of prior year)",
+                    color: .blue,
+                    items: [
+                        "Traditional IRA and/or Traditional 401(k) balances",
+                        "Roth IRA and/or Roth 401(k) balances",
+                        "Inherited IRA balances (plus year inherited, decedent\u{2019}s birth year, and your beneficiary type)"
+                    ]
                 )
-                quickStartStep(
-                    number: 3,
-                    title: "Accounts",
-                    description: "Add your Traditional IRA, Roth IRA, Traditional 401(k), and Roth 401(k) accounts with current balances.",
-                    tabIcon: "building.columns.fill",
-                    tabColor: .blue
+
+                gatherCategory(
+                    icon: "banknote.fill",
+                    title: "Income Sources (annual amounts)",
+                    color: .green,
+                    items: [
+                        "Social Security benefit statement (SSA-1099 or my Social Security account)",
+                        "Pension or annuity amounts (current year statement or prior year 1099-R)",
+                        "Interest and dividends (use prior year 1099-INT / 1099-DIV as a starting estimate)",
+                        "Capital gains (use prior year 1099-B as a guide; adjust for known changes)",
+                        "Employment, consulting, or other income (prior year W-2 / 1099-NEC as a baseline)"
+                    ]
                 )
-                quickStartStep(
-                    number: 4,
-                    title: "RMD Calculator",
-                    description: "Check your Required Minimum Distribution status, deadlines, and project future RMDs under different growth scenarios.",
-                    tabIcon: "calendar.badge.clock",
-                    tabColor: .red
+
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.blue)
+                        .font(.caption)
+                    Text("For income that varies year to year \u{2014} interest, dividends, capital gains, consulting \u{2014} last year\u{2019}s tax documents are a good starting point. You can always update amounts as the year progresses.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                gatherCategory(
+                    icon: "checkmark.shield.fill",
+                    title: "Withholding (per income source)",
+                    color: .green,
+                    items: [
+                        "Federal tax withholding from each source (W-4P elections or prior year statements)",
+                        "State tax withholding from each source"
+                    ]
                 )
-                quickStartStep(
-                    number: 5,
-                    title: "Scenarios",
-                    description: "Model Roth conversions, QCDs, stock and cash donations, and extra withdrawals. See real-time tax impact and bracket analysis.",
-                    tabIcon: "slider.horizontal.3",
-                    tabColor: .orange
+
+                gatherCategory(
+                    icon: "building.columns.fill",
+                    title: "Prior Year State Taxes",
+                    color: .indigo,
+                    items: [
+                        "Balance due paid with your prior year\u{2019}s state return (usually in April)",
+                        "Or state tax refund received (may be taxable if you itemized last year)"
+                    ]
                 )
-                quickStartStep(
-                    number: 6,
-                    title: "Tax Summary",
-                    description: "Review your income breakdown, tax projection, and action items. Everything updates automatically.",
-                    tabIcon: "chart.bar.fill",
-                    tabColor: .purple
+
+                gatherCategory(
+                    icon: "doc.text.fill",
+                    title: "Deductions (if you may itemize)",
+                    color: .orange,
+                    items: [
+                        "Mortgage interest (Form 1098)",
+                        "Property tax (annual amount from county/city bill)",
+                        "Unreimbursed medical expenses (insurance premiums, copays, dental, vision, prescriptions, long-term care)",
+                        "Additional state and local taxes (city or local income tax if applicable)"
+                    ]
                 )
-                quickStartStep(
-                    number: 7,
-                    title: "Quarterly Tax",
-                    description: "Review estimated quarterly tax payments based on all your Scenario decisions.",
-                    tabIcon: "dollarsign.circle.fill",
-                    tabColor: .purple
+
+                gatherCategory(
+                    icon: "doc.plaintext",
+                    title: "Prior Year Tax Return (for reference)",
+                    color: .purple,
+                    items: [
+                        "Total tax liability (to compare 100% safe harbor vs. 90% current year)",
+                        "Whether you itemized or took the standard deduction",
+                        "State tax refund amount (taxable if you itemized)"
+                    ]
                 )
+
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundStyle(.yellow)
+                        .font(.caption)
+                    Text("Don\u{2019}t sweat it \u{2014} not all of these will apply to you. Start with the basics (birth date, accounts, and income) and add details as you gather them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                }
+                .padding(.top, 4)
             }
             .padding(.top, 8)
         } label: {
             HStack {
-                Image(systemName: "list.number")
-                    .foregroundStyle(.blue)
+                Image(systemName: "tray.full.fill")
+                    .foregroundStyle(.teal)
                     .frame(width: 24)
-                Text("Quick Start Checklist")
+                Text("What to Gather Before You Start")
                     .font(.headline)
             }
         }
@@ -259,28 +323,29 @@ struct GuideView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    private func quickStartStep(number: Int, title: String, description: String, tabIcon: String, tabColor: Color) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(number)")
-                .font(.callout)
-                .fontWeight(.bold)
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(tabColor)
-                .clipShape(Circle())
+    private func gatherCategory(icon: String, title: String, color: Color, items: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                    .font(.subheadline)
+                    .frame(width: 20)
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Image(systemName: tabIcon)
-                        .foregroundStyle(tabColor)
-                        .font(.subheadline)
-                    Text(title)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+            ForEach(items, id: \.self) { item in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "checkmark.square")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16)
+                    Text(item)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                Text(description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .padding(.leading, 28)
             }
         }
     }
@@ -346,7 +411,7 @@ struct GuideView: View {
         tabGuideSection(icon: "building.columns.fill", title: "Accounts", color: .blue, isExpanded: $accountsGuideExpanded) {
             guidePoint("Add all retirement accounts: Traditional IRA, Roth IRA, Traditional 401(k), Roth 401(k)")
             guidePoint("Inherited IRAs: select Inherited Traditional IRA or Inherited Roth IRA, then fill in beneficiary type, year inherited, and birth years")
-            guidePoint("Enter current balances \u{2014} these drive RMD calculations")
+            guidePoint("Enter balances as of December 31 of the prior year \u{2014} these drive RMD calculations")
             guidePoint("Assign each account to an owner (You, Spouse, or Joint)")
             guidePoint("Only Traditional accounts have RMD requirements; Roth IRAs do not")
             guidePoint("Inherited IRA RMDs follow different rules \u{2014} see RMD Calculator for details and deadlines")
@@ -393,7 +458,7 @@ struct GuideView: View {
             guidePoint("Withdrawal Timing: choose which quarter you plan to take each withdrawal or conversion \u{2014} this shifts the tax obligation to that quarter\u{2019}s estimated payment")
             guidePoint("Roth Conversions: set conversion amounts and see real-time bracket impact")
             guidePoint("QCD (Qualified Charitable Distribution): donate up to $111k/person directly from IRA to charity; satisfies RMD tax-free; requires age 70\u{00BD}+")
-            guidePoint("Appreciated Stock Donation: donate long-term stock to avoid capital gains tax and get a fair market value deduction")
+            guidePoint("Appreciated Stock Donation: donate appreciated stock to avoid tax on the gain — long-term holdings get a fair market value deduction; short-term holdings are deductible at cost basis")
             guidePoint("Cash Donations: direct cash gifts that provide a tax benefit when itemizing")
             guidePoint("Bracket Analysis shows whether your scenario pushes you into a higher federal or state bracket")
             guidePoint("Medicare IRMAA shows your current tier, annual surcharge, and how close you are to the next cliff \u{2014} scenario decisions that push you into a higher tier are flagged with a warning")
@@ -410,6 +475,17 @@ struct GuideView: View {
             guidePoint("Payment amounts vary by quarter based on when withdrawals and conversions are planned")
             guidePoint("Based on 90% safe harbor rule: pay 90% of current year tax to avoid underpayment penalties")
             guidePoint("Automatically recalculates when Scenario decisions change")
+        }
+    }
+
+    private var stateComparisonGuide: some View {
+        tabGuideSection(icon: "map.fill", title: "State Comparison", color: .teal, isExpanded: $stateComparisonGuideExpanded) {
+            guidePoint("Ranks all 50 states + DC by state income tax based on your current income scenario")
+            guidePoint("Shows your state\u{2019}s rank, tax amount, and effective rate at a glance")
+            guidePoint("Tap any state for a detailed breakdown: retirement income exemptions, bracket-by-bracket calculations, and a side-by-side comparison to your current state")
+            guidePoint("Highlights potential savings if you relocated to a lower-tax state")
+            guidePoint("Accounts for state-specific retirement income exemptions (Social Security, pensions, IRA/RMD withdrawals)")
+            guidePoint("Search by state name or abbreviation to quickly find any state")
         }
     }
 
@@ -452,6 +528,11 @@ struct GuideView: View {
                     icon: "person.2.fill",
                     title: "Filing Status Impact",
                     description: "Married Filing Jointly has wider tax brackets, a higher standard deduction, and different Social Security taxation thresholds compared to Single."
+                )
+                conceptItem(
+                    icon: "map.fill",
+                    title: "State Tax Comparisons",
+                    description: "State income tax varies dramatically \u{2014} nine states have no income tax, while others tax retirement income heavily. Many states exempt Social Security, and some exempt pensions or IRA withdrawals partially or fully. Where you live in retirement can save (or cost) thousands per year in state taxes."
                 )
                 conceptItem(
                     icon: "arrow.down.doc.fill",
@@ -587,7 +668,7 @@ struct GuideView: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
             }
-            Text("This app provides estimates for planning purposes only. Consult with a qualified tax professional or financial advisor for personalized advice. Tax laws and regulations may change.")
+            Text("This app provides estimates for planning purposes only. Local and city income taxes (e.g. NYC, Yonkers) are not included. Consult with a qualified tax professional or financial advisor for personalized advice. Tax laws and regulations may change.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -600,6 +681,6 @@ struct GuideView: View {
 }
 
 #Preview {
-    GuideView()
+    GuideView(selectedTab: .constant(0))
         .environmentObject(DataManager())
 }

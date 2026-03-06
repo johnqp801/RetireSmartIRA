@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Charts
 
 struct StateComparisonView: View {
     @EnvironmentObject var dataManager: DataManager
@@ -19,6 +20,7 @@ struct StateComparisonView: View {
             VStack(spacing: 16) {
                 headerCard
                 currentStateCard
+                stateComparisonChart
                 rankingList
             }
             .padding()
@@ -41,12 +43,13 @@ struct StateComparisonView: View {
 
     /// All states ranked by state tax (lowest to highest) for the current scenario.
     private var rankedStates: [StateComparisonItem] {
-        let income = dataManager.scenarioTaxableIncome
+        let grossIncome = dataManager.scenarioGrossIncome
         let fs = dataManager.filingStatus
+        let taxableSS = dataManager.scenarioTaxableSocialSecurity
 
         let items = USState.allCases.map { state -> StateComparisonItem in
-            let tax = dataManager.calculateStateTax(income: income, forState: state, filingStatus: fs)
-            let effectiveRate = income > 0 ? (tax / income) * 100 : 0
+            let tax = dataManager.calculateStateTaxFromGross(grossIncome: grossIncome, forState: state, filingStatus: fs, taxableSocialSecurity: taxableSS)
+            let effectiveRate = grossIncome > 0 ? (tax / grossIncome) * 100 : 0
             let config = StateTaxData.config(for: state)
             return StateComparisonItem(
                 state: state,
@@ -85,11 +88,6 @@ struct StateComparisonView: View {
     /// The current state's entry in the ranked list.
     private var currentStateItem: StateComparisonItem? {
         rankedStates.first { $0.isCurrentState }
-    }
-
-    /// The lowest-tax state (first in ranked list).
-    private var lowestTaxState: StateComparisonItem? {
-        rankedStates.first
     }
 
     // MARK: - Header Card
@@ -148,9 +146,7 @@ struct StateComparisonView: View {
 
     @ViewBuilder
     private var currentStateCard: some View {
-        if let current = currentStateItem, let lowest = lowestTaxState {
-            let savings = current.stateTax - lowest.stateTax
-
+        if let current = currentStateItem {
             Button {
                 selectedStateForDetail = current
                 showingStateDetail = true
@@ -190,30 +186,19 @@ struct StateComparisonView: View {
                     }
                 }
 
-                if savings > 1 {
-                    Divider()
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("You could save ")
-                            .font(.callout)
-                        + Text(savings, format: .currency(code: "USD"))
-                            .font(.callout)
-                            .fontWeight(.bold)
-                        + Text("/year in a no-tax state")
-                            .font(.callout)
-                    }
-                    .foregroundStyle(.green)
-                } else if current.stateTax < 1 {
-                    Divider()
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("You're in a no/low income tax state!")
-                            .font(.callout)
-                            .foregroundStyle(.green)
-                    }
+                Divider()
+                HStack(spacing: 4) {
+                    Image(systemName: rankIcon(for: current))
+                        .foregroundStyle(current.rank <= 10 ? .green : current.rank <= 30 ? .orange : .red)
+                    Text("For your current plan, your state ranks ")
+                        .font(.callout)
+                    + Text("#\(current.rank)")
+                        .font(.callout)
+                        .fontWeight(.bold)
+                    + Text(" for lowest state tax")
+                        .font(.callout)
                 }
+                .foregroundStyle(current.rank <= 10 ? .green : current.rank <= 30 ? .orange : .red)
             }
             .padding()
             .background(Color(PlatformColor.systemBackground))
@@ -225,6 +210,190 @@ struct StateComparisonView: View {
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - State Comparison Bar Chart
+
+    /// Color for a bar based on where the state falls in the tax spectrum.
+    /// Green → Teal → Gold → Orange → Pink → Purple → Blue as tax increases.
+    private func barColor(for item: StateComparisonItem, maxTax: Double) -> Color {
+        if item.isCurrentState { return Color(red: 0.15, green: 0.45, blue: 0.95) }
+        if item.stateTax < 0.01 { return Color(red: 0.05, green: 0.78, blue: 0.35) }
+
+        let ratio = maxTax > 0 ? min(item.stateTax / maxTax, 1.0) : 0
+
+        // 5-stop spectrum: Green → Gold → Orange → Hot Pink → Purple → Blue
+        if ratio < 0.2 {
+            let t = ratio / 0.2
+            // Green → Teal
+            return Color(red: 0.05 - t * 0.05, green: 0.78 - t * 0.06, blue: 0.35 + t * 0.33)
+        } else if ratio < 0.4 {
+            let t = (ratio - 0.2) / 0.2
+            // Teal → Gold
+            return Color(red: 0.0 + t * 0.98, green: 0.72 + t * 0.06, blue: 0.68 - t * 0.68)
+        } else if ratio < 0.6 {
+            let t = (ratio - 0.4) / 0.2
+            // Gold → Orange
+            return Color(red: 0.98 + t * 0.02, green: 0.78 - t * 0.28, blue: 0.0)
+        } else if ratio < 0.8 {
+            let t = (ratio - 0.6) / 0.2
+            // Orange → Hot Pink
+            return Color(red: 1.0 - t * 0.08, green: 0.50 - t * 0.28, blue: 0.0 + t * 0.50)
+        } else {
+            let t = (ratio - 0.8) / 0.2
+            // Hot Pink → Purple → Blue
+            return Color(red: 0.92 - t * 0.74, green: 0.22 + t * 0.08, blue: 0.50 + t * 0.35)
+        }
+    }
+
+    @ViewBuilder
+    private var stateComparisonChart: some View {
+        let data = rankedStates  // all 51 states, already sorted lowest → highest
+        if !data.isEmpty {
+            let maxTax = data.map(\.stateTax).max() ?? 1
+            let yDomain = maxTax < 0.01 ? 100.0 : maxTax * 1.1
+            let currentTax = currentStateItem?.stateTax ?? 0
+
+            VStack(alignment: .leading, spacing: 14) {
+                // Header with gradient icon
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(red: 0.1, green: 0.78, blue: 0.45), Color(red: 0.95, green: 0.35, blue: 0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "chart.bar.fill")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("State Tax Across All 50 States")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                        Text("Annual state income tax for your current plan")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
+
+                // Chart
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Chart {
+                        // Reference line at current state's tax level
+                        if currentTax > 0.01 {
+                            RuleMark(y: .value("Your Tax", currentTax))
+                                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 3]))
+                                .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.95).opacity(0.6))
+                                .annotation(position: .top, alignment: .trailing) {
+                                    Text("You: \(chartYAxisLabel(currentTax))")
+                                        .font(.caption2)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.95))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color(red: 0.15, green: 0.45, blue: 0.95).opacity(0.1))
+                                        .clipShape(Capsule())
+                                }
+                        }
+
+                        ForEach(data) { item in
+                            BarMark(
+                                x: .value("State", item.state.abbreviation),
+                                y: .value("State Tax", item.stateTax),
+                                width: .ratio(0.75)
+                            )
+                            .foregroundStyle(barColor(for: item, maxTax: maxTax))
+                            .cornerRadius(2)
+                        }
+                    }
+                    .chartXAxis {
+                        AxisMarks(values: .automatic) { value in
+                            AxisValueLabel {
+                                if let abbrev = value.as(String.self) {
+                                    let isCurrent = abbrev == dataManager.selectedState.abbreviation
+                                    Text(abbrev)
+                                        .font(.system(size: isCurrent ? 8 : 7, weight: isCurrent ? .heavy : .regular))
+                                        .foregroundStyle(isCurrent ? Color(red: 0.15, green: 0.45, blue: 0.95) : .primary)
+                                }
+                            }
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+                                .foregroundStyle(.gray.opacity(0.3))
+                            AxisValueLabel {
+                                if let val = value.as(Double.self) {
+                                    Text(chartYAxisLabel(val))
+                                        .font(.caption2)
+                                }
+                            }
+                        }
+                    }
+                    .chartXScale(domain: data.map { $0.state.abbreviation })
+                    .chartYScale(domain: 0...yDomain)
+                    .frame(width: max(CGFloat(data.count) * 20, 700), height: 260)
+                }
+
+                // Legend
+                HStack(spacing: 16) {
+                    chartLegendDot(color: Color(red: 0.15, green: 0.45, blue: 0.95), label: "Your state")
+                    chartLegendDot(color: Color(red: 0.05, green: 0.78, blue: 0.35), label: "No/Low tax")
+                    chartLegendDot(color: Color(red: 1.0, green: 0.50, blue: 0.0), label: "Medium tax")
+                    chartLegendDot(color: Color(red: 0.18, green: 0.30, blue: 0.85), label: "High tax")
+                }
+                .font(.caption2)
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.05, green: 0.78, blue: 0.35).opacity(0.4),
+                                Color(red: 1.0, green: 0.50, blue: 0.0).opacity(0.35),
+                                Color(red: 0.58, green: 0.22, blue: 0.88).opacity(0.4),
+                                Color(red: 0.18, green: 0.30, blue: 0.85).opacity(0.4)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 12, y: 6)
+        }
+    }
+
+    private func chartLegendDot(color: Color, label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Compact y-axis label for currency values.
+    private func chartYAxisLabel(_ value: Double) -> String {
+        if value >= 1_000_000 {
+            return "$\(String(format: "%.0f", value / 1_000_000))M"
+        } else if value >= 1_000 {
+            return "$\(String(format: "%.0f", value / 1_000))K"
+        } else if value < 0.01 {
+            return "$0"
+        } else {
+            return "$\(String(format: "%.0f", value))"
         }
     }
 
@@ -328,6 +497,13 @@ struct StateComparisonView: View {
         if item.rank <= 10 { return .green }
         if item.rank <= 25 { return .orange }
         return .red
+    }
+
+    /// Icon for the rank summary in the current state card.
+    private func rankIcon(for item: StateComparisonItem) -> String {
+        if item.rank <= 10 { return "checkmark.seal.fill" }
+        if item.rank <= 30 { return "info.circle.fill" }
+        return "exclamationmark.triangle.fill"
     }
 
     /// Human-readable label for a state's tax system.
@@ -814,51 +990,81 @@ private struct StateTaxDetailSheet: View {
     }
 
     /// Generates a human-readable insight about this state's tax treatment.
+    /// Always leads with a factual overview of the state's full tax system,
+    /// then adds exemption and comparison details.
     private func generateInsight() -> String {
         let state = breakdown.state.rawValue
+        let config = StateTaxData.config(for: item.state)
+        var parts: [String] = []
 
-        // No income tax
-        if breakdown.totalStateTax == 0 && breakdown.flatRate == nil && breakdown.bracketBreakdown.isEmpty {
-            return "\(state) has no state income tax. All of your retirement income — Social Security, pensions, IRA withdrawals — is completely tax-free at the state level."
+        // Part 1: Tax system overview — uses the full state config, not just the user's brackets
+        switch config.taxSystem {
+        case .noIncomeTax:
+            parts.append("\(state) does not levy a state income tax. All of your retirement income \u{2014} Social Security, pensions, IRA withdrawals \u{2014} is completely tax-free at the state level.")
+        case .specialLimited:
+            parts.append("\(state) does not tax general earned or retirement income. Only limited income types (such as interest, dividends, or capital gains) may be subject to state tax.")
+        case .flat(let rate):
+            parts.append("\(state) uses a flat income tax of \(String(format: "%.2f%%", rate * 100)) applied equally to all taxable income above exemptions.")
+        case .progressive(let single, _):
+            let lowRate = single.first?.rate ?? 0
+            let topRate = single.last?.rate ?? 0
+            let bracketCount = single.count
+            parts.append("\(state) uses a progressive income tax with \(bracketCount) bracket\(bracketCount == 1 ? "" : "s"), ranging from \(String(format: "%.1f%%", lowRate * 100)) to \(String(format: "%.1f%%", topRate * 100)).")
         }
 
-        // Large exemptions (> 50% of income exempted)
-        if breakdown.totalExempted > breakdown.totalIncome * 0.5 && breakdown.totalExempted > 0 {
-            let largestExemption: String
-            if breakdown.socialSecurityExemptAmount >= breakdown.pensionExemptAmount && breakdown.socialSecurityExemptAmount >= breakdown.iraExemptAmount {
-                largestExemption = "Social Security"
-            } else if breakdown.pensionExemptAmount >= breakdown.iraExemptAmount {
-                largestExemption = "pension income"
-            } else {
-                largestExemption = "IRA/RMD withdrawals"
+        // Part 2: Retirement income exemptions (only for states with an income tax)
+        let hasTax: Bool
+        switch config.taxSystem {
+        case .noIncomeTax, .specialLimited: hasTax = false
+        case .flat, .progressive: hasTax = true
+        }
+        if hasTax {
+            var exemptions: [String] = []
+            if breakdown.socialSecurityExempt && breakdown.socialSecurityIncome > 0 {
+                exemptions.append("Social Security is exempt")
+            } else if !breakdown.socialSecurityExempt && breakdown.socialSecurityIncome > 0 {
+                exemptions.append("Social Security is taxed")
             }
-            return "\(state) offers generous retirement income exemptions. By exempting \(largestExemption) and other retirement income, your state-taxable income drops from \(breakdown.totalIncome.formatted(.currency(code: "USD"))) to just \(breakdown.adjustedTaxableIncome.formatted(.currency(code: "USD"))), significantly reducing your tax bill."
+
+            if breakdown.pensionIncome > 0 {
+                switch breakdown.pensionExemptionLevel {
+                case .full: exemptions.append("pensions are fully exempt")
+                case .partial: exemptions.append("pensions are partially exempt")
+                case .none: exemptions.append("pensions are fully taxed")
+                }
+            }
+
+            if breakdown.iraRmdIncome > 0 {
+                switch breakdown.iraExemptionLevel {
+                case .full: exemptions.append("IRA/RMD withdrawals are fully exempt")
+                case .partial: exemptions.append("IRA/RMD withdrawals are partially exempt")
+                case .none: exemptions.append("IRA/RMD withdrawals are fully taxed")
+                }
+            }
+
+            if !exemptions.isEmpty {
+                let exemptionSummary = "For retirement income: " + exemptions.joined(separator: ", ") + "."
+                parts.append(exemptionSummary)
+            }
+
+            // Highlight generous exemptions
+            if breakdown.totalExempted > breakdown.totalIncome * 0.5 && breakdown.totalExempted > 0 {
+                parts.append("These exemptions reduce your state-taxable income from \(breakdown.totalIncome.formatted(.currency(code: "USD"))) to \(breakdown.adjustedTaxableIncome.formatted(.currency(code: "USD"))).")
+            }
         }
 
-        // Taxes Social Security (unusual — only ~8 states)
-        if !breakdown.socialSecurityExempt && breakdown.socialSecurityIncome > 0 {
-            return "Unlike most states, \(state) taxes Social Security benefits. This adds \(breakdown.socialSecurityIncome.formatted(.currency(code: "USD"))) to your state-taxable income that would be exempt in 42 other states."
-        }
-
-        // Comparison-based insight
-        let diff = breakdown.totalStateTax - currentStateBreakdown.totalStateTax
+        // Part 3: Comparison to current state (only when viewing a different state)
         if item.state != currentStateBreakdown.state {
-            if diff < -500 {
-                return "Moving to \(state) would save you approximately \(abs(diff).formatted(.currency(code: "USD"))) per year in state income tax compared to \(currentStateBreakdown.state.rawValue)."
-            } else if diff > 500 {
-                return "\(state) would cost you approximately \(diff.formatted(.currency(code: "USD"))) more per year in state income tax than \(currentStateBreakdown.state.rawValue)."
+            let diff = breakdown.totalStateTax - currentStateBreakdown.totalStateTax
+            if abs(diff) > 1 {
+                let moreOrLess = diff > 0 ? "more" : "less"
+                parts.append("Compared to \(currentStateBreakdown.state.rawValue), \(state) would cost \(abs(diff).formatted(.currency(code: "USD"))) \(moreOrLess) per year in state income tax.")
+            } else {
+                parts.append("State tax in \(state) is essentially the same as \(currentStateBreakdown.state.rawValue) for your income.")
             }
         }
 
-        // Default: factual summary
-        if let rate = breakdown.flatRate {
-            return "\(state) uses a flat income tax rate of \(String(format: "%.2f%%", rate * 100)). All taxable income above exemptions is taxed at the same rate regardless of amount."
-        } else if !breakdown.bracketBreakdown.isEmpty {
-            let topRate = breakdown.bracketBreakdown.last?.rate ?? 0
-            return "\(state) uses a progressive income tax with rates ranging from \(String(format: "%.1f%%", (breakdown.bracketBreakdown.first?.rate ?? 0) * 100)) to \(String(format: "%.1f%%", topRate * 100)). Your income is split across \(breakdown.bracketBreakdown.count) bracket\(breakdown.bracketBreakdown.count == 1 ? "" : "s")."
-        }
-
-        return "\(state) has a \(breakdown.taxSystemDescription.lowercased()) tax system."
+        return parts.joined(separator: " ")
     }
 }
 

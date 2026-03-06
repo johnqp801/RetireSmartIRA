@@ -179,6 +179,19 @@ struct RetirementIncomeExemptions {
     }
 }
 
+// MARK: - State Standard Deduction
+
+/// How a state handles standard deductions. Some states have their own amounts,
+/// some conform to the federal standard deduction, and some have no standard deduction at all.
+enum StateDeduction {
+    /// No standard deduction — state may use personal exemptions or none at all (IL, PA, NJ, etc.)
+    case none
+    /// State conforms to / starts from federal taxable income (CO, AZ, ID, etc.)
+    case conformsToFederal
+    /// State has its own fixed standard deduction amounts
+    case fixed(single: Double, married: Double)
+}
+
 // MARK: - State Tax Configuration
 
 /// Complete tax configuration for a single state in a single tax year.
@@ -187,6 +200,7 @@ struct StateTaxConfig {
     let state: USState
     let taxSystem: StateTaxSystem
     let retirementExemptions: RetirementIncomeExemptions
+    let stateDeduction: StateDeduction
 }
 
 // MARK: - 2026 State Tax Data
@@ -214,7 +228,8 @@ struct StateTaxData {
                     pensionExemption: .full,
                     iraWithdrawalExemption: .full,
                     capitalGainsTreatment: .noStateTax
-                )
+                ),
+                stateDeduction: .none
             )
         }
 
@@ -228,7 +243,8 @@ struct StateTaxData {
                 pensionExemption: .full,
                 iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .noStateTax
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Washington: No general income tax. 7% capital gains tax on gains > $250K (long-term only).
@@ -240,7 +256,8 @@ struct StateTaxData {
                 pensionExemption: .full,
                 iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .noStateTax  // WA cap gains tax handled separately
-            )
+            ),
+            stateDeduction: .none
         )
 
         // ── Flat Tax States ───────────────────────────────────────────────
@@ -254,7 +271,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 2_500),
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Colorado — 4.40% flat rate (2026)
@@ -266,7 +284,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 24_000),  // age 65+ exclusion
                 iraWithdrawalExemption: .partial(maxExempt: 24_000),  // combined with pension
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Georgia — 5.39% flat rate (2026, phasing down)
@@ -278,7 +297,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 65_000),  // age 62+ retirement income exclusion
                 iraWithdrawalExemption: .partial(maxExempt: 65_000),  // combined
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 12_000, married: 24_000)
         )
 
         // Idaho — 5.695% flat rate (2026)
@@ -290,7 +310,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Illinois — 4.95% flat rate
@@ -302,7 +323,8 @@ struct StateTaxData {
                 pensionExemption: .full,  // IL exempts all retirement income
                 iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Indiana — 2.95% flat rate (2026, reduced from 3.05%)
@@ -314,7 +336,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Iowa — 3.8% flat rate (2026)
@@ -326,7 +349,8 @@ struct StateTaxData {
                 pensionExemption: .none,  // IA phased out retirement exclusion with flat tax
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Kentucky — 3.5% flat rate (2026, reduced from 4%)
@@ -338,7 +362,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 31_110),  // KY retirement exclusion
                 iraWithdrawalExemption: .partial(maxExempt: 31_110),  // combined
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 3_360, married: 3_360)
         )
 
         // Massachusetts — 5.0% flat rate
@@ -350,7 +375,8 @@ struct StateTaxData {
                 pensionExemption: .none,  // MA taxes pension income
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal  // MA has 9% surtax on short-term gains, simplified here
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Michigan — 4.05% flat rate
@@ -362,7 +388,8 @@ struct StateTaxData {
                 pensionExemption: .full,  // MI phasing to full retirement income exemption by 2026
                 iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Mississippi — 4.4% flat rate (2026, simplified from progressive)
@@ -374,7 +401,8 @@ struct StateTaxData {
                 pensionExemption: .full,  // MS exempts all retirement income
                 iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 2_300, married: 4_600)
         )
 
         // North Carolina — 3.99% flat rate (2026, reduced)
@@ -386,7 +414,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 12_750, married: 25_500)
         )
 
         // North Dakota — 1.95% flat rate (2026, simplified to flat)
@@ -398,7 +427,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Ohio — 2.75% flat rate (2026, simplified from progressive)
@@ -410,7 +440,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Pennsylvania — 3.07% flat rate
@@ -422,7 +453,8 @@ struct StateTaxData {
                 pensionExemption: .full,  // PA exempts all retirement income
                 iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Utah — 4.55% flat rate (2026)
@@ -434,7 +466,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // ── Progressive Bracket States ────────────────────────────────────
@@ -459,7 +492,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 3_000, married: 8_500)
         )
 
         // Arkansas — 2%, 4%, 4.4% (2026, reduced top rate)
@@ -482,10 +516,11 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 6_000),
                 iraWithdrawalExemption: .partial(maxExempt: 6_000),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 2_200, married: 4_400)
         )
 
-        // California — 1% to 12.3% (9 brackets, unchanged for 2026)
+        // California — 1% to 13.3% (10 brackets; includes 1% Mental Health Services Tax over $1M)
         configs[.california] = StateTaxConfig(
             state: .california,
             taxSystem: .progressive(
@@ -498,7 +533,8 @@ struct StateTaxData {
                     B(threshold: 68_350, rate: 0.093),
                     B(threshold: 349_137, rate: 0.103),
                     B(threshold: 418_961, rate: 0.113),
-                    B(threshold: 698_271, rate: 0.123)
+                    B(threshold: 698_271, rate: 0.123),
+                    B(threshold: 1_000_000, rate: 0.133)  // 12.3% + 1% Mental Health Services Tax
                 ],
                 married: [
                     B(threshold: 0, rate: 0.01),
@@ -509,7 +545,8 @@ struct StateTaxData {
                     B(threshold: 136_700, rate: 0.093),
                     B(threshold: 698_274, rate: 0.103),
                     B(threshold: 837_922, rate: 0.113),
-                    B(threshold: 1_396_542, rate: 0.123)
+                    B(threshold: 1_000_000, rate: 0.123),  // 11.3% + 1% Mental Health Services Tax
+                    B(threshold: 1_396_542, rate: 0.133)   // 12.3% + 1% Mental Health Services Tax
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -517,7 +554,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .taxedAsOrdinary  // CA taxes cap gains as ordinary income
-            )
+            ),
+            stateDeduction: .fixed(single: 5_706, married: 11_412)
         )
 
         // Connecticut — 3% to 6.99% (7 brackets)
@@ -548,7 +586,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .full,  // CT exempts IRA withdrawals starting 2026
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Delaware — 2.2% to 6.6% (6 brackets)
@@ -577,7 +616,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 12_500),  // age 60+ exclusion
                 iraWithdrawalExemption: .partial(maxExempt: 12_500),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 3_250, married: 6_500)
         )
 
         // District of Columbia — 4% to 10.75% (7 brackets)
@@ -608,7 +648,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 14_600, married: 25_900)
         )
 
         // Hawaii — 1.4% to 11% (12 brackets)
@@ -649,7 +690,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 8_000, married: 16_000)
         )
 
         // Kansas — 3.1%, 5.25%, 5.7% (3 brackets)
@@ -672,7 +714,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 3_605, married: 8_240)
         )
 
         // Louisiana — 1.85%, 3.5%, 4.25% (3 brackets, 2026)
@@ -695,7 +738,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 6_000),
                 iraWithdrawalExemption: .partial(maxExempt: 6_000),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 12_500, married: 25_000)
         )
 
         // Maine — 5.8%, 6.75%, 7.15% (3 brackets)
@@ -718,7 +762,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 25_000),  // ME pension deduction
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 15_300, married: 30_600)
         )
 
         // Maryland — 2% to 5.75% (8 brackets)
@@ -751,7 +796,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 39_500),  // MD pension exclusion (age 65+)
                 iraWithdrawalExemption: .partial(maxExempt: 39_500),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 4_100, married: 8_200)
         )
 
         // Minnesota — 5.35% to 9.85% (4 brackets)
@@ -776,7 +822,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 15_300, married: 30_600)
         )
 
         // Missouri — 2% to 4.7% (graduated, 2026)
@@ -807,7 +854,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 6_000),  // public pension deduction
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Montana — 4.7% flat rate (2026, reduced and simplified)
@@ -819,7 +867,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 4_640),
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Nebraska — 3.99% to 5.2% (2026, 4 brackets, reduced rates)
@@ -844,7 +893,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 12_000, married: 24_000)
         )
 
         // New Jersey — 1.4% to 10.75% (7 brackets)
@@ -876,7 +926,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 100_000),  // NJ generous pension exclusion
                 iraWithdrawalExemption: .partial(maxExempt: 100_000),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // New Mexico — 1.7% to 5.9% (4 brackets)
@@ -903,7 +954,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // New York — 4% to 10.9% (9 brackets)
@@ -938,7 +990,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 20_000),  // NY pension/annuity exclusion
                 iraWithdrawalExemption: .partial(maxExempt: 20_000),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 8_000, married: 16_050)
         )
 
         // Oklahoma — 0.25% to 4.75% (6 brackets, 2026)
@@ -967,7 +1020,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 10_000),
                 iraWithdrawalExemption: .partial(maxExempt: 10_000),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 13_550, married: 27_100)
         )
 
         // Oregon — 4.75% to 9.9% (4 brackets)
@@ -992,7 +1046,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .taxedAsOrdinary  // OR taxes cap gains as ordinary
-            )
+            ),
+            stateDeduction: .fixed(single: 4_840, married: 9_680)
         )
 
         // Rhode Island — 3.75%, 4.75%, 5.99% (3 brackets)
@@ -1015,7 +1070,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 11_200, married: 22_400)
         )
 
         // South Carolina — 0% to 6.3% (2026, 3 brackets simplified)
@@ -1038,7 +1094,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 10_000),  // SC retirement deduction
                 iraWithdrawalExemption: .partial(maxExempt: 10_000),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .conformsToFederal
         )
 
         // Vermont — 3.35% to 8.75% (4 brackets)
@@ -1063,7 +1120,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 7_850, married: 15_700)
         )
 
         // Virginia — 2% to 5.75% (4 brackets)
@@ -1088,7 +1146,8 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 12_000),  // VA age deduction (65+)
                 iraWithdrawalExemption: .partial(maxExempt: 12_000),
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 8_750, married: 17_500)
         )
 
         // West Virginia — 2.36% to 5.12% (2026, 5 brackets, reduced)
@@ -1115,7 +1174,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .none
         )
 
         // Wisconsin — 3.5% to 7.65% (4 brackets)
@@ -1140,7 +1200,8 @@ struct StateTaxData {
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
-            )
+            ),
+            stateDeduction: .fixed(single: 6_702, married: 9_461)
         )
 
         return configs
