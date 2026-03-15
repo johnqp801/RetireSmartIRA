@@ -770,7 +770,7 @@ struct PDFExportService {
         if d.hasActiveScenario {
             // ── Side-by-side comparison table ──
             let baseDeduction = max(d.standardDeductionAmount, d.baseItemizedDeductions)
-            let baseItemize = d.baseItemizedDeductions > d.standardDeductionAmount
+
 
             func compareRow(_ label: String, _ baseVal: String, _ scenVal: String, cls: String = "") -> String {
                 let valCls = cls.isEmpty ? "amt" : "amt \(cls)"

@@ -98,6 +98,40 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Legacy Planning") {
+                Toggle("Consider Legacy Planning", isOn: $dataManager.enableLegacyPlanning)
+
+                if dataManager.enableLegacyPlanning {
+                    Picker("Primary Heir", selection: $dataManager.legacyHeirType) {
+                        Text("Spouse").tag("spouse")
+                        Text("Adult Child").tag("adultChild")
+                        Text("Other").tag("other")
+                    }
+
+                    Picker("Heir's Est. Tax Bracket", selection: $dataManager.legacyHeirTaxRate) {
+                        Text("12%").tag(0.12)
+                        Text("22%").tag(0.22)
+                        Text("24%").tag(0.24)
+                        Text("32%").tag(0.32)
+                        Text("35%").tag(0.35)
+                        Text("37%").tag(0.37)
+                    }
+
+                    Text("If you have multiple heirs, enter the bracket of your primary heir. You can adjust this to see the impact for each heir individually.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: dataManager.legacyHeirType == "spouse" ? "person.2.fill" : "clock.fill")
+                            .foregroundStyle(.blue)
+                            .font(.caption)
+                        Text(dataManager.legacyHeirTypeDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Section("About") {
                 LabeledContent("Version") {
                     Text(bundleVersionString)
@@ -127,6 +161,9 @@ struct SettingsView: View {
         .onChange(of: dataManager.spouseName) { dataManager.saveAllData() }
         .onChange(of: dataManager.spouseBirthDate) { dataManager.saveAllData() }
         .onChange(of: dataManager.userName) { dataManager.saveAllData() }
+        .onChange(of: dataManager.enableLegacyPlanning) { dataManager.saveAllData() }
+        .onChange(of: dataManager.legacyHeirType) { dataManager.saveAllData() }
+        .onChange(of: dataManager.legacyHeirTaxRate) { dataManager.saveAllData() }
         }
     }
 

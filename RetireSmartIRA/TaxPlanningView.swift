@@ -31,6 +31,7 @@ struct TaxPlanningView: View {
     @State private var showCharitableSheet: Bool = false
     @State private var showRothGuide: Bool = false
     @State private var showCharitableGuide: Bool = false
+    @State private var showLegacyDetails: Bool = false
 
     // MARK: - Computed helpers
 
@@ -252,28 +253,17 @@ struct TaxPlanningView: View {
                 inheritedWithdrawalCard
                 charitableCard
                 charitableGuideCard
-                taxImpactSection
+                scenarioSummaryCard
                 taxImpactWaterfallChart
+                scenarioFederalBracketChart
+                scenarioStateBracketChart
+                scenarioIRMAAChart
+                scenarioNIITChart
+                legacyImpactCard
                 perDecisionImpact
-                rateBreakdownSection
-                bracketAnalysisSection
-                irmaaAnalysisSection
-                niitAnalysisSection
                 strategyTipsSection
             }
             .padding()
-        }
-        .sheet(isPresented: $showRothSheet) {
-            scenarioSheet(title: "Roth Conversions") { rothConversionContent }
-        }
-        .sheet(isPresented: $showWithdrawalSheet) {
-            scenarioSheet(title: "IRA/401(k) Withdrawals") { withdrawalContent }
-        }
-        .sheet(isPresented: $showInheritedSheet) {
-            scenarioSheet(title: "Inherited IRA Withdrawals") { inheritedWithdrawalContent }
-        }
-        .sheet(isPresented: $showCharitableSheet) {
-            scenarioSheet(title: "Charitable Contributions") { charitableContent }
         }
         .sheet(isPresented: $showRothGuide) {
             rothConversionGuideSheet
@@ -304,31 +294,20 @@ struct TaxPlanningView: View {
             // Right: tax results & analysis
             ScrollView {
                 VStack(spacing: 24) {
-                    taxImpactSection
+                    scenarioSummaryCard
                     taxImpactWaterfallChart
+                    scenarioFederalBracketChart
+                    scenarioStateBracketChart
+                    scenarioIRMAAChart
+                    scenarioNIITChart
+                    legacyImpactCard
                     perDecisionImpact
-                    rateBreakdownSection
-                    bracketAnalysisSection
-                    irmaaAnalysisSection
-                    niitAnalysisSection
                     strategyTipsSection
                     emptyAnalysisPlaceholder
                 }
                 .padding()
             }
             .frame(maxWidth: .infinity)
-        }
-        .sheet(isPresented: $showRothSheet) {
-            scenarioSheet(title: "Roth Conversions") { rothConversionContent }
-        }
-        .sheet(isPresented: $showWithdrawalSheet) {
-            scenarioSheet(title: "IRA/401(k) Withdrawals") { withdrawalContent }
-        }
-        .sheet(isPresented: $showInheritedSheet) {
-            scenarioSheet(title: "Inherited IRA Withdrawals") { inheritedWithdrawalContent }
-        }
-        .sheet(isPresented: $showCharitableSheet) {
-            scenarioSheet(title: "Charitable Contributions") { charitableContent }
         }
         .sheet(isPresented: $showRothGuide) {
             rothConversionGuideSheet
@@ -552,6 +531,733 @@ struct TaxPlanningView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
+    // MARK: - Legacy Impact Card
+
+    @ViewBuilder
+    private var legacyImpactCard: some View {
+        if dataManager.enableLegacyPlanning && dataManager.hasActiveScenario {
+            let hasRothConversion = dataManager.scenarioTotalRothConversion > 0
+            let hasQCD = dataManager.scenarioTotalQCD > 0
+            let hasLegacyContent = hasRothConversion || hasQCD
+
+            if hasLegacyContent {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.purple.opacity(0.85), .indigo.opacity(0.85)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "gift.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Legacy Impact")
+                                .font(.headline)
+                            Text("How your decisions affect your heirs")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // SECTION A: Family Wealth Impact (clean headline)
+                    if hasRothConversion {
+                        VStack(spacing: 10) {
+                            Text("Family Wealth Impact")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+
+                            // Side-by-side: total wealth only (no scary tax subtotals)
+                            HStack(spacing: 16) {
+                                VStack(spacing: 4) {
+                                    Text("Without conversion")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(dataManager.legacyNoConversionTotalWealth, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+
+                                VStack(spacing: 4) {
+                                    let conversionLabel = legacyCompactCurrency(dataManager.scenarioTotalRothConversion)
+                                    Text("With \(conversionLabel) Roth conversion")
+                                        .font(.caption)
+                                        .foregroundStyle(.green)
+                                    Text(dataManager.legacyWithConversionTotalWealth, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.green)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+
+                            // Net family gain — the hero number
+                            let advantage = dataManager.legacyFamilyWealthAdvantage
+                            HStack(spacing: 6) {
+                                Image(systemName: advantage >= 0 ? "checkmark.seal.fill" : "exclamationmark.circle.fill")
+                                    .foregroundStyle(advantage >= 0 ? .green : .orange)
+                                Text("Net family gain:")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Text(abs(advantage), format: .currency(code: "USD").precision(.fractionLength(0)))
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(advantage >= 0 ? .green : .orange)
+                            }
+                            .frame(maxWidth: .infinity)
+
+                            // Return on taxes paid — frames conversion as investment
+                            let rotp = dataManager.legacyReturnOnTaxesPaid
+                            if dataManager.legacyConversionTaxPaidToday > 0 && abs(rotp) > 0.1 {
+                                let rotpFmt = String(format: "%.1f", abs(rotp))
+                                Text("Equivalent to a \(rotpFmt)% return on the \(legacyCompactCurrency(dataManager.legacyConversionTaxPaidToday)) in taxes paid")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity)
+                            }
+
+                            let deathAge = dataManager.legacyEstimatedDeathAge
+                            let yearsLeft = dataManager.legacyYearsUntilDeath
+                            let drawdownYears = dataManager.legacyDrawdownYears
+                            let growthPct = Int(dataManager.primaryGrowthRate)
+                            Text("Projected \(yearsLeft) years to age \(deathAge), then heir's \(drawdownYears)-year drawdown at \(growthPct)% growth")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .padding(.vertical, 8)
+                        .background(Color.green.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    // "Show Details" toggle — progressive disclosure
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showLegacyDetails.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(showLegacyDetails ? "Hide Details" : "See the Full Advantages of Converting")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                            Image(systemName: showLegacyDetails ? "chevron.up" : "chevron.down")
+                                .font(.caption2)
+                        }
+                        .foregroundStyle(.blue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(Color.blue.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+
+                    if showLegacyDetails {
+
+                    // SECTION B: The Decision Framing — "You paid $X to shelter $Y"
+                    if hasRothConversion {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "lightbulb.fill")
+                                    .foregroundStyle(.yellow)
+                                    .font(.caption)
+                                Text("Why This Works")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+
+                            let taxPaid = dataManager.legacyConversionTaxPaidToday
+                            let converted = dataManager.scenarioTotalRothConversion
+                            let growthPct = Int(dataManager.primaryGrowthRate)
+                            let taxGrowthPct = Int(dataManager.taxableAccountGrowthRate)
+
+                            // The shelter framing
+                            HStack(spacing: 0) {
+                                Text("You pay ")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(taxPaid, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                Text(" today to permanently move ")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(converted, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.green)
+                                Text(" into tax-free compounding.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            // The key insight — bold thesis
+                            (Text("Roth conversions shift money from taxable compounding to tax-free compounding.")
+                                .fontWeight(.bold) +
+                            Text(" Over time, tax-free compounding wins."))
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                                .padding(.vertical, 4)
+
+                            // The mechanism
+                            let taxGrowthFmt = String(format: "%.1f", dataManager.taxableAccountGrowthRate)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 4) {
+                                    Circle().fill(.green).frame(width: 6, height: 6)
+                                    Text("Roth compounds at \(growthPct)% tax-free \u{2014} no RMDs, no tax on withdrawal")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 4) {
+                                    Circle().fill(.orange).frame(width: 6, height: 6)
+                                    Text("Tax dollars you kept only compound at ~\(taxGrowthFmt)% after tax drag")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
+                            // Per-$100K multiplier
+                            if converted > 0 {
+                                let per100K = (abs(dataManager.legacyFamilyWealthAdvantage) / converted) * 100_000
+                                let per100KLabel = legacyCompactCurrency(per100K)
+                                let direction = dataManager.legacyFamilyWealthAdvantage >= 0 ? "adds" : "costs"
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.up.right")
+                                        .foregroundStyle(.green)
+                                        .font(.caption2)
+                                    Text("Under these assumptions, every $100K converted \(direction) about \(per100KLabel) of family wealth")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .italic()
+                                }
+                            }
+                        }
+                    }
+
+                    // SECTION B2: Compounding Divergence Chart
+                    if hasRothConversion {
+                        let chartData = dataManager.legacyCompoundingChartData
+                        if chartData.count >= 2 {
+                            Divider()
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("How Roth Conversions Increase Family Wealth Over Time")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+
+                                // Compute Y-axis baseline to zoom into the divergence
+                                let allValues = chartData.flatMap { [$0.rothValue, $0.traditionalValue] }
+                                let minVal = allValues.min() ?? 0
+                                let maxVal = allValues.max() ?? 1
+                                let range = maxVal - minVal
+                                let yFloor = max(0, minVal - range * 0.3)
+                                let yCeiling = maxVal + range * 0.1
+                                let breakEvenYr = dataManager.legacyBreakEvenYear
+
+                                Chart {
+                                    ForEach(chartData) { point in
+                                        LineMark(
+                                            x: .value("Year", point.year),
+                                            y: .value("Value", point.rothValue),
+                                            series: .value("Path", "Roth (tax-free)")
+                                        )
+                                        .foregroundStyle(.green)
+                                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+                                        .interpolationMethod(.catmullRom)
+
+                                        LineMark(
+                                            x: .value("Year", point.year),
+                                            y: .value("Value", point.traditionalValue),
+                                            series: .value("Path", "Traditional + tax $ kept")
+                                        )
+                                        .foregroundStyle(.orange)
+                                        .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 3]))
+                                        .interpolationMethod(.catmullRom)
+                                    }
+
+                                    // Shade the gap (only where Roth wins)
+                                    ForEach(chartData) { point in
+                                        if point.rothValue > point.traditionalValue {
+                                            AreaMark(
+                                                x: .value("Year", point.year),
+                                                yStart: .value("Trad", point.traditionalValue),
+                                                yEnd: .value("Roth", point.rothValue)
+                                            )
+                                            .foregroundStyle(.green.opacity(0.12))
+                                            .interpolationMethod(.catmullRom)
+                                        }
+                                    }
+
+                                    // Break-even vertical rule
+                                    if let beYear = breakEvenYr, beYear > 0 {
+                                        RuleMark(x: .value("Break-even", beYear))
+                                            .foregroundStyle(.blue)
+                                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                                            .annotation(position: .top, alignment: .center) {
+                                                Text("Yr \(beYear)")
+                                                    .font(.caption2)
+                                                    .fontWeight(.bold)
+                                                    .foregroundStyle(.blue)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.blue.opacity(0.1))
+                                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                            }
+                                    }
+                                }
+                                .chartYScale(domain: yFloor...yCeiling)
+                                .chartYAxis {
+                                    AxisMarks(position: .leading) { value in
+                                        AxisGridLine()
+                                        AxisValueLabel {
+                                            if let v = value.as(Double.self) {
+                                                Text(legacyCompactCurrency(v))
+                                                    .font(.caption2)
+                                            }
+                                        }
+                                    }
+                                }
+                                .chartXAxis {
+                                    AxisMarks { value in
+                                        AxisGridLine()
+                                        AxisValueLabel {
+                                            if let yr = value.as(Int.self) {
+                                                Text("Yr \(yr)")
+                                                    .font(.caption2)
+                                            }
+                                        }
+                                    }
+                                }
+                                .chartLegend(position: .bottom, spacing: 4)
+                                .frame(height: 200)
+
+                                // Break-even callout below chart
+                                if let beYear = breakEvenYr {
+                                    if beYear == 0 {
+                                        VStack(spacing: 2) {
+                                            Text("Under these assumptions, Roth wins immediately.")
+                                                .font(.caption2)
+                                                .fontWeight(.semibold)
+                                                .foregroundStyle(.green)
+                                            Text("Higher future tax rates (widow bracket jump or the SECURE Act 10-year rule for heirs) would strengthen the advantage further.")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity)
+                                    } else {
+                                        VStack(spacing: 2) {
+                                            Text("Under these assumptions, Roth overtakes Traditional at year \(beYear).")
+                                                .font(.caption2)
+                                                .fontWeight(.semibold)
+                                                .foregroundStyle(.blue)
+                                            Text("Higher future tax rates (widow bracket jump or the SECURE Act 10-year rule for heirs) would move the crossover earlier.")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                }
+
+                                Text("The Roth advantage grows the longer the money compounds")
+                                    .font(.caption2)
+                                    .italic()
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+
+                    // SECTION C: Break-Even + Time Horizon
+                    if hasRothConversion {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "target")
+                                    .foregroundStyle(.blue)
+                                    .font(.caption)
+                                Text("Break-Even Analysis")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+
+                            let breakEvenPct = Int(dataManager.legacyBreakEvenHeirTaxRate * 100)
+                            let heirPct = Int(dataManager.legacyHeirTaxRate * 100)
+                            let favorable = dataManager.legacyConversionIsFavorable
+
+                            HStack(spacing: 6) {
+                                Image(systemName: favorable ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(favorable ? .green : .orange)
+                                    .font(.caption)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Conversion wins if heir's rate exceeds \(breakEvenPct)%")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                    let statusText = favorable
+                                        ? "Your heir's \(heirPct)% rate clears the \(breakEvenPct)% threshold"
+                                        : "Your heir's \(heirPct)% rate is below the \(breakEvenPct)% threshold \u{2014} consider carefully"
+                                    Text(statusText)
+                                        .font(.caption2)
+                                        .foregroundStyle(favorable ? .green : .secondary)
+                                }
+                            }
+
+                            // Time horizon table — shows how advantage grows over time
+                            let horizons = dataManager.legacyBreakEvenAtHorizons
+                            if !horizons.isEmpty {
+                                VStack(spacing: 0) {
+                                    HStack {
+                                        Text("Time Horizon")
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                        Text("Break-even")
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                        Text("Family Gain")
+                                            .frame(maxWidth: .infinity, alignment: .trailing)
+                                    }
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.vertical, 4)
+
+                                    ForEach(horizons, id: \.years) { h in
+                                        HStack {
+                                            Text("\(h.years) years")
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                            Text("\(Int(h.rate * 100))%")
+                                                .frame(maxWidth: .infinity, alignment: .center)
+                                            let label = h.advantage >= 0
+                                                ? "+\(legacyCompactCurrency(h.advantage))"
+                                                : "-\(legacyCompactCurrency(abs(h.advantage)))"
+                                            Text(label)
+                                                .foregroundStyle(h.advantage >= 0 ? .green : .orange)
+                                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                        }
+                                        .font(.caption)
+                                        .padding(.vertical, 2)
+                                    }
+                                }
+                                .padding(8)
+                                .background(Color.blue.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                                Text("The longer the money compounds, the more Roth conversions favor the family")
+                                    .font(.caption2)
+                                    .italic()
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    // SECTION D: QCD Legacy Benefit
+                    if hasQCD {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "heart.circle.fill")
+                                    .foregroundStyle(.green)
+                                    .font(.subheadline)
+                                Text("QCD Legacy Benefit")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.green)
+                            }
+                            let qcdAmount = legacyCompactCurrency(dataManager.scenarioTotalQCD)
+                            let qcdSavings = legacyCompactCurrency(dataManager.legacyQCDHeirBenefit)
+                            Text("Removes \(qcdAmount) from your IRA tax-free \u{2014} saves heir ~\(qcdSavings) in future taxes")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Reduces heir's \(dataManager.legacyDrawdownYears)-year tax burden")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // SECTION D2: Widow Tax Bracket Warning
+                    if dataManager.widowHasBracketJump {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "person.fill.xmark")
+                                    .foregroundStyle(.red)
+                                    .font(.caption)
+                                Text("Surviving Spouse Tax Bracket Jump")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+
+                            let currentPct = Int(dataManager.widowCurrentMarginalRate * 100)
+                            let survivorPct = Int(dataManager.widowSurvivorMarginalRate * 100)
+                            let jumpPts = Int(dataManager.widowBracketJump * 100)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                // The bracket jump visual
+                                HStack(spacing: 8) {
+                                    VStack(spacing: 2) {
+                                        Text("Now (MFJ)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text("\(currentPct)%")
+                                            .font(.title3)
+                                            .fontWeight(.bold)
+                                            .foregroundStyle(.green)
+                                    }
+                                    .frame(maxWidth: .infinity)
+
+                                    Image(systemName: "arrow.right")
+                                        .foregroundStyle(.red)
+                                        .fontWeight(.bold)
+
+                                    VStack(spacing: 2) {
+                                        Text("Survivor (Single)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text("\(survivorPct)%")
+                                            .font(.title3)
+                                            .fontWeight(.bold)
+                                            .foregroundStyle(.red)
+                                    }
+                                    .frame(maxWidth: .infinity)
+
+                                    VStack(spacing: 2) {
+                                        Text("Jump")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text("+\(jumpPts) pts")
+                                            .font(.title3)
+                                            .fontWeight(.bold)
+                                            .foregroundStyle(.orange)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+
+                                Text("When one spouse passes, the survivor files Single \u{2014} but income barely drops. The same IRA withdrawals get taxed at higher Single rates.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                if hasRothConversion {
+                                    let savings = dataManager.widowConversionBracketSavings
+                                    if savings > 0 {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "shield.fill")
+                                                .foregroundStyle(.green)
+                                                .font(.caption2)
+                                            Text("Converting now at \(currentPct)% avoids the survivor paying \(survivorPct)% later \u{2014} saves \(legacyCompactCurrency(savings)) in bracket arbitrage")
+                                                .font(.caption)
+                                                .fontWeight(.semibold)
+                                                .foregroundStyle(.green)
+                                        }
+                                    }
+                                }
+
+                                Text("This creates a \"golden conversion window\" \u{2014} while both spouses are alive, you have wider married tax brackets and two standard deductions. Convert now before the window closes.")
+                                    .font(.caption2)
+                                    .italic()
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(8)
+                            .background(Color.red.opacity(0.04))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+
+                    // SECTION E: Portfolio at Inheritance — Projected to Death
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        let deathAge = dataManager.legacyEstimatedDeathAge
+                        Text("Projected Portfolio at Age \(deathAge)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+
+                        // Column headers
+                        HStack {
+                            Text("")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("No Scenario")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                            Text("With Scenario")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+
+                        legacyPortfolioRow(
+                            label: "Traditional IRA",
+                            before: dataManager.legacyNoActionTraditionalAtDeath,
+                            after: dataManager.legacyWithScenarioTraditionalAtDeath,
+                            betterIfLower: true
+                        )
+                        legacyPortfolioRow(
+                            label: "Roth IRA",
+                            before: dataManager.legacyNoActionRothAtDeath,
+                            after: dataManager.legacyWithScenarioRothAtDeath,
+                            betterIfLower: false
+                        )
+                        legacyPortfolioRow(
+                            label: "Heir's tax bill",
+                            before: dataManager.legacyCostOfInaction,
+                            after: dataManager.legacyWithScenarioHeirTax,
+                            betterIfLower: true
+                        )
+
+                        Text("Traditional balance reflects RMDs taken from age \(dataManager.rmdAge)+")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    // SECTION F: Heir Inheritance Reality Check
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                            Text("What Your Heir Actually Inherits")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
+
+                        // Show that heir gets BOTH accounts
+                        let tradAtDeath = hasRothConversion
+                            ? dataManager.legacyWithScenarioTraditionalAtDeath
+                            : dataManager.legacyNoActionTraditionalAtDeath
+                        let rothAtDeath = hasRothConversion
+                            ? dataManager.legacyWithScenarioRothAtDeath
+                            : dataManager.legacyNoActionRothAtDeath
+                        let drawdownYears = dataManager.legacyDrawdownYears
+
+                        if tradAtDeath > 0 {
+                            let annualForced = tradAtDeath / Double(drawdownYears)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 4) {
+                                    Circle().fill(.red).frame(width: 6, height: 6)
+                                    Text("Traditional IRA: \(legacyCompactCurrency(tradAtDeath)) \u{2014} must be emptied in \(drawdownYears) years")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 4) {
+                                    Text("   ")
+                                        .font(.caption2)
+                                    Text("~\(legacyCompactCurrency(annualForced))/year added to heir's taxable income")
+                                        .font(.caption2)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.red)
+                                }
+
+                                if rothAtDeath > 0 {
+                                    HStack(spacing: 4) {
+                                        Circle().fill(.green).frame(width: 6, height: 6)
+                                        Text("Roth IRA: \(legacyCompactCurrency(rothAtDeath)) \u{2014} tax-free, no forced timeline")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+
+                            // The key warning
+                            if dataManager.legacyHeirType != "spouse" {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Your heir receives both accounts. The \(legacyCompactCurrency(annualForced))/year from the Traditional IRA is added on top of their own salary \u{2014} potentially pushing them into the \(Int(dataManager.legacyHeirTaxRate * 100))% bracket or higher during their peak earning years.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+
+                                    Text("Every dollar you convert to Roth now is one less dollar forced through their tax bracket later.")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.primary)
+                                }
+                                .padding(8)
+                                .background(Color.orange.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                        }
+
+                        // Heir type context
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: dataManager.legacyHeirType == "spouse" ? "person.2.fill" : "clock.fill")
+                                .foregroundStyle(.blue)
+                                .font(.caption2)
+                                .padding(.top, 2)
+                            Text(dataManager.legacyHeirTypeDescriptionDetailed)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    } // end showLegacyDetails
+                }
+                .padding()
+                .background(Color(PlatformColor.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+            }
+        }
+    }
+
+    /// Helper: comparison row for legacy side-by-side
+    private func legacyComparisonRow(label: String, value: Double) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.caption)
+                .fontWeight(.semibold)
+        }
+    }
+
+    /// Helper: portfolio before/after row
+    private func legacyPortfolioRow(label: String, before: Double, after: Double, betterIfLower: Bool) -> some View {
+        let improved = betterIfLower ? after < before : after > before
+        return HStack {
+            Text(label)
+                .font(.caption)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(before, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            Text(after, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(improved ? .green : (after == before ? .secondary : .orange))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    /// Helper: compact currency formatting for inline text
+    private func legacyCompactCurrency(_ amount: Double) -> String {
+        if amount >= 1_000_000 {
+            return "$" + String(format: "%.1fM", amount / 1_000_000)
+        } else if amount >= 1_000 {
+            return "$" + String(format: "%.0fK", amount / 1_000)
+        } else {
+            return "$" + String(format: "%.0f", amount)
+        }
+    }
+
     // MARK: - Per-Decision Tax Impact
 
     @ViewBuilder
@@ -761,7 +1467,7 @@ struct TaxPlanningView: View {
         let inhIRMAA = dataManager.inheritedExtraWithdrawalIRMAAImpact
         let qcdSavings = dataManager.qcdTaxSavings
         let qcdIRMAA = dataManager.qcdIRMAASavings
-        let stockSavings = dataManager.stockDeductionTaxSavings + dataManager.stockCapGainsTaxAvoided
+        let stockSavings = dataManager.stockDeductionTaxSavings
         let cashSavings = dataManager.cashDonationTaxSavings
 
         let finalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
@@ -787,13 +1493,13 @@ struct TaxPlanningView: View {
 
         let wdlTotal = wdlImpact + wdlIRMAA
         if wdlTotal > 0 {
-            bars.append(WaterfallBar(label: "Withdrawals", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: .blue, isTotal: false))
+            bars.append(WaterfallBar(label: "Wdl", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: .blue, isTotal: false))
             runningTotal += wdlTotal
         }
 
         let inhTotal = inhImpact + inhIRMAA
         if inhTotal > 0 {
-            bars.append(WaterfallBar(label: "Inherited", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: .indigo, isTotal: false))
+            bars.append(WaterfallBar(label: "Inh", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: .indigo, isTotal: false))
             runningTotal += inhTotal
         }
 
@@ -874,6 +1580,18 @@ struct TaxPlanningView: View {
                         )
                         .foregroundStyle(bar.color)
                         .cornerRadius(3)
+                        .annotation(position: .overlay) {
+                            let amount = abs(bar.yEnd - bar.yStart)
+                            if amount > 0 {
+                                let isSavings = bar.yEnd < bar.yStart && !bar.isTotal
+                                Text("\(isSavings ? "-" : "")\(waterfallYAxisLabel(amount))")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .minimumScaleFactor(0.5)
+                                    .lineLimit(1)
+                                    .shadow(color: .black.opacity(0.5), radius: 1)
+                            }
+                        }
                     }
                     .chartYAxis {
                         AxisMarks(position: .leading) { value in
@@ -896,23 +1614,8 @@ struct TaxPlanningView: View {
                             }
                         }
                     }
-                    .frame(height: 220)
+                    .frame(height: 260)
 
-                    // Legend
-                    let activeBars = bars.filter { !$0.isTotal }
-                    let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
-                        ForEach(activeBars) { bar in
-                            HStack(spacing: 4) {
-                                Circle().fill(bar.color).frame(width: 6, height: 6)
-                                let amount = abs(bar.yEnd - bar.yStart)
-                                let isSavings = bar.yEnd < bar.yStart
-                                Text("\(bar.label): \(isSavings ? "-" : "+")\(waterfallYAxisLabel(amount))")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(isSavings ? .green : .red)
-                            }
-                        }
-                    }
                 }
                 .padding()
                 .background(Color(PlatformColor.systemBackground))
@@ -930,6 +1633,947 @@ struct TaxPlanningView: View {
                 )
                 .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
             }
+        }
+    }
+
+    // MARK: - Scenario Bracket & IRMAA Charts
+
+    /// Compact dollar label (same as waterfallYAxisLabel but reused for bracket charts)
+    private func scenarioChartLabel(_ amount: Double) -> String {
+        waterfallYAxisLabel(amount)
+    }
+
+    /// Helper to find next bracket rate label
+    private func scenarioNextBracketRate(after currentRate: Double) -> Int {
+        let brackets = dataManager.filingStatus == .single
+            ? dataManager.currentTaxBrackets.federalSingle
+            : dataManager.currentTaxBrackets.federalMarried
+        for i in brackets.indices {
+            if abs(brackets[i].rate - currentRate) < 0.001, i + 1 < brackets.count {
+                return Int(brackets[i + 1].rate * 100)
+            }
+        }
+        return Int(currentRate * 100)
+    }
+
+    // MARK: Federal Bracket Chart (Scenario)
+
+    private struct ScenarioBracketSegment: Identifiable {
+        let id = UUID()
+        let rate: Double
+        let label: String
+        let rangeStart: Double
+        let rangeEnd: Double
+        let isCurrent: Bool
+    }
+
+    private var scenarioBracketSegments: [ScenarioBracketSegment] {
+        let brackets = dataManager.filingStatus == .single
+            ? dataManager.currentTaxBrackets.federalSingle
+            : dataManager.currentTaxBrackets.federalMarried
+        let afterIncome = dataManager.scenarioTaxableIncome
+
+        var segments: [ScenarioBracketSegment] = []
+        for i in brackets.indices {
+            let start = brackets[i].threshold
+            let end: Double
+            if i + 1 < brackets.count {
+                end = brackets[i + 1].threshold
+            } else {
+                end = max(start + 50_000, afterIncome * 1.2)
+            }
+            let isCurrent = afterIncome > start && (i + 1 >= brackets.count || afterIncome <= brackets[i + 1].threshold)
+            segments.append(ScenarioBracketSegment(
+                rate: brackets[i].rate,
+                label: "\(Int(brackets[i].rate * 100))%",
+                rangeStart: start,
+                rangeEnd: end,
+                isCurrent: isCurrent
+            ))
+        }
+        return segments
+    }
+
+    @ViewBuilder
+    private var scenarioFederalBracketChart: some View {
+        if dataManager.hasActiveScenario {
+            let beforeIncome = max(0, dataManager.scenarioBaseIncome - dataManager.effectiveDeductionAmount)
+            let afterIncome = dataManager.scenarioTaxableIncome
+            if afterIncome > 0 {
+                let segments = scenarioBracketSegments
+                let bracketInfo = dataManager.federalBracketInfo(income: afterIncome, filingStatus: dataManager.filingStatus)
+                let bracketColors: [Color] = [
+                    Color(red: 0.05, green: 0.78, blue: 0.35),
+                    Color(red: 0.0, green: 0.72, blue: 0.68),
+                    Color(red: 0.98, green: 0.78, blue: 0.0),
+                    Color(red: 1.0, green: 0.50, blue: 0.0),
+                    Color(red: 0.92, green: 0.22, blue: 0.50),
+                    Color(red: 0.58, green: 0.22, blue: 0.88),
+                    Color(red: 0.18, green: 0.30, blue: 0.85),
+                ]
+
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.green.opacity(0.85), .red.opacity(0.85)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "chart.bar.xaxis.ascending")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Federal Tax Bracket Position")
+                                .font(.headline)
+                            Text(dataManager.filingStatus.rawValue)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+
+                    let currentIdx = segments.firstIndex(where: { $0.isCurrent }) ?? 0
+                    let showThrough = min(currentIdx + 1, segments.count - 1)
+                    let visibleSegments = Array(segments.prefix(showThrough + 1))
+                    let chartMax = visibleSegments.last?.rangeEnd ?? 1
+                    let barHeight: CGFloat = 36
+                    let topPad: CGFloat = 40
+
+                    GeometryReader { geo in
+                        let w = geo.size.width
+
+                        // Bracket bars
+                        ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
+                            let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
+                            let color = bracketColors[min(globalIdx, bracketColors.count - 1)]
+                            let x = w * segment.rangeStart / chartMax
+                            let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+
+                            if globalIdx <= currentIdx {
+                                Rectangle().fill(color)
+                                    .frame(width: segW, height: barHeight)
+                                    .offset(x: x, y: topPad)
+                            } else {
+                                Rectangle().fill(color.opacity(0.22))
+                                    .frame(width: segW, height: barHeight)
+                                    .offset(x: x, y: topPad)
+                            }
+                        }
+
+                        // Separator lines
+                        ForEach(Array(visibleSegments.dropFirst().enumerated()), id: \.element.id) { _, segment in
+                            let bx = w * segment.rangeStart / chartMax
+                            Rectangle().fill(Color.primary.opacity(0.2))
+                                .frame(width: 1, height: barHeight)
+                                .offset(x: bx - 0.5, y: topPad)
+                        }
+
+                        // Before marker (dashed gray)
+                        let beforeX = CGFloat(beforeIncome / chartMax) * w
+                        Path { path in
+                            path.move(to: CGPoint(x: beforeX, y: topPad - 5))
+                            path.addLine(to: CGPoint(x: beforeX, y: topPad + barHeight + 5))
+                        }
+                        .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .foregroundStyle(.secondary)
+
+                        Text("Before \(scenarioChartLabel(beforeIncome))")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                            .position(x: min(max(beforeX, 40), w - 40), y: 10)
+
+                        // After marker (solid)
+                        let afterX = CGFloat(afterIncome / chartMax) * w
+                        Path { path in
+                            path.move(to: CGPoint(x: afterX, y: topPad - 5))
+                            path.addLine(to: CGPoint(x: afterX, y: topPad + barHeight + 5))
+                        }
+                        .stroke(style: StrokeStyle(lineWidth: 2.5))
+                        .foregroundStyle(.primary)
+
+                        Text("After \(scenarioChartLabel(afterIncome))")
+                            .font(.system(size: 8, weight: .bold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                            .position(x: min(max(afterX, 35), w - 35), y: 26)
+
+                        // Outer border
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                            .frame(width: w, height: barHeight)
+                            .offset(y: topPad)
+
+                        // Rate + range labels below
+                        ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
+                            let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
+                            let isLast = index == visibleSegments.count - 1
+                            let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+                            let segX = w * segment.rangeStart / chartMax
+                            let centerX = segX + segW / 2
+
+                            VStack(spacing: 1) {
+                                Text(segment.label)
+                                    .font(.system(size: segW > 55 ? 11 : 9, weight: segment.isCurrent ? .bold : .semibold))
+                                    .foregroundStyle(bracketColors[min(globalIdx, bracketColors.count - 1)])
+                                let rangeText1 = isLast && segment.rate >= 0.37
+                                    ? scenarioChartLabel(segment.rangeStart) + "+"
+                                    : scenarioChartLabel(segment.rangeStart) + " – " + scenarioChartLabel(segment.rangeEnd)
+                                Text(rangeText1)
+                                    .font(.system(size: segW > 55 ? 9 : 7))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .position(x: centerX, y: topPad + barHeight + 18)
+                        }
+                    }
+                    .frame(height: topPad + barHeight + 36)
+
+                    // Average tax rate before → after
+                    let beforeFedTax = dataManager.calculateFederalTax(income: beforeIncome, filingStatus: dataManager.filingStatus)
+                    let afterFedTax = dataManager.calculateFederalTax(income: afterIncome, filingStatus: dataManager.filingStatus)
+                    let beforeAvgFed = beforeIncome > 0 ? (beforeFedTax / beforeIncome) * 100 : 0
+                    let afterAvgFed = afterIncome > 0 ? (afterFedTax / afterIncome) * 100 : 0
+                    HStack(spacing: 6) {
+                        Image(systemName: "percent")
+                            .foregroundStyle(.purple)
+                            .font(.caption)
+                        Text("Avg rate:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.1f%%", beforeAvgFed))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.1f%%", afterAvgFed))
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundStyle(afterAvgFed > beforeAvgFed ? .red : .green)
+                    }
+
+                    // Room remaining callout
+                    if bracketInfo.roomRemaining > 0 {
+                        let nextRate = scenarioNextBracketRate(after: bracketInfo.currentRate)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.right.circle.fill")
+                                    .foregroundStyle(.blue)
+                                    .font(.caption)
+                                Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the \(nextRate)% bracket")
+                                    .font(.caption)
+                            }
+                            if dataManager.enableLegacyPlanning {
+                                Text("You could convert up to ~\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0))) more this year without entering the \(nextRate)% bracket.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.leading, 24)
+                            }
+                        }
+                    } else if bracketInfo.currentRate >= 0.37 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                            Text("In the top **37%** federal bracket")
+                                .font(.caption)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(PlatformColor.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.green.opacity(0.3), .red.opacity(0.3)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+            }
+        }
+    }
+
+    // MARK: State Bracket Chart (Scenario)
+
+    @ViewBuilder
+    private var scenarioStateBracketChart: some View {
+        if dataManager.hasActiveScenario {
+            let config = dataManager.selectedStateConfig
+            switch config.taxSystem {
+            case .progressive(let single, let married):
+                let brackets = dataManager.filingStatus == .single ? single : married
+                let beforeIncome = max(0, dataManager.scenarioBaseIncome - dataManager.effectiveDeductionAmount)
+                let afterIncome = dataManager.scenarioTaxableIncome
+                if afterIncome > 0 && brackets.count > 1 {
+                    let bracketInfo = dataManager.stateBracketInfo(income: afterIncome, filingStatus: dataManager.filingStatus)
+
+                    // Build segments
+                    let segments: [ScenarioBracketSegment] = brackets.enumerated().map { i, bracket in
+                        let start = bracket.threshold
+                        let end: Double = i + 1 < brackets.count ? brackets[i + 1].threshold : max(start + 50_000, afterIncome * 1.2)
+                        let isCurrent = afterIncome > start && (i + 1 >= brackets.count || afterIncome <= brackets[i + 1].threshold)
+                        return ScenarioBracketSegment(
+                            rate: bracket.rate,
+                            label: String(format: "%.1f%%", bracket.rate * 100),
+                            rangeStart: start,
+                            rangeEnd: end,
+                            isCurrent: isCurrent
+                        )
+                    }
+
+                    // Generate colors for state brackets (gradient from green to red)
+                    let stateColors: [Color] = segments.enumerated().map { i, _ in
+                        let t = segments.count > 1 ? Double(i) / Double(segments.count - 1) : 0
+                        return Color(
+                            red: t * 0.9,
+                            green: (1 - t) * 0.7 + 0.1,
+                            blue: 0.2
+                        )
+                    }
+
+                    let currentIdx = segments.firstIndex(where: { $0.isCurrent }) ?? 0
+                    let showThrough = min(currentIdx + 1, segments.count - 1)
+                    let visibleSegments = Array(segments.prefix(showThrough + 1))
+                    let chartMax = visibleSegments.last?.rangeEnd ?? 1
+                    let barHeight: CGFloat = 36
+                    let topPad: CGFloat = 40
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.green.opacity(0.85), .orange.opacity(0.85)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: 40, height: 40)
+                                Image(systemName: "building.columns.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(.white)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(dataManager.selectedState.rawValue) Tax Bracket")
+                                    .font(.headline)
+                                Text(dataManager.filingStatus.rawValue)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+
+                        GeometryReader { geo in
+                            let w = geo.size.width
+
+                            // Bracket bars
+                            ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
+                                let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
+                                let color = stateColors[min(globalIdx, stateColors.count - 1)]
+                                let x = w * segment.rangeStart / chartMax
+                                let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+
+                                if globalIdx <= currentIdx {
+                                    Rectangle().fill(color)
+                                        .frame(width: segW, height: barHeight)
+                                        .offset(x: x, y: topPad)
+                                } else {
+                                    Rectangle().fill(color.opacity(0.22))
+                                        .frame(width: segW, height: barHeight)
+                                        .offset(x: x, y: topPad)
+                                }
+                            }
+
+                            // Separator lines
+                            ForEach(Array(visibleSegments.dropFirst().enumerated()), id: \.element.id) { _, segment in
+                                let bx = w * segment.rangeStart / chartMax
+                                Rectangle().fill(Color.primary.opacity(0.2))
+                                    .frame(width: 1, height: barHeight)
+                                    .offset(x: bx - 0.5, y: topPad)
+                            }
+
+                            // Before marker
+                            let beforeX = CGFloat(beforeIncome / chartMax) * w
+                            Path { path in
+                                path.move(to: CGPoint(x: beforeX, y: topPad - 5))
+                                path.addLine(to: CGPoint(x: beforeX, y: topPad + barHeight + 5))
+                            }
+                            .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                            .foregroundStyle(.secondary)
+
+                            Text("Before \(scenarioChartLabel(beforeIncome))")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                                .position(x: min(max(beforeX, 40), w - 40), y: 10)
+
+                            // After marker
+                            let afterX = CGFloat(afterIncome / chartMax) * w
+                            Path { path in
+                                path.move(to: CGPoint(x: afterX, y: topPad - 5))
+                                path.addLine(to: CGPoint(x: afterX, y: topPad + barHeight + 5))
+                            }
+                            .stroke(style: StrokeStyle(lineWidth: 2.5))
+                            .foregroundStyle(.primary)
+
+                            Text("After \(scenarioChartLabel(afterIncome))")
+                                .font(.system(size: 8, weight: .bold))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                                .position(x: min(max(afterX, 35), w - 35), y: 26)
+
+                            // Outer border
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                                .frame(width: w, height: barHeight)
+                                .offset(y: topPad)
+
+                            // Rate + range labels below
+                            ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
+                                let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
+                                let isLast = index == visibleSegments.count - 1
+                                let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+                                let segX = w * segment.rangeStart / chartMax
+                                let centerX = segX + segW / 2
+
+                                VStack(spacing: 1) {
+                                    Text(segment.label)
+                                        .font(.system(size: segW > 55 ? 11 : 9, weight: segment.isCurrent ? .bold : .semibold))
+                                        .foregroundStyle(stateColors[min(globalIdx, stateColors.count - 1)])
+                                    let rangeText2 = isLast && globalIdx == segments.count - 1
+                                        ? scenarioChartLabel(segment.rangeStart) + "+"
+                                        : scenarioChartLabel(segment.rangeStart) + " – " + scenarioChartLabel(segment.rangeEnd)
+                                    Text(rangeText2)
+                                        .font(.system(size: segW > 55 ? 9 : 7))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .position(x: centerX, y: topPad + barHeight + 18)
+                            }
+                        }
+                        .frame(height: topPad + barHeight + 36)
+
+                        // Average state tax rate before → after
+                        let beforeStateTax = dataManager.calculateStateTax(income: beforeIncome, filingStatus: dataManager.filingStatus)
+                        let afterStateTax = dataManager.calculateStateTax(income: afterIncome, filingStatus: dataManager.filingStatus)
+                        let beforeAvgState = beforeIncome > 0 ? (beforeStateTax / beforeIncome) * 100 : 0
+                        let afterAvgState = afterIncome > 0 ? (afterStateTax / afterIncome) * 100 : 0
+                        HStack(spacing: 6) {
+                            Image(systemName: "percent")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                            Text("Avg rate:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(String(format: "%.1f%%", beforeAvgState))
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.secondary)
+                            Text(String(format: "%.1f%%", afterAvgState))
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundStyle(afterAvgState > beforeAvgState ? .red : .green)
+                        }
+
+                        // Room remaining callout
+                        if bracketInfo.roomRemaining > 0 {
+                            let nextStateRate: Double = (segments.first(where: { $0.rate > bracketInfo.currentRate })?.rate ?? bracketInfo.currentRate) * 100
+                            let nextRate = String(format: "%.1f", nextStateRate)
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.right.circle.fill")
+                                    .foregroundStyle(.blue)
+                                    .font(.caption)
+                                Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the next state bracket")
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(PlatformColor.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.green.opacity(0.3), .orange.opacity(0.3)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+                }
+            default:
+                EmptyView()
+            }
+        }
+    }
+
+    // MARK: IRMAA Chart (Scenario)
+
+    private struct ScenarioIRMAATierSegment: Identifiable {
+        let id = UUID()
+        let tier: Int
+        let label: String
+        let rangeStart: Double
+        let rangeEnd: Double
+        let surchargePerPerson: Double
+        let isCurrent: Bool
+    }
+
+    private var scenarioIRMAATierSegments: [ScenarioIRMAATierSegment] {
+        let tiers = DataManager.irmaa2026Tiers
+        let isMFJ = dataManager.filingStatus == .marriedFilingJointly
+        let magi = dataManager.scenarioIRMAA.magi
+        let currentTier = dataManager.scenarioIRMAA.tier
+        let standardB = DataManager.irmaaStandardPartB
+
+        var segments: [ScenarioIRMAATierSegment] = []
+        for i in tiers.indices {
+            let threshold = isMFJ ? tiers[i].mfjThreshold : tiers[i].singleThreshold
+            let nextThreshold: Double
+            if i + 1 < tiers.count {
+                nextThreshold = isMFJ ? tiers[i + 1].mfjThreshold : tiers[i + 1].singleThreshold
+            } else {
+                nextThreshold = max(threshold + 300_000, magi * 1.2)
+            }
+
+            let surchargeB = tiers[i].partBMonthly - standardB
+            let surchargeD = tiers[i].partDMonthly
+            let annualSurcharge = (surchargeB + surchargeD) * 12
+
+            segments.append(ScenarioIRMAATierSegment(
+                tier: i,
+                label: i == 0 ? "$0/yr" : "+\(scenarioChartLabel(max(0, annualSurcharge)))/yr",
+                rangeStart: threshold,
+                rangeEnd: nextThreshold,
+                surchargePerPerson: max(0, annualSurcharge),
+                isCurrent: currentTier == i
+            ))
+        }
+        return segments
+    }
+
+    @ViewBuilder
+    private var scenarioIRMAAChart: some View {
+        if dataManager.hasActiveScenario && dataManager.medicareMemberCount > 0 {
+            let irmaa = dataManager.scenarioIRMAA
+            let baselineIrmaa = dataManager.baselineIRMAA
+            let afterMAGI = irmaa.magi
+            let beforeMAGI = baselineIrmaa.magi
+            let segments = scenarioIRMAATierSegments
+            let memberCount = dataManager.medicareMemberCount
+            let tierColors: [Color] = [
+                Color(red: 0.05, green: 0.78, blue: 0.35),
+                Color(red: 0.98, green: 0.78, blue: 0.0),
+                Color(red: 1.0, green: 0.50, blue: 0.0),
+                Color(red: 0.92, green: 0.22, blue: 0.50),
+                Color(red: 0.58, green: 0.22, blue: 0.88),
+                Color(red: 0.18, green: 0.30, blue: 0.85),
+            ]
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.green.opacity(0.85), .red.opacity(0.85)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "heart.text.square.fill")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("IRMAA Medicare Surcharge")
+                            .font(.headline)
+                        Text("Based on \(dataManager.filingStatus.rawValue) MAGI · Affects \(dataManager.currentYear + 2) premiums")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                let chartMax = segments.last?.rangeEnd ?? 1
+                let barHeight: CGFloat = 36
+                let topPad: CGFloat = 40
+
+                GeometryReader { geo in
+                    let w = geo.size.width
+
+                    // Tier bars
+                    ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
+                        let color = tierColors[min(index, tierColors.count - 1)]
+                        let x = w * segment.rangeStart / chartMax
+                        let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+                        let isFirst = index == 0
+                        let isLastSeg = index == segments.count - 1
+
+                        if isFirst {
+                            UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
+                                .fill(color.opacity(segment.isCurrent ? 1.0 : 0.75))
+                                .frame(width: segW, height: barHeight)
+                                .offset(x: x, y: topPad)
+                        } else if isLastSeg {
+                            UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 5, topTrailingRadius: 5)
+                                .fill(color.opacity(segment.isCurrent ? 1.0 : 0.75))
+                                .frame(width: segW, height: barHeight)
+                                .offset(x: x, y: topPad)
+                        } else {
+                            Rectangle()
+                                .fill(color.opacity(segment.isCurrent ? 1.0 : 0.75))
+                                .frame(width: segW, height: barHeight)
+                                .offset(x: x, y: topPad)
+                        }
+                    }
+
+                    // Before marker (dashed gray)
+                    let beforeX = CGFloat(beforeMAGI / chartMax) * w
+                    Path { path in
+                        path.move(to: CGPoint(x: beforeX, y: topPad - 5))
+                        path.addLine(to: CGPoint(x: beforeX, y: topPad + barHeight + 5))
+                    }
+                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .foregroundStyle(.secondary)
+
+                    Text("Before \(scenarioChartLabel(beforeMAGI))")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .position(x: min(max(beforeX, 40), w - 40), y: 10)
+
+                    // After marker (solid)
+                    let afterX = CGFloat(afterMAGI / chartMax) * w
+                    Rectangle()
+                        .fill(.primary)
+                        .frame(width: 2.5, height: barHeight + 10)
+                        .offset(x: afterX - 1.25, y: topPad - 5)
+
+                    Text("After \(scenarioChartLabel(afterMAGI))")
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .position(x: min(max(afterX, 35), w - 35), y: 26)
+
+                    // Surcharge + range labels below bar
+                    ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
+                        let isLast = index == segments.count - 1
+                        let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+                        let segX = w * segment.rangeStart / chartMax
+                        let centerX = segX + segW / 2
+
+                        VStack(spacing: 1) {
+                            Text(segment.label)
+                                .font(.system(size: segW > 50 ? 9 : 7, weight: segment.isCurrent ? .bold : .semibold))
+                                .foregroundStyle(tierColors[min(index, tierColors.count - 1)])
+                            if segment.tier == 0 {
+                                Text("< \(scenarioChartLabel(segments.count > 1 ? segments[1].rangeStart : 0))")
+                                    .font(.system(size: segW > 50 ? 8 : 7))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                let rangeText3 = isLast
+                                    ? scenarioChartLabel(segment.rangeStart) + "+"
+                                    : scenarioChartLabel(segment.rangeStart) + "–" + scenarioChartLabel(segment.rangeEnd)
+                                Text(rangeText3)
+                                    .font(.system(size: segW > 50 ? 8 : 7))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .position(x: centerX, y: barHeight + topPad + 18)
+                    }
+                }
+                .frame(height: barHeight + topPad + 36)
+
+                // Callouts
+                VStack(alignment: .leading, spacing: 6) {
+                    if irmaa.tier == 0 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                            Text("No IRMAA surcharge")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.green)
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                            Text("Tier \(irmaa.tier): \(irmaa.annualSurchargePerPerson, format: .currency(code: "USD").precision(.fractionLength(0)))/yr per person\(memberCount > 1 ? " (\(dataManager.scenarioIRMAATotalSurcharge, format: .currency(code: "USD").precision(.fractionLength(0))) household)" : "")")
+                                .font(.caption)
+                        }
+                    }
+
+                    if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
+                        HStack(spacing: 6) {
+                            Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
+                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .blue)
+                                .font(.caption)
+                            Text("\(distanceToNext, format: .currency(code: "USD").precision(.fractionLength(0))) below next IRMAA cliff")
+                                .font(.caption)
+                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                        }
+                    }
+
+                    if dataManager.scenarioPushedToHigherIRMAATier {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                            Text("Scenario pushes you to a **higher IRMAA tier**")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+
+                    if irmaa.tier > 0, let distanceToPrev = irmaa.distanceToPreviousTier {
+                        let savingsPerPerson = irmaa.annualSurchargePerPerson - dataManager.scenarioIRMAAPreviousTierAnnualSurcharge
+                        let householdSavings = savingsPerPerson * Double(memberCount)
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                            Text("Reduce by \(distanceToPrev + 1, format: .currency(code: "USD").precision(.fractionLength(0))) to save \(householdSavings, format: .currency(code: "USD").precision(.fractionLength(0)))/yr")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.green.opacity(0.3), .red.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+        }
+    }
+
+    // MARK: NIIT Position Chart (Scenario)
+
+    @ViewBuilder
+    private var scenarioNIITChart: some View {
+        if dataManager.hasActiveScenario && dataManager.scenarioNetInvestmentIncome > 0 {
+            let niit = dataManager.scenarioNIIT
+            let baselineNiit = dataManager.baselineNIIT
+            let beforeMAGI = baselineNiit.magi
+            let afterMAGI = niit.magi
+            let threshold = niit.threshold
+            let chartMax = max(threshold * 1.5, afterMAGI * 1.2, beforeMAGI * 1.2)
+            let barHeight: CGFloat = 36
+            let topPad: CGFloat = 40
+
+            VStack(alignment: .leading, spacing: 16) {
+                // Header
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.green.opacity(0.85), .red.opacity(0.85)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Net Investment Income Tax")
+                            .font(.headline)
+                        Text("3.8% surtax on investment income")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                GeometryReader { geo in
+                    let w = geo.size.width
+                    let thresholdX = CGFloat(threshold / chartMax) * w
+
+                    // Left zone: No NIIT (green)
+                    UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
+                        .fill(Color(red: 0.05, green: 0.78, blue: 0.35))
+                        .frame(width: thresholdX, height: barHeight)
+                        .offset(y: topPad)
+
+                    // Right zone: 3.8% NIIT (red/orange)
+                    UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 5, topTrailingRadius: 5)
+                        .fill(Color(red: 0.92, green: 0.22, blue: 0.22).opacity(0.85))
+                        .frame(width: w - thresholdX, height: barHeight)
+                        .offset(x: thresholdX, y: topPad)
+
+                    // Threshold boundary line
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.4))
+                        .frame(width: 2, height: barHeight + 10)
+                        .offset(x: thresholdX - 1, y: topPad - 5)
+
+                    // Before marker (dashed gray)
+                    let beforeX = CGFloat(beforeMAGI / chartMax) * w
+                    Path { path in
+                        path.move(to: CGPoint(x: beforeX, y: topPad - 5))
+                        path.addLine(to: CGPoint(x: beforeX, y: topPad + barHeight + 5))
+                    }
+                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .foregroundStyle(.secondary)
+
+                    Text("Before \(scenarioChartLabel(beforeMAGI))")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .position(x: min(max(beforeX, 40), w - 40), y: 10)
+
+                    // After marker (solid)
+                    let afterX = CGFloat(afterMAGI / chartMax) * w
+                    Rectangle()
+                        .fill(.primary)
+                        .frame(width: 2.5, height: barHeight + 10)
+                        .offset(x: afterX - 1.25, y: topPad - 5)
+
+                    Text("After \(scenarioChartLabel(afterMAGI))")
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .position(x: min(max(afterX, 35), w - 35), y: 26)
+
+                    // Zone labels below bar
+                    let noNiitCenterX = thresholdX / 2
+                    let niitZoneCenterX = thresholdX + (w - thresholdX) / 2
+
+                    VStack(spacing: 1) {
+                        Text("No NIIT")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.05, green: 0.78, blue: 0.35))
+                        Text("< \(scenarioChartLabel(threshold))")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
+                    }
+                    .position(x: noNiitCenterX, y: topPad + barHeight + 18)
+
+                    VStack(spacing: 1) {
+                        Text("3.8% NIIT")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.red)
+                        Text(scenarioChartLabel(threshold) + "+")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
+                    }
+                    .position(x: niitZoneCenterX, y: topPad + barHeight + 18)
+                }
+                .frame(height: topPad + barHeight + 36)
+
+                // Callouts
+                VStack(alignment: .leading, spacing: 6) {
+                    if niit.annualNIITax > 0 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                            Text("NIIT: \(niit.annualNIITax, format: .currency(code: "USD").precision(.fractionLength(0)))/yr")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.red)
+                        }
+
+                        if dataManager.scenarioIncreasedNIIT {
+                            let niitIncrease = niit.annualNIITax - baselineNiit.annualNIITax
+                            if niitIncrease > 0 {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.caption)
+                                    Text("Scenario adds \(niitIncrease, format: .currency(code: "USD").precision(.fractionLength(0))) in NIIT")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                            let distance = niit.distanceToThreshold
+                            Text("No NIIT — \(max(0, distance), format: .currency(code: "USD").precision(.fractionLength(0))) below threshold")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.green.opacity(0.3), .red.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
         }
     }
 
@@ -1013,15 +2657,26 @@ struct TaxPlanningView: View {
         // Combined total
         if spouseEnabled && (dataManager.yourRothConversion > 0 || dataManager.spouseRothConversion > 0) {
             Divider()
-            HStack {
-                Text("Combined Roth Conversions")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Spacer()
-                Text(totalRothConversion, format: .currency(code: "USD"))
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.orange)
+            ViewThatFits {
+                HStack {
+                    Text("Combined Roth Conversions")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(totalRothConversion, format: .currency(code: "USD"))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.orange)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Combined Roth Conversions")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(totalRothConversion, format: .currency(code: "USD"))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.orange)
+                }
             }
         }
 
@@ -1345,15 +3000,29 @@ struct TaxPlanningView: View {
     // MARK: - Collapsed Summary Cards (open sheets on tap)
 
     private var rothConversionCard: some View {
-        ScenarioStepCard(
-            stepNumber: 1,
-            title: "Roth Conversions",
-            description: "Move funds from a Traditional IRA to a Roth IRA. You\u{2019}ll pay tax now, but future growth and withdrawals are tax-free.",
-            stepColor: .orange,
-            icon: "arrow.right.arrow.left",
-            action: { showRothSheet = true }
-        ) {
-            rothSummary
+        VStack(spacing: 0) {
+            ScenarioStepCard(
+                stepNumber: 1,
+                title: "Roth Conversions",
+                description: "Move funds from a Traditional IRA to a Roth IRA. You\u{2019}ll pay tax now, but future growth and withdrawals are tax-free.",
+                stepColor: .orange,
+                icon: "arrow.right.arrow.left",
+                isExpanded: showRothSheet,
+                action: { withAnimation(.easeInOut(duration: 0.3)) { showRothSheet.toggle() } }
+            ) {
+                rothSummary
+            }
+
+            if showRothSheet {
+                VStack(alignment: .leading, spacing: 16) {
+                    rothConversionContent
+                }
+                .padding()
+                .background(Color(PlatformColor.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.top, -8)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+            }
         }
     }
 
@@ -1612,15 +3281,29 @@ struct TaxPlanningView: View {
     }
 
     private var withdrawalCard: some View {
-        ScenarioStepCard(
-            stepNumber: 2,
-            title: "IRA/401(k) Withdrawals",
-            description: "Withdraw cash from your retirement savings. RMDs are shown automatically. Extra withdrawals add to taxable income.",
-            stepColor: .blue,
-            icon: "banknote",
-            action: { showWithdrawalSheet = true }
-        ) {
-            withdrawalSummary
+        VStack(spacing: 0) {
+            ScenarioStepCard(
+                stepNumber: 2,
+                title: "IRA/401(k) Withdrawals",
+                description: "Withdraw cash from your retirement savings. RMDs are shown automatically. Extra withdrawals add to taxable income.",
+                stepColor: .blue,
+                icon: "banknote",
+                isExpanded: showWithdrawalSheet,
+                action: { withAnimation(.easeInOut(duration: 0.3)) { showWithdrawalSheet.toggle() } }
+            ) {
+                withdrawalSummary
+            }
+
+            if showWithdrawalSheet {
+                VStack(alignment: .leading, spacing: 16) {
+                    withdrawalContent
+                }
+                .padding()
+                .background(Color(PlatformColor.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.top, -8)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+            }
         }
     }
 
@@ -1651,15 +3334,29 @@ struct TaxPlanningView: View {
     @ViewBuilder
     private var inheritedWithdrawalCard: some View {
         if dataManager.hasInheritedAccounts {
-            ScenarioStepCard(
-                stepNumber: 3,
-                title: "Inherited IRA Withdrawals",
-                description: "Required distributions from inherited IRAs. You can take extra withdrawals beyond the required amount.",
-                stepColor: .indigo,
-                icon: "archivebox",
-                action: { showInheritedSheet = true }
-            ) {
-                inheritedSummary
+            VStack(spacing: 0) {
+                ScenarioStepCard(
+                    stepNumber: 3,
+                    title: "Inherited IRA Withdrawals",
+                    description: "Required distributions from inherited IRAs. You can take extra withdrawals beyond the required amount.",
+                    stepColor: .indigo,
+                    icon: "archivebox",
+                    isExpanded: showInheritedSheet,
+                    action: { withAnimation(.easeInOut(duration: 0.3)) { showInheritedSheet.toggle() } }
+                ) {
+                    inheritedSummary
+                }
+
+                if showInheritedSheet {
+                    VStack(alignment: .leading, spacing: 16) {
+                        inheritedWithdrawalContent
+                    }
+                    .padding()
+                    .background(Color(PlatformColor.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.top, -8)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+                }
             }
         }
     }
@@ -1696,15 +3393,29 @@ struct TaxPlanningView: View {
     }
 
     private var charitableCard: some View {
-        ScenarioStepCard(
-            stepNumber: charitableStepNumber,
-            title: "Charitable Contributions",
-            description: "Reduce your tax burden through QCDs, appreciated stock donations, and cash gifts.",
-            stepColor: .green,
-            icon: "heart.circle",
-            action: { showCharitableSheet = true }
-        ) {
-            charitableSummary
+        VStack(spacing: 0) {
+            ScenarioStepCard(
+                stepNumber: charitableStepNumber,
+                title: "Charitable Contributions",
+                description: "Reduce your tax burden through QCDs, appreciated stock donations, and cash gifts.",
+                stepColor: .green,
+                icon: "heart.circle",
+                isExpanded: showCharitableSheet,
+                action: { withAnimation(.easeInOut(duration: 0.3)) { showCharitableSheet.toggle() } }
+            ) {
+                charitableSummary
+            }
+
+            if showCharitableSheet {
+                VStack(alignment: .leading, spacing: 16) {
+                    charitableContent
+                }
+                .padding()
+                .background(Color(PlatformColor.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.top, -8)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+            }
         }
     }
 
@@ -2262,25 +3973,156 @@ struct TaxPlanningView: View {
     // MARK: - Tax Impact Section
 
     @ViewBuilder
-    private var taxImpactSection: some View {
-        if totalRothConversion > 0 || totalWithdrawals > 0 || hasAnyCharitable {
-            TaxImpactView(
-                yourRothAmount: dataManager.yourRothConversion,
-                spouseRothAmount: spouseEnabled ? dataManager.spouseRothConversion : 0,
-                yourWithdrawalAmount: yourRMD + dataManager.yourExtraWithdrawal,
-                spouseWithdrawalAmount: spouseEnabled ? (spouseRMD + dataManager.spouseExtraWithdrawal) : 0,
-                totalWithdrawals: totalWithdrawals,
-                totalRothConversion: totalRothConversion,
-                qcdAmount: totalQCD,
-                stockDonationValue: dataManager.stockDonationEnabled ? stockCurrentValueNum : 0,
-                stockDeductionAmount: dataManager.stockDonationEnabled ? (stockIsLongTerm ? stockCurrentValueNum : stockPurchasePriceValue) : 0,
-                stockDonationGain: stockGainAvoided,
-                cashDonationAmount: dataManager.cashDonationAmount,
-                itemizeDeductions: itemizeDeductions,
-                baseIncome: baseIncome,
-                spouseEnabled: spouseEnabled,
-                spouseLabel: spouseLabel
+    private var scenarioSummaryCard: some View {
+        if dataManager.hasActiveScenario {
+            let beforeTaxable = max(0, dataManager.scenarioBaseIncome - dataManager.effectiveDeductionAmount)
+            let afterTaxable = dataManager.scenarioTaxableIncome
+            let beforeFedTax = dataManager.calculateFederalTax(income: beforeTaxable, filingStatus: dataManager.filingStatus)
+            let beforeStateTax = dataManager.calculateStateTax(income: beforeTaxable, filingStatus: dataManager.filingStatus)
+            let beforeTotalTax = beforeFedTax + beforeStateTax
+            let afterTotalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
+            let additionalTax = afterTotalTax - beforeTotalTax
+            let additionalIncome = afterTaxable - beforeTaxable
+            let effectiveOnScenario = additionalIncome > 0 ? additionalTax / additionalIncome : 0
+            let isItemizing = dataManager.scenarioEffectiveItemize
+            let wouldItemizeWithout = dataManager.totalItemizedDeductions > dataManager.standardDeductionAmount + additionalIncome * 0.01 // rough check
+            let switchedToItemized = isItemizing && dataManager.baseItemizedDeductions < dataManager.standardDeductionAmount
+
+            VStack(alignment: .leading, spacing: 14) {
+                // Header
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.blue.opacity(0.85), .purple.opacity(0.85)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Scenario Summary")
+                            .font(.headline)
+                        Text("Impact of your scenario decisions")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                // Taxable Income Before → After
+                HStack {
+                    Text("Taxable Income")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(beforeTaxable, format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .font(.subheadline)
+                    Image(systemName: "arrow.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(afterTaxable, format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(afterTaxable > beforeTaxable ? .red : .green)
+                }
+
+                // Deduction Status
+                VStack(alignment: .leading, spacing: 4) {
+                    if switchedToItemized {
+                        // Show before → after with explanation
+                        HStack {
+                            Text("Deduction")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text("Standard \(dataManager.standardDeductionAmount, format: .currency(code: "USD").precision(.fractionLength(0)))")
+                                .font(.subheadline)
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text("Itemized \(dataManager.totalItemizedDeductions, format: .currency(code: "USD").precision(.fractionLength(0)))")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.green)
+                        }
+                        let extraDeduction = dataManager.totalItemizedDeductions - dataManager.standardDeductionAmount
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption2)
+                            Text("Charitable giving triggers itemizing — \(extraDeduction, format: .currency(code: "USD").precision(.fractionLength(0))) more in deductions")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
+                    } else {
+                        HStack {
+                            Text("Deduction")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(isItemizing ? "Itemized" : "Standard")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text(dataManager.effectiveDeductionAmount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Total Additional Tax
+                HStack {
+                    Text("Additional Tax from Scenario")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(additionalTax, format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(additionalTax > 0 ? .red : .green)
+                }
+
+                // Effective Rate on Scenario Income
+                if additionalIncome > 0, let analysis = scenarioAnalysis {
+                    HStack {
+                        Text("Effective Rate on Scenario")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        let combinedRate = analysis.federalEffectiveRate + analysis.stateEffectiveRate
+                        Text(String(format: "%.1f%%", combinedRate * 100))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(String(format: "(Fed %.1f%% + %@ %.1f%%)", analysis.federalEffectiveRate * 100, dataManager.selectedState.abbreviation, analysis.stateEffectiveRate * 100))
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.blue.opacity(0.3), .purple.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1
+                    )
             )
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
         }
     }
 
@@ -3190,12 +5032,13 @@ struct ScenarioStepCard<Summary: View>: View {
     let description: String
     let stepColor: Color
     let icon: String
+    let isExpanded: Bool
     let action: () -> Void
     @ViewBuilder let summary: () -> Summary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header row: number + icon + title + Adjust button
+            // Header row: number + icon + title + Adjust/Done button
             HStack(alignment: .top, spacing: 12) {
                 Text("\(stepNumber)")
                     .font(.callout)
@@ -3213,28 +5056,32 @@ struct ScenarioStepCard<Summary: View>: View {
                         Text(title)
                             .font(.headline)
                     }
-                    Text(description)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if !isExpanded {
+                        Text(description)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Spacer()
 
                 Button(action: action) {
-                    Text("Adjust")
+                    Text(isExpanded ? "Done" : "Adjust")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(stepColor.opacity(0.12))
-                        .foregroundStyle(stepColor)
+                        .background(isExpanded ? stepColor : stepColor.opacity(0.12))
+                        .foregroundStyle(isExpanded ? .white : stepColor)
                         .clipShape(Capsule())
                 }
             }
 
-            // Summary of current values
-            summary()
+            // Summary of current values (only when collapsed)
+            if !isExpanded {
+                summary()
+            }
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))

@@ -55,9 +55,20 @@ class DataManager: ObservableObject {
     @Published var deductionOverride: DeductionChoice? = nil  // nil = auto-pick best
     @Published var completedActionKeys: Set<String> = []
 
-    // RMD Projection Growth Rates
-    @Published var primaryGrowthRate: Double = 5.0
-    @Published var spouseGrowthRate: Double = 5.0
+    // RMD Projection Growth Rates (pretax return — applies to both Traditional & Roth)
+    @Published var primaryGrowthRate: Double = 8.0
+    @Published var spouseGrowthRate: Double = 8.0
+
+    // Legacy Planning
+    @Published var enableLegacyPlanning: Bool = false
+    @Published var legacyHeirType: String = "adultChild"   // "spouse", "adultChild", "other"
+    @Published var legacyHeirTaxRate: Double = 0.24         // heir's estimated federal tax rate
+
+    /// After-tax return on money kept in a taxable account (opportunity cost of conversion).
+    /// Derived as 5/8 of the pretax investment return to reflect tax drag.
+    var taxableAccountGrowthRate: Double {
+        primaryGrowthRate * 5.0 / 8.0
+    }
 
     // Prior Year State Tax
     @Published var priorYearStateBalance: Double = 0  // positive = balance due paid; negative = refund
@@ -972,10 +983,12 @@ class DataManager: ObservableObject {
         let standardB = DataManager.irmaaStandardPartB
 
         // Walk tiers in reverse to find the highest tier the MAGI qualifies for
+        // Round MAGI to whole dollars to prevent floating-point errors at cliff boundaries
+        let roundedMAGI = magi.rounded()
         var matchedTier = tiers[0]
         for tier in tiers.reversed() {
             let threshold = filingStatus == .single ? tier.singleThreshold : tier.mfjThreshold
-            if magi >= threshold {
+            if roundedMAGI >= threshold {
                 matchedTier = tier
                 break
             }
@@ -1027,10 +1040,12 @@ class DataManager: ObservableObject {
             ? DataManager.niitThresholdSingle
             : DataManager.niitThresholdMFJ
 
-        let magiExcess = max(0, magi - threshold)
+        // Round MAGI to whole dollars to prevent floating-point errors at threshold boundary
+        let roundedMAGI = magi.rounded()
+        let magiExcess = max(0, roundedMAGI - threshold)
         let taxableNII = min(nii, magiExcess)
         let tax = taxableNII * DataManager.niitRate
-        let distance = threshold - magi
+        let distance = threshold - roundedMAGI
 
         return NIITResult(
             netInvestmentIncome: nii,
@@ -1067,7 +1082,8 @@ class DataManager: ObservableObject {
             ? DataManager.amtExemptionSingle : DataManager.amtExemptionMFJ
         let phaseoutThreshold = filingStatus == .single
             ? DataManager.amtPhaseoutThresholdSingle : DataManager.amtPhaseoutThresholdMFJ
-        let phaseout = max(0, (amti - phaseoutThreshold) * DataManager.amtPhaseoutRate)
+        // Round AMTI to whole dollars to prevent floating-point errors at phaseout threshold
+        let phaseout = max(0, (amti.rounded() - phaseoutThreshold) * DataManager.amtPhaseoutRate)
         let exemption = max(0, baseExemption - phaseout)
 
         // 3. Taxable AMTI (after exemption)
@@ -1447,8 +1463,18 @@ class DataManager: ObservableObject {
         if defaults.object(forKey: StorageKey.spouseGrowthRate) != nil {
             self.spouseGrowthRate = defaults.double(forKey: StorageKey.spouseGrowthRate)
         }
+        if defaults.object(forKey: StorageKey.enableLegacyPlanning) != nil {
+            self.enableLegacyPlanning = defaults.bool(forKey: StorageKey.enableLegacyPlanning)
+        }
+        if let heirType = defaults.string(forKey: StorageKey.legacyHeirType) {
+            self.legacyHeirType = heirType
+        }
+        if defaults.object(forKey: StorageKey.legacyHeirTaxRate) != nil {
+            self.legacyHeirTaxRate = defaults.double(forKey: StorageKey.legacyHeirTaxRate)
+        }
+        // taxableAccountGrowthRate is computed from primaryGrowthRate
     }
-    
+
     // Save tax brackets whenever they change
     func saveTaxBrackets() {
         if let encoded = try? JSONEncoder().encode(currentTaxBrackets) {
@@ -1495,6 +1521,10 @@ class DataManager: ObservableObject {
         static let userName = "userName"
         static let primaryGrowthRate = "primaryGrowthRate"
         static let spouseGrowthRate = "spouseGrowthRate"
+        static let enableLegacyPlanning = "enableLegacyPlanning"
+        static let legacyHeirType = "legacyHeirType"
+        static let legacyHeirTaxRate = "legacyHeirTaxRate"
+        // taxableAccountGrowthRate is now computed from primaryGrowthRate (5/8 ratio)
     }
 
     /// Saves all user data to UserDefaults for persistence across rebuilds.
@@ -1553,8 +1583,12 @@ class DataManager: ObservableObject {
         defaults.set(priorYearStateBalance, forKey: StorageKey.priorYearStateBalance)
         defaults.set(primaryGrowthRate, forKey: StorageKey.primaryGrowthRate)
         defaults.set(spouseGrowthRate, forKey: StorageKey.spouseGrowthRate)
+        defaults.set(enableLegacyPlanning, forKey: StorageKey.enableLegacyPlanning)
+        defaults.set(legacyHeirType, forKey: StorageKey.legacyHeirType)
+        defaults.set(legacyHeirTaxRate, forKey: StorageKey.legacyHeirTaxRate)
+        // taxableAccountGrowthRate is computed from primaryGrowthRate
     }
-    
+
     /// Resets all scenario properties to defaults.
     func resetScenario() {
         yourRothConversion = 0
@@ -1676,19 +1710,21 @@ class DataManager: ObservableObject {
         let combinedIncome = otherIncome + additionalIncome + (ssIncome * 0.5)
         
         // Determine taxable portion based on thresholds
+        // Round to whole dollars to prevent floating-point errors at tier boundaries
+        let roundedCombined = combinedIncome.rounded()
         let (threshold1, threshold2) = filingStatus == .single ? (25_000.0, 34_000.0) : (32_000.0, 44_000.0)
-        
-        if combinedIncome <= threshold1 {
+
+        if roundedCombined <= threshold1 {
             // No Social Security is taxable
             return 0.0
-        } else if combinedIncome <= threshold2 {
+        } else if roundedCombined <= threshold2 {
             // Up to 50% is taxable
-            let excessOverFirst = combinedIncome - threshold1
+            let excessOverFirst = roundedCombined - threshold1
             let taxableAmount = min(excessOverFirst, ssIncome * 0.5)
             return taxableAmount
         } else {
             // Up to 85% is taxable
-            let excessOverSecond = combinedIncome - threshold2
+            let excessOverSecond = roundedCombined - threshold2
             let tier1Amount = (threshold2 - threshold1) * 0.5
             let tier2Amount = min(excessOverSecond * 0.85, ssIncome * 0.85 - tier1Amount)
             let taxableAmount = min(tier1Amount + tier2Amount, ssIncome * 0.85)
@@ -1963,7 +1999,8 @@ class DataManager: ObservableObject {
             // Threshold: $500,000 MFJ in 2025, also inflated 1%/year
             let phaseoutThreshold = (500_000.0 * inflationMultiplier).rounded()
             let magi = scenarioGrossIncome
-            let phaseoutReduction = max(0, (magi - phaseoutThreshold) * 0.30)
+            // Round MAGI to whole dollars to prevent floating-point errors at phaseout threshold
+            let phaseoutReduction = max(0, (magi.rounded() - phaseoutThreshold) * 0.30)
             let afterPhaseout = expandedCap - phaseoutReduction
 
             // Floor: never less than $10,000 regardless of phaseout
@@ -2425,11 +2462,16 @@ class DataManager: ObservableObject {
         return scenarioTotalTax - withoutWithdrawals
     }
 
-    /// Tax savings from QCD (reduces taxable withdrawals)
+    /// Tax savings from QCD (only the portion that offsets taxable RMD income).
+    /// Pre-RMD QCDs (ages 70½–72) reduce IRA balance but don't save current-year tax.
     var qcdTaxSavings: Double {
         guard scenarioTotalQCD > 0, scenarioQCDEligible else { return 0 }
+        // QCD only saves tax when it replaces a taxable RMD
+        let regularRMD = calculateCombinedRMD()
+        let taxableQCDOffset = min(scenarioTotalQCD, regularRMD)
+        guard taxableQCDOffset > 0 else { return 0 }
         let withoutQCD = totalTaxFor(
-            grossIncome: scenarioGrossIncome + scenarioTotalQCD,  // QCD portion would be taxable
+            grossIncome: scenarioGrossIncome + taxableQCDOffset,
             deduction: effectiveDeductionAmount
         )
         return withoutQCD - scenarioTotalTax
@@ -2474,10 +2516,13 @@ class DataManager: ObservableObject {
         return delta * Double(medicareMemberCount)
     }
 
-    /// IRMAA surcharge savings from QCD (QCD reduces MAGI, may drop below a cliff).
+    /// IRMAA surcharge savings from QCD (only the RMD-offsetting portion reduces MAGI).
     var qcdIRMAASavings: Double {
         guard scenarioTotalQCD > 0, medicareMemberCount > 0 else { return 0 }
-        let magiWithoutQCD = estimatedAGI + scenarioTotalQCD  // QCD portion would be taxable
+        let regularRMD = calculateCombinedRMD()
+        let taxableQCDOffset = min(scenarioTotalQCD, regularRMD)
+        guard taxableQCDOffset > 0 else { return 0 }
+        let magiWithoutQCD = estimatedAGI + taxableQCDOffset
         let irmaaWithoutQCD = calculateIRMAA(magi: magiWithoutQCD, filingStatus: filingStatus)
         let delta = irmaaWithoutQCD.annualSurchargePerPerson - scenarioIRMAA.annualSurchargePerPerson
         return delta * Double(medicareMemberCount)
@@ -2511,10 +2556,13 @@ class DataManager: ObservableObject {
         return scenarioNIITAmount - niitWithout.annualNIITax
     }
 
-    /// NIIT savings from QCD (reduces MAGI, may reduce or eliminate NIIT).
+    /// NIIT savings from QCD (only the RMD-offsetting portion reduces MAGI).
     var qcdNIITSavings: Double {
         guard scenarioTotalQCD > 0, scenarioNetInvestmentIncome > 0 else { return 0 }
-        let magiWithoutQCD = estimatedAGI + scenarioTotalQCD
+        let regularRMD = calculateCombinedRMD()
+        let taxableQCDOffset = min(scenarioTotalQCD, regularRMD)
+        guard taxableQCDOffset > 0 else { return 0 }
+        let magiWithoutQCD = estimatedAGI + taxableQCDOffset
         let niitWithoutQCD = calculateNIIT(nii: scenarioNetInvestmentIncome, magi: magiWithoutQCD, filingStatus: filingStatus)
         return niitWithoutQCD.annualNIITax - scenarioNIITAmount
     }
@@ -2567,6 +2615,474 @@ class DataManager: ObservableObject {
             deduction: effectiveDeductionWithout
         )
         return withoutCash - scenarioTotalTax
+    }
+
+    // MARK: - Legacy Planning Calculations
+
+    /// Tax the heir avoids because the converted amount is now Roth (tax-free) instead of Traditional.
+    var legacyRothConversionHeirSavings: Double {
+        guard enableLegacyPlanning, scenarioTotalRothConversion > 0 else { return 0 }
+        return scenarioTotalRothConversion * legacyHeirTaxRate
+    }
+
+    /// QCD reduces the inherited IRA balance — heir avoids tax on that portion.
+    /// Uses the full QCD amount (all QCD shrinks the IRA, regardless of RMD offset).
+    var legacyQCDHeirBenefit: Double {
+        guard enableLegacyPlanning, scenarioTotalQCD > 0 else { return 0 }
+        return scenarioTotalQCD * legacyHeirTaxRate
+    }
+
+    /// The user's current-year tax cost for Roth conversion (fed + state + IRMAA).
+    var legacyUserCurrentCost: Double {
+        rothConversionTaxImpact + rothConversionIRMAAImpact
+    }
+
+    /// Net legacy benefit: heir savings minus user's current-year cost.
+    var legacyNetBenefit: Double {
+        legacyRothConversionHeirSavings + legacyQCDHeirBenefit - legacyUserCurrentCost
+    }
+
+    /// Estimated Traditional IRA balance at inheritance after scenario actions.
+    var legacyTraditionalAtInheritance: Double {
+        max(0, totalTraditionalIRABalance - scenarioTotalRothConversion - scenarioTotalQCD)
+    }
+
+    /// Estimated Roth IRA balance at inheritance after scenario actions.
+    var legacyRothAtInheritance: Double {
+        totalRothBalance + scenarioTotalRothConversion
+    }
+
+    /// Heir's estimated total tax on remaining Traditional IRA balance.
+    var legacyHeirEstimatedTaxOnTraditional: Double {
+        legacyTraditionalAtInheritance * legacyHeirTaxRate
+    }
+
+    /// Human-readable description of inheritance rules based on heir type.
+    var legacyHeirTypeDescription: String {
+        switch legacyHeirType {
+        case "spouse":
+            return "Your spouse can roll this into their own IRA \u{2014} no forced distribution timeline."
+        default:
+            return "Your heir must withdraw the full balance within 10 years \u{2014} at their tax rate."
+        }
+    }
+
+    /// Formatted heir tax rate as a percentage string.
+    var legacyHeirTaxRateFormatted: String {
+        "\(Int(legacyHeirTaxRate * 100))%"
+    }
+
+    /// Heir's drawdown period: 10 years (SECURE Act) or 20 years (spouse stretch).
+    var legacyDrawdownYears: Int {
+        legacyHeirType == "spouse" ? 20 : 10
+    }
+
+    /// Estimated years until death, based on IRS Single Life Expectancy table.
+    /// Capped at a minimum of 5 years to avoid degenerate projections.
+    var legacyYearsUntilDeath: Int {
+        let factor = singleLifeExpectancyFactor(for: currentAge)
+        return max(5, Int(factor))
+    }
+
+    /// Estimated age at death for display purposes.
+    var legacyEstimatedDeathAge: Int {
+        currentAge + legacyYearsUntilDeath
+    }
+
+    // MARK: - Legacy Projection Engine
+
+    /// Projects a Traditional IRA balance forward through the owner's lifetime,
+    /// accounting for annual RMDs (starting at rmdAge) and growth.
+    /// Returns the balance remaining at death for the heir to inherit.
+    private func projectTraditionalToInheritance(startingBalance: Double) -> Double {
+        guard startingBalance > 0 else { return 0 }
+        var balance = startingBalance
+        let years = legacyYearsUntilDeath
+        for yearOffset in 0..<years {
+            let projectedAge = currentAge + yearOffset + 1
+            // Take RMD if at or past RMD age
+            if projectedAge >= rmdAge {
+                let rmd = calculateRMD(for: projectedAge, balance: balance)
+                balance -= rmd
+            }
+            // Remaining balance grows
+            balance *= (1 + primaryGrowthRate / 100)
+        }
+        return max(0, balance)
+    }
+
+    /// Projects a Roth IRA balance forward through the owner's lifetime.
+    /// No RMDs on Roth — it just compounds tax-free.
+    private func projectRothToInheritance(startingBalance: Double) -> Double {
+        guard startingBalance > 0 else { return 0 }
+        let years = legacyYearsUntilDeath
+        return startingBalance * pow(1 + primaryGrowthRate / 100, Double(years))
+    }
+
+    /// Projects total withdrawals during heir's drawdown period with growth.
+    /// Returns total amount withdrawn (larger than starting balance due to continued growth).
+    private func projectHeirDrawdownTotal(startingBalance: Double) -> Double {
+        guard startingBalance > 0 else { return 0 }
+        var balance = startingBalance
+        var totalWithdrawn = 0.0
+        let years = legacyDrawdownYears
+        for yearsLeft in stride(from: years, through: 1, by: -1) {
+            let withdrawal = balance / Double(yearsLeft)
+            totalWithdrawn += withdrawal
+            balance -= withdrawal
+            balance *= (1 + primaryGrowthRate / 100)
+        }
+        return totalWithdrawn
+    }
+
+    // MARK: - "Do Nothing" Scenario (no conversions, no QCDs)
+
+    /// Traditional IRA balance at death WITHOUT any scenario actions.
+    var legacyNoActionTraditionalAtDeath: Double {
+        projectTraditionalToInheritance(startingBalance: totalTraditionalIRABalance)
+    }
+
+    /// Roth IRA balance at death WITHOUT any scenario actions.
+    var legacyNoActionRothAtDeath: Double {
+        projectRothToInheritance(startingBalance: totalRothBalance)
+    }
+
+    /// Heir's total taxable drawdown from Traditional IRA WITHOUT scenario (includes growth during drawdown).
+    var legacyNoActionHeirTaxableDrawdown: Double {
+        projectHeirDrawdownTotal(startingBalance: legacyNoActionTraditionalAtDeath)
+    }
+
+    /// Heir's total tax bill WITHOUT scenario actions.
+    var legacyCostOfInaction: Double {
+        guard enableLegacyPlanning else { return 0 }
+        return legacyNoActionHeirTaxableDrawdown * legacyHeirTaxRate
+    }
+
+    // MARK: - "With Scenario" Projections
+
+    /// Traditional IRA balance at death WITH scenario actions (conversions + QCDs reduce starting balance).
+    var legacyWithScenarioTraditionalAtDeath: Double {
+        projectTraditionalToInheritance(startingBalance: legacyTraditionalAtInheritance)
+    }
+
+    /// Roth IRA balance at death WITH scenario (original Roth + converted amount, all compounding tax-free).
+    var legacyWithScenarioRothAtDeath: Double {
+        projectRothToInheritance(startingBalance: legacyRothAtInheritance)
+    }
+
+    /// Heir's total taxable drawdown from Traditional IRA WITH scenario.
+    var legacyWithScenarioHeirTaxableDrawdown: Double {
+        projectHeirDrawdownTotal(startingBalance: legacyWithScenarioTraditionalAtDeath)
+    }
+
+    /// Heir's tax bill WITH scenario actions.
+    var legacyWithScenarioHeirTax: Double {
+        guard enableLegacyPlanning else { return 0 }
+        return legacyWithScenarioHeirTaxableDrawdown * legacyHeirTaxRate
+    }
+
+    // MARK: - Family Totals
+
+    /// Family total tax WITHOUT conversion: just the heir's bill (user pays $0 now).
+    var legacyNoConversionFamilyTotal: Double {
+        legacyCostOfInaction
+    }
+
+    /// Family total tax WITH conversion: user's current cost + heir's reduced bill.
+    var legacyWithConversionFamilyTotal: Double {
+        legacyUserCurrentCost + legacyWithScenarioHeirTax
+    }
+
+    /// Net family tax savings from the scenario decisions.
+    var legacyFamilyTaxSavings: Double {
+        legacyNoConversionFamilyTotal - legacyWithConversionFamilyTotal
+    }
+
+    /// Family savings per $100K converted (for the rate arbitrage metric).
+    var legacyPer100KSavings: Double {
+        guard scenarioTotalRothConversion > 0 else { return 0 }
+        let rothSavingsPerDollar = legacyFamilyTaxSavings / scenarioTotalRothConversion
+        return rothSavingsPerDollar * 100_000
+    }
+
+    // MARK: - Total Family Wealth Comparison (including opportunity cost)
+
+    /// The tax paid today on the Roth conversion — this money leaves the family's investment pool.
+    var legacyConversionTaxPaidToday: Double {
+        guard scenarioTotalRothConversion > 0 else { return 0 }
+        return rothConversionTaxImpact + rothConversionIRMAAImpact
+    }
+
+    /// What the tax money would have grown to if NOT converted (invested in taxable account).
+    /// This is the opportunity cost of paying the conversion tax today.
+    var legacyTaxMoneyFutureValue: Double {
+        guard legacyConversionTaxPaidToday > 0 else { return 0 }
+        let years = Double(legacyYearsUntilDeath + legacyDrawdownYears)
+        return legacyConversionTaxPaidToday * pow(1 + taxableAccountGrowthRate / 100, years)
+    }
+
+    /// TOTAL FAMILY WEALTH without conversion:
+    /// Heir's after-tax Traditional IRA drawdown + tax money that stayed invested in taxable account.
+    var legacyNoConversionTotalWealth: Double {
+        let heirAfterTaxTraditional = legacyNoActionHeirTaxableDrawdown * (1 - legacyHeirTaxRate)
+        let heirRothTaxFree = projectHeirDrawdownTotal(startingBalance: legacyNoActionRothAtDeath)
+        let taxMoneyKept = legacyTaxMoneyFutureValue
+        return heirAfterTaxTraditional + heirRothTaxFree + taxMoneyKept
+    }
+
+    /// TOTAL FAMILY WEALTH with conversion:
+    /// Heir's after-tax Traditional (smaller) + heir's tax-free Roth (larger) — no tax money left over.
+    var legacyWithConversionTotalWealth: Double {
+        let heirAfterTaxTraditional = legacyWithScenarioHeirTaxableDrawdown * (1 - legacyHeirTaxRate)
+        let heirRothTaxFree = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioRothAtDeath)
+        return heirAfterTaxTraditional + heirRothTaxFree
+    }
+
+    /// Net family wealth advantage from conversion.
+    var legacyFamilyWealthAdvantage: Double {
+        legacyWithConversionTotalWealth - legacyNoConversionTotalWealth
+    }
+
+    // MARK: - Break-Even Analysis (Numerical — consistent with wealth model)
+
+    /// Computes family wealth advantage for a given heir tax rate using the full simulation
+    /// (including RMD drag, growth differentials, drawdown periods).
+    /// This ensures break-even is consistent with the main wealth comparison.
+    private func familyWealthAdvantageAtHeirRate(_ testRate: Double) -> Double {
+        guard scenarioTotalRothConversion > 0 else { return 0 }
+        let rPretax = primaryGrowthRate / 100
+        let rTaxable = taxableAccountGrowthRate / 100
+
+        // "No conversion" wealth: heir's after-tax Traditional + tax money kept invested
+        let noActionTradAtDeath = legacyNoActionTraditionalAtDeath
+        let noActionHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: noActionTradAtDeath)
+        let noActionHeirAfterTax = noActionHeirTaxableDrawdown * (1 - testRate)
+        let noActionRothDrawdown = projectHeirDrawdownTotal(startingBalance: legacyNoActionRothAtDeath)
+        let totalYears = Double(legacyYearsUntilDeath + legacyDrawdownYears)
+        let taxMoneyGrown = legacyConversionTaxPaidToday * pow(1 + rTaxable, totalYears)
+        let noConversionWealth = noActionHeirAfterTax + noActionRothDrawdown + taxMoneyGrown
+
+        // "With conversion" wealth: heir's after-tax smaller Traditional + larger Roth
+        let withScenarioTradAtDeath = legacyWithScenarioTraditionalAtDeath
+        let withHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: withScenarioTradAtDeath)
+        let withHeirAfterTax = withHeirTaxableDrawdown * (1 - testRate)
+        let withRothDrawdown = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioRothAtDeath)
+        let withConversionWealth = withHeirAfterTax + withRothDrawdown
+
+        return withConversionWealth - noConversionWealth
+    }
+
+    /// Numerically finds the heir tax rate where family wealth advantage = 0.
+    /// Uses bisection method for reliability. Returns 0 if conversion always wins, 1.0 if never wins.
+    var legacyBreakEvenHeirTaxRate: Double {
+        guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return 0 }
+
+        // If it's positive at 0% heir rate, conversion always wins (break-even < 0)
+        let advantageAt0 = familyWealthAdvantageAtHeirRate(0.0)
+        if advantageAt0 >= 0 { return 0 }
+
+        // If it's negative at 100%, conversion never wins
+        let advantageAt100 = familyWealthAdvantageAtHeirRate(1.0)
+        if advantageAt100 <= 0 { return 1.0 }
+
+        // Bisection: find where advantage crosses zero
+        var lo = 0.0
+        var hi = 1.0
+        for _ in 0..<50 {
+            let mid = (lo + hi) / 2
+            let adv = familyWealthAdvantageAtHeirRate(mid)
+            if adv < 0 {
+                lo = mid
+            } else {
+                hi = mid
+            }
+        }
+        return (lo + hi) / 2
+    }
+
+    /// Whether the conversion is mathematically favorable based on break-even analysis.
+    var legacyConversionIsFavorable: Bool {
+        legacyHeirTaxRate > legacyBreakEvenHeirTaxRate
+    }
+
+    /// Family wealth advantage at multiple time horizons.
+    /// Uses simplified projection (no RMD drag) for the horizon table since we vary the time.
+    var legacyBreakEvenAtHorizons: [(years: Int, rate: Double, advantage: Double)] {
+        guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return [] }
+        let rPretax = primaryGrowthRate / 100
+        let rTaxable = taxableAccountGrowthRate / 100
+        let heirRate = legacyHeirTaxRate
+
+        return [10, 20, 30].map { totalYears in
+            let rothFV = scenarioTotalRothConversion * pow(1 + rPretax, Double(totalYears))
+            let tradFV = rothFV * (1 - heirRate)
+            let taxKeptFV = legacyConversionTaxPaidToday * pow(1 + rTaxable, Double(totalYears))
+            let advantage = rothFV - tradFV - taxKeptFV
+
+            // Numerically find break-even for this horizon
+            var lo = 0.0
+            var hi = 1.0
+            for _ in 0..<40 {
+                let mid = (lo + hi) / 2
+                let testTradFV = rothFV * (1 - mid)
+                let testAdv = rothFV - testTradFV - taxKeptFV
+                if testAdv < 0 { lo = mid } else { hi = mid }
+            }
+            let breakEven = (lo + hi) / 2
+
+            return (years: totalYears, rate: breakEven, advantage: advantage)
+        }
+    }
+
+    // MARK: - Compounding Divergence Chart Data
+
+    /// Data point for the Roth vs Traditional compounding chart.
+    struct LegacyCompoundingPoint: Identifiable {
+        let id = UUID()
+        let year: Int
+        let rothValue: Double       // Tax-free value to heir
+        let traditionalValue: Double // After-tax value to heir + tax money kept
+    }
+
+    /// Year-by-year data showing how Roth and Traditional paths diverge.
+    /// Roth path: converted amount compounds tax-free.
+    /// Traditional path: same amount compounds tax-deferred (heir pays tax) + tax money compounds at after-tax rate.
+    var legacyCompoundingChartData: [LegacyCompoundingPoint] {
+        guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return [] }
+        let converted = scenarioTotalRothConversion
+        let taxPaid = legacyConversionTaxPaidToday
+        let rPretax = primaryGrowthRate / 100
+        let rTaxable = taxableAccountGrowthRate / 100
+        let heirRate = legacyHeirTaxRate
+        let maxYears = min(40, legacyYearsUntilDeath + legacyDrawdownYears)
+
+        // Generate points every 5 years plus year 0 and the projection endpoint
+        var points: [LegacyCompoundingPoint] = []
+        for year in stride(from: 0, through: maxYears, by: 5) {
+            let rothFV = converted * pow(1 + rPretax, Double(year))
+            let tradFV = converted * pow(1 + rPretax, Double(year)) * (1 - heirRate)
+            let taxKeptFV = taxPaid * pow(1 + rTaxable, Double(year))
+            points.append(LegacyCompoundingPoint(
+                year: year,
+                rothValue: rothFV,
+                traditionalValue: tradFV + taxKeptFV
+            ))
+        }
+        // Add the exact endpoint if it doesn't land on a 5-year mark
+        if maxYears % 5 != 0 {
+            let rothFV = converted * pow(1 + rPretax, Double(maxYears))
+            let tradFV = converted * pow(1 + rPretax, Double(maxYears)) * (1 - heirRate)
+            let taxKeptFV = taxPaid * pow(1 + rTaxable, Double(maxYears))
+            points.append(LegacyCompoundingPoint(
+                year: maxYears,
+                rothValue: rothFV,
+                traditionalValue: tradFV + taxKeptFV
+            ))
+        }
+        return points
+    }
+
+    /// The year at which the Roth path overtakes the Traditional+tax path.
+    /// Returns nil if Roth always wins (break-even at year 0) or never wins within the projection.
+    var legacyBreakEvenYear: Int? {
+        guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return nil }
+        let converted = scenarioTotalRothConversion
+        let taxPaid = legacyConversionTaxPaidToday
+        let rPretax = primaryGrowthRate / 100
+        let rTaxable = taxableAccountGrowthRate / 100
+        let heirRate = legacyHeirTaxRate
+        let maxYears = legacyYearsUntilDeath + legacyDrawdownYears
+
+        // Check year 0 — if Roth already wins, no crossover to mark
+        let roth0 = converted
+        let trad0 = converted * (1 - heirRate) + taxPaid
+        if roth0 >= trad0 { return 0 }
+
+        for year in 1...maxYears {
+            let rothFV = converted * pow(1 + rPretax, Double(year))
+            let tradFV = converted * pow(1 + rPretax, Double(year)) * (1 - heirRate)
+            let taxKeptFV = taxPaid * pow(1 + rTaxable, Double(year))
+            if rothFV >= (tradFV + taxKeptFV) {
+                return year
+            }
+        }
+        return nil // Never crosses within projection
+    }
+
+    /// "Return on taxes paid" — frames the conversion as an investment decision.
+    /// Family wealth gained divided by tax paid, annualized over the projection period.
+    var legacyReturnOnTaxesPaid: Double {
+        guard legacyConversionTaxPaidToday > 0 else { return 0 }
+        let gain = legacyFamilyWealthAdvantage
+        return (gain / legacyConversionTaxPaidToday) * 100
+    }
+
+    /// Enhanced heir type description with peak-earning-years framing.
+    var legacyHeirTypeDescriptionDetailed: String {
+        switch legacyHeirType {
+        case "spouse":
+            return "Your spouse can roll this into their own IRA \u{2014} no forced distribution timeline. Projected over ~\(legacyDrawdownYears) years."
+        default:
+            return "Your heir must withdraw everything within 10 years \u{2014} typically during their peak earning years (50s\u{2013}60s), at their highest tax rates."
+        }
+    }
+
+    // MARK: - Widow Tax Bracket Analysis
+
+    /// Whether the widow tax bracket analysis applies (married filing jointly with spouse enabled).
+    var widowBracketApplies: Bool {
+        filingStatus == .marriedFilingJointly && enableSpouse
+    }
+
+    /// The taxable income used for bracket comparison (scenario or baseline).
+    var widowComparisonIncome: Double {
+        hasActiveScenario ? scenarioTaxableIncome : scenarioBaseIncome
+    }
+
+    /// Current marginal federal bracket rate as Married Filing Jointly.
+    var widowCurrentMarginalRate: Double {
+        let info = federalBracketInfo(income: widowComparisonIncome, filingStatus: .marriedFilingJointly)
+        return info.currentRate
+    }
+
+    /// Marginal federal bracket rate the surviving spouse would face filing Single on similar income.
+    /// Uses ~90% of current income to approximate post-death income (one SS benefit drops off,
+    /// but RMDs, pensions, and investments remain).
+    var widowSurvivorMarginalRate: Double {
+        let survivorIncome = widowComparisonIncome * 0.85
+        let info = federalBracketInfo(income: survivorIncome, filingStatus: .single)
+        return info.currentRate
+    }
+
+    /// The bracket jump in percentage points (e.g., 24% → 32% = 8 points).
+    var widowBracketJump: Double {
+        widowSurvivorMarginalRate - widowCurrentMarginalRate
+    }
+
+    /// Whether there is a meaningful bracket jump for the survivor.
+    var widowHasBracketJump: Bool {
+        widowBracketApplies && widowBracketJump > 0
+    }
+
+    /// Estimated additional tax per year the survivor would pay on RMD income
+    /// due to the bracket jump.
+    var widowAdditionalTaxPerYear: Double {
+        guard widowHasBracketJump else { return 0 }
+        // Approximate: the RMD portion that moves into the higher bracket
+        let rmdIncome = calculateRMD(for: max(rmdAge, currentAge), balance: totalTraditionalIRABalance)
+        return rmdIncome * widowBracketJump
+    }
+
+    /// Tax saved per dollar converted now (convert at married rate, avoid survivor's single rate).
+    var widowSavingsPerDollarConverted: Double {
+        guard widowHasBracketJump else { return 0 }
+        return widowSurvivorMarginalRate - widowCurrentMarginalRate
+    }
+
+    /// Estimated tax saved on the scenario's Roth conversion amount due to bracket arbitrage.
+    var widowConversionBracketSavings: Double {
+        guard widowHasBracketJump, scenarioTotalRothConversion > 0 else { return 0 }
+        return scenarioTotalRothConversion * widowSavingsPerDollarConverted
     }
 
     // MARK: - Setup Progress

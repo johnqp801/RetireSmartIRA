@@ -344,14 +344,24 @@ struct DashboardView: View {
             let totalBaseline = dataManager.totalAnnualIncome() + combinedRMD + inheritedRMD
             if totalBaseline > 0 {
                 Divider()
-                HStack {
-                    Text("Total Baseline Income")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text(totalBaseline, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.bold)
+                ViewThatFits {
+                    HStack {
+                        Text("Total Baseline Income")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(totalBaseline, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Total Baseline Income")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(totalBaseline, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                    }
                 }
             }
         }
@@ -1241,7 +1251,7 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("IRMAA Medicare Surcharge")
                             .font(.headline)
-                        Text("Based on \(dataManager.filingStatus.rawValue) MAGI")
+                        Text("Based on \(dataManager.filingStatus.rawValue) MAGI · Affects \(dataManager.currentYear + 2) premiums")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

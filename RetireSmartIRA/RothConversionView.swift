@@ -265,15 +265,26 @@ struct RothConversionView: View {
 
                     Divider()
 
-                    HStack {
-                        Text("Total Tax Due")
-                            .font(.callout)
-                            .fontWeight(.semibold)
-                        Spacer()
-                        Text(analysis.totalTax, format: .currency(code: "USD"))
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.red)
+                    ViewThatFits {
+                        HStack {
+                            Text("Total Tax Due")
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Text(analysis.totalTax, format: .currency(code: "USD"))
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.red)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Total Tax Due")
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                            Text(analysis.totalTax, format: .currency(code: "USD"))
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
             }

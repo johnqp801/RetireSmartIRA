@@ -494,17 +494,26 @@ struct RMDCalculatorView: View {
                 // Grand Total
                 Divider()
 
-                HStack {
-                    Text(dataManager.enableSpouse ? "Total Household RMD" : "Total Required Withdrawal")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
-                    Spacer()
-
-                    Text(grandTotalRMD, format: .currency(code: "USD"))
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundStyle(hasInheritedRMDs && !dataManager.isRMDRequired ? .orange : .blue)
+                ViewThatFits {
+                    HStack {
+                        Text(dataManager.enableSpouse ? "Total Household RMD" : "Total Required Withdrawal")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(grandTotalRMD, format: .currency(code: "USD"))
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundStyle(hasInheritedRMDs && !dataManager.isRMDRequired ? .orange : .blue)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(dataManager.enableSpouse ? "Total Household RMD" : "Total Required Withdrawal")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                        Text(grandTotalRMD, format: .currency(code: "USD"))
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundStyle(hasInheritedRMDs && !dataManager.isRMDRequired ? .orange : .blue)
+                    }
                 }
             }
             .padding()
