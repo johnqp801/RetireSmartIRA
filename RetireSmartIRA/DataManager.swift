@@ -63,6 +63,7 @@ class DataManager: ObservableObject {
     @Published var enableLegacyPlanning: Bool = false
     @Published var legacyHeirType: String = "adultChild"   // "spouse", "adultChild", "other"
     @Published var legacyHeirTaxRate: Double = 0.24         // heir's estimated federal tax rate
+    @Published var legacySpouseSurvivorYears: Int = 10      // years spouse lives after owner dies (spouseThenChild)
 
     /// After-tax return on money kept in a taxable account (opportunity cost of conversion).
     /// Derived as 5/8 of the pretax investment return to reflect tax drag.
@@ -1472,6 +1473,10 @@ class DataManager: ObservableObject {
         if defaults.object(forKey: StorageKey.legacyHeirTaxRate) != nil {
             self.legacyHeirTaxRate = defaults.double(forKey: StorageKey.legacyHeirTaxRate)
         }
+        if defaults.object(forKey: StorageKey.legacySpouseSurvivorYears) != nil {
+            let stored = defaults.integer(forKey: StorageKey.legacySpouseSurvivorYears)
+            self.legacySpouseSurvivorYears = stored > 0 ? stored : 10
+        }
         // taxableAccountGrowthRate is computed from primaryGrowthRate
     }
 
@@ -1524,6 +1529,7 @@ class DataManager: ObservableObject {
         static let enableLegacyPlanning = "enableLegacyPlanning"
         static let legacyHeirType = "legacyHeirType"
         static let legacyHeirTaxRate = "legacyHeirTaxRate"
+        static let legacySpouseSurvivorYears = "legacySpouseSurvivorYears"
         // taxableAccountGrowthRate is now computed from primaryGrowthRate (5/8 ratio)
     }
 
@@ -1586,6 +1592,7 @@ class DataManager: ObservableObject {
         defaults.set(enableLegacyPlanning, forKey: StorageKey.enableLegacyPlanning)
         defaults.set(legacyHeirType, forKey: StorageKey.legacyHeirType)
         defaults.set(legacyHeirTaxRate, forKey: StorageKey.legacyHeirTaxRate)
+        defaults.set(legacySpouseSurvivorYears, forKey: StorageKey.legacySpouseSurvivorYears)
         // taxableAccountGrowthRate is computed from primaryGrowthRate
     }
 
@@ -2662,6 +2669,8 @@ class DataManager: ObservableObject {
         switch legacyHeirType {
         case "spouse":
             return "Your spouse can roll this into their own IRA \u{2014} no forced distribution timeline."
+        case "spouseThenChild":
+            return "Spouse inherits first (rollover), then your child inherits after \(legacySpouseSurvivorYears) years under the 10-year rule."
         default:
             return "Your heir must withdraw the full balance within 10 years \u{2014} at their tax rate."
         }
@@ -2677,6 +2686,16 @@ class DataManager: ObservableObject {
         legacyHeirType == "spouse" ? 20 : 10
     }
 
+    /// Total years from owner's death to end of all heir drawdowns.
+    /// For spouseThenChild: spouse survivor years + child's 10-year SECURE Act.
+    var legacyTotalPostDeathYears: Int {
+        switch legacyHeirType {
+        case "spouse": return 20
+        case "spouseThenChild": return legacySpouseSurvivorYears + 10
+        default: return 10
+        }
+    }
+
     /// Estimated years until death, based on IRS Single Life Expectancy table.
     /// Capped at a minimum of 5 years to avoid degenerate projections.
     var legacyYearsUntilDeath: Int {
@@ -2687,6 +2706,83 @@ class DataManager: ObservableObject {
     /// Estimated age at death for display purposes.
     var legacyEstimatedDeathAge: Int {
         currentAge + legacyYearsUntilDeath
+    }
+
+    // MARK: - Legacy Calculation Cache
+
+    /// Cache key capturing all inputs that affect legacy calculations.
+    /// When any input changes, the cache is invalidated and results recalculate.
+    private struct LegacyCacheKey: Equatable {
+        let rothConversion: Double
+        let qcd: Double
+        let traditionalBalance: Double
+        let rothBalance: Double
+        let growthRate: Double
+        let taxableGrowthRate: Double
+        let heirTaxRate: Double
+        let heirType: String
+        let currentAge: Int
+        let rmdAge: Int
+        let taxPaid: Double
+        let spouseSurvivorYears: Int
+    }
+
+    /// Cached results of expensive legacy calculations.
+    private struct LegacyCacheResults {
+        let breakEvenHeirTaxRate: Double
+        let breakEvenAtHorizons: [(years: Int, rate: Double, advantage: Double)]
+        let compoundingChartData: [LegacyCompoundingPoint]
+        let breakEvenYear: Int?
+    }
+
+    /// The current cache key — computed from live inputs.
+    private var legacyCacheKey: LegacyCacheKey {
+        LegacyCacheKey(
+            rothConversion: scenarioTotalRothConversion,
+            qcd: scenarioTotalQCD,
+            traditionalBalance: totalTraditionalIRABalance,
+            rothBalance: totalRothBalance,
+            growthRate: primaryGrowthRate,
+            taxableGrowthRate: taxableAccountGrowthRate,
+            heirTaxRate: legacyHeirTaxRate,
+            heirType: legacyHeirType,
+            currentAge: currentAge,
+            rmdAge: rmdAge,
+            taxPaid: legacyConversionTaxPaidToday,
+            spouseSurvivorYears: legacySpouseSurvivorYears
+        )
+    }
+
+    /// Stored cache key from last calculation.
+    private var _legacyCachedKey: LegacyCacheKey?
+    /// Stored cached results.
+    private var _legacyCachedResults: LegacyCacheResults?
+
+    /// Returns cached results, recalculating only if inputs changed.
+    private func getLegacyCachedResults() -> LegacyCacheResults {
+        let key = legacyCacheKey
+        if let cached = _legacyCachedResults, _legacyCachedKey == key {
+            return cached
+        }
+        let results = computeLegacyResults()
+        // Cache on self (class, so mutation is fine)
+        (self as DataManager)._legacyCachedKey = key
+        (self as DataManager)._legacyCachedResults = results
+        return results
+    }
+
+    /// Performs all expensive legacy calculations in a single pass.
+    private func computeLegacyResults() -> LegacyCacheResults {
+        let breakEvenRate = computeBreakEvenHeirTaxRate()
+        let horizons = computeBreakEvenAtHorizons()
+        let chartData = computeCompoundingChartData()
+        let breakEvenYr = computeBreakEvenYear()
+        return LegacyCacheResults(
+            breakEvenHeirTaxRate: breakEvenRate,
+            breakEvenAtHorizons: horizons,
+            compoundingChartData: chartData,
+            breakEvenYear: breakEvenYr
+        )
     }
 
     // MARK: - Legacy Projection Engine
@@ -2735,6 +2831,52 @@ class DataManager: ObservableObject {
         return totalWithdrawn
     }
 
+    // MARK: - Spouse-then-Child Chain Projections
+
+    /// Projects Traditional IRA through three phases: owner's life → spouse rollover → child's 10-year drawdown.
+    /// Phase 1: Owner takes RMDs, balance grows until owner's death.
+    /// Phase 2: Spouse rolls into own IRA, takes spouse RMDs, balance grows for survivor years.
+    /// Phase 3: Child inherits and must empty in 10 years (SECURE Act).
+    private func projectTraditionalSpouseThenChild(startingBalance: Double) -> Double {
+        guard startingBalance > 0 else { return 0 }
+
+        // Phase 1: Owner's lifetime (reuse existing function)
+        let balanceAtOwnerDeath = projectTraditionalToInheritance(startingBalance: startingBalance)
+
+        // Phase 2: Spouse rollover period — spouse takes RMDs based on their age
+        var balance = balanceAtOwnerDeath
+        let spouseAgeAtInheritance = (currentYear - spouseBirthYear) + legacyYearsUntilDeath
+        // Compute spouse RMD age from birth year directly (avoid enableSpouse guard)
+        let spouseRmdStartAge: Int = spouseBirthYear >= 1960 ? 75 : (spouseBirthYear >= 1951 ? 73 : 72)
+
+        for yearOffset in 0..<legacySpouseSurvivorYears {
+            let spouseAge = spouseAgeAtInheritance + yearOffset + 1
+            if spouseAge >= spouseRmdStartAge {
+                let rmd = calculateRMD(for: spouseAge, balance: balance)
+                balance -= rmd
+            }
+            balance *= (1 + primaryGrowthRate / 100)
+        }
+        let balanceAtSpouseDeath = max(0, balance)
+
+        // Phase 3: Child inherits — 10-year SECURE Act forced drawdown
+        // Use projectHeirDrawdownTotal which uses legacyDrawdownYears (10 for spouseThenChild)
+        return projectHeirDrawdownTotal(startingBalance: balanceAtSpouseDeath)
+    }
+
+    /// Projects Roth IRA through three phases: owner's life → spouse rollover → child's 10-year drawdown.
+    /// Roth has no RMDs for owner or spouse (spousal rollover), so phases 1+2 are pure compounding.
+    private func projectRothSpouseThenChild(startingBalance: Double) -> Double {
+        guard startingBalance > 0 else { return 0 }
+
+        // Phases 1+2: Pure compounding through owner's life + spouse's rollover period (no Roth RMDs)
+        let totalCompoundingYears = legacyYearsUntilDeath + legacySpouseSurvivorYears
+        let balanceAtSpouseDeath = startingBalance * pow(1 + primaryGrowthRate / 100, Double(totalCompoundingYears))
+
+        // Phase 3: Child inherits — 10-year drawdown (all tax-free for Roth)
+        return projectHeirDrawdownTotal(startingBalance: balanceAtSpouseDeath)
+    }
+
     // MARK: - "Do Nothing" Scenario (no conversions, no QCDs)
 
     /// Traditional IRA balance at death WITHOUT any scenario actions.
@@ -2749,7 +2891,10 @@ class DataManager: ObservableObject {
 
     /// Heir's total taxable drawdown from Traditional IRA WITHOUT scenario (includes growth during drawdown).
     var legacyNoActionHeirTaxableDrawdown: Double {
-        projectHeirDrawdownTotal(startingBalance: legacyNoActionTraditionalAtDeath)
+        if legacyHeirType == "spouseThenChild" {
+            return projectTraditionalSpouseThenChild(startingBalance: totalTraditionalIRABalance)
+        }
+        return projectHeirDrawdownTotal(startingBalance: legacyNoActionTraditionalAtDeath)
     }
 
     /// Heir's total tax bill WITHOUT scenario actions.
@@ -2772,7 +2917,10 @@ class DataManager: ObservableObject {
 
     /// Heir's total taxable drawdown from Traditional IRA WITH scenario.
     var legacyWithScenarioHeirTaxableDrawdown: Double {
-        projectHeirDrawdownTotal(startingBalance: legacyWithScenarioTraditionalAtDeath)
+        if legacyHeirType == "spouseThenChild" {
+            return projectTraditionalSpouseThenChild(startingBalance: legacyTraditionalAtInheritance)
+        }
+        return projectHeirDrawdownTotal(startingBalance: legacyWithScenarioTraditionalAtDeath)
     }
 
     /// Heir's tax bill WITH scenario actions.
@@ -2817,7 +2965,7 @@ class DataManager: ObservableObject {
     /// This is the opportunity cost of paying the conversion tax today.
     var legacyTaxMoneyFutureValue: Double {
         guard legacyConversionTaxPaidToday > 0 else { return 0 }
-        let years = Double(legacyYearsUntilDeath + legacyDrawdownYears)
+        let years = Double(legacyYearsUntilDeath + legacyTotalPostDeathYears)
         return legacyConversionTaxPaidToday * pow(1 + taxableAccountGrowthRate / 100, years)
     }
 
@@ -2825,7 +2973,12 @@ class DataManager: ObservableObject {
     /// Heir's after-tax Traditional IRA drawdown + tax money that stayed invested in taxable account.
     var legacyNoConversionTotalWealth: Double {
         let heirAfterTaxTraditional = legacyNoActionHeirTaxableDrawdown * (1 - legacyHeirTaxRate)
-        let heirRothTaxFree = projectHeirDrawdownTotal(startingBalance: legacyNoActionRothAtDeath)
+        let heirRothTaxFree: Double
+        if legacyHeirType == "spouseThenChild" {
+            heirRothTaxFree = projectRothSpouseThenChild(startingBalance: totalRothBalance)
+        } else {
+            heirRothTaxFree = projectHeirDrawdownTotal(startingBalance: legacyNoActionRothAtDeath)
+        }
         let taxMoneyKept = legacyTaxMoneyFutureValue
         return heirAfterTaxTraditional + heirRothTaxFree + taxMoneyKept
     }
@@ -2834,7 +2987,12 @@ class DataManager: ObservableObject {
     /// Heir's after-tax Traditional (smaller) + heir's tax-free Roth (larger) — no tax money left over.
     var legacyWithConversionTotalWealth: Double {
         let heirAfterTaxTraditional = legacyWithScenarioHeirTaxableDrawdown * (1 - legacyHeirTaxRate)
-        let heirRothTaxFree = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioRothAtDeath)
+        let heirRothTaxFree: Double
+        if legacyHeirType == "spouseThenChild" {
+            heirRothTaxFree = projectRothSpouseThenChild(startingBalance: legacyRothAtInheritance)
+        } else {
+            heirRothTaxFree = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioRothAtDeath)
+        }
         return heirAfterTaxTraditional + heirRothTaxFree
     }
 
@@ -2850,23 +3008,34 @@ class DataManager: ObservableObject {
     /// This ensures break-even is consistent with the main wealth comparison.
     private func familyWealthAdvantageAtHeirRate(_ testRate: Double) -> Double {
         guard scenarioTotalRothConversion > 0 else { return 0 }
-        let rPretax = primaryGrowthRate / 100
         let rTaxable = taxableAccountGrowthRate / 100
 
-        // "No conversion" wealth: heir's after-tax Traditional + tax money kept invested
-        let noActionTradAtDeath = legacyNoActionTraditionalAtDeath
-        let noActionHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: noActionTradAtDeath)
+        // "No conversion" wealth: heir's after-tax Traditional + Roth + tax money kept invested
+        let noActionHeirTaxableDrawdown: Double
+        let noActionRothDrawdown: Double
+        if legacyHeirType == "spouseThenChild" {
+            noActionHeirTaxableDrawdown = projectTraditionalSpouseThenChild(startingBalance: totalTraditionalIRABalance)
+            noActionRothDrawdown = projectRothSpouseThenChild(startingBalance: totalRothBalance)
+        } else {
+            noActionHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: legacyNoActionTraditionalAtDeath)
+            noActionRothDrawdown = projectHeirDrawdownTotal(startingBalance: legacyNoActionRothAtDeath)
+        }
         let noActionHeirAfterTax = noActionHeirTaxableDrawdown * (1 - testRate)
-        let noActionRothDrawdown = projectHeirDrawdownTotal(startingBalance: legacyNoActionRothAtDeath)
-        let totalYears = Double(legacyYearsUntilDeath + legacyDrawdownYears)
+        let totalYears = Double(legacyYearsUntilDeath + legacyTotalPostDeathYears)
         let taxMoneyGrown = legacyConversionTaxPaidToday * pow(1 + rTaxable, totalYears)
         let noConversionWealth = noActionHeirAfterTax + noActionRothDrawdown + taxMoneyGrown
 
         // "With conversion" wealth: heir's after-tax smaller Traditional + larger Roth
-        let withScenarioTradAtDeath = legacyWithScenarioTraditionalAtDeath
-        let withHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: withScenarioTradAtDeath)
+        let withHeirTaxableDrawdown: Double
+        let withRothDrawdown: Double
+        if legacyHeirType == "spouseThenChild" {
+            withHeirTaxableDrawdown = projectTraditionalSpouseThenChild(startingBalance: legacyTraditionalAtInheritance)
+            withRothDrawdown = projectRothSpouseThenChild(startingBalance: legacyRothAtInheritance)
+        } else {
+            withHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioTraditionalAtDeath)
+            withRothDrawdown = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioRothAtDeath)
+        }
         let withHeirAfterTax = withHeirTaxableDrawdown * (1 - testRate)
-        let withRothDrawdown = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioRothAtDeath)
         let withConversionWealth = withHeirAfterTax + withRothDrawdown
 
         return withConversionWealth - noConversionWealth
@@ -2875,27 +3044,24 @@ class DataManager: ObservableObject {
     /// Numerically finds the heir tax rate where family wealth advantage = 0.
     /// Uses bisection method for reliability. Returns 0 if conversion always wins, 1.0 if never wins.
     var legacyBreakEvenHeirTaxRate: Double {
+        return getLegacyCachedResults().breakEvenHeirTaxRate
+    }
+
+    private func computeBreakEvenHeirTaxRate() -> Double {
         guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return 0 }
 
-        // If it's positive at 0% heir rate, conversion always wins (break-even < 0)
         let advantageAt0 = familyWealthAdvantageAtHeirRate(0.0)
         if advantageAt0 >= 0 { return 0 }
 
-        // If it's negative at 100%, conversion never wins
         let advantageAt100 = familyWealthAdvantageAtHeirRate(1.0)
         if advantageAt100 <= 0 { return 1.0 }
 
-        // Bisection: find where advantage crosses zero
         var lo = 0.0
         var hi = 1.0
         for _ in 0..<50 {
             let mid = (lo + hi) / 2
             let adv = familyWealthAdvantageAtHeirRate(mid)
-            if adv < 0 {
-                lo = mid
-            } else {
-                hi = mid
-            }
+            if adv < 0 { lo = mid } else { hi = mid }
         }
         return (lo + hi) / 2
     }
@@ -2908,6 +3074,10 @@ class DataManager: ObservableObject {
     /// Family wealth advantage at multiple time horizons.
     /// Uses simplified projection (no RMD drag) for the horizon table since we vary the time.
     var legacyBreakEvenAtHorizons: [(years: Int, rate: Double, advantage: Double)] {
+        return getLegacyCachedResults().breakEvenAtHorizons
+    }
+
+    private func computeBreakEvenAtHorizons() -> [(years: Int, rate: Double, advantage: Double)] {
         guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return [] }
         let rPretax = primaryGrowthRate / 100
         let rTaxable = taxableAccountGrowthRate / 100
@@ -2919,7 +3089,6 @@ class DataManager: ObservableObject {
             let taxKeptFV = legacyConversionTaxPaidToday * pow(1 + rTaxable, Double(totalYears))
             let advantage = rothFV - tradFV - taxKeptFV
 
-            // Numerically find break-even for this horizon
             var lo = 0.0
             var hi = 1.0
             for _ in 0..<40 {
@@ -2929,7 +3098,6 @@ class DataManager: ObservableObject {
                 if testAdv < 0 { lo = mid } else { hi = mid }
             }
             let breakEven = (lo + hi) / 2
-
             return (years: totalYears, rate: breakEven, advantage: advantage)
         }
     }
@@ -2948,36 +3116,30 @@ class DataManager: ObservableObject {
     /// Roth path: converted amount compounds tax-free.
     /// Traditional path: same amount compounds tax-deferred (heir pays tax) + tax money compounds at after-tax rate.
     var legacyCompoundingChartData: [LegacyCompoundingPoint] {
+        return getLegacyCachedResults().compoundingChartData
+    }
+
+    private func computeCompoundingChartData() -> [LegacyCompoundingPoint] {
         guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return [] }
         let converted = scenarioTotalRothConversion
         let taxPaid = legacyConversionTaxPaidToday
         let rPretax = primaryGrowthRate / 100
         let rTaxable = taxableAccountGrowthRate / 100
         let heirRate = legacyHeirTaxRate
-        let maxYears = min(40, legacyYearsUntilDeath + legacyDrawdownYears)
+        let maxYears = min(40, legacyYearsUntilDeath + legacyTotalPostDeathYears)
 
-        // Generate points every 5 years plus year 0 and the projection endpoint
         var points: [LegacyCompoundingPoint] = []
         for year in stride(from: 0, through: maxYears, by: 5) {
             let rothFV = converted * pow(1 + rPretax, Double(year))
             let tradFV = converted * pow(1 + rPretax, Double(year)) * (1 - heirRate)
             let taxKeptFV = taxPaid * pow(1 + rTaxable, Double(year))
-            points.append(LegacyCompoundingPoint(
-                year: year,
-                rothValue: rothFV,
-                traditionalValue: tradFV + taxKeptFV
-            ))
+            points.append(LegacyCompoundingPoint(year: year, rothValue: rothFV, traditionalValue: tradFV + taxKeptFV))
         }
-        // Add the exact endpoint if it doesn't land on a 5-year mark
         if maxYears % 5 != 0 {
             let rothFV = converted * pow(1 + rPretax, Double(maxYears))
             let tradFV = converted * pow(1 + rPretax, Double(maxYears)) * (1 - heirRate)
             let taxKeptFV = taxPaid * pow(1 + rTaxable, Double(maxYears))
-            points.append(LegacyCompoundingPoint(
-                year: maxYears,
-                rothValue: rothFV,
-                traditionalValue: tradFV + taxKeptFV
-            ))
+            points.append(LegacyCompoundingPoint(year: maxYears, rothValue: rothFV, traditionalValue: tradFV + taxKeptFV))
         }
         return points
     }
@@ -2985,15 +3147,18 @@ class DataManager: ObservableObject {
     /// The year at which the Roth path overtakes the Traditional+tax path.
     /// Returns nil if Roth always wins (break-even at year 0) or never wins within the projection.
     var legacyBreakEvenYear: Int? {
+        return getLegacyCachedResults().breakEvenYear
+    }
+
+    private func computeBreakEvenYear() -> Int? {
         guard scenarioTotalRothConversion > 0, legacyConversionTaxPaidToday > 0 else { return nil }
         let converted = scenarioTotalRothConversion
         let taxPaid = legacyConversionTaxPaidToday
         let rPretax = primaryGrowthRate / 100
         let rTaxable = taxableAccountGrowthRate / 100
         let heirRate = legacyHeirTaxRate
-        let maxYears = legacyYearsUntilDeath + legacyDrawdownYears
+        let maxYears = legacyYearsUntilDeath + legacyTotalPostDeathYears
 
-        // Check year 0 — if Roth already wins, no crossover to mark
         let roth0 = converted
         let trad0 = converted * (1 - heirRate) + taxPaid
         if roth0 >= trad0 { return 0 }
@@ -3002,11 +3167,9 @@ class DataManager: ObservableObject {
             let rothFV = converted * pow(1 + rPretax, Double(year))
             let tradFV = converted * pow(1 + rPretax, Double(year)) * (1 - heirRate)
             let taxKeptFV = taxPaid * pow(1 + rTaxable, Double(year))
-            if rothFV >= (tradFV + taxKeptFV) {
-                return year
-            }
+            if rothFV >= (tradFV + taxKeptFV) { return year }
         }
-        return nil // Never crosses within projection
+        return nil
     }
 
     /// "Return on taxes paid" — frames the conversion as an investment decision.
@@ -3022,6 +3185,8 @@ class DataManager: ObservableObject {
         switch legacyHeirType {
         case "spouse":
             return "Your spouse can roll this into their own IRA \u{2014} no forced distribution timeline. Projected over ~\(legacyDrawdownYears) years."
+        case "spouseThenChild":
+            return "Your spouse rolls this into their own IRA for ~\(legacySpouseSurvivorYears) years, then your child inherits and must withdraw everything within 10 years \u{2014} during their peak earning years."
         default:
             return "Your heir must withdraw everything within 10 years \u{2014} typically during their peak earning years (50s\u{2013}60s), at their highest tax rates."
         }

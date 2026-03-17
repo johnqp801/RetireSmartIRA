@@ -17,6 +17,7 @@ struct TaxPlanningView: View {
     // MARK: - Local UI state for stock text fields (sync to DataManager)
     @State private var stockPurchasePriceText: String = ""
     @State private var stockCurrentValueText: String = ""
+    @State private var stockDebounceTask: Task<Void, Never>?
 
     // MARK: - Section expansion (pure UI state)
     @State private var qcdSectionExpanded: Bool = true
@@ -227,12 +228,22 @@ struct TaxPlanningView: View {
             dataManager.saveAllData()
         }
         .onChange(of: stockPurchasePriceText) { _, newValue in
-            dataManager.stockPurchasePrice = Double(newValue.replacingOccurrences(of: ",", with: "")) ?? 0
-            dataManager.saveAllData()
+            stockDebounceTask?.cancel()
+            stockDebounceTask = Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                dataManager.stockPurchasePrice = Double(newValue.replacingOccurrences(of: ",", with: "")) ?? 0
+                dataManager.saveAllData()
+            }
         }
         .onChange(of: stockCurrentValueText) { _, newValue in
-            dataManager.stockCurrentValue = Double(newValue.replacingOccurrences(of: ",", with: "")) ?? 0
-            dataManager.saveAllData()
+            stockDebounceTask?.cancel()
+            stockDebounceTask = Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                dataManager.stockCurrentValue = Double(newValue.replacingOccurrences(of: ",", with: "")) ?? 0
+                dataManager.saveAllData()
+            }
         }
         .onChange(of: dataManager.yourWithdrawalQuarter) { dataManager.saveAllData() }
         .onChange(of: dataManager.spouseWithdrawalQuarter) { dataManager.saveAllData() }
@@ -244,7 +255,7 @@ struct TaxPlanningView: View {
 
     private var compactBody: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            LazyVStack(spacing: 24) {
                 compactInputsGroup
                 compactResultsGroup
             }
@@ -286,7 +297,7 @@ struct TaxPlanningView: View {
         HStack(alignment: .top, spacing: 20) {
             // Left: scenario inputs
             ScrollView {
-                VStack(spacing: 24) {
+                LazyVStack(spacing: 24) {
                     wideLeftGroupA
                     wideLeftGroupB
                 }
@@ -296,7 +307,7 @@ struct TaxPlanningView: View {
 
             // Right: tax results & analysis
             ScrollView {
-                VStack(spacing: 24) {
+                LazyVStack(spacing: 24) {
                     wideRightGroupA
                     wideRightGroupB
                 }

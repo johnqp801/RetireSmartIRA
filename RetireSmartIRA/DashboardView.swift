@@ -32,7 +32,7 @@ struct DashboardView: View {
 
     private var compactBody: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            LazyVStack(spacing: 24) {
                 headerCard
                 exportPDFButton
                 incomeBreakdown
@@ -51,7 +51,7 @@ struct DashboardView: View {
     private var wideBody: some View {
         HStack(alignment: .top, spacing: 20) {
             ScrollView {
-                VStack(spacing: 24) {
+                LazyVStack(spacing: 24) {
                     headerCard
                     exportPDFButton
                     incomeBreakdown
@@ -64,7 +64,7 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity)
 
             ScrollView {
-                VStack(spacing: 24) {
+                LazyVStack(spacing: 24) {
                     taxProjection
                     taxBracketChart
                     irmaaTierChart

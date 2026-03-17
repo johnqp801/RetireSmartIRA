@@ -34,7 +34,7 @@ struct RMDCalculatorView: View {
 
     private var compactBody: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            LazyVStack(spacing: 24) {
                 statusCard
                 guideCard
                 currentYearRMD
@@ -52,7 +52,7 @@ struct RMDCalculatorView: View {
     private var wideBody: some View {
         HStack(alignment: .top, spacing: 20) {
             ScrollView {
-                VStack(spacing: 24) {
+                LazyVStack(spacing: 24) {
                     statusCard
                     guideCard
                     currentYearRMD
@@ -64,7 +64,7 @@ struct RMDCalculatorView: View {
             .frame(maxWidth: .infinity)
 
             ScrollView {
-                VStack(spacing: 24) {
+                LazyVStack(spacing: 24) {
                     rmdProjectionChart
                     projectionsSection
                     inheritedIRAProjectionsSection

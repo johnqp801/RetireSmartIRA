@@ -105,7 +105,17 @@ struct SettingsView: View {
                     Picker("Primary Heir", selection: $dataManager.legacyHeirType) {
                         Text("Spouse").tag("spouse")
                         Text("Adult Child").tag("adultChild")
+                        Text("Spouse then Child").tag("spouseThenChild")
                         Text("Other").tag("other")
+                    }
+
+                    if dataManager.legacyHeirType == "spouseThenChild" {
+                        Stepper("Spouse survives: \(dataManager.legacySpouseSurvivorYears) years",
+                                value: $dataManager.legacySpouseSurvivorYears,
+                                in: 1...30)
+                        Text("How many years your spouse lives after your death before your child inherits.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     Picker("Heir's Est. Tax Bracket", selection: $dataManager.legacyHeirTaxRate) {
@@ -122,7 +132,13 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 8) {
-                        Image(systemName: dataManager.legacyHeirType == "spouse" ? "person.2.fill" : "clock.fill")
+                        Image(systemName: {
+                            switch dataManager.legacyHeirType {
+                            case "spouse": return "person.2.fill"
+                            case "spouseThenChild": return "person.3.fill"
+                            default: return "clock.fill"
+                            }
+                        }())
                             .foregroundStyle(.blue)
                             .font(.caption)
                         Text(dataManager.legacyHeirTypeDescription)
@@ -164,6 +180,7 @@ struct SettingsView: View {
         .onChange(of: dataManager.enableLegacyPlanning) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirType) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirTaxRate) { dataManager.saveAllData() }
+        .onChange(of: dataManager.legacySpouseSurvivorYears) { dataManager.saveAllData() }
         }
     }
 

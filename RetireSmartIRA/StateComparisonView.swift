@@ -13,7 +13,6 @@ struct StateComparisonView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var searchText = ""
     @State private var selectedStateForDetail: StateComparisonItem? = nil
-    @State private var showingStateDetail = false
 
     var body: some View {
         ScrollView {
@@ -27,15 +26,13 @@ struct StateComparisonView: View {
         }
         .background(Color(PlatformColor.systemGroupedBackground))
         .searchable(text: $searchText, prompt: "Search states")
-        .sheet(isPresented: $showingStateDetail) {
-            if let item = selectedStateForDetail {
-                StateTaxDetailSheet(
-                    item: item,
-                    breakdown: dataManager.stateTaxBreakdown(forState: item.state, filingStatus: dataManager.filingStatus),
-                    currentStateBreakdown: dataManager.stateTaxBreakdown(forState: dataManager.selectedState, filingStatus: dataManager.filingStatus),
-                    currentStateItem: currentStateItem
-                )
-            }
+        .sheet(item: $selectedStateForDetail) { item in
+            StateTaxDetailSheet(
+                item: item,
+                breakdown: dataManager.stateTaxBreakdown(forState: item.state, filingStatus: dataManager.filingStatus),
+                currentStateBreakdown: dataManager.stateTaxBreakdown(forState: dataManager.selectedState, filingStatus: dataManager.filingStatus),
+                currentStateItem: currentStateItem
+            )
         }
     }
 
@@ -149,7 +146,7 @@ struct StateComparisonView: View {
         if let current = currentStateItem {
             Button {
                 selectedStateForDetail = current
-                showingStateDetail = true
+
             } label: {
             VStack(spacing: 10) {
                 HStack {
@@ -417,7 +414,7 @@ struct StateComparisonView: View {
             ForEach(filteredStates) { item in
                 Button {
                     selectedStateForDetail = item
-                    showingStateDetail = true
+    
                 } label: {
                     stateRow(item)
                 }
@@ -560,7 +557,14 @@ private struct StateTaxDetailSheet: View {
             ScrollView {
                 VStack(spacing: 16) {
                     stateHeaderSection
-                    incomeBreakdownSection
+                    if item.state != currentStateBreakdown.state {
+                        savingsHeadlineSection
+                    }
+                    if item.state != currentStateBreakdown.state {
+                        exemptionComparisonSection
+                    } else {
+                        incomeBreakdownSection
+                    }
                     taxCalculationSection
                     if item.state != currentStateBreakdown.state {
                         comparisonSection
@@ -613,6 +617,215 @@ private struct StateTaxDetailSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
+
+    // MARK: - Section 1B: Savings/Cost Headline
+
+    private var savingsHeadlineSection: some View {
+        let diff = breakdown.totalStateTax - currentStateBreakdown.totalStateTax
+        let absDiff = abs(diff)
+        let isCheaper = diff < -1
+        let isMoreExpensive = diff > 1
+        let isNeutral = !isCheaper && !isMoreExpensive
+
+        return VStack(spacing: 6) {
+            if isNeutral {
+                HStack(spacing: 6) {
+                    Image(systemName: "equal.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                    Text("About the same as \(currentStateBreakdown.state.rawValue)")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text(absDiff, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(isCheaper ? .green : .red)
+
+                Text(isCheaper ? "less per year" : "more per year")
+                    .font(.headline)
+                    .foregroundStyle(isCheaper ? .green : .red)
+
+                Text("compared to \(currentStateBreakdown.state.rawValue)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background((isNeutral ? Color.gray : (isCheaper ? Color.green : Color.red)).opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Section 2A: Side-by-Side Exemption Comparison
+
+    private var exemptionComparisonSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("How Each State Treats Your Income")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                Spacer()
+            }
+
+            Divider()
+
+            // Column headers
+            HStack {
+                Text("")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(item.state.abbreviation)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .frame(width: 80)
+                Text(currentStateBreakdown.state.abbreviation)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .frame(width: 80)
+            }
+
+            // Social Security row
+            if breakdown.socialSecurityIncome > 0 || currentStateBreakdown.socialSecurityIncome > 0 {
+                exemptionComparisonRow(
+                    label: "Social Security",
+                    amount: max(breakdown.socialSecurityIncome, currentStateBreakdown.socialSecurityIncome),
+                    thisExempt: breakdown.socialSecurityExempt,
+                    thisExemptAmount: breakdown.socialSecurityExemptAmount,
+                    currentExempt: currentStateBreakdown.socialSecurityExempt,
+                    currentExemptAmount: currentStateBreakdown.socialSecurityExemptAmount
+                )
+            }
+
+            // Pension row
+            if breakdown.pensionIncome > 0 || currentStateBreakdown.pensionIncome > 0 {
+                let thisStatus = exemptionStatusText(breakdown.pensionExemptionLevel, exemptAmount: breakdown.pensionExemptAmount)
+                let currentStatus = exemptionStatusText(currentStateBreakdown.pensionExemptionLevel, exemptAmount: currentStateBreakdown.pensionExemptAmount)
+                let thisColor = exemptionStatusColor(breakdown.pensionExemptionLevel)
+                let currentColor = exemptionStatusColor(currentStateBreakdown.pensionExemptionLevel)
+                comparisonStatusRow(label: "Pension",
+                                    amount: max(breakdown.pensionIncome, currentStateBreakdown.pensionIncome),
+                                    thisStatus: thisStatus, thisColor: thisColor,
+                                    currentStatus: currentStatus, currentColor: currentColor)
+            }
+
+            // IRA/RMD row
+            if breakdown.iraRmdIncome > 0 || currentStateBreakdown.iraRmdIncome > 0 {
+                let thisStatus = exemptionStatusText(breakdown.iraExemptionLevel, exemptAmount: breakdown.iraExemptAmount)
+                let currentStatus = exemptionStatusText(currentStateBreakdown.iraExemptionLevel, exemptAmount: currentStateBreakdown.iraExemptAmount)
+                let thisColor = exemptionStatusColor(breakdown.iraExemptionLevel)
+                let currentColor = exemptionStatusColor(currentStateBreakdown.iraExemptionLevel)
+                comparisonStatusRow(label: "IRA/RMD",
+                                    amount: max(breakdown.iraRmdIncome, currentStateBreakdown.iraRmdIncome),
+                                    thisStatus: thisStatus, thisColor: thisColor,
+                                    currentStatus: currentStatus, currentColor: currentColor)
+            }
+
+            // Other income row
+            if breakdown.otherIncome > 0 || currentStateBreakdown.otherIncome > 0 {
+                comparisonStatusRow(label: "Other Income",
+                                    amount: max(breakdown.otherIncome, currentStateBreakdown.otherIncome),
+                                    thisStatus: "Taxed", thisColor: .red,
+                                    currentStatus: "Taxed", currentColor: .red)
+            }
+
+            Divider()
+
+            // Totals exempted comparison
+            HStack {
+                Text("Total Exempted")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(breakdown.totalExempted, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.green)
+                    .frame(width: 80)
+                Text(currentStateBreakdown.totalExempted, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.green)
+                    .frame(width: 80)
+            }
+
+
+
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    /// Row for Social Security comparison (uses simple exempt/taxed).
+    private func exemptionComparisonRow(label: String, amount: Double, thisExempt: Bool, thisExemptAmount: Double, currentExempt: Bool, currentExemptAmount: Double) -> some View {
+        VStack(spacing: 2) {
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label)
+                        .font(.subheadline)
+                    Text(amount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(thisExempt ? "Exempt" : "Taxed")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(thisExempt ? .green : .red)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background((thisExempt ? Color.green : Color.red).opacity(0.12))
+                    .clipShape(Capsule())
+                    .frame(width: 80)
+                Text(currentExempt ? "Exempt" : "Taxed")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(currentExempt ? .green : .red)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background((currentExempt ? Color.green : Color.red).opacity(0.12))
+                    .clipShape(Capsule())
+                    .frame(width: 80)
+            }
+        }
+    }
+
+    /// Row for pension/IRA comparison using status text and color.
+    private func comparisonStatusRow(label: String, amount: Double, thisStatus: String, thisColor: Color, currentStatus: String, currentColor: Color) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.subheadline)
+                Text(amount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(thisStatus)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(thisColor)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(thisColor.opacity(0.12))
+                .clipShape(Capsule())
+                .frame(width: 80)
+            Text(currentStatus)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(currentColor)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(currentColor.opacity(0.12))
+                .clipShape(Capsule())
+                .frame(width: 80)
+        }
+    }
+
+
+
 
     // MARK: - Section 2: Income Breakdown with Exemptions
 

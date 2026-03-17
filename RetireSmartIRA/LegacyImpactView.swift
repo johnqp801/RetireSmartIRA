@@ -172,9 +172,15 @@ struct LegacyImpactView: View {
 
             let deathAge = dataManager.legacyEstimatedDeathAge
             let yearsLeft = dataManager.legacyYearsUntilDeath
-            let drawdownYears = dataManager.legacyDrawdownYears
             let growthPct = Int(dataManager.primaryGrowthRate)
-            Text("Projected \(yearsLeft) years to age \(deathAge), then heir's \(drawdownYears)-year drawdown at \(growthPct)% growth")
+            Group {
+                if dataManager.legacyHeirType == "spouseThenChild" {
+                    Text("Projected \(yearsLeft) years to age \(deathAge), then spouse rollover for \(dataManager.legacySpouseSurvivorYears) years, then child's 10-year drawdown at \(growthPct)% growth")
+                } else {
+                    let drawdownYears = dataManager.legacyDrawdownYears
+                    Text("Projected \(yearsLeft) years to age \(deathAge), then heir's \(drawdownYears)-year drawdown at \(growthPct)% growth")
+                }
+            }
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -503,7 +509,9 @@ struct LegacyImpactView: View {
                 Text("Removes \(qcdAmount) from your IRA tax-free \u{2014} saves heir ~\(qcdSavings) in future taxes")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Reduces heir's \(dataManager.legacyDrawdownYears)-year tax burden")
+                Text(dataManager.legacyHeirType == "spouseThenChild"
+                     ? "Reduces child's eventual 10-year tax burden"
+                     : "Reduces heir's \(dataManager.legacyDrawdownYears)-year tax burden")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -664,7 +672,7 @@ struct LegacyImpactView: View {
         let rothAtDeath = hasRothConversion
             ? dataManager.legacyWithScenarioRothAtDeath
             : dataManager.legacyNoActionRothAtDeath
-        let drawdownYears = dataManager.legacyDrawdownYears
+        let drawdownYears = dataManager.legacyHeirType == "spouseThenChild" ? 10 : dataManager.legacyDrawdownYears
 
         return Group {
             Divider()
@@ -685,9 +693,15 @@ struct LegacyImpactView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 4) {
                             Circle().fill(.red).frame(width: 6, height: 6)
-                            Text("Traditional IRA: \(compactCurrency(tradAtDeath)) \u{2014} must be emptied in \(drawdownYears) years")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            if dataManager.legacyHeirType == "spouseThenChild" {
+                                Text("Traditional IRA: \(compactCurrency(tradAtDeath)) \u{2014} spouse rolls over, then child empties in 10 years")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Traditional IRA: \(compactCurrency(tradAtDeath)) \u{2014} must be emptied in \(drawdownYears) years")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         HStack(spacing: 4) {
                             Text("   ")
@@ -726,7 +740,13 @@ struct LegacyImpactView: View {
                 }
 
                 HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: dataManager.legacyHeirType == "spouse" ? "person.2.fill" : "clock.fill")
+                    Image(systemName: {
+                        switch dataManager.legacyHeirType {
+                        case "spouse": return "person.2.fill"
+                        case "spouseThenChild": return "person.3.fill"
+                        default: return "clock.fill"
+                        }
+                    }())
                         .foregroundStyle(.blue)
                         .font(.caption2)
                         .padding(.top, 2)
