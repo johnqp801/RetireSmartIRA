@@ -49,23 +49,29 @@ struct ContentView: View {
                 }
                 .tag(5)
 
+            PlanView()
+                .tabItem {
+                    Label("Plan", systemImage: "lightbulb.max")
+                }
+                .tag(6)
+
             DashboardView()
                 .tabItem {
                     Label("Tax Summary", systemImage: "chart.bar.fill")
                 }
-                .tag(6)
+                .tag(7)
 
             QuarterlyTaxView()
                 .tabItem {
                     Label("Quarterly Tax", systemImage: "dollarsign.circle.fill")
                 }
-                .tag(7)
+                .tag(8)
 
             StateComparisonView()
                 .tabItem {
                     Label("State Comparison", systemImage: "map.fill")
                 }
-                .tag(8)
+                .tag(9)
         }
     }
 }
