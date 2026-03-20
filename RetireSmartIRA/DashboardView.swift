@@ -1097,26 +1097,33 @@ struct DashboardView: View {
                         .frame(width: w, height: barHeight)
                         .offset(y: topPad)
 
-                    // 8. Rate + range labels below bar (centered under full bracket width)
-                    ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
-                        let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
-                        let isLast = index == visibleSegments.count - 1
-                        let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
-                        let segX = w * segment.rangeStart / chartMax
-                        let centerX = segX + segW / 2
+                }
+                .frame(height: topPad + barHeight + 6)
 
-                        VStack(spacing: 1) {
-                            Text(segment.label)
-                                .font(.system(size: segW > 55 ? 11 : 9, weight: segment.isCurrent ? .bold : .semibold))
-                                .foregroundStyle(bracketColors[min(globalIdx, bracketColors.count - 1)])
-                            Text("\(chartYAxisLabel(segment.rangeStart))\(isLast && segment.rate >= 0.37 ? "+" : " – \(chartYAxisLabel(segment.rangeEnd))")")
-                                .font(.system(size: segW > 55 ? 9 : 7))
-                                .foregroundStyle(.secondary)
+                // Bracket legend below bar
+                let legendSegments = visibleSegments
+                HStack(spacing: 0) {
+                    ForEach(Array(legendSegments.enumerated()), id: \.element.id) { index, segment in
+                        let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
+                        let isLast = index == legendSegments.count - 1
+                        let color = bracketColors[min(globalIdx, bracketColors.count - 1)]
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(color)
+                                .frame(width: 8, height: 8)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(segment.label)
+                                    .font(.system(size: 10, weight: segment.isCurrent ? .bold : .medium))
+                                    .foregroundStyle(color)
+                                Text("\(chartYAxisLabel(segment.rangeStart))\(isLast && segment.rate >= 0.37 ? "+" : "–\(chartYAxisLabel(segment.rangeEnd))")")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        .position(x: centerX, y: topPad + barHeight + 18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .frame(height: topPad + barHeight + 36)
+                .padding(.horizontal, 4)
 
                 // Room remaining callout
                 if bracketInfo.roomRemaining > 0 {
@@ -1204,7 +1211,7 @@ struct DashboardView: View {
 
             segments.append(IRMAATierSegment(
                 tier: i,
-                label: i == 0 ? "$0/yr" : "+\(chartYAxisLabel(max(0, annualSurcharge)))/yr",
+                label: i == 0 ? "No Surcharge" : "Tier \(i)",
                 rangeStart: threshold,
                 rangeEnd: nextThreshold,
                 surchargePerPerson: max(0, annualSurcharge),
@@ -1314,31 +1321,37 @@ struct DashboardView: View {
                     .clipShape(Capsule())
                     .position(x: magiX, y: 13)
 
-                    // Surcharge + range labels below bar
+                }
+                .frame(height: irmaaBarHeight + 30 + 6)
+
+                // Tier legend below bar
+                HStack(spacing: 0) {
                     ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                         let isLast = index == segments.count - 1
-                        let segW = w * (segment.rangeEnd - segment.rangeStart) / irmaaChartMax
-                        let segX = w * segment.rangeStart / irmaaChartMax
-                        let centerX = segX + segW / 2
-
-                        VStack(spacing: 1) {
-                            Text(segment.label)
-                                .font(.system(size: segW > 50 ? 9 : 7, weight: segment.isCurrent ? .bold : .semibold))
-                                .foregroundStyle(tierColors[min(index, tierColors.count - 1)])
-                            if segment.tier == 0 {
-                                Text("< \(chartYAxisLabel(segments.count > 1 ? segments[1].rangeStart : 0))")
-                                    .font(.system(size: segW > 50 ? 8 : 7))
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("\(chartYAxisLabel(segment.rangeStart))\(isLast ? "+" : "–\(chartYAxisLabel(segment.rangeEnd))")")
-                                    .font(.system(size: segW > 50 ? 8 : 7))
-                                    .foregroundStyle(.secondary)
+                        let color = tierColors[min(index, tierColors.count - 1)]
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(color)
+                                .frame(width: 8, height: 8)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(segment.label)
+                                    .font(.system(size: 10, weight: segment.isCurrent ? .bold : .medium))
+                                    .foregroundStyle(color)
+                                if segment.tier == 0 {
+                                    Text("< \(chartYAxisLabel(segments.count > 1 ? segments[1].rangeStart : 0))")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text("\(chartYAxisLabel(segment.rangeStart))\(isLast ? "+" : "–\(chartYAxisLabel(segment.rangeEnd))")")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
-                        .position(x: centerX, y: irmaaBarHeight + 30 + 18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .frame(height: irmaaBarHeight + 30 + 36)
+                .padding(.horizontal, 4)
 
                 // Callouts
                 VStack(alignment: .leading, spacing: 6) {

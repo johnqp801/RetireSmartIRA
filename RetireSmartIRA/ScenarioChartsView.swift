@@ -201,29 +201,35 @@ private var scenarioFederalBracketChart: some View {
                         .frame(width: w, height: barHeight)
                         .offset(y: topPad)
 
-                    // Rate + range labels below
+                }
+                .frame(height: topPad + barHeight + 6)
+
+                // Bracket legend below bar
+                HStack(spacing: 0) {
                     ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
                         let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
                         let isLast = index == visibleSegments.count - 1
-                        let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
-                        let segX = w * segment.rangeStart / chartMax
-                        let centerX = segX + segW / 2
-
-                        VStack(spacing: 1) {
-                            Text(segment.label)
-                                .font(.system(size: segW > 55 ? 11 : 9, weight: segment.isCurrent ? .bold : .semibold))
-                                .foregroundStyle(bracketColors[min(globalIdx, bracketColors.count - 1)])
-                            let rangeText1 = isLast && segment.rate >= 0.37
-                                ? scenarioChartLabel(segment.rangeStart) + "+"
-                                : scenarioChartLabel(segment.rangeStart) + " – " + scenarioChartLabel(segment.rangeEnd)
-                            Text(rangeText1)
-                                .font(.system(size: segW > 55 ? 9 : 7))
-                                .foregroundStyle(.secondary)
+                        let color = bracketColors[min(globalIdx, bracketColors.count - 1)]
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(color)
+                                .frame(width: 8, height: 8)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(segment.label)
+                                    .font(.system(size: 10, weight: segment.isCurrent ? .bold : .medium))
+                                    .foregroundStyle(color)
+                                let rangeText1 = isLast && segment.rate >= 0.37
+                                    ? scenarioChartLabel(segment.rangeStart) + "+"
+                                    : scenarioChartLabel(segment.rangeStart) + "–" + scenarioChartLabel(segment.rangeEnd)
+                                Text(rangeText1)
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        .position(x: centerX, y: topPad + barHeight + 18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .frame(height: topPad + barHeight + 36)
+                .padding(.horizontal, 4)
 
                 // Average tax rate before → after
                 let beforeFedTax = dataManager.calculateFederalTax(income: beforeIncome, filingStatus: dataManager.filingStatus)
@@ -438,29 +444,35 @@ private var scenarioStateBracketChart: some View {
                             .frame(width: w, height: barHeight)
                             .offset(y: topPad)
 
-                        // Rate + range labels below
+                    }
+                    .frame(height: topPad + barHeight + 6)
+
+                    // Bracket legend below bar
+                    HStack(spacing: 0) {
                         ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
                             let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
                             let isLast = index == visibleSegments.count - 1
-                            let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
-                            let segX = w * segment.rangeStart / chartMax
-                            let centerX = segX + segW / 2
-
-                            VStack(spacing: 1) {
-                                Text(segment.label)
-                                    .font(.system(size: segW > 55 ? 11 : 9, weight: segment.isCurrent ? .bold : .semibold))
-                                    .foregroundStyle(stateColors[min(globalIdx, stateColors.count - 1)])
-                                let rangeText2 = isLast && globalIdx == segments.count - 1
-                                    ? scenarioChartLabel(segment.rangeStart) + "+"
-                                    : scenarioChartLabel(segment.rangeStart) + " – " + scenarioChartLabel(segment.rangeEnd)
-                                Text(rangeText2)
-                                    .font(.system(size: segW > 55 ? 9 : 7))
-                                    .foregroundStyle(.secondary)
+                            let color = stateColors[min(globalIdx, stateColors.count - 1)]
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(segment.label)
+                                        .font(.system(size: 10, weight: segment.isCurrent ? .bold : .medium))
+                                        .foregroundStyle(color)
+                                    let rangeText2 = isLast && globalIdx == segments.count - 1
+                                        ? scenarioChartLabel(segment.rangeStart) + "+"
+                                        : scenarioChartLabel(segment.rangeStart) + "–" + scenarioChartLabel(segment.rangeEnd)
+                                    Text(rangeText2)
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
-                            .position(x: centerX, y: topPad + barHeight + 18)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
-                    .frame(height: topPad + barHeight + 36)
+                    .padding(.horizontal, 4)
 
                     // Average state tax rate before → after
                     let beforeStateTax = dataManager.calculateStateTax(income: beforeIncome, filingStatus: dataManager.filingStatus)
@@ -556,7 +568,7 @@ private var scenarioIRMAATierSegments: [ScenarioIRMAATierSegment] {
 
         segments.append(ScenarioIRMAATierSegment(
             tier: i,
-            label: i == 0 ? "$0/yr" : "+\(scenarioChartLabel(max(0, annualSurcharge)))/yr",
+            label: i == 0 ? "No Surcharge" : "Tier \(i)",
             rangeStart: threshold,
             rangeEnd: nextThreshold,
             surchargePerPerson: max(0, annualSurcharge),
@@ -677,34 +689,40 @@ private var scenarioIRMAAChart: some View {
                     .clipShape(Capsule())
                     .position(x: min(max(afterX, 35), w - 35), y: 26)
 
-                // Surcharge + range labels below bar
+            }
+            .frame(height: barHeight + topPad + 6)
+
+            // Tier legend below bar
+            HStack(spacing: 0) {
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let isLast = index == segments.count - 1
-                    let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
-                    let segX = w * segment.rangeStart / chartMax
-                    let centerX = segX + segW / 2
-
-                    VStack(spacing: 1) {
-                        Text(segment.label)
-                            .font(.system(size: segW > 50 ? 9 : 7, weight: segment.isCurrent ? .bold : .semibold))
-                            .foregroundStyle(tierColors[min(index, tierColors.count - 1)])
-                        if segment.tier == 0 {
-                            Text("< \(scenarioChartLabel(segments.count > 1 ? segments[1].rangeStart : 0))")
-                                .font(.system(size: segW > 50 ? 8 : 7))
-                                .foregroundStyle(.secondary)
-                        } else {
-                            let rangeText3 = isLast
-                                ? scenarioChartLabel(segment.rangeStart) + "+"
-                                : scenarioChartLabel(segment.rangeStart) + "–" + scenarioChartLabel(segment.rangeEnd)
-                            Text(rangeText3)
-                                .font(.system(size: segW > 50 ? 8 : 7))
-                                .foregroundStyle(.secondary)
+                    let color = tierColors[min(index, tierColors.count - 1)]
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 8, height: 8)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(segment.label)
+                                .font(.system(size: 10, weight: segment.isCurrent ? .bold : .medium))
+                                .foregroundStyle(color)
+                            if segment.tier == 0 {
+                                Text("< \(scenarioChartLabel(segments.count > 1 ? segments[1].rangeStart : 0))")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                let rangeText3 = isLast
+                                    ? scenarioChartLabel(segment.rangeStart) + "+"
+                                    : scenarioChartLabel(segment.rangeStart) + "–" + scenarioChartLabel(segment.rangeEnd)
+                                Text(rangeText3)
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
-                    .position(x: centerX, y: barHeight + topPad + 18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .frame(height: barHeight + topPad + 36)
+            .padding(.horizontal, 4)
 
             // Callouts
             VStack(alignment: .leading, spacing: 6) {

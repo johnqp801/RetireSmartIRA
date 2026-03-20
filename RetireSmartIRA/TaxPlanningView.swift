@@ -3330,7 +3330,7 @@ struct TaxImpactView: View {
 }
 
 // MARK: - Currency Input Field
-
+ 
 /// An editable text field that syncs with a Double binding.
 /// Shows the current value formatted as currency; typing a number updates the binding
 /// (and any connected slider). Clamps to min...max on commit.
