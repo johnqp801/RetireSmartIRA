@@ -249,7 +249,7 @@ struct LegacyImpactView: View {
                             RuleMark(x: .value("Break-even", beYear))
                                 .foregroundStyle(.blue)
                                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                                .annotation(position: .top, alignment: .center) {
+                                .annotation(position: .overlay, alignment: .top) {
                                     Text("Yr \(beYear)")
                                         .font(.caption2)
                                         .fontWeight(.bold)
@@ -258,6 +258,7 @@ struct LegacyImpactView: View {
                                         .padding(.vertical, 2)
                                         .background(Color.blue.opacity(0.1))
                                         .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        .offset(y: 4)
                                 }
                         }
                     }

@@ -2469,11 +2469,12 @@ class DataManager: ObservableObject {
         return scenarioTotalTax - withoutWithdrawals
     }
 
-    /// Tax savings from QCD (only the portion that offsets taxable RMD income).
-    /// Pre-RMD QCDs (ages 70½–72) reduce IRA balance but don't save current-year tax.
+    /// Tax savings from QCD — only the portion that offsets a taxable RMD produces
+    /// unambiguous current-year savings.  Pre-RMD, the savings depend on the user's
+    /// alternative (cash donation, stock donation, or no donation), so we report $0
+    /// and instead show an informational AGI-advantage note in the UI.
     var qcdTaxSavings: Double {
         guard scenarioTotalQCD > 0, scenarioQCDEligible else { return 0 }
-        // QCD only saves tax when it replaces a taxable RMD
         let regularRMD = calculateCombinedRMD()
         let taxableQCDOffset = min(scenarioTotalQCD, regularRMD)
         guard taxableQCDOffset > 0 else { return 0 }
@@ -2482,6 +2483,18 @@ class DataManager: ObservableObject {
             deduction: effectiveDeductionAmount
         )
         return withoutQCD - scenarioTotalTax
+    }
+
+    /// Whether the user is QCD-eligible but not yet subject to RMDs (ages 70½–72).
+    var isPreRMDQCDEligible: Bool {
+        scenarioQCDEligible && !isRMDRequired
+    }
+
+    /// The AGI advantage of QCD vs. taking a taxable IRA distribution and donating cash.
+    /// Useful for showing the user why QCD matters even when current-year tax savings are $0.
+    var qcdAGIAdvantage: Double {
+        guard scenarioTotalQCD > 0, scenarioQCDEligible else { return 0 }
+        return scenarioTotalQCD
     }
 
     // MARK: - Per-Decision IRMAA Impact

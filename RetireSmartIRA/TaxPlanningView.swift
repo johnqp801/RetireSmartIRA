@@ -679,7 +679,21 @@ struct TaxPlanningView: View {
                             .padding(.top, -4)
                     }
 
-                    if irmaaSavings == 0 && qcdNIIT == 0 {
+                    if dataManager.isPreRMDQCDEligible {
+                        // Pre-RMD: no forced distribution to offset, so show AGI advantage context
+                        let agiAdv = dataManager.qcdAGIAdvantage
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("QCD keeps \(agiAdv, format: .currency(code: "USD")) out of your AGI compared to a taxable IRA withdrawal + cash donation.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text("Pre-RMD, current-year savings depend on your alternative (cash or stock donation vs. IRA withdrawal). Tax savings shown here reflect only the RMD-offset portion.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .italic()
+                        }
+                        .padding(.leading, 28)
+                        .padding(.top, -2)
+                    } else if irmaaSavings == 0 && qcdNIIT == 0 {
                         Text("QCD also lowers your AGI, which may reduce Social Security taxation.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
