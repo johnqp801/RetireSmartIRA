@@ -226,7 +226,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showPrivacyPolicy) {
             NavigationStack {
                 ScrollView {
-                    Text(TermsOfUseText.fullText)
+                    Text(TermsOfUseText.privacyPolicy)
                         .font(.footnote)
                         .padding()
                 }

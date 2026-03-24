@@ -81,7 +81,7 @@ enum TermsOfUseText {
         8. DISPUTE RESOLUTION AND ARBITRATION
 
         8.1 Informal Resolution
-        Before initiating any formal dispute resolution, you agree to contact us at support@retiresmartira.com and attempt to resolve the dispute informally for at least 30 days.
+        Before initiating any formal dispute resolution, you agree to contact us at retiresmartira@gmail.com and attempt to resolve the dispute informally for at least 30 days.
 
         8.2 Binding Arbitration
         If informal resolution fails, any dispute arising from or relating to these Terms or the App shall be resolved by binding arbitration administered by JAMS in Contra Costa County, California. The arbitration shall be conducted by a single arbitrator in accordance with the JAMS Streamlined Arbitration Rules and Procedures.
@@ -100,7 +100,7 @@ enum TermsOfUseText {
 
         If you are a California resident, you have rights under the California Consumer Privacy Act (CCPA), including the right to know what personal information is collected, the right to request deletion, and the right to opt out of the sale of personal information. We do not sell personal information.
 
-        For privacy inquiries or to exercise your CCPA rights, contact us at privacy@retiresmartira.com. See our Privacy Policy for full details.
+        For privacy inquiries or to exercise your CCPA rights, contact us at retiresmartira@gmail.com. See our Privacy Policy for full details.
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -121,7 +121,92 @@ enum TermsOfUseText {
         Alamo Ventures Group LLC
         Alamo, California
 
-        support@retiresmartira.com
+        retiresmartira@gmail.com
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        \u{00A9} \(copyrightYear) Alamo Ventures Group LLC. All rights reserved.
+        """
+    }
+
+    // MARK: - Privacy Policy
+
+    static var privacyPolicy: String {
+        """
+        PRIVACY POLICY
+        RetireSmart IRA
+        Alamo Ventures Group LLC
+
+        Last updated: March 5, 2026
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        RetireSmart IRA is designed with your privacy as a core principle. All of your personal and financial data stays on your device. We do not collect, transmit, or store any of your information on external servers.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        INFORMATION YOU ENTER
+
+        To provide retirement tax planning estimates, the app asks you to enter information such as:
+
+        • Date of birth and spouse information
+        • Filing status and state of residence
+        • IRA and retirement account balances
+        • Income sources and amounts
+        • Deduction details
+        • Tax planning scenario inputs (Roth conversions, QCDs, withdrawals)
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        HOW YOUR DATA IS STORED
+
+        All data you enter is stored locally on your device only, using the operating system's standard on-device storage. Your data is:
+
+        • Never transmitted to any server, cloud service, or third party
+        • Never synced to iCloud or any cloud storage
+        • Never shared with advertisers, analytics providers, or data brokers
+        • Never accessible to the app developer
+
+        If you delete the app, all locally stored data is permanently removed.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        NO DATA COLLECTION
+
+        RetireSmart IRA does not collect:
+
+        • Personal identifiers or contact information
+        • Usage or analytics data
+        • Location data
+        • Device identifiers or fingerprints
+        • Browsing or search history
+        • Advertising data
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        NO THIRD-PARTY SDKs
+
+        The app contains no third-party analytics, advertising, or tracking frameworks. The app does not communicate with any external servers. All calculations are performed entirely on your device.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        CHILDREN'S PRIVACY
+
+        This app is not directed at children under 13. It is a financial planning tool intended for adults planning for retirement.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        CHANGES TO THIS POLICY
+
+        If this privacy policy is updated, the revised version will be posted at www.retiresmartira.com and within the app, with an updated date. Continued use of the app after changes constitutes acceptance of the revised policy.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        CONTACT
+
+        If you have questions about this privacy policy, you can contact us at:
+
+        retiresmartira@gmail.com
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
