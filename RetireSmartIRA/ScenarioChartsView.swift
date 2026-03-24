@@ -500,8 +500,6 @@ private var scenarioStateBracketChart: some View {
 
                     // Room remaining callout
                     if bracketInfo.roomRemaining > 0 {
-                        let nextStateRate: Double = (segments.first(where: { $0.rate > bracketInfo.currentRate })?.rate ?? bracketInfo.currentRate) * 100
-                        let nextRate = String(format: "%.1f", nextStateRate)
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.right.circle.fill")
                                 .foregroundStyle(.blue)

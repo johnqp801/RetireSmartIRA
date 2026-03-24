@@ -2385,9 +2385,7 @@ struct TaxPlanningView: View {
             let afterTotalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
             let additionalTax = afterTotalTax - beforeTotalTax
             let additionalIncome = afterTaxable - beforeTaxable
-            let effectiveOnScenario = additionalIncome > 0 ? additionalTax / additionalIncome : 0
             let isItemizing = dataManager.scenarioEffectiveItemize
-            let wouldItemizeWithout = dataManager.totalItemizedDeductions > dataManager.standardDeductionAmount + additionalIncome * 0.01 // rough check
             let switchedToItemized = isItemizing && dataManager.baseItemizedDeductions < dataManager.standardDeductionAmount
 
             VStack(alignment: .leading, spacing: 14) {
