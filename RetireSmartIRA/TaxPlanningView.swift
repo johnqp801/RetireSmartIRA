@@ -372,7 +372,9 @@ struct TaxPlanningView: View {
             .background(Color(PlatformColor.systemGroupedBackground))
             .navigationTitle(title)
             #if os(iOS)
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -1603,7 +1605,9 @@ struct TaxPlanningView: View {
             .background(Color(PlatformColor.systemGroupedBackground))
             .navigationTitle("Why Consider Roth Conversions?")
             #if os(iOS)
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -2362,7 +2366,9 @@ struct TaxPlanningView: View {
             .background(Color(PlatformColor.systemGroupedBackground))
             .navigationTitle("Contribution Tax Impact")
             #if os(iOS)
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

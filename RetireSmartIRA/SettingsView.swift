@@ -10,6 +10,8 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var stateSearchText = ""
+    @State private var showTermsOfUse = false
+    @State private var showPrivacyPolicy = false
 
     /// Date range for the birth date picker (1920 to today)
     private var birthDateRange: ClosedRange<Date> {
@@ -162,7 +164,29 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Disclaimer") {
+            Section("Legal") {
+                Button {
+                    showTermsOfUse = true
+                } label: {
+                    LabeledContent("Terms of Use") {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+
+                Button {
+                    showPrivacyPolicy = true
+                } label: {
+                    LabeledContent("Privacy Policy") {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+
                 Text("This app provides estimates for planning purposes only. Consult with a qualified tax professional or financial advisor for personalized advice. Tax laws and regulations may change.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -181,6 +205,42 @@ struct SettingsView: View {
         .onChange(of: dataManager.legacyHeirType) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirTaxRate) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacySpouseSurvivorYears) { dataManager.saveAllData() }
+        .sheet(isPresented: $showTermsOfUse) {
+            NavigationStack {
+                ScrollView {
+                    Text(TermsOfUseText.fullText)
+                        .font(.footnote)
+                        .padding()
+                }
+                .navigationTitle("Terms of Use")
+                #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showTermsOfUse = false }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showPrivacyPolicy) {
+            NavigationStack {
+                ScrollView {
+                    Text(TermsOfUseText.fullText)
+                        .font(.footnote)
+                        .padding()
+                }
+                .navigationTitle("Privacy Policy")
+                #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showPrivacyPolicy = false }
+                    }
+                }
+            }
+        }
         }
     }
 
@@ -224,7 +284,9 @@ struct SettingsView: View {
         .searchable(text: $stateSearchText, prompt: "Search states")
         .navigationTitle("State of Residence")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+        #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
         #endif
     }
 

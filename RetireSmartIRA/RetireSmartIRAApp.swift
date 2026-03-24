@@ -25,11 +25,17 @@ typealias PlatformColor = NSColor
 @main
 struct RetireSmartIRAApp: App {
     @StateObject private var dataManager = DataManager()
+    @StateObject private var termsManager = TermsAcceptanceManager()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(dataManager)
+            if termsManager.hasAcceptedCurrentTerms {
+                ContentView()
+                    .environmentObject(dataManager)
+                    .environmentObject(termsManager)
+            } else {
+                ClickwrapView(manager: termsManager)
+            }
         }
     }
 }

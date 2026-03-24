@@ -576,7 +576,9 @@ private struct StateTaxDetailSheet: View {
             .background(Color(PlatformColor.systemGroupedBackground))
             .navigationTitle(item.state.rawValue)
             #if os(iOS)
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

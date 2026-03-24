@@ -678,7 +678,9 @@ struct IncomeSourcesView: View {
                 .formStyle(.grouped)
                 .navigationTitle(incomeToEdit == nil ? "Add Income" : "Edit Income")
                 #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
+                #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
                 #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -817,7 +819,9 @@ struct IncomeSourcesView: View {
                 .formStyle(.grouped)
                 .navigationTitle(deductionToEdit == nil ? "Add Deduction" : "Edit Deduction")
                 #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
+                #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
                 #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {

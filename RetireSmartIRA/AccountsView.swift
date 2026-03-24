@@ -383,7 +383,9 @@ struct AddAccountView: View {
             .formStyle(.grouped)
             .navigationTitle(accountToEdit == nil ? "Add Account" : "Edit Account")
             #if os(iOS)
+            #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
