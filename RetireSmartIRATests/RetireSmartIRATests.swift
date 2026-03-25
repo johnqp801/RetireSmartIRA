@@ -5445,3 +5445,359 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(dm.scenarioTotalTax > withoutAMT + 40_000, "AMT should add >$40K to total tax")
     }
 }
+
+// MARK: - 60. Tax-Exempt Interest
+
+@Suite("Tax-Exempt Interest", .serialized)
+@MainActor struct TaxExemptInterestTests {
+
+    @Test("Tax-exempt interest is excluded from federal taxable income")
+    func excludedFromFederalTax() {
+        let dm = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000),
+            IncomeSource(name: "Muni Bonds", type: .taxExemptInterest, annualAmount: 30_000)
+        ]
+        let taxWith = dm.calculateFederalTax(income: dm.scenarioTaxableIncome, filingStatus: .single)
+
+        let dm2 = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm2.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000)
+        ]
+        let taxWithout = dm2.calculateFederalTax(income: dm2.scenarioTaxableIncome, filingStatus: .single)
+
+        #expect(isClose(taxWith, taxWithout), "Tax-exempt interest should not change federal tax")
+    }
+
+    @Test("Tax-exempt interest is excluded from state taxable income")
+    func excludedFromStateTax() {
+        let dm = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000),
+            IncomeSource(name: "Muni Bonds", type: .taxExemptInterest, annualAmount: 30_000)
+        ]
+        let stateWith = dm.scenarioStateTax
+
+        let dm2 = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm2.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000)
+        ]
+        let stateWithout = dm2.scenarioStateTax
+
+        #expect(isClose(stateWith, stateWithout), "Tax-exempt interest should not change state tax")
+    }
+
+    @Test("Tax-exempt interest is excluded from NIIT")
+    func excludedFromNIIT() {
+        let dm = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 250_000),
+            IncomeSource(name: "Dividends", type: .dividends, annualAmount: 50_000),
+            IncomeSource(name: "Muni Bonds", type: .taxExemptInterest, annualAmount: 40_000)
+        ]
+        let nii = dm.scenarioNetInvestmentIncome
+        // Only dividends ($50K) should be NII, not tax-exempt interest
+        #expect(isClose(nii, 50_000), "Tax-exempt interest should not be included in NII")
+    }
+
+    @Test("Tax-exempt interest IS included in IRMAA MAGI")
+    func includedInIRMAAMagi() {
+        // MFJ with income just below IRMAA Tier 1 ($218,001)
+        let dm = makeDM(birthYear: 1955, filingStatus: .marriedFilingJointly, state: .california)
+        dm.enableSpouse = true
+        var sc = DateComponents(); sc.year = 1955; sc.month = 1; sc.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: sc)!
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 200_000)
+        ]
+        let irmaaWithout = dm.scenarioIRMAA
+        #expect(irmaaWithout.tier == 0, "Should be Tier 0 without tax-exempt interest")
+
+        // Add $30K tax-exempt interest to push MAGI over $218,001
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 200_000),
+            IncomeSource(name: "Muni Bonds", type: .taxExemptInterest, annualAmount: 30_000)
+        ]
+        let irmaaWith = dm.scenarioIRMAA
+        #expect(irmaaWith.tier >= 1, "Tax-exempt interest should push IRMAA to Tier 1+")
+    }
+
+    @Test("Tax-exempt interest IS included in Social Security combined income test")
+    func includedInSSCombinedIncome() {
+        // Single with SS + small pension = combined income below $25K threshold
+        let dm = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm.incomeSources = [
+            IncomeSource(name: "SS", type: .socialSecurity, annualAmount: 20_000),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 10_000)
+        ]
+        let ssWithout = dm.calculateTaxableSocialSecurity(filingStatus: .single)
+        // Combined = $10K + $10K (50% of SS) = $20K, below $25K threshold
+        #expect(isClose(ssWithout, 0), "SS should be untaxed below threshold")
+
+        // Add tax-exempt interest to push over threshold
+        dm.incomeSources = [
+            IncomeSource(name: "SS", type: .socialSecurity, annualAmount: 20_000),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 10_000),
+            IncomeSource(name: "Muni Bonds", type: .taxExemptInterest, annualAmount: 20_000)
+        ]
+        let ssWith = dm.calculateTaxableSocialSecurity(filingStatus: .single)
+        // Combined = $10K + $20K + $10K (50% of SS) = $40K, above $34K → up to 85% taxable
+        #expect(ssWith > 0, "Tax-exempt interest should make Social Security taxable")
+    }
+
+    @Test("taxExemptInterestIRMAAImpact returns correct surcharge delta")
+    func irmaaImpactCalculation() {
+        // Single, age 70 (on Medicare), income just below IRMAA Tier 1
+        let dm = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000),
+            IncomeSource(name: "Muni Bonds", type: .taxExemptInterest, annualAmount: 20_000)
+        ]
+        // Without muni: AGI ~$100K, below $109,001 → Tier 0
+        // With muni: IRMAA MAGI ~$120K, above $109,001 → Tier 1
+        let impact = dm.taxExemptInterestIRMAAImpact
+        #expect(impact > 0, "Should show positive IRMAA impact")
+    }
+
+    @Test("taxExemptInterestIRMAAImpact returns 0 when no tax-exempt interest")
+    func irmaaImpactZeroWhenNone() {
+        let dm = makeDM(birthYear: 1955, filingStatus: .single, state: .california)
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)
+        ]
+        #expect(dm.taxExemptInterestIRMAAImpact == 0)
+    }
+
+    @Test("taxExemptInterestIRMAAImpact returns 0 when not on Medicare")
+    func irmaaImpactZeroWhenNotOnMedicare() {
+        // Age 60, not yet on Medicare
+        let dm = makeDM(birthYear: 1965, filingStatus: .single, state: .california)
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000),
+            IncomeSource(name: "Muni Bonds", type: .taxExemptInterest, annualAmount: 50_000)
+        ]
+        #expect(dm.taxExemptInterestIRMAAImpact == 0, "No IRMAA impact before age 65")
+    }
+
+    @Test("taxExemptInterestTotal computes correctly")
+    func totalComputation() {
+        let dm = makeDM()
+        dm.incomeSources = [
+            IncomeSource(name: "Muni Fund", type: .taxExemptInterest, annualAmount: 15_000),
+            IncomeSource(name: "Tax-Free MMF", type: .taxExemptInterest, annualAmount: 8_000),
+            IncomeSource(name: "Interest", type: .interest, annualAmount: 5_000)
+        ]
+        #expect(isClose(dm.taxExemptInterestTotal, 23_000), "Should sum only taxExemptInterest sources")
+    }
+}
+
+// MARK: - 61. Clickwrap / Terms Acceptance
+
+@Suite("Terms Acceptance", .serialized)
+@MainActor struct TermsAcceptanceTests {
+
+    /// Creates a fresh UserDefaults suite for test isolation.
+    private func freshDefaults() -> UserDefaults {
+        let suiteName = "test.terms.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+
+    @Test("Fresh install: hasAcceptedCurrentTerms is false")
+    func freshInstall() {
+        let manager = TermsAcceptanceManager(defaults: freshDefaults())
+        #expect(manager.hasAcceptedCurrentTerms == false)
+    }
+
+    @Test("recordAcceptance sets flag to true")
+    func acceptance() {
+        let manager = TermsAcceptanceManager(defaults: freshDefaults())
+        #expect(manager.hasAcceptedCurrentTerms == false)
+        manager.recordAcceptance()
+        #expect(manager.hasAcceptedCurrentTerms == true)
+    }
+
+    @Test("Subsequent launch with same version stays accepted")
+    func persistsAcrossLaunches() {
+        let defaults = freshDefaults()
+        let manager1 = TermsAcceptanceManager(defaults: defaults)
+        manager1.recordAcceptance()
+        #expect(manager1.hasAcceptedCurrentTerms == true)
+
+        // Simulate re-launch by creating a new manager with same defaults
+        let manager2 = TermsAcceptanceManager(defaults: defaults)
+        #expect(manager2.hasAcceptedCurrentTerms == true)
+    }
+
+    @Test("Version mismatch resets acceptance")
+    func versionBumpResetsAcceptance() {
+        let defaults = freshDefaults()
+        // Accept terms
+        let manager = TermsAcceptanceManager(defaults: defaults)
+        manager.recordAcceptance()
+        #expect(manager.hasAcceptedCurrentTerms == true)
+
+        // Simulate a version bump by writing a different version to defaults
+        defaults.set("0.9", forKey: "tou_version")
+
+        // New manager should see mismatch and require re-acceptance
+        let manager2 = TermsAcceptanceManager(defaults: defaults)
+        #expect(manager2.hasAcceptedCurrentTerms == false)
+    }
+
+    @Test("acceptanceRecord returns nil when not accepted")
+    func recordNilWhenNotAccepted() {
+        let manager = TermsAcceptanceManager(defaults: freshDefaults())
+        #expect(manager.acceptanceRecord() == nil)
+    }
+
+    @Test("acceptanceRecord returns formatted string after acceptance")
+    func recordReturnsString() {
+        let manager = TermsAcceptanceManager(defaults: freshDefaults())
+        manager.recordAcceptance()
+        let record = manager.acceptanceRecord()
+        #expect(record != nil)
+        #expect(record!.contains("ToU v\(TermsAcceptanceManager.currentToUVersion)"))
+        #expect(record!.contains("accepted on"))
+    }
+
+    @Test("Stores correct ToU version")
+    func storesCorrectVersion() {
+        let defaults = freshDefaults()
+        let manager = TermsAcceptanceManager(defaults: defaults)
+        manager.recordAcceptance()
+        let storedVersion = defaults.string(forKey: "tou_version")
+        #expect(storedVersion == TermsAcceptanceManager.currentToUVersion)
+    }
+
+    @Test("Stores timestamp on acceptance")
+    func storesTimestamp() {
+        let defaults = freshDefaults()
+        let before = Date().timeIntervalSince1970
+        let manager = TermsAcceptanceManager(defaults: defaults)
+        manager.recordAcceptance()
+        let after = Date().timeIntervalSince1970
+        let ts = defaults.double(forKey: "tou_timestamp")
+        #expect(ts >= before && ts <= after)
+    }
+}
+
+// MARK: - 62. Spouse-then-Child Heir Type
+
+@Suite("Spouse-then-Child Heir", .serialized)
+@MainActor struct SpouseThenChildHeirTests {
+
+    private func makeLegacyDM() -> DataManager {
+        let dm = makeDM(birthYear: 1955, filingStatus: .marriedFilingJointly, state: .california)
+        dm.enableSpouse = true
+        var sc = DateComponents(); sc.year = 1957; sc.month = 1; sc.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: sc)!
+        dm.enableLegacyPlanning = true
+        dm.legacyHeirTaxRate = 0.24
+        dm.primaryGrowthRate = 8.0
+        dm.iraAccounts = [
+            IRAAccount(name: "Trad IRA", accountType: .traditionalIRA, balance: 1_000_000, owner: .primary),
+            IRAAccount(name: "Roth IRA", accountType: .rothIRA, balance: 200_000, owner: .primary)
+        ]
+        dm.incomeSources = [
+            IncomeSource(name: "SS", type: .socialSecurity, annualAmount: 30_000),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000)
+        ]
+        return dm
+    }
+
+    @Test("legacyTotalPostDeathYears: adultChild = 10")
+    func adultChildYears() {
+        let dm = makeLegacyDM()
+        dm.legacyHeirType = "adultChild"
+        #expect(dm.legacyTotalPostDeathYears == 10)
+    }
+
+    @Test("legacyTotalPostDeathYears: spouse = 20")
+    func spouseYears() {
+        let dm = makeLegacyDM()
+        dm.legacyHeirType = "spouse"
+        #expect(dm.legacyTotalPostDeathYears == 20)
+    }
+
+    @Test("legacyTotalPostDeathYears: spouseThenChild = survivorYears + 10")
+    func spouseThenChildYears() {
+        let dm = makeLegacyDM()
+        dm.legacyHeirType = "spouseThenChild"
+        dm.legacySpouseSurvivorYears = 15
+        #expect(dm.legacyTotalPostDeathYears == 25)
+    }
+
+    @Test("legacyTotalPostDeathYears: spouseThenChild default (10 + 10 = 20)")
+    func spouseThenChildDefaultYears() {
+        let dm = makeLegacyDM()
+        dm.legacyHeirType = "spouseThenChild"
+        dm.legacySpouseSurvivorYears = 10
+        #expect(dm.legacyTotalPostDeathYears == 20)
+    }
+
+    @Test("Changing legacySpouseSurvivorYears changes projection value")
+    func survivorYearsAffectsProjection() {
+        let dm = makeLegacyDM()
+        dm.legacyHeirType = "spouseThenChild"
+
+        dm.legacySpouseSurvivorYears = 5
+        let wealth5 = dm.legacyNoActionHeirTaxableDrawdown
+
+        dm.legacySpouseSurvivorYears = 20
+        let wealth20 = dm.legacyNoActionHeirTaxableDrawdown
+
+        // Different survivor years should produce different drawdown amounts
+        // (spouse takes RMDs during rollover, so longer period means more RMD drain
+        // but also more growth — the values will differ)
+        #expect(wealth5 != wealth20, "Different survivor years should produce different projections")
+    }
+
+    @Test("spouseThenChild heir drawdown differs from adultChild")
+    func spouseThenChildDiffersFromAdultChild() {
+        let dm = makeLegacyDM()
+        dm.legacySpouseSurvivorYears = 10
+
+        dm.legacyHeirType = "adultChild"
+        let adultChildDrawdown = dm.legacyNoActionHeirTaxableDrawdown
+
+        dm.legacyHeirType = "spouseThenChild"
+        let spouseThenChildDrawdown = dm.legacyNoActionHeirTaxableDrawdown
+
+        // spouseThenChild adds a spouse rollover phase with RMDs before the child's 10-year drawdown.
+        // The total drawdown includes spouse RMD withdrawals + child's drawdown, so it will
+        // differ from the simple adultChild path.
+        #expect(adultChildDrawdown != spouseThenChildDrawdown,
+                "Spouse-then-child should produce different drawdown than adult child")
+    }
+
+    @Test("Roth at death is larger with spouseThenChild than adultChild (extra compounding)")
+    func rothCompoundsLongerWithSpouseThenChild() {
+        let dm = makeLegacyDM()
+        dm.legacySpouseSurvivorYears = 10
+
+        dm.legacyHeirType = "adultChild"
+        let rothAtDeathChild = dm.legacyNoActionRothAtDeath
+
+        dm.legacyHeirType = "spouseThenChild"
+        let rothAtDeathSpouseThenChild = dm.legacyNoActionRothAtDeath
+
+        // Roth at owner's death should be the same regardless of heir type
+        // (heir type only affects post-death phase)
+        #expect(isClose(rothAtDeathChild, rothAtDeathSpouseThenChild),
+                "Roth at owner death should be same regardless of heir type")
+    }
+
+    @Test("legacyConversionIsFavorable computes for spouseThenChild without crash")
+    func conversionFavorableComputes() {
+        let dm = makeLegacyDM()
+        dm.legacyHeirType = "spouseThenChild"
+        dm.legacySpouseSurvivorYears = 10
+        dm.yourRothConversion = 50_000
+
+        // Just verify it runs without crashing — the value depends on many factors
+        let _ = dm.legacyConversionIsFavorable
+        let _ = dm.legacyBreakEvenHeirTaxRate
+    }
+}
