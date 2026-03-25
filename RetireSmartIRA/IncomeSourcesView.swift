@@ -660,6 +660,17 @@ struct IncomeSourcesView: View {
                         }
                     }
 
+                    if incomeType == .taxExemptInterest {
+                        Section("About Tax-Exempt Interest") {
+                            Text("Enter interest from municipal bond funds, tax-free money market funds, and individual muni bonds. This income is not subject to federal income tax, but the IRS includes it in the MAGI used to calculate IRMAA Medicare premium surcharges and Social Security taxation.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("State tax note: National muni funds may hold bonds from other states. The out-of-state portion is generally taxable by your state. Your fund company provides a year-end state breakdown. This app treats all tax-exempt interest as state-exempt for simplicity.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     // Delete button — only visible when editing an existing income source
                     if incomeToEdit != nil {
                         Section {
