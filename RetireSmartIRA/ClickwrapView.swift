@@ -198,14 +198,18 @@ struct ClickwrapView: View {
                         .font(.footnote)
                         .padding()
 
-                    // Invisible marker at the bottom of the terms text
-                    Color.clear
-                        .frame(height: 1)
-                        .onAppear {
-                            withAnimation {
-                                hasScrolledToBottom = true
+                    // Bottom marker — uses GeometryReader to detect when user
+                    // has actually scrolled near the bottom, not just loaded the view.
+                    GeometryReader { geo in
+                        Color.clear
+                            .onAppear {
+                                checkIfScrolledToBottom(geo: geo)
                             }
-                        }
+                            .onChange(of: geo.frame(in: .global).minY) {
+                                checkIfScrolledToBottom(geo: geo)
+                            }
+                    }
+                    .frame(height: 1)
                 }
             }
             .navigationTitle("Terms of Use")
@@ -215,6 +219,28 @@ struct ClickwrapView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { showFullTerms = false }
+                }
+            }
+        }
+    }
+
+    /// Only marks as scrolled-to-bottom after a 1-second delay,
+    /// ensuring the user actually spent time on the terms screen.
+    private func checkIfScrolledToBottom(geo: GeometryProxy) {
+        guard !hasScrolledToBottom else { return }
+        // The bottom marker's global Y should be within a reasonable screen height.
+        // If the marker is visible (Y < ~2000 points), the user has scrolled to the bottom.
+        let markerY = geo.frame(in: .global).minY
+        #if os(macOS)
+        let screenHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 1200
+        #else
+        let screenHeight: CGFloat = UIScreen.main.bounds.height
+        #endif
+        if markerY < screenHeight + 50 {
+            // Delay to ensure user isn't just opening/closing instantly
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                withAnimation {
+                    hasScrolledToBottom = true
                 }
             }
         }

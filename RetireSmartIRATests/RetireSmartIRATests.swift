@@ -5749,8 +5749,6 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let wealth20 = dm.legacyNoActionHeirTaxableDrawdown
 
         // Different survivor years should produce different drawdown amounts
-        // (spouse takes RMDs during rollover, so longer period means more RMD drain
-        // but also more growth — the values will differ)
         #expect(wealth5 != wealth20, "Different survivor years should produce different projections")
     }
 
@@ -5765,11 +5763,93 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         dm.legacyHeirType = "spouseThenChild"
         let spouseThenChildDrawdown = dm.legacyNoActionHeirTaxableDrawdown
 
-        // spouseThenChild adds a spouse rollover phase with RMDs before the child's 10-year drawdown.
-        // The total drawdown includes spouse RMD withdrawals + child's drawdown, so it will
-        // differ from the simple adultChild path.
         #expect(adultChildDrawdown != spouseThenChildDrawdown,
                 "Spouse-then-child should produce different drawdown than adult child")
+    }
+
+    /// Verify Roth spouseThenChild exact math: pure compounding for (yearsUntilDeath + survivorYears),
+    /// then 10-year equal drawdown with growth. Roth has no RMDs so this is deterministic.
+    @Test("Roth spouseThenChild drawdown matches hand-computed value")
+    func rothSpouseThenChildExactValue() {
+        let dm = makeLegacyDM()
+        dm.legacyHeirType = "spouseThenChild"
+        dm.legacySpouseSurvivorYears = 10
+        dm.primaryGrowthRate = 8.0
+
+        let yearsUntilDeath = dm.legacyYearsUntilDeath
+        let rothStart = dm.totalRothBalance // $200,000
+
+        // Phase 1+2: Pure compounding (no Roth RMDs) for yearsUntilDeath + 10 survivor years
+        let totalCompoundYears = yearsUntilDeath + 10
+        let balanceAtSpouseDeath = rothStart * pow(1.08, Double(totalCompoundYears))
+
+        // Phase 3: 10-year drawdown with growth (same algorithm as projectHeirDrawdownTotal)
+        var balance = balanceAtSpouseDeath
+        var expectedTotal = 0.0
+        for yearsLeft in stride(from: 10, through: 1, by: -1) {
+            let withdrawal = balance / Double(yearsLeft)
+            expectedTotal += withdrawal
+            balance -= withdrawal
+            balance *= 1.08
+        }
+
+        // The engine should compute the same value
+        // Access via legacyNoActionRothAtDeath path won't work (that's just at owner death),
+        // so we compare via the total wealth calculation indirectly.
+        // For Roth, the no-action Roth drawdown for spouseThenChild IS this value.
+        let dm2 = makeLegacyDM()
+        dm2.legacyHeirType = "spouseThenChild"
+        dm2.legacySpouseSurvivorYears = 10
+        dm2.primaryGrowthRate = 8.0
+
+        // legacyNoConversionTotalWealth includes Roth drawdown as tax-free component
+        // With 0 conversions, the Roth portion of no-conversion wealth = Roth drawdown
+        dm2.yourRothConversion = 0
+        let noConvWealth = dm2.legacyNoConversionTotalWealth
+        // No-conversion wealth = heir after-tax Trad + Roth drawdown + tax money ($0)
+        let tradDrawdown = dm2.legacyNoActionHeirTaxableDrawdown
+        let heirAfterTaxTrad = tradDrawdown * (1.0 - 0.24)
+        let impliedRothDrawdown = noConvWealth - heirAfterTaxTrad
+
+        #expect(isClose(impliedRothDrawdown, expectedTotal, tolerance: 1.0),
+                "Roth spouseThenChild drawdown should match hand-computed: expected \(expectedTotal), got \(impliedRothDrawdown)")
+    }
+
+    /// Verify adultChild legacyTotalPostDeathYears feeds correctly into the tax money future value.
+    /// taxMoneyFV = taxPaid × (1 + taxableRate)^(yearsUntilDeath + postDeathYears)
+    @Test("legacyTaxMoneyFutureValue uses correct total years for each heir type")
+    func taxMoneyFutureValueUsesCorrectYears() {
+        let dm = makeLegacyDM()
+        dm.yourRothConversion = 50_000
+
+        // adultChild: postDeath = 10
+        dm.legacyHeirType = "adultChild"
+        let fv10 = dm.legacyTaxMoneyFutureValue
+        let years10 = dm.legacyYearsUntilDeath + 10
+
+        // spouse: postDeath = 20
+        dm.legacyHeirType = "spouse"
+        let fv20 = dm.legacyTaxMoneyFutureValue
+        let years20 = dm.legacyYearsUntilDeath + 20
+
+        // spouseThenChild with 15 survivor years: postDeath = 25
+        dm.legacyHeirType = "spouseThenChild"
+        dm.legacySpouseSurvivorYears = 15
+        let fv25 = dm.legacyTaxMoneyFutureValue
+        let years25 = dm.legacyYearsUntilDeath + 25
+
+        // The tax paid today is the same for all three — only the compounding period differs.
+        // So FV should scale as (1+r)^years. Verify ratios:
+        let taxableRate = dm.taxableAccountGrowthRate / 100
+        let expectedRatio_20_10 = pow(1 + taxableRate, Double(years20)) / pow(1 + taxableRate, Double(years10))
+        let actualRatio_20_10 = fv20 / fv10
+        #expect(isClose(actualRatio_20_10, expectedRatio_20_10, tolerance: 0.01),
+                "Spouse FV / AdultChild FV ratio should match (1+r)^10 extra years")
+
+        let expectedRatio_25_10 = pow(1 + taxableRate, Double(years25)) / pow(1 + taxableRate, Double(years10))
+        let actualRatio_25_10 = fv25 / fv10
+        #expect(isClose(actualRatio_25_10, expectedRatio_25_10, tolerance: 0.01),
+                "SpouseThenChild FV / AdultChild FV ratio should match (1+r)^15 extra years")
     }
 
     @Test("Roth at death is larger with spouseThenChild than adultChild (extra compounding)")
