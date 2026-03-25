@@ -1748,10 +1748,18 @@ class DataManager: ObservableObject {
             .reduce(0) { $0 + $1.annualAmount }
     }
 
-    /// Ordinary taxable income (excludes long-term cap gains and qualified dividends)
+    /// Tax-exempt interest (muni bonds, tax-free money markets).
+    /// Not federally taxable, but included in IRMAA MAGI and SS combined income test.
+    var taxExemptInterestTotal: Double {
+        incomeSources
+            .filter { $0.type == .taxExemptInterest }
+            .reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// Ordinary taxable income (excludes long-term cap gains, qualified dividends, and tax-exempt interest)
     func ordinaryTaxableIncome(filingStatus: FilingStatus = .single) -> Double {
         let otherIncome = incomeSources
-            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends }
+            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest }
             .reduce(0) { $0 + $1.annualAmount }
         let taxableSS = calculateTaxableSocialSecurity(filingStatus: filingStatus)
         return otherIncome + taxableSS
@@ -1861,7 +1869,7 @@ class DataManager: ObservableObject {
     /// in the IRS combined income test for determining how much SS is taxable.
     var scenarioBaseIncome: Double {
         let otherIncome = incomeSources
-            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends }
+            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest }
             .reduce(0) { $0 + $1.annualAmount }
         let capGains = preferentialIncome()
         return otherIncome + scenarioTaxableSocialSecurity + capGains
@@ -2100,9 +2108,15 @@ class DataManager: ObservableObject {
         return count
     }
 
-    /// Current scenario IRMAA result based on estimatedAGI (≈ MAGI for retirees).
+    /// IRMAA MAGI = AGI + tax-exempt interest (muni bonds, tax-free money markets).
+    /// Tax-exempt interest is not in AGI but the IRS includes it for IRMAA.
+    var irmaaMagi: Double {
+        estimatedAGI + taxExemptInterestTotal
+    }
+
+    /// Current scenario IRMAA result based on IRMAA MAGI (AGI + tax-exempt interest).
     var scenarioIRMAA: IRMAAResult {
-        calculateIRMAA(magi: estimatedAGI, filingStatus: filingStatus)
+        calculateIRMAA(magi: irmaaMagi, filingStatus: filingStatus)
     }
 
     /// Total household annual IRMAA surcharge (per-person × number of Medicare members).
@@ -2111,8 +2125,9 @@ class DataManager: ObservableObject {
     }
 
     /// Baseline IRMAA (without any scenario decisions) for comparison.
+    /// Includes tax-exempt interest in MAGI since IRS counts it for IRMAA.
     var baselineIRMAA: IRMAAResult {
-        calculateIRMAA(magi: scenarioBaseIncome, filingStatus: filingStatus)
+        calculateIRMAA(magi: scenarioBaseIncome + taxExemptInterestTotal, filingStatus: filingStatus)
     }
 
     /// Whether scenario decisions pushed into a higher IRMAA tier.
@@ -2545,6 +2560,16 @@ class DataManager: ObservableObject {
         let magiWithoutQCD = estimatedAGI + taxableQCDOffset
         let irmaaWithoutQCD = calculateIRMAA(magi: magiWithoutQCD, filingStatus: filingStatus)
         let delta = irmaaWithoutQCD.annualSurchargePerPerson - scenarioIRMAA.annualSurchargePerPerson
+        return delta * Double(medicareMemberCount)
+    }
+
+    /// Annual IRMAA surcharge increase caused by tax-exempt interest being included in IRMAA MAGI.
+    /// Shows users how their "tax-free" muni/money market income affects Medicare premiums.
+    var taxExemptInterestIRMAAImpact: Double {
+        guard taxExemptInterestTotal > 0, medicareMemberCount > 0 else { return 0 }
+        let magiWithout = irmaaMagi - taxExemptInterestTotal
+        let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
+        let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
         return delta * Double(medicareMemberCount)
     }
 
@@ -3494,6 +3519,7 @@ struct IncomeSource: Identifiable, Codable {
         case dividends = "Dividends"
         case qualifiedDividends = "Qualified Dividends"
         case interest = "Interest"
+        case taxExemptInterest = "Tax-Exempt Interest"
         case capitalGainsShort = "Capital Gains (Short-term)"
         case capitalGainsLong = "Capital Gains (Long-term)"
         case consulting = "Employment/Other Income"

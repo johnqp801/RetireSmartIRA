@@ -627,6 +627,22 @@ struct DashboardView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                if dataManager.taxExemptInterestIRMAAImpact > 0 {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.caption)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Tax-exempt interest is increasing your Medicare premiums.")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Text("Your \(dataManager.taxExemptInterestTotal, format: .currency(code: "USD")) in tax-free interest (muni bonds, tax-free money markets) is not federally taxed, but the IRS includes it in the MAGI used for IRMAA. This adds \(dataManager.taxExemptInterestIRMAAImpact, format: .currency(code: "USD"))/year to your household Medicare surcharges.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
 
             if dataManager.totalWithholding > 0 {
@@ -831,6 +847,7 @@ struct DashboardView: View {
         case "Inherited IRA RMD": return Color(red: 1.0, green: 0.55, blue: 0.08)      // Vivid orange
         case "Dividends", "Qualified Dividends": return Color(red: 0.0, green: 0.75, blue: 0.70) // Bright teal
         case "Interest": return Color(red: 0.15, green: 0.65, blue: 0.95)              // Sky blue
+        case "Tax-Exempt Interest": return Color(red: 0.40, green: 0.80, blue: 0.60)   // Soft green (tax-free)
         case "Capital Gains (Long-term)", "Capital Gains (Short-term)": return Color(red: 0.92, green: 0.25, blue: 0.55) // Hot pink
         case "Roth Conversion": return Color(red: 0.85, green: 0.15, blue: 0.40)       // Ruby
         case "Employment/Other Income": return Color(red: 0.35, green: 0.25, blue: 0.85) // Deep indigo
