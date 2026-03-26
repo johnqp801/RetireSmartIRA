@@ -1864,15 +1864,45 @@ class DataManager: ObservableObject {
         return calculateTaxableSocialSecurity(filingStatus: filingStatus, additionalIncome: scenarioExtra)
     }
 
+    /// Ordinary income from sources (pensions, wages, interest, etc.) — excludes SS, cap gains, qualified dividends, tax-exempt interest.
+    var scenarioOrdinaryIncomeSubtotal: Double {
+        incomeSources
+            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest }
+            .reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// Total Social Security benefits entered (pre-taxation).
+    var totalSocialSecurityBenefits: Double {
+        incomeSources
+            .filter { $0.type == .socialSecurity }
+            .reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// What percentage of Social Security is taxable (0%, 50%, or 85% in practice).
+    var socialSecurityTaxablePercent: Int {
+        guard totalSocialSecurityBenefits > 0 else { return 0 }
+        return Int(round(scenarioTaxableSocialSecurity / totalSocialSecurityBenefits * 100))
+    }
+
+    /// Qualified dividends subtotal for breakdown display.
+    var qualifiedDividendsTotal: Double {
+        incomeSources
+            .filter { $0.type == .qualifiedDividends }
+            .reduce(0) { $0 + $1.annualAmount }
+    }
+
+    /// Long-term capital gains subtotal for breakdown display.
+    var longTermCapGainsTotal: Double {
+        incomeSources
+            .filter { $0.type == .capitalGainsLong }
+            .reduce(0) { $0 + $1.annualAmount }
+    }
+
     /// Base income before any scenario decisions (pre-deduction).
     /// Uses scenario-aware SS taxation that includes Roth conversions and withdrawals
     /// in the IRS combined income test for determining how much SS is taxable.
     var scenarioBaseIncome: Double {
-        let otherIncome = incomeSources
-            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest }
-            .reduce(0) { $0 + $1.annualAmount }
-        let capGains = preferentialIncome()
-        return otherIncome + scenarioTaxableSocialSecurity + capGains
+        scenarioOrdinaryIncomeSubtotal + scenarioTaxableSocialSecurity + preferentialIncome()
     }
 
     /// Gross income including RMDs + scenario decisions (pre-deduction).

@@ -14,6 +14,7 @@ struct DashboardView: View {
     @State private var showShareSheet = false
     @State private var pdfData: Data?
     @State private var isGeneratingPDF = false
+    @State private var taxableIncomeExpanded = false
 
     private var isWideLayout: Bool { horizontalSizeClass == .regular }
 
@@ -503,7 +504,11 @@ struct DashboardView: View {
             }
 
             Group {
-                taxRow(label: "Taxable Income", value: dataManager.scenarioTaxableIncome)
+                DisclosureGroup(isExpanded: $taxableIncomeExpanded) {
+                    taxableIncomeBreakdown
+                } label: {
+                    taxRow(label: "Taxable Income", value: dataManager.scenarioTaxableIncome, isBold: true)
+                }
 
                 Divider()
 
@@ -791,6 +796,120 @@ struct DashboardView: View {
                 .fontWeight(isBold ? .bold : .semibold)
                 .foregroundStyle(color ?? .primary)
         }
+    }
+
+    // MARK: - Taxable Income Breakdown
+
+    private var taxableIncomeBreakdown: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // ─── Income Sources ───
+            breakdownHeader("Income Sources")
+
+            // List each ordinary income source by name
+            ForEach(dataManager.incomeSources.filter({
+                $0.type != .socialSecurity && $0.type != .capitalGainsLong
+                && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest
+                && $0.annualAmount > 0
+            })) { source in
+                breakdownRow(source.name, value: source.annualAmount)
+            }
+
+            // Taxable Social Security
+            if dataManager.scenarioTaxableSocialSecurity > 0 {
+                breakdownRow(
+                    "Taxable Social Security (\(dataManager.socialSecurityTaxablePercent)%)",
+                    value: dataManager.scenarioTaxableSocialSecurity
+                )
+            }
+
+            // Qualified Dividends
+            if dataManager.qualifiedDividendsTotal > 0 {
+                breakdownRow("Qualified Dividends", value: dataManager.qualifiedDividendsTotal)
+            }
+
+            // Long-term Capital Gains
+            if dataManager.longTermCapGainsTotal > 0 {
+                breakdownRow("Long-term Capital Gains", value: dataManager.longTermCapGainsTotal)
+            }
+
+            breakdownSubtotal("Base Income", value: dataManager.scenarioBaseIncome)
+
+            // ─── Scenario Decisions ───
+            if dataManager.hasActiveScenario {
+                breakdownHeader("Scenario Decisions")
+
+                if dataManager.scenarioTotalRothConversion > 0 {
+                    breakdownRow("Roth Conversions", value: dataManager.scenarioTotalRothConversion, color: .orange)
+                }
+
+                if dataManager.scenarioTotalWithdrawals > 0 {
+                    breakdownRow("Taxable Withdrawals & RMDs", value: dataManager.scenarioTotalWithdrawals)
+                }
+
+                if dataManager.scenarioStockGainAvoided > 0 {
+                    breakdownRow("Stock Gain Avoided", value: -dataManager.scenarioStockGainAvoided, color: .green)
+                }
+
+                breakdownSubtotal("Gross Income", value: dataManager.scenarioGrossIncome)
+            }
+
+            // ─── Deduction ───
+            breakdownHeader("Deduction")
+
+            let deductionLabel = dataManager.scenarioEffectiveItemize ? "Itemized Deductions" : "Standard Deduction"
+            breakdownRow(deductionLabel, value: -dataManager.effectiveDeductionAmount, color: .green)
+
+            // Final total
+            Divider()
+            HStack {
+                Text("Taxable Income")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(dataManager.scenarioTaxableIncome, format: .currency(code: "USD"))
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func breakdownHeader(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .fontWeight(.semibold)
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .padding(.top, 6)
+    }
+
+    private func breakdownRow(_ label: String, value: Double, color: Color? = nil) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value, format: .currency(code: "USD"))
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(color ?? .primary)
+        }
+    }
+
+    private func breakdownSubtotal(_ label: String, value: Double) -> some View {
+        VStack(spacing: 2) {
+            Divider()
+            HStack {
+                Text(label)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(value, format: .currency(code: "USD"))
+                    .font(.caption)
+                    .fontWeight(.semibold)
+            }
+        }
+        .padding(.top, 2)
     }
 
     // MARK: - Y-Axis Label Helper
