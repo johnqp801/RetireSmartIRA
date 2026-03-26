@@ -15,6 +15,7 @@ struct DashboardView: View {
     @State private var pdfData: Data?
     @State private var isGeneratingPDF = false
     @State private var taxableIncomeExpanded = false
+    @State private var deductionExpanded = false
 
     private var isWideLayout: Bool { horizontalSizeClass == .regular }
 
@@ -856,8 +857,19 @@ struct DashboardView: View {
             // ─── Deduction ───
             breakdownHeader("Deduction")
 
-            let deductionLabel = dataManager.scenarioEffectiveItemize ? "Itemized Deductions" : "Standard Deduction"
-            breakdownRow(deductionLabel, value: -dataManager.effectiveDeductionAmount, color: .green)
+            if dataManager.scenarioEffectiveItemize {
+                DisclosureGroup(isExpanded: $deductionExpanded) {
+                    deductionBreakdownContent
+                } label: {
+                    breakdownRow("Itemized Deductions", value: -dataManager.effectiveDeductionAmount, color: .green)
+                }
+            } else {
+                DisclosureGroup(isExpanded: $deductionExpanded) {
+                    standardDeductionBreakdownContent
+                } label: {
+                    breakdownRow("Standard Deduction", value: -dataManager.effectiveDeductionAmount, color: .green)
+                }
+            }
 
             // Final total
             Divider()
@@ -910,6 +922,130 @@ struct DashboardView: View {
             }
         }
         .padding(.top, 2)
+    }
+
+    // MARK: - Deduction Breakdown
+
+    /// Itemized deduction breakdown: SALT (with cap), medical (with AGI floor), charitable, other items.
+    private var deductionBreakdownContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // SALT section
+            if dataManager.totalSALTBeforeCap > 0 {
+                breakdownDetail("SALT (before cap)")
+                if dataManager.propertyTaxAmount > 0 {
+                    breakdownDetailRow("Property Tax", value: dataManager.propertyTaxAmount)
+                }
+                if dataManager.totalStateWithholding > 0 {
+                    breakdownDetailRow("State Withholding", value: dataManager.totalStateWithholding)
+                }
+                if dataManager.priorYearSALTDeductible > 0 {
+                    breakdownDetailRow("Prior Year State Balance", value: dataManager.priorYearSALTDeductible)
+                }
+                if dataManager.additionalSALTAmount > 0 {
+                    breakdownDetailRow("Additional SALT", value: dataManager.additionalSALTAmount)
+                }
+                breakdownDetailRow("SALT Total (pre-cap)", value: dataManager.totalSALTBeforeCap)
+                if dataManager.totalSALTBeforeCap > dataManager.saltCap {
+                    let capStr = dataManager.saltCap.formatted(.currency(code: "USD"))
+                    breakdownDetailRow("Federal Cap (\(capStr))",
+                                       value: -(dataManager.totalSALTBeforeCap - dataManager.saltAfterCap), color: .red)
+                }
+                breakdownDetailRow("SALT Deducted", value: dataManager.saltAfterCap, isBold: true)
+            }
+
+            // Medical section
+            if dataManager.totalMedicalExpenses > 0 {
+                breakdownDetail("Medical Expenses")
+                breakdownDetailRow("Total Medical", value: dataManager.totalMedicalExpenses)
+                breakdownDetailRow("7.5% AGI Floor", value: -dataManager.medicalAGIFloor, color: .red)
+                breakdownDetailRow("Deductible Medical", value: dataManager.deductibleMedicalExpenses, isBold: true)
+            }
+
+            // Other itemized (mortgage interest, etc.)
+            ForEach(dataManager.deductionItems.filter({
+                $0.type != .propertyTax && $0.type != .saltTax && $0.type != .medicalExpenses
+                && $0.annualAmount > 0
+            })) { item in
+                breakdownDetailRow(item.name, value: item.annualAmount)
+            }
+
+            // Charitable from scenarios
+            if dataManager.scenarioCharitableDeductions > 0 {
+                breakdownDetail("Charitable (from Scenarios)")
+                if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
+                    let stockValue = dataManager.scenarioStockIsLongTerm ? dataManager.stockCurrentValue : dataManager.stockPurchasePrice
+                    breakdownDetailRow("Donated Stock", value: stockValue)
+                }
+                if dataManager.cashDonationAmount > 0 {
+                    breakdownDetailRow("Cash Donations", value: dataManager.cashDonationAmount)
+                }
+            }
+
+            Divider()
+            breakdownDetailRow("Total Itemized", value: dataManager.totalItemizedDeductions, isBold: true)
+
+            // Show standard deduction comparison
+            if dataManager.totalItemizedDeductions > dataManager.standardDeductionAmount {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.caption2)
+                    Text("Itemizing saves \(dataManager.totalItemizedDeductions - dataManager.standardDeductionAmount, format: .currency(code: "USD")) vs standard deduction")
+                        .font(.caption2)
+                        .foregroundStyle(.green)
+                }
+                .padding(.top, 2)
+            }
+        }
+        .padding(.leading, 8)
+        .padding(.top, 4)
+    }
+
+    /// Standard deduction breakdown: base amount + age 65+ additions + OBBBA senior bonus.
+    private var standardDeductionBreakdownContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            breakdownDetailRow("Standard Deduction", value: dataManager.standardDeductionAmount)
+
+            // Show what itemized would be for comparison
+            if !dataManager.deductionItems.isEmpty || dataManager.scenarioCharitableDeductions > 0 {
+                breakdownDetailRow("Your Itemized Total", value: dataManager.totalItemizedDeductions)
+
+                if dataManager.standardDeductionAmount >= dataManager.totalItemizedDeductions {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .font(.caption2)
+                        Text("Standard deduction saves \(dataManager.standardDeductionAmount - dataManager.totalItemizedDeductions, format: .currency(code: "USD")) vs itemizing")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                    }
+                    .padding(.top, 2)
+                }
+            }
+        }
+        .padding(.leading, 8)
+        .padding(.top, 4)
+    }
+
+    private func breakdownDetail(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2)
+            .fontWeight(.semibold)
+            .foregroundStyle(.secondary)
+            .padding(.top, 4)
+    }
+
+    private func breakdownDetailRow(_ label: String, value: Double, isBold: Bool = false, color: Color? = nil) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value, format: .currency(code: "USD"))
+                .font(.caption2)
+                .fontWeight(isBold ? .semibold : .regular)
+                .foregroundStyle(color ?? .primary)
+        }
     }
 
     // MARK: - Y-Axis Label Helper
