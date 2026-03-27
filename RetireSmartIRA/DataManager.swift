@@ -1010,6 +1010,12 @@ class DataManager: ObservableObject {
             }
         }
 
+        // Apply state personal exemption credits (e.g., California $144/exemption)
+        if state == .california {
+            totalTax -= californiaExemptionCredits(filingStatus: filingStatus, agi: adjustedIncome)
+            totalTax = max(0, totalTax)
+        }
+
         let effectiveRate = income > 0 ? (totalTax / income) * 100 : 0
 
         return StateTaxBreakdown(
