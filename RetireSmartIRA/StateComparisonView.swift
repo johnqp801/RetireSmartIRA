@@ -290,14 +290,14 @@ struct StateComparisonView: View {
                             RuleMark(y: .value("Your Tax", currentTax))
                                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 3]))
                                 .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.95).opacity(0.6))
-                                .annotation(position: .top, alignment: .trailing) {
-                                    Text("You: \(chartYAxisLabel(currentTax))")
+                                .annotation(position: .top, alignment: .leading) {
+                                    Text("Your State: \(chartYAxisLabel(currentTax))")
                                         .font(.caption2)
                                         .fontWeight(.bold)
                                         .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.95))
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(Color(red: 0.15, green: 0.45, blue: 0.95).opacity(0.1))
+                                        .background(Color(red: 0.15, green: 0.45, blue: 0.95).opacity(0.15))
                                         .clipShape(Capsule())
                                 }
                         }
