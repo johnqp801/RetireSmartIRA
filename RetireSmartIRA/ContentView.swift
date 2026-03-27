@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  RetireSmartIRA
 //
-//  Main navigation view for iPad and macOS
+//  Main navigation view — sidebar on macOS, tab bar on iOS/iPadOS
 //
 
 import SwiftUI
@@ -12,6 +12,69 @@ struct ContentView: View {
     @State private var selectedTab = 0
 
     var body: some View {
+        #if os(macOS)
+        macBody
+        #else
+        tabBody
+        #endif
+    }
+
+    // MARK: - macOS Sidebar
+
+    #if os(macOS)
+    private var macBody: some View {
+        NavigationSplitView {
+            List(selection: $selectedTab) {
+                Section("Setup") {
+                    Label("Get Started", systemImage: "sparkles")
+                        .tag(0)
+                    Label("My Profile", systemImage: "person.crop.circle.fill")
+                        .tag(1)
+                    Label("Income & Deductions", systemImage: "banknote.fill")
+                        .tag(2)
+                    Label("Accounts", systemImage: "building.columns.fill")
+                        .tag(3)
+                }
+
+                Section("Analysis") {
+                    Label("RMD Calculator", systemImage: "calendar.badge.clock")
+                        .tag(4)
+                    Label("Scenarios", systemImage: "slider.horizontal.3")
+                        .tag(5)
+                    Label("Tax Summary", systemImage: "chart.bar.fill")
+                        .tag(6)
+                }
+
+                Section("More") {
+                    Label("Quarterly Tax", systemImage: "dollarsign.circle.fill")
+                        .tag(7)
+                    Label("State Comparison", systemImage: "map.fill")
+                        .tag(8)
+                }
+            }
+            .navigationTitle("RetireSmart IRA")
+            .listStyle(.sidebar)
+            .frame(minWidth: 200)
+        } detail: {
+            switch selectedTab {
+            case 0: GuideView(selectedTab: $selectedTab)
+            case 1: SettingsView()
+            case 2: IncomeSourcesView()
+            case 3: AccountsView()
+            case 4: RMDCalculatorView()
+            case 5: TaxPlanningView()
+            case 6: DashboardView()
+            case 7: QuarterlyTaxView()
+            case 8: StateComparisonView()
+            default: DashboardView()
+            }
+        }
+    }
+    #endif
+
+    // MARK: - iOS/iPadOS Tab Bar
+
+    private var tabBody: some View {
         TabView(selection: $selectedTab) {
             GuideView(selectedTab: $selectedTab)
                 .tabItem {

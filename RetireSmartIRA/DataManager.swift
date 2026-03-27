@@ -802,15 +802,29 @@ class DataManager: ObservableObject {
     /// Used by state comparison and scenarioStateTax to ensure correct state-specific deductions.
     func calculateStateTaxFromGross(grossIncome: Double, forState state: USState, filingStatus: FilingStatus, taxableSocialSecurity: Double) -> Double {
         let config = StateTaxData.config(for: state)
-        let stateDeduction: Double
+
+        // Determine state standard deduction
+        let stateStandardDeduction: Double
         switch config.stateDeduction {
         case .none:
-            stateDeduction = 0
+            stateStandardDeduction = 0
         case .conformsToFederal:
-            stateDeduction = effectiveDeductionAmount
+            stateStandardDeduction = standardDeductionAmount
         case .fixed(let single, let married):
-            stateDeduction = filingStatus == .single ? single : married
+            stateStandardDeduction = filingStatus == .single ? single : married
         }
+
+        // If user is itemizing, compute state-specific itemized deductions.
+        // State itemized removes SALT (can't deduct state tax on state return)
+        // and uses full property tax without the federal $10K SALT cap.
+        // Use the larger of state standard or state itemized.
+        let stateDeduction: Double
+        if scenarioEffectiveItemize {
+            stateDeduction = max(stateStandardDeduction, stateItemizedDeductions)
+        } else {
+            stateDeduction = stateStandardDeduction
+        }
+
         let stateTaxableIncome = max(0, grossIncome - stateDeduction)
         return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity)
     }
@@ -862,15 +876,21 @@ class DataManager: ObservableObject {
         let config = StateTaxData.config(for: state)
         let exemptions = config.retirementExemptions
 
-        // 0. Apply state-specific standard deduction
-        let stateDeduction: Double
+        // 0. Apply state-specific deduction (itemized or standard, whichever is larger)
+        let stateStandardDeduction: Double
         switch config.stateDeduction {
         case .none:
-            stateDeduction = 0
+            stateStandardDeduction = 0
         case .conformsToFederal:
-            stateDeduction = effectiveDeductionAmount
+            stateStandardDeduction = standardDeductionAmount
         case .fixed(let single, let married):
-            stateDeduction = filingStatus == .single ? single : married
+            stateStandardDeduction = filingStatus == .single ? single : married
+        }
+        let stateDeduction: Double
+        if scenarioEffectiveItemize {
+            stateDeduction = max(stateStandardDeduction, stateItemizedDeductions)
+        } else {
+            stateDeduction = stateStandardDeduction
         }
         let income = max(0, grossIncome - stateDeduction)
 
@@ -2103,6 +2123,29 @@ class DataManager: ObservableObject {
     /// The deduction amount actually applied to income
     var effectiveDeductionAmount: Double {
         scenarioEffectiveItemize ? totalItemizedDeductions : standardDeductionAmount
+    }
+
+    /// State-specific itemized deductions: removes SALT (can't deduct state tax on state return),
+    /// but adds back full property tax without the federal $10K SALT cap.
+    /// Used when user itemizes to compute state taxable income more accurately.
+    var stateItemizedDeductions: Double {
+        // Non-SALT, non-property-tax, non-medical deductions (mortgage interest, other, charitable)
+        let nonSALTNonMedical = deductionItems
+            .filter { $0.type != .propertyTax && $0.type != .saltTax && $0.type != .medicalExpenses }
+            .reduce(0) { $0 + $1.annualAmount }
+
+        // Full property tax (no cap at state level)
+        let fullPropertyTax = propertyTaxAmount
+
+        // Medical expenses (same AGI floor as federal)
+        let medical = deductibleMedicalExpenses
+
+        // Charitable from scenarios (stock + cash donations)
+        let charitable = scenarioCharitableDeductions
+
+        // No state/local tax deduction — you can't deduct state taxes on your own state return.
+        // Prior year state balance and state withholding are excluded.
+        return nonSALTNonMedical + fullPropertyTax + medical + charitable
     }
 
     /// Taxable income after scenario decisions and deductions
