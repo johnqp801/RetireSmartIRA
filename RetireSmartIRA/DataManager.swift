@@ -786,15 +786,61 @@ class DataManager: ObservableObject {
         let config = StateTaxData.config(for: state)
         let adjustedIncome = applyRetirementExemptions(income: income, config: config, taxableSocialSecurity: taxableSocialSecurity)
 
+        var tax: Double
         switch config.taxSystem {
         case .noIncomeTax, .specialLimited:
             return 0
         case .flat(let rate):
-            return max(0, adjustedIncome) * rate
+            tax = max(0, adjustedIncome) * rate
         case .progressive(let single, let married):
             let brackets = filingStatus == .single ? single : married
-            return progressiveTax(income: max(0, adjustedIncome), brackets: brackets)
+            tax = progressiveTax(income: max(0, adjustedIncome), brackets: brackets)
         }
+
+        // Apply state personal exemption credits (reduce tax, not income).
+        // California: $144 per exemption (2025/2026). Exemptions: taxpayer + spouse (if MFJ)
+        // + additional $144 each if 65+. Phased out above $252,203 AGI (single) / $504,406 (MFJ).
+        if state == .california {
+            tax -= californiaExemptionCredits(filingStatus: filingStatus, agi: adjustedIncome)
+        }
+
+        return max(0, tax)
+    }
+
+    /// California personal exemption credits: $144 per exemption.
+    /// Taxpayer (1) + spouse if MFJ (1) + age 65+ bonus for each.
+    /// Phased out for high-income filers (not common for most retirees under ~$500K).
+    private func californiaExemptionCredits(filingStatus: FilingStatus, agi: Double) -> Double {
+        let creditPerExemption = 144.0
+
+        var exemptions = 1 // taxpayer
+        if filingStatus == .marriedFilingJointly {
+            exemptions += 1 // spouse
+        }
+
+        // Additional exemption for age 65+
+        if currentAge >= 65 {
+            exemptions += 1
+        }
+        if filingStatus == .marriedFilingJointly && enableSpouse {
+            let spouseAge = currentYear - spouseBirthYear
+            if spouseAge >= 65 {
+                exemptions += 1
+            }
+        }
+
+        let totalCredit = Double(exemptions) * creditPerExemption
+
+        // Phaseout: credit reduced by $6 for each $2,500 of CA AGI over threshold
+        // 2026 thresholds: Single $252,203, MFJ $504,406
+        let phaseoutThreshold = filingStatus == .single ? 252_203.0 : 504_406.0
+        if agi > phaseoutThreshold {
+            let excess = agi - phaseoutThreshold
+            let reduction = (excess / 2_500).rounded(.down) * 6.0
+            return max(0, totalCredit - reduction)
+        }
+
+        return totalCredit
     }
 
     /// Calculates state tax starting from gross income (pre-deduction).
