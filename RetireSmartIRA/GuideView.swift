@@ -17,6 +17,7 @@ struct GuideView: View {
     // Section expansion states
     @State private var gatherExpanded: Bool = true
     @State private var myProfileGuideExpanded: Bool = false
+    @State private var ssGuideExpanded: Bool = false
     @State private var accountsGuideExpanded: Bool = false
     @State private var incomeGuideExpanded: Bool = false
     @State private var taxSummaryGuideExpanded: Bool = false
@@ -48,6 +49,7 @@ struct GuideView: View {
                 gatherBeforeYouStart
                 tabGuidesHeader
                 myProfileGuide
+                ssGuide
                 incomeGuide
                 accountsGuide
                 rmdGuide
@@ -82,6 +84,7 @@ struct GuideView: View {
                 VStack(spacing: 24) {
                     tabGuidesHeader
                     myProfileGuide
+                    ssGuide
                     incomeGuide
                     accountsGuide
                     rmdGuide
@@ -156,8 +159,9 @@ struct GuideView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 setupStepRow(title: "Set your date of birth", isComplete: progress.hasSetBirthDate, targetTab: 1)
-                setupStepRow(title: "Add retirement accounts", isComplete: progress.hasAccounts, targetTab: 3)
+                setupStepRow(title: "Enter Social Security benefits", isComplete: progress.hasSSBenefits, targetTab: 9)
                 setupStepRow(title: "Enter income sources", isComplete: progress.hasIncomeSources, targetTab: 2)
+                setupStepRow(title: "Add retirement accounts", isComplete: progress.hasAccounts, targetTab: 3)
                 setupStepRow(title: "Add deductions", isComplete: progress.hasDeductions, targetTab: 2)
             }
 
@@ -232,11 +236,22 @@ struct GuideView: View {
                 )
 
                 gatherCategory(
+                    icon: "person.text.rectangle.fill",
+                    title: "Social Security",
+                    color: .blue,
+                    items: [
+                        "If already receiving: your current monthly benefit amount (from SSA-1099 or bank deposit)",
+                        "If not yet claiming: estimated benefits at ages 62, FRA, and 70 (from ssa.gov/myaccount)",
+                        "Spouse\u{2019}s benefit information if married filing jointly",
+                        "Optional: earnings history XML from your Social Security Statement for AIME/PIA calculation"
+                    ]
+                )
+
+                gatherCategory(
                     icon: "banknote.fill",
-                    title: "Income Sources (annual amounts)",
+                    title: "Other Income Sources (annual amounts)",
                     color: .green,
                     items: [
-                        "Social Security benefit statement (SSA-1099 or my Social Security account)",
                         "Pension or annuity amounts (current year statement or prior year 1099-R)",
                         "Interest and dividends (use prior year 1099-INT / 1099-DIV as a starting estimate)",
                         "Capital gains (use prior year 1099-B as a guide; adjust for known changes)",
@@ -407,6 +422,19 @@ struct GuideView: View {
         }
     }
 
+    private var ssGuide: some View {
+        tabGuideSection(icon: "person.text.rectangle.fill", title: "Social Security", color: .blue, isExpanded: $ssGuideExpanded) {
+            guidePoint("Enter your SSA benefit estimates (at ages 62, FRA, and 70), or toggle \u{201C}Already Receiving\u{201D} to enter your current monthly payment")
+            guidePoint("If married, enter benefits for both you and your spouse")
+            guidePoint("Claiming Optimizer: compare cumulative lifetime benefits at different claiming ages with break-even analysis")
+            guidePoint("Couples Strategy: see a claiming-age matrix showing which combination maximizes household lifetime income")
+            guidePoint("Survivor Analysis: understand how household income changes if either spouse passes first")
+            guidePoint("Tax Impact card shows how much of your SS is taxable based on your total income")
+            guidePoint("Auto-sync sends your SS benefit amounts to Income & Deductions automatically \u{2014} no need to enter them twice")
+            guidePoint("Optional: import your earnings history XML from ssa.gov for an independent AIME/PIA calculation")
+        }
+    }
+
     private var accountsGuide: some View {
         tabGuideSection(icon: "building.columns.fill", title: "Accounts", color: .blue, isExpanded: $accountsGuideExpanded) {
             guidePoint("Add all retirement accounts: Traditional IRA, Roth IRA, Traditional 401(k), Roth 401(k)")
@@ -421,7 +449,8 @@ struct GuideView: View {
 
     private var incomeGuide: some View {
         tabGuideSection(icon: "banknote.fill", title: "Income & Deductions", color: .green, isExpanded: $incomeGuideExpanded) {
-            guidePoint("Add every income source: Social Security, pensions, dividends, interest, capital gains, employment/other income")
+            guidePoint("Social Security income is auto-synced from the SS Planner \u{2014} look for the \u{201C}Managed by SS Planner\u{201D} badge")
+            guidePoint("Add other income sources: pensions, dividends, interest, capital gains, employment/other income")
             guidePoint("Enter federal and state withholding for each source \u{2014} this reduces quarterly payment estimates")
             guidePoint("Social Security is taxed at 0%, 50%, or 85% based on combined income thresholds")
             guidePoint("Long-term capital gains and qualified dividends receive preferential federal tax rates")
@@ -498,6 +527,11 @@ struct GuideView: View {
                     icon: "calendar",
                     title: "RMD Age Rules",
                     description: "Born before 1951: age 72. Born 1951\u{2013}1959: age 73. Born 1960+: age 75. Missing an RMD incurs a 25% penalty."
+                )
+                conceptItem(
+                    icon: "person.text.rectangle.fill",
+                    title: "Social Security Claiming Age",
+                    description: "Claiming at 62 reduces your benefit up to 30%. Each year you delay past FRA adds 8% in delayed retirement credits up to age 70. For couples, the higher earner delaying often maximizes lifetime household income and survivor benefits. Already receiving? Your current benefit is automatically included in tax calculations."
                 )
                 conceptItem(
                     icon: "arrow.right.arrow.left",
@@ -605,6 +639,12 @@ struct GuideView: View {
                     color: .pink,
                     title: "Watch IRMAA Cliffs",
                     description: "IRMAA surcharges are cliff-based \u{2014} crossing a threshold by even $1 can add over $1,100/year per person in Medicare premiums. Check the IRMAA section in Scenarios before finalizing Roth conversions or withdrawals. Your income this year affects premiums two years from now."
+                )
+                tipItem(
+                    icon: "person.text.rectangle.fill",
+                    color: .blue,
+                    title: "SS and Tax Planning Together",
+                    description: "Social Security benefits can be up to 85% taxable depending on your other income. Roth conversions increase provisional income, which can push more SS into the taxable range. Use the Tax Impact card in the SS Planner to see the interaction, and coordinate conversion amounts with your SS taxability."
                 )
                 tipItem(
                     icon: "dollarsign.circle",

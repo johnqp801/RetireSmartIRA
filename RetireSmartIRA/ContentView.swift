@@ -30,6 +30,8 @@ struct ContentView: View {
                         .tag(0)
                     Label("My Profile", systemImage: "person.crop.circle.fill")
                         .tag(1)
+                    Label("Social Security", systemImage: "person.text.rectangle.fill")
+                        .tag(9)
                     Label("Income & Deductions", systemImage: "banknote.fill")
                         .tag(2)
                     Label("Accounts", systemImage: "building.columns.fill")
@@ -66,6 +68,7 @@ struct ContentView: View {
             case 6: DashboardView()
             case 7: QuarterlyTaxView()
             case 8: StateComparisonView()
+            case 9: SocialSecurityPlannerView()
             default: DashboardView()
             }
         }
@@ -87,6 +90,12 @@ struct ContentView: View {
                     Label("My Profile", systemImage: "person.crop.circle.fill")
                 }
                 .tag(1)
+
+            SocialSecurityPlannerView()
+                .tabItem {
+                    Label("Social Security", systemImage: "person.text.rectangle.fill")
+                }
+                .tag(9)
 
             IncomeSourcesView()
                 .tabItem {
@@ -129,6 +138,7 @@ struct ContentView: View {
                     Label("State Comparison", systemImage: "map.fill")
                 }
                 .tag(8)
+
         }
     }
 }

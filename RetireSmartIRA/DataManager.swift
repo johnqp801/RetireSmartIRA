@@ -74,6 +74,14 @@ class DataManager: ObservableObject {
     // Prior Year State Tax
     @Published var priorYearStateBalance: Double = 0  // positive = balance due paid; negative = refund
 
+    // Social Security Planner
+    @Published var primarySSBenefit: SSBenefitEstimate?
+    @Published var spouseSSBenefit: SSBenefitEstimate?
+    @Published var primaryEarningsHistory: SSEarningsHistory?
+    @Published var spouseEarningsHistory: SSEarningsHistory?
+    @Published var ssWhatIfParams = SSWhatIfParameters()
+    @Published var ssAutoSync: Bool = true
+
     // Itemized Deductions
     @Published var deductionItems: [DeductionItem] = []
 
@@ -1550,6 +1558,9 @@ class DataManager: ObservableObject {
             self.legacySpouseSurvivorYears = stored > 0 ? stored : 10
         }
         // taxableAccountGrowthRate is computed from primaryGrowthRate
+
+        // Social Security Planner data
+        loadSSData()
     }
 
     // Save tax brackets whenever they change
@@ -1666,6 +1677,9 @@ class DataManager: ObservableObject {
         defaults.set(legacyHeirTaxRate, forKey: StorageKey.legacyHeirTaxRate)
         defaults.set(legacySpouseSurvivorYears, forKey: StorageKey.legacySpouseSurvivorYears)
         // taxableAccountGrowthRate is computed from primaryGrowthRate
+
+        // Social Security Planner data
+        saveSSData()
     }
 
     /// Resets all scenario properties to defaults.
@@ -3420,6 +3434,7 @@ class DataManager: ObservableObject {
         let defaultDate = Calendar.current.date(from: defaultComponents)!
         return SetupProgress(
             hasSetBirthDate: birthDate != defaultDate,
+            hasSSBenefits: primarySSBenefit?.hasData == true,
             hasAccounts: !iraAccounts.isEmpty,
             hasIncomeSources: !incomeSources.isEmpty,
             hasDeductions: !deductionItems.isEmpty
@@ -3431,14 +3446,15 @@ class DataManager: ObservableObject {
 
 struct SetupProgress {
     let hasSetBirthDate: Bool
+    let hasSSBenefits: Bool
     let hasAccounts: Bool
     let hasIncomeSources: Bool
     let hasDeductions: Bool
 
     var completedSteps: Int {
-        [hasSetBirthDate, hasAccounts, hasIncomeSources, hasDeductions].filter { $0 }.count
+        [hasSetBirthDate, hasSSBenefits, hasAccounts, hasIncomeSources, hasDeductions].filter { $0 }.count
     }
-    var totalSteps: Int { 4 }
+    var totalSteps: Int { 5 }
     var isComplete: Bool { completedSteps == totalSteps }
 }
 

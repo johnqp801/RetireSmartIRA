@@ -504,6 +504,10 @@ struct IncomeSourcesView: View {
     struct IncomeRow: View {
         let source: IncomeSource
 
+        private var isManagedBySSPlanner: Bool {
+            source.type == .socialSecurity && source.name.hasSuffix("(SS Planner)")
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -522,9 +526,25 @@ struct IncomeSourcesView: View {
                                 .clipShape(Capsule())
                         }
 
-                        Text(source.type.rawValue)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            Text(source.type.rawValue)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            if isManagedBySSPlanner {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "link")
+                                        .font(.caption2)
+                                    Text("Managed by SS Planner")
+                                        .font(.caption2)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundStyle(.blue)
+                                .clipShape(Capsule())
+                            }
+                        }
                     }
 
                     Spacer()
