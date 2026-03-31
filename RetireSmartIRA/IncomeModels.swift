@@ -1,0 +1,117 @@
+//
+//  IncomeModels.swift
+//  RetireSmartIRA
+//
+//  Income and deduction data models extracted from DataManager.
+//
+
+import Foundation
+
+struct IncomeSource: Identifiable, Codable {
+    let id: UUID
+    var name: String
+    var type: IncomeType
+    var annualAmount: Double
+    var federalWithholding: Double
+    var stateWithholding: Double
+    var owner: Owner
+
+    /// Combined federal + state withholding for this source
+    var totalWithholding: Double { federalWithholding + stateWithholding }
+
+    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.annualAmount = annualAmount
+        self.federalWithholding = federalWithholding
+        self.stateWithholding = stateWithholding
+        self.owner = owner
+    }
+
+    // MARK: - Data Migration
+    // Decode legacy data that used a single "taxWithholding" field
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        type = try container.decode(IncomeType.self, forKey: .type)
+        annualAmount = try container.decode(Double.self, forKey: .annualAmount)
+        owner = try container.decode(Owner.self, forKey: .owner)
+
+        // Try new keys first; fall back to legacy "taxWithholding" → federalWithholding
+        if let fed = try? container.decode(Double.self, forKey: .federalWithholding) {
+            federalWithholding = fed
+            stateWithholding = (try? container.decode(Double.self, forKey: .stateWithholding)) ?? 0
+        } else {
+            let legacy = (try? container.decode(Double.self, forKey: .taxWithholding)) ?? 0
+            federalWithholding = legacy
+            stateWithholding = 0
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(type, forKey: .type)
+        try container.encode(annualAmount, forKey: .annualAmount)
+        try container.encode(federalWithholding, forKey: .federalWithholding)
+        try container.encode(stateWithholding, forKey: .stateWithholding)
+        try container.encode(owner, forKey: .owner)
+    }
+}
+
+enum IncomeType: String, Codable, CaseIterable {
+    case socialSecurity = "Social Security"
+    case pension = "Pension"
+    case dividends = "Dividends"
+    case qualifiedDividends = "Qualified Dividends"
+    case interest = "Interest"
+    case taxExemptInterest = "Tax-Exempt Interest"
+    case capitalGainsShort = "Capital Gains (Short-term)"
+    case capitalGainsLong = "Capital Gains (Long-term)"
+    case consulting = "Employment/Other Income"
+    case stateTaxRefund = "State Tax Refund"
+    case rmd = "RMD"
+    case rothConversion = "Roth Conversion"
+    case other = "Other"
+}
+
+enum FilingStatus: String, Codable, CaseIterable {
+    case single = "Single"
+    case marriedFilingJointly = "Married Filing Jointly"
+}
+
+enum DeductionChoice: String, Codable {
+    case standard
+    case itemized
+}
+
+struct DeductionItem: Identifiable, Codable {
+    let id: UUID
+    var name: String
+    var type: DeductionType
+    var annualAmount: Double
+    var owner: Owner
+
+    init(id: UUID = UUID(), name: String, type: DeductionType, annualAmount: Double, owner: Owner = .primary) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.annualAmount = annualAmount
+        self.owner = owner
+    }
+}
+
+enum DeductionType: String, Codable, CaseIterable {
+    case mortgageInterest = "Mortgage Interest"
+    case propertyTax = "Property Tax"
+    case saltTax = "State & Local Tax (SALT)"
+    case medicalExpenses = "Medical Expenses"
+    case other = "Other Itemized"
+}

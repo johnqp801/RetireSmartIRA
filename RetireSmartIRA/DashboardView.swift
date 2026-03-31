@@ -1730,7 +1730,7 @@ struct DashboardView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    private func actionItemRow(_ item: DataManager.ActionItem) -> some View {
+    private func actionItemRow(_ item: ActionItem) -> some View {
         let isCompleted = dataManager.completedActionKeys.contains(item.id)
 
         return HStack(alignment: .top, spacing: 12) {
@@ -1778,7 +1778,7 @@ struct DashboardView: View {
         .padding(.vertical, 4)
     }
 
-    private func categoryColor(_ category: DataManager.ActionCategory) -> Color {
+    private func categoryColor(_ category: ActionCategory) -> Color {
         switch category {
         case .rmd: return .red
         case .rothConversion: return .purple

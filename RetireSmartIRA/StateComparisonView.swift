@@ -546,8 +546,8 @@ struct StateComparisonItem: Identifiable {
 /// and a comparison to the user's current state.
 private struct StateTaxDetailSheet: View {
     let item: StateComparisonItem
-    let breakdown: DataManager.StateTaxBreakdown
-    let currentStateBreakdown: DataManager.StateTaxBreakdown
+    let breakdown: StateTaxBreakdown
+    let currentStateBreakdown: StateTaxBreakdown
     let currentStateItem: StateComparisonItem?
 
     @Environment(\.dismiss) private var dismiss

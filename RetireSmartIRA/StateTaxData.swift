@@ -137,7 +137,7 @@ enum StateTaxSystem {
     case flat(rate: Double)
 
     /// Progressive brackets with different rates at each threshold
-    case progressive(single: [DataManager.TaxBracket], married: [DataManager.TaxBracket])
+    case progressive(single: [TaxBracket], married: [TaxBracket])
 
     /// States with limited/special income tax (NH: dividends/interest only; WA: capital gains only)
     case specialLimited
@@ -210,7 +210,7 @@ struct StateTaxConfig {
 struct StateTaxData {
 
     /// Shorthand alias for bracket creation
-    private typealias B = DataManager.TaxBracket
+    private typealias B = TaxBracket
 
     // MARK: No-Income-Tax States (9)
 

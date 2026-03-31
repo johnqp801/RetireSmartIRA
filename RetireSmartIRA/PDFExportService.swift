@@ -101,12 +101,12 @@ struct PDFExportData {
 
     // IRMAA
     let medicareMemberCount: Int
-    let scenarioIRMAA: DataManager.IRMAAResult
+    let scenarioIRMAA: IRMAAResult
     let scenarioIRMAATotalSurcharge: Double
 
     // NIIT
     let scenarioNetInvestmentIncome: Double
-    let scenarioNIIT: DataManager.NIITResult
+    let scenarioNIIT: NIITResult
 
     // Quarterly
     let scenarioQuarterlyPayments: FederalStateQuarterlyBreakdown
@@ -121,7 +121,7 @@ struct PDFExportData {
     let totalInheritedBalance: Double
 
     // Action items
-    let actionItems: [DataManager.ActionItem]
+    let actionItems: [ActionItem]
     let completedActionKeys: Set<String>
 
     // Base case (pre-decision) tax computation
@@ -146,7 +146,7 @@ struct PDFExportData {
     let baseBracketPlus2Rate: Double?       // rate 2 brackets up (nil if n/a)
 
     // Base case planning metrics — IRMAA
-    let baseIRMAA: DataManager.IRMAAResult
+    let baseIRMAA: IRMAAResult
     let irmaaDistanceToTierPlus2: Double?
 
     // IRMAA tier savings
