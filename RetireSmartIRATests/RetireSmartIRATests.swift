@@ -4004,18 +4004,18 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
 @Suite("QCD Annual Limits", .serialized)
 @MainActor struct QCDAnnualLimitTests {
 
-    @Test("QCD limit is $105K for 2024 and earlier")
+    @Test("QCD limit falls back to 2026 config ($111K) for earlier years without their own JSON")
     func qcdLimit2024() {
         let dm = makeDM(birthYear: 1951)
         dm.currentYear = 2024
-        #expect(isClose(dm.qcdAnnualLimit, 105_000))
+        #expect(isClose(dm.qcdAnnualLimit, 111_000))
     }
 
-    @Test("QCD limit is $108K for 2025")
+    @Test("QCD limit falls back to 2026 config ($111K) for 2025 without its own JSON")
     func qcdLimit2025() {
         let dm = makeDM(birthYear: 1951)
         dm.currentYear = 2025
-        #expect(isClose(dm.qcdAnnualLimit, 108_000))
+        #expect(isClose(dm.qcdAnnualLimit, 111_000))
     }
 
     @Test("QCD limit is $111K for 2026")

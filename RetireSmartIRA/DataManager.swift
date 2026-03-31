@@ -913,14 +913,9 @@ class DataManager: ObservableObject {
         isQCDEligible || (enableSpouse && spouseIsQCDEligible)
     }
 
-    /// Annual QCD limit per person, inflation-adjusted per SECURE 2.0 Act.
-    /// 2025: $108,000 (IRS confirmed). 2026: $111,000 (IRS Notice 2025-67).
+    /// Annual QCD limit per person, loaded from tax year config JSON.
     var qcdAnnualLimit: Double {
-        switch currentYear {
-        case ...2024: return 105_000
-        case 2025: return 108_000
-        default: return 111_000  // 2026+ (will need future IRS updates)
-        }
+        TaxCalculationEngine.config.qcdAnnualLimit
     }
 
     var yourMaxQCDAmount: Double {
@@ -1011,58 +1006,36 @@ class DataManager: ObservableObject {
     ///   phases out at 6% of MAGI over $75K (Single) / $150K (MFJ).
     ///   Not available for Married Filing Separately.
     var standardDeductionAmount: Double {
+        let cfg = TaxCalculationEngine.config
         let year = currentYear
         var amount: Double
 
         switch filingStatus {
         case .single:
-            // Base standard deduction
-            if year == 2025 {
-                amount = 15_750
-            } else {
-                amount = 16_100  // 2026 (IRS Rev. Proc. 2025-32)
-            }
-            // Age 65+ additional deduction
+            amount = cfg.standardDeductionSingle
             if currentAge >= 65 {
-                amount += (year == 2025) ? 2_000 : 2_050
+                amount += cfg.additionalDeduction65Single
             }
-            // OBBBA Senior Bonus (2025-2028): $6,000 with gradual phaseout
-            if currentAge >= 65 && year >= 2025 && year <= 2028 {
-                let seniorBonusBase = 6_000.0
-                let phaseoutThreshold = 75_000.0
-                let phaseoutRate = 0.06
+            // OBBBA Senior Bonus
+            if currentAge >= 65 && year >= cfg.seniorBonusFirstYear && year <= cfg.seniorBonusLastYear {
                 let magi = scenarioGrossIncome
-                let reduction = max(0, (magi - phaseoutThreshold) * phaseoutRate)
-                let bonus = max(0, seniorBonusBase - reduction)
+                let reduction = max(0, (magi - cfg.seniorBonusPhaseoutSingle) * cfg.seniorBonusPhaseoutRate)
+                let bonus = max(0, cfg.seniorBonusPerPerson - reduction)
                 amount += bonus
             }
         case .marriedFilingJointly:
-            // Base standard deduction
-            if year == 2025 {
-                amount = 31_500
-            } else {
-                amount = 32_200  // 2026 (IRS Rev. Proc. 2025-32)
-            }
-            // Age 65+ additional per person
-            let additionalPer65 = (year == 2025) ? 1_600.0 : 1_650.0
-            if currentAge >= 65 { amount += additionalPer65 }
-            if enableSpouse && spouseCurrentAge >= 65 { amount += additionalPer65 }
-            // OBBBA Senior Bonus (2025-2028): $6,000 per qualifying person 65+
-            // with gradual phaseout at 6% of MAGI over $150K
-            if year >= 2025 && year <= 2028 {
-                let seniorBonusPerPerson = 6_000.0
-                let phaseoutThreshold = 150_000.0
-                let phaseoutRate = 0.06
+            amount = cfg.standardDeductionMFJ
+            if currentAge >= 65 { amount += cfg.additionalDeduction65MFJ }
+            if enableSpouse && spouseCurrentAge >= 65 { amount += cfg.additionalDeduction65MFJ }
+            // OBBBA Senior Bonus per qualifying person 65+
+            if year >= cfg.seniorBonusFirstYear && year <= cfg.seniorBonusLastYear {
                 let magi = scenarioGrossIncome
-
-                // Count qualifying seniors
                 var qualifyingSeniors = 0
                 if currentAge >= 65 { qualifyingSeniors += 1 }
                 if enableSpouse && spouseCurrentAge >= 65 { qualifyingSeniors += 1 }
-
                 if qualifyingSeniors > 0 {
-                    let totalBonusBase = seniorBonusPerPerson * Double(qualifyingSeniors)
-                    let reduction = max(0, (magi - phaseoutThreshold) * phaseoutRate)
+                    let totalBonusBase = cfg.seniorBonusPerPerson * Double(qualifyingSeniors)
+                    let reduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
                     let bonus = max(0, totalBonusBase - reduction)
                     amount += bonus
                 }
@@ -1083,7 +1056,7 @@ class DataManager: ObservableObject {
 
     /// The 7.5% AGI floor for medical deductions.
     var medicalAGIFloor: Double {
-        estimatedAGI * 0.075
+        estimatedAGI * TaxCalculationEngine.config.medicalAGIFloorRate
     }
 
     /// Deductible medical expenses (only the portion exceeding 7.5% of AGI).
@@ -1108,28 +1081,21 @@ class DataManager: ObservableObject {
     ///   30% of MAGI exceeding $500,000 (MFJ, +1%/year). Floor of $10,000.
     /// - 2030+: Reverts permanently to $10,000
     var saltCap: Double {
+        let cfg = TaxCalculationEngine.config
         let year = currentYear
-        if year >= 2025 && year <= 2029 {
-            // OBBBA base cap with 1% annual inflation adjustment from 2025
-            let yearsFromBase = Double(year - 2025)
-            let inflationMultiplier = pow(1.01, yearsFromBase)
-            let expandedCap = (40_000.0 * inflationMultiplier).rounded()
+        if year >= cfg.saltExpandedFirstYear && year <= cfg.saltExpandedLastYear {
+            let yearsFromBase = Double(year - cfg.saltBaseYear)
+            let inflationMultiplier = pow(1.0 + cfg.saltInflationRate, yearsFromBase)
+            let expandedCap = (cfg.saltBaseCap * inflationMultiplier).rounded()
 
-            // Income-based phaseout: reduced by 30% of MAGI over threshold
-            // Threshold: $500,000 MFJ in 2025, also inflated 1%/year
-            let phaseoutThreshold = (500_000.0 * inflationMultiplier).rounded()
+            let phaseoutThreshold = (cfg.saltPhaseoutBaseThreshold * inflationMultiplier).rounded()
             let magi = scenarioGrossIncome
-            // Round MAGI to whole dollars to prevent floating-point errors at phaseout threshold
-            let phaseoutReduction = max(0, (magi.rounded() - phaseoutThreshold) * 0.30)
+            let phaseoutReduction = max(0, (magi.rounded() - phaseoutThreshold) * cfg.saltPhaseoutRate)
             let afterPhaseout = expandedCap - phaseoutReduction
 
-            // Floor: never less than $10,000 regardless of phaseout
-            return max(10_000, afterPhaseout)
-        } else if year >= 2018 && year <= 2024 {
-            return 10_000
+            return max(cfg.saltFloor, afterPhaseout)
         } else {
-            // 2030+ reverts to TCJA cap
-            return 10_000
+            return cfg.saltDefaultCap
         }
     }
 

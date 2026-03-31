@@ -1,0 +1,91 @@
+{
+  "taxYear": 2026,
+
+  "federalBracketsSingle": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 12400, "rate": 0.12 },
+    { "threshold": 50400, "rate": 0.22 },
+    { "threshold": 105700, "rate": 0.24 },
+    { "threshold": 201775, "rate": 0.32 },
+    { "threshold": 256225, "rate": 0.35 },
+    { "threshold": 640600, "rate": 0.37 }
+  ],
+  "federalBracketsMFJ": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 24800, "rate": 0.12 },
+    { "threshold": 100800, "rate": 0.22 },
+    { "threshold": 211400, "rate": 0.24 },
+    { "threshold": 403550, "rate": 0.32 },
+    { "threshold": 512450, "rate": 0.35 },
+    { "threshold": 768700, "rate": 0.37 }
+  ],
+  "federalCapGainsBracketsSingle": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 49450, "rate": 0.15 },
+    { "threshold": 545500, "rate": 0.20 }
+  ],
+  "federalCapGainsBracketsMFJ": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 98900, "rate": 0.15 },
+    { "threshold": 613700, "rate": 0.20 }
+  ],
+
+  "standardDeductionSingle": 16100,
+  "standardDeductionMFJ": 32200,
+  "additionalDeduction65Single": 2050,
+  "additionalDeduction65MFJ": 1650,
+
+  "seniorBonusPerPerson": 6000,
+  "seniorBonusPhaseoutSingle": 75000,
+  "seniorBonusPhaseoutMFJ": 150000,
+  "seniorBonusPhaseoutRate": 0.06,
+  "seniorBonusFirstYear": 2025,
+  "seniorBonusLastYear": 2028,
+
+  "saltBaseCap": 40000,
+  "saltInflationRate": 0.01,
+  "saltBaseYear": 2025,
+  "saltPhaseoutBaseThreshold": 500000,
+  "saltPhaseoutRate": 0.30,
+  "saltFloor": 10000,
+  "saltExpandedFirstYear": 2025,
+  "saltExpandedLastYear": 2029,
+  "saltDefaultCap": 10000,
+
+  "amtExemptionSingle": 90100,
+  "amtExemptionMFJ": 140200,
+  "amtPhaseoutThresholdSingle": 500000,
+  "amtPhaseoutThresholdMFJ": 1000000,
+  "amtPhaseoutRate": 0.50,
+  "amt26PercentLimit": 244500,
+  "amtRate26": 0.26,
+  "amtRate28": 0.28,
+
+  "irmaaStandardPartB": 202.90,
+  "irmaaTiers": [
+    { "tier": 0, "singleThreshold": 0, "mfjThreshold": 0, "partBMonthly": 202.90, "partDMonthly": 0 },
+    { "tier": 1, "singleThreshold": 109001, "mfjThreshold": 218001, "partBMonthly": 284.10, "partDMonthly": 14.50 },
+    { "tier": 2, "singleThreshold": 137001, "mfjThreshold": 274001, "partBMonthly": 405.50, "partDMonthly": 37.40 },
+    { "tier": 3, "singleThreshold": 171001, "mfjThreshold": 342001, "partBMonthly": 527.00, "partDMonthly": 60.30 },
+    { "tier": 4, "singleThreshold": 205001, "mfjThreshold": 410001, "partBMonthly": 608.40, "partDMonthly": 83.10 },
+    { "tier": 5, "singleThreshold": 500001, "mfjThreshold": 750001, "partBMonthly": 689.90, "partDMonthly": 91.00 }
+  ],
+
+  "niitRate": 0.038,
+  "niitThresholdSingle": 200000,
+  "niitThresholdMFJ": 250000,
+
+  "ssTaxationThreshold1Single": 25000,
+  "ssTaxationThreshold2Single": 34000,
+  "ssTaxationThreshold1MFJ": 32000,
+  "ssTaxationThreshold2MFJ": 44000,
+
+  "qcdAnnualLimit": 111000,
+
+  "caExemptionCreditPerPerson": 144,
+  "caExemptionPhaseoutSingle": 252203,
+  "caExemptionPhaseoutMFJ": 504406,
+  "caExemptionPhaseoutReductionPer2500": 6.0,
+
+  "medicalAGIFloorRate": 0.075
+}

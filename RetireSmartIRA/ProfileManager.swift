@@ -18,7 +18,9 @@ class ProfileManager: ObservableObject {
         var c = DateComponents(); c.year = 1953; c.month = 1; c.day = 1
         return Calendar.current.date(from: c)!
     }()
-    @Published var currentYear: Int = Calendar.current.component(.year, from: Date())
+    @Published var currentYear: Int = Calendar.current.component(.year, from: Date()) {
+        didSet { TaxCalculationEngine.loadConfig(forYear: currentYear) }
+    }
     @Published var filingStatus: FilingStatus = .single
     @Published var selectedState: USState = .california
     @Published var userName: String = ""

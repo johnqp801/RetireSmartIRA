@@ -339,10 +339,10 @@ import Foundation
     @Test("Senior bonus: $6,000 for 65+ with phaseout")
     func seniorBonusWithPhaseout() {
         let dm = DataManager(skipPersistence: true)
-        dm.currentYear = 2025
+        dm.currentYear = 2026
         dm.filingStatus = .single
-        
-        // Age 70
+
+        // Age 71
         var components = DateComponents()
         components.year = 1955
         components.month = 1
@@ -355,37 +355,37 @@ import Foundation
             IncomeSource(name: "Pension", type: .pension, annualAmount: 80_000)
         ]
         
-        let expectedBase = 15_750.0 // 2025 base Single
-        let expectedAge65Plus = 2_000.0 // 2025 additional
+        let expectedBase = 16_100.0 // 2026 base Single
+        let expectedAge65Plus = 2_050.0 // 2026 additional
         let expectedBonus = 6_000.0 - ((80_000 - 75_000) * 0.06)
-        
+
         let expected = expectedBase + expectedAge65Plus + expectedBonus
-        
+
         #expect(abs(dm.standardDeductionAmount - expected) < 0.01)
     }
-    
+
     @Test("Senior bonus phases out completely at very high income")
     func seniorBonusPhaseoutComplete() {
         let dm = DataManager(skipPersistence: true)
-        dm.currentYear = 2025
+        dm.currentYear = 2026
         dm.filingStatus = .single
-        
+
         var components = DateComponents()
         components.year = 1955
         components.month = 1
         components.day = 1
         dm.birthDate = Calendar.current.date(from: components)!
-        
+
         // MAGI $175,000 → $100k over threshold → 6% reduction = $6,000 (full phaseout)
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 175_000)
         ]
-        
+
         // Should get base + age 65+ additional, but NO senior bonus
-        let expectedBase = 15_750.0
-        let expectedAge65Plus = 2_000.0
+        let expectedBase = 16_100.0
+        let expectedAge65Plus = 2_050.0
         let expected = expectedBase + expectedAge65Plus
-        
+
         #expect(abs(dm.standardDeductionAmount - expected) < 0.01)
     }
 }

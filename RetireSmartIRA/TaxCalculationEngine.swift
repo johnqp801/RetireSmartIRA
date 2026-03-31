@@ -10,73 +10,49 @@ import Foundation
 
 struct TaxCalculationEngine {
 
-    // MARK: - Tax Bracket Constants
+    // MARK: - Tax Year Configuration
 
-    static let default2026Brackets = TaxBrackets(
-        federalSingle: [
-            TaxBracket(threshold: 0, rate: 0.10),
-            TaxBracket(threshold: 12_400, rate: 0.12),
-            TaxBracket(threshold: 50_400, rate: 0.22),
-            TaxBracket(threshold: 105_700, rate: 0.24),
-            TaxBracket(threshold: 201_775, rate: 0.32),
-            TaxBracket(threshold: 256_225, rate: 0.35),
-            TaxBracket(threshold: 640_600, rate: 0.37)
-        ],
-        federalMarried: [
-            TaxBracket(threshold: 0, rate: 0.10),
-            TaxBracket(threshold: 24_800, rate: 0.12),
-            TaxBracket(threshold: 100_800, rate: 0.22),
-            TaxBracket(threshold: 211_400, rate: 0.24),
-            TaxBracket(threshold: 403_550, rate: 0.32),
-            TaxBracket(threshold: 512_450, rate: 0.35),
-            TaxBracket(threshold: 768_700, rate: 0.37)
-        ],
-        federalCapGainsSingle: [
-            TaxBracket(threshold: 0, rate: 0.0),
-            TaxBracket(threshold: 49_450, rate: 0.15),
-            TaxBracket(threshold: 545_500, rate: 0.20)
-        ],
-        federalCapGainsMarried: [
-            TaxBracket(threshold: 0, rate: 0.0),
-            TaxBracket(threshold: 98_900, rate: 0.15),
-            TaxBracket(threshold: 613_700, rate: 0.20)
-        ]
+    /// The active tax year config, loaded from bundled JSON.
+    /// Set at app startup via `loadConfig(forYear:)`. Falls back to hardcoded 2026 values.
+    private(set) static var config: TaxYearConfig = TaxYearConfig.loadOrFallback(
+        forYear: Calendar.current.component(.year, from: Date())
     )
 
-    // MARK: - IRMAA Constants (CMS 2026)
+    /// Reload the config for a different tax year (e.g., when user changes currentYear).
+    static func loadConfig(forYear year: Int) {
+        config = TaxYearConfig.loadOrFallback(forYear: year)
+    }
 
-    static let irmaaStandardPartB: Double = 202.90
+    // MARK: - Tax Bracket Constants (from config)
 
-    static let irmaa2026Tiers: [IRMAATier] = [
-        IRMAATier(tier: 0, singleThreshold: 0,       mfjThreshold: 0,       partBMonthly: 202.90, partDMonthly: 0),
-        IRMAATier(tier: 1, singleThreshold: 109_001,  mfjThreshold: 218_001,  partBMonthly: 284.10, partDMonthly: 14.50),
-        IRMAATier(tier: 2, singleThreshold: 137_001,  mfjThreshold: 274_001,  partBMonthly: 405.50, partDMonthly: 37.40),
-        IRMAATier(tier: 3, singleThreshold: 171_001,  mfjThreshold: 342_001,  partBMonthly: 527.00, partDMonthly: 60.30),
-        IRMAATier(tier: 4, singleThreshold: 205_001,  mfjThreshold: 410_001,  partBMonthly: 608.40, partDMonthly: 83.10),
-        IRMAATier(tier: 5, singleThreshold: 500_001,  mfjThreshold: 750_001,  partBMonthly: 689.90, partDMonthly: 91.00),
-    ]
+    static var default2026Brackets: TaxBrackets { config.toTaxBrackets() }
 
-    // MARK: - NIIT Constants (IRC §1411)
+    // MARK: - IRMAA Constants (from config)
 
-    static let niitRate: Double = 0.038
-    static let niitThresholdSingle: Double = 200_000
-    static let niitThresholdMFJ: Double = 250_000
+    static var irmaaStandardPartB: Double { config.irmaaStandardPartB }
+    static var irmaa2026Tiers: [IRMAATier] { config.toIRMAATiers() }
+
+    // MARK: - NIIT Constants (from config)
+
+    static var niitRate: Double { config.niitRate }
+    static var niitThresholdSingle: Double { config.niitThresholdSingle }
+    static var niitThresholdMFJ: Double { config.niitThresholdMFJ }
 
     static let niitQualifyingTypes: Set<IncomeType> = [
         .dividends, .qualifiedDividends, .interest,
         .capitalGainsShort, .capitalGainsLong
     ]
 
-    // MARK: - AMT Constants (IRC §55)
+    // MARK: - AMT Constants (from config)
 
-    static let amtExemptionSingle: Double = 90_100
-    static let amtExemptionMFJ: Double = 140_200
-    static let amtPhaseoutThresholdSingle: Double = 500_000
-    static let amtPhaseoutThresholdMFJ: Double = 1_000_000
-    static let amtPhaseoutRate: Double = 0.50
-    static let amt26PercentLimit: Double = 244_500
-    static let amtRate26: Double = 0.26
-    static let amtRate28: Double = 0.28
+    static var amtExemptionSingle: Double { config.amtExemptionSingle }
+    static var amtExemptionMFJ: Double { config.amtExemptionMFJ }
+    static var amtPhaseoutThresholdSingle: Double { config.amtPhaseoutThresholdSingle }
+    static var amtPhaseoutThresholdMFJ: Double { config.amtPhaseoutThresholdMFJ }
+    static var amtPhaseoutRate: Double { config.amtPhaseoutRate }
+    static var amt26PercentLimit: Double { config.amt26PercentLimit }
+    static var amtRate26: Double { config.amtRate26 }
+    static var amtRate28: Double { config.amtRate28 }
 
     // MARK: - Progressive Tax
 
@@ -151,7 +127,7 @@ struct TaxCalculationEngine {
     // MARK: - California Exemption Credits
 
     static func californiaExemptionCredits(filingStatus: FilingStatus, agi: Double, currentAge: Int, enableSpouse: Bool, spouseBirthYear: Int, currentYear: Int) -> Double {
-        let creditPerExemption = 144.0
+        let creditPerExemption = config.caExemptionCreditPerPerson
 
         var exemptions = 1
         if filingStatus == .marriedFilingJointly {
@@ -170,10 +146,10 @@ struct TaxCalculationEngine {
 
         let totalCredit = Double(exemptions) * creditPerExemption
 
-        let phaseoutThreshold = filingStatus == .single ? 252_203.0 : 504_406.0
+        let phaseoutThreshold = filingStatus == .single ? config.caExemptionPhaseoutSingle : config.caExemptionPhaseoutMFJ
         if agi > phaseoutThreshold {
             let excess = agi - phaseoutThreshold
-            let reduction = (excess / 2_500).rounded(.down) * 6.0
+            let reduction = (excess / 2_500).rounded(.down) * config.caExemptionPhaseoutReductionPer2500
             return max(0, totalCredit - reduction)
         }
 
@@ -344,7 +320,9 @@ struct TaxCalculationEngine {
 
         let combinedIncome = otherIncome + additionalIncome + (ssIncome * 0.5)
         let roundedCombined = combinedIncome.rounded()
-        let (threshold1, threshold2) = filingStatus == .single ? (25_000.0, 34_000.0) : (32_000.0, 44_000.0)
+        let (threshold1, threshold2) = filingStatus == .single
+            ? (config.ssTaxationThreshold1Single, config.ssTaxationThreshold2Single)
+            : (config.ssTaxationThreshold1MFJ, config.ssTaxationThreshold2MFJ)
 
         if roundedCombined <= threshold1 {
             return 0.0
