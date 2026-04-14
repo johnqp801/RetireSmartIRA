@@ -323,6 +323,140 @@ struct SSCalculationEngine {
         return ownBenefit + reducedExcess
     }
 
+    // MARK: - Effective Monthly Benefit (Spousal-Aware, Age-Aware)
+
+    /// Result of computing the effective monthly benefit for one person in a couple.
+    struct EffectiveBenefitResult {
+        var monthly: Double             // The effective monthly benefit for the given year
+        var isCollecting: Bool          // Whether this person is receiving benefits in the given year
+        var ownMonthly: Double          // Own-record portion (without spousal top-up)
+        var spousalTopUp: Double        // Spousal top-up portion (0 if not applicable)
+        var includesSpousalTopUp: Bool  // Whether the spousal top-up is active
+    }
+
+    /// Compute the correct monthly SS benefit for one person in a couple for a specific year,
+    /// considering: their claiming age, the other spouse's claiming status, and spousal top-up eligibility.
+    ///
+    /// For "already claiming" users, we assume `currentBenefit` already includes any spousal top-up
+    /// that SSA is paying (since SSA pays one combined check).
+    ///
+    /// For "not yet claiming" users, we compute own-record benefit + spousal top-up (if the other
+    /// spouse has also filed by the given year).
+    ///
+    /// - Parameters:
+    ///   - personPIA: This person's Primary Insurance Amount (benefit at FRA)
+    ///   - personBirthYear: This person's birth year
+    ///   - personClaimingAge: Age this person plans to claim (or claimed)
+    ///   - personClaimingMonth: Month within claiming year (0-11)
+    ///   - personIsAlreadyClaiming: Whether this person is already receiving benefits
+    ///   - personCurrentBenefit: Monthly amount if already claiming (assumed to include any spousal top-up)
+    ///   - spousePIA: The other spouse's PIA (needed for spousal top-up calculation)
+    ///   - spouseBirthYear: The other spouse's birth year
+    ///   - spouseClaimingAge: Age the other spouse plans to claim (or claimed)
+    ///   - spouseIsAlreadyClaiming: Whether the other spouse is already receiving benefits
+    ///   - forYear: The calendar year to compute benefits for
+    static func effectiveMonthlyBenefit(
+        personPIA: Double, personBirthYear: Int,
+        personClaimingAge: Int, personClaimingMonth: Int = 0,
+        personIsAlreadyClaiming: Bool, personCurrentBenefit: Double = 0,
+        spousePIA: Double, spouseBirthYear: Int,
+        spouseClaimingAge: Int, spouseIsAlreadyClaiming: Bool,
+        forYear: Int
+    ) -> EffectiveBenefitResult {
+        // Person's age in the given year
+        let personAge = forYear - personBirthYear
+
+        // Already claiming: SSA pays a single check that includes any spousal top-up.
+        // Use the entered amount as-is.
+        if personIsAlreadyClaiming {
+            return EffectiveBenefitResult(
+                monthly: personCurrentBenefit,
+                isCollecting: true,
+                ownMonthly: personCurrentBenefit,
+                spousalTopUp: 0,
+                includesSpousalTopUp: false  // We can't decompose what SSA is paying
+            )
+        }
+
+        // Not yet claiming: check if person has reached claiming age
+        guard personAge >= personClaimingAge else {
+            return EffectiveBenefitResult(
+                monthly: 0, isCollecting: false,
+                ownMonthly: 0, spousalTopUp: 0, includesSpousalTopUp: false
+            )
+        }
+
+        // Compute own-record benefit at claiming age
+        let personFRA = fullRetirementAge(birthYear: personBirthYear)
+        let ownBenefit = benefitAtAge(
+            claimingAge: personClaimingAge, claimingMonth: personClaimingMonth,
+            pia: personPIA, fraYears: personFRA.years, fraMonths: personFRA.months
+        )
+
+        // Check if the other spouse has filed (needed for spousal top-up)
+        let spouseAge = forYear - spouseBirthYear
+        let spouseHasFiled = spouseIsAlreadyClaiming || spouseAge >= spouseClaimingAge
+
+        guard spouseHasFiled else {
+            // Other spouse hasn't filed yet — no spousal top-up available
+            return EffectiveBenefitResult(
+                monthly: ownBenefit, isCollecting: true,
+                ownMonthly: ownBenefit, spousalTopUp: 0, includesSpousalTopUp: false
+            )
+        }
+
+        // Other spouse has filed — check for spousal top-up
+        let withSpousal = spousalBenefit(
+            workerPIA: spousePIA, spouseOwnPIA: personPIA,
+            spouseClaimingAge: personClaimingAge, spouseClaimingMonth: personClaimingMonth,
+            spouseBirthYear: personBirthYear
+        )
+
+        let topUp = max(0, withSpousal - ownBenefit)
+        let effective = ownBenefit + topUp
+
+        return EffectiveBenefitResult(
+            monthly: effective, isCollecting: true,
+            ownMonthly: ownBenefit, spousalTopUp: topUp,
+            includesSpousalTopUp: topUp > 0
+        )
+    }
+
+    /// Simplified version for single filers (no spouse) — just own-record, age-gated.
+    static func effectiveMonthlyBenefitSingle(
+        personPIA: Double, personBirthYear: Int,
+        personClaimingAge: Int, personClaimingMonth: Int = 0,
+        personIsAlreadyClaiming: Bool, personCurrentBenefit: Double = 0,
+        forYear: Int
+    ) -> EffectiveBenefitResult {
+        let personAge = forYear - personBirthYear
+
+        if personIsAlreadyClaiming {
+            return EffectiveBenefitResult(
+                monthly: personCurrentBenefit, isCollecting: true,
+                ownMonthly: personCurrentBenefit, spousalTopUp: 0, includesSpousalTopUp: false
+            )
+        }
+
+        guard personAge >= personClaimingAge else {
+            return EffectiveBenefitResult(
+                monthly: 0, isCollecting: false,
+                ownMonthly: 0, spousalTopUp: 0, includesSpousalTopUp: false
+            )
+        }
+
+        let fra = fullRetirementAge(birthYear: personBirthYear)
+        let ownBenefit = benefitAtAge(
+            claimingAge: personClaimingAge, claimingMonth: personClaimingMonth,
+            pia: personPIA, fraYears: fra.years, fraMonths: fra.months
+        )
+
+        return EffectiveBenefitResult(
+            monthly: ownBenefit, isCollecting: true,
+            ownMonthly: ownBenefit, spousalTopUp: 0, includesSpousalTopUp: false
+        )
+    }
+
     // MARK: - Survivor Benefits (Phase 2)
 
     /// Survivor benefit considering age reduction and RIB-LIM.
@@ -409,9 +543,12 @@ struct SSCalculationEngine {
                     deceasedPIA: spousePIA)
 
                 // Combined lifetime: both-alive phase + survivor phase for each death order
+                // Pass own-only amounts so gap years before the other spouse files
+                // use the correct (non-spousal-topped-up) benefit.
                 let combined = couplesLifetimeBenefit(
                     primaryMonthly: pMonthly, primaryClaimAge: pAge, primaryLifeExp: primaryLifeExpectancy,
                     spouseMonthly: sMonthly, spouseClaimAge: sAge, spouseLifeExp: spouseLifeExpectancy,
+                    primaryOwnMonthly: pOwnMonthly, spouseOwnMonthly: sOwnMonthly,
                     survivorIfPrimaryDies: survivorIfPrimaryDies,
                     survivorIfSpouseDies: survivorIfSpouseDies,
                     colaRate: colaRate, discountRate: discountRate
@@ -422,6 +559,8 @@ struct SSCalculationEngine {
                     spouseClaimingAge: sAge,
                     primaryMonthly: pMonthly,
                     spouseMonthly: sMonthly,
+                    primaryOwnMonthly: pOwnMonthly,
+                    spouseOwnMonthly: sOwnMonthly,
                     combinedLifetimeBenefit: combined,
                     survivorBenefitIfPrimaryDies: survivorIfPrimaryDies,
                     survivorBenefitIfSpouseDies: survivorIfSpouseDies,
@@ -451,15 +590,24 @@ struct SSCalculationEngine {
     /// Weights both death orderings by 50/50 for a balanced estimate.
     /// When discountRate > 0, applies present-value discounting relative to age 62.
     /// Uses pre-computed survivor benefits (with RIB-LIM) rather than simple max.
+    ///
+    /// `primaryOwnMonthly` / `spouseOwnMonthly`: benefit based on own record only (no spousal top-up).
+    /// Used during gap years before the other spouse has filed — spousal top-up is only
+    /// available once the worker whose record provides the top-up has actually claimed.
     static func couplesLifetimeBenefit(
         primaryMonthly: Double, primaryClaimAge: Int, primaryLifeExp: Int,
         spouseMonthly: Double, spouseClaimAge: Int, spouseLifeExp: Int,
+        primaryOwnMonthly: Double? = nil, spouseOwnMonthly: Double? = nil,
         survivorIfPrimaryDies: Double? = nil, survivorIfSpouseDies: Double? = nil,
         colaRate: Double, discountRate: Double = 0
     ) -> Double {
         let cola = 1.0 + colaRate / 100.0
         let discount = 1.0 + discountRate / 100.0
         let baseAge = 62  // PV reference point
+
+        // Own-only benefits for gap years (fall back to full monthly if not provided)
+        let pOwn = primaryOwnMonthly ?? primaryMonthly
+        let sOwn = spouseOwnMonthly ?? spouseMonthly
 
         // Survivor benefits: use pre-computed (with RIB-LIM) or fall back to simple max
         let survIfPDies = survivorIfPrimaryDies ?? max(spouseMonthly, primaryMonthly)
@@ -471,21 +619,23 @@ struct SSCalculationEngine {
 
         var total = 0.0
 
-        // Pre-claim years: only the earlier claimer receives benefits
+        // Pre-claim gap years: only the earlier claimer receives benefits.
+        // Spousal top-up is NOT available until the other spouse has filed,
+        // so use own-only benefit amounts during the gap.
         let earlierClaimAge = min(primaryClaimAge, spouseClaimAge)
         for age in earlierClaimAge..<startAge {
             let pvFactor = discountRate > 0 ? pow(discount, Double(-(age - baseAge))) : 1.0
             if primaryClaimAge <= age {
                 let pYears = age - primaryClaimAge
-                total += primaryMonthly * 12 * pow(cola, Double(pYears)) * pvFactor
+                total += pOwn * 12 * pow(cola, Double(pYears)) * pvFactor
             }
             if spouseClaimAge <= age {
                 let sYears = age - spouseClaimAge
-                total += spouseMonthly * 12 * pow(cola, Double(sYears)) * pvFactor
+                total += sOwn * 12 * pow(cola, Double(sYears)) * pvFactor
             }
         }
 
-        // Both-alive years
+        // Both-alive years — both have filed, so spousal top-up is now active
         for age in startAge...bothAliveEnd {
             let pYears = age - primaryClaimAge
             let sYears = age - spouseClaimAge
@@ -549,7 +699,11 @@ struct SSCalculationEngine {
             spouseClaimingAge: best.spouseClaimingAge,
             combinedLifetime: best.combinedLifetimeBenefit,
             rationale: rationale,
-            monthlyWhileBothAlive: best.primaryMonthly + best.spouseMonthly
+            monthlyWhileBothAlive: best.primaryMonthly + best.spouseMonthly,
+            primaryMonthly: best.primaryMonthly,
+            spouseMonthly: best.spouseMonthly,
+            primaryOwnMonthly: best.primaryOwnMonthly,
+            spouseOwnMonthly: best.spouseOwnMonthly
         )
     }
 

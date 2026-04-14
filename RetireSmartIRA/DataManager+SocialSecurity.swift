@@ -246,48 +246,109 @@ extension DataManager {
         )
     }
 
+    // MARK: - Effective Benefit (Spousal-Aware)
+
+    /// Compute the effective monthly SS benefit for a given owner in the current year,
+    /// including spousal top-up when applicable.
+    func ssEffectiveMonthlyBenefit(for owner: Owner) -> SSCalculationEngine.EffectiveBenefitResult {
+        let personBenefit: SSBenefitEstimate?
+        let personBY: Int
+        let spouseBenefitData: SSBenefitEstimate?
+        let spouseBY: Int
+
+        switch owner {
+        case .primary:
+            personBenefit = primarySSBenefit
+            personBY = birthYear
+            spouseBenefitData = spouseSSBenefit
+            spouseBY = spouseBirthYear
+        case .spouse:
+            personBenefit = spouseSSBenefit
+            personBY = spouseBirthYear
+            spouseBenefitData = primarySSBenefit
+            spouseBY = birthYear
+        default:
+            return SSCalculationEngine.EffectiveBenefitResult(
+                monthly: 0, isCollecting: false,
+                ownMonthly: 0, spousalTopUp: 0, includesSpousalTopUp: false
+            )
+        }
+
+        guard let pb = personBenefit, pb.hasData else {
+            return SSCalculationEngine.EffectiveBenefitResult(
+                monthly: 0, isCollecting: false,
+                ownMonthly: 0, spousalTopUp: 0, includesSpousalTopUp: false
+            )
+        }
+
+        // If spouse is enabled and has data, use couples-aware calculation
+        if enableSpouse, let sb = spouseBenefitData, sb.hasData {
+            return SSCalculationEngine.effectiveMonthlyBenefit(
+                personPIA: pb.benefitAtFRA, personBirthYear: personBY,
+                personClaimingAge: pb.plannedClaimingAge, personClaimingMonth: pb.plannedClaimingMonth,
+                personIsAlreadyClaiming: pb.isAlreadyClaiming, personCurrentBenefit: pb.currentBenefit,
+                spousePIA: sb.benefitAtFRA, spouseBirthYear: spouseBY,
+                spouseClaimingAge: sb.plannedClaimingAge, spouseIsAlreadyClaiming: sb.isAlreadyClaiming,
+                forYear: currentYear
+            )
+        } else {
+            // Single filer — own record only
+            return SSCalculationEngine.effectiveMonthlyBenefitSingle(
+                personPIA: pb.benefitAtFRA, personBirthYear: personBY,
+                personClaimingAge: pb.plannedClaimingAge, personClaimingMonth: pb.plannedClaimingMonth,
+                personIsAlreadyClaiming: pb.isAlreadyClaiming, personCurrentBenefit: pb.currentBenefit,
+                forYear: currentYear
+            )
+        }
+    }
+
     // MARK: - Auto-Sync to Income Sources
 
     /// Sync SS benefit estimates to IncomeSource entries so existing tax calculations pick them up.
     /// Called when user changes claiming age or benefit estimates and ssAutoSync is true.
+    /// Now uses couples-aware effective benefit (includes spousal top-up and age gating).
     func syncSSToIncomeSources() {
         guard ssAutoSync else { return }
 
-        syncSSIncomeSource(for: .primary, benefit: primarySSBenefit, birthYear: birthYear)
+        syncSSIncomeSourceEffective(for: .primary)
         if enableSpouse {
-            syncSSIncomeSource(for: .spouse, benefit: spouseSSBenefit, birthYear: spouseBirthYear)
+            syncSSIncomeSourceEffective(for: .spouse)
         }
     }
 
-    private func syncSSIncomeSource(for owner: Owner, benefit: SSBenefitEstimate?, birthYear: Int) {
+    private func syncSSIncomeSourceEffective(for owner: Owner) {
+        let benefit: SSBenefitEstimate?
+        switch owner {
+        case .primary: benefit = primarySSBenefit
+        case .spouse: benefit = spouseSSBenefit
+        default: return
+        }
+
+        let sourceName = owner == .primary
+            ? "Social Security (SS Planner)"
+            : "Spouse Social Security (SS Planner)"
+
         guard let b = benefit, b.hasData else {
             // Remove any auto-synced SS income source for this owner
             incomeSources.removeAll { $0.type == .socialSecurity && $0.owner == owner && $0.name.hasSuffix("(SS Planner)") }
             return
         }
 
-        let monthlyBenefit: Double
-        if b.isAlreadyClaiming {
-            monthlyBenefit = b.currentBenefit
-        } else {
-            let fra = SSCalculationEngine.fullRetirementAge(birthYear: birthYear)
-            monthlyBenefit = SSCalculationEngine.benefitAtAge(
-                claimingAge: b.plannedClaimingAge, claimingMonth: b.plannedClaimingMonth,
-                pia: b.benefitAtFRA, fraYears: fra.years, fraMonths: fra.months
-            )
-        }
-        let annualBenefit = monthlyBenefit * 12
-        let sourceName = owner == .primary ? "Social Security (SS Planner)" : "Spouse Social Security (SS Planner)"
+        let result = ssEffectiveMonthlyBenefit(for: owner)
+        let annualBenefit = result.monthly * 12
 
         if let idx = incomeSources.firstIndex(where: { $0.type == .socialSecurity && $0.owner == owner && $0.name.hasSuffix("(SS Planner)") }) {
             incomeSources[idx].annualAmount = annualBenefit
         } else {
-            incomeSources.append(IncomeSource(
-                name: sourceName,
-                type: .socialSecurity,
-                annualAmount: annualBenefit,
-                owner: owner
-            ))
+            // Only add the income source if there's a non-zero benefit
+            if annualBenefit > 0 {
+                incomeSources.append(IncomeSource(
+                    name: sourceName,
+                    type: .socialSecurity,
+                    annualAmount: annualBenefit,
+                    owner: owner
+                ))
+            }
         }
     }
 }

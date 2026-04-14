@@ -607,6 +607,177 @@ final class SSCouplesMatrixTests: XCTestCase {
     }
 }
 
+// MARK: - Effective Monthly Benefit (Spousal-Aware, Age-Aware)
+
+final class SSEffectiveBenefitTests: XCTestCase {
+
+    // Bill PIA $4,358, Sue PIA $1,700. Both born 1955 (FRA = 66y 2mo).
+    // 50% of Bill's PIA = $2,179 > Sue's PIA $1,700 → Sue qualifies for spousal top-up
+    // 50% of Sue's PIA = $850 < Bill's PIA $4,358 → Bill gets no spousal top-up
+
+    let billPIA = 4358.0
+    let suePIA = 1700.0
+    let billBY = 1955
+    let sueBY = 1955
+
+    // MARK: - Age gating
+
+    func testNotYetClaimingReturnsZeroBeforeClaimAge() {
+        // Sue plans to claim at 65. In 2018 she's only 63 → not collecting.
+        let result = SSCalculationEngine.effectiveMonthlyBenefit(
+            personPIA: suePIA, personBirthYear: sueBY,
+            personClaimingAge: 65,
+            personIsAlreadyClaiming: false,
+            spousePIA: billPIA, spouseBirthYear: billBY,
+            spouseClaimingAge: 70, spouseIsAlreadyClaiming: false,
+            forYear: 2018  // Sue is 63
+        )
+        XCTAssertEqual(result.monthly, 0)
+        XCTAssertFalse(result.isCollecting)
+    }
+
+    func testCollectsAtClaimAge() {
+        // Sue claims at 65. In 2020 she's 65 → collecting.
+        let result = SSCalculationEngine.effectiveMonthlyBenefit(
+            personPIA: suePIA, personBirthYear: sueBY,
+            personClaimingAge: 65,
+            personIsAlreadyClaiming: false,
+            spousePIA: billPIA, spouseBirthYear: billBY,
+            spouseClaimingAge: 70, spouseIsAlreadyClaiming: false,
+            forYear: 2020  // Sue is 65
+        )
+        XCTAssertTrue(result.isCollecting)
+        XCTAssertGreaterThan(result.monthly, 0)
+    }
+
+    // MARK: - Own record only (no spousal top-up yet)
+
+    func testOwnBenefitOnlyBeforeSpouseFiles() {
+        // Sue claims at 65. Bill hasn't filed yet (claims at 70). Year 2020: Sue=65, Bill=65.
+        // Sue should get own-record only — no spousal top-up until Bill files.
+        let result = SSCalculationEngine.effectiveMonthlyBenefit(
+            personPIA: suePIA, personBirthYear: sueBY,
+            personClaimingAge: 65,
+            personIsAlreadyClaiming: false,
+            spousePIA: billPIA, spouseBirthYear: billBY,
+            spouseClaimingAge: 70, spouseIsAlreadyClaiming: false,
+            forYear: 2020  // Sue=65, Bill=65 (hasn't claimed yet)
+        )
+        XCTAssertTrue(result.isCollecting)
+        XCTAssertEqual(result.spousalTopUp, 0, "No spousal top-up until Bill files")
+        XCTAssertFalse(result.includesSpousalTopUp)
+        // Own benefit at 65, FRA=66y2mo → 14 months early
+        let expectedOwn = SSCalculationEngine.benefitAtAge(
+            claimingAge: 65, pia: suePIA, fraYears: 66, fraMonths: 2)
+        XCTAssertEqual(result.monthly, expectedOwn, accuracy: 0.01)
+        XCTAssertEqual(result.ownMonthly, expectedOwn, accuracy: 0.01)
+    }
+
+    // MARK: - Spousal top-up activates when spouse files
+
+    func testSpousalTopUpWhenBothHaveFiled() {
+        // Sue claimed at 65. Bill claims at 70. Year 2025: Sue=70, Bill=70 → both have filed.
+        // Sue should get own benefit + spousal top-up from Bill's PIA.
+        let result = SSCalculationEngine.effectiveMonthlyBenefit(
+            personPIA: suePIA, personBirthYear: sueBY,
+            personClaimingAge: 65,
+            personIsAlreadyClaiming: false,
+            spousePIA: billPIA, spouseBirthYear: billBY,
+            spouseClaimingAge: 70, spouseIsAlreadyClaiming: false,
+            forYear: 2025  // Sue=70, Bill=70 → both filed
+        )
+        XCTAssertTrue(result.isCollecting)
+        XCTAssertTrue(result.includesSpousalTopUp, "Sue should get spousal top-up from Bill")
+        XCTAssertGreaterThan(result.spousalTopUp, 0)
+        XCTAssertEqual(result.monthly, result.ownMonthly + result.spousalTopUp, accuracy: 0.01)
+
+        // Verify against the spousalBenefit function
+        let withSpousal = SSCalculationEngine.spousalBenefit(
+            workerPIA: billPIA, spouseOwnPIA: suePIA,
+            spouseClaimingAge: 65, spouseBirthYear: sueBY)
+        XCTAssertEqual(result.monthly, withSpousal, accuracy: 0.01)
+    }
+
+    // MARK: - No spousal top-up when own PIA is high enough
+
+    func testNoSpousalTopUpForHigherEarner() {
+        // Bill gets no spousal top-up from Sue (Bill PIA $4,358 >> 50% of Sue PIA $850)
+        let result = SSCalculationEngine.effectiveMonthlyBenefit(
+            personPIA: billPIA, personBirthYear: billBY,
+            personClaimingAge: 70,
+            personIsAlreadyClaiming: false,
+            spousePIA: suePIA, spouseBirthYear: sueBY,
+            spouseClaimingAge: 65, spouseIsAlreadyClaiming: false,
+            forYear: 2025  // Both have filed
+        )
+        XCTAssertTrue(result.isCollecting)
+        XCTAssertFalse(result.includesSpousalTopUp, "Bill should not get spousal top-up from Sue")
+        XCTAssertEqual(result.spousalTopUp, 0)
+    }
+
+    // MARK: - Already claiming
+
+    func testAlreadyClaimingUsesCurrentBenefit() {
+        // Person marked as already claiming with $2,500/mo
+        let result = SSCalculationEngine.effectiveMonthlyBenefit(
+            personPIA: suePIA, personBirthYear: sueBY,
+            personClaimingAge: 65,
+            personIsAlreadyClaiming: true, personCurrentBenefit: 2500,
+            spousePIA: billPIA, spouseBirthYear: billBY,
+            spouseClaimingAge: 70, spouseIsAlreadyClaiming: true,
+            forYear: 2025
+        )
+        XCTAssertTrue(result.isCollecting)
+        XCTAssertEqual(result.monthly, 2500, "Should use entered currentBenefit as-is")
+    }
+
+    // MARK: - Single filer
+
+    func testSingleFilerOwnRecordOnly() {
+        // Bill born 1955, FRA = 66y2mo. Claiming at 70 → delayed credits.
+        let result = SSCalculationEngine.effectiveMonthlyBenefitSingle(
+            personPIA: billPIA, personBirthYear: billBY,
+            personClaimingAge: 70,
+            personIsAlreadyClaiming: false,
+            forYear: 2025  // Bill=70
+        )
+        XCTAssertTrue(result.isCollecting)
+        let expected = SSCalculationEngine.benefitAtAge(
+            claimingAge: 70, pia: billPIA, fraYears: 66, fraMonths: 2)
+        XCTAssertEqual(result.monthly, expected, accuracy: 0.01)
+        XCTAssertEqual(result.spousalTopUp, 0)
+    }
+
+    func testSingleFilerNotYetClaiming() {
+        let result = SSCalculationEngine.effectiveMonthlyBenefitSingle(
+            personPIA: billPIA, personBirthYear: billBY,
+            personClaimingAge: 70,
+            personIsAlreadyClaiming: false,
+            forYear: 2022  // Bill=67, hasn't claimed yet
+        )
+        XCTAssertFalse(result.isCollecting)
+        XCTAssertEqual(result.monthly, 0)
+    }
+
+    // MARK: - Spouse already claiming triggers top-up
+
+    func testSpousalTopUpWhenSpouseAlreadyClaiming() {
+        // Bill is already claiming. Sue claims at 65 in 2020.
+        // Since Bill is already claiming, spousal top-up should be immediate.
+        let result = SSCalculationEngine.effectiveMonthlyBenefit(
+            personPIA: suePIA, personBirthYear: sueBY,
+            personClaimingAge: 65,
+            personIsAlreadyClaiming: false,
+            spousePIA: billPIA, spouseBirthYear: billBY,
+            spouseClaimingAge: 70, spouseIsAlreadyClaiming: true,
+            forYear: 2020  // Sue=65, Bill already claiming
+        )
+        XCTAssertTrue(result.isCollecting)
+        XCTAssertTrue(result.includesSpousalTopUp, "Spousal top-up should be active since Bill already claimed")
+        XCTAssertGreaterThan(result.spousalTopUp, 0)
+    }
+}
+
 // MARK: - Formatting
 
 final class SSFormattingTests: XCTestCase {

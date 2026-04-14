@@ -158,8 +158,10 @@ struct SSCouplesMatrixCell: Identifiable {
     let id = UUID()
     var primaryClaimingAge: Int
     var spouseClaimingAge: Int
-    var primaryMonthly: Double
-    var spouseMonthly: Double
+    var primaryMonthly: Double          // With spousal top-up (if applicable)
+    var spouseMonthly: Double           // With spousal top-up (if applicable)
+    var primaryOwnMonthly: Double = 0   // Own record only (no spousal top-up)
+    var spouseOwnMonthly: Double = 0    // Own record only (no spousal top-up)
     var combinedLifetimeBenefit: Double
     var survivorBenefitIfPrimaryDies: Double   // Monthly survivor benefit for spouse
     var survivorBenefitIfSpouseDies: Double     // Monthly survivor benefit for primary
@@ -173,6 +175,12 @@ struct SSCouplesTopStrategy {
     var combinedLifetime: Double
     var rationale: String
     var monthlyWhileBothAlive: Double
+    /// Monthly amounts with spousal top-up (once both have filed)
+    var primaryMonthly: Double = 0
+    var spouseMonthly: Double = 0
+    /// Monthly amounts based on own record only (before spousal top-up kicks in)
+    var primaryOwnMonthly: Double = 0
+    var spouseOwnMonthly: Double = 0
 }
 
 // MARK: - Survivor Analysis Results
