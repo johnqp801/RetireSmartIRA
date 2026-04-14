@@ -45,6 +45,10 @@ struct PersistenceManager {
         static let completedActionKeys = "completedActionKeys"
         static let deductionItems = "deductionItems"
         static let priorYearStateBalance = "priorYearStateBalance"
+        static let priorYearFederalTax = "priorYearFederalTax"
+        static let priorYearStateTax = "priorYearStateTax"
+        static let priorYearAGI = "priorYearAGI"
+        static let safeHarborMethod = "safeHarborMethod"
         static let userName = "userName"
         static let primaryGrowthRate = "primaryGrowthRate"
         static let spouseGrowthRate = "spouseGrowthRate"
@@ -52,6 +56,7 @@ struct PersistenceManager {
         static let legacyHeirType = "legacyHeirType"
         static let legacyHeirTaxRate = "legacyHeirTaxRate"
         static let legacySpouseSurvivorYears = "legacySpouseSurvivorYears"
+        static let legacyGrowthRate = "legacyGrowthRate"
         static let taxBrackets = "taxBrackets"
     }
 
@@ -118,6 +123,19 @@ struct PersistenceManager {
         }
         if defaults.object(forKey: StorageKey.priorYearStateBalance) != nil {
             dm.priorYearStateBalance = defaults.double(forKey: StorageKey.priorYearStateBalance)
+        }
+        if defaults.object(forKey: StorageKey.priorYearFederalTax) != nil {
+            dm.priorYearFederalTax = defaults.double(forKey: StorageKey.priorYearFederalTax)
+        }
+        if defaults.object(forKey: StorageKey.priorYearStateTax) != nil {
+            dm.priorYearStateTax = defaults.double(forKey: StorageKey.priorYearStateTax)
+        }
+        if defaults.object(forKey: StorageKey.priorYearAGI) != nil {
+            dm.priorYearAGI = defaults.double(forKey: StorageKey.priorYearAGI)
+        }
+        if let raw = defaults.string(forKey: StorageKey.safeHarborMethod),
+           let method = SafeHarborMethod(rawValue: raw) {
+            dm.safeHarborMethod = method
         }
 
         // Scenario state
@@ -223,6 +241,9 @@ struct PersistenceManager {
             let stored = defaults.integer(forKey: StorageKey.legacySpouseSurvivorYears)
             dm.legacySpouseSurvivorYears = stored > 0 ? stored : 10
         }
+        if defaults.object(forKey: StorageKey.legacyGrowthRate) != nil {
+            dm.legacy.legacyGrowthRate = defaults.double(forKey: StorageKey.legacyGrowthRate)
+        }
 
         // Social Security Planner data
         dm.loadSSData()
@@ -254,6 +275,10 @@ struct PersistenceManager {
             defaults.set(data, forKey: StorageKey.deductionItems)
         }
         defaults.set(dm.priorYearStateBalance, forKey: StorageKey.priorYearStateBalance)
+        defaults.set(dm.priorYearFederalTax, forKey: StorageKey.priorYearFederalTax)
+        defaults.set(dm.priorYearStateTax, forKey: StorageKey.priorYearStateTax)
+        defaults.set(dm.priorYearAGI, forKey: StorageKey.priorYearAGI)
+        defaults.set(dm.safeHarborMethod.rawValue, forKey: StorageKey.safeHarborMethod)
 
         // Scenario state
         if let data = try? JSONEncoder().encode(dm.quarterlyPayments) {
@@ -296,6 +321,11 @@ struct PersistenceManager {
         defaults.set(dm.legacyHeirType, forKey: StorageKey.legacyHeirType)
         defaults.set(dm.legacyHeirTaxRate, forKey: StorageKey.legacyHeirTaxRate)
         defaults.set(dm.legacySpouseSurvivorYears, forKey: StorageKey.legacySpouseSurvivorYears)
+        if let customRate = dm.legacy.legacyGrowthRate {
+            defaults.set(customRate, forKey: StorageKey.legacyGrowthRate)
+        } else {
+            defaults.removeObject(forKey: StorageKey.legacyGrowthRate)
+        }
 
         // Social Security Planner data
         dm.saveSSData()

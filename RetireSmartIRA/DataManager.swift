@@ -172,12 +172,46 @@ class DataManager: ObservableObject {
         get { legacy.legacySpouseSurvivorYears }
         set { legacy.legacySpouseSurvivorYears = newValue }
     }
+    /// Growth rate used for legacy projections. Falls back to primaryGrowthRate if user hasn't overridden.
+    var legacyGrowthRate: Double {
+        get { legacy.legacyGrowthRate ?? primaryGrowthRate }
+        set { legacy.legacyGrowthRate = newValue }
+    }
+    /// Whether the legacy growth rate has been independently set by the user.
+    var hasCustomLegacyGrowthRate: Bool {
+        legacy.legacyGrowthRate != nil
+    }
+    /// Resets legacy growth rate to follow the RMD tab's rate.
+    func resetLegacyGrowthRate() {
+        legacy.legacyGrowthRate = nil
+    }
 
     // Prior Year State Tax (forwarding to IncomeDeductionsManager)
     var priorYearStateBalance: Double {
         get { incomeDeductions.priorYearStateBalance }
         set { incomeDeductions.priorYearStateBalance = newValue }
     }
+    /// Prior year federal tax liability (Line 24, Form 1040). For 100%/110% safe harbor.
+    var priorYearFederalTax: Double {
+        get { incomeDeductions.priorYearFederalTax }
+        set { incomeDeductions.priorYearFederalTax = newValue }
+    }
+    /// Prior year state tax liability (from state return). For state safe harbor.
+    var priorYearStateTax: Double {
+        get { incomeDeductions.priorYearStateTax }
+        set { incomeDeductions.priorYearStateTax = newValue }
+    }
+    /// Combined prior year total tax for display purposes.
+    var priorYearTotalTax: Double {
+        priorYearFederalTax + priorYearStateTax
+    }
+    /// Prior year AGI (Line 11, Form 1040). Determines 100% vs 110% safe harbor rate.
+    var priorYearAGI: Double {
+        get { incomeDeductions.priorYearAGI }
+        set { incomeDeductions.priorYearAGI = newValue }
+    }
+    /// User's chosen safe harbor method for estimated tax calculations.
+    @Published var safeHarborMethod: SafeHarborMethod = .currentYear90
 
     // Social Security Planner (forwarding to SocialSecurityManager)
     var primarySSBenefit: SSBenefitEstimate? {
@@ -756,8 +790,31 @@ class DataManager: ObservableObject {
             self?.objectWillChange.send()
         }.store(in: &managerCancellables)
 
+        // Re-sync SS income sources when birth dates change (affects age-gating, FRA, spousal top-up).
+        // Uses receive(on:) to defer to next run loop — @Published fires on willSet, so the new
+        // value isn't yet stored when the sink fires. Deferring ensures syncSSToIncomeSources()
+        // reads the updated birthDate.
+        profile.$birthDate
+            .dropFirst() // Skip initial value during init
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.syncSSToIncomeSources() }
+            .store(in: &managerCancellables)
+        profile.$spouseBirthDate
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.syncSSToIncomeSources() }
+            .store(in: &managerCancellables)
+        profile.$enableSpouse
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.syncSSToIncomeSources() }
+            .store(in: &managerCancellables)
+
         guard !skipPersistence else { return }
         PersistenceManager.loadAll(into: self)
+
+        // Re-sync SS income sources on startup so spousal top-up and age gating are current
+        syncSSToIncomeSources()
     }
 
     func saveTaxBrackets() {
@@ -1070,9 +1127,52 @@ class DataManager: ObservableObject {
 
     /// Raw total of SALT-eligible amounts before the federal cap.
     /// Auto-includes: property tax, state withholding from income sources,
-    /// prior year state balance due (if positive), and any manual SALT entries.
+    /// prior year state balance due (if positive), manual SALT entries,
+    /// and estimated state tax payments for the current year.
+    ///
+    /// Note on estimated state payments: These are auto-calculated from the
+    /// scenario's state tax liability. There is no circularity because state
+    /// tax is computed on state taxable income (which excludes SALT — you can't
+    /// deduct state tax on your state return). The state payment amount is
+    /// stable regardless of whether it's included in federal SALT.
     var totalSALTBeforeCap: Double {
-        propertyTaxAmount + totalStateWithholding + priorYearSALTDeductible + additionalSALTAmount
+        propertyTaxAmount + totalStateWithholding + priorYearSALTDeductible + additionalSALTAmount + autoEstimatedStatePayments
+    }
+
+    /// Estimated state tax payments auto-included in SALT.
+    /// This value updates reactively as the user fills in income, accounts, and scenarios.
+    /// Returns 0 for no-income-tax states or when there is no state tax liability.
+    ///
+    /// Uses a self-contained state tax calculation that applies state-specific deductions
+    /// and retirement exemptions but does NOT reference any federal SALT or itemized
+    /// deduction properties (avoiding the circular dependency chain:
+    /// autoEstimatedStatePayments → totalSALTBeforeCap → totalItemizedDeductions →
+    /// scenarioEffectiveItemize → calculateStateTaxFromGross → autoEstimatedStatePayments).
+    ///
+    /// The state deduction used here is always the state standard deduction (not itemized),
+    /// which is a conservative choice — if the user itemizes on the state return, their
+    /// actual state tax may be slightly lower, making this a mild overestimate. This is
+    /// acceptable for SALT planning purposes and avoids any dependency on federal deductions.
+    var autoEstimatedStatePayments: Double {
+        guard stateHasIncomeTax else { return 0 }
+        let config = selectedStateConfig
+        let grossIncome = scenarioGrossIncome
+
+        // Apply state standard deduction (independent of federal SALT/itemized chain)
+        let stateStdDeduction: Double
+        switch config.stateDeduction {
+        case .none:
+            stateStdDeduction = 0
+        case .conformsToFederal:
+            stateStdDeduction = standardDeductionAmount
+        case .fixed(let single, let married):
+            stateStdDeduction = filingStatus == .single ? single : married
+        }
+
+        let stateTaxableIncome = max(0, grossIncome - stateStdDeduction)
+        // Apply retirement exemptions and compute state tax
+        let stateTax = calculateStateTax(income: stateTaxableIncome, filingStatus: filingStatus)
+        return max(0, stateTax - totalStateWithholding)
     }
 
     /// SALT cap based on tax year and filing status (OBBBA, signed July 4, 2025).
@@ -1102,6 +1202,98 @@ class DataManager: ObservableObject {
     /// SALT deduction after applying the federal cap.
     var saltAfterCap: Double {
         min(totalSALTBeforeCap, saltCap)
+    }
+
+    /// Informational: the estimated state tax payments amount that has been
+    /// auto-included in the SALT calculation. Used for display in UI and PDF.
+    var estimatedStateSALTReminder: Double {
+        autoEstimatedStatePayments
+    }
+
+    /// Whether the selected state has an income tax (for gating SALT reminders).
+    var stateHasIncomeTax: Bool {
+        selectedStateConfig.taxSystem.hasIncomeTax
+    }
+
+    // MARK: - Safe Harbor
+
+    /// AGI threshold above which the 110% (not 100%) prior-year safe harbor applies.
+    /// $150,000 for all filing statuses in this app (Single and MFJ).
+    private var safeHarbor110Threshold: Double { 150_000 }
+
+    /// Federal prior-year safe harbor rate: 1.10 if prior AGI > $150k, else 1.00.
+    var priorYearFederalSafeHarborRate: Double {
+        priorYearAGI > safeHarbor110Threshold ? 1.10 : 1.00
+    }
+
+    /// State prior-year safe harbor rate, evaluated from the state's rule.
+    /// Returns nil if prior-year safe harbor is unavailable (e.g., CA $1M disqualification).
+    var priorYearStateSafeHarborResult: Double? {
+        selectedStateConfig.safeHarborRule.priorYearRate(
+            priorAGI: priorYearAGI,
+            currentAGI: scenarioGrossIncome
+        )
+    }
+
+    /// State prior-year safe harbor rate for display. Returns the rate or 0 if disqualified.
+    var priorYearStateSafeHarborRate: Double {
+        priorYearStateSafeHarborResult ?? 0
+    }
+
+    /// For display: the federal rate (the one that most commonly varies).
+    var priorYearSafeHarborRate: Double {
+        priorYearFederalSafeHarborRate
+    }
+
+    /// Whether the user is disqualified from the prior-year state safe harbor
+    /// (e.g., CA AGI ≥ $1M). When true, state payments must use the current-year method.
+    var isStateDisqualifiedFromPriorYear: Bool {
+        priorYearStateSafeHarborResult == nil
+    }
+
+    /// Total annual payment required under the prior-year safe harbor method.
+    var priorYearSafeHarborAmount: Double {
+        priorYearFederalSafeHarbor + priorYearStateSafeHarbor
+    }
+
+    /// Federal portion of the prior-year safe harbor amount.
+    var priorYearFederalSafeHarbor: Double {
+        priorYearFederalTax * priorYearFederalSafeHarborRate
+    }
+
+    /// State portion of the prior-year safe harbor amount.
+    /// Returns 0 if the state disqualifies the prior-year method (CA $1M rule).
+    var priorYearStateSafeHarbor: Double {
+        guard let rate = priorYearStateSafeHarborResult else { return 0 }
+        return priorYearStateTax * rate
+    }
+
+    /// Current-year safe harbor rate for the state (0.90 for most, 0.80/0.70/0.60 for some).
+    var stateCurrentYearSafeHarborRate: Double {
+        selectedStateConfig.currentYearSafeHarborRate
+    }
+
+    /// Total annual payment required under the current-year safe harbor method.
+    /// Uses 90% for federal and the state's specific rate (which may differ).
+    var currentYearSafeHarborAmount: Double {
+        let fedTax = scenarioFederalTax + scenarioNIITAmount + scenarioAMTAmount
+        return fedTax * 0.90 + scenarioStateTax * stateCurrentYearSafeHarborRate
+    }
+
+    // MARK: - Form 2210
+
+    /// Whether the user's scenario requires filing IRS Form 2210, Schedule AI
+    /// (annualized income installment method) due to uneven quarterly income allocation.
+    var requiresForm2210ScheduleAI: Bool {
+        guard hasActiveScenario else { return false }
+        let hasUnevenConversion = (yourRothConversion > 0 && yourRothConversionQuarter > 1) ||
+            (enableSpouse && spouseRothConversion > 0 && spouseRothConversionQuarter > 1)
+        let hasUnevenWithdrawal = (yourExtraWithdrawal > 0 && yourWithdrawalQuarter > 1) ||
+            (enableSpouse && spouseExtraWithdrawal > 0 && spouseWithdrawalQuarter > 1)
+        // RMDs taken in Q2-Q4 also create uneven quarterly income
+        let hasUnevenRMD = (calculatePrimaryRMD() > 0 && yourWithdrawalQuarter > 1) ||
+            (enableSpouse && calculateSpouseRMD() > 0 && spouseWithdrawalQuarter > 1)
+        return hasUnevenConversion || hasUnevenWithdrawal || hasUnevenRMD
     }
 
     /// Total user-entered itemized deductions with SALT cap and medical AGI floor applied.
@@ -1177,6 +1369,19 @@ class DataManager: ObservableObject {
 
     var scenarioFederalTax: Double {
         calculateFederalTax(income: scenarioTaxableIncome, filingStatus: filingStatus)
+    }
+
+    var scenarioFederalTaxBreakdown: FederalTaxBreakdown {
+        TaxCalculationEngine.federalTaxBreakdown(
+            income: scenarioTaxableIncome,
+            filingStatus: filingStatus,
+            brackets: currentTaxBrackets,
+            preferentialIncome: preferentialIncome()
+        )
+    }
+
+    var scenarioStateTaxBreakdown: StateTaxBreakdown {
+        stateTaxBreakdown(forState: selectedState, filingStatus: filingStatus)
     }
 
     var scenarioStateTax: Double {
@@ -1316,53 +1521,56 @@ class DataManager: ObservableObject {
     }
 
     /// Per-quarter estimated tax payments with federal/state split.
-    /// Base tax (from regular income) is spread evenly; incremental tax from scenario
-    /// events is allocated to the quarter each event is planned.
+    /// Supports two safe harbor methods:
+    /// - `.currentYear90`: current-year safe harbor (90% federal, state-specific rate for state)
+    /// - `.priorYear100_110`: prior-year safe harbor with state-specific rates and rules
+    /// State payments use the state's required schedule (e.g. CA: 30/40/0/30).
+    /// If the state disqualifies the prior-year method (CA $1M rule), the state portion
+    /// automatically falls back to the current-year method.
     var scenarioQuarterlyPayments: FederalStateQuarterlyBreakdown {
-        // Base tax: from regular income sources only, no scenario additions
-        let baseTaxable = max(0, scenarioBaseIncome - effectiveDeductionAmount)
-        let baseFederalTax = calculateFederalTax(income: baseTaxable, filingStatus: filingStatus)
-        let baseStateTax = calculateStateTax(income: baseTaxable, filingStatus: filingStatus)
+        let stateSchedule = selectedStateConfig.estimatedPaymentSchedule
+        let stateSHRate = stateCurrentYearSafeHarborRate
 
         // Total federal and state tax (including scenario decisions)
         let totalFederal = scenarioFederalTax + scenarioNIITAmount + scenarioAMTAmount
         let totalState = scenarioStateTax
 
-        // Incremental tax from scenario events
-        let incrementalFederal = max(0, totalFederal - baseFederalTax)
-        let incrementalState = max(0, totalState - baseStateTax)
+        var fedPayments = QuarterlyBreakdown()
+        var statePayments = QuarterlyBreakdown()
 
-        // Base per-quarter (90% safe harbor, spread evenly)
-        let baseFedPerQ = max(0, baseFederalTax * 0.90) / 4.0
-        let baseStatePerQ = max(0, baseStateTax * 0.90) / 4.0
+        // Determine if state must use current-year method (disqualification or user chose current-year)
+        let useCurrentYearForState = safeHarborMethod == .currentYear90 || isStateDisqualifiedFromPriorYear
 
-        var fedPayments = QuarterlyBreakdown(q1: baseFedPerQ, q2: baseFedPerQ,
-                                              q3: baseFedPerQ, q4: baseFedPerQ)
-        var statePayments = QuarterlyBreakdown(q1: baseStatePerQ, q2: baseStatePerQ,
-                                                q3: baseStatePerQ, q4: baseStatePerQ)
-
-        // Assign incremental taxable income to the quarter each event occurs
-        var qIncome = QuarterlyBreakdown()
-        let yourWdl = max(0, calculatePrimaryRMD() - (isQCDEligible ? yourQCDAmount : 0)) + yourExtraWithdrawal
-        qIncome[yourWithdrawalQuarter] += yourWdl
-        if enableSpouse {
-            let spWdl = max(0, calculateSpouseRMD() - (spouseIsQCDEligible ? spouseQCDAmount : 0)) + spouseExtraWithdrawal
-            qIncome[spouseWithdrawalQuarter] += spWdl
-        }
-        qIncome[yourRothConversionQuarter] += yourRothConversion
-        if enableSpouse {
-            qIncome[spouseRothConversionQuarter] += spouseRothConversion
-        }
-
-        // Distribute incremental tax proportionally to quarters by income share
-        if qIncome.total > 0 {
-            let incFedSH = incrementalFederal * 0.90
-            let incStateSH = incrementalState * 0.90
+        switch safeHarborMethod {
+        case .priorYear100_110:
+            // Federal: prior-year safe harbor, equal quarters
+            let fedAnnual = priorYearFederalSafeHarbor
             for q in 1...4 {
-                let share = qIncome[q] / qIncome.total
-                fedPayments[q] += incFedSH * share
-                statePayments[q] += incStateSH * share
+                fedPayments[q] = fedAnnual * 0.25
             }
+
+            if useCurrentYearForState {
+                // State disqualified from prior-year — use current-year method for state only
+                statePayments = currentYearStatePayments(
+                    totalState: totalState, totalFederal: totalFederal,
+                    stateSHRate: stateSHRate, stateSchedule: stateSchedule
+                )
+            } else {
+                // State uses prior-year safe harbor
+                let stateAnnual = priorYearStateSafeHarbor
+                for q in 1...4 {
+                    statePayments[q] = stateAnnual * stateSchedule[q]
+                }
+            }
+
+        case .currentYear90:
+            // Both federal and state use current-year method
+            let result = currentYearPayments(
+                totalFederal: totalFederal, totalState: totalState,
+                stateSHRate: stateSHRate, stateSchedule: stateSchedule
+            )
+            fedPayments = result.federal
+            statePayments = result.state
         }
 
         // Subtract withholding separately (spread evenly)
@@ -1379,6 +1587,64 @@ class DataManager: ObservableObject {
     /// Label for the primary user: their name if set, otherwise "Your".
     var primaryLabel: String {
         userName.isEmpty ? "Your" : userName + "'s"
+    }
+
+    /// Current-year method for both federal and state portions.
+    private func currentYearPayments(
+        totalFederal: Double, totalState: Double,
+        stateSHRate: Double, stateSchedule: EstimatedPaymentSchedule
+    ) -> FederalStateQuarterlyBreakdown {
+        let baseTaxable = max(0, scenarioBaseIncome - effectiveDeductionAmount)
+        let baseFederalTax = calculateFederalTax(income: baseTaxable, filingStatus: filingStatus)
+        let baseStateTax = calculateStateTax(income: baseTaxable, filingStatus: filingStatus)
+
+        let incrementalFederal = max(0, totalFederal - baseFederalTax)
+        let incrementalState = max(0, totalState - baseStateTax)
+
+        let baseFedSH = max(0, baseFederalTax * 0.90)
+        let baseStateSH = max(0, baseStateTax * stateSHRate)
+        var fedPayments = QuarterlyBreakdown()
+        var statePayments = QuarterlyBreakdown()
+        for q in 1...4 {
+            fedPayments[q] = baseFedSH * 0.25
+            statePayments[q] = baseStateSH * stateSchedule[q]
+        }
+
+        var qIncome = QuarterlyBreakdown()
+        let yourWdl = max(0, calculatePrimaryRMD() - (isQCDEligible ? yourQCDAmount : 0)) + yourExtraWithdrawal
+        qIncome[yourWithdrawalQuarter] += yourWdl
+        if enableSpouse {
+            let spWdl = max(0, calculateSpouseRMD() - (spouseIsQCDEligible ? spouseQCDAmount : 0)) + spouseExtraWithdrawal
+            qIncome[spouseWithdrawalQuarter] += spWdl
+        }
+        qIncome[yourRothConversionQuarter] += yourRothConversion
+        if enableSpouse {
+            qIncome[spouseRothConversionQuarter] += spouseRothConversion
+        }
+
+        if qIncome.total > 0 {
+            let incFedSH = incrementalFederal * 0.90
+            let incStateSH = incrementalState * stateSHRate
+            for q in 1...4 {
+                let share = qIncome[q] / qIncome.total
+                fedPayments[q] += incFedSH * share
+                statePayments[q] += incStateSH * share
+            }
+        }
+
+        return FederalStateQuarterlyBreakdown(federal: fedPayments, state: statePayments)
+    }
+
+    /// Current-year method for state portion only (used when state is disqualified from prior-year).
+    private func currentYearStatePayments(
+        totalState: Double, totalFederal: Double,
+        stateSHRate: Double, stateSchedule: EstimatedPaymentSchedule
+    ) -> QuarterlyBreakdown {
+        let result = currentYearPayments(
+            totalFederal: totalFederal, totalState: totalState,
+            stateSHRate: stateSHRate, stateSchedule: stateSchedule
+        )
+        return result.state
     }
 
     /// Short label for the primary user: name if set, otherwise "You".
@@ -1862,7 +2128,7 @@ class DataManager: ObservableObject {
             qcd: scenarioTotalQCD,
             traditionalBalance: totalTraditionalIRABalance,
             rothBalance: totalRothBalance,
-            growthRate: primaryGrowthRate,
+            growthRate: legacyGrowthRate,
             taxableGrowthRate: taxableAccountGrowthRate,
             heirTaxRate: legacyHeirTaxRate,
             heirType: legacyHeirType,
@@ -1913,7 +2179,7 @@ class DataManager: ObservableObject {
             currentAge: currentAge,
             rmdAge: rmdAge,
             yearsUntilDeath: legacyYearsUntilDeath,
-            growthRate: primaryGrowthRate,
+            growthRate: legacyGrowthRate,
             taxableGrowthRate: taxableAccountGrowthRate,
             heirTaxRate: legacyHeirTaxRate,
             heirType: legacyHeirType,
@@ -2104,7 +2370,7 @@ class DataManager: ObservableObject {
         LegacyPlanningEngine.computeBreakEvenAtHorizons(
             scenarioTotalRothConversion: scenarioTotalRothConversion,
             conversionTaxPaidToday: legacyConversionTaxPaidToday,
-            growthRate: primaryGrowthRate,
+            growthRate: legacyGrowthRate,
             taxableGrowthRate: taxableAccountGrowthRate,
             heirTaxRate: legacyHeirTaxRate)
     }
@@ -2117,7 +2383,7 @@ class DataManager: ObservableObject {
         LegacyPlanningEngine.computeCompoundingChartData(
             scenarioTotalRothConversion: scenarioTotalRothConversion,
             conversionTaxPaidToday: legacyConversionTaxPaidToday,
-            growthRate: primaryGrowthRate,
+            growthRate: legacyGrowthRate,
             taxableGrowthRate: taxableAccountGrowthRate,
             heirTaxRate: legacyHeirTaxRate,
             maxYears: min(40, legacyYearsUntilDeath + legacyTotalPostDeathYears))
@@ -2131,7 +2397,7 @@ class DataManager: ObservableObject {
         LegacyPlanningEngine.computeBreakEvenYear(
             scenarioTotalRothConversion: scenarioTotalRothConversion,
             conversionTaxPaidToday: legacyConversionTaxPaidToday,
-            growthRate: primaryGrowthRate,
+            growthRate: legacyGrowthRate,
             taxableGrowthRate: taxableAccountGrowthRate,
             heirTaxRate: legacyHeirTaxRate,
             maxYears: legacyYearsUntilDeath + legacyTotalPostDeathYears)

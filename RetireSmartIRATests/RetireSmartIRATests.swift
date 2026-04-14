@@ -5897,3 +5897,362 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let _ = dm.legacyBreakEvenHeirTaxRate
     }
 }
+
+// MARK: - Estimated Payment Schedule Tests
+
+@Suite("EstimatedPaymentSchedule")
+struct EstimatedPaymentScheduleTests {
+    @Test("Federal schedule is equal quarters summing to 1.0")
+    func federalSchedule() {
+        let s = EstimatedPaymentSchedule.federal
+        #expect(s.q1Pct + s.q2Pct + s.q3Pct + s.q4Pct == 1.0)
+        #expect(s[1] == 0.25)
+        #expect(s[2] == 0.25)
+        #expect(s[3] == 0.25)
+        #expect(s[4] == 0.25)
+        #expect(s.label == "25/25/25/25")
+    }
+
+    @Test("California schedule follows 30/40/0/30")
+    func californiaSchedule() {
+        let s = EstimatedPaymentSchedule.california
+        #expect(s.q1Pct + s.q2Pct + s.q3Pct + s.q4Pct == 1.0)
+        #expect(s[1] == 0.30)
+        #expect(s[2] == 0.40)
+        #expect(s[3] == 0.0)
+        #expect(s[4] == 0.30)
+        #expect(s.label == "30/40/0/30")
+    }
+
+    @Test("Out-of-range subscript returns 0")
+    func outOfRange() {
+        #expect(EstimatedPaymentSchedule.federal[0] == 0)
+        #expect(EstimatedPaymentSchedule.federal[5] == 0)
+    }
+
+    @Test("CA config in StateTaxData uses california schedule")
+    func caConfigSchedule() {
+        let config = StateTaxData.configs2026[.california]!
+        #expect(config.estimatedPaymentSchedule == .california)
+    }
+
+    @Test("Non-CA states default to federal schedule")
+    func nyConfigSchedule() {
+        let config = StateTaxData.configs2026[.newYork]!
+        #expect(config.estimatedPaymentSchedule == .federal)
+    }
+}
+
+// MARK: - Safe Harbor Method Tests
+
+@Suite("SafeHarborMethod")
+struct SafeHarborMethodTests {
+    @Test("Labels are correct")
+    func labels() {
+        #expect(SafeHarborMethod.currentYear90.label == "90% of Current Year")
+        #expect(SafeHarborMethod.priorYear100_110.label == "100%/110% of Prior Year")
+    }
+
+    @Test("Codable round-trip")
+    func codableRoundTrip() throws {
+        let original = SafeHarborMethod.priorYear100_110
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(SafeHarborMethod.self, from: data)
+        #expect(decoded == original)
+    }
+}
+
+// MARK: - Auto Estimated State Payments Tests
+
+@Suite("AutoEstimatedStatePayments")
+struct AutoEstimatedStatePaymentsTests {
+    @Test("Returns 0 for no-income-tax states")
+    func noTaxState() {
+        let dm = makeDM(state: .texas)
+        #expect(dm.autoEstimatedStatePayments == 0)
+        #expect(dm.stateHasIncomeTax == false)
+    }
+
+    @Test("Returns 0 for specialLimited states (NH)")
+    func specialLimitedState() {
+        let dm = makeDM(state: .newHampshire)
+        #expect(dm.autoEstimatedStatePayments == 0)
+    }
+
+    @Test("Returns 0 with no income")
+    func noIncome() {
+        let dm = makeDM(state: .california)
+        #expect(dm.autoEstimatedStatePayments == 0)
+    }
+
+    @Test("Stable value - calling twice gives same result (no infinite loop)")
+    func stableValue() {
+        let dm = makeDM(state: .california)
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)]
+        let first = dm.autoEstimatedStatePayments
+        let second = dm.autoEstimatedStatePayments
+        #expect(first == second)
+        #expect(first > 0)
+    }
+
+    @Test("SALT includes auto state payments in total before cap")
+    func saltInclusion() {
+        let dm = makeDM(state: .california)
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)]
+        dm.deductionItems = [DeductionItem(name: "Property Tax", type: .propertyTax, annualAmount: 5_000)]
+        let autoPayments = dm.autoEstimatedStatePayments
+        #expect(autoPayments > 0)
+        // totalSALTBeforeCap should include property tax + auto state payments (at minimum)
+        #expect(dm.totalSALTBeforeCap >= 5_000 + autoPayments)
+    }
+
+    @Test("SALT including auto payments doesn't trigger re-computation of auto payments")
+    func saltStabilityRoundTrip() {
+        let dm = makeDM(state: .california)
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)]
+        let auto1 = dm.autoEstimatedStatePayments
+        let salt1 = dm.totalSALTBeforeCap
+        let auto2 = dm.autoEstimatedStatePayments
+        #expect(auto1 == auto2)
+        #expect(dm.totalSALTBeforeCap == salt1)
+    }
+}
+
+// MARK: - Form 2210 Tests
+
+@Suite("Form2210ScheduleAI")
+struct Form2210Tests {
+    @Test("Not required with no scenario")
+    func noScenario() {
+        let dm = makeDM()
+        #expect(dm.requiresForm2210ScheduleAI == false)
+    }
+
+    @Test("Not required when conversion is in Q1")
+    func conversionQ1() {
+        let dm = makeDM()
+        dm.yourRothConversion = 50_000
+        dm.yourRothConversionQuarter = 1
+        #expect(dm.requiresForm2210ScheduleAI == false)
+    }
+
+    @Test("Required when conversion is in Q4")
+    func conversionQ4() {
+        let dm = makeDM()
+        dm.yourRothConversion = 50_000
+        dm.yourRothConversionQuarter = 4
+        #expect(dm.requiresForm2210ScheduleAI == true)
+    }
+
+    @Test("Required when extra withdrawal is in Q3")
+    func withdrawalQ3() {
+        let dm = makeDM()
+        dm.yourExtraWithdrawal = 20_000
+        dm.yourWithdrawalQuarter = 3
+        #expect(dm.requiresForm2210ScheduleAI == true)
+    }
+
+    @Test("Not required when conversion amount is 0 even if quarter > 1")
+    func zeroAmountQ4() {
+        let dm = makeDM()
+        dm.yourRothConversion = 0
+        dm.yourRothConversionQuarter = 4
+        #expect(dm.requiresForm2210ScheduleAI == false)
+    }
+}
+
+// MARK: - Safe Harbor Calculation Tests
+
+@Suite("SafeHarborCalculations")
+struct SafeHarborCalculationTests {
+    @Test("110% rate applied when AGI > $150k")
+    func highAGI() {
+        let dm = makeDM()
+        dm.priorYearAGI = 200_000
+        dm.priorYearFederalTax = 40_000
+        #expect(dm.priorYearSafeHarborRate == 1.10)
+        #expect(dm.priorYearFederalSafeHarbor == 44_000)
+    }
+
+    @Test("100% rate applied when AGI <= $150k")
+    func lowAGI() {
+        let dm = makeDM()
+        dm.priorYearAGI = 100_000
+        dm.priorYearFederalTax = 15_000
+        #expect(dm.priorYearSafeHarborRate == 1.00)
+        #expect(dm.priorYearFederalSafeHarbor == 15_000)
+    }
+
+    @Test("Combined amount uses separate fed/state rates")
+    func combinedAmount() {
+        let dm = makeDM(state: .california)
+        dm.priorYearAGI = 200_000
+        dm.priorYearFederalTax = 40_000
+        dm.priorYearStateTax = 10_000
+        // Current-year income below $1M, so CA prior-year is available
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 300_000)]
+        // Both fed and CA state: 110% (AGI > $150k, CA mirrors federal below $1M)
+        #expect(dm.priorYearFederalSafeHarbor == 44_000)
+        #expect(dm.priorYearStateSafeHarbor == 11_000)
+        #expect(dm.priorYearSafeHarborAmount == 55_000)
+    }
+
+    @Test("CA state safe harbor follows federal 100%/110% below $1M")
+    func caStateRateBelow1M() {
+        let dm = makeDM(state: .california)
+        dm.priorYearAGI = 200_000
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 500_000)]
+        #expect(dm.priorYearStateSafeHarborRate == 1.10) // mirrors federal
+        #expect(dm.priorYearFederalSafeHarborRate == 1.10)
+        #expect(dm.isStateDisqualifiedFromPriorYear == false)
+    }
+
+    @Test("CA disqualification rule logic")
+    func caDisqualificationRule() {
+        let rule = StateSafeHarborRule.mirrorsFederalWithDisqualification(disqualifyAGI: 1_000_000)
+        // Below $1M: mirrors federal
+        #expect(rule.priorYearRate(priorAGI: 200_000, currentAGI: 500_000) == 1.10)
+        #expect(rule.priorYearRate(priorAGI: 100_000, currentAGI: 500_000) == 1.00)
+        // At or above $1M: disqualified (nil)
+        #expect(rule.priorYearRate(priorAGI: 200_000, currentAGI: 1_000_000) == nil)
+        #expect(rule.priorYearRate(priorAGI: 200_000, currentAGI: 1_500_000) == nil)
+    }
+
+    @Test("CA disqualification via DataManager at $1M+ income")
+    func caDisqualificationDM() {
+        let dm = makeDM(state: .california)
+        dm.priorYearAGI = 200_000
+        dm.priorYearFederalTax = 100_000
+        dm.priorYearStateTax = 30_000
+        dm.incomeSources = [IncomeSource(name: "Interest", type: .interest, annualAmount: 1_500_000)]
+        // scenarioGrossIncome should be well over $1M, triggering CA disqualification
+        #expect(dm.scenarioGrossIncome >= 1_000_000, "Gross income should exceed $1M for CA disqualification test")
+        #expect(dm.isStateDisqualifiedFromPriorYear == true)
+        #expect(dm.priorYearStateSafeHarbor == 0)
+        // Federal safe harbor still works regardless of state disqualification
+        #expect(dm.priorYearFederalSafeHarbor > 0)
+    }
+
+    @Test("MD always uses 110% regardless of AGI")
+    func mdAlways110() {
+        let dm = makeDM(state: .maryland)
+        dm.priorYearAGI = 50_000 // low AGI
+        dm.priorYearStateTax = 10_000
+        #expect(dm.priorYearStateSafeHarborRate == 1.10)
+        #expect(dm.priorYearStateSafeHarbor == 11_000)
+    }
+
+    @Test("CT uses flat 100% regardless of AGI")
+    func ctFlat100() {
+        let dm = makeDM(state: .connecticut)
+        dm.priorYearAGI = 500_000
+        dm.priorYearStateTax = 20_000
+        #expect(dm.priorYearStateSafeHarborRate == 1.00)
+        #expect(dm.priorYearStateSafeHarbor == 20_000)
+    }
+
+    @Test("KY uses $250k threshold not $150k")
+    func kyHigherThreshold() {
+        let dm = makeDM(state: .kentucky)
+        dm.priorYearAGI = 200_000 // above $150k but below $250k
+        dm.priorYearStateTax = 10_000
+        #expect(dm.priorYearStateSafeHarborRate == 1.00) // still 100% (below KY's $250k)
+
+        dm.priorYearAGI = 300_000 // above $250k
+        #expect(dm.priorYearStateSafeHarborRate == 1.10) // now 110%
+    }
+
+    @Test("GA uses 70% current-year safe harbor rate")
+    func gaCurrentYear70() {
+        let config = StateTaxData.configs2026[.georgia]!
+        #expect(config.currentYearSafeHarborRate == 0.70)
+    }
+
+    @Test("NJ uses 80% current-year safe harbor rate")
+    func njCurrentYear80() {
+        let config = StateTaxData.configs2026[.newJersey]!
+        #expect(config.currentYearSafeHarborRate == 0.80)
+    }
+
+    @Test("HI uses 60% current-year safe harbor rate")
+    func hiCurrentYear60() {
+        let config = StateTaxData.configs2026[.hawaii]!
+        #expect(config.currentYearSafeHarborRate == 0.60)
+    }
+
+    @Test("ID has no penalty")
+    func idNoPenalty() {
+        let config = StateTaxData.configs2026[.idaho]!
+        #expect(config.safeHarborRule == .noPenalty)
+        #expect(config.safeHarborRule.priorYearRate(priorAGI: 500_000) == 0)
+    }
+
+    @Test("State portion uses state schedule for CA in 110% method")
+    func ca110QuarterlySplit() {
+        let dm = makeDM(state: .california)
+        dm.safeHarborMethod = .priorYear100_110
+        dm.priorYearAGI = 200_000
+        dm.priorYearFederalTax = 40_000
+        dm.priorYearStateTax = 10_000
+        let payments = dm.scenarioQuarterlyPayments
+        // Current-year income below $1M, so CA mirrors federal: 10k * 1.10 = 11k, split 30/40/0/30
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 300_000)]
+        let stateAnnual = 11_000.0
+        #expect(abs(payments.state.q1 - stateAnnual * 0.30) < 1)
+        #expect(abs(payments.state.q2 - stateAnnual * 0.40) < 1)
+        #expect(abs(payments.state.q3) < 1)
+        #expect(abs(payments.state.q4 - stateAnnual * 0.30) < 1)
+        // Federal should be equal quarters
+        let fedQ = payments.federal.q1
+        #expect(abs(payments.federal.q2 - fedQ) < 1)
+        #expect(abs(payments.federal.q3 - fedQ) < 1)
+        #expect(abs(payments.federal.q4 - fedQ) < 1)
+    }
+}
+
+// MARK: - Quarterly Payments State Schedule Tests
+
+@Suite("QuarterlyPaymentsStateSchedule")
+struct QuarterlyPaymentsStateScheduleTests {
+    @Test("CA state payments follow 30/40/0/30 with 90% method")
+    func caSchedule90() {
+        let dm = makeDM(state: .california)
+        dm.safeHarborMethod = .currentYear90
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 200_000)]
+        let payments = dm.scenarioQuarterlyPayments
+        // Q3 state should be 0 for CA
+        #expect(payments.state.q3 == 0)
+        // Q1 and Q4 should be equal, Q2 should be larger
+        if payments.state.q1 > 0 {
+            #expect(payments.state.q2 > payments.state.q1)
+            #expect(abs(payments.state.q4 - payments.state.q1) < 1)
+        }
+    }
+
+    @Test("Non-CA state uses equal quarters with 90% method")
+    func nySchedule90() {
+        let dm = makeDM(state: .newYork)
+        dm.safeHarborMethod = .currentYear90
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 200_000)]
+        let payments = dm.scenarioQuarterlyPayments
+        // All state quarters should be equal
+        if payments.state.q1 > 0 {
+            #expect(abs(payments.state.q1 - payments.state.q2) < 1)
+            #expect(abs(payments.state.q2 - payments.state.q3) < 1)
+            #expect(abs(payments.state.q3 - payments.state.q4) < 1)
+        }
+    }
+
+    @Test("Federal payments are always equal quarters regardless of state")
+    func federalAlwaysEqual() {
+        let dm = makeDM(state: .california)
+        dm.safeHarborMethod = .currentYear90
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 200_000)]
+        let payments = dm.scenarioQuarterlyPayments
+        if payments.federal.q1 > 0 {
+            #expect(abs(payments.federal.q1 - payments.federal.q2) < 1)
+            #expect(abs(payments.federal.q2 - payments.federal.q3) < 1)
+            #expect(abs(payments.federal.q3 - payments.federal.q4) < 1)
+        }
+    }
+}
