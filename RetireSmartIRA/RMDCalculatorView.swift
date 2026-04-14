@@ -15,7 +15,8 @@ struct RMDCalculatorView: View {
     @State private var showGuide: Bool = false
     @State private var showAboutRMDs: Bool = false
 
-    private var isWideLayout: Bool { horizontalSizeClass == .regular }
+    @Environment(\.availableWidth) private var availableWidth
+    private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     var body: some View {
         Group {
