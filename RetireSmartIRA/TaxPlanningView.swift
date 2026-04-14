@@ -12,7 +12,8 @@ struct TaxPlanningView: View {
     @EnvironmentObject var dataManager: DataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    private var isWideLayout: Bool { horizontalSizeClass == .regular }
+    @Environment(\.availableWidth) private var availableWidth
+    private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     // MARK: - Local UI state for stock text fields (sync to DataManager)
     @State private var stockPurchasePriceText: String = ""
@@ -56,10 +57,10 @@ struct TaxPlanningView: View {
 
     // Slider caps (based on each owner's traditional balance)
     private var yourSliderMax: Double {
-        max(200_000, dataManager.primaryTraditionalIRABalance)
+        dataManager.primaryTraditionalIRABalance
     }
     private var spouseSliderMax: Double {
-        max(200_000, dataManager.spouseTraditionalIRABalance)
+        dataManager.spouseTraditionalIRABalance
     }
 
     // Total Roth conversions & extra withdrawals
@@ -139,6 +140,12 @@ struct TaxPlanningView: View {
         dataManager.taxableIncome(filingStatus: dataManager.filingStatus)
     }
 
+    /// Income from sources including mandatory RMDs (regular + inherited) but before
+    /// discretionary conversions, additional withdrawals, and charitable contributions.
+    private var incomeFromSourcesWithRMDs: Double {
+        baseIncome + combinedRMD + dataManager.inheritedIRARMDTotal
+    }
+
     private var itemizeDeductions: Bool { dataManager.scenarioEffectiveItemize }
 
     private var itemizeBinding: Binding<Bool> {
@@ -201,6 +208,42 @@ struct TaxPlanningView: View {
             return "You can add up to \(room.roomRemaining.formatted(.currency(code: "USD"))) more and stay in the \(bracketPct)% federal bracket"
         } else {
             return "Already in the \(bracketPct)% federal bracket \u{2014} no ceiling on distributions within this rate"
+        }
+    }
+
+    // MARK: - Inline IRMAA Cliff Warning
+
+    @ViewBuilder
+    private var irmaaInlineWarning: some View {
+        if dataManager.medicareMemberCount > 0 {
+            let irmaa = dataManager.scenarioIRMAA
+            let baseline = dataManager.baselineIRMAA
+
+            if irmaa.tier > baseline.tier {
+                // Crossed a cliff — red warning
+                let additionalCost = (irmaa.annualSurchargePerPerson - baseline.annualSurchargePerPerson) * Double(dataManager.medicareMemberCount)
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text("\u{26A0}\u{FE0F} Pushes you into IRMAA Tier \(irmaa.tier) \u{2014} adds \(additionalCost, format: .currency(code: "USD"))/year in Medicare surcharges")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.red)
+                }
+                .padding(8)
+                .background(Color.red.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 && distanceToNext < 20_000 {
+                // Close to a cliff — orange caution
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("\(distanceToNext, format: .currency(code: "USD")) until IRMAA Tier \(irmaa.tier + 1) cliff")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.orange)
+                }
+            }
         }
     }
 
@@ -269,16 +312,30 @@ struct TaxPlanningView: View {
         }
     }
 
+    /// Whether the user is RMD-age (73+) — reorder sections to prioritize QCDs/charitable
+    private var isRMDAge: Bool { dataManager.isRMDRequired }
+
     private var compactInputsGroup: some View {
         AnyView(Group {
             summaryCard
             opportunityWindowSection
-            rothConversionCard
-            rothConversionGuideCard
-            withdrawalCard
-            inheritedWithdrawalCard
-            charitableCard
-            charitableGuideCard
+            if isRMDAge {
+                // 73+: Charitable/QCDs first (most relevant), then withdrawals, then Roth
+                withdrawalCard
+                inheritedWithdrawalCard
+                charitableCard
+                charitableGuideCard
+                rothConversionCard
+                rothConversionGuideCard
+            } else {
+                // Pre-RMD: Roth conversions first (opportunity window)
+                rothConversionCard
+                rothConversionGuideCard
+                withdrawalCard
+                inheritedWithdrawalCard
+                charitableCard
+                charitableGuideCard
+            }
         })
     }
 
@@ -290,7 +347,36 @@ struct TaxPlanningView: View {
             legacyImpactCard
             perDecisionImpact
             strategyTipsSection
+            if dataManager.hasActiveScenario {
+                viewTaxSummaryCTA
+            }
         })
+    }
+
+    // MARK: - View Tax Summary CTA
+
+    private var viewTaxSummaryCTA: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.title3)
+                .foregroundStyle(.blue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Ready to see the full picture?")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("Switch to the Tax Summary tab for the complete breakdown, charts, action items, and PDF export.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
     private var wideBody: some View {
@@ -438,7 +524,7 @@ struct TaxPlanningView: View {
                     Text("Income from Sources")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(baseIncome, format: .currency(code: "USD"))
+                    Text(incomeFromSourcesWithRMDs, format: .currency(code: "USD"))
                         .font(.title3)
                         .fontWeight(.semibold)
                 }
@@ -457,7 +543,7 @@ struct TaxPlanningView: View {
                 }
             }
 
-            Text("Before RMDs, conversions, withdrawals, and charitable contributions")
+            Text("Before conversions, additional withdrawals, and charitable contributions")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .italic()
@@ -831,13 +917,13 @@ struct TaxPlanningView: View {
 
         let wdlTotal = wdlImpact + wdlIRMAA
         if wdlTotal > 0 {
-            bars.append(WaterfallBar(label: "Wdl", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: .blue, isTotal: false))
+            bars.append(WaterfallBar(label: "Withdrawals", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: .blue, isTotal: false))
             runningTotal += wdlTotal
         }
 
         let inhTotal = inhImpact + inhIRMAA
         if inhTotal > 0 {
-            bars.append(WaterfallBar(label: "Inh", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: .indigo, isTotal: false))
+            bars.append(WaterfallBar(label: "Inherited", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: .indigo, isTotal: false))
             runningTotal += inhTotal
         }
 
@@ -1028,78 +1114,126 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var rothConversionContent: some View {
-        // Your Roth conversion
-        ConversionSliderCard(
-            label: spouseEnabled ? "Your Conversion" : "Conversion Amount",
-            icon: spouseEnabled ? "person.fill" : nil,
-            balance: dataManager.primaryTraditionalIRABalance,
-            amount: $dataManager.yourRothConversion,
-            sliderMax: yourSliderMax,
-            tint: .orange
-        )
-
-        if dataManager.yourRothConversion > 0 {
-            QuarterPicker(label: "Timing", quarter: $dataManager.yourRothConversionQuarter)
-        }
-
-        // Spouse Roth conversion
-        if spouseEnabled && dataManager.spouseTraditionalIRABalance > 0 {
-            ConversionSliderCard(
-                label: "\(spouseLabel)'s Conversion",
-                icon: "person.fill",
-                balance: dataManager.spouseTraditionalIRABalance,
-                amount: $dataManager.spouseRothConversion,
-                sliderMax: spouseSliderMax,
-                tint: .orange
-            )
-
-            if dataManager.spouseRothConversion > 0 {
-                QuarterPicker(label: "Timing", quarter: $dataManager.spouseRothConversionQuarter)
-            }
-        }
-
-        // Combined total
-        if spouseEnabled && (dataManager.yourRothConversion > 0 || dataManager.spouseRothConversion > 0) {
-            Divider()
-            ViewThatFits {
-                HStack {
-                    Text("Combined Roth Conversions")
+        if dataManager.primaryTraditionalIRABalance <= 0 && (!spouseEnabled || dataManager.spouseTraditionalIRABalance <= 0) {
+            // Empty state: no Traditional balances to convert
+            HStack(spacing: 10) {
+                Image(systemName: "building.columns")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("No Traditional IRA or 401(k) Balances")
                         .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text(totalRothConversion, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.orange)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Combined Roth Conversions")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Text(totalRothConversion, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.orange)
-                }
-            }
-        }
-
-        // Bracket room indicator
-        if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
-            let room = federalBracketRoom
-            let bracketPct = String(format: "%.0f", room.currentRate * 100)
-            HStack(spacing: 6) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(.blue)
-                if room.roomRemaining > 0 {
-                    Text("Federal: \(room.roomRemaining.formatted(.currency(code: "USD"))) remaining in \(bracketPct)% bracket")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Federal: At top of \(bracketPct)% bracket")
+                        .fontWeight(.medium)
+                    Text("Add a Traditional account in the Accounts tab to model Roth conversions.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+            .padding(.vertical, 8)
+        } else {
+            // Your Roth conversion
+            if dataManager.primaryTraditionalIRABalance > 0 {
+                ConversionSliderCard(
+                    label: spouseEnabled ? "Your Conversion" : "Conversion Amount",
+                    icon: spouseEnabled ? "person.fill" : nil,
+                    balance: dataManager.primaryTraditionalIRABalance,
+                    amount: $dataManager.yourRothConversion,
+                    sliderMax: yourSliderMax,
+                    tint: .orange
+                )
+
+                if dataManager.yourRothConversion > 0 {
+                    QuarterPicker(label: "Timing", quarter: $dataManager.yourRothConversionQuarter)
+                }
+            }
+
+            // Spouse Roth conversion
+            if spouseEnabled && dataManager.spouseTraditionalIRABalance > 0 {
+                ConversionSliderCard(
+                    label: "\(spouseLabel)'s Conversion",
+                    icon: "person.fill",
+                    balance: dataManager.spouseTraditionalIRABalance,
+                    amount: $dataManager.spouseRothConversion,
+                    sliderMax: spouseSliderMax,
+                    tint: .orange
+                )
+
+                if dataManager.spouseRothConversion > 0 {
+                    QuarterPicker(label: "Timing", quarter: $dataManager.spouseRothConversionQuarter)
+                }
+            }
+
+            // Combined total
+            if spouseEnabled && (dataManager.yourRothConversion > 0 || dataManager.spouseRothConversion > 0) {
+                Divider()
+                ViewThatFits {
+                    HStack {
+                        Text("Combined Roth Conversions")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(totalRothConversion, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.orange)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Combined Roth Conversions")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(totalRothConversion, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+
+            // Inline IRMAA cliff warning
+            if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
+                irmaaInlineWarning
+            }
+
+            // Bracket room indicator
+            if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
+                let room = federalBracketRoom
+                let bracketPct = String(format: "%.0f", room.currentRate * 100)
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.blue)
+                    if room.roomRemaining > 0 {
+                        Text("Federal: \(room.roomRemaining.formatted(.currency(code: "USD"))) remaining in \(bracketPct)% bracket")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Federal: At top of \(bracketPct)% bracket")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            // Roth conversion framing for novices
+            if totalRothConversion > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundStyle(.yellow)
+                    Text("Increases tax today to reduce lifetime RMDs and create tax-free growth for you and your heirs.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Payment timing cross-reference
+            if totalRothConversion > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.clock")
+                        .foregroundStyle(.orange)
+                    Text("Roth conversions may affect quarterly estimated tax payments. See the Quarterly Tax screen for payment timing details and safe harbor considerations.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
             }
         }
     }
@@ -1906,11 +2040,11 @@ struct TaxPlanningView: View {
                         VStack(spacing: 10) {
                             HStack {
                                 if spouseEnabled {
-                                    Label("Your QCD", systemImage: "person.fill")
+                                    Label("Your Charitable Distribution (QCD)", systemImage: "person.fill")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 } else {
-                                    Text("QCD Amount")
+                                    Text("Qualified Charitable Distribution (QCD)")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -1937,7 +2071,7 @@ struct TaxPlanningView: View {
                     if spouseEnabled && dataManager.spouseIsQCDEligible {
                         VStack(spacing: 10) {
                             HStack {
-                                Label("\(spouseLabel)'s QCD", systemImage: "person.fill")
+                                Label("\(spouseLabel)'s Charitable Distribution (QCD)", systemImage: "person.fill")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 Spacer()
@@ -1963,7 +2097,7 @@ struct TaxPlanningView: View {
                     if spouseEnabled && totalQCD > 0 {
                         Divider()
                         HStack {
-                            Text("Combined QCD")
+                            Text("Combined Charitable Distributions (QCD)")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                             Spacer()
@@ -2512,6 +2646,13 @@ struct TaxPlanningView: View {
                             .font(.system(size: 9))
                             .foregroundStyle(.secondary)
                     }
+
+                    if dataManager.medicareMemberCount > 0 {
+                        Text("Effective rate reflects federal + state income tax. IRMAA surcharges are shown separately \u{2014} they apply to Medicare premiums 2 years from now.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .italic()
+                    }
                 }
             }
             .padding()
@@ -2579,6 +2720,13 @@ struct TaxPlanningView: View {
                     stateRate: analysis.stateEffectiveRate * 100,
                     highlight: false
                 )
+
+                if dataManager.medicareMemberCount > 0 {
+                    Text("Rates reflect income tax only. IRMAA surcharges are shown separately \u{2014} they apply to Medicare premiums 2 years from now.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .italic()
+                }
             }
             .padding()
             .background(Color(PlatformColor.systemBackground))
@@ -3337,6 +3485,11 @@ struct TaxImpactView: View {
                         Text("\(scenarioAnalysis.effectiveRate * 100, specifier: "%.1f")%")
                             .fontWeight(.semibold)
                     }
+
+                    Text("Reflects federal + state income tax only. IRMAA Medicare surcharges, if applicable, are shown separately.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .italic()
                 }
             }
         }

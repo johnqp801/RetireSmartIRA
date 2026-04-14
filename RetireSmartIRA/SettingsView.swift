@@ -103,6 +103,10 @@ struct SettingsView: View {
             Section("Legacy Planning") {
                 Toggle("Consider Legacy Planning", isOn: $dataManager.enableLegacyPlanning)
 
+                Text("Legacy planning shows the long-term tax impact of your decisions on heirs. Without it, Roth conversions may appear costly without showing the future tax-free growth benefit. You can turn this off if you only want current-year analysis.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 if dataManager.enableLegacyPlanning {
                     Picker("Primary Heir", selection: $dataManager.legacyHeirType) {
                         Text("Spouse").tag("spouse")

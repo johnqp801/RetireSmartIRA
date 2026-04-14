@@ -12,7 +12,8 @@ struct GuideView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Binding var selectedTab: Int
 
-    private var isWideLayout: Bool { horizontalSizeClass == .regular }
+    @Environment(\.availableWidth) private var availableWidth
+    private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     // Section expansion states
     @State private var gatherExpanded: Bool = true
@@ -112,7 +113,7 @@ struct GuideView: View {
                     .fontWeight(.bold)
             }
 
-            Text("Plan your retirement tax strategy with confidence. This guide walks you through setting up the app and understanding its features.")
+            Text("Plan your retirement tax strategy with confidence. This guide walks you through setting up the app and understanding its features. Plan to spend about 30 minutes on your first setup — see \"What to Gather Before You Start\" below.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -536,12 +537,12 @@ struct GuideView: View {
                 conceptItem(
                     icon: "arrow.right.arrow.left",
                     title: "Roth Conversion Window",
-                    description: "The years between retirement and RMD age are ideal for converting Traditional IRA funds to Roth at potentially lower tax rates. Once RMDs begin, your taxable income rises."
+                    description: "The years between retirement and RMD age are often ideal for converting Traditional IRA funds to Roth at potentially lower tax rates. You can still do Roth conversions after RMDs begin — you just must take your RMD first. Even in higher brackets, conversions may benefit your long-term tax picture and legacy."
                 )
                 conceptItem(
                     icon: "heart.fill",
                     title: "QCD Strategy",
-                    description: "Qualified Charitable Distributions (up to $111,000/person/year) go directly from your IRA to charity. They satisfy your RMD but are excluded from taxable income. Available at age 70\u{00BD}+."
+                    description: "Qualified Charitable Distributions (up to $111,000/person/year) go directly from your IRA to charity. They satisfy your RMD but are excluded from taxable income. Available at age 70\u{00BD}+. Only donations to qualifying charities are eligible — see IRS Publication 590-B for details (irs.gov/publications/p590b)."
                 )
                 conceptItem(
                     icon: "doc.plaintext",
@@ -626,7 +627,7 @@ struct GuideView: View {
                     icon: "heart.fill",
                     color: .red,
                     title: "Use QCDs If Eligible",
-                    description: "If you are age 70\u{00BD}+ and have RMDs, QCDs are the most tax-efficient way to give to charity."
+                    description: "If you are age 70\u{00BD}+ and have RMDs, QCDs are the most tax-efficient way to give to charity. Donations must go to a qualifying organization — see IRS Publication 590-B for eligible recipients."
                 )
                 tipItem(
                     icon: "chart.bar.fill",

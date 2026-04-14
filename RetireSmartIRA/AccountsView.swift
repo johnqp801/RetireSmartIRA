@@ -52,13 +52,18 @@ struct AccountsView: View {
                             }
                         }
                     }
+
+                    Text("Roth balances are tax-free but included here for your total portfolio picture and legacy projections.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .italic()
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(PlatformColor.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
-                
+
                 // Accounts List
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {

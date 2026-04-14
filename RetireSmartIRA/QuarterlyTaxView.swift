@@ -10,8 +10,14 @@ import SwiftUI
 struct QuarterlyTaxView: View {
     @EnvironmentObject var dataManager: DataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var timingGuideExpanded = false
+    @State private var safeHarborExpanded = false
+    @State private var strategiesExpanded = false
+    @State private var withholdingTipExpanded = false
+    @State private var form2210Expanded = false
 
-    private var isWideLayout: Bool { horizontalSizeClass == .regular }
+    @Environment(\.availableWidth) private var availableWidth
+    private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     var body: some View {
         Group {
@@ -31,9 +37,11 @@ struct QuarterlyTaxView: View {
             VStack(spacing: 24) {
                 header
                 scenarioBanner
+                safeHarborCard
                 annualTaxSummary
                 withholdingBreakdown
                 paymentSchedule
+                paymentTimingGuide
                 importantNotes
             }
             .padding()
@@ -55,6 +63,8 @@ struct QuarterlyTaxView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
+                    safeHarborCard
+                    paymentTimingGuide
                     paymentSchedule
                     importantNotes
                 }
@@ -215,7 +225,7 @@ struct QuarterlyTaxView: View {
 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("90% Safe Harbor")
+                        Text(dataManager.safeHarborMethod.label)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(minQ == maxQ ? "Per Quarter Payment" : "Quarterly Range")
@@ -545,12 +555,478 @@ struct QuarterlyTaxView: View {
                     text: "Local and city income taxes (e.g. NYC, Yonkers) are not included in these estimates",
                     color: .secondary
                 )
+
+                // SALT auto-inclusion confirmation
+                if dataManager.stateHasIncomeTax && dataManager.autoEstimatedStatePayments > 0 {
+                    let stateTotal = dataManager.autoEstimatedStatePayments
+                    NoteRow(
+                        icon: "gearshape.2.fill",
+                        text: "Your estimated state tax payments (\(stateTotal.formatted(.currency(code: "USD").precision(.fractionLength(0))))) are automatically included in your SALT deduction \u{2014} no manual entry needed.",
+                        color: .green
+                    )
+                }
+
+                // State-specific payment schedule warning
+                if dataManager.selectedStateConfig.estimatedPaymentSchedule != .federal {
+                    let schedule = dataManager.selectedStateConfig.estimatedPaymentSchedule
+                    NoteRow(
+                        icon: "building.columns.fill",
+                        text: "\(dataManager.selectedState.rawValue) uses a \(schedule.label) quarterly schedule for state estimated payments (not equal quarters). Q3 (September) may have no state payment due.",
+                        color: .orange
+                    )
+                }
+
+                // Form 2210 warning
+                if dataManager.requiresForm2210ScheduleAI {
+                    NoteRow(
+                        icon: "doc.text.fill",
+                        text: "Uneven quarterly payments may require filing IRS Form 2210, Schedule AI (annualized income). This may incur additional tax preparation fees.",
+                        color: .orange
+                    )
+                }
             }
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    // MARK: - Safe Harbor Method Card
+
+    private var safeHarborCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.shield.fill")
+                    .foregroundStyle(.green)
+                Text("Safe Harbor Method")
+                    .font(.headline)
+            }
+
+            Text("Choose which safe harbor method to use for your estimated payment calculations:")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Picker("Safe Harbor Method", selection: $dataManager.safeHarborMethod) {
+                ForEach(SafeHarborMethod.allCases, id: \.self) { method in
+                    Text(method.label).tag(method)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            // Trade-offs
+            VStack(alignment: .leading, spacing: 8) {
+                safeHarborRow(
+                    number: "1",
+                    text: "90% of Current Year \u{2014} May result in lower payments if current-year tax is less than prior year. Risk: if income is higher than estimated, you may underpay and owe penalties."
+                )
+                safeHarborRow(
+                    number: "2",
+                    text: "100%/110% of Prior Year \u{2014} Guaranteed penalty-free regardless of current-year income. Risk: may overpay if current-year tax is significantly lower; overpayment is refunded but cash is tied up."
+                )
+            }
+
+            // Prior year inputs (only when 110% method selected)
+            if dataManager.safeHarborMethod == .priorYear100_110 {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Prior Year Tax Information")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    Text("Enter these values from your prior year tax returns. The IRS and state evaluate safe harbors independently, so both are needed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack {
+                        Text("Federal Tax (1040, Line 24)")
+                            .font(.callout)
+                        Spacer()
+                        TextField("$0", value: $dataManager.priorYearFederalTax, format: .currency(code: "USD").precision(.fractionLength(0)))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                            #endif
+                    }
+
+                    if dataManager.stateHasIncomeTax {
+                        HStack {
+                            Text("State Tax (state return)")
+                                .font(.callout)
+                            Spacer()
+                            TextField("$0", value: $dataManager.priorYearStateTax, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 120)
+                                #if os(iOS)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.roundedBorder)
+                                #endif
+                        }
+                    }
+
+                    HStack {
+                        Text("AGI (1040, Line 11)")
+                            .font(.callout)
+                        Spacer()
+                        TextField("$0", value: $dataManager.priorYearAGI, format: .currency(code: "USD").precision(.fractionLength(0)))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                            #endif
+                    }
+
+                    if dataManager.priorYearTotalTax > 0 {
+                        let fedRate = dataManager.priorYearFederalSafeHarborRate
+                        let stateRate = dataManager.priorYearStateSafeHarborRate
+                        let fedLabel = fedRate > 1.0 ? "110%" : "100%"
+                        let fedReason = fedRate > 1.0 ? "(AGI exceeded $150,000)" : "(AGI at or below $150,000)"
+                        HStack {
+                            Text("Federal safe harbor rate:")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Text("\(fedLabel) \(fedReason)")
+                                .font(.callout)
+                                .fontWeight(.medium)
+                        }
+                        if dataManager.stateHasIncomeTax && stateRate != fedRate {
+                            HStack {
+                                Text("State safe harbor rate:")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                Text("\(String(format: "%.0f", stateRate * 100))% (\(dataManager.selectedState.rawValue) rule)")
+                                    .font(.callout)
+                                    .fontWeight(.medium)
+                            }
+                        }
+                        if dataManager.isStateDisqualifiedFromPriorYear {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                                    .font(.caption)
+                                Text("\(dataManager.selectedState.rawValue) does not allow the prior-year safe harbor at your income level. State estimated payments will use the current-year method (\(String(format: "%.0f", dataManager.stateCurrentYearSafeHarborRate * 100))%).")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+
+                        HStack {
+                            Text("Required annual payment:")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Text(dataManager.priorYearSafeHarborAmount.formatted(.currency(code: "USD").precision(.fractionLength(0))))
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.blue)
+                        }
+
+                        if dataManager.priorYearFederalTax > 0 && dataManager.priorYearStateTax > 0 {
+                            HStack {
+                                Text("Federal:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(dataManager.priorYearFederalSafeHarbor.formatted(.currency(code: "USD").precision(.fractionLength(0))))
+                                    .font(.caption)
+                                Spacer()
+                                Text("State:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(dataManager.priorYearStateSafeHarbor.formatted(.currency(code: "USD").precision(.fractionLength(0))))
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Comparison (when prior year data is available)
+            if dataManager.priorYearTotalTax > 0 {
+                Divider()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Comparison")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    HStack {
+                        Text("90% of Current Year:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(dataManager.currentYearSafeHarborAmount.formatted(.currency(code: "USD").precision(.fractionLength(0))))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+
+                    HStack {
+                        let rateLabel = dataManager.priorYearSafeHarborRate > 1.0 ? "110%" : "100%"
+                        Text("\(rateLabel) of Prior Year:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(dataManager.priorYearSafeHarborAmount.formatted(.currency(code: "USD").precision(.fractionLength(0))))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                }
+            }
+
+            Text("Consult your tax advisor to confirm which method applies to your situation.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    // MARK: - Payment Timing Guide
+
+    private var paymentTimingGuide: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
+            DisclosureGroup(isExpanded: $timingGuideExpanded) {
+                timingGuideContent
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "clock.badge.questionmark")
+                        .font(.title3)
+                        .foregroundStyle(.blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Understanding Payment Timing")
+                            .font(.headline)
+                        Text("Why quarterly payments may be uneven and when to pay")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    private var timingGuideContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+
+            // ─── Why payments are uneven ───
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Why are my quarterly payments uneven?")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Text("The IRS expects taxes to be paid as income is earned during the year \u{2014} not just at filing time. This is called \"pay as you go.\"")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                Text("When you do a Roth conversion or take a withdrawal in a specific quarter, the associated tax is allocated to that quarter. This is why your payments may not be split evenly across Q1\u{2013}Q4.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 8)
+
+            Divider()
+
+            // ─── Quarter due dates ───
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Quarterly Due Dates")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    quarterDueDateRow("Q1", months: "Jan\u{2013}Mar", due: "April 15")
+                    quarterDueDateRow("Q2", months: "Apr\u{2013}May", due: "June 15")
+                    quarterDueDateRow("Q3", months: "Jun\u{2013}Aug", due: "September 15")
+                    quarterDueDateRow("Q4", months: "Sep\u{2013}Dec", due: "January 15 (next year)")
+                }
+
+                Text("A conversion in Q2, for example, generally needs to be covered by the June or September payment \u{2014} not deferred until January.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.top, 2)
+            }
+
+            Divider()
+
+            // ─── Strategies ───
+            DisclosureGroup(isExpanded: $strategiesExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+
+                    strategyRow(
+                        number: "1",
+                        title: "Make timely estimated payments",
+                        detail: "The most straightforward approach. If you convert in Q2, consider making an estimated payment by June 15 or September 15 to cover the additional tax."
+                    )
+
+                    strategyRow(
+                        number: "2",
+                        title: "Rely on safe harbor",
+                        detail: "If your withholding and estimated payments already meet 100% (or 110%) of last year's tax, you may owe a balance in April but generally would not face penalties."
+                    )
+
+                    strategyRow(
+                        number: "3",
+                        title: "Increase withholding late in the year",
+                        detail: "This is a lesser-known but potentially powerful approach. See the tip below."
+                    )
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundStyle(.yellow)
+                    Text("3 Strategies to Consider")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+            }
+
+            // ─── Form 2210 warning (conditional) ───
+            if dataManager.requiresForm2210ScheduleAI {
+                Divider()
+
+                DisclosureGroup(isExpanded: $form2210Expanded) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your estimated payments are allocated by quarter based on when income events occur. This is called the annualized income installment method.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+
+                        Text("To justify uneven quarterly payments and avoid underpayment penalties, you may need to file IRS Form 2210, Schedule AI with your tax return.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 6) {
+                            Image(systemName: "dollarsign.circle")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                            Text("Note: This may incur additional tax preparation fees from your accountant or CPA.")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                        .padding(.top, 2)
+                    }
+                    .padding(.top, 8)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.text.fill")
+                            .foregroundStyle(.orange)
+                        Text("IRS Form 2210 May Be Required")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                }
+            }
+
+            Divider()
+
+            // ─── Withholding pro tip ───
+            DisclosureGroup(isExpanded: $withholdingTipExpanded) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("The IRS treats tax withholding as if it were paid evenly throughout the entire year \u{2014} regardless of when the withholding actually occurred.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    Text("This means a distribution taken in December with taxes withheld can retroactively cover underpayments from earlier quarters.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    Text("For example, if you did a Roth conversion in Q2 but didn't make estimated payments, you could take an IRA distribution in Q4 and elect to have taxes withheld. The IRS would treat that withholding as if it had been paid proportionally across all four quarters.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .foregroundStyle(.blue)
+                            .font(.caption)
+                        Text("Estimated payments are different \u{2014} they are credited only to the quarter in which they are paid.")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    }
+                    .padding(.top, 2)
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(.orange)
+                    Text("Withholding vs. Estimated Payments")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+            }
+
+            Divider()
+
+            // ─── Disclaimer ───
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "person.2.fill")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("This information is educational and should not be considered tax advice. Tax rules vary by situation. Please consult your accountant, CPA, or financial planner before making payment timing decisions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func quarterDueDateRow(_ quarter: String, months: String, due: String) -> some View {
+        HStack {
+            Text(quarter)
+                .font(.caption)
+                .fontWeight(.bold)
+                .frame(width: 28, alignment: .leading)
+            Text(months)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 80, alignment: .leading)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 8))
+                .foregroundStyle(.secondary)
+            Text("Due \(due)")
+                .font(.caption)
+                .fontWeight(.medium)
+        }
+    }
+
+    private func safeHarborRow(number: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(number)
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(.green))
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func strategyRow(number: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(number)
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(.blue))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.callout)
+                    .fontWeight(.semibold)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
@@ -587,7 +1063,7 @@ struct QuarterRow: View {
 
                 Spacer()
 
-                Text(payment.estimatedAmount, format: .currency(code: "USD"))
+                Text(federalAmount + stateAmount, format: .currency(code: "USD"))
                     .font(.callout)
                     .fontWeight(.semibold)
                     .foregroundStyle(.blue)

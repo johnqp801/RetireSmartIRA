@@ -321,6 +321,22 @@ struct IncomeSourcesView: View {
                                             .fontWeight(.medium)
                                     }
                                 }
+                                if dataManager.autoEstimatedStatePayments > 0 {
+                                    HStack {
+                                        HStack(spacing: 4) {
+                                            Text("Est. State Tax Payments")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            Text("(auto)")
+                                                .font(.caption2)
+                                                .foregroundStyle(.green)
+                                        }
+                                        Spacer()
+                                        Text(dataManager.autoEstimatedStatePayments, format: .currency(code: "USD"))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                }
 
                                 Divider()
 
@@ -371,6 +387,23 @@ struct IncomeSourcesView: View {
                             Text("SALT deductions \u{2014} property tax, state withholding, prior year balance due, and local taxes \u{2014} are capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) for \(String(dataManager.currentYear)) under the OBBBA. State withholding from your income sources and prior year balance due are included automatically. If you received a state tax refund and itemized last year, enter it as a \u{201C}State Tax Refund\u{201D} income source \u{2014} it\u{2019}s taxable on your federal return.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+
+                            if dataManager.stateHasIncomeTax {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "gearshape.2.fill")
+                                            .foregroundStyle(.blue)
+                                            .font(.caption2)
+                                        Text("Smart SALT: Estimated State Payments")
+                                            .font(.caption2)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.blue)
+                                    }
+                                    Text("The estimated state income tax you\u{2019}ll pay during \(String(dataManager.currentYear)) is deductible as SALT on your federal return. RetireSmart IRA automatically calculates this amount based on your income, accounts, and scenario decisions \u{2014} and includes it in your SALT total above. As you complete each tab (Social Security, Income, Accounts, Scenarios), this number updates automatically. No manual entry needed.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.blue.opacity(0.8))
+                                }
+                            }
                         }
                         .padding(12)
                         .background(Color.purple.opacity(0.05))
@@ -487,7 +520,12 @@ struct IncomeSourcesView: View {
             }
 
             if dataManager.deductionOverride == nil {
-                Text("Auto-selecting \(dataManager.recommendedDeductionType == .itemized ? "itemized" : "standard") deduction (\(dataManager.effectiveDeductionAmount.formatted(.currency(code: "USD"))))")
+                Text("Auto compares your itemized total against the standard deduction and selects whichever saves you more — currently \(dataManager.recommendedDeductionType == .itemized ? "itemized" : "standard") (\(dataManager.effectiveDeductionAmount.formatted(.currency(code: "USD"))))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .italic()
+            } else {
+                Text("Tip: Auto compares your itemized total against the standard deduction and selects whichever saves you more.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .italic()
