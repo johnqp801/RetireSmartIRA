@@ -90,6 +90,80 @@ struct TaxCalculationEngine {
         return tax
     }
 
+    // MARK: - Federal Tax Breakdown (bracket-by-bracket)
+
+    static func federalTaxBreakdown(income: Double, filingStatus: FilingStatus, brackets: TaxBrackets, preferentialIncome: Double) -> FederalTaxBreakdown {
+        let capGains = max(0, preferentialIncome)
+        let ordinaryIncome = max(0, income - capGains)
+
+        let ordinaryBrackets = filingStatus == .single
+            ? brackets.federalSingle : brackets.federalMarried
+
+        // Build ordinary bracket lines
+        var ordinaryLines: [FederalTaxBreakdown.BracketLine] = []
+        var ordinaryTax = 0.0
+        for i in ordinaryBrackets.indices {
+            let bracket = ordinaryBrackets[i]
+            if ordinaryIncome > bracket.threshold {
+                let ceiling = i + 1 < ordinaryBrackets.count ? ordinaryBrackets[i + 1].threshold : nil
+                let effectiveCeiling = ceiling ?? ordinaryIncome
+                let taxable = min(ordinaryIncome, effectiveCeiling) - bracket.threshold
+                let tax = taxable * bracket.rate
+                ordinaryTax += tax
+                ordinaryLines.append(FederalTaxBreakdown.BracketLine(
+                    rate: bracket.rate,
+                    bracketFloor: bracket.threshold,
+                    bracketCeiling: ceiling,
+                    taxableInBracket: taxable,
+                    taxFromBracket: tax
+                ))
+            }
+        }
+
+        // Capital gains bracket lines (layered on top of ordinary income)
+        var capGainsLines: [FederalTaxBreakdown.BracketLine] = []
+        var capGainsTax = 0.0
+        if capGains > 0 {
+            let cgBrackets = filingStatus == .single
+                ? brackets.federalCapGainsSingle : brackets.federalCapGainsMarried
+            // Tax on total income at cap gains rates minus tax on ordinary portion
+            let taxOnTotal = progressiveTax(income: income, brackets: cgBrackets)
+            let taxOnOrdinary = progressiveTax(income: ordinaryIncome, brackets: cgBrackets)
+            capGainsTax = taxOnTotal - taxOnOrdinary
+
+            // Build per-bracket detail for the cap gains portion
+            for i in cgBrackets.indices {
+                let bracket = cgBrackets[i]
+                let ceiling = i + 1 < cgBrackets.count ? cgBrackets[i + 1].threshold : nil
+                let effectiveCeiling = ceiling ?? income
+                // Portion of cap gains income in this bracket
+                let bracketStart = max(ordinaryIncome, bracket.threshold)
+                let bracketEnd = min(income, effectiveCeiling)
+                if bracketEnd > bracketStart {
+                    let taxable = bracketEnd - bracketStart
+                    let tax = taxable * bracket.rate
+                    capGainsLines.append(FederalTaxBreakdown.BracketLine(
+                        rate: bracket.rate,
+                        bracketFloor: bracket.threshold,
+                        bracketCeiling: ceiling,
+                        taxableInBracket: taxable,
+                        taxFromBracket: tax
+                    ))
+                }
+            }
+        }
+
+        return FederalTaxBreakdown(
+            ordinaryIncome: ordinaryIncome,
+            preferentialIncome: capGains,
+            ordinaryBrackets: ordinaryLines,
+            ordinaryTax: ordinaryTax,
+            capGainsBrackets: capGainsLines,
+            capGainsTax: capGainsTax,
+            totalFederalTax: ordinaryTax + capGainsTax
+        )
+    }
+
     // MARK: - State Tax
 
     static func calculateStateTax(

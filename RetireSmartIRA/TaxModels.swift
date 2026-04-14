@@ -68,6 +68,26 @@ struct AMTResult {
     let amt: Double                     // max(0, TMT - regularTax)
 }
 
+/// Detailed breakdown of federal tax calculation showing bracket-by-bracket math.
+struct FederalTaxBreakdown {
+    let ordinaryIncome: Double
+    let preferentialIncome: Double      // qualified dividends + long-term cap gains
+    let ordinaryBrackets: [BracketLine]
+    let ordinaryTax: Double
+    let capGainsBrackets: [BracketLine] // only filled if preferentialIncome > 0
+    let capGainsTax: Double
+    let totalFederalTax: Double
+
+    struct BracketLine: Identifiable {
+        let id = UUID()
+        let rate: Double
+        let bracketFloor: Double
+        let bracketCeiling: Double?     // nil = top bracket
+        let taxableInBracket: Double
+        let taxFromBracket: Double
+    }
+}
+
 /// Detailed breakdown of state tax calculation for a specific state.
 /// Used by the State Comparison detail sheet to explain WHY a state's tax is what it is.
 struct StateTaxBreakdown {

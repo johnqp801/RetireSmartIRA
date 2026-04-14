@@ -141,6 +141,14 @@ enum StateTaxSystem {
 
     /// States with limited/special income tax (NH: dividends/interest only; WA: capital gains only)
     case specialLimited
+
+    /// Whether this tax system produces meaningful income tax for retirement planning.
+    var hasIncomeTax: Bool {
+        switch self {
+        case .noIncomeTax, .specialLimited: return false
+        case .flat, .progressive: return true
+        }
+    }
 }
 
 // MARK: - Retirement Income Exemptions
@@ -201,6 +209,26 @@ struct StateTaxConfig {
     let taxSystem: StateTaxSystem
     let retirementExemptions: RetirementIncomeExemptions
     let stateDeduction: StateDeduction
+    /// Quarterly estimated payment percentage schedule. Defaults to federal (25/25/25/25).
+    let estimatedPaymentSchedule: EstimatedPaymentSchedule
+    /// State-specific safe harbor rule for the prior-year estimated tax method.
+    let safeHarborRule: StateSafeHarborRule
+    /// Current-year safe harbor percentage. Most states use 0.90 (like federal).
+    /// GA/CO/OK use 0.70, MA/NJ/RI use 0.80, HI uses 0.60.
+    let currentYearSafeHarborRate: Double
+
+    init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
+         stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
+         safeHarborRule: StateSafeHarborRule = .mirrorsFederal,
+         currentYearSafeHarborRate: Double = 0.90) {
+        self.state = state
+        self.taxSystem = taxSystem
+        self.retirementExemptions = retirementExemptions
+        self.stateDeduction = stateDeduction
+        self.estimatedPaymentSchedule = estimatedPaymentSchedule
+        self.safeHarborRule = safeHarborRule
+        self.currentYearSafeHarborRate = currentYearSafeHarborRate
+    }
 }
 
 // MARK: - 2026 State Tax Data
@@ -272,7 +300,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .conformsToFederal
+            stateDeduction: .conformsToFederal,
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Colorado — 4.40% flat rate (2026)
@@ -285,7 +314,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 24_000),  // combined with pension
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .conformsToFederal
+            stateDeduction: .conformsToFederal,
+            currentYearSafeHarborRate: 0.70
         )
 
         // Georgia — 5.39% flat rate (2026, phasing down)
@@ -298,7 +328,9 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 65_000),  // combined
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 12_000, married: 24_000)
+            stateDeduction: .fixed(single: 12_000, married: 24_000),
+            safeHarborRule: .flatRate(1.00),
+            currentYearSafeHarborRate: 0.70
         )
 
         // Idaho — 5.695% flat rate (2026)
@@ -311,7 +343,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .conformsToFederal
+            stateDeduction: .conformsToFederal,
+            safeHarborRule: .noPenalty
         )
 
         // Illinois — 4.95% flat rate
@@ -363,7 +396,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 31_110),  // combined
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 3_360, married: 3_360)
+            stateDeduction: .fixed(single: 3_360, married: 3_360),
+            safeHarborRule: .agiThreshold(threshold: 250_000, lowRate: 1.00, highRate: 1.10)
         )
 
         // Massachusetts — 5.0% flat rate
@@ -376,7 +410,9 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal  // MA has 9% surtax on short-term gains, simplified here
             ),
-            stateDeduction: .none
+            stateDeduction: .none,
+            safeHarborRule: .flatRate(1.00),
+            currentYearSafeHarborRate: 0.80
         )
 
         // Michigan — 4.05% flat rate
@@ -415,7 +451,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 12_750, married: 25_500)
+            stateDeduction: .fixed(single: 12_750, married: 25_500),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // North Dakota — 1.95% flat rate (2026, simplified to flat)
@@ -441,7 +478,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .none
+            stateDeduction: .none,
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Pennsylvania — 3.07% flat rate
@@ -454,7 +492,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .none
+            stateDeduction: .none,
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Utah — 4.55% flat rate (2026)
@@ -517,7 +556,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 6_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 2_200, married: 4_400)
+            stateDeduction: .fixed(single: 2_200, married: 4_400),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // California — 1% to 13.3% (10 brackets; includes 1% Mental Health Services Tax over $1M)
@@ -555,7 +595,9 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .taxedAsOrdinary  // CA taxes cap gains as ordinary income
             ),
-            stateDeduction: .fixed(single: 5_706, married: 11_412)
+            stateDeduction: .fixed(single: 5_706, married: 11_412),
+            estimatedPaymentSchedule: .california,
+            safeHarborRule: .mirrorsFederalWithDisqualification(disqualifyAGI: 1_000_000)
         )
 
         // Connecticut — 3% to 6.99% (7 brackets)
@@ -587,7 +629,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .full,  // CT exempts IRA withdrawals starting 2026
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .none
+            stateDeduction: .none,
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Delaware — 2.2% to 6.6% (6 brackets)
@@ -691,7 +734,9 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 8_000, married: 16_000)
+            stateDeduction: .fixed(single: 8_000, married: 16_000),
+            safeHarborRule: .flatRate(1.00),
+            currentYearSafeHarborRate: 0.60
         )
 
         // Kansas — 3.1%, 5.25%, 5.7% (3 brackets)
@@ -715,7 +760,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 3_605, married: 8_240)
+            stateDeduction: .fixed(single: 3_605, married: 8_240),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Louisiana — 1.85%, 3.5%, 4.25% (3 brackets, 2026)
@@ -739,7 +785,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 6_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 12_500, married: 25_000)
+            stateDeduction: .fixed(single: 12_500, married: 25_000),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Maine — 5.8%, 6.75%, 7.15% (3 brackets)
@@ -763,7 +810,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 15_300, married: 30_600)
+            stateDeduction: .fixed(single: 15_300, married: 30_600),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Maryland — 2% to 5.75% (8 brackets)
@@ -797,7 +845,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 39_500),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 4_100, married: 8_200)
+            stateDeduction: .fixed(single: 4_100, married: 8_200),
+            safeHarborRule: .flatRate(1.10)
         )
 
         // Minnesota — 5.35% to 9.85% (4 brackets)
@@ -868,7 +917,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .conformsToFederal
+            stateDeduction: .conformsToFederal,
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Nebraska — 3.99% to 5.2% (2026, 4 brackets, reduced rates)
@@ -927,7 +977,9 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 100_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .none
+            stateDeduction: .none,
+            safeHarborRule: .mirrorsFederal,
+            currentYearSafeHarborRate: 0.80
         )
 
         // New Mexico — 1.7% to 5.9% (4 brackets)
@@ -955,7 +1007,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .conformsToFederal
+            stateDeduction: .conformsToFederal,
+            safeHarborRule: .flatRate(1.00)
         )
 
         // New York — 4% to 10.9% (9 brackets)
@@ -1021,7 +1074,9 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 10_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 13_550, married: 27_100)
+            stateDeduction: .fixed(single: 13_550, married: 27_100),
+            safeHarborRule: .flatRate(1.00),
+            currentYearSafeHarborRate: 0.70
         )
 
         // Oregon — 4.75% to 9.9% (4 brackets)
@@ -1047,7 +1102,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .taxedAsOrdinary  // OR taxes cap gains as ordinary
             ),
-            stateDeduction: .fixed(single: 4_840, married: 9_680)
+            stateDeduction: .fixed(single: 4_840, married: 9_680),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Rhode Island — 3.75%, 4.75%, 5.99% (3 brackets)
@@ -1071,7 +1127,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 11_200, married: 22_400)
+            stateDeduction: .fixed(single: 11_200, married: 22_400),
+            currentYearSafeHarborRate: 0.80
         )
 
         // South Carolina — 0% to 6.3% (2026, 3 brackets simplified)
@@ -1121,7 +1178,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 7_850, married: 15_700)
+            stateDeduction: .fixed(single: 7_850, married: 15_700),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Virginia — 2% to 5.75% (4 brackets)
@@ -1147,7 +1205,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 12_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 8_750, married: 17_500)
+            stateDeduction: .fixed(single: 8_750, married: 17_500),
+            safeHarborRule: .flatRate(1.00)
         )
 
         // West Virginia — 2.36% to 5.12% (2026, 5 brackets, reduced)
@@ -1175,7 +1234,8 @@ struct StateTaxData {
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .none
+            stateDeduction: .none,
+            safeHarborRule: .flatRate(1.00)
         )
 
         // Wisconsin — 3.5% to 7.65% (4 brackets)
