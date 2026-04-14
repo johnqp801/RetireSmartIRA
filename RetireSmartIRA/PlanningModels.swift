@@ -97,7 +97,7 @@ struct QuarterlyPayment: Identifiable, Codable {
 /// State-specific quarterly estimated tax payment percentages.
 /// Federal always uses equal quarters (25/25/25/25).
 /// California requires 30/40/0/30 (no September payment).
-struct EstimatedPaymentSchedule: Equatable {
+struct EstimatedPaymentSchedule: Equatable, Sendable {
     let q1Pct: Double
     let q2Pct: Double
     let q3Pct: Double
@@ -159,7 +159,7 @@ enum SafeHarborMethod: String, Codable, CaseIterable {
 /// State-specific safe harbor rule for the prior-year estimated tax method.
 /// Each state has its own rules for how much of prior-year tax must be paid
 /// via estimated payments to avoid underpayment penalties.
-enum StateSafeHarborRule: Equatable {
+enum StateSafeHarborRule: Equatable, Sendable {
     /// Mirrors federal: 100% if prior AGI ≤ $150k, 110% if > $150k.
     /// States: NY, IL, MN, WI, SC, MI, IN, AL, DE, MO, NE, IA, DC
     case mirrorsFederal

@@ -680,7 +680,6 @@ struct SSCalculationEngine {
         guard let best = matrix.first(where: { $0.isHighestLifetime }) else { return nil }
 
         var rationale: String
-        let higherEarner = primaryPIA >= spousePIA ? "primary" : "spouse"
         let higherAge = primaryPIA >= spousePIA ? best.primaryClaimingAge : best.spouseClaimingAge
         let lowerAge = primaryPIA >= spousePIA ? best.spouseClaimingAge : best.primaryClaimingAge
 
@@ -1130,7 +1129,7 @@ struct SSCalculationEngine {
             return .failure(.noValidRows)
         }
 
-        var records = parser.records.sorted { $0.year < $1.year }
+        let records = parser.records.sorted { $0.year < $1.year }
         var zeroYears: [Int] = []
         var capYears: [Int] = []
 

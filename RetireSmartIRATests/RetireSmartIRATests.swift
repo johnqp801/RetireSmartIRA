@@ -5901,7 +5901,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
 // MARK: - Estimated Payment Schedule Tests
 
 @Suite("EstimatedPaymentSchedule")
-struct EstimatedPaymentScheduleTests {
+@MainActor struct EstimatedPaymentScheduleTests {
     @Test("Federal schedule is equal quarters summing to 1.0")
     func federalSchedule() {
         let s = EstimatedPaymentSchedule.federal
@@ -5946,7 +5946,7 @@ struct EstimatedPaymentScheduleTests {
 // MARK: - Safe Harbor Method Tests
 
 @Suite("SafeHarborMethod")
-struct SafeHarborMethodTests {
+@MainActor struct SafeHarborMethodTests {
     @Test("Labels are correct")
     func labels() {
         #expect(SafeHarborMethod.currentYear90.label == "90% of Current Year")
@@ -5964,8 +5964,8 @@ struct SafeHarborMethodTests {
 
 // MARK: - Auto Estimated State Payments Tests
 
-@Suite("AutoEstimatedStatePayments")
-struct AutoEstimatedStatePaymentsTests {
+@Suite("AutoEstimatedStatePayments", .serialized)
+@MainActor struct AutoEstimatedStatePaymentsTests {
     @Test("Returns 0 for no-income-tax states")
     func noTaxState() {
         let dm = makeDM(state: .texas)
@@ -6020,8 +6020,8 @@ struct AutoEstimatedStatePaymentsTests {
 
 // MARK: - Form 2210 Tests
 
-@Suite("Form2210ScheduleAI")
-struct Form2210Tests {
+@Suite("Form2210ScheduleAI", .serialized)
+@MainActor struct Form2210Tests {
     @Test("Not required with no scenario")
     func noScenario() {
         let dm = makeDM()
@@ -6063,8 +6063,8 @@ struct Form2210Tests {
 
 // MARK: - Safe Harbor Calculation Tests
 
-@Suite("SafeHarborCalculations")
-struct SafeHarborCalculationTests {
+@Suite("SafeHarborCalculations", .serialized)
+@MainActor struct SafeHarborCalculationTests {
     @Test("110% rate applied when AGI > $150k")
     func highAGI() {
         let dm = makeDM()
@@ -6212,8 +6212,8 @@ struct SafeHarborCalculationTests {
 
 // MARK: - Quarterly Payments State Schedule Tests
 
-@Suite("QuarterlyPaymentsStateSchedule")
-struct QuarterlyPaymentsStateScheduleTests {
+@Suite("QuarterlyPaymentsStateSchedule", .serialized)
+@MainActor struct QuarterlyPaymentsStateScheduleTests {
     @Test("CA state payments follow 30/40/0/30 with 90% method")
     func caSchedule90() {
         let dm = makeDM(state: .california)
