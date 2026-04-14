@@ -21,8 +21,12 @@ struct SSDataEntryView: View {
         case earningsHistory = "Earnings History"
     }
 
-    init(initialMode: EntryMode = .quickEntry) {
+    /// When true, the primary "Already Receiving" toggle is pre-set on first load (before any existing data overrides it).
+    private let presetAlreadyClaiming: Bool
+
+    init(initialMode: EntryMode = .quickEntry, presetAlreadyClaiming: Bool = false) {
         _entryMode = State(initialValue: initialMode)
+        self.presetAlreadyClaiming = presetAlreadyClaiming
     }
 
     // Already-claiming state
@@ -133,8 +137,13 @@ struct SSDataEntryView: View {
             alreadyClaimingToggle
 
             if alreadyClaiming {
-                // Simplified entry for people already receiving SS
+                // Entry for people already receiving SS
                 alreadyClaimingCard
+
+                // SSA estimates — needed for couples strategy & spousal top-up
+                if dataManager.enableSpouse {
+                    alreadyClaimingEstimatesCard
+                }
             } else {
                 // Standard planning entry
                 if selectedOwner == .primary {
@@ -199,14 +208,27 @@ struct SSDataEntryView: View {
             ? (dataManager.userName.isEmpty ? "Your" : "\(dataManager.userName)'s")
             : (dataManager.spouseName.isEmpty ? "Spouse's" : "\(dataManager.spouseName)'s")
         let currentBenefitBinding = isP ? $primaryCurrentBenefit : $spouseCurrentBenefit
+        let claimingAgeBinding = isP ? $primaryClaimingAge : $spouseClaimingAge
 
         return VStack(alignment: .leading, spacing: 16) {
             Text("\(name) Current Benefit")
                 .font(.headline)
 
-            Text("Enter the monthly Social Security payment currently being received (before Medicare premiums).")
+            Text("Enter the total monthly Social Security payment currently being received (before Medicare premiums are deducted).")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            HStack(spacing: 6) {
+                Image(systemName: "lightbulb")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Text("Enter the total amount from your SSA statement or bank deposit. If you receive a spousal top-up, SSA already includes it in your payment \u{2014} do not add it separately.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(10)
+            .background(Color.orange.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
 
             HStack {
                 Text("Monthly benefit")
@@ -226,6 +248,47 @@ struct SSDataEntryView: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
+            }
+
+            Divider()
+
+            // Age when benefits started
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Age When Benefits Started")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                HStack {
+                    Text("Age \(claimingAgeBinding.wrappedValue)")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                        .frame(width: 70, alignment: .leading)
+
+                    Slider(value: Binding(
+                        get: { Double(claimingAgeBinding.wrappedValue) },
+                        set: { claimingAgeBinding.wrappedValue = Int($0) }
+                    ), in: 62...70, step: 1)
+                    .tint(.blue)
+                }
+
+                let birthYear = isP ? dataManager.birthYear : dataManager.spouseBirthYear
+                let fra = SSCalculationEngine.fullRetirementAge(birthYear: birthYear)
+                let adj = SSCalculationEngine.adjustmentPercentage(
+                    claimingAge: claimingAgeBinding.wrappedValue,
+                    fraYears: fra.years, fraMonths: fra.months
+                )
+                if adj != 0 {
+                    Text(adj > 0
+                         ? "Started \(String(format: "%.1f", adj))% above FRA benefit (delayed credits)"
+                         : "Started \(String(format: "%.1f", abs(adj)))% below FRA benefit (early claiming)")
+                        .font(.caption)
+                        .foregroundStyle(adj > 0 ? .green : .orange)
+                }
+
+                Text("This helps calculate couples strategy and survivor benefits accurately.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             let monthly = Double(currentBenefitBinding.wrappedValue) ?? 0
@@ -249,6 +312,71 @@ struct SSDataEntryView: View {
                     Text("This amount will be synced to your tax plan as Social Security income.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    // MARK: - Already Claiming Estimates Card (for couples analysis)
+
+    @State private var showEstimatesForClaiming = false
+
+    private var alreadyClaimingEstimatesCard: some View {
+        let isP = selectedOwner == .primary
+        let name = isP
+            ? (dataManager.userName.isEmpty ? "Your" : "\(dataManager.userName)'s")
+            : (dataManager.spouseName.isEmpty ? "Spouse's" : "\(dataManager.spouseName)'s")
+        let at62 = isP ? $primaryAt62 : $spouseAt62
+        let atFRA = isP ? $primaryAtFRA : $spouseAtFRA
+        let at70 = isP ? $primaryAt70 : $spouseAt70
+        let birthYear = isP ? dataManager.birthYear : dataManager.spouseBirthYear
+        let fra = SSCalculationEngine.fullRetirementAge(birthYear: birthYear)
+        let hasEstimates = (Double(at62.wrappedValue) ?? 0) > 0 || (Double(atFRA.wrappedValue) ?? 0) > 0
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation { showEstimatesForClaiming.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.bar.doc.horizontal")
+                        .foregroundStyle(.blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(name) SSA Benefit Estimates")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text(hasEstimates ? "Used for couples strategy & spousal top-up" : "Needed for couples strategy & spousal top-up")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if hasEstimates {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    Image(systemName: showEstimatesForClaiming ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.primary)
+            }
+
+            if showEstimatesForClaiming {
+                Text("These estimates from your SSA statement help calculate how much spousal top-up each spouse may receive and optimize the couples claiming strategy.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("Full Retirement Age: \(SSCalculationEngine.fraDescription(birthYear: birthYear))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                VStack(spacing: 12) {
+                    benefitField(label: "Monthly benefit at 62", text: at62)
+                    benefitField(label: "Monthly benefit at FRA (\(fra.years))", text: atFRA)
+                    benefitField(label: "Monthly benefit at 70", text: at70)
                 }
             }
         }
@@ -1024,6 +1152,9 @@ struct SSDataEntryView: View {
             primaryAtFRA = p.benefitAtFRA > 0 ? String(Int(p.benefitAtFRA)) : ""
             primaryAt70 = p.benefitAt70 > 0 ? String(Int(p.benefitAt70)) : ""
             primaryClaimingAge = p.plannedClaimingAge
+        } else if presetAlreadyClaiming {
+            // No existing data — apply the preset from the empty-state button
+            primaryAlreadyClaiming = true
         }
         if let s = dataManager.spouseSSBenefit {
             spouseAlreadyClaiming = s.isAlreadyClaiming

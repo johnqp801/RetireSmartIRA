@@ -14,6 +14,7 @@ struct SSCouplesStrategyView: View {
     @State private var showGuide = false
     @State private var showValuationNote = false
     @State private var selectedCell: SSCouplesMatrixCell?
+    @State private var showAppliedConfirmation = false
 
     private var matrix: [SSCouplesMatrixCell] {
         dataManager.ssCouplesMatrix()
@@ -31,13 +32,99 @@ struct SSCouplesStrategyView: View {
         dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
     }
 
+    // MARK: - Claiming Status
+
+    /// Whether the primary has effectively claimed (either marked "already claiming" or past planned age)
+    private var primaryHasClaimed: Bool {
+        guard let b = dataManager.primarySSBenefit, b.hasData else { return false }
+        if b.isAlreadyClaiming { return true }
+        let age = dataManager.currentYear - dataManager.birthYear
+        return age >= b.plannedClaimingAge
+    }
+
+    /// Whether the spouse has effectively claimed
+    private var spouseHasClaimed: Bool {
+        guard let b = dataManager.spouseSSBenefit, b.hasData else { return false }
+        if b.isAlreadyClaiming { return true }
+        let age = dataManager.currentYear - dataManager.spouseBirthYear
+        return age >= b.plannedClaimingAge
+    }
+
+    private var bothHaveClaimed: Bool { primaryHasClaimed && spouseHasClaimed }
+    private var neitherHasClaimed: Bool { !primaryHasClaimed && !spouseHasClaimed }
+    private var oneClaimedOnePlanning: Bool {
+        (primaryHasClaimed && !spouseHasClaimed) || (!primaryHasClaimed && spouseHasClaimed)
+    }
+
+    /// The name of the spouse who still needs to decide
+    private var decidingSpouseName: String {
+        primaryHasClaimed ? spouseName : primaryName
+    }
+
+    /// The name of the spouse who already claimed
+    private var claimedSpouseName: String {
+        primaryHasClaimed ? primaryName : spouseName
+    }
+
+    /// The locked claiming age of the spouse who already claimed
+    private var claimedSpouseAge: Int {
+        if primaryHasClaimed {
+            return dataManager.primarySSBenefit?.plannedClaimingAge ?? 67
+        } else {
+            return dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67
+        }
+    }
+
+    /// Filter the full matrix to just the row/column for the claimed spouse's age
+    private var filteredStripCells: [SSCouplesMatrixCell] {
+        if primaryHasClaimed {
+            // Primary claimed — filter to their claiming age, vary spouse age
+            return matrix.filter { $0.primaryClaimingAge == claimedSpouseAge }
+                .sorted { $0.spouseClaimingAge < $1.spouseClaimingAge }
+        } else {
+            // Spouse claimed — filter to their claiming age, vary primary age
+            return matrix.filter { $0.spouseClaimingAge == claimedSpouseAge }
+                .sorted { $0.primaryClaimingAge < $1.primaryClaimingAge }
+        }
+    }
+
+    /// Best cell from the filtered strip
+    private var stripTopStrategy: SSCouplesMatrixCell? {
+        filteredStripCells.max(by: { $0.combinedLifetimeBenefit < $1.combinedLifetimeBenefit })
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     if matrix.isEmpty {
                         emptyState
+                    } else if bothHaveClaimed {
+                        // Both have claimed — show actual current benefits
+                        currentBenefitsSummaryCard
+                        survivorPreviewCard
+                        Divider().padding(.horizontal)
+                        whatIfExplorerHeader
+                        topStrategyCard
+                        howToReadCard
+                        matrixCard
+                        if let cell = selectedCell {
+                            cellDetailCard(cell)
+                        }
+                    } else if oneClaimedOnePlanning {
+                        // One spouse claimed — show 1×9 strip optimizer for the deciding spouse
+                        oneClaimedHeaderCard
+                        stripRecommendationCard
+                        stripMatrixCard
+                        if let cell = selectedCell {
+                            cellDetailCard(cell)
+                        }
+                        survivorPreviewCard
+                        Divider().padding(.horizontal)
+                        // Offer full matrix as optional exploration
+                        fullMatrixDisclosure
                     } else {
+                        // Both still planning — show full 9×9 optimizer
                         topStrategyCard
                         howToReadCard
                         matrixCard
@@ -61,6 +148,132 @@ struct SSCouplesStrategyView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Current Benefits Summary (Both Have Claimed)
+
+    private var currentBenefitsSummaryCard: some View {
+        let pResult = dataManager.ssEffectiveMonthlyBenefit(for: .primary)
+        let sResult = dataManager.ssEffectiveMonthlyBenefit(for: .spouse)
+        let combinedMonthly = pResult.monthly + sResult.monthly
+
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Current Benefits")
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+                Text("Both Collecting")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.green)
+            }
+
+            // Primary
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(primaryName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    if let b = dataManager.primarySSBenefit {
+                        Text("Claimed at age \(b.isAlreadyClaiming ? "N/A" : "\(b.plannedClaimingAge)")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(SSCalculationEngine.formatCurrency(pResult.monthly) + "/mo")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    if pResult.includesSpousalTopUp {
+                        Text("Includes \(SSCalculationEngine.formatCurrency(pResult.spousalTopUp)) spousal top-up")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+
+            Divider()
+
+            // Spouse
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(spouseName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    if let b = dataManager.spouseSSBenefit {
+                        Text("Claimed at age \(b.isAlreadyClaiming ? "N/A" : "\(b.plannedClaimingAge)")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(SSCalculationEngine.formatCurrency(sResult.monthly) + "/mo")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    if sResult.includesSpousalTopUp {
+                        Text("Includes \(SSCalculationEngine.formatCurrency(sResult.spousalTopUp)) spousal top-up")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+
+            Divider()
+
+            // Combined
+            HStack {
+                Text("Combined Household")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(SSCalculationEngine.formatCurrency(combinedMonthly) + "/mo")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.green)
+                    Text(SSCalculationEngine.formatCurrency(combinedMonthly * 12) + "/yr")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Tie to Income & Deductions
+            HStack(spacing: 6) {
+                Image(systemName: "link")
+                    .font(.caption2)
+                    .foregroundStyle(.blue)
+                Text("These amounts are synced to your Income & Deductions")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    // MARK: - What-If Explorer Header (for already-claimed users)
+
+    private var whatIfExplorerHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "lightbulb")
+                    .foregroundStyle(.orange)
+                Text("What-If Explorer")
+                    .font(.headline)
+            }
+            Text("Since both spouses have already claimed, the matrix below shows what different claiming age combinations would have yielded. This can be helpful for understanding how timing affects lifetime benefits.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(Color.orange.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Top Strategy Card
@@ -127,12 +340,123 @@ struct SSCouplesStrategyView: View {
                         .font(.subheadline)
                         .fontWeight(.semibold)
                 }
+
+                // Show spousal top-up detail when claiming ages differ
+                if rec.primaryClaimingAge != rec.spouseClaimingAge {
+                    let earlierAge = min(rec.primaryClaimingAge, rec.spouseClaimingAge)
+                    let laterAge = max(rec.primaryClaimingAge, rec.spouseClaimingAge)
+                    let earlyFilerOwn = rec.primaryClaimingAge < rec.spouseClaimingAge
+                        ? rec.primaryOwnMonthly : rec.spouseOwnMonthly
+                    let hasSpousalTopUp = rec.primaryClaimingAge < rec.spouseClaimingAge
+                        ? (rec.primaryMonthly > rec.primaryOwnMonthly)
+                        : (rec.spouseMonthly > rec.spouseOwnMonthly)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                            Text("Ages \(earlierAge)–\(laterAge - 1): \(SSCalculationEngine.formatCurrency(earlyFilerOwn))/mo (own benefit only)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if hasSpousalTopUp {
+                            let earlyFilerName = rec.primaryClaimingAge < rec.spouseClaimingAge
+                                ? primaryName : spouseName
+                            let earlyFilerTopUp = rec.primaryClaimingAge < rec.spouseClaimingAge
+                                ? (rec.primaryMonthly - rec.primaryOwnMonthly)
+                                : (rec.spouseMonthly - rec.spouseOwnMonthly)
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                                Text("At age \(laterAge): \(earlyFilerName) gets +\(SSCalculationEngine.formatCurrency(earlyFilerTopUp))/mo spousal top-up")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                // Apply button — only when not both already claimed
+                if !bothHaveClaimed {
+                    applyStrategyButton(primaryAge: rec.primaryClaimingAge, spouseAge: rec.spouseClaimingAge)
+                }
             }
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    // MARK: - Apply Strategy Button
+
+    private func applyStrategyButton(primaryAge: Int, spouseAge: Int) -> some View {
+        let isCurrentPlan = dataManager.primarySSBenefit?.plannedClaimingAge == primaryAge &&
+                            dataManager.spouseSSBenefit?.plannedClaimingAge == spouseAge
+
+        return VStack(spacing: 6) {
+            Divider()
+
+            if isCurrentPlan {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("This is your current plan")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.green)
+                }
+                .padding(.vertical, 4)
+            } else if showAppliedConfirmation {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Strategy applied! Income & Deductions updated.")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.green)
+                }
+                .padding(.vertical, 4)
+                .transition(.opacity)
+            } else {
+                Button {
+                    applyStrategy(primaryAge: primaryAge, spouseAge: spouseAge)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.caption)
+                        Text("Apply This Strategy")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor.opacity(0.1))
+                    .foregroundStyle(Color.accentColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            }
+        }
+    }
+
+    private func applyStrategy(primaryAge: Int, spouseAge: Int) {
+        dataManager.primarySSBenefit?.plannedClaimingAge = primaryAge
+        dataManager.spouseSSBenefit?.plannedClaimingAge = spouseAge
+        dataManager.saveSSData()
+        dataManager.syncSSToIncomeSources()
+
+        withAnimation {
+            showAppliedConfirmation = true
+        }
+
+        // Auto-dismiss confirmation after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            withAnimation {
+                showAppliedConfirmation = false
+            }
+        }
     }
 
     // MARK: - How to Read This
@@ -284,6 +608,11 @@ struct SSCouplesStrategyView: View {
                         .font(.caption)
                         .fontWeight(.medium)
                 }
+            }
+
+            // Apply button — only when not both already claimed
+            if !bothHaveClaimed {
+                applyStrategyButton(primaryAge: cell.primaryClaimingAge, spouseAge: cell.spouseClaimingAge)
             }
         }
         .padding()
@@ -553,11 +882,291 @@ struct SSCouplesStrategyView: View {
 
     private func abbreviatedCurrency(_ value: Double) -> String {
         if value >= 1_000_000 {
-            return String(format: "%.1fM", value / 1_000_000)
+            return String(format: "$%.2fM", value / 1_000_000)
         } else if value >= 1_000 {
-            return String(format: "%.0fK", value / 1_000)
+            return String(format: "$%.0fK", value / 1_000)
         }
-        return String(format: "%.0f", value)
+        return String(format: "$%.0f", value)
+    }
+
+    // MARK: - One Claimed / One Planning Views
+
+    /// Header explaining the one-claimed scenario
+    private var oneClaimedHeaderCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.fill.checkmark")
+                    .foregroundStyle(.green)
+                Text("\(claimedSpouseName) Has Claimed")
+                    .font(.headline)
+            }
+
+            let claimedResult = primaryHasClaimed
+                ? dataManager.ssEffectiveMonthlyBenefit(for: .primary)
+                : dataManager.ssEffectiveMonthlyBenefit(for: .spouse)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(claimedSpouseName) claimed at age \(claimedSpouseAge)")
+                        .font(.subheadline)
+                    Text("Currently receiving \(SSCalculationEngine.formatCurrency(claimedResult.monthly))/mo")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.right.circle")
+                    .foregroundStyle(.blue)
+                Text("Now let's find the best claiming age for \(decidingSpouseName).")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    /// Recommendation card based on the best option from the 1×9 strip
+    private var stripRecommendationCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Best Claiming Age for \(decidingSpouseName)")
+                .font(.headline)
+
+            if let best = stripTopStrategy {
+                let decidingAge = primaryHasClaimed ? best.spouseClaimingAge : best.primaryClaimingAge
+                let decidingMonthly = primaryHasClaimed ? best.spouseMonthly : best.primaryMonthly
+                let decidingOwnMonthly = primaryHasClaimed ? best.spouseOwnMonthly : best.primaryOwnMonthly
+                let hasSpousalTopUp = decidingMonthly > decidingOwnMonthly + 0.01
+
+                HStack(spacing: 16) {
+                    VStack(spacing: 4) {
+                        Text(decidingSpouseName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Age \(decidingAge)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.blue)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(isPresentValue ? "Present Value" : "Combined Lifetime")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(SSCalculationEngine.formatLargeCurrency(best.combinedLifetimeBenefit))
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                Divider()
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(decidingSpouseName)'s monthly")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(SSCalculationEngine.formatCurrency(decidingMonthly) + "/mo")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Combined monthly")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(SSCalculationEngine.formatCurrency(best.primaryMonthly + best.spouseMonthly) + "/mo")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                if hasSpousalTopUp {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                        Text("Includes \(SSCalculationEngine.formatCurrency(decidingMonthly - decidingOwnMonthly))/mo spousal top-up")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    }
+                }
+
+                applyStrategyButton(primaryAge: best.primaryClaimingAge, spouseAge: best.spouseClaimingAge)
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    /// 1×9 strip matrix showing the deciding spouse's options
+    private var stripMatrixCard: some View {
+        let cells = filteredStripCells
+        let maxVal = cells.map(\.combinedLifetimeBenefit).max() ?? 1
+        let minVal = cells.map(\.combinedLifetimeBenefit).min() ?? 0
+        let range = maxVal - minVal
+
+        let currentDecidingAge = primaryHasClaimed
+            ? (dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67)
+            : (dataManager.primarySSBenefit?.plannedClaimingAge ?? 67)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("\(decidingSpouseName)'s Claiming Age Options")
+                .font(.headline)
+
+            valuationToggle
+
+            Text("Tap any cell to see details. \(claimedSpouseName) is locked at age \(claimedSpouseAge).")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            // Strip grid: header row + single data row
+            VStack(spacing: 2) {
+                // Header — deciding spouse's ages
+                HStack(spacing: 3) {
+                    Text("Age")
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .frame(width: 28, height: 24)
+                    ForEach(cells, id: \.id) { cell in
+                        let age = primaryHasClaimed ? cell.spouseClaimingAge : cell.primaryClaimingAge
+                        Text("\(age)")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 24)
+                    }
+                }
+
+                // Data row — combined lifetime values
+                HStack(spacing: 3) {
+                    Image(systemName: "dollarsign.circle")
+                        .font(.caption2)
+                        .frame(width: 28, height: 48)
+                        .foregroundStyle(.secondary)
+                    ForEach(cells, id: \.id) { cell in
+                        let intensity = range > 0 ? (cell.combinedLifetimeBenefit - minVal) / range : 0.5
+                        let decidingAge = primaryHasClaimed ? cell.spouseClaimingAge : cell.primaryClaimingAge
+                        let isCurrent = decidingAge == currentDecidingAge
+                        stripCellView(cell: cell, intensity: intensity, isCurrent: isCurrent)
+                    }
+                }
+
+                // Monthly benefit row
+                HStack(spacing: 3) {
+                    Text("/mo")
+                        .font(.system(size: 8))
+                        .frame(width: 28, height: 32)
+                        .foregroundStyle(.secondary)
+                    ForEach(cells, id: \.id) { cell in
+                        let decidingMonthly = primaryHasClaimed ? cell.spouseMonthly : cell.primaryMonthly
+                        Text(SSCalculationEngine.formatCurrency(decidingMonthly))
+                            .font(.system(size: 8))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 32)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            // Legend
+            HStack(spacing: 16) {
+                legendItem(color: .green, label: "Highest lifetime")
+                legendItem(color: .blue, label: "Current plan")
+                legendItem(color: .orange, label: "Selected")
+            }
+            .padding(.top, 4)
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    private func stripCellView(cell: SSCouplesMatrixCell, intensity: Double, isCurrent: Bool) -> some View {
+        let abbreviated = abbreviatedCurrency(cell.combinedLifetimeBenefit)
+        let isSelected = selectedCell?.primaryClaimingAge == cell.primaryClaimingAge &&
+                         selectedCell?.spouseClaimingAge == cell.spouseClaimingAge
+        let isBest = cell.isHighestLifetime
+
+        return VStack(spacing: 2) {
+            Text(abbreviated)
+                .font(.system(size: 9))
+                .fontWeight(isBest ? .bold : .regular)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 48)
+        .background(cellColor(intensity: intensity, isHighestLifetime: isBest))
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .overlay(
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(
+                    isSelected ? Color.orange :
+                    isBest ? Color.green :
+                    isCurrent ? Color.blue : Color.clear,
+                    lineWidth: isSelected || isBest ? 2.5 : 1.5
+                )
+        )
+        .onTapGesture {
+            withAnimation { selectedCell = cell }
+        }
+    }
+
+    /// Disclosure group to optionally show the full 9×9 matrix
+    @State private var showFullMatrix = false
+
+    private var fullMatrixDisclosure: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation { showFullMatrix.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "tablecells")
+                        .foregroundStyle(.blue)
+                    Text("View Full 9×9 Matrix")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Image(systemName: showFullMatrix ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.primary)
+            }
+
+            if showFullMatrix {
+                Text("Explore all 81 claiming age combinations. \(claimedSpouseName)'s actual age (\(claimedSpouseAge)) row/column is highlighted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                matrixGrid
+
+                HStack(spacing: 16) {
+                    legendItem(color: .green, label: "Highest lifetime")
+                    legendItem(color: .blue, label: "Current plan")
+                    legendItem(color: .orange, label: "Selected")
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
     // MARK: - Survivor Preview Card

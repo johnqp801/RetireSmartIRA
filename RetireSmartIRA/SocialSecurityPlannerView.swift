@@ -14,6 +14,7 @@ struct SocialSecurityPlannerView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showDataEntry = false
     @State private var dataEntryInitialMode: SSDataEntryView.EntryMode = .quickEntry
+    @State private var dataEntryPresetClaiming = false
     @State private var showClaimingDetail = false
     @State private var claimingDetailOwner: Owner = .primary
     @State private var showCouplesStrategy = false
@@ -21,7 +22,8 @@ struct SocialSecurityPlannerView: View {
     @State private var showInfoPopover = false
     @State private var chartOwner: Owner = .primary
 
-    private var isWideLayout: Bool { horizontalSizeClass == .regular }
+    @Environment(\.availableWidth) private var availableWidth
+    private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     var body: some View {
         Group {
@@ -33,7 +35,7 @@ struct SocialSecurityPlannerView: View {
         }
         .background(Color(PlatformColor.systemGroupedBackground))
         .sheet(isPresented: $showDataEntry) {
-            SSDataEntryView(initialMode: dataEntryInitialMode)
+            SSDataEntryView(initialMode: dataEntryInitialMode, presetAlreadyClaiming: dataEntryPresetClaiming)
                 .environmentObject(dataManager)
         }
         .sheet(isPresented: $showClaimingDetail) {
@@ -57,30 +59,50 @@ struct SocialSecurityPlannerView: View {
             LazyVStack(spacing: 24) {
                 statusCard
 
-                if hasBenefitData && anyonePlanning {
+                if hasBenefitData {
                     assumptionsCard
                 }
 
-                if hasBenefitData && bothPlanning {
-                    individualSectionHeader
-                }
-                primaryBenefitCard
-                if dataManager.enableSpouse {
-                    spouseBenefitCard
-                }
-                if hasBenefitData {
-                    if anyonePlanning {
-                        claimingOptimizerCard
+                if bothEffectivelyClaimed {
+                    // Simplified: both have claimed
+                    currentBenefitsSummaryCard
+                    if hasBenefitData {
+                        taxImpactCard
                     }
-                    if bothPlanning {
-                        couplesSectionHeader
-                        couplesStrategyCard
-                    }
+                    taxSyncCard
                     if hasSurvivorData {
                         survivorCard
                     }
-                    taxImpactCard
-                    taxSyncCard
+                    if hasCouplesData {
+                        alternateScenarioDisclosure
+                    }
+                } else {
+                    // Still planning
+                    if hasBenefitData && !dataManager.enableSpouse && anyonePlanning {
+                        keyDecisionAnchor
+                    }
+                    if hasBenefitData && bothPlanning {
+                        individualSectionHeader
+                    }
+                    primaryBenefitCard
+                    if dataManager.enableSpouse {
+                        spouseBenefitCard
+                    }
+                    if hasBenefitData {
+                        // Couples strategy first — it's the most important decision for married couples
+                        if bothPlanning || oneClaimedOnePlanning {
+                            couplesSectionHeader
+                            couplesStrategyCard
+                        }
+                        if hasSurvivorData {
+                            survivorCard
+                        }
+                        if anyonePlanning {
+                            claimingOptimizerCard
+                        }
+                        taxImpactCard
+                        taxSyncCard
+                    }
                 }
             }
             .padding()
@@ -96,49 +118,70 @@ struct SocialSecurityPlannerView: View {
                 LazyVStack(spacing: 24) {
                     statusCard
 
-                    if hasBenefitData && anyonePlanning {
+                    if hasBenefitData {
                         assumptionsCard
                     }
                 }
                 .padding([.horizontal, .top])
                 .padding(.bottom, 12)
 
-                // Two-column layout below
-                HStack(alignment: .top, spacing: 20) {
+                if bothEffectivelyClaimed {
+                    // Simplified layout: both have claimed, no analysis needed
                     LazyVStack(spacing: 24) {
-                        if hasBenefitData && bothPlanning {
-                            individualSectionHeader
-                        }
-                        primaryBenefitCard
-                        if dataManager.enableSpouse {
-                            spouseBenefitCard
-                        }
+                        currentBenefitsSummaryCard
                         if hasBenefitData {
                             taxImpactCard
                         }
                         taxSyncCard
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    LazyVStack(spacing: 24) {
-                        if hasBenefitData {
-                            if anyonePlanning {
-                                claimingOptimizerCard
-                            }
-                            if bothPlanning {
-                                couplesSectionHeader
-                                couplesStrategyCard
-                            }
-                            if hasSurvivorData {
-                                survivorCard
-                            }
-                        } else {
-                            emptyAnalysisCard
+                        if hasSurvivorData {
+                            survivorCard
+                        }
+                        if hasCouplesData {
+                            alternateScenarioDisclosure
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .padding([.horizontal, .bottom])
+                } else {
+                    // Two-column layout: still planning
+                    HStack(alignment: .top, spacing: 20) {
+                        LazyVStack(spacing: 24) {
+                            if hasBenefitData && !dataManager.enableSpouse && anyonePlanning {
+                                keyDecisionAnchor
+                            }
+                            if hasBenefitData && bothPlanning {
+                                individualSectionHeader
+                            }
+                            primaryBenefitCard
+                            if dataManager.enableSpouse {
+                                spouseBenefitCard
+                            }
+                            if hasBenefitData {
+                                taxImpactCard
+                            }
+                            taxSyncCard
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        LazyVStack(spacing: 24) {
+                            if hasBenefitData {
+                                if anyonePlanning {
+                                    claimingOptimizerCard
+                                }
+                                if bothPlanning || oneClaimedOnePlanning {
+                                    couplesSectionHeader
+                                    couplesStrategyCard
+                                }
+                                if hasSurvivorData {
+                                    survivorCard
+                                }
+                            } else {
+                                emptyAnalysisCard
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding([.horizontal, .bottom])
                 }
-                .padding([.horizontal, .bottom])
             }
         }
     }
@@ -167,8 +210,16 @@ struct SocialSecurityPlannerView: View {
                         }
                     }
 
+                    // Contextual mode label
                     if hasBenefitData {
-                        let monthly = dataManager.ssPlannedMonthlyBenefit(for: .primary)
+                        Text(statusModeLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if hasBenefitData {
+                        let effectiveResult = dataManager.ssEffectiveMonthlyBenefit(for: .primary)
+                        let monthly = effectiveResult.monthly
                         if let b = dataManager.primarySSBenefit, b.isAlreadyClaiming {
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.seal.fill")
@@ -177,26 +228,77 @@ struct SocialSecurityPlannerView: View {
                                     .font(.title3)
                                     .fontWeight(.semibold)
                             }
-                        } else {
-                            let planned = dataManager.primarySSBenefit?.plannedClaimingAge ?? 67
+                        } else if effectiveResult.isCollecting {
                             HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
+                                Image(systemName: "checkmark.seal.fill")
                                     .foregroundStyle(.green)
-                                Text("Planned: Age \(planned)")
+                                Text("Collecting")
                                     .font(.title3)
                                     .fontWeight(.semibold)
                             }
+                        } else {
+                            let planned = dataManager.primarySSBenefit?.plannedClaimingAge ?? 67
+                            let yearsUntil = planned - dataManager.currentAge
+                            HStack(spacing: 8) {
+                                Image(systemName: "clock.fill")
+                                    .foregroundStyle(.blue)
+                                Text("Starts at Age \(planned)")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                if yearsUntil > 0 {
+                                    Text("(in \(yearsUntil) yr\(yearsUntil == 1 ? "" : "s"))")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
-                        Text(SSCalculationEngine.formatCurrency(monthly) + "/mo  \u{2022}  " +
-                             SSCalculationEngine.formatCurrency(monthly * 12) + "/yr")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        HStack(spacing: 8) {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(.blue)
-                            Text("Enter your SSA benefit estimates to get started")
+                        if monthly > 0 {
+                            Text(SSCalculationEngine.formatCurrency(monthly) + "/mo  \u{2022}  " +
+                                 SSCalculationEngine.formatCurrency(monthly * 12) + "/yr")
                                 .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "info.circle")
+                                    .foregroundStyle(.blue)
+                                Text("Enter your SSA benefit estimates to get started")
+                                    .font(.callout)
+                            }
+                            Text("Start with estimates from ssa.gov/myaccount \u{2014} you can refine later. Already collecting? Toggle \"Already Receiving\" to enter your current payment.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // Show spouse status in the header when coupled
+                    if dataManager.enableSpouse && hasBenefitData {
+                        let spouseResult = dataManager.ssEffectiveMonthlyBenefit(for: .spouse)
+                        let sName = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
+                        if spouseResult.monthly > 0 || dataManager.spouseSSBenefit?.isAlreadyClaiming == true {
+                            Divider()
+                            HStack(spacing: 8) {
+                                Text(sName)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                if let sb = dataManager.spouseSSBenefit, sb.isAlreadyClaiming {
+                                    Image(systemName: "checkmark.seal.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                } else if !spouseResult.isCollecting {
+                                    let spousePlanned = dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67
+                                    Text("Age \(spousePlanned)")
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                }
+                                Spacer()
+                                if spouseResult.monthly > 0 {
+                                    Text(SSCalculationEngine.formatCurrency(spouseResult.monthly) + "/mo")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                }
+                            }
                         }
                     }
                 }
@@ -216,21 +318,42 @@ struct SocialSecurityPlannerView: View {
             }
 
             if !hasBenefitData {
-                Button {
-                    showDataEntry = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle")
-                            .font(.body)
-                        Text("Enter Benefit Estimates")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                VStack(spacing: 8) {
+                    Button {
+                        dataEntryPresetClaiming = false
+                        showDataEntry = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.body)
+                            Text("Enter Benefit Estimates")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor.opacity(0.1))
+                        .foregroundStyle(Color.accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Color.accentColor.opacity(0.1))
-                    .foregroundStyle(Color.accentColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    Button {
+                        dataEntryPresetClaiming = true
+                        showDataEntry = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.seal")
+                                .font(.body)
+                            Text("I'm Already Receiving Benefits")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.green.opacity(0.1))
+                        .foregroundStyle(.green)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
                 }
             }
         }
@@ -243,10 +366,7 @@ struct SocialSecurityPlannerView: View {
     // MARK: - Benefit Cards
 
     private var primaryBenefitCard: some View {
-        let name = dataManager.userName.isEmpty ? "You" : dataManager.userName
-        let title = bothPlanning
-            ? "\(name) \u{2014} Individual Analysis"
-            : (dataManager.userName.isEmpty ? "Your Benefits" : "\(dataManager.userName)'s Benefits")
+        let title = dataManager.userName.isEmpty ? "Your Benefits" : "\(dataManager.userName)'s Benefits"
         return benefitSummaryCard(
             owner: .primary,
             title: title,
@@ -256,10 +376,7 @@ struct SocialSecurityPlannerView: View {
     }
 
     private var spouseBenefitCard: some View {
-        let name = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
-        let title = bothPlanning
-            ? "\(name) \u{2014} Individual Analysis"
-            : (dataManager.spouseName.isEmpty ? "Spouse's Benefits" : "\(dataManager.spouseName)'s Benefits")
+        let title = dataManager.spouseName.isEmpty ? "Spouse's Benefits" : "\(dataManager.spouseName)'s Benefits"
         return benefitSummaryCard(
             owner: .spouse,
             title: title,
@@ -278,6 +395,7 @@ struct SocialSecurityPlannerView: View {
                 Spacer()
                 Button {
                     dataEntryInitialMode = .quickEntry
+                    dataEntryPresetClaiming = false
                     showDataEntry = true
                 } label: {
                     HStack(spacing: 4) {
@@ -330,8 +448,13 @@ struct SocialSecurityPlannerView: View {
                         pia: b.benefitAtFRA,
                         fraYears: fra.years, fraMonths: fra.months
                     )
+                    let effectiveResult = dataManager.ssEffectiveMonthlyBenefit(for: owner)
 
-                    // Three benefit amounts in a row
+                    // Three benefit amounts in a row (own record only — these are SSA statement values)
+                    Text("Estimated monthly benefit if you start at each age:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     HStack(spacing: 0) {
                         benefitColumn(label: "Age 62", amount: b.benefitAt62, color: .red)
                         Spacer()
@@ -344,20 +467,50 @@ struct SocialSecurityPlannerView: View {
 
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Planned: Age \(b.plannedClaimingAge)")
-                                .font(.subheadline)
+                            if effectiveResult.isCollecting {
+                                Text("Collecting (claimed at \(b.plannedClaimingAge))")
+                                    .font(.subheadline)
+                            } else {
+                                Text("Planned: Age \(b.plannedClaimingAge)")
+                                    .font(.subheadline)
+                            }
                             Text("FRA: \(SSCalculationEngine.fraDescription(birthYear: birthYear))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 2) {
-                            Text(SSCalculationEngine.formatCurrency(plannedMonthly) + "/mo")
+                            Text(SSCalculationEngine.formatCurrency(effectiveResult.monthly) + "/mo")
                                 .font(.title3)
                                 .fontWeight(.bold)
-                            Text(SSCalculationEngine.formatCurrency(plannedMonthly * 12) + "/yr")
+                            Text(SSCalculationEngine.formatCurrency(effectiveResult.monthly * 12) + "/yr")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // Spousal top-up note
+                    if effectiveResult.includesSpousalTopUp {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.2.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                            Text("Includes \(SSCalculationEngine.formatCurrency(effectiveResult.spousalTopUp))/mo spousal top-up")
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                        }
+                    } else if !effectiveResult.isCollecting {
+                        // Not collecting yet — show own-record amount
+                        let yearsUntil = b.plannedClaimingAge - (dataManager.currentYear - birthYear)
+                        if yearsUntil > 0 {
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text("Starts in \(yearsUntil) year\(yearsUntil == 1 ? "" : "s") (\(SSCalculationEngine.formatCurrency(plannedMonthly))/mo own benefit)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
 
@@ -382,6 +535,7 @@ struct SocialSecurityPlannerView: View {
 
                         Button {
                             dataEntryInitialMode = .earningsHistory
+                            dataEntryPresetClaiming = false
                             showDataEntry = true
                         } label: {
                             HStack(spacing: 6) {
@@ -413,6 +567,7 @@ struct SocialSecurityPlannerView: View {
                 }
 
                 Button {
+                    dataEntryPresetClaiming = false
                     showDataEntry = true
                 } label: {
                     HStack(spacing: 8) {
@@ -581,6 +736,50 @@ struct SocialSecurityPlannerView: View {
             step: 0.5,
             tint: .green
         )
+
+        valuationModeToggle
+    }
+
+    private var valuationModeToggle: some View {
+        VStack(spacing: 4) {
+            HStack {
+                Text("Compare values as")
+                    .font(.subheadline)
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { dataManager.ssWhatIfParams.discountRate > 0 ? 1 : 0 },
+                    set: {
+                        dataManager.ssWhatIfParams.discountRate = $0 == 1 ? 3.0 : 0
+                        dataManager.saveAllData()
+                    }
+                )) {
+                    Text("Total Dollars").tag(0)
+                    Text("Present Value").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 220)
+            }
+
+            if dataManager.ssWhatIfParams.discountRate > 0 {
+                HStack {
+                    Text("Discount Rate")
+                        .font(.caption)
+                    Slider(
+                        value: $dataManager.ssWhatIfParams.discountRate,
+                        in: 1...6, step: 0.5
+                    )
+                    .tint(.blue)
+                    Text("\(dataManager.ssWhatIfParams.discountRate, specifier: "%.1f")%")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .frame(width: 40, alignment: .trailing)
+                }
+                Text("Adjusts future dollars to today's value — favors earlier claiming at higher rates")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: dataManager.ssWhatIfParams.discountRate) { dataManager.saveAllData() }
     }
 
     private func assumptionSlider(
@@ -685,51 +884,153 @@ struct SocialSecurityPlannerView: View {
                     .clipShape(Capsule())
             }
 
-            Text("Based on both profiles above. For married couples, this combined strategy is usually more important than individual results.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if oneClaimedOnePlanning {
+                Text("\(claimedSpouseName) has already claimed. See how \(decidingSpouseName)'s claiming age affects your combined lifetime benefits and survivor protection.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Based on both profiles above. For married couples, this combined strategy is usually more important than individual results.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
-            if let rec = dataManager.ssCouplesTopStrategy() {
+            if oneClaimedOnePlanning, let bestCell = couplesStripBestCell {
+                // One spouse claimed — show filtered recommendation
                 let primaryName = dataManager.userName.isEmpty ? "You" : dataManager.userName
                 let spouseN = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
 
-                HStack(spacing: 16) {
-                    VStack(spacing: 2) {
-                        Text(primaryName)
+                VStack(spacing: 10) {
+                    HStack(spacing: 16) {
+                        VStack(spacing: 2) {
+                            Text(primaryName)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            HStack(spacing: 4) {
+                                Text("Age \(bestCell.primaryClaimingAge)")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.white)
+                                if primaryEffectivelyClaimed {
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.white.opacity(0.7))
+                                }
+                            }
+                        }
+
+                        Image(systemName: "plus")
+                            .foregroundStyle(.white.opacity(0.7))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Age \(rec.primaryClaimingAge)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.blue)
-                    }
 
-                    Image(systemName: "plus")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
+                        VStack(spacing: 2) {
+                            Text(spouseN)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            HStack(spacing: 4) {
+                                Text("Age \(bestCell.spouseClaimingAge)")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.white)
+                                if spouseEffectivelyClaimed {
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.white.opacity(0.7))
+                                }
+                            }
+                        }
 
-                    VStack(spacing: 2) {
-                        Text(spouseN)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Age \(rec.spouseClaimingAge)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.purple)
-                    }
+                        Spacer()
 
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(dataManager.ssWhatIfParams.discountRate > 0 ? "Present Value" : "Lifetime")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(SSCalculationEngine.formatLargeCurrency(rec.combinedLifetime))
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.green)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(dataManager.ssWhatIfParams.discountRate > 0 ? "Present Value" : "Lifetime")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            Text(SSCalculationEngine.formatLargeCurrency(bestCell.combinedLifetimeBenefit))
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.white)
+                        }
                     }
                 }
+                .padding()
+                .background(
+                    LinearGradient(
+                        colors: [Color.green.opacity(0.85), Color.green.opacity(0.65)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                Button {
+                    showCouplesStrategy = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.2")
+                            .font(.body)
+                        Text("View Couples Analysis")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.accentColor.opacity(0.1))
+                    .foregroundStyle(Color.accentColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            } else if let rec = dataManager.ssCouplesTopStrategy() {
+                // Both planning — show full matrix best
+                let primaryName = dataManager.userName.isEmpty ? "You" : dataManager.userName
+                let spouseN = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
+
+                VStack(spacing: 10) {
+                    HStack(spacing: 16) {
+                        VStack(spacing: 2) {
+                            Text(primaryName)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            Text("Age \(rec.primaryClaimingAge)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.white)
+                        }
+
+                        Image(systemName: "plus")
+                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.caption)
+
+                        VStack(spacing: 2) {
+                            Text(spouseN)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            Text("Age \(rec.spouseClaimingAge)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.white)
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(dataManager.ssWhatIfParams.discountRate > 0 ? "Present Value" : "Lifetime")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
+                            Text(SSCalculationEngine.formatLargeCurrency(rec.combinedLifetime))
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.white)
+                        }
+                    }
+                }
+                .padding()
+                .background(
+                    LinearGradient(
+                        colors: [Color.green.opacity(0.85), Color.green.opacity(0.65)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 Button {
                     showCouplesStrategy = true
@@ -758,6 +1059,46 @@ struct SocialSecurityPlannerView: View {
                 .stroke(Color.green.opacity(0.3), lineWidth: 1.5)
         )
         .shadow(color: .black.opacity(0.08), radius: 12, y: 6)
+    }
+
+    // MARK: - Alternate Scenario Disclosure (Both Claimed)
+
+    @State private var showAlternateScenarios = false
+
+    private var alternateScenarioDisclosure: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation { showAlternateScenarios.toggle() }
+            } label: {
+                HStack {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .rotationEffect(.degrees(showAlternateScenarios ? 90 : 0))
+                        .foregroundStyle(.secondary)
+                    Text("Advanced: View Alternate Scenarios")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding()
+                .background(Color(PlatformColor.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+            }
+            .buttonStyle(.plain)
+
+            if showAlternateScenarios {
+                VStack(spacing: 16) {
+                    Text("See how different claiming ages would have affected your combined lifetime benefits.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+
+                    couplesStrategyCard
+                }
+            }
+        }
     }
 
     // MARK: - Survivor Card
@@ -830,11 +1171,131 @@ struct SocialSecurityPlannerView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
+    // MARK: - Current Benefits Summary (Both Have Claimed)
+
+    private var currentBenefitsSummaryCard: some View {
+        let pResult = dataManager.ssEffectiveMonthlyBenefit(for: .primary)
+        let sResult = dataManager.enableSpouse ? dataManager.ssEffectiveMonthlyBenefit(for: .spouse) : nil
+        let combinedMonthly = pResult.monthly + (sResult?.monthly ?? 0)
+        let pName = dataManager.userName.isEmpty ? "You" : dataManager.userName
+        let sName = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
+
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("\(String(dataManager.currentYear)) Social Security Benefits")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    dataEntryInitialMode = .quickEntry
+                    dataEntryPresetClaiming = false
+                    showDataEntry = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.caption)
+                        Text("Edit")
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.accentColor.opacity(0.1))
+                    .foregroundStyle(Color.accentColor)
+                    .clipShape(Capsule())
+                }
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+            }
+
+            // Primary
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(pName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    if let b = dataManager.primarySSBenefit {
+                        Text("Claimed at age \(b.plannedClaimingAge)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(SSCalculationEngine.formatCurrency(pResult.monthly) + "/mo")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    Text(SSCalculationEngine.formatCurrency(pResult.monthly * 12) + "/yr")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if pResult.includesSpousalTopUp {
+                        Text("Includes \(SSCalculationEngine.formatCurrency(pResult.spousalTopUp)) spousal top-up")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+
+            if let sResult = sResult, dataManager.enableSpouse {
+                Divider()
+
+                // Spouse
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(sName)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        if let b = dataManager.spouseSSBenefit {
+                            Text("Claimed at age \(b.plannedClaimingAge)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(SSCalculationEngine.formatCurrency(sResult.monthly) + "/mo")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        Text(SSCalculationEngine.formatCurrency(sResult.monthly * 12) + "/yr")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if sResult.includesSpousalTopUp {
+                            Text("Includes \(SSCalculationEngine.formatCurrency(sResult.spousalTopUp)) spousal top-up")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Combined
+                HStack {
+                    Text("Combined Household")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(SSCalculationEngine.formatCurrency(combinedMonthly) + "/mo")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.green)
+                        Text(SSCalculationEngine.formatCurrency(combinedMonthly * 12) + "/yr")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
     // MARK: - Tax Impact Card
 
     private var taxImpactCard: some View {
-        let primaryMonthly = dataManager.ssPlannedMonthlyBenefit(for: .primary)
-        let spouseMonthly = dataManager.enableSpouse ? dataManager.ssPlannedMonthlyBenefit(for: .spouse) : 0
+        let primaryMonthly = dataManager.ssEffectiveMonthlyBenefit(for: .primary).monthly
+        let spouseMonthly = dataManager.enableSpouse ? dataManager.ssEffectiveMonthlyBenefit(for: .spouse).monthly : 0
         let totalAnnualSS = (primaryMonthly + spouseMonthly) * 12
 
         // Estimate taxable portion using the 50%/85% provisional income rules
@@ -923,11 +1384,11 @@ struct SocialSecurityPlannerView: View {
 
     private var individualSectionHeader: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Individual Analysis")
+            Text("Benefit Estimates")
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
-            Text("Shows optimal claiming if each person were considered alone")
+            Text("Each spouse's own Social Security record. The Couples Strategy below combines both.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -1020,6 +1481,37 @@ struct SocialSecurityPlannerView: View {
         .frame(width: 340)
     }
 
+    // MARK: - Key Decision Anchor
+
+    private var keyDecisionAnchor: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "target")
+                .foregroundStyle(.blue)
+            Text("Your key decision: when to start collecting benefits")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Status Mode Label
+
+    /// Contextual subtitle telling the user what mode the SS tab is in
+    private var statusModeLabel: String {
+        if bothEffectivelyClaimed {
+            return "Your current benefits"
+        } else if oneClaimedOnePlanning {
+            return "Optimizing \(decidingSpouseName)'s claiming decision"
+        } else if bothPlanning {
+            return "Planning your claim"
+        } else if anyonePlanning {
+            return "Planning your claim"
+        } else {
+            return ""
+        }
+    }
+
     // MARK: - Connector Label
 
     private var couplesConnectorLabel: some View {
@@ -1071,13 +1563,83 @@ struct SocialSecurityPlannerView: View {
         return true
     }
 
+    /// Whether primary has effectively claimed (marked "already claiming" OR past planned claiming age)
+    private var primaryEffectivelyClaimed: Bool {
+        guard let b = dataManager.primarySSBenefit, b.hasData else { return false }
+        if b.isAlreadyClaiming { return true }
+        let age = dataManager.currentYear - dataManager.birthYear
+        return age >= b.plannedClaimingAge
+    }
+
+    /// Whether spouse has effectively claimed
+    private var spouseEffectivelyClaimed: Bool {
+        guard let b = dataManager.spouseSSBenefit, b.hasData else { return false }
+        if b.isAlreadyClaiming { return true }
+        let age = dataManager.currentYear - dataManager.spouseBirthYear
+        return age >= b.plannedClaimingAge
+    }
+
+    /// True if both people have effectively claimed — simplifies the view
+    private var bothEffectivelyClaimed: Bool {
+        if dataManager.enableSpouse {
+            return primaryEffectivelyClaimed && spouseEffectivelyClaimed
+        }
+        return primaryEffectivelyClaimed
+    }
+
     /// True if at least one person is still planning (not already claiming) — shows optimizer/what-if
     private var anyonePlanning: Bool {
-        !allAlreadyClaiming
+        !bothEffectivelyClaimed
     }
 
     /// True if both spouses are planning (not already claiming) — required for couples claiming matrix
     private var bothPlanning: Bool {
-        hasCouplesData && !primaryAlreadyClaiming && !spouseAlreadyClaiming
+        hasCouplesData && !primaryEffectivelyClaimed && !spouseEffectivelyClaimed
+    }
+
+    /// True if exactly one spouse has claimed and the other is still planning — show focused couples analysis
+    private var oneClaimedOnePlanning: Bool {
+        hasCouplesData && (primaryEffectivelyClaimed != spouseEffectivelyClaimed)
+    }
+
+    /// The name of the spouse who is still deciding
+    private var decidingSpouseName: String {
+        if !primaryEffectivelyClaimed {
+            return dataManager.userName.isEmpty ? "You" : dataManager.userName
+        } else {
+            return dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
+        }
+    }
+
+    /// The claimed spouse's actual claiming age (for filtering the matrix)
+    private var claimedSpouseActualAge: Int {
+        if primaryEffectivelyClaimed {
+            return dataManager.primarySSBenefit?.plannedClaimingAge ?? 67
+        } else {
+            return dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67
+        }
+    }
+
+    /// Best cell from the filtered 1×9 strip (locked to claimed spouse's actual age)
+    private var couplesStripBestCell: SSCouplesMatrixCell? {
+        let matrix = dataManager.ssCouplesMatrix()
+        let filtered: [SSCouplesMatrixCell]
+        if primaryEffectivelyClaimed {
+            // Lock primary's age, vary spouse
+            filtered = matrix.filter { $0.primaryClaimingAge == claimedSpouseActualAge }
+        } else {
+            // Lock spouse's age, vary primary
+            filtered = matrix.filter { $0.spouseClaimingAge == claimedSpouseActualAge }
+        }
+        return filtered.max(by: { $0.combinedLifetimeBenefit < $1.combinedLifetimeBenefit })
+    }
+
+    /// The name of the spouse who has already claimed
+    private var claimedSpouseName: String {
+        if primaryEffectivelyClaimed {
+            return dataManager.userName.isEmpty ? "You" : dataManager.userName
+        } else {
+            return dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
+        }
     }
 }
