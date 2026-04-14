@@ -614,7 +614,7 @@ private var scenarioIRMAAChart: some View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("IRMAA Medicare Surcharge")
                         .font(.headline)
-                    Text("Based on \(dataManager.filingStatus.rawValue) MAGI · Affects \(dataManager.currentYear + 2) premiums")
+                    Text("Based on \(dataManager.filingStatus.rawValue) MAGI · Affects \(String(dataManager.currentYear + 2)) premiums")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

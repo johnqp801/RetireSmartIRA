@@ -15,9 +15,11 @@ struct DashboardView: View {
     @State private var pdfData: Data?
     @State private var isGeneratingPDF = false
     @State private var taxableIncomeExpanded = false
+    @State private var totalTaxExpanded = false
     @State private var deductionExpanded = false
 
-    private var isWideLayout: Bool { horizontalSizeClass == .regular }
+    @Environment(\.availableWidth) private var availableWidth
+    private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     var body: some View {
         Group {
@@ -37,13 +39,16 @@ struct DashboardView: View {
             LazyVStack(spacing: 24) {
                 headerCard
                 exportPDFButton
+                actionToDoList
                 incomeBreakdown
                 incomeCompositionChart
                 taxPlanningDecisions
+                legacyStrategySummary
                 taxProjection
                 taxBracketChart
+                stateBracketChart
                 irmaaTierChart
-                actionToDoList
+                niitPositionChart
                 accountBalances
             }
             .padding()
@@ -56,9 +61,11 @@ struct DashboardView: View {
                 LazyVStack(spacing: 24) {
                     headerCard
                     exportPDFButton
+                    actionToDoList
                     incomeBreakdown
                     incomeCompositionChart
                     taxPlanningDecisions
+                    legacyStrategySummary
                     accountBalances
                 }
                 .padding()
@@ -69,8 +76,9 @@ struct DashboardView: View {
                 LazyVStack(spacing: 24) {
                     taxProjection
                     taxBracketChart
+                    stateBracketChart
                     irmaaTierChart
-                    actionToDoList
+                    niitPositionChart
                 }
                 .padding()
             }
@@ -491,6 +499,92 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - Legacy Strategy Summary
+
+    @ViewBuilder
+    private var legacyStrategySummary: some View {
+        if dataManager.enableLegacyPlanning && dataManager.hasActiveScenario
+            && dataManager.scenarioTotalRothConversion > 0 {
+            let taxCost = dataManager.legacyUserCurrentCost
+            let familyGain = dataManager.legacyFamilyWealthAdvantage
+            let conversionAmount = dataManager.scenarioTotalRothConversion
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "gift.fill")
+                        .foregroundStyle(.purple)
+                    Text("Long-Term Strategy")
+                        .font(.headline)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 0) {
+                        Text("This scenario converts ")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text(conversionAmount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(" to Roth.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Tax cost this year")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(taxCost, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.red)
+                        }
+
+                        Image(systemName: "arrow.right")
+                            .foregroundStyle(familyGain >= 0 ? .green : .orange)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Projected family wealth gain")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(familyGain >= 0
+                                ? "+\(familyGain, format: .currency(code: "USD").precision(.fractionLength(0)))"
+                                : "-\(abs(familyGain), format: .currency(code: "USD").precision(.fractionLength(0)))")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundStyle(familyGain >= 0 ? .green : .orange)
+                        }
+                    }
+
+                    if dataManager.widowHasBracketJump {
+                        HStack(spacing: 4) {
+                            Image(systemName: "shield.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                            Text("Also avoids a surviving spouse bracket jump from MFJ to Single filing")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Text("Based on projected compounding through life expectancy. Heir type: \(dataManager.legacyHeirTypeDescription)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
+    }
+
     // MARK: - Tax Projection
 
     private var taxProjection: some View {
@@ -499,9 +593,31 @@ struct DashboardView: View {
                 .font(.headline)
 
             if dataManager.hasActiveScenario {
-                Text("Includes Scenario decisions")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Scenario Decisions Included")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
+                    if dataManager.scenarioTotalRothConversion > 0 {
+                        scenarioDecisionRow(label: "Roth Conversion", value: dataManager.scenarioTotalRothConversion)
+                    }
+                    if dataManager.scenarioTotalExtraWithdrawal > 0 {
+                        scenarioDecisionRow(label: "Extra Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal)
+                    }
+                    if dataManager.scenarioTotalQCD > 0 {
+                        scenarioDecisionRow(label: "QCD", value: -dataManager.scenarioTotalQCD)
+                    }
+                    if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
+                        scenarioDecisionRow(label: "Stock Donation", value: -dataManager.stockCurrentValue)
+                    }
+                    if dataManager.cashDonationAmount > 0 {
+                        scenarioDecisionRow(label: "Cash Donation", value: -dataManager.cashDonationAmount)
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
             Group {
@@ -524,7 +640,11 @@ struct DashboardView: View {
                     taxRow(label: "AMT (26%/28%)", value: dataManager.scenarioAMTAmount, color: .red)
                 }
 
-                taxRow(label: "Total Tax", value: dataManager.scenarioTotalTax, isBold: true, color: .red)
+                DisclosureGroup(isExpanded: $totalTaxExpanded) {
+                    totalTaxBreakdown
+                } label: {
+                    taxRow(label: "Total Tax", value: dataManager.scenarioTotalTax, isBold: true, color: .red)
+                }
 
                 // NIIT safe zone warning (has investment income but below threshold)
                 if dataManager.scenarioNetInvestmentIncome > 0 && dataManager.scenarioNIITAmount == 0 {
@@ -799,6 +919,19 @@ struct DashboardView: View {
         }
     }
 
+    private func scenarioDecisionRow(label: String, value: Double) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value < 0 ? "−\(abs(value).formatted(.currency(code: "USD")))" : "+\(value.formatted(.currency(code: "USD")))")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(value < 0 ? .green : .orange)
+        }
+    }
+
     // MARK: - Taxable Income Breakdown
 
     private var taxableIncomeBreakdown: some View {
@@ -835,20 +968,28 @@ struct DashboardView: View {
 
             breakdownSubtotal("Base Income", value: dataManager.scenarioBaseIncome)
 
-            // ─── Scenario Decisions ───
-            if dataManager.hasActiveScenario {
-                breakdownHeader("Scenario Decisions")
-
-                if dataManager.scenarioTotalRothConversion > 0 {
-                    breakdownRow("Roth Conversions", value: dataManager.scenarioTotalRothConversion, color: .orange)
+            // ─── RMDs & Scenario Decisions ───
+            if dataManager.scenarioAdjustedRMD > 0 || dataManager.hasActiveScenario {
+                // RMDs are mandatory — show separately from scenario decisions
+                if dataManager.scenarioAdjustedRMD > 0 {
+                    breakdownRow("Taxable RMDs (after QCD offset)", value: dataManager.scenarioAdjustedRMD)
                 }
 
-                if dataManager.scenarioTotalWithdrawals > 0 {
-                    breakdownRow("Taxable Withdrawals & RMDs", value: dataManager.scenarioTotalWithdrawals)
-                }
+                // Scenario decisions are user choices
+                if dataManager.hasActiveScenario {
+                    breakdownHeader("Scenario Decisions")
 
-                if dataManager.scenarioStockGainAvoided > 0 {
-                    breakdownRow("Stock Gain Avoided", value: -dataManager.scenarioStockGainAvoided, color: .green)
+                    if dataManager.scenarioTotalRothConversion > 0 {
+                        breakdownRow("Roth Conversions", value: dataManager.scenarioTotalRothConversion, color: .orange)
+                    }
+
+                    if dataManager.scenarioTotalExtraWithdrawal > 0 {
+                        breakdownRow("Extra Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal, color: .orange)
+                    }
+
+                    if dataManager.scenarioStockGainAvoided > 0 {
+                        breakdownRow("Stock Gain Avoided", value: -dataManager.scenarioStockGainAvoided, color: .green)
+                    }
                 }
 
                 breakdownSubtotal("Gross Income", value: dataManager.scenarioGrossIncome)
@@ -884,6 +1025,154 @@ struct DashboardView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    // MARK: - Total Tax Breakdown
+
+    private var totalTaxBreakdown: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            let fedBreakdown = dataManager.scenarioFederalTaxBreakdown
+
+            // ─── Federal Ordinary Income Tax ───
+            breakdownHeader("Federal Tax — Ordinary Income")
+
+            ForEach(fedBreakdown.ordinaryBrackets) { line in
+                breakdownRow(
+                    "\(formatCurrency(line.taxableInBracket)) at \(formatPercent(line.rate))",
+                    value: line.taxFromBracket
+                )
+            }
+
+            breakdownSubtotal("Ordinary Income Tax", value: fedBreakdown.ordinaryTax)
+
+            // ─── Federal Capital Gains Tax ───
+            if fedBreakdown.preferentialIncome > 0 {
+                breakdownHeader("Federal Tax — Capital Gains & Qualified Dividends")
+
+                ForEach(fedBreakdown.capGainsBrackets) { line in
+                    if line.rate == 0 {
+                        breakdownRow(
+                            "\(formatCurrency(line.taxableInBracket)) at 0% (tax-free)",
+                            value: 0,
+                            color: .green
+                        )
+                    } else {
+                        breakdownRow(
+                            "\(formatCurrency(line.taxableInBracket)) at \(formatPercent(line.rate))",
+                            value: line.taxFromBracket
+                        )
+                    }
+                }
+
+                breakdownSubtotal("Capital Gains Tax", value: fedBreakdown.capGainsTax)
+            }
+
+            Divider()
+            HStack {
+                Text("Federal Tax")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(fedBreakdown.totalFederalTax, format: .currency(code: "USD"))
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.red)
+            }
+
+            // ─── State Tax ───
+            let stateBreakdown = dataManager.scenarioStateTaxBreakdown
+
+            breakdownHeader("State Tax (\(dataManager.selectedState.abbreviation))")
+
+            if !stateBreakdown.bracketBreakdown.isEmpty {
+                ForEach(stateBreakdown.bracketBreakdown) { line in
+                    breakdownRow(
+                        "\(formatCurrency(line.taxableInBracket)) at \(String(format: "%.1f%%", line.rate * 100))",
+                        value: line.taxFromBracket
+                    )
+                }
+            } else if let flatRate = stateBreakdown.flatRate {
+                breakdownRow(
+                    "\(formatCurrency(stateBreakdown.adjustedTaxableIncome)) at \(String(format: "%.2f%%", flatRate * 100)) flat",
+                    value: stateBreakdown.totalStateTax
+                )
+            } else {
+                breakdownRow("No state income tax", value: 0, color: .green)
+            }
+
+            // Exemptions
+            if stateBreakdown.totalExempted > 0 {
+                breakdownRow("Retirement Income Exempt", value: -stateBreakdown.totalExempted, color: .green)
+            }
+
+            // CA exemption credits
+            if dataManager.selectedState == .california {
+                let credits = TaxCalculationEngine.californiaExemptionCredits(
+                    filingStatus: dataManager.filingStatus,
+                    agi: stateBreakdown.adjustedTaxableIncome,
+                    currentAge: dataManager.currentAge,
+                    enableSpouse: dataManager.enableSpouse,
+                    spouseBirthYear: dataManager.spouseBirthYear,
+                    currentYear: dataManager.currentYear
+                )
+                if credits > 0 {
+                    breakdownRow("Exemption Credits", value: -credits, color: .green)
+                }
+            }
+
+            Divider()
+            HStack {
+                Text("State Tax (\(dataManager.selectedState.abbreviation))")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(stateBreakdown.totalStateTax, format: .currency(code: "USD"))
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.red)
+            }
+
+            // ─── NIIT ───
+            if dataManager.scenarioNIITAmount > 0 {
+                let niit = dataManager.scenarioNIIT
+                breakdownHeader("NIIT (3.8% Surtax)")
+
+                breakdownRow("Net Investment Income", value: niit.netInvestmentIncome)
+                breakdownRow("MAGI Excess over \(formatCurrency(niit.threshold))", value: niit.magiExcess)
+                breakdownRow(
+                    "3.8% × \(formatCurrency(niit.taxableNII))",
+                    value: niit.annualNIITax
+                )
+            }
+
+            // ─── AMT ───
+            if dataManager.scenarioAMTAmount > 0 {
+                breakdownHeader("AMT (Alternative Minimum Tax)")
+                breakdownRow("AMT exceeds regular tax by", value: dataManager.scenarioAMTAmount)
+            }
+
+            // ─── Grand Total ───
+            Divider()
+            HStack {
+                Text("Total Tax")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(dataManager.scenarioTotalTax, format: .currency(code: "USD"))
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func formatCurrency(_ amount: Double) -> String {
+        amount.formatted(.currency(code: "USD").precision(.fractionLength(0)))
+    }
+
+    private func formatPercent(_ rate: Double) -> String {
+        "\(Int(rate * 100))%"
     }
 
     private func breakdownHeader(_ text: String) -> some View {
@@ -1530,7 +1819,7 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("IRMAA Medicare Surcharge")
                             .font(.headline)
-                        Text("Based on \(dataManager.filingStatus.rawValue) MAGI · Affects \(dataManager.currentYear + 2) premiums")
+                        Text("Based on \(dataManager.filingStatus.rawValue) MAGI · Affects \(String(dataManager.currentYear + 2)) premiums")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1690,6 +1979,379 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - Chart 4: State Tax Bracket Position
+
+    @ViewBuilder
+    private var stateBracketChart: some View {
+        let config = dataManager.selectedStateConfig
+        switch config.taxSystem {
+        case .progressive(let single, let married):
+            let brackets = dataManager.filingStatus == .single ? single : married
+            let income = dataManager.scenarioTaxableIncome
+            if income > 0 && brackets.count > 1 {
+                let bracketInfo = dataManager.stateBracketInfo(income: income, filingStatus: dataManager.filingStatus)
+
+                // Build segments
+                let segments: [BracketSegment] = brackets.enumerated().map { i, bracket in
+                    let start = bracket.threshold
+                    let end: Double = i + 1 < brackets.count ? brackets[i + 1].threshold : max(start + 50_000, income * 1.2)
+                    let isCurrent = income > start && (i + 1 >= brackets.count || income <= brackets[i + 1].threshold)
+                    return BracketSegment(
+                        rate: bracket.rate,
+                        label: String(format: "%.1f%%", bracket.rate * 100),
+                        rangeStart: start,
+                        rangeEnd: end,
+                        isCurrent: isCurrent
+                    )
+                }
+
+                // Generate colors for state brackets (gradient from green to red)
+                let stateColors: [Color] = segments.enumerated().map { i, _ in
+                    let t = segments.count > 1 ? Double(i) / Double(segments.count - 1) : 0
+                    return Color(
+                        red: t * 0.9,
+                        green: (1 - t) * 0.7 + 0.1,
+                        blue: 0.2
+                    )
+                }
+
+                let currentIdx = segments.firstIndex(where: { $0.isCurrent }) ?? 0
+                let showThrough = min(currentIdx + 1, segments.count - 1)
+                let visibleSegments = Array(segments.prefix(showThrough + 1))
+                let chartMax = visibleSegments.last?.rangeEnd ?? 1
+                let barHeight: CGFloat = 36
+                let topPad: CGFloat = 24
+
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.green.opacity(0.85), .orange.opacity(0.85)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "building.columns.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(dataManager.selectedState.rawValue) Tax Bracket Position")
+                                .font(.headline)
+                            Text(dataManager.filingStatus.rawValue)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+                    }
+
+                    // Bar chart
+                    GeometryReader { geo in
+                        let w = geo.size.width
+
+                        ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
+                            let color = stateColors[min(index, stateColors.count - 1)]
+                            let x = w * segment.rangeStart / chartMax
+                            let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+
+                            if index <= currentIdx {
+                                Rectangle()
+                                    .fill(color)
+                                    .frame(width: segW, height: barHeight)
+                                    .offset(x: x, y: topPad)
+                            } else {
+                                Rectangle()
+                                    .fill(color.opacity(0.22))
+                                    .frame(width: segW, height: barHeight)
+                                    .offset(x: x, y: topPad)
+                            }
+                        }
+
+                        // Bracket boundary lines
+                        ForEach(Array(visibleSegments.dropFirst().enumerated()), id: \.element.id) { _, segment in
+                            let bx = w * segment.rangeStart / chartMax
+                            Rectangle()
+                                .fill(Color.primary.opacity(0.2))
+                                .frame(width: 1, height: barHeight)
+                                .offset(x: bx - 0.5, y: topPad)
+                        }
+
+                        // Income marker (dashed)
+                        let incomeX = w * income / chartMax
+                        Path { path in
+                            path.move(to: CGPoint(x: incomeX, y: topPad - 5))
+                            path.addLine(to: CGPoint(x: incomeX, y: topPad + barHeight + 5))
+                        }
+                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                        .foregroundStyle(.primary)
+
+                        // Income label
+                        Text(chartYAxisLabel(income))
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                            .position(x: incomeX, y: 10)
+
+                        // Border
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                            .frame(width: w, height: barHeight)
+                            .offset(y: topPad)
+                    }
+                    .frame(height: topPad + barHeight + 6)
+
+                    // Legend
+                    HStack(spacing: 0) {
+                        ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
+                            let isLast = index == visibleSegments.count - 1
+                            let color = stateColors[min(index, stateColors.count - 1)]
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(segment.label)
+                                        .font(.system(size: 10, weight: segment.isCurrent ? .bold : .medium))
+                                        .foregroundStyle(color)
+                                    Text("\(chartYAxisLabel(segment.rangeStart))\(isLast ? "+" : "–\(chartYAxisLabel(segment.rangeEnd))")")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+
+                    // Room remaining
+                    if bracketInfo.roomRemaining > 0 && bracketInfo.roomRemaining < .infinity {
+                        let nextRate = nextStateRate(after: bracketInfo.currentRate, brackets: brackets)
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.right.circle.fill")
+                                .foregroundStyle(.blue)
+                                .font(.caption)
+                            Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the \(String(format: "%.1f", nextRate))% bracket")
+                                .font(.caption)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(PlatformColor.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.green.opacity(0.3), .orange.opacity(0.3)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    /// Returns the next state bracket rate as a percentage string
+    private func nextStateRate(after currentRate: Double, brackets: [TaxBracket]) -> Double {
+        for i in brackets.indices {
+            if abs(brackets[i].rate - currentRate) < 0.001, i + 1 < brackets.count {
+                return brackets[i + 1].rate * 100
+            }
+        }
+        return currentRate * 100
+    }
+
+    // MARK: - Chart 5: NIIT Position
+
+    @ViewBuilder
+    private var niitPositionChart: some View {
+        let niit = dataManager.scenarioNIIT
+        let nii = dataManager.scenarioNetInvestmentIncome
+        if nii > 0 {
+            let magi = niit.magi
+            let threshold = niit.threshold
+            let isAbove = magi > threshold
+            let chartMax = max(threshold * 1.5, magi * 1.2)
+            let barHeight: CGFloat = 36
+            let topPad: CGFloat = 24
+
+            VStack(alignment: .leading, spacing: 16) {
+                // Header
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.green.opacity(0.85), .red.opacity(0.55)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Net Investment Income Tax")
+                            .font(.headline)
+                        Text("3.8% surtax · \(dataManager.filingStatus.rawValue)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
+
+                // Two-zone bar: No NIIT (green) | 3.8% NIIT (red)
+                GeometryReader { geo in
+                    let w = geo.size.width
+                    let thresholdX = w * threshold / chartMax
+                    let niitZoneWidth = w - thresholdX
+
+                    // Green zone (no NIIT)
+                    UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
+                        .fill(Color(red: 0.05, green: 0.78, blue: 0.35))
+                        .frame(width: thresholdX, height: barHeight)
+                        .offset(y: topPad)
+
+                    // Red zone (NIIT applies)
+                    UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 5, topTrailingRadius: 5)
+                        .fill(Color.red.opacity(0.75))
+                        .frame(width: niitZoneWidth, height: barHeight)
+                        .offset(x: thresholdX, y: topPad)
+
+                    // Threshold boundary
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.3))
+                        .frame(width: 1.5, height: barHeight)
+                        .offset(x: thresholdX - 0.75, y: topPad)
+
+                    // MAGI marker
+                    let magiX = w * magi / chartMax
+                    Path { path in
+                        path.move(to: CGPoint(x: magiX, y: topPad - 5))
+                        path.addLine(to: CGPoint(x: magiX, y: topPad + barHeight + 5))
+                    }
+                    .stroke(style: StrokeStyle(lineWidth: 2.5, dash: [5, 3]))
+                    .foregroundStyle(.primary)
+
+                    // MAGI label
+                    Text(chartYAxisLabel(magi))
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .position(x: magiX, y: 10)
+
+                    // Border
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                        .frame(width: w, height: barHeight)
+                        .offset(y: topPad)
+                }
+                .frame(height: topPad + barHeight + 6)
+
+                // Legend
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color(red: 0.05, green: 0.78, blue: 0.35))
+                            .frame(width: 8, height: 8)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("No NIIT")
+                                .font(.system(size: 10, weight: !isAbove ? .bold : .medium))
+                                .foregroundStyle(Color(red: 0.05, green: 0.78, blue: 0.35))
+                            Text("< \(chartYAxisLabel(threshold))")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.red.opacity(0.75))
+                            .frame(width: 8, height: 8)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("3.8% NIIT")
+                                .font(.system(size: 10, weight: isAbove ? .bold : .medium))
+                                .foregroundStyle(.red)
+                            Text("\(chartYAxisLabel(threshold))+")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+
+                // Callouts
+                VStack(alignment: .leading, spacing: 6) {
+                    if isAbove {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                            Text("NIIT: \(niit.annualNIITax, format: .currency(code: "USD").precision(.fractionLength(0)))/yr on \(niit.taxableNII, format: .currency(code: "USD").precision(.fractionLength(0))) of investment income")
+                                .font(.caption)
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                            Text("No NIIT — MAGI is below the \(chartYAxisLabel(threshold)) threshold")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.green)
+                        }
+                    }
+
+                    if niit.distanceToThreshold > 0 && niit.distanceToThreshold < 50_000 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                            Text("\(niit.distanceToThreshold, format: .currency(code: "USD").precision(.fractionLength(0))) below NIIT threshold")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.green.opacity(0.3), .red.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+        }
+    }
+
     // MARK: - Action To-Do List
 
     private var actionToDoList: some View {
@@ -1796,27 +2458,16 @@ struct DashboardView: View {
             Text("Account Balances")
                 .font(.headline)
 
-            HStack(spacing: 16) {
-                BalanceCard(
-                    title: "Traditional IRA/401(k)",
-                    amount: dataManager.totalTraditionalIRABalance,
-                    color: .blue
-                )
-
-                BalanceCard(
-                    title: "Roth IRA/401(k)",
-                    amount: dataManager.totalRothBalance,
-                    color: .green
-                )
-
+            HStack(alignment: .top, spacing: 16) {
+                balanceColumn(title: "Traditional IRA/\n401(k)", amount: dataManager.totalTraditionalIRABalance, color: .blue)
+                Divider()
+                balanceColumn(title: "Roth IRA/401(k)", amount: dataManager.totalRothBalance, color: .green)
                 if dataManager.hasInheritedAccounts {
-                    BalanceCard(
-                        title: "Inherited IRA",
-                        amount: dataManager.totalInheritedBalance,
-                        color: .orange
-                    )
+                    Divider()
+                    balanceColumn(title: "Inherited IRA", amount: dataManager.totalInheritedBalance, color: .orange)
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
 
             if dataManager.enableSpouse {
                 OwnerBalanceRow(
@@ -1840,6 +2491,22 @@ struct DashboardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
+
+    private func balanceColumn(title: String, amount: Double, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(height: 34, alignment: .top)
+            Text(amount, format: .currency(code: "USD"))
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundStyle(color)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 }
 
 // MARK: - Supporting Views
@@ -1859,6 +2526,8 @@ struct BalanceCard: View {
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundStyle(color)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
