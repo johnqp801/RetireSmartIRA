@@ -605,6 +605,40 @@ final class SSCouplesMatrixTests: XCTestCase {
         XCTAssertEqual(cell.survivorBenefitIfPrimaryDies, 1650.0, accuracy: 1.0,
                        "Survivor should reflect 82.5% RIB-LIM floor")
     }
+
+    func testMatrixExcludesPastAgesWhenUserIs69() {
+        // Primary is currently 69. Matrix should only include primary ages 69-70.
+        let matrix = SSCalculationEngine.couplesMatrix(
+            primaryPIA: 2660, primaryBirthYear: 1960, primaryLifeExpectancy: 90,
+            spousePIA: 1700, spouseBirthYear: 1960, spouseLifeExpectancy: 90,
+            primaryCurrentAge: 69, spouseCurrentAge: 65)
+        let primaryAges = Set(matrix.map(\.primaryClaimingAge))
+        let spouseAges = Set(matrix.map(\.spouseClaimingAge))
+        XCTAssertEqual(primaryAges, Set(69...70), "Primary ages should start at 69")
+        XCTAssertEqual(spouseAges, Set(65...70), "Spouse ages should start at 65")
+        // 2 primary × 6 spouse = 12 cells
+        XCTAssertEqual(matrix.count, 12)
+    }
+
+    func testMatrixClampsVeryOldCurrentAgeTo70() {
+        // If the user is already past 70 (unusual but possible), matrix should still
+        // produce a degenerate single-age case rather than crashing or returning empty.
+        let matrix = SSCalculationEngine.couplesMatrix(
+            primaryPIA: 2660, primaryBirthYear: 1950, primaryLifeExpectancy: 90,
+            spousePIA: 1700, spouseBirthYear: 1950, spouseLifeExpectancy: 90,
+            primaryCurrentAge: 75, spouseCurrentAge: 75)
+        XCTAssertEqual(matrix.count, 1, "Should produce one cell at age 70 × 70")
+        XCTAssertEqual(matrix.first?.primaryClaimingAge, 70)
+        XCTAssertEqual(matrix.first?.spouseClaimingAge, 70)
+    }
+
+    func testMatrixDefaultsToFullRangeWhenAgesNotProvided() {
+        // Backward-compat: callers that don't pass current ages still get the full 9×9.
+        let matrix = SSCalculationEngine.couplesMatrix(
+            primaryPIA: 2660, primaryBirthYear: 1960, primaryLifeExpectancy: 90,
+            spousePIA: 1700, spouseBirthYear: 1960, spouseLifeExpectancy: 90)
+        XCTAssertEqual(matrix.count, 81)
+    }
 }
 
 // MARK: - Effective Monthly Benefit (Spousal-Aware, Age-Aware)

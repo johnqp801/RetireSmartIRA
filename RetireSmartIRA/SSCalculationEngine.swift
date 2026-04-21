@@ -499,26 +499,33 @@ struct SSCalculationEngine {
 
     // MARK: - Couples Strategy Matrix
 
-    /// Build a 9×9 matrix of combined lifetime benefits for every combination of
-    /// primary (62-70) and spouse (62-70) claiming ages.
+    /// Build a matrix of combined lifetime benefits for every feasible combination of
+    /// primary and spouse claiming ages. Claiming ages earlier than the user's current
+    /// age are excluded because those strategies are no longer actionable — you can't
+    /// decide to claim in the past. When current ages aren't supplied (tests), the full
+    /// 62–70 range is used.
     static func couplesMatrix(
         primaryPIA: Double, primaryBirthYear: Int, primaryLifeExpectancy: Int,
         spousePIA: Double, spouseBirthYear: Int, spouseLifeExpectancy: Int,
-        colaRate: Double = 2.5, discountRate: Double = 0
+        colaRate: Double = 2.5, discountRate: Double = 0,
+        primaryCurrentAge: Int = 62, spouseCurrentAge: Int = 62
     ) -> [SSCouplesMatrixCell] {
         let primaryFRA = fullRetirementAge(birthYear: primaryBirthYear)
         let spouseFRA = fullRetirementAge(birthYear: spouseBirthYear)
 
+        let primaryMinAge = max(62, min(70, primaryCurrentAge))
+        let spouseMinAge = max(62, min(70, spouseCurrentAge))
+
         var cells: [SSCouplesMatrixCell] = []
         var bestLifetime = -Double.infinity
-        var bestPrimaryAge = 67
-        var bestSpouseAge = 67
+        var bestPrimaryAge = max(67, primaryMinAge)
+        var bestSpouseAge = max(67, spouseMinAge)
 
         // First pass: compute all cells
-        for pAge in 62...70 {
+        for pAge in primaryMinAge...70 {
             let pOwnMonthly = benefitAtAge(claimingAge: pAge, pia: primaryPIA,
                                             fraYears: primaryFRA.years, fraMonths: primaryFRA.months)
-            for sAge in 62...70 {
+            for sAge in spouseMinAge...70 {
                 let sOwnMonthly = benefitAtAge(claimingAge: sAge, pia: spousePIA,
                                                 fraYears: spouseFRA.years, fraMonths: spouseFRA.months)
 

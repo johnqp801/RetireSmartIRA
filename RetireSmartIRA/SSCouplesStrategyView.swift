@@ -442,8 +442,13 @@ struct SSCouplesStrategyView: View {
     }
 
     private func applyStrategy(primaryAge: Int, spouseAge: Int) {
-        dataManager.primarySSBenefit?.plannedClaimingAge = primaryAge
-        dataManager.spouseSSBenefit?.plannedClaimingAge = spouseAge
+        // Defensive clamp: even though the matrix now excludes past ages, guard
+        // against any caller (or stale selection) that might try to apply an age
+        // the user has already passed.
+        let clampedPrimary = max(primaryAge, dataManager.currentAge)
+        let clampedSpouse = max(spouseAge, dataManager.spouseCurrentAge)
+        dataManager.primarySSBenefit?.plannedClaimingAge = min(70, clampedPrimary)
+        dataManager.spouseSSBenefit?.plannedClaimingAge = min(70, clampedSpouse)
         dataManager.saveSSData()
         dataManager.syncSSToIncomeSources()
 
@@ -794,7 +799,13 @@ struct SSCouplesStrategyView: View {
     }
 
     private var matrixGrid: some View {
-        let ages = Array(62...70)
+        // Restrict axes to feasible claim ages — exclude any age the user has already
+        // passed, since the matrix excludes them too. When neither spouse is past 62
+        // the grid is the familiar full 9×9.
+        let primaryMin = max(62, min(70, dataManager.currentAge))
+        let spouseMin = max(62, min(70, dataManager.spouseCurrentAge))
+        let pAges = Array(primaryMin...70)
+        let sAges = Array(spouseMin...70)
         let maxVal = matrix.map(\.combinedLifetimeBenefit).max() ?? 1
         let minVal = matrix.map(\.combinedLifetimeBenefit).min() ?? 0
         let range = maxVal - minVal
@@ -807,7 +818,7 @@ struct SSCouplesStrategyView: View {
             HStack(spacing: 2) {
                 Text("")
                     .frame(width: 28, height: 24)
-                ForEach(ages, id: \.self) { age in
+                ForEach(pAges, id: \.self) { age in
                     Text("\(age)")
                         .font(.caption2)
                         .fontWeight(.medium)
@@ -817,14 +828,14 @@ struct SSCouplesStrategyView: View {
             }
 
             // Data rows
-            ForEach(ages, id: \.self) { sAge in
+            ForEach(sAges, id: \.self) { sAge in
                 HStack(spacing: 2) {
                     Text("\(sAge)")
                         .font(.caption2)
                         .fontWeight(.medium)
                         .frame(width: 28, height: 32)
 
-                    ForEach(ages, id: \.self) { pAge in
+                    ForEach(pAges, id: \.self) { pAge in
                         let cell = matrix.first(where: {
                             $0.primaryClaimingAge == pAge && $0.spouseClaimingAge == sAge
                         })

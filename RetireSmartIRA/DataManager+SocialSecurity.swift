@@ -176,7 +176,8 @@ extension DataManager {
 
     // MARK: - Couples Strategy
 
-    /// Build the 9×9 couples claiming matrix
+    /// Build the couples claiming matrix, excluding ages already in the past for either
+    /// spouse (those strategies aren't actionable).
     func ssCouplesMatrix() -> [SSCouplesMatrixCell] {
         guard let pBenefit = primarySSBenefit, pBenefit.benefitAtFRA > 0,
               let sBenefit = spouseSSBenefit, sBenefit.benefitAtFRA > 0 else { return [] }
@@ -187,7 +188,9 @@ extension DataManager {
             spousePIA: sBenefit.benefitAtFRA, spouseBirthYear: spouseBirthYear,
             spouseLifeExpectancy: ssWhatIfParams.spouseLifeExpectancy,
             colaRate: ssWhatIfParams.colaRate,
-            discountRate: ssWhatIfParams.discountRate
+            discountRate: ssWhatIfParams.discountRate,
+            primaryCurrentAge: currentAge,
+            spouseCurrentAge: spouseCurrentAge
         )
     }
 

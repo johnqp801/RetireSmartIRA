@@ -15,10 +15,17 @@ struct SSDataEntryView: View {
     @State private var selectedOwner: Owner = .primary
     @State private var entryMode: EntryMode
     @State private var showXMLImporter: Bool = false
+    @FocusState private var focusedBenefitField: BenefitFieldID?
 
     enum EntryMode: String, CaseIterable {
         case quickEntry = "Quick Entry"
         case earningsHistory = "Earnings History"
+    }
+
+    /// Identifies each monthly-benefit TextField so the entire row (including the
+    /// "$" prefix and "/mo" suffix) can act as a tap target for focusing the field.
+    enum BenefitFieldID: Hashable {
+        case at62, atFRA, at70, currentBenefit
     }
 
     /// When true, the primary "Already Receiving" toggle is pre-set on first load (before any existing data overrides it).
@@ -244,10 +251,15 @@ struct SSDataEntryView: View {
                         #endif
                         .multilineTextAlignment(.trailing)
                         .frame(width: 100)
+                        .focused($focusedBenefitField, equals: .currentBenefit)
                     Text("/mo")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focusedBenefitField = .currentBenefit
             }
 
             Divider()
@@ -374,9 +386,9 @@ struct SSDataEntryView: View {
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 12) {
-                    benefitField(label: "Monthly benefit at 62", text: at62)
-                    benefitField(label: "Monthly benefit at FRA (\(fra.years))", text: atFRA)
-                    benefitField(label: "Monthly benefit at 70", text: at70)
+                    benefitField(label: "Monthly benefit at 62", text: at62, field: .at62)
+                    benefitField(label: "Monthly benefit at FRA (\(fra.years))", text: atFRA, field: .atFRA)
+                    benefitField(label: "Monthly benefit at 70", text: at70, field: .at70)
                 }
             }
         }
@@ -425,9 +437,9 @@ struct SSDataEntryView: View {
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 12) {
-                benefitField(label: "Monthly benefit at 62", text: at62)
-                benefitField(label: "Monthly benefit at FRA (\(fra.years))", text: atFRA)
-                benefitField(label: "Monthly benefit at 70", text: at70)
+                benefitField(label: "Monthly benefit at 62", text: at62, field: .at62)
+                benefitField(label: "Monthly benefit at FRA (\(fra.years))", text: atFRA, field: .atFRA)
+                benefitField(label: "Monthly benefit at 70", text: at70, field: .at70)
             }
 
             Divider()
@@ -470,7 +482,7 @@ struct SSDataEntryView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    private func benefitField(label: String, text: Binding<String>) -> some View {
+    private func benefitField(label: String, text: Binding<String>, field: BenefitFieldID) -> some View {
         HStack {
             Text(label)
                 .font(.subheadline)
@@ -485,10 +497,15 @@ struct SSDataEntryView: View {
                     #endif
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
+                    .focused($focusedBenefitField, equals: field)
                 Text("/mo")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            focusedBenefitField = field
         }
     }
 
