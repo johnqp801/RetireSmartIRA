@@ -217,6 +217,18 @@ struct GuideView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "hand.raised.fill")
+                        .foregroundStyle(.blue)
+                        .font(.caption)
+                    Text("All values are entered manually \u{2014} the app does not import from banks, brokerages, or aggregators like Empower or Credit Karma. The one exception is an optional Social Security earnings-history XML import on the SS tab. Use prior-year tax documents and account statements as your source.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(8)
+                .background(Color.blue.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
                 gatherCategory(
                     icon: "calendar",
                     title: "Personal Information",

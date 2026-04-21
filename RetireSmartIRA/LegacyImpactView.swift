@@ -298,6 +298,18 @@ struct LegacyImpactView: View {
                     .font(bodyFont)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
+
+                if abs(rotp) > 500 {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.circle")
+                            .foregroundStyle(.orange)
+                            .font(.caption)
+                        Text("Exceptionally high \u{2014} small conversion tax today paired with a long horizon and compounded growth produces large headline returns. Verify your growth-rate assumption and conversion amount; real-world results are sensitive to both.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.horizontal, 8)
+                }
             }
 
             if dataManager.scenarioTotalRothConversion > 0 && dataManager.legacyHeirEstimatedSalary > 0 {
@@ -618,6 +630,18 @@ struct LegacyImpactView: View {
                      : "Reduces heir's \(dataManager.legacyDrawdownYears)-year tax burden")
                     .font(bodyFont)
                     .foregroundStyle(.secondary)
+
+                if dataManager.scenarioTotalRothConversion > 0 {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .foregroundStyle(.orange)
+                            .font(.caption)
+                        Text("Trade-off: QCDs can only come from Traditional IRAs. Converted Roth dollars are no longer available for QCDs. If charitable giving is a long-term goal, keeping some Traditional balance preserves that tax-free giving path.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.top, 4)
+                }
             }
         }
     }

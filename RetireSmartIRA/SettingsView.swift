@@ -116,6 +116,10 @@ struct SettingsView: View {
                         Text("Other").tag("other")
                     }
 
+                    Text("Who would inherit your IRAs. \"Spouse then Child\" models the common path where your spouse inherits first and your child (or other non-spouse heir) inherits after your spouse's death.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     if dataManager.legacyHeirType == "spouseThenChild" {
                         Stepper("Spouse survives: \(dataManager.legacySpouseSurvivorYears) years",
                                 value: $dataManager.legacySpouseSurvivorYears,
@@ -125,51 +129,75 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Picker("Heir's Filing Status", selection: $dataManager.legacyHeirFilingStatus) {
-                        Text("Single").tag(FilingStatus.single)
-                        Text("Married Filing Jointly").tag(FilingStatus.marriedFilingJointly)
-                    }
-                    .pickerStyle(.segmented)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Heir's Estimated Salary")
-                            Spacer()
-                            Text(dataManager.legacyHeirEstimatedSalary, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    // For pure "spouse" heir, the spouse's income, filing status, and age
+                    // are already captured elsewhere in the app (household inputs + spouse
+                    // birth date). Only ask for heir-specific details when the ultimate
+                    // inheritor is someone other than the spouse.
+                    if dataManager.legacyHeirType == "spouse" {
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(.blue)
+                                .font(.caption)
+                            Text("Your spouse's income, filing status, and age come from your household inputs — no additional heir details needed.")
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Slider(value: $dataManager.legacyHeirEstimatedSalary, in: 0...500_000, step: 5_000)
-                    }
-
-                    Text("The app calculates your heir's actual tax using progressive federal brackets based on their salary plus inherited IRA distributions. Adjust these to model different heirs.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Heir's Birth Year (optional)")
-                            Spacer()
-                            TextField("—", text: Binding(
-                                get: { dataManager.legacyHeirBirthYear.map(String.init) ?? "" },
-                                set: { raw in
-                                    let trimmed = raw.trimmingCharacters(in: .whitespaces)
-                                    if trimmed.isEmpty {
-                                        dataManager.legacyHeirBirthYear = nil
-                                    } else if let year = Int(trimmed), year >= 1900, year <= 2100 {
-                                        dataManager.legacyHeirBirthYear = year
-                                    }
-                                }
-                            ))
-                            #if os(iOS)
-                            .keyboardType(.numberPad)
-                            #endif
-                            .multilineTextAlignment(.trailing)
-                            .frame(maxWidth: 80)
-                            .foregroundStyle(.secondary)
+                    } else {
+                        Picker("Heir's Filing Status", selection: $dataManager.legacyHeirFilingStatus) {
+                            Text("Single").tag(FilingStatus.single)
+                            Text("Married Filing Jointly").tag(FilingStatus.marriedFilingJointly)
                         }
-                        Text("Used only to flag Kiddie Tax concerns if your heir is under 24 at the projected inheritance year.")
+                        .pickerStyle(.segmented)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Heir's Estimated Salary")
+                                Spacer()
+                                Text(dataManager.legacyHeirEstimatedSalary, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Slider(value: $dataManager.legacyHeirEstimatedSalary, in: 0...500_000, step: 5_000)
+                        }
+
+                        Text("The app calculates your heir's actual tax using progressive federal brackets based on their salary plus inherited IRA distributions. Adjust these to model different heirs.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Heir's Birth Year (optional)")
+                                Spacer()
+                                TextField("—", text: Binding(
+                                    get: { dataManager.legacyHeirBirthYear.map(String.init) ?? "" },
+                                    set: { raw in
+                                        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+                                        if trimmed.isEmpty {
+                                            dataManager.legacyHeirBirthYear = nil
+                                        } else if let year = Int(trimmed), year >= 1900, year <= 2100 {
+                                            dataManager.legacyHeirBirthYear = year
+                                        }
+                                    }
+                                ))
+                                #if os(iOS)
+                                .keyboardType(.numberPad)
+                                #endif
+                                .multilineTextAlignment(.trailing)
+                                .frame(maxWidth: 80)
+                                .foregroundStyle(.secondary)
+                            }
+                            Text("Used only to flag Kiddie Tax concerns if your heir is under 24 at the projected inheritance year.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "person.2")
+                                .foregroundStyle(.blue)
+                                .font(.caption)
+                            Text("Modeling one primary heir. If you have multiple heirs (e.g. several children), enter the one with the highest expected salary — that gives the conservative case where Roth conversions save the most tax.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     HStack(spacing: 8) {
