@@ -55,6 +55,8 @@ struct PersistenceManager {
         static let enableLegacyPlanning = "enableLegacyPlanning"
         static let legacyHeirType = "legacyHeirType"
         static let legacyHeirTaxRate = "legacyHeirTaxRate"
+        static let legacyHeirEstimatedSalary = "legacyHeirEstimatedSalary"
+        static let legacyHeirFilingStatus = "legacyHeirFilingStatus"
         static let legacySpouseSurvivorYears = "legacySpouseSurvivorYears"
         static let legacyGrowthRate = "legacyGrowthRate"
         static let taxBrackets = "taxBrackets"
@@ -237,6 +239,13 @@ struct PersistenceManager {
         if defaults.object(forKey: StorageKey.legacyHeirTaxRate) != nil {
             dm.legacyHeirTaxRate = defaults.double(forKey: StorageKey.legacyHeirTaxRate)
         }
+        if defaults.object(forKey: StorageKey.legacyHeirEstimatedSalary) != nil {
+            dm.legacyHeirEstimatedSalary = defaults.double(forKey: StorageKey.legacyHeirEstimatedSalary)
+        }
+        if let raw = defaults.string(forKey: StorageKey.legacyHeirFilingStatus),
+           let status = FilingStatus(rawValue: raw) {
+            dm.legacyHeirFilingStatus = status
+        }
         if defaults.object(forKey: StorageKey.legacySpouseSurvivorYears) != nil {
             let stored = defaults.integer(forKey: StorageKey.legacySpouseSurvivorYears)
             dm.legacySpouseSurvivorYears = stored > 0 ? stored : 10
@@ -320,6 +329,8 @@ struct PersistenceManager {
         defaults.set(dm.enableLegacyPlanning, forKey: StorageKey.enableLegacyPlanning)
         defaults.set(dm.legacyHeirType, forKey: StorageKey.legacyHeirType)
         defaults.set(dm.legacyHeirTaxRate, forKey: StorageKey.legacyHeirTaxRate)
+        defaults.set(dm.legacyHeirEstimatedSalary, forKey: StorageKey.legacyHeirEstimatedSalary)
+        defaults.set(dm.legacyHeirFilingStatus.rawValue, forKey: StorageKey.legacyHeirFilingStatus)
         defaults.set(dm.legacySpouseSurvivorYears, forKey: StorageKey.legacySpouseSurvivorYears)
         if let customRate = dm.legacy.legacyGrowthRate {
             defaults.set(customRate, forKey: StorageKey.legacyGrowthRate)

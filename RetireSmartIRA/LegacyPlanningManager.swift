@@ -15,6 +15,8 @@ class LegacyPlanningManager: ObservableObject {
     @Published var enableLegacyPlanning: Bool = true
     @Published var legacyHeirType: String = "adultChild"
     @Published var legacyHeirTaxRate: Double = 0.24
+    @Published var legacyHeirEstimatedSalary: Double = 75_000
+    @Published var legacyHeirFilingStatus: FilingStatus = .single
     @Published var legacySpouseSurvivorYears: Int = 10
 
     /// Independent growth rate for legacy projections.

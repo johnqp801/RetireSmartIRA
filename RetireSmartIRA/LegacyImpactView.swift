@@ -809,6 +809,9 @@ struct LegacyImpactView: View {
             ? dataManager.legacyWithScenarioRothAtDeath
             : dataManager.legacyNoActionRothAtDeath
         let drawdownYears = dataManager.legacyHeirType == "spouseThenChild" ? 10 : dataManager.legacyDrawdownYears
+        let taxEst = hasRothConversion
+            ? dataManager.legacyHeirTaxEstimate
+            : dataManager.legacyNoActionHeirTaxEstimate
 
         return Group {
             Divider()
@@ -859,15 +862,59 @@ struct LegacyImpactView: View {
                     }
 
                     if dataManager.legacyHeirType != "spouse" {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Your heir receives both accounts. The \(compactCurrency(annualForced))/year from the Traditional IRA is added on top of their own salary \u{2014} potentially pushing them into the \(Int(dataManager.legacyHeirTaxRate * 100))% bracket or higher during their peak earning years.")
-                                .font(bodyFont)
-                                .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Tax impact summary with progressive brackets
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your heir faces ~\(compactCurrency(taxEst.incrementalTax))/year in federal taxes on these distributions alone \u{2014} at an effective rate of \(Int(taxEst.effectiveRateOnDistribution * 100))%.")
+                                    .font(bodyFont)
+                                    .foregroundStyle(.secondary)
 
-                            Text("Every dollar you convert to Roth now is one less dollar forced through their tax bracket later.")
-                                .font(bodyFont)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.primary)
+                                HStack(spacing: 16) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Marginal bracket")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text("\(Int(taxEst.marginalRate * 100))%")
+                                            .font(bodyFont)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.red)
+                                    }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Annual tax")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text(compactCurrency(taxEst.incrementalTax))
+                                            .font(bodyFont)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.red)
+                                    }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Total over \(drawdownYears) years")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text(compactCurrency(taxEst.totalTaxOverDrawdown))
+                                            .font(bodyFont)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.red)
+                                    }
+                                }
+                            }
+
+                            if dataManager.legacyHeirEstimatedSalary > 0 {
+                                Text("With their own \(compactCurrency(dataManager.legacyHeirEstimatedSalary)) salary, every dollar of inheritance is taxed starting at their existing top bracket. Each dollar you convert to Roth now eliminates a dollar taxed at \(Int(taxEst.marginalRate * 100))% later.")
+                                    .font(bodyFont)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
+                            } else {
+                                Text("Every dollar you convert to Roth now is one less dollar forced through the \(Int(taxEst.marginalRate * 100))% bracket later.")
+                                    .font(bodyFont)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
+                            }
+
+                            Text("Based on current federal tax law. Brackets adjust annually for inflation.")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
                         }
                         .padding(8)
                         .background(Color.orange.opacity(0.06))

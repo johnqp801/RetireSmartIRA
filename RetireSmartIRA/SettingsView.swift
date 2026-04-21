@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var stateSearchText = ""
     @State private var showTermsOfUse = false
     @State private var showPrivacyPolicy = false
+    @State private var showSources = false
 
     /// Date range for the birth date picker (1920 to today)
     private var birthDateRange: ClosedRange<Date> {
@@ -124,16 +125,23 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Picker("Heir's Est. Tax Bracket", selection: $dataManager.legacyHeirTaxRate) {
-                        Text("12%").tag(0.12)
-                        Text("22%").tag(0.22)
-                        Text("24%").tag(0.24)
-                        Text("32%").tag(0.32)
-                        Text("35%").tag(0.35)
-                        Text("37%").tag(0.37)
+                    Picker("Heir's Filing Status", selection: $dataManager.legacyHeirFilingStatus) {
+                        Text("Single").tag(FilingStatus.single)
+                        Text("Married Filing Jointly").tag(FilingStatus.marriedFilingJointly)
+                    }
+                    .pickerStyle(.segmented)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Heir's Estimated Salary")
+                            Spacer()
+                            Text(dataManager.legacyHeirEstimatedSalary, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: $dataManager.legacyHeirEstimatedSalary, in: 0...500_000, step: 5_000)
                     }
 
-                    Text("If you have multiple heirs, enter the bracket of your primary heir. You can adjust this to see the impact for each heir individually.")
+                    Text("The app calculates your heir's actual tax using progressive federal brackets based on their salary plus inherited IRA distributions. Adjust these to model different heirs.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -159,6 +167,19 @@ struct SettingsView: View {
                     Text(bundleVersionString)
                         .foregroundStyle(.secondary)
                 }
+
+                Button {
+                    showSources = true
+                } label: {
+                    LabeledContent {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } label: {
+                        Label("Sources & References", systemImage: "doc.text.magnifyingglass")
+                    }
+                }
+                .foregroundStyle(.primary)
 
                 Link(destination: URL(string: "https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-required-minimum-distributions-rmds")!) {
                     LabeledContent("IRS RMD Information") {
@@ -208,7 +229,19 @@ struct SettingsView: View {
         .onChange(of: dataManager.enableLegacyPlanning) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirType) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirTaxRate) { dataManager.saveAllData() }
+        .onChange(of: dataManager.legacyHeirEstimatedSalary) { dataManager.saveAllData() }
+        .onChange(of: dataManager.legacyHeirFilingStatus) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacySpouseSurvivorYears) { dataManager.saveAllData() }
+        .sheet(isPresented: $showSources) {
+            NavigationStack {
+                SourcesReferencesView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showSources = false }
+                        }
+                    }
+            }
+        }
         .sheet(isPresented: $showTermsOfUse) {
             NavigationStack {
                 ScrollView {

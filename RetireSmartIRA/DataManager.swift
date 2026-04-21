@@ -168,6 +168,14 @@ class DataManager: ObservableObject {
         get { legacy.legacyHeirTaxRate }
         set { legacy.legacyHeirTaxRate = newValue }
     }
+    var legacyHeirEstimatedSalary: Double {
+        get { legacy.legacyHeirEstimatedSalary }
+        set { legacy.legacyHeirEstimatedSalary = newValue }
+    }
+    var legacyHeirFilingStatus: FilingStatus {
+        get { legacy.legacyHeirFilingStatus }
+        set { legacy.legacyHeirFilingStatus = newValue }
+    }
     var legacySpouseSurvivorYears: Int {
         get { legacy.legacySpouseSurvivorYears }
         set { legacy.legacySpouseSurvivorYears = newValue }
@@ -2013,16 +2021,25 @@ class DataManager: ObservableObject {
     // MARK: - Legacy Planning Calculations
 
     /// Tax the heir avoids because the converted amount is now Roth (tax-free) instead of Traditional.
+    /// Uses progressive brackets: calculates tax with and without the conversion amount in the heir's income.
     var legacyRothConversionHeirSavings: Double {
         guard enableLegacyPlanning, scenarioTotalRothConversion > 0 else { return 0 }
-        return scenarioTotalRothConversion * legacyHeirTaxRate
+        let annualWithout = legacyNoActionAnnualDistribution
+        let annualWith = legacyWithScenarioAnnualDistribution
+        let taxWithout = TaxCalculationEngine.heirTaxEstimate(
+            annualDistribution: annualWithout, heirSalary: legacyHeirEstimatedSalary,
+            filingStatus: legacyHeirFilingStatus, drawdownYears: legacyDrawdownYears).incrementalTax
+        let taxWith = TaxCalculationEngine.heirTaxEstimate(
+            annualDistribution: annualWith, heirSalary: legacyHeirEstimatedSalary,
+            filingStatus: legacyHeirFilingStatus, drawdownYears: legacyDrawdownYears).incrementalTax
+        return max(0, (taxWithout - taxWith) * Double(legacyDrawdownYears))
     }
 
     /// QCD reduces the inherited IRA balance — heir avoids tax on that portion.
-    /// Uses the full QCD amount (all QCD shrinks the IRA, regardless of RMD offset).
+    /// Uses progressive brackets for accuracy.
     var legacyQCDHeirBenefit: Double {
         guard enableLegacyPlanning, scenarioTotalQCD > 0 else { return 0 }
-        return scenarioTotalQCD * legacyHeirTaxRate
+        return scenarioTotalQCD * legacyHeirProgressiveEffectiveRate
     }
 
     /// The user's current-year tax cost for Roth conversion (fed + state + IRMAA).
@@ -2045,9 +2062,50 @@ class DataManager: ObservableObject {
         totalRothBalance + scenarioTotalRothConversion
     }
 
-    /// Heir's estimated total tax on remaining Traditional IRA balance.
+    /// Heir's estimated total tax on remaining Traditional IRA balance using progressive brackets.
     var legacyHeirEstimatedTaxOnTraditional: Double {
-        legacyTraditionalAtInheritance * legacyHeirTaxRate
+        let annual = legacyWithScenarioAnnualDistribution
+        let est = TaxCalculationEngine.heirTaxEstimate(
+            annualDistribution: annual, heirSalary: legacyHeirEstimatedSalary,
+            filingStatus: legacyHeirFilingStatus, drawdownYears: legacyDrawdownYears)
+        return est.totalTaxOverDrawdown
+    }
+
+    /// Annual forced distribution from Traditional IRA (no-action scenario).
+    var legacyNoActionAnnualDistribution: Double {
+        let drawdown = legacyHeirType == "spouseThenChild" ? 10 : legacyDrawdownYears
+        guard drawdown > 0 else { return 0 }
+        return legacyNoActionTraditionalAtDeath / Double(drawdown)
+    }
+
+    /// Annual forced distribution from Traditional IRA (with-scenario).
+    var legacyWithScenarioAnnualDistribution: Double {
+        let drawdown = legacyHeirType == "spouseThenChild" ? 10 : legacyDrawdownYears
+        guard drawdown > 0 else { return 0 }
+        return legacyWithScenarioTraditionalAtDeath / Double(drawdown)
+    }
+
+    /// Progressive tax estimate for the heir's inherited distributions (with-scenario).
+    var legacyHeirTaxEstimate: TaxCalculationEngine.HeirTaxEstimate {
+        TaxCalculationEngine.heirTaxEstimate(
+            annualDistribution: legacyWithScenarioAnnualDistribution,
+            heirSalary: legacyHeirEstimatedSalary,
+            filingStatus: legacyHeirFilingStatus,
+            drawdownYears: legacyDrawdownYears)
+    }
+
+    /// Progressive tax estimate for the no-action scenario.
+    var legacyNoActionHeirTaxEstimate: TaxCalculationEngine.HeirTaxEstimate {
+        TaxCalculationEngine.heirTaxEstimate(
+            annualDistribution: legacyNoActionAnnualDistribution,
+            heirSalary: legacyHeirEstimatedSalary,
+            filingStatus: legacyHeirFilingStatus,
+            drawdownYears: legacyDrawdownYears)
+    }
+
+    /// The heir's effective tax rate on inherited distributions (progressive, with-scenario).
+    var legacyHeirProgressiveEffectiveRate: Double {
+        legacyHeirTaxEstimate.effectiveRateOnDistribution
     }
 
     /// Human-readable description of inheritance rules based on heir type.
@@ -2187,7 +2245,9 @@ class DataManager: ObservableObject {
             spouseSurvivorYears: legacySpouseSurvivorYears,
             spouseBirthYear: spouseBirthYear,
             currentYear: currentYear,
-            totalPostDeathYears: legacyTotalPostDeathYears
+            totalPostDeathYears: legacyTotalPostDeathYears,
+            heirEstimatedSalary: legacyHeirEstimatedSalary,
+            heirFilingStatus: legacyHeirFilingStatus
         )
     }
 
@@ -2231,10 +2291,10 @@ class DataManager: ObservableObject {
         return projectHeirDrawdownTotal(startingBalance: legacyNoActionTraditionalAtDeath)
     }
 
-    /// Heir's total tax bill WITHOUT scenario actions.
+    /// Heir's total tax bill WITHOUT scenario actions (progressive brackets).
     var legacyCostOfInaction: Double {
         guard enableLegacyPlanning else { return 0 }
-        return legacyNoActionHeirTaxableDrawdown * legacyHeirTaxRate
+        return legacyNoActionHeirTaxEstimate.totalTaxOverDrawdown
     }
 
     // MARK: - "With Scenario" Projections
@@ -2257,10 +2317,10 @@ class DataManager: ObservableObject {
         return projectHeirDrawdownTotal(startingBalance: legacyWithScenarioTraditionalAtDeath)
     }
 
-    /// Heir's tax bill WITH scenario actions.
+    /// Heir's tax bill WITH scenario actions (progressive brackets).
     var legacyWithScenarioHeirTax: Double {
         guard enableLegacyPlanning else { return 0 }
-        return legacyWithScenarioHeirTaxableDrawdown * legacyHeirTaxRate
+        return legacyHeirTaxEstimate.totalTaxOverDrawdown
     }
 
     // MARK: - Family Totals
@@ -2372,7 +2432,9 @@ class DataManager: ObservableObject {
             conversionTaxPaidToday: legacyConversionTaxPaidToday,
             growthRate: legacyGrowthRate,
             taxableGrowthRate: taxableAccountGrowthRate,
-            heirTaxRate: legacyHeirTaxRate)
+            heirTaxRate: legacyHeirTaxRate,
+            heirEstimatedSalary: legacyHeirEstimatedSalary,
+            heirFilingStatus: legacyHeirFilingStatus)
     }
 
     var legacyCompoundingChartData: [LegacyCompoundingPoint] {
@@ -2386,6 +2448,8 @@ class DataManager: ObservableObject {
             growthRate: legacyGrowthRate,
             taxableGrowthRate: taxableAccountGrowthRate,
             heirTaxRate: legacyHeirTaxRate,
+            heirEstimatedSalary: legacyHeirEstimatedSalary,
+            heirFilingStatus: legacyHeirFilingStatus,
             maxYears: min(40, legacyYearsUntilDeath + legacyTotalPostDeathYears))
     }
 

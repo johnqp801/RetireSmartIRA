@@ -90,6 +90,81 @@ struct TaxCalculationEngine {
         return tax
     }
 
+    // MARK: - Heir Tax Estimate (Progressive Brackets)
+
+    /// Result of calculating progressive federal tax on an heir's inherited IRA distributions.
+    struct HeirTaxEstimate {
+        let annualDistribution: Double
+        let heirSalary: Double
+        let totalIncome: Double          // salary + distribution
+        let taxOnTotalIncome: Double     // federal tax on salary + distribution
+        let taxOnSalaryAlone: Double     // federal tax on salary only
+        let incrementalTax: Double       // tax attributable to just the distribution
+        let marginalRate: Double         // bracket rate on the last dollar
+        let effectiveRateOnDistribution: Double // incrementalTax / distribution
+        let totalDrawdownYears: Int
+        let totalTaxOverDrawdown: Double // incrementalTax × drawdownYears (approximate)
+    }
+
+    /// Calculates progressive federal tax impact on an heir receiving inherited IRA distributions.
+    /// Returns marginal rate, effective rate, and dollar amounts based on current tax brackets.
+    static func heirTaxEstimate(
+        annualDistribution: Double,
+        heirSalary: Double = 75_000,
+        filingStatus: FilingStatus = .single,
+        drawdownYears: Int = 10
+    ) -> HeirTaxEstimate {
+        let brackets = default2026Brackets
+        let totalIncome = heirSalary + annualDistribution
+
+        // Tax on combined income (salary + distribution)
+        let taxOnTotal = calculateFederalTax(income: totalIncome, filingStatus: filingStatus, brackets: brackets, preferentialIncome: 0)
+
+        // Tax on salary alone
+        let taxOnSalary = calculateFederalTax(income: heirSalary, filingStatus: filingStatus, brackets: brackets, preferentialIncome: 0)
+
+        // Incremental tax from the distribution
+        let incremental = taxOnTotal - taxOnSalary
+
+        // Find marginal rate (the bracket the last dollar of total income falls in)
+        let ordinaryBrackets = filingStatus == .single
+            ? brackets.federalSingle : brackets.federalMarried
+        var marginal = 0.0
+        for bracket in ordinaryBrackets {
+            if totalIncome > bracket.threshold {
+                marginal = bracket.rate
+            }
+        }
+
+        // Effective rate on just the distribution
+        let effectiveOnDist = annualDistribution > 0 ? incremental / annualDistribution : 0
+
+        return HeirTaxEstimate(
+            annualDistribution: annualDistribution,
+            heirSalary: heirSalary,
+            totalIncome: totalIncome,
+            taxOnTotalIncome: taxOnTotal,
+            taxOnSalaryAlone: taxOnSalary,
+            incrementalTax: incremental,
+            marginalRate: marginal,
+            effectiveRateOnDistribution: effectiveOnDist,
+            totalDrawdownYears: drawdownYears,
+            totalTaxOverDrawdown: incremental * Double(drawdownYears)
+        )
+    }
+
+    /// Computes the effective tax rate on a given annual distribution amount using progressive brackets.
+    /// Used by LegacyPlanningEngine as a replacement for flat-rate multiplication.
+    static func heirEffectiveTaxRate(
+        annualDistribution: Double,
+        heirSalary: Double = 75_000,
+        filingStatus: FilingStatus = .single
+    ) -> Double {
+        guard annualDistribution > 0 else { return 0 }
+        let est = heirTaxEstimate(annualDistribution: annualDistribution, heirSalary: heirSalary, filingStatus: filingStatus)
+        return est.effectiveRateOnDistribution
+    }
+
     // MARK: - Federal Tax Breakdown (bracket-by-bracket)
 
     static func federalTaxBreakdown(income: Double, filingStatus: FilingStatus, brackets: TaxBrackets, preferentialIncome: Double) -> FederalTaxBreakdown {
