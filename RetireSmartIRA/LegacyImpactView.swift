@@ -300,6 +300,10 @@ struct LegacyImpactView: View {
                     .frame(maxWidth: .infinity)
             }
 
+            if dataManager.scenarioTotalRothConversion > 0 && dataManager.legacyHeirEstimatedSalary > 0 {
+                heirSalarySensitivityRow
+            }
+
             let deathAge = dataManager.legacyEstimatedDeathAge
             let yearsLeft = dataManager.legacyYearsUntilDeath
             let growthPct = Int(dataManager.legacyGrowthRate)
@@ -319,6 +323,49 @@ struct LegacyImpactView: View {
         .padding(.vertical, 8)
         .background(Color.green.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// Shows net family gain at the current heir salary ±25%.
+    /// Gives the user a quick read on how sensitive the conversion decision is
+    /// to heir-salary uncertainty — the single biggest unknown in legacy modeling.
+    private var heirSalarySensitivityRow: some View {
+        let current = dataManager.legacyHeirEstimatedSalary
+        let low = max(0, current * 0.75)
+        let high = current * 1.25
+        let gainLow = dataManager.legacyFamilyWealthAdvantage(atHeirSalary: low)
+        let gainCurrent = dataManager.legacyFamilyWealthAdvantage
+        let gainHigh = dataManager.legacyFamilyWealthAdvantage(atHeirSalary: high)
+
+        func cell(title: String, salary: Double, gain: Double) -> some View {
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(salary, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(abs(gain), format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .font(bodyFont)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(gain >= 0 ? .green : .orange)
+            }
+            .frame(maxWidth: .infinity)
+        }
+
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("If the heir's salary is different:")
+                .font(detailFont)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                cell(title: "−25%", salary: low, gain: gainLow)
+                cell(title: "Current", salary: current, gain: gainCurrent)
+                cell(title: "+25%", salary: high, gain: gainHigh)
+            }
+        }
+        .padding(8)
+        .background(Color.blue.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 8)
     }
 
     // MARK: - Compounding Divergence Chart
@@ -829,6 +876,18 @@ struct LegacyImpactView: View {
                                     Text("Bracket crossing: these distributions push your heir from the \(Int(taxEst.salaryOnlyMarginalRate * 100))% bracket (salary alone) up into the \(Int(taxEst.marginalRate * 100))% bracket.")
                                         .font(.caption)
                                         .foregroundStyle(.orange)
+                                }
+                            }
+
+                            if dataManager.legacyHeirKiddieTaxPossible,
+                               let heirAge = dataManager.legacyHeirAgeAtInheritance {
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "person.crop.circle.badge.exclamationmark")
+                                        .foregroundStyle(.red)
+                                        .font(.caption)
+                                    Text("Kiddie Tax possible: at the projected inheritance year your heir would be about \(heirAge). If they're a dependent full-time student or minor, unearned income over the annual threshold is taxed at the supporting parent's marginal rate \u{2014} not modeled here.")
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
                                 }
                             }
 

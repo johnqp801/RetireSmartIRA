@@ -6032,6 +6032,85 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     }
 }
 
+// MARK: - 63. Heir Age + Kiddie Tax + Salary Sensitivity
+
+@Suite("Heir Age + Salary Sensitivity", .serialized)
+@MainActor struct HeirAgeAndSensitivityTests {
+
+    private func makeLegacyDM() -> DataManager {
+        let dm = makeDM(birthYear: 1960, filingStatus: .single, state: .florida)
+        dm.enableLegacyPlanning = true
+        dm.legacyHeirType = "adultChild"
+        dm.legacyHeirEstimatedSalary = 75_000
+        dm.legacyHeirFilingStatus = .single
+        dm.primaryGrowthRate = 7.0
+        dm.iraAccounts = [
+            IRAAccount(name: "Trad", accountType: .traditionalIRA, balance: 500_000, owner: .primary)
+        ]
+        return dm
+    }
+
+    @Test("Heir age nil when birth year unset")
+    func heirAgeNilWhenUnset() {
+        let dm = makeLegacyDM()
+        #expect(dm.legacyHeirAgeAtInheritance == nil)
+        #expect(dm.legacyHeirKiddieTaxPossible == false)
+    }
+
+    @Test("Heir age computed from birth year + years-until-death")
+    func heirAgeComputed() {
+        let dm = makeLegacyDM()
+        dm.currentYear = 2026
+        dm.legacyHeirBirthYear = 2010
+        // Age 65 owner (birthYear 1960), default death age in app should give reasonable yearsUntilDeath.
+        // Just verify it's nonzero and sensible:
+        let age = dm.legacyHeirAgeAtInheritance
+        #expect(age != nil)
+        let years = dm.legacyYearsUntilDeath
+        #expect(age == (2026 + years) - 2010)
+    }
+
+    @Test("Kiddie Tax flag triggers for young heir at inheritance")
+    func kiddieTaxYoungHeir() {
+        let dm = makeLegacyDM()
+        dm.currentYear = 2026
+        // Owner born 1960 (age 66), projected death ~22 years out (SLE factor at 66 = 22.0).
+        // Heir born 2025 → age at inheritance ≈ 23, still <24 → Kiddie-eligible if student.
+        dm.legacyHeirBirthYear = 2025
+        #expect(dm.legacyHeirKiddieTaxPossible == true)
+    }
+
+    @Test("Kiddie Tax flag off for adult heir at inheritance")
+    func kiddieTaxAdultHeir() {
+        let dm = makeLegacyDM()
+        dm.currentYear = 2026
+        // Heir born 1990 → age 36 today; will be well over 24 at inheritance.
+        dm.legacyHeirBirthYear = 1990
+        #expect(dm.legacyHeirKiddieTaxPossible == false)
+    }
+
+    @Test("Salary sensitivity helper matches base case at current salary")
+    func salarySensitivityMatchesBase() {
+        let dm = makeLegacyDM()
+        dm.yourRothConversion = 50_000
+        let base = dm.legacyFamilyWealthAdvantage
+        let atCurrent = dm.legacyFamilyWealthAdvantage(atHeirSalary: dm.legacyHeirEstimatedSalary)
+        #expect(isClose(base, atCurrent, tolerance: 1.0))
+    }
+
+    @Test("Higher heir salary → higher family wealth advantage for Roth conversion")
+    func salarySensitivityDirection() {
+        let dm = makeLegacyDM()
+        dm.yourRothConversion = 50_000
+        let low = dm.legacyFamilyWealthAdvantage(atHeirSalary: 30_000)
+        let high = dm.legacyFamilyWealthAdvantage(atHeirSalary: 200_000)
+        // Higher heir salary → heir's progressive effective rate on the inherited
+        // distribution is higher → avoiding that tax via Roth conversion is worth
+        // more. So advantage should be strictly larger at the higher salary.
+        #expect(high > low)
+    }
+}
+
 // MARK: - Estimated Payment Schedule Tests
 
 @Suite("EstimatedPaymentSchedule")

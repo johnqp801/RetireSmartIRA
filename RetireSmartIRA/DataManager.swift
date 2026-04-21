@@ -172,6 +172,10 @@ class DataManager: ObservableObject {
         get { legacy.legacyHeirFilingStatus }
         set { legacy.legacyHeirFilingStatus = newValue }
     }
+    var legacyHeirBirthYear: Int? {
+        get { legacy.legacyHeirBirthYear }
+        set { legacy.legacyHeirBirthYear = newValue }
+    }
     var legacySpouseSurvivorYears: Int {
         get { legacy.legacySpouseSurvivorYears }
         set { legacy.legacySpouseSurvivorYears = newValue }
@@ -2102,6 +2106,48 @@ class DataManager: ObservableObject {
     /// The heir's effective tax rate on inherited distributions (progressive, with-scenario).
     var legacyHeirProgressiveEffectiveRate: Double {
         legacyHeirTaxEstimate.effectiveRateOnDistribution
+    }
+
+    /// Heir's projected age at the user's projected year of death.
+    /// Nil when the user hasn't supplied `legacyHeirBirthYear`.
+    var legacyHeirAgeAtInheritance: Int? {
+        guard let birthYear = legacyHeirBirthYear else { return nil }
+        return (currentYear + legacyYearsUntilDeath) - birthYear
+    }
+
+    /// Kiddie Tax (IRC §1(g)) can apply to dependent full-time students through age 23,
+    /// so we surface the concern conservatively at <24. Under 18 is the always-on case.
+    var legacyHeirKiddieTaxPossible: Bool {
+        guard let age = legacyHeirAgeAtInheritance else { return false }
+        return age < 24
+    }
+
+    func legacyFamilyWealthAdvantage(atHeirSalary heirSalary: Double) -> Double {
+        let noActionRate = TaxCalculationEngine.heirEffectiveTaxRate(
+            annualDistribution: legacyNoActionAnnualDistribution,
+            heirSalary: heirSalary,
+            filingStatus: legacyHeirFilingStatus)
+        let withRate = TaxCalculationEngine.heirEffectiveTaxRate(
+            annualDistribution: legacyWithScenarioAnnualDistribution,
+            heirSalary: heirSalary,
+            filingStatus: legacyHeirFilingStatus)
+
+        let noActionAfterTax = legacyNoActionHeirTaxableDrawdown * (1 - noActionRate)
+        let withAfterTax = legacyWithScenarioHeirTaxableDrawdown * (1 - withRate)
+
+        let noActionRoth: Double
+        let withRoth: Double
+        if legacyHeirType == "spouseThenChild" {
+            noActionRoth = projectRothSpouseThenChild(startingBalance: totalRothBalance)
+            withRoth = projectRothSpouseThenChild(startingBalance: legacyRothAtInheritance)
+        } else {
+            noActionRoth = projectHeirDrawdownTotal(startingBalance: legacyNoActionRothAtDeath)
+            withRoth = projectHeirDrawdownTotal(startingBalance: legacyWithScenarioRothAtDeath)
+        }
+
+        let noConvWealth = noActionAfterTax + noActionRoth + legacyTaxMoneyFutureValue
+        let withConvWealth = withAfterTax + withRoth
+        return withConvWealth - noConvWealth
     }
 
     /// Human-readable description of inheritance rules based on heir type.

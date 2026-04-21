@@ -145,6 +145,33 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Heir's Birth Year (optional)")
+                            Spacer()
+                            TextField("—", text: Binding(
+                                get: { dataManager.legacyHeirBirthYear.map(String.init) ?? "" },
+                                set: { raw in
+                                    let trimmed = raw.trimmingCharacters(in: .whitespaces)
+                                    if trimmed.isEmpty {
+                                        dataManager.legacyHeirBirthYear = nil
+                                    } else if let year = Int(trimmed), year >= 1900, year <= 2100 {
+                                        dataManager.legacyHeirBirthYear = year
+                                    }
+                                }
+                            ))
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            #endif
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 80)
+                            .foregroundStyle(.secondary)
+                        }
+                        Text("Used only to flag Kiddie Tax concerns if your heir is under 24 at the projected inheritance year.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     HStack(spacing: 8) {
                         Image(systemName: {
                             switch dataManager.legacyHeirType {
@@ -230,6 +257,7 @@ struct SettingsView: View {
         .onChange(of: dataManager.legacyHeirType) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirEstimatedSalary) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirFilingStatus) { dataManager.saveAllData() }
+        .onChange(of: dataManager.legacyHeirBirthYear) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacySpouseSurvivorYears) { dataManager.saveAllData() }
         .sheet(isPresented: $showSources) {
             NavigationStack {
