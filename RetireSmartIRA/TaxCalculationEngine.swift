@@ -100,10 +100,16 @@ struct TaxCalculationEngine {
         let taxOnTotalIncome: Double     // federal tax on salary + distribution
         let taxOnSalaryAlone: Double     // federal tax on salary only
         let incrementalTax: Double       // tax attributable to just the distribution
-        let marginalRate: Double         // bracket rate on the last dollar
+        let marginalRate: Double         // bracket rate on the last dollar of salary+distribution
+        let salaryOnlyMarginalRate: Double // bracket rate on the last dollar of salary alone
         let effectiveRateOnDistribution: Double // incrementalTax / distribution
         let totalDrawdownYears: Int
         let totalTaxOverDrawdown: Double // incrementalTax × drawdownYears (approximate)
+
+        /// True when the distribution pushes the heir into a higher bracket than their salary alone.
+        var crossesBracket: Bool {
+            marginalRate > salaryOnlyMarginalRate
+        }
     }
 
     /// Calculates progressive federal tax impact on an heir receiving inherited IRA distributions.
@@ -126,13 +132,17 @@ struct TaxCalculationEngine {
         // Incremental tax from the distribution
         let incremental = taxOnTotal - taxOnSalary
 
-        // Find marginal rate (the bracket the last dollar of total income falls in)
+        // Find marginal rates (the bracket the last dollar of each income amount falls in)
         let ordinaryBrackets = filingStatus == .single
             ? brackets.federalSingle : brackets.federalMarried
         var marginal = 0.0
+        var salaryMarginal = 0.0
         for bracket in ordinaryBrackets {
             if totalIncome > bracket.threshold {
                 marginal = bracket.rate
+            }
+            if heirSalary > bracket.threshold {
+                salaryMarginal = bracket.rate
             }
         }
 
@@ -147,6 +157,7 @@ struct TaxCalculationEngine {
             taxOnSalaryAlone: taxOnSalary,
             incrementalTax: incremental,
             marginalRate: marginal,
+            salaryOnlyMarginalRate: salaryMarginal,
             effectiveRateOnDistribution: effectiveOnDist,
             totalDrawdownYears: drawdownYears,
             totalTaxOverDrawdown: incremental * Double(drawdownYears)

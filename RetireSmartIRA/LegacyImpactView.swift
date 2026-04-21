@@ -516,6 +516,15 @@ struct LegacyImpactView: View {
                             .font(detailFont)
                             .foregroundStyle(.secondary)
                     }
+                    if taxPaid > 0 {
+                        let taxFV = dataManager.legacyTaxMoneyFutureValue
+                        HStack(alignment: .top, spacing: 4) {
+                            Circle().fill(.orange).frame(width: 6, height: 6).padding(.top, 5)
+                            Text("Opportunity cost: the \(compactCurrency(taxPaid)) you pay in conversion tax today would have grown to about \(compactCurrency(taxFV)) if left invested in a taxable account \u{2014} that's the bar Roth conversion has to clear.")
+                                .font(detailFont)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 if converted > 0 {
@@ -812,19 +821,30 @@ struct LegacyImpactView: View {
                                 }
                             }
 
+                            if taxEst.crossesBracket {
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "arrow.up.forward.square.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.caption)
+                                    Text("Bracket crossing: these distributions push your heir from the \(Int(taxEst.salaryOnlyMarginalRate * 100))% bracket (salary alone) up into the \(Int(taxEst.marginalRate * 100))% bracket.")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+
                             if dataManager.legacyHeirEstimatedSalary > 0 {
-                                Text("With their own \(compactCurrency(dataManager.legacyHeirEstimatedSalary)) salary, every dollar of inheritance is taxed starting at their existing top bracket. Each dollar you convert to Roth now eliminates a dollar taxed at \(Int(taxEst.marginalRate * 100))% later.")
+                                Text("On top of their \(compactCurrency(dataManager.legacyHeirEstimatedSalary)) salary, the inheritance is taxed at rates up to \(Int(taxEst.marginalRate * 100))%. Each dollar you convert to Roth now avoids tax on the heir side.")
                                     .font(bodyFont)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.primary)
                             } else {
-                                Text("Every dollar you convert to Roth now is one less dollar forced through the \(Int(taxEst.marginalRate * 100))% bracket later.")
+                                Text("Every dollar you convert to Roth now is one less dollar the heir could be taxed on at up to \(Int(taxEst.marginalRate * 100))% later.")
                                     .font(bodyFont)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.primary)
                             }
 
-                            Text("Based on current federal tax law. Brackets adjust annually for inflation.")
+                            Text("Based on current (2026) federal brackets. Not modeled: heir's state income tax, IRMAA, NIIT, AMT, or inflation adjustments to future brackets. These can shift the heir's true rate by roughly \u{00B1}5\u{2013}15 percentage points.")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }

@@ -138,16 +138,18 @@ struct LegacyPlanningEngine {
         taxableGrowthRate: Double,
         heirEstimatedSalary: Double,
         heirFilingStatus: FilingStatus,
+        heirDrawdownYears: Int,
         maxYears: Int
     ) -> [LegacyCompoundingPoint] {
         guard scenarioTotalRothConversion > 0, conversionTaxPaidToday > 0 else { return [] }
         let rPretax = growthRate / 100
         let rTaxable = taxableGrowthRate / 100
+        let drawdown = max(1, heirDrawdownYears)
 
         var points: [LegacyCompoundingPoint] = []
         for year in stride(from: 0, through: maxYears, by: 5) {
             let rothFV = scenarioTotalRothConversion * pow(1 + rPretax, Double(year))
-            let annualDist = rothFV / 10.0
+            let annualDist = rothFV / Double(drawdown)
             let effRate = TaxCalculationEngine.heirEffectiveTaxRate(
                 annualDistribution: annualDist,
                 heirSalary: heirEstimatedSalary,
@@ -158,7 +160,7 @@ struct LegacyPlanningEngine {
         }
         if maxYears % 5 != 0 {
             let rothFV = scenarioTotalRothConversion * pow(1 + rPretax, Double(maxYears))
-            let annualDist = rothFV / 10.0
+            let annualDist = rothFV / Double(drawdown)
             let effRate = TaxCalculationEngine.heirEffectiveTaxRate(
                 annualDistribution: annualDist,
                 heirSalary: heirEstimatedSalary,
@@ -172,8 +174,8 @@ struct LegacyPlanningEngine {
 
     /// The year at which the Roth path overtakes the Traditional+tax path.
     /// Uses the progressive heir-tax effective rate derived from salary + filing status
-    /// at each year's hypothetical distribution (treating the whole traditional FV as a
-    /// 10-year drawdown, matching the compounding chart).
+    /// at each year's hypothetical distribution (spreading the traditional FV over the
+    /// heir's drawdown period, matching the compounding chart).
     static func computeBreakEvenYear(
         scenarioTotalRothConversion: Double,
         conversionTaxPaidToday: Double,
@@ -181,15 +183,17 @@ struct LegacyPlanningEngine {
         taxableGrowthRate: Double,
         heirEstimatedSalary: Double,
         heirFilingStatus: FilingStatus,
+        heirDrawdownYears: Int,
         maxYears: Int
     ) -> Int? {
         guard scenarioTotalRothConversion > 0, conversionTaxPaidToday > 0 else { return nil }
         let rPretax = growthRate / 100
         let rTaxable = taxableGrowthRate / 100
+        let drawdown = max(1, heirDrawdownYears)
 
         func effRate(rothFV: Double) -> Double {
             TaxCalculationEngine.heirEffectiveTaxRate(
-                annualDistribution: rothFV / 10.0,
+                annualDistribution: rothFV / Double(drawdown),
                 heirSalary: heirEstimatedSalary,
                 filingStatus: heirFilingStatus)
         }

@@ -2397,6 +2397,7 @@ class DataManager: ObservableObject {
             taxableGrowthRate: taxableAccountGrowthRate,
             heirEstimatedSalary: legacyHeirEstimatedSalary,
             heirFilingStatus: legacyHeirFilingStatus,
+            heirDrawdownYears: legacyDrawdownYears,
             maxYears: min(40, legacyYearsUntilDeath + legacyTotalPostDeathYears))
     }
 
@@ -2412,6 +2413,7 @@ class DataManager: ObservableObject {
             taxableGrowthRate: taxableAccountGrowthRate,
             heirEstimatedSalary: legacyHeirEstimatedSalary,
             heirFilingStatus: legacyHeirFilingStatus,
+            heirDrawdownYears: legacyDrawdownYears,
             maxYears: legacyYearsUntilDeath + legacyTotalPostDeathYears)
     }
 
