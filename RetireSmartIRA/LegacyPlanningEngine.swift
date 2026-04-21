@@ -19,7 +19,6 @@ struct LegacyPlanningEngine {
         let yearsUntilDeath: Int
         let growthRate: Double          // primaryGrowthRate (percentage, e.g. 6.0)
         let taxableGrowthRate: Double   // taxableAccountGrowthRate (percentage)
-        let heirTaxRate: Double
         let heirType: String
         let drawdownYears: Int
         let spouseSurvivorYears: Int
@@ -30,7 +29,7 @@ struct LegacyPlanningEngine {
         let heirFilingStatus: FilingStatus
 
         init(currentAge: Int, rmdAge: Int, yearsUntilDeath: Int, growthRate: Double,
-             taxableGrowthRate: Double, heirTaxRate: Double, heirType: String,
+             taxableGrowthRate: Double, heirType: String,
              drawdownYears: Int, spouseSurvivorYears: Int, spouseBirthYear: Int,
              currentYear: Int, totalPostDeathYears: Int,
              heirEstimatedSalary: Double = 75_000, heirFilingStatus: FilingStatus = .single) {
@@ -39,7 +38,6 @@ struct LegacyPlanningEngine {
             self.yearsUntilDeath = yearsUntilDeath
             self.growthRate = growthRate
             self.taxableGrowthRate = taxableGrowthRate
-            self.heirTaxRate = heirTaxRate
             self.heirType = heirType
             self.drawdownYears = drawdownYears
             self.spouseSurvivorYears = spouseSurvivorYears
@@ -130,149 +128,6 @@ struct LegacyPlanningEngine {
         return projectHeirDrawdownTotal(startingBalance: balanceAtSpouseDeath, params: params)
     }
 
-    // MARK: - Progressive Tax Helper
-
-    /// Computes after-tax amount from a total taxable drawdown using progressive brackets.
-    /// The drawdown is spread evenly over the heir's drawdown years to get annual distribution,
-    /// then progressive tax is applied to each year's distribution.
-    private static func afterTaxDrawdown(totalDrawdown: Double, annualYears: Int, params: ProjectionParams) -> Double {
-        guard totalDrawdown > 0, annualYears > 0 else { return totalDrawdown }
-        let annualDist = totalDrawdown / Double(annualYears)
-        let est = TaxCalculationEngine.heirTaxEstimate(
-            annualDistribution: annualDist,
-            heirSalary: params.heirEstimatedSalary,
-            filingStatus: params.heirFilingStatus,
-            drawdownYears: annualYears)
-        return totalDrawdown - est.totalTaxOverDrawdown
-    }
-
-    // MARK: - Family Wealth Advantage
-
-    /// Computes family wealth advantage for a given heir tax rate using the full simulation.
-    /// Uses progressive brackets for tax calculation instead of flat rate.
-    static func familyWealthAdvantageAtHeirRate(
-        _ testRate: Double,
-        params: ProjectionParams,
-        totalTraditionalBalance: Double,
-        totalRothBalance: Double,
-        traditionalAtInheritance: Double,
-        rothAtInheritance: Double,
-        conversionTaxPaidToday: Double,
-        scenarioTotalRothConversion: Double
-    ) -> Double {
-        guard scenarioTotalRothConversion > 0 else { return 0 }
-        let rTaxable = params.taxableGrowthRate / 100
-
-        // "No conversion" wealth
-        let noActionTraditionalAtDeath = projectTraditionalToInheritance(startingBalance: totalTraditionalBalance, params: params)
-        let noActionRothAtDeath = projectRothToInheritance(startingBalance: totalRothBalance, params: params)
-
-        let noActionHeirTaxableDrawdown: Double
-        let noActionRothDrawdown: Double
-        if params.heirType == "spouseThenChild" {
-            noActionHeirTaxableDrawdown = projectTraditionalSpouseThenChild(startingBalance: totalTraditionalBalance, params: params)
-            noActionRothDrawdown = projectRothSpouseThenChild(startingBalance: totalRothBalance, params: params)
-        } else {
-            noActionHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: noActionTraditionalAtDeath, params: params)
-            noActionRothDrawdown = projectHeirDrawdownTotal(startingBalance: noActionRothAtDeath, params: params)
-        }
-        let drawdownYears = params.heirType == "spouseThenChild" ? 10 : params.drawdownYears
-        let noActionHeirAfterTax = afterTaxDrawdown(totalDrawdown: noActionHeirTaxableDrawdown, annualYears: drawdownYears, params: params)
-        let totalYears = Double(params.yearsUntilDeath + params.totalPostDeathYears)
-        let taxMoneyGrown = conversionTaxPaidToday * pow(1 + rTaxable, totalYears)
-        let noConversionWealth = noActionHeirAfterTax + noActionRothDrawdown + taxMoneyGrown
-
-        // "With conversion" wealth
-        let withScenarioTraditionalAtDeath = projectTraditionalToInheritance(startingBalance: traditionalAtInheritance, params: params)
-        let withScenarioRothAtDeath = projectRothToInheritance(startingBalance: rothAtInheritance, params: params)
-
-        let withHeirTaxableDrawdown: Double
-        let withRothDrawdown: Double
-        if params.heirType == "spouseThenChild" {
-            withHeirTaxableDrawdown = projectTraditionalSpouseThenChild(startingBalance: traditionalAtInheritance, params: params)
-            withRothDrawdown = projectRothSpouseThenChild(startingBalance: rothAtInheritance, params: params)
-        } else {
-            withHeirTaxableDrawdown = projectHeirDrawdownTotal(startingBalance: withScenarioTraditionalAtDeath, params: params)
-            withRothDrawdown = projectHeirDrawdownTotal(startingBalance: withScenarioRothAtDeath, params: params)
-        }
-        let withHeirAfterTax = afterTaxDrawdown(totalDrawdown: withHeirTaxableDrawdown, annualYears: drawdownYears, params: params)
-        let withConversionWealth = withHeirAfterTax + withRothDrawdown
-
-        return withConversionWealth - noConversionWealth
-    }
-
-    // MARK: - Break-Even Analysis
-
-    /// Numerically finds the heir tax rate where family wealth advantage = 0.
-    static func computeBreakEvenHeirTaxRate(
-        params: ProjectionParams,
-        totalTraditionalBalance: Double,
-        totalRothBalance: Double,
-        traditionalAtInheritance: Double,
-        rothAtInheritance: Double,
-        conversionTaxPaidToday: Double,
-        scenarioTotalRothConversion: Double
-    ) -> Double {
-        guard scenarioTotalRothConversion > 0, conversionTaxPaidToday > 0 else { return 0 }
-
-        let advantage = { (rate: Double) in
-            familyWealthAdvantageAtHeirRate(rate, params: params,
-                totalTraditionalBalance: totalTraditionalBalance, totalRothBalance: totalRothBalance,
-                traditionalAtInheritance: traditionalAtInheritance, rothAtInheritance: rothAtInheritance,
-                conversionTaxPaidToday: conversionTaxPaidToday, scenarioTotalRothConversion: scenarioTotalRothConversion)
-        }
-
-        if advantage(0.0) >= 0 { return 0 }
-        if advantage(1.0) <= 0 { return 1.0 }
-
-        var lo = 0.0
-        var hi = 1.0
-        for _ in 0..<50 {
-            let mid = (lo + hi) / 2
-            if advantage(mid) < 0 { lo = mid } else { hi = mid }
-        }
-        return (lo + hi) / 2
-    }
-
-    /// Family wealth advantage at multiple time horizons (simplified, no RMD drag).
-    static func computeBreakEvenAtHorizons(
-        scenarioTotalRothConversion: Double,
-        conversionTaxPaidToday: Double,
-        growthRate: Double,
-        taxableGrowthRate: Double,
-        heirTaxRate: Double,
-        heirEstimatedSalary: Double,
-        heirFilingStatus: FilingStatus
-    ) -> [(years: Int, rate: Double, advantage: Double)] {
-        guard scenarioTotalRothConversion > 0, conversionTaxPaidToday > 0 else { return [] }
-        let rPretax = growthRate / 100
-        let rTaxable = taxableGrowthRate / 100
-
-        return [10, 20, 30].map { totalYears in
-            let rothFV = scenarioTotalRothConversion * pow(1 + rPretax, Double(totalYears))
-            // Use progressive tax: treat the full traditional FV as a 10-year drawdown
-            let annualDist = rothFV / 10.0
-            let effectiveRate = TaxCalculationEngine.heirEffectiveTaxRate(
-                annualDistribution: annualDist,
-                heirSalary: heirEstimatedSalary,
-                filingStatus: heirFilingStatus)
-            let tradFV = rothFV * (1 - effectiveRate)
-            let taxKeptFV = conversionTaxPaidToday * pow(1 + rTaxable, Double(totalYears))
-            let advantage = rothFV - tradFV - taxKeptFV
-
-            var lo = 0.0
-            var hi = 1.0
-            for _ in 0..<40 {
-                let mid = (lo + hi) / 2
-                let testTradFV = rothFV * (1 - mid)
-                let testAdv = rothFV - testTradFV - taxKeptFV
-                if testAdv < 0 { lo = mid } else { hi = mid }
-            }
-            let breakEven = (lo + hi) / 2
-            return (years: totalYears, rate: breakEven, advantage: advantage)
-        }
-    }
-
     // MARK: - Compounding Divergence Chart Data
 
     /// Year-by-year data showing how Roth and Traditional paths diverge.
@@ -281,7 +136,6 @@ struct LegacyPlanningEngine {
         conversionTaxPaidToday: Double,
         growthRate: Double,
         taxableGrowthRate: Double,
-        heirTaxRate: Double,
         heirEstimatedSalary: Double,
         heirFilingStatus: FilingStatus,
         maxYears: Int
@@ -317,25 +171,36 @@ struct LegacyPlanningEngine {
     }
 
     /// The year at which the Roth path overtakes the Traditional+tax path.
+    /// Uses the progressive heir-tax effective rate derived from salary + filing status
+    /// at each year's hypothetical distribution (treating the whole traditional FV as a
+    /// 10-year drawdown, matching the compounding chart).
     static func computeBreakEvenYear(
         scenarioTotalRothConversion: Double,
         conversionTaxPaidToday: Double,
         growthRate: Double,
         taxableGrowthRate: Double,
-        heirTaxRate: Double,
+        heirEstimatedSalary: Double,
+        heirFilingStatus: FilingStatus,
         maxYears: Int
     ) -> Int? {
         guard scenarioTotalRothConversion > 0, conversionTaxPaidToday > 0 else { return nil }
         let rPretax = growthRate / 100
         let rTaxable = taxableGrowthRate / 100
 
+        func effRate(rothFV: Double) -> Double {
+            TaxCalculationEngine.heirEffectiveTaxRate(
+                annualDistribution: rothFV / 10.0,
+                heirSalary: heirEstimatedSalary,
+                filingStatus: heirFilingStatus)
+        }
+
         let roth0 = scenarioTotalRothConversion
-        let trad0 = scenarioTotalRothConversion * (1 - heirTaxRate) + conversionTaxPaidToday
+        let trad0 = scenarioTotalRothConversion * (1 - effRate(rothFV: roth0)) + conversionTaxPaidToday
         if roth0 >= trad0 { return 0 }
 
         for year in 1...maxYears {
             let rothFV = scenarioTotalRothConversion * pow(1 + rPretax, Double(year))
-            let tradFV = scenarioTotalRothConversion * pow(1 + rPretax, Double(year)) * (1 - heirTaxRate)
+            let tradFV = rothFV * (1 - effRate(rothFV: rothFV))
             let taxKeptFV = conversionTaxPaidToday * pow(1 + rTaxable, Double(year))
             if rothFV >= (tradFV + taxKeptFV) { return year }
         }

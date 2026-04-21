@@ -2,7 +2,7 @@
 //  LegacyPlanningManager.swift
 //  RetireSmartIRA
 //
-//  Manages legacy planning configuration (heir type, tax rate, etc.).
+//  Manages legacy planning configuration (heir type, salary, filing status, etc.).
 //  Extracted from DataManager as part of God Class decomposition.
 //
 
@@ -14,7 +14,6 @@ import Combine
 class LegacyPlanningManager: ObservableObject {
     @Published var enableLegacyPlanning: Bool = true
     @Published var legacyHeirType: String = "adultChild"
-    @Published var legacyHeirTaxRate: Double = 0.24
     @Published var legacyHeirEstimatedSalary: Double = 75_000
     @Published var legacyHeirFilingStatus: FilingStatus = .single
     @Published var legacySpouseSurvivorYears: Int = 10

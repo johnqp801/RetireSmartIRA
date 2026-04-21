@@ -228,7 +228,6 @@ struct SettingsView: View {
         .onChange(of: dataManager.userName) { dataManager.saveAllData() }
         .onChange(of: dataManager.enableLegacyPlanning) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirType) { dataManager.saveAllData() }
-        .onChange(of: dataManager.legacyHeirTaxRate) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirEstimatedSalary) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacyHeirFilingStatus) { dataManager.saveAllData() }
         .onChange(of: dataManager.legacySpouseSurvivorYears) { dataManager.saveAllData() }

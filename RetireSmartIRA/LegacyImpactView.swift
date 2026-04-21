@@ -125,11 +125,6 @@ struct LegacyImpactView: View {
                         whyThisWorksSection
                     }
 
-                    // SECTION C: Break-Even + Time Horizon
-                    if hasRothConversion {
-                        breakEvenSection
-                    }
-
                     // SECTION D: QCD Legacy Benefit
                     if hasQCD {
                         qcdBenefitSection
@@ -536,89 +531,6 @@ struct LegacyImpactView: View {
                             .foregroundStyle(.secondary)
                             .italic()
                     }
-                }
-            }
-        }
-    }
-
-    // MARK: - Section C: Break-Even Analysis
-
-    private var breakEvenSection: some View {
-        Group {
-            Divider()
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 4) {
-                    Image(systemName: "target")
-                        .foregroundStyle(.blue)
-                        .font(bodyFont)
-                    Text("Break-Even Analysis")
-                        .font(bodyFont)
-                        .fontWeight(.semibold)
-                }
-
-                let breakEvenPct = Int(dataManager.legacyBreakEvenHeirTaxRate * 100)
-                let heirPct = Int(dataManager.legacyHeirTaxRate * 100)
-                let favorable = dataManager.legacyConversionIsFavorable
-
-                HStack(spacing: 6) {
-                    Image(systemName: favorable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(favorable ? .green : .orange)
-                        .font(bodyFont)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Conversion wins if heir's rate exceeds \(breakEvenPct)%")
-                            .font(bodyFont)
-                            .fontWeight(.semibold)
-                        let statusText = favorable
-                            ? "Your heir's \(heirPct)% rate clears the \(breakEvenPct)% threshold"
-                            : "Your heir's \(heirPct)% rate is below the \(breakEvenPct)% threshold \u{2014} consider carefully"
-                        Text(statusText)
-                            .font(detailFont)
-                            .foregroundStyle(favorable ? .green : .secondary)
-                    }
-                }
-
-                let horizons = dataManager.legacyBreakEvenAtHorizons
-                if !horizons.isEmpty {
-                    VStack(spacing: 0) {
-                        HStack {
-                            Text("Time Horizon")
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Text("Break-even")
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            Text("Family Gain")
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                        }
-                        .font(detailFont)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 4)
-
-                        ForEach(horizons, id: \.years) { h in
-                            HStack {
-                                Text("\(h.years) years")
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Text("\(Int(h.rate * 100))%")
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                let label = h.advantage >= 0
-                                    ? "+\(compactCurrency(h.advantage))"
-                                    : "-\(compactCurrency(abs(h.advantage)))"
-                                Text(label)
-                                    .foregroundStyle(h.advantage >= 0 ? .green : .orange)
-                                    .frame(maxWidth: .infinity, alignment: .trailing)
-                            }
-                            .font(bodyFont)
-                            .padding(.vertical, 2)
-                        }
-                    }
-                    .padding(8)
-                    .background(Color.blue.opacity(0.04))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                    Text("The longer the money compounds, the more Roth conversions favor the family")
-                        .font(detailFont)
-                        .italic()
-                        .foregroundStyle(.secondary)
                 }
             }
         }

@@ -54,7 +54,6 @@ struct PersistenceManager {
         static let spouseGrowthRate = "spouseGrowthRate"
         static let enableLegacyPlanning = "enableLegacyPlanning"
         static let legacyHeirType = "legacyHeirType"
-        static let legacyHeirTaxRate = "legacyHeirTaxRate"
         static let legacyHeirEstimatedSalary = "legacyHeirEstimatedSalary"
         static let legacyHeirFilingStatus = "legacyHeirFilingStatus"
         static let legacySpouseSurvivorYears = "legacySpouseSurvivorYears"
@@ -236,9 +235,6 @@ struct PersistenceManager {
         if let heirType = defaults.string(forKey: StorageKey.legacyHeirType) {
             dm.legacyHeirType = heirType
         }
-        if defaults.object(forKey: StorageKey.legacyHeirTaxRate) != nil {
-            dm.legacyHeirTaxRate = defaults.double(forKey: StorageKey.legacyHeirTaxRate)
-        }
         if defaults.object(forKey: StorageKey.legacyHeirEstimatedSalary) != nil {
             dm.legacyHeirEstimatedSalary = defaults.double(forKey: StorageKey.legacyHeirEstimatedSalary)
         }
@@ -328,7 +324,6 @@ struct PersistenceManager {
         // Legacy planning
         defaults.set(dm.enableLegacyPlanning, forKey: StorageKey.enableLegacyPlanning)
         defaults.set(dm.legacyHeirType, forKey: StorageKey.legacyHeirType)
-        defaults.set(dm.legacyHeirTaxRate, forKey: StorageKey.legacyHeirTaxRate)
         defaults.set(dm.legacyHeirEstimatedSalary, forKey: StorageKey.legacyHeirEstimatedSalary)
         defaults.set(dm.legacyHeirFilingStatus.rawValue, forKey: StorageKey.legacyHeirFilingStatus)
         defaults.set(dm.legacySpouseSurvivorYears, forKey: StorageKey.legacySpouseSurvivorYears)

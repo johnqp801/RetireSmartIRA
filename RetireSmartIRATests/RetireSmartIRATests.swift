@@ -5844,7 +5844,6 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         var sc = DateComponents(); sc.year = 1957; sc.month = 1; sc.day = 1
         dm.spouseBirthDate = Calendar.current.date(from: sc)!
         dm.enableLegacyPlanning = true
-        dm.legacyHeirTaxRate = 0.24
         dm.primaryGrowthRate = 8.0
         dm.iraAccounts = [
             IRAAccount(name: "Trad IRA", accountType: .traditionalIRA, balance: 1_000_000, owner: .primary),
@@ -5958,7 +5957,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let noConvWealth = dm2.legacyNoConversionTotalWealth
         // No-conversion wealth = heir after-tax Trad + Roth drawdown + tax money ($0)
         let tradDrawdown = dm2.legacyNoActionHeirTaxableDrawdown
-        let heirAfterTaxTrad = tradDrawdown * (1.0 - 0.24)
+        let noActionEffRate = dm2.legacyNoActionHeirTaxEstimate.effectiveRateOnDistribution
+        let heirAfterTaxTrad = tradDrawdown * (1.0 - noActionEffRate)
         let impliedRothDrawdown = noConvWealth - heirAfterTaxTrad
 
         #expect(isClose(impliedRothDrawdown, expectedTotal, tolerance: 1.0),
@@ -6019,16 +6019,16 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
                 "Roth at owner death should be same regardless of heir type")
     }
 
-    @Test("legacyConversionIsFavorable computes for spouseThenChild without crash")
-    func conversionFavorableComputes() {
+    @Test("legacyFamilyWealthAdvantage computes for spouseThenChild without crash")
+    func familyWealthAdvantageComputes() {
         let dm = makeLegacyDM()
         dm.legacyHeirType = "spouseThenChild"
         dm.legacySpouseSurvivorYears = 10
         dm.yourRothConversion = 50_000
 
         // Just verify it runs without crashing — the value depends on many factors
-        let _ = dm.legacyConversionIsFavorable
-        let _ = dm.legacyBreakEvenHeirTaxRate
+        let _ = dm.legacyFamilyWealthAdvantage
+        let _ = dm.legacyBreakEvenYear
     }
 }
 
