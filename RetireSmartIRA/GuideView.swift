@@ -28,6 +28,7 @@ struct GuideView: View {
     @State private var stateComparisonGuideExpanded: Bool = false
     @State private var keyConceptsExpanded: Bool = false
     @State private var tipsExpanded: Bool = false
+    @State private var showSources: Bool = false
 
     var body: some View {
         Group {
@@ -60,6 +61,7 @@ struct GuideView: View {
                 stateComparisonGuide
                 keyConceptsSection
                 tipsSection
+                sourcesCard
                 disclaimerCard
             }
             .padding()
@@ -75,6 +77,7 @@ struct GuideView: View {
                     gatherBeforeYouStart
                     keyConceptsSection
                     tipsSection
+                    sourcesCard
                     disclaimerCard
                 }
                 .padding()
@@ -572,7 +575,7 @@ struct GuideView: View {
                 conceptItem(
                     icon: "arrow.down.doc.fill",
                     title: "Inherited IRAs (BDAs)",
-                    description: "Inherited IRAs have different rules based on your relationship to the decedent. Eligible Designated Beneficiaries (spouse, disabled, chronically ill, minor child, not >10 years younger) get lifetime stretch. All others must empty the account within 10 years. If the decedent had already begun RMDs, annual distributions are also required in years 1\u{2013}9. RMDs are calculated using the account balance as of December 31 of the prior year. Inherited IRA distributions are NOT eligible for QCDs."
+                    description: "Inherited IRAs have different rules based on your relationship to the decedent AND when the original owner died. Post-SECURE Act (deaths on or after January 1, 2020): Eligible Designated Beneficiaries (spouse, disabled, chronically ill, minor child, not >10 years younger) get lifetime stretch. All others must empty the account within 10 years; if the decedent had already begun RMDs, annual distributions are also required in years 1\u{2013}9. Pre-SECURE (deaths before 2020): all designated beneficiaries are grandfathered into the classic lifetime stretch \u{2014} no 10-year cap. RMDs are calculated using the account balance as of December 31 of the prior year. Inherited IRA distributions are NOT eligible for QCDs."
                 )
                 conceptItem(
                     icon: "cross.case.fill",
@@ -694,6 +697,50 @@ struct GuideView: View {
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Sources Card
+
+    private var sourcesCard: some View {
+        Button {
+            showSources = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Sources & References")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    Text("See the IRS publications, SSA data, and state tax authorities used in every calculation.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showSources) {
+            NavigationStack {
+                SourcesReferencesView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showSources = false }
+                        }
+                    }
             }
         }
     }

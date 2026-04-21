@@ -191,6 +191,16 @@ struct AccountRow: View {
                         Text("Inherited \(String(year))")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+
+                        if year < 2020 {
+                            Text("Pre-SECURE stretch")
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.teal.opacity(0.2))
+                                .foregroundStyle(.teal)
+                                .clipShape(Capsule())
+                        }
                     }
                 }
             }
@@ -324,6 +334,14 @@ struct AddAccountView: View {
                                     description: "You are a named beneficiary (person, not an entity) who does not fit any of the above categories. This is the most common category for adult children, siblings, friends, etc.",
                                     rule: "10-year rule — Must empty account within 10 years"
                                 )
+                                Divider().padding(.vertical, 4)
+                                beneficiaryCategoryRow(
+                                    icon: "calendar.badge.checkmark",
+                                    color: .teal,
+                                    title: "Inherited before 2020?",
+                                    description: "If the original owner died before January 1, 2020, the account is grandfathered under pre-SECURE Act rules. Non-eligible beneficiaries keep the old lifetime stretch — not the 10-year rule. Enter the correct Year Inherited and the app will apply the right rule.",
+                                    rule: "Pre-SECURE — Lifetime stretch retained"
+                                )
                             }
                             .padding(.top, 8)
                         }
@@ -424,23 +442,28 @@ struct AddAccountView: View {
     
     /// Summary text describing the withdrawal rule for the selected beneficiary type
     private var inheritedInfoText: some View {
+        let isPreSECURE = (Int(yearOfInheritance) ?? 9999) < 2020
         let text: String
-        switch beneficiaryType {
-        case .spouse:
-            text = "Spouse beneficiaries can stretch distributions over their lifetime using the IRS Single Life Expectancy table, recalculated annually."
-        case .minorChild:
-            text = "Minor children can stretch distributions using the SLE table until age 21, then the 10-year rule begins."
-        case .disabled:
-            text = "Disabled beneficiaries qualify for lifetime stretch distributions using the SLE table."
-        case .chronicallyIll:
-            text = "Chronically ill beneficiaries qualify for lifetime stretch distributions using the SLE table."
-        case .notTenYearsYounger:
-            text = "Beneficiaries not more than 10 years younger than the decedent can stretch distributions over their lifetime."
-        case .nonEligibleDesignated:
-            if decedentRBDStatus == .afterRBD {
-                text = "Non-eligible beneficiaries must take annual RMDs (years 1-9) and empty the account by the end of year 10."
-            } else {
-                text = "Non-eligible beneficiaries have no annual RMD requirement but must empty the account by the end of year 10."
+        if isPreSECURE && (beneficiaryType == .nonEligibleDesignated || beneficiaryType == .minorChild) {
+            text = "Inherited before 2020 — grandfathered under pre-SECURE Act rules. Lifetime stretch using the IRS Single Life Expectancy table (term-certain, subtract 1 each year). No 10-year deadline."
+        } else {
+            switch beneficiaryType {
+            case .spouse:
+                text = "Spouse beneficiaries can stretch distributions over their lifetime using the IRS Single Life Expectancy table, recalculated annually."
+            case .minorChild:
+                text = "Minor children can stretch distributions using the SLE table until age 21, then the 10-year rule begins."
+            case .disabled:
+                text = "Disabled beneficiaries qualify for lifetime stretch distributions using the SLE table."
+            case .chronicallyIll:
+                text = "Chronically ill beneficiaries qualify for lifetime stretch distributions using the SLE table."
+            case .notTenYearsYounger:
+                text = "Beneficiaries not more than 10 years younger than the decedent can stretch distributions over their lifetime."
+            case .nonEligibleDesignated:
+                if decedentRBDStatus == .afterRBD {
+                    text = "Non-eligible beneficiaries must take annual RMDs (years 1-9) and empty the account by the end of year 10."
+                } else {
+                    text = "Non-eligible beneficiaries have no annual RMD requirement but must empty the account by the end of year 10."
+                }
             }
         }
         return Text(text)

@@ -82,9 +82,12 @@ struct RMDCalculationEngine {
         let beneficiaryAge = year - beneficiaryBirthYear
         let isRothInherited = account.accountType == .inheritedRothIRA
         let deadline = yearOfInheritance + 10
+        // Pre-SECURE: deaths before 2020-01-01 are grandfathered into the old stretch rules.
+        let isPreSECURE = yearOfInheritance < 2020
 
         // Inherited Roth IRAs: EDBs get lifetime stretch (no RMDs, no deadline).
-        // Non-EDBs get 10-year rule with no annual RMDs, just must empty by year 10.
+        // Pre-SECURE non-EDBs also get lifetime stretch (grandfathered).
+        // Post-SECURE non-EDBs get 10-year rule with no annual RMDs.
         if isRothInherited {
             if beneficiaryType.isEligibleDesignated {
                 return InheritedRMDResult(
@@ -92,6 +95,22 @@ struct RMDCalculationEngine {
                     mustEmptyByYear: nil,
                     yearsRemaining: nil,
                     rule: "Eligible designated beneficiary — lifetime stretch, no RMDs (Roth)"
+                )
+            } else if isPreSECURE {
+                guard yearsElapsed >= 1 else {
+                    return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
+                                              rule: "Pre-SECURE grandfathered stretch (Roth) — RMDs begin the year after inheritance")
+                }
+                let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
+                let initialFactor = singleLifeExpectancyFactor(for: initialAge)
+                let yearsOfReduction = year - (yearOfInheritance + 1)
+                let factor = max(1.0, initialFactor - Double(yearsOfReduction))
+                let rmd = account.balance / factor
+                return InheritedRMDResult(
+                    annualRMD: rmd,
+                    mustEmptyByYear: nil,
+                    yearsRemaining: nil,
+                    rule: "Pre-SECURE grandfathered stretch (Roth) — factor \(String(format: "%.1f", factor))"
                 )
             } else {
                 let remaining = max(0, deadline - year)
@@ -160,6 +179,24 @@ struct RMDCalculationEngine {
             )
 
         case .minorChild:
+            // Pre-SECURE minor child: lifetime stretch continues past majority (no 10-year shift).
+            if isPreSECURE {
+                guard yearsElapsed >= 1 else {
+                    return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
+                                              rule: "Pre-SECURE grandfathered stretch — RMDs begin the year after inheritance")
+                }
+                let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
+                let initialFactor = singleLifeExpectancyFactor(for: initialAge)
+                let yearsOfReduction = year - (yearOfInheritance + 1)
+                let factor = max(1.0, initialFactor - Double(yearsOfReduction))
+                let rmd = account.balance / factor
+                return InheritedRMDResult(
+                    annualRMD: rmd,
+                    mustEmptyByYear: nil,
+                    yearsRemaining: nil,
+                    rule: "Pre-SECURE grandfathered stretch (minor) — factor \(String(format: "%.1f", factor))"
+                )
+            }
             let majorityYear = account.minorChildMajorityYear ?? (beneficiaryBirthYear + 21)
             if year < majorityYear {
                 guard yearsElapsed >= 1 else {
@@ -209,6 +246,33 @@ struct RMDCalculationEngine {
             }
 
         case .nonEligibleDesignated:
+            // Pre-SECURE grandfathered: lifetime stretch, no 10-year cap.
+            // After-RBD rule: divisor is the longer of beneficiary's or decedent's single life expectancy
+            // (longer SLE = smaller RMD), reduced by 1 each year thereafter.
+            if isPreSECURE {
+                guard yearsElapsed >= 1 else {
+                    return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
+                                              rule: "Pre-SECURE grandfathered stretch — RMDs begin the year after inheritance")
+                }
+                let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
+                var initialFactor = singleLifeExpectancyFactor(for: initialAge)
+                if (account.decedentRBDStatus ?? .beforeRBD) == .afterRBD,
+                   let decedentBirthYear = account.decedentBirthYear {
+                    let decedentAgeAtDeath = yearOfInheritance - decedentBirthYear
+                    let decedentFactor = singleLifeExpectancyFactor(for: decedentAgeAtDeath)
+                    initialFactor = max(initialFactor, decedentFactor)
+                }
+                let yearsOfReduction = year - (yearOfInheritance + 1)
+                let factor = max(1.0, initialFactor - Double(yearsOfReduction))
+                let rmd = account.balance / factor
+                return InheritedRMDResult(
+                    annualRMD: rmd,
+                    mustEmptyByYear: nil,
+                    yearsRemaining: nil,
+                    rule: "Pre-SECURE grandfathered stretch — factor \(String(format: "%.1f", factor))"
+                )
+            }
+
             let remaining = max(0, deadline - year)
             let rbdStatus = account.decedentRBDStatus ?? .beforeRBD
 

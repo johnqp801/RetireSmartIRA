@@ -707,6 +707,140 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(result.annualRMD == 100_000)
         #expect(result.yearsRemaining == 0)
     }
+
+    // MARK: - Pre-SECURE (grandfathered) lifetime stretch
+
+    @Test("Pre-SECURE non-EDB, before RBD: lifetime stretch (no 10-year cap)")
+    func preSECURENonEDBBeforeRBD() {
+        let dm = makeDM()
+        dm.currentYear = 2026
+        let account = IRAAccount(
+            name: "Pre-SECURE Inherited", accountType: .inheritedTraditionalIRA, balance: 500_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .beforeRBD,
+            yearOfInheritance: 2018, beneficiaryBirthYear: 1965
+        )
+        // Year after inheritance = 2019, beneficiary age in 2019 = 54, SLE factor at 54 = 32.5
+        // In 2026: yearsOfReduction = 2026 - 2019 = 7, factor = 32.5 - 7 = 25.5
+        // RMD = 500,000 / 25.5 = 19,607.84
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 500_000 / 25.5))
+        #expect(result.mustEmptyByYear == nil)
+        #expect(result.yearsRemaining == nil)
+        #expect(result.rule.contains("Pre-SECURE"))
+    }
+
+    @Test("Pre-SECURE non-EDB, after RBD: longer of beneficiary or decedent SLE")
+    func preSECURENonEDBAfterRBD() {
+        let dm = makeDM()
+        dm.currentYear = 2026
+        // Decedent born 1945, died 2018 at age 73. Beneficiary born 1965.
+        // Beneficiary SLE at age-in-year-after (54, 2019) = 32.5 (larger)
+        // Decedent SLE at age-in-year-of-death (73, 2018) = 16.4 (smaller)
+        // Longer = 32.5 → use beneficiary.
+        let account = IRAAccount(
+            name: "Pre-SECURE AfterRBD", accountType: .inheritedTraditionalIRA, balance: 400_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .afterRBD,
+            yearOfInheritance: 2018, decedentBirthYear: 1945, beneficiaryBirthYear: 1965
+        )
+        // In 2026: factor = 32.5 - 7 = 25.5
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 400_000 / 25.5))
+        #expect(result.mustEmptyByYear == nil)
+    }
+
+    @Test("Pre-SECURE non-EDB, after RBD, older beneficiary: decedent's SLE is longer")
+    func preSECUREOlderBeneficiaryUsesDecedentSLE() {
+        let dm = makeDM()
+        dm.currentYear = 2026
+        // Decedent born 1940, died 2018 at age 78. Beneficiary born 1925 (very old, age 93 in 2019).
+        // Beneficiary SLE at 93 = 4.6 (smaller)
+        // Decedent SLE at 78 (year of death) = 12.6 (larger)
+        // Longer = 12.6 → use decedent.
+        let account = IRAAccount(
+            name: "Older Bene", accountType: .inheritedTraditionalIRA, balance: 200_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .afterRBD,
+            yearOfInheritance: 2018, decedentBirthYear: 1940, beneficiaryBirthYear: 1925
+        )
+        // In 2026: factor = 12.6 - 7 = 5.6
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 200_000 / 5.6))
+    }
+
+    @Test("Pre-SECURE non-EDB: no RMD in year of inheritance")
+    func preSECURENoRMDYearOfInheritance() {
+        let dm = makeDM()
+        dm.currentYear = 2018
+        let account = IRAAccount(
+            name: "Pre-SECURE", accountType: .inheritedTraditionalIRA, balance: 500_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .beforeRBD,
+            yearOfInheritance: 2018, beneficiaryBirthYear: 1965
+        )
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2018)
+        #expect(result.annualRMD == 0)
+    }
+
+    @Test("Pre-SECURE minor child: lifetime stretch past age 21 (no 10-year shift)")
+    func preSECUREMinorChildStretch() {
+        let dm = makeDM()
+        dm.currentYear = 2026
+        // Child born 2005, inherited 2018 at age 13. Age 21 in 2026.
+        // Pre-SECURE: stretch continues regardless of majority.
+        // Year after inheritance = 2019, age in 2019 = 14, SLE factor at 14 = 70.8
+        // In 2026: yearsOfReduction = 7, factor = 70.8 - 7 = 63.8
+        let account = IRAAccount(
+            name: "Pre-SECURE Minor", accountType: .inheritedTraditionalIRA, balance: 300_000, owner: .primary,
+            beneficiaryType: .minorChild,
+            yearOfInheritance: 2018, beneficiaryBirthYear: 2005, minorChildMajorityYear: 2026
+        )
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 300_000 / 63.8))
+        #expect(result.mustEmptyByYear == nil)
+    }
+
+    @Test("Pre-SECURE inherited Roth non-EDB: lifetime stretch")
+    func preSECUREInheritedRothNonEDB() {
+        let dm = makeDM()
+        dm.currentYear = 2026
+        let account = IRAAccount(
+            name: "Pre-SECURE Roth", accountType: .inheritedRothIRA, balance: 150_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated,
+            yearOfInheritance: 2018, beneficiaryBirthYear: 1965
+        )
+        // Year after inheritance = 2019, age 54, SLE = 32.5
+        // In 2026: factor = 32.5 - 7 = 25.5
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 150_000 / 25.5))
+        #expect(result.mustEmptyByYear == nil)
+        #expect(result.rule.contains("Roth"))
+    }
+
+    @Test("Boundary: inherited exactly in 2020 → post-SECURE 10-year rule")
+    func boundary2020IsPostSECURE() {
+        let dm = makeDM()
+        dm.currentYear = 2026
+        let account = IRAAccount(
+            name: "Boundary", accountType: .inheritedTraditionalIRA, balance: 250_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .beforeRBD,
+            yearOfInheritance: 2020, beneficiaryBirthYear: 1970
+        )
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(result.annualRMD == 0)
+        #expect(result.mustEmptyByYear == 2030)
+    }
+
+    @Test("Boundary: inherited in 2019 → pre-SECURE stretch")
+    func boundary2019IsPreSECURE() {
+        let dm = makeDM()
+        dm.currentYear = 2026
+        let account = IRAAccount(
+            name: "Boundary", accountType: .inheritedTraditionalIRA, balance: 250_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .beforeRBD,
+            yearOfInheritance: 2019, beneficiaryBirthYear: 1970
+        )
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(result.annualRMD > 0)
+        #expect(result.mustEmptyByYear == nil)
+    }
 }
 
 // MARK: - 15. AccountType Properties
@@ -2922,9 +3056,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let account = IRAAccount(name: "Inherited", accountType: .inheritedTraditionalIRA, balance: 80_000,
                                   beneficiaryType: .nonEligibleDesignated,
                                   decedentRBDStatus: .afterRBD,
-                                  yearOfInheritance: 2016, beneficiaryBirthYear: 1990)
-        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
-        // deadline = 2016 + 10 = 2026. Year >= deadline → full balance
+                                  yearOfInheritance: 2020, beneficiaryBirthYear: 1990)
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2030)
+        // deadline = 2020 + 10 = 2030. Year >= deadline → full balance
         #expect(isClose(result.annualRMD, 80_000))
         #expect(result.yearsRemaining == 0)
     }
@@ -2985,8 +3119,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let dm = makeDM()
         let account = IRAAccount(name: "Inherited Roth", accountType: .inheritedRothIRA, balance: 150_000,
                                   beneficiaryType: .nonEligibleDesignated,
-                                  yearOfInheritance: 2016, beneficiaryBirthYear: 1990)
-        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+                                  yearOfInheritance: 2020, beneficiaryBirthYear: 1990)
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2030)
         #expect(isClose(result.annualRMD, 150_000))
         #expect(result.yearsRemaining == 0)
     }
