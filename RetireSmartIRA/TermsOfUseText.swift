@@ -2,8 +2,14 @@
 //  TermsOfUseText.swift
 //  RetireSmartIRA
 //
-//  Full Terms of Use text as a static string constant.
+//  Full Terms of Use and Privacy Policy text as static string constants.
 //  Update TermsAcceptanceManager.currentToUVersion when making material changes.
+//
+//  IMPORTANT: These strings are also rendered on retiresmartira.com
+//  (src/app/terms/page.tsx and src/app/privacy/page.tsx in the website repo).
+//  The in-app clickwrap ToU and the web-hosted ToU must match — the
+//  arbitration, liability, and governing-law terms users click-accept are
+//  legally binding. Update both copies together.
 //
 
 import Foundation
@@ -134,14 +140,14 @@ enum TermsOfUseText {
     static var privacyPolicy: String {
         """
         PRIVACY POLICY
-        RetireSmart IRA
+        RetireSmartIRA
         Alamo Ventures Group LLC
 
         Last updated: March 5, 2026
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        RetireSmart IRA is designed with your privacy as a core principle. All of your personal and financial data stays on your device. We do not collect, transmit, or store any of your information on external servers.
+        RetireSmartIRA is designed with your privacy as a core principle. All of your personal and financial data stays on your device. We do not collect, transmit, or store any of your information on external servers.
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -173,7 +179,7 @@ enum TermsOfUseText {
 
         NO DATA COLLECTION
 
-        RetireSmart IRA does not collect:
+        RetireSmartIRA does not collect:
 
         • Personal identifiers or contact information
         • Usage or analytics data
