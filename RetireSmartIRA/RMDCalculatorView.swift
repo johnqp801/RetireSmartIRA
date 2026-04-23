@@ -774,7 +774,12 @@ struct RMDCalculatorView: View {
                     let growthRate = account.owner == .spouse
                         ? dataManager.spouseGrowthRate
                         : dataManager.primaryGrowthRate
-                    let projections = projectInheritedIRA(account: account, growthPercent: growthRate)
+                    let projections = RMDCalculationEngine.projectInheritedIRA(
+                        account: account,
+                        currentYear: dataManager.currentYear,
+                        projectionYears: projectionYears,
+                        growthPercent: growthRate
+                    )
                     if let row = projections.first(where: { $0.year == projectedYear }) {
                         inheritedRMD += row.rmd
                     }
@@ -1259,126 +1264,6 @@ struct RMDCalculatorView: View {
 
     // MARK: - Inherited IRA Projections
 
-    private struct InheritedProjectionRow: Identifiable {
-        var id: Int { year }
-        let year: Int
-        let balance: Double
-        let rmd: Double
-        let remaining: Int?
-        let isDeadline: Bool
-    }
-
-    /// Projects an inherited IRA balance forward, computing annual RMDs, growth, and deadline tracking.
-    private func projectInheritedIRA(account: IRAAccount, growthPercent: Double) -> [InheritedProjectionRow] {
-        guard account.accountType.isInherited,
-              let beneficiaryType = account.beneficiaryType,
-              let yearOfInheritance = account.yearOfInheritance,
-              let beneficiaryBirthYear = account.beneficiaryBirthYear else { return [] }
-
-        let isRoth = account.accountType == .inheritedRothIRA
-        let rbdStatus = account.decedentRBDStatus ?? .beforeRBD
-        let growthRate = growthPercent / 100.0
-
-        // Determine deadline year (nil = lifetime stretch)
-        let deadlineYear: Int? = {
-            switch beneficiaryType {
-            case .spouse, .disabled, .chronicallyIll, .notTenYearsYounger:
-                return nil
-            case .minorChild:
-                let majorityYear = account.minorChildMajorityYear ?? (beneficiaryBirthYear + 21)
-                return majorityYear + 10
-            case .nonEligibleDesignated:
-                return yearOfInheritance + 10
-            }
-        }()
-
-        // Project until deadline or projectionYears for lifetime stretch
-        let lastYear: Int
-        if let deadline = deadlineYear {
-            lastYear = max(deadline, dataManager.currentYear)
-        } else {
-            lastYear = dataManager.currentYear + projectionYears - 1
-        }
-
-        var balance = account.balance
-        var rows: [InheritedProjectionRow] = []
-
-        for year in dataManager.currentYear...lastYear {
-            guard balance > 0.01 else { break }
-
-            let yearsElapsed = year - yearOfInheritance
-            let beneficiaryAge = year - beneficiaryBirthYear
-            let isDeadlineYear = (deadlineYear != nil && year >= deadlineYear!)
-
-            var rmd: Double = 0
-
-            if isDeadlineYear {
-                rmd = balance
-            } else if isRoth {
-                // Inherited Roth: no annual RMDs, just must empty by deadline
-                rmd = 0
-            } else {
-                switch beneficiaryType {
-                case .nonEligibleDesignated:
-                    if rbdStatus == .afterRBD && yearsElapsed >= 1 {
-                        let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
-                        let initialFactor = dataManager.singleLifeExpectancyFactor(for: initialAge)
-                        let yearsOfReduction = year - (yearOfInheritance + 1)
-                        let factor = max(1.0, initialFactor - Double(yearsOfReduction))
-                        rmd = balance / factor
-                    }
-
-                case .spouse, .disabled, .chronicallyIll:
-                    if yearsElapsed >= 1 {
-                        let factor = dataManager.singleLifeExpectancyFactor(for: beneficiaryAge)
-                        rmd = factor > 0 ? balance / factor : balance
-                    }
-
-                case .notTenYearsYounger:
-                    if yearsElapsed >= 1 {
-                        let initialAge = (yearOfInheritance + 1) - beneficiaryBirthYear
-                        let initialFactor = dataManager.singleLifeExpectancyFactor(for: initialAge)
-                        let yearsOfReduction = year - (yearOfInheritance + 1)
-                        let factor = max(1.0, initialFactor - Double(yearsOfReduction))
-                        rmd = balance / factor
-                    }
-
-                case .minorChild:
-                    let majorityYear = account.minorChildMajorityYear ?? (beneficiaryBirthYear + 21)
-                    if year < majorityYear {
-                        if yearsElapsed >= 1 {
-                            let factor = dataManager.singleLifeExpectancyFactor(for: beneficiaryAge)
-                            rmd = factor > 0 ? balance / factor : balance
-                        }
-                    } else if rbdStatus == .afterRBD {
-                        let ageAtMajorityPlus1 = (majorityYear + 1) - beneficiaryBirthYear
-                        let initialFactor = dataManager.singleLifeExpectancyFactor(for: ageAtMajorityPlus1)
-                        let yearsOfReduction = year - (majorityYear + 1)
-                        let factor = max(1.0, initialFactor - Double(max(0, yearsOfReduction)))
-                        rmd = balance / factor
-                    }
-                }
-            }
-
-            rmd = min(rmd, balance)
-            let remaining: Int? = deadlineYear.map { max(0, $0 - year) }
-
-            rows.append(InheritedProjectionRow(
-                year: year,
-                balance: balance,
-                rmd: rmd,
-                remaining: remaining,
-                isDeadline: isDeadlineYear
-            ))
-
-            balance -= rmd
-            balance *= (1 + growthRate)
-            balance = max(0, balance)
-        }
-
-        return rows
-    }
-
     @ViewBuilder
     private var inheritedIRAProjectionsSection: some View {
         if dataManager.hasInheritedAccounts {
@@ -1388,7 +1273,12 @@ struct RMDCalculatorView: View {
 
                 ForEach(dataManager.inheritedAccounts) { account in
                     let growthRate = account.owner == .spouse ? dataManager.spouseGrowthRate : dataManager.primaryGrowthRate
-                    let projections = projectInheritedIRA(account: account, growthPercent: growthRate)
+                    let projections = RMDCalculationEngine.projectInheritedIRA(
+                        account: account,
+                        currentYear: dataManager.currentYear,
+                        projectionYears: projectionYears,
+                        growthPercent: growthRate
+                    )
 
                     if !projections.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {

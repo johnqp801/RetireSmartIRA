@@ -841,6 +841,101 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(result.annualRMD > 0)
         #expect(result.mustEmptyByYear == nil)
     }
+
+    // MARK: - Inherited IRA Projection (bar graph / projection table)
+
+    @Test("Projection: pre-SECURE non-EDB year 1 uses stretch, not 100% of balance")
+    func projectionPreSECURENonEDBYear1NotFull() {
+        // Regression for older inherited IRAs (yearOfInheritance < 2020).
+        // Previously the projection set deadlineYear = yearOfInheritance + 10,
+        // so currentYear >= 2025 triggered `rmd = balance` (100%) in year 1.
+        let account = IRAAccount(
+            name: "Pre-SECURE Projection", accountType: .inheritedTraditionalIRA,
+            balance: 500_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .beforeRBD,
+            yearOfInheritance: 2015, beneficiaryBirthYear: 1965
+        )
+        let rows = RMDCalculationEngine.projectInheritedIRA(
+            account: account,
+            currentYear: 2026,
+            projectionYears: 10,
+            growthPercent: 0.0
+        )
+        #expect(rows.first?.year == 2026)
+        // Year after inheritance = 2016, age = 51, SLE(51) = 35.3.
+        // yearsOfReduction = 2026 - 2016 = 10, factor = 25.3.
+        #expect(isClose(rows.first!.rmd, 500_000 / 25.3))
+        #expect(rows.first!.remaining == nil)
+        #expect(rows.first!.isDeadline == false)
+        // Pre-SECURE has no deadline → projection spans full projectionYears.
+        #expect(rows.count == 10)
+        #expect(rows.last?.year == 2035)
+        #expect(rows.allSatisfy { !$0.isDeadline })
+    }
+
+    @Test("Projection: pre-SECURE minor child has no deadline, no 100% year")
+    func projectionPreSECUREMinorChildNoDeadline() {
+        let account = IRAAccount(
+            name: "Pre-SECURE Minor", accountType: .inheritedTraditionalIRA,
+            balance: 300_000, owner: .primary,
+            beneficiaryType: .minorChild,
+            yearOfInheritance: 2018, beneficiaryBirthYear: 2005, minorChildMajorityYear: 2026
+        )
+        let rows = RMDCalculationEngine.projectInheritedIRA(
+            account: account,
+            currentYear: 2026,
+            projectionYears: 10,
+            growthPercent: 0.0
+        )
+        #expect(rows.count == 10)
+        #expect(rows.allSatisfy { !$0.isDeadline })
+        #expect(rows.allSatisfy { $0.remaining == nil })
+    }
+
+    @Test("Projection: pre-SECURE inherited Roth non-EDB has annual stretch RMDs")
+    func projectionPreSECUREInheritedRothYear1HasRMD() {
+        let account = IRAAccount(
+            name: "Pre-SECURE Roth", accountType: .inheritedRothIRA,
+            balance: 150_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated,
+            yearOfInheritance: 2018, beneficiaryBirthYear: 1965
+        )
+        let rows = RMDCalculationEngine.projectInheritedIRA(
+            account: account,
+            currentYear: 2026,
+            projectionYears: 10,
+            growthPercent: 0.0
+        )
+        // Year after inheritance = 2019, age = 54, SLE(54) = 32.5.
+        // yearsOfReduction = 2026 - 2019 = 7, factor = 25.5.
+        #expect(isClose(rows.first!.rmd, 150_000 / 25.5))
+        #expect(rows.first!.remaining == nil)
+        #expect(rows.first!.isDeadline == false)
+    }
+
+    @Test("Projection: post-SECURE non-EDB before-RBD has 0 RMD until deadline")
+    func projectionPostSECUREBeforeRBDZeroUntilDeadline() {
+        let account = IRAAccount(
+            name: "Post-SECURE Non-EDB", accountType: .inheritedTraditionalIRA,
+            balance: 400_000, owner: .primary,
+            beneficiaryType: .nonEligibleDesignated, decedentRBDStatus: .beforeRBD,
+            yearOfInheritance: 2023, beneficiaryBirthYear: 1970
+        )
+        let rows = RMDCalculationEngine.projectInheritedIRA(
+            account: account,
+            currentYear: 2026,
+            projectionYears: 10,
+            growthPercent: 0.0
+        )
+        // Deadline: 2033. Years 2026-2032 → rmd = 0. Year 2033 → full balance.
+        let preDeadline = rows.filter { $0.year < 2033 }
+        #expect(!preDeadline.isEmpty)
+        #expect(preDeadline.allSatisfy { $0.rmd == 0 })
+        let deadline = rows.first(where: { $0.year == 2033 })
+        #expect(deadline != nil)
+        #expect(deadline!.isDeadline == true)
+        #expect(isClose(deadline!.rmd, 400_000))
+    }
 }
 
 // MARK: - 15. AccountType Properties
@@ -3123,6 +3218,120 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let result = dm.calculateInheritedIRARMD(account: account, forYear: 2030)
         #expect(isClose(result.annualRMD, 150_000))
         #expect(result.yearsRemaining == 0)
+    }
+
+    // MARK: - Non-recalculation method (post-SECURE final regs §1.401(a)(9)-5(d)(3))
+
+    @Test("Disabled EDB uses non-recalc (reduction-by-1), not annual SLE lookup")
+    func disabledNonRecalcDivergesFromRecalc() {
+        // Older beneficiary + long elapsed time exposes the divergence:
+        // recalc (buggy) and non-recalc (correct) give different divisors once the
+        // SLE table stops decreasing by exactly 1.0/year (age 70+).
+        let dm = makeDM()
+        let account = IRAAccount(name: "Disabled", accountType: .inheritedTraditionalIRA, balance: 100_000,
+                                  beneficiaryType: .disabled, yearOfInheritance: 2020,
+                                  beneficiaryBirthYear: 1945)
+        // Year after death = 2021, age 76 → SLE(76) = 14.1.
+        // yearsOfReduction = 2030 - 2021 = 9. Factor = max(1.0, 14.1 - 9) = 5.1.
+        // (Old recalc would have used SLE(85) = 8.1 — materially different.)
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2030)
+        #expect(isClose(result.annualRMD, 100_000 / 5.1, tolerance: 1.0))
+        #expect(result.mustEmptyByYear == nil)
+    }
+
+    @Test("Chronically ill EDB uses non-recalc, same rule as disabled")
+    func chronicallyIllNonRecalc() {
+        let dm = makeDM()
+        let account = IRAAccount(name: "Chronic", accountType: .inheritedTraditionalIRA, balance: 100_000,
+                                  beneficiaryType: .chronicallyIll, yearOfInheritance: 2020,
+                                  beneficiaryBirthYear: 1945)
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2030)
+        #expect(isClose(result.annualRMD, 100_000 / 5.1, tolerance: 1.0))
+    }
+
+    // MARK: - Post-SECURE minor child: factor continues across majority (T.D. 10001)
+
+    @Test("Post-SECURE minor at majority (after-RBD): factor continues from year-after-death, no reset")
+    func postSECUREMinorAtMajorityContinuesSchedule() {
+        let dm = makeDM()
+        // Child inherited at age 10 (2020), majority 2031, current year 2035.
+        // CORRECT (non-recalc, no reset): initial age = 11 in 2021, SLE(11) = 73.8,
+        //   yearsOfReduction = 2035 - 2021 = 14, factor = 59.8.
+        // OLD BUG (reset at majority+1): SLE(22) = 63.0, minus 3 = 60.0.
+        // Small numeric divergence but different formula.
+        let account = IRAAccount(name: "Minor", accountType: .inheritedTraditionalIRA, balance: 100_000,
+                                  beneficiaryType: .minorChild, decedentRBDStatus: .afterRBD,
+                                  yearOfInheritance: 2020,
+                                  beneficiaryBirthYear: 2010, minorChildMajorityYear: 2031)
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2035)
+        #expect(isClose(result.annualRMD, 100_000 / 59.8, tolerance: 1.0))
+        #expect(result.mustEmptyByYear == 2041)
+    }
+
+    // MARK: - Inherited Roth EDB: non-spouse EDBs must take stretch RMDs (not $0)
+
+    @Test("Inherited Roth disabled EDB takes stretch RMDs (not $0)")
+    func inheritedRothDisabledEDBStretch() {
+        let dm = makeDM()
+        // Previously returned $0 (incorrect). Roth EDBs (non-spouse) must take annual
+        // stretch RMDs using non-recalc. Roth owner always deemed pre-RBD.
+        let account = IRAAccount(name: "Roth Disabled", accountType: .inheritedRothIRA, balance: 100_000,
+                                  beneficiaryType: .disabled, yearOfInheritance: 2023,
+                                  beneficiaryBirthYear: 1970)
+        // Year after = 2024, age 54, SLE(54) = 32.5.
+        // yearsOfReduction = 2026 - 2024 = 2. Factor = 30.5.
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 100_000 / 30.5, tolerance: 1.0))
+        #expect(result.mustEmptyByYear == nil)
+    }
+
+    @Test("Inherited Roth not-10-years-younger EDB takes stretch RMDs")
+    func inheritedRothNotTenYoungerStretch() {
+        let dm = makeDM()
+        let account = IRAAccount(name: "Roth Older", accountType: .inheritedRothIRA, balance: 80_000,
+                                  beneficiaryType: .notTenYearsYounger, yearOfInheritance: 2023,
+                                  beneficiaryBirthYear: 1955)
+        // Year after = 2024, age 69, SLE(69) = 19.6. yearsOfReduction = 2. Factor = 17.6.
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 80_000 / 17.6, tolerance: 1.0))
+        #expect(result.mustEmptyByYear == nil)
+    }
+
+    @Test("Inherited Roth minor child (before majority) takes stretch RMDs")
+    func inheritedRothMinorBeforeMajorityStretch() {
+        let dm = makeDM()
+        let account = IRAAccount(name: "Roth Minor", accountType: .inheritedRothIRA, balance: 100_000,
+                                  beneficiaryType: .minorChild, yearOfInheritance: 2023,
+                                  beneficiaryBirthYear: 2010, minorChildMajorityYear: 2031)
+        // Year after = 2024, age 14, SLE(14) = 70.8. yearsOfReduction = 2. Factor = 68.8.
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        #expect(isClose(result.annualRMD, 100_000 / 68.8, tolerance: 1.0))
+        #expect(result.mustEmptyByYear == nil)
+    }
+
+    @Test("Inherited Roth minor child (at majority): no annual RMDs, empty by 10-year deadline")
+    func inheritedRothMinorAtMajorityNoAnnualRMD() {
+        let dm = makeDM()
+        // Roth owner always deemed pre-RBD, so no annual RMDs during the 10-year window.
+        let account = IRAAccount(name: "Roth Adult", accountType: .inheritedRothIRA, balance: 100_000,
+                                  beneficiaryType: .minorChild, yearOfInheritance: 2020,
+                                  beneficiaryBirthYear: 2010, minorChildMajorityYear: 2031)
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2035)
+        #expect(result.annualRMD == 0)
+        #expect(result.mustEmptyByYear == 2041)
+    }
+
+    @Test("Inherited Roth spouse: conservative $0 until decedent's applicable RMD age (deferral proxy)")
+    func inheritedRothSpouseDeferral() {
+        let dm = makeDM()
+        let account = IRAAccount(name: "Roth Spouse", accountType: .inheritedRothIRA, balance: 200_000,
+                                  beneficiaryType: .spouse, yearOfInheritance: 2023,
+                                  beneficiaryBirthYear: 1960)
+        let result = dm.calculateInheritedIRARMD(account: account, forYear: 2026)
+        // §1.401(a)(9)-3(d) / §1.408-8(c)(2): spouse may defer until year decedent would
+        // have reached applicable RMD age. Simplified to $0 until full decedent-age tracking lands.
+        #expect(result.annualRMD == 0)
+        #expect(result.mustEmptyByYear == nil)
     }
 }
 
