@@ -213,7 +213,7 @@ struct IncomeSourcesView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "clock.arrow.circlepath")
                                 .foregroundStyle(.indigo)
-                            Text("Prior Year State Tax Balance")
+                            Text("\(dataManager.priorPlanYear, format: .number.grouping(.never)) State Tax Balance")
                                 .font(.caption)
                                 .fontWeight(.semibold)
                         }
@@ -237,7 +237,7 @@ struct IncomeSourcesView: View {
                         }
 
                         if dataManager.priorYearStateBalance > 0 {
-                            Text("The balance due you paid with your prior year\u{2019}s state return is included in your SALT deduction.")
+                            Text("The balance due you paid with your \(dataManager.priorPlanYear, format: .number.grouping(.never)) state return is included in your SALT deduction.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         } else if dataManager.priorYearStateBalance < 0 {
@@ -245,13 +245,13 @@ struct IncomeSourcesView: View {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundStyle(.orange)
                                     .font(.caption2)
-                                Text("A state tax refund may be taxable on your federal return if you itemized last year. Consider adding a \u{201C}State Tax Refund\u{201D} income source for \(abs(dataManager.priorYearStateBalance).formatted(.currency(code: "USD"))).")
+                                Text("A state tax refund may be taxable on your federal return if you itemized in \(dataManager.priorPlanYear, format: .number.grouping(.never)). Consider adding a \u{201C}State Tax Refund\u{201D} income source for \(abs(dataManager.priorYearStateBalance).formatted(.currency(code: "USD"))).")
                                     .font(.caption2)
                                     .foregroundStyle(.orange)
                             }
                         }
 
-                        Text("Enter the amount you paid with your prior year\u{2019}s state tax return (positive for balance due paid, negative for refund received).")
+                        Text("Enter the amount you paid with your \(dataManager.priorPlanYear, format: .number.grouping(.never)) state tax return (positive for balance due paid, negative for refund received).")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -301,7 +301,7 @@ struct IncomeSourcesView: View {
                                 }
                                 if dataManager.priorYearSALTDeductible > 0 {
                                     HStack {
-                                        Text("Prior Year Balance Due")
+                                        Text("\(dataManager.priorPlanYear, format: .number.grouping(.never)) Balance Due")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         Spacer()
@@ -327,7 +327,7 @@ struct IncomeSourcesView: View {
                                             Text("Est. State Tax Payments")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
-                                            Text("(auto)")
+                                            Text("(auto-calculated for \(dataManager.planYear, format: .number.grouping(.never)))")
                                                 .font(.caption2)
                                                 .foregroundStyle(.green)
                                         }

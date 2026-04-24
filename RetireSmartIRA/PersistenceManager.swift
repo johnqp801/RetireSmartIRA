@@ -19,6 +19,7 @@ struct PersistenceManager {
         static let spouseBirthYear = "spouseBirthYear" // legacy migration
         static let filingStatus = "filingStatus"
         static let selectedState = "selectedState"
+        static let planYear = "planYear"
         static let spouseName = "spouseName"
         static let enableSpouse = "enableSpouse"
         static let iraAccounts = "iraAccounts"
@@ -88,6 +89,15 @@ struct PersistenceManager {
         if let raw = defaults.string(forKey: StorageKey.selectedState),
            let state = USState(rawValue: raw) {
             dm.selectedState = state
+        }
+        // Plan year — persisted so year-specific labels stay stable across
+        // calendar rollover. If missing (pre-1.7.2 install), default to the
+        // system year at load time and save it back so it's stable from here on.
+        if defaults.object(forKey: StorageKey.planYear) != nil {
+            dm.planYear = defaults.integer(forKey: StorageKey.planYear)
+        } else {
+            dm.planYear = Calendar.current.component(.year, from: Date())
+            defaults.set(dm.planYear, forKey: StorageKey.planYear)
         }
         if let name = defaults.string(forKey: StorageKey.spouseName) {
             dm.spouseName = name
@@ -321,6 +331,7 @@ struct PersistenceManager {
         defaults.set(dm.birthDate.timeIntervalSince1970, forKey: StorageKey.birthDate)
         defaults.set(dm.filingStatus.rawValue, forKey: StorageKey.filingStatus)
         defaults.set(dm.selectedState.rawValue, forKey: StorageKey.selectedState)
+        defaults.set(dm.planYear, forKey: StorageKey.planYear)
         defaults.set(dm.spouseName, forKey: StorageKey.spouseName)
         defaults.set(dm.userName, forKey: StorageKey.userName)
         defaults.set(dm.spouseBirthDate.timeIntervalSince1970, forKey: StorageKey.spouseBirthDate)

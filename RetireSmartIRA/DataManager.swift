@@ -29,6 +29,11 @@ class DataManager: ObservableObject {
         get { profile.currentYear }
         set { profile.currentYear = newValue }
     }
+    var planYear: Int {
+        get { profile.planYear }
+        set { profile.planYear = newValue }
+    }
+    var priorPlanYear: Int { profile.priorPlanYear }
     var filingStatus: FilingStatus {
         get { profile.filingStatus }
         set { profile.filingStatus = newValue }

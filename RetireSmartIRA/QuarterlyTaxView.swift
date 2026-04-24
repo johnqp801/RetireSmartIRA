@@ -631,11 +631,11 @@ struct QuarterlyTaxView: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Prior Year Tax Information")
+                    Text("\(dataManager.priorPlanYear, format: .number.grouping(.never)) Tax Information")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    Text("Enter these values from your prior year tax returns. The IRS and state evaluate safe harbors independently, so both are needed.")
+                    Text("Enter these values from your \(dataManager.priorPlanYear, format: .number.grouping(.never)) tax returns. The IRS and state evaluate safe harbors independently, so both are needed.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -763,7 +763,7 @@ struct QuarterlyTaxView: View {
 
                     HStack {
                         let rateLabel = dataManager.priorYearSafeHarborRate > 1.0 ? "110%" : "100%"
-                        Text("\(rateLabel) of Prior Year:")
+                        Text("\(rateLabel) of \(dataManager.priorPlanYear, format: .number.grouping(.never)) Tax:")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()

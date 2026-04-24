@@ -21,6 +21,18 @@ class ProfileManager: ObservableObject {
     @Published var currentYear: Int = Calendar.current.component(.year, from: Date()) {
         didSet { TaxCalculationEngine.loadConfig(forYear: currentYear) }
     }
+
+    /// The tax year this user's plan is configured for. Unlike `currentYear`
+    /// (which tracks the system clock and therefore rolls over on January 1),
+    /// `planYear` is persisted and stable — once set, it only changes when
+    /// the user (or a future "start new tax year" flow) explicitly bumps it.
+    /// Drives year-specific UI labels ("2025 State Tax Balance", "auto-calculated
+    /// for 2026") so labels don't go stale when the calendar ticks forward
+    /// without the user actually starting a new plan.
+    @Published var planYear: Int = Calendar.current.component(.year, from: Date())
+
+    /// The tax year one before `planYear`. Convenience for "prior year" UI labels.
+    var priorPlanYear: Int { planYear - 1 }
     @Published var filingStatus: FilingStatus = .single
     @Published var selectedState: USState = .california
     @Published var userName: String = ""
