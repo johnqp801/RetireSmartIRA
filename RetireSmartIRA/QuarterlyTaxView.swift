@@ -194,12 +194,16 @@ struct QuarterlyTaxView: View {
                 summaryRow(label: "Federal Tax", value: dataManager.scenarioFederalTax, color: .blue)
                 summaryRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax, color: .orange)
 
+                // NIIT and AMT are standard tax components (not penalties).
+                // Per color contract, render in default neutral — red is
+                // reserved for adverse signals (penalties, deadlines, cliff
+                // crossings, scenario decisions that worsen the outcome).
                 if dataManager.scenarioNIITAmount > 0 {
-                    summaryRow(label: "NIIT (3.8% Surtax)", value: dataManager.scenarioNIITAmount, color: .red)
+                    summaryRow(label: "NIIT (3.8% Surtax)", value: dataManager.scenarioNIITAmount)
                 }
 
                 if dataManager.scenarioAMTAmount > 0 {
-                    summaryRow(label: "AMT (26%/28%)", value: dataManager.scenarioAMTAmount, color: .red)
+                    summaryRow(label: "AMT (26%/28%)", value: dataManager.scenarioAMTAmount)
                 }
 
                 Divider()

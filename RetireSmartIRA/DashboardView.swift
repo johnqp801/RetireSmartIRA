@@ -172,10 +172,12 @@ struct DashboardView: View {
                         Text("RMD Status")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                        // "Required" is an obligation, not a penalty — use bold
+                        // weight, not red, per the color contract. Red is
+                        // reserved for missed deadlines / actual penalties.
                         Text("Required")
                             .font(.title3)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.red)
                     }
                 } else {
                     VStack(alignment: .trailing, spacing: 4) {
@@ -275,7 +277,6 @@ struct DashboardView: View {
                             Text(yourRMD, format: .currency(code: "USD"))
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundStyle(.red)
                         }
                     }
                     if spouseRMD > 0 {
@@ -291,7 +292,6 @@ struct DashboardView: View {
                             Text(spouseRMD, format: .currency(code: "USD"))
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundStyle(.red)
                         }
                     }
                 } else if yourRMD > 0 {
@@ -629,21 +629,25 @@ struct DashboardView: View {
 
                 Divider()
 
-                taxRow(label: "Federal Tax", value: dataManager.scenarioFederalTax, color: .red)
-                taxRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax, color: .red)
+                // Standard tax amounts render in the default neutral color.
+                // Red is reserved for adverse signals (penalties, deadlines,
+                // cliff crossings, unfavorable scenario deltas) — see
+                // docs/beta-feedback/2026-04-24-color-system-research.md.
+                taxRow(label: "Federal Tax", value: dataManager.scenarioFederalTax)
+                taxRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax)
 
                 if dataManager.scenarioNIITAmount > 0 {
-                    taxRow(label: "NIIT (3.8% Surtax)", value: dataManager.scenarioNIITAmount, color: .red)
+                    taxRow(label: "NIIT (3.8% Surtax)", value: dataManager.scenarioNIITAmount)
                 }
 
                 if dataManager.scenarioAMTAmount > 0 {
-                    taxRow(label: "AMT (26%/28%)", value: dataManager.scenarioAMTAmount, color: .red)
+                    taxRow(label: "AMT (26%/28%)", value: dataManager.scenarioAMTAmount)
                 }
 
                 DisclosureGroup(isExpanded: $totalTaxExpanded) {
                     totalTaxBreakdown
                 } label: {
-                    taxRow(label: "Total Tax", value: dataManager.scenarioTotalTax, isBold: true, color: .red)
+                    taxRow(label: "Total Tax", value: dataManager.scenarioTotalTax, isBold: true)
                 }
 
                 // NIIT safe zone warning (has investment income but below threshold)
@@ -1076,7 +1080,6 @@ struct DashboardView: View {
                 Text(fedBreakdown.totalFederalTax, format: .currency(code: "USD"))
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundStyle(.red)
             }
 
             // ─── State Tax ───
@@ -1129,7 +1132,6 @@ struct DashboardView: View {
                 Text(stateBreakdown.totalStateTax, format: .currency(code: "USD"))
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundStyle(.red)
             }
 
             // ─── NIIT ───
@@ -1161,7 +1163,6 @@ struct DashboardView: View {
                 Text(dataManager.scenarioTotalTax, format: .currency(code: "USD"))
                     .font(.subheadline)
                     .fontWeight(.bold)
-                    .foregroundStyle(.red)
             }
         }
         .padding(.top, 4)
