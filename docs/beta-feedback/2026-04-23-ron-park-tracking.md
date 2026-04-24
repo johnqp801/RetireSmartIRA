@@ -111,6 +111,30 @@ Implementation replaced the whole `CurrencyField` with SwiftUI's built-in `TextF
 
 ---
 
+### Fix #6 — W-2 box references, withholding "annual," and per-type income guidance
+
+**What Ron saw:** Could not tell which W-2 box to copy from ("Is this Box 1 or Box 3?"), whether withholding fields were annual or per-paycheck, what "Interest" vs "Dividends" specifically meant, or how to handle qualified vs ordinary dividends.
+
+**What's fixed:**
+
+1. **Clearer picker labels** (via a new `IncomeType.displayName` property — the Codable raw value stays untouched, so existing persisted data doesn't need migration):
+   - "Dividends" → **"Ordinary Dividends"** (pairs naturally with "Qualified Dividends")
+   - "Interest" → **"Taxable Interest"** (pairs with "Tax-Exempt Interest")
+
+2. **Withholding TextField labels now include "annual" and W-2 box numbers**:
+   - "Federal Withholding (optional)" → "Annual Federal Withholding (**W-2 Box 2**, optional)"
+   - "State Withholding (optional)" → "Annual State Withholding (**W-2 Box 17**, optional)"
+
+3. **Four new conditional "About …" guidance sections** appear in the Add/Edit Income form when the relevant type is selected (matches the existing pattern used for state-tax refunds and tax-exempt interest):
+   - **Employment / W-2 Income**: explains W-2 **Box 1** (not Box 3), addresses the 401(k)-pre-tax gotcha, covers 1099 / self-employment net-profit handling.
+   - **Taxable Interest**: clarifies 1099-INT Box 1, distinguishes from muni interest (use Tax-Exempt Interest) and mortgage interest paid (deduction, not income).
+   - **Ordinary Dividends**: 1099-DIV Box 1a − Box 1b, prompts user to split out qualified portion.
+   - **Qualified Dividends**: 1099-DIV Box 1b, preferential cap-gains rates, reverse pointer to Ordinary Dividends for the non-qualified portion.
+
+**Commit:** `99d4630` — "Clarify income type + W-2 box labels + per-type guidance"
+
+---
+
 ## 📋 Queued for this release
 
 Rest of the short-list from the [response doc](2026-04-23-ron-park.md):
@@ -219,6 +243,6 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ## Meta
 
-- **Total items tracked:** 22 (5 shipped, 6 queued, 10 deferred, 2 needs-discussion)
+- **Total items tracked:** 22 (6 shipped, 5 queued, 10 deferred, 2 needs-discussion)
 - **Last updated:** 2026-04-24
 - **Update frequency:** As items land
