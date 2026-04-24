@@ -138,6 +138,8 @@ Implementation replaced the whole `CurrencyField` with SwiftUI's built-in `TextF
 ## 📋 Queued for this release
 
 Rest of the short-list from the [response doc](2026-04-23-ron-park.md):
+
+**Note:** items 1 & 2 (SALT color legend; slider/graph color alignment) were **deferred to 1.8** after a color-system research pass surfaced a broader design problem. See [color system research](2026-04-24-color-system-research.md) for the full audit. Those items become no-ops until the canonical palette exists.
 - **Explicit year labels everywhere.** "2025 State Tax Balance" not "Prior Year Balance"; same for all "Prior year" labels. (~30 min)
 - **W-2 Box 1 / Box 2 / Box 17 tooltips on income + withholding rows.** (~15 min)
 - **"Auto" → "Auto-calculated for 2026"; SALT plain-English intro; color legend.** (~30 min)
@@ -226,6 +228,18 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ---
 
+### Color-system refresh (deferred into 1.8 from items 1 & 2 of the short-list)
+
+**Scope:** Items 1 (SALT color-code legend) and 2 (slider/graph color alignment) from the 1.7.2 short-list revealed a global design problem: 9+ distinct hues per screen, no custom brand color, unstable concept-to-color mapping (Roth is green/purple/orange depending on screen), and semantic red/green doing double duty as categorical identities.
+
+**Why deferred:** The fix is a standalone design-system project, not a tweak. Retirement-planning category norm (Boldin, Empower, Fidelity, Vanguard) is decisively muted — one brand color, 3–5 hues per screen, semantic color reserved for status. We're currently closer to early-stage consumer fintech in visual density.
+
+**Full research:** [docs/beta-feedback/2026-04-24-color-system-research.md](2026-04-24-color-system-research.md).
+
+**Target:** 1.8 release. Tasks: palette definition → design-token file → audit-and-update all ~800 color call sites → visual validation → beta feedback.
+
+---
+
 ### History form 2210 / Q4 Roth annotation
 
 **Scope:** Ron noted Form 2210 annotation flow for Q4 Roth conversions. IRS seems to only care if they send a letter, but worth a tooltip in Safe Harbor section.
@@ -243,6 +257,6 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ## Meta
 
-- **Total items tracked:** 22 (6 shipped, 5 queued, 10 deferred, 2 needs-discussion)
+- **Total items tracked:** 22 (6 shipped, 3 queued, 11 deferred, 2 needs-discussion). Items 1 & 2 of the queue (SALT legend, slider/graph color alignment) rolled into the deferred color-system refresh after research showed they're symptoms of a larger design issue.
 - **Last updated:** 2026-04-24
 - **Update frequency:** As items land
