@@ -75,11 +75,21 @@ Implementation replaced the whole `CurrencyField` with SwiftUI's built-in `TextF
 
 ---
 
+### Fix #4 — "RMD — Not yet required" missing on primary side of withdrawal card
+
+**What Ron saw:** "Under Spouse's withdrawals, just above the slider the word 'RMD' appears, but not for Your withdrawals."
+
+**Root cause:** In the Scenarios → IRA/401(k) Withdrawals card, the spouse's side had both "Required RMD: $X" (when RMD-age) **and** "RMD — Not yet required" (when pre-RMD-age). The primary user's side only had the first — if the user was pre-RMD-age, the row was skipped entirely, reading as a missing check rather than a deliberate UX choice.
+
+**What's fixed:** Added the mirrored `else` branch on the primary side. Pre-RMD-age users now see "RMD — Not yet required" as reassurance that the app checked and found no requirement yet.
+
+**Commit:** `149ff94` — "Show 'RMD — Not yet required' on primary side of withdrawal card"
+
+---
+
 ## 📋 Queued for this release
 
 Rest of the short-list from the [response doc](2026-04-23-ron-park.md):
-
-- **Spouse side shows "RMD" label, your side doesn't.** Consistency fix. (~15 min)
 - **Explicit year labels everywhere.** "2025 State Tax Balance" not "Prior Year Balance"; same for all "Prior year" labels. (~30 min)
 - **W-2 Box 1 / Box 2 / Box 17 tooltips on income + withholding rows.** (~15 min)
 - **"Auto" → "Auto-calculated for 2026"; SALT plain-English intro; color legend.** (~30 min)
@@ -185,6 +195,6 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ## Meta
 
-- **Total items tracked:** 22 (3 shipped, 8 queued, 10 deferred, 2 needs-discussion)
+- **Total items tracked:** 22 (4 shipped, 7 queued, 10 deferred, 2 needs-discussion)
 - **Last updated:** 2026-04-24
 - **Update frequency:** As items land
