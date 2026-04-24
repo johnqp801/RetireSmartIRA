@@ -135,6 +135,31 @@ Implementation replaced the whole `CurrencyField` with SwiftUI's built-in `TextF
 
 ---
 
+### Fix #7 — Standard tax amounts no longer rendered in red
+
+**What Ron saw (implicit):** every federal/state/NIIT/AMT/total tax figure on the Dashboard rendered in red. RMD amounts and "Required" status also red. The aggregate effect: every glance at the app felt alarming, even when nothing was actually wrong.
+
+**What's fixed:** Per the color-system research and triangulation, red is now reserved for **adverse signals only** — penalties, deadlines, cliff crossings, scenario decisions that worsen outcomes. Standard tax obligations and RMD amounts render in default neutral text.
+
+**Specifically changed:**
+- Dashboard tax breakdown: Federal Tax, State Tax, NIIT, AMT, Total Tax rows
+- Federal/State/Total subtotals in the Total Tax disclosure
+- "RMD Status: Required" indicator
+- Personal + spouse RMD amount displays
+- QuarterlyTaxView: NIIT and AMT summary rows
+
+**Intentionally retained as red (legitimate adverse signals):**
+- SALT cap loss line, Medical AGI floor exclusion
+- Roth conversion "Tax cost this year" on the suggestion card
+- "In the top 37% federal bracket" warning
+- NIIT cliff-crossed alert and threshold marker
+
+**Why this matters:** Both Gemini and ChatGPT, independently, called this out as the single highest-leverage color move. Removes the "everything feels alarming" undertone immediately, without committing to a full palette decision (which lands in 1.8).
+
+**Commit:** `1fa275f` — "Recolor standard tax amounts red → neutral (color contract Fix #7)"
+
+---
+
 ## 📋 Queued for this release
 
 Rest of the short-list from the [response doc](2026-04-23-ron-park.md):
@@ -257,6 +282,6 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ## Meta
 
-- **Total items tracked:** 22 (6 shipped, 3 queued, 11 deferred, 2 needs-discussion). Items 1 & 2 of the queue (SALT legend, slider/graph color alignment) rolled into the deferred color-system refresh after research showed they're symptoms of a larger design issue.
+- **Total items tracked:** 22 (7 shipped, 3 queued, 11 deferred, 2 needs-discussion). Items 1 & 2 of the queue (SALT legend, slider/graph color alignment) rolled into the deferred color-system refresh after research showed they're symptoms of a larger design issue. Fix #7 (tax-color correction) was a small but impactful piece of that larger work that we extracted and shipped now.
 - **Last updated:** 2026-04-24
 - **Update frequency:** As items land
