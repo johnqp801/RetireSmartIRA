@@ -52,11 +52,33 @@ Implementation replaced the whole `CurrencyField` with SwiftUI's built-in `TextF
 
 ---
 
+### Fix #3 — Roth Conversion double-entered (Income page + Scenarios slider)
+
+**What Ron saw:** It was possible to enter a Roth Conversion as an income type on the Income page *and* drag the Scenarios slider. Both stacked, double-counting the conversion in every tax calc.
+
+**Root cause (architectural):** `IncomeType` had a `.rothConversion` case that predated the Scenarios slider. A Roth conversion isn't really "income I received" — it's a decision the planner models. Having it in both places was a legacy artifact from before the scenario feature existed.
+
+**What's fixed — the full long-term change (not a surgical filter):**
+
+1. **`IncomeType.rothConversion` removed from the enum.** The Income-page type picker no longer offers "Roth Conversion." There's exactly one place in the app to model Roth conversions now: the Scenarios slider.
+
+2. **Legacy-data migration runs automatically on first launch of 1.7.2.** Users who had a Roth Conversion on their Income page have their data transparently migrated:
+   - The `annualAmount` moves to `yourRothConversion` or `spouseRothConversion` based on owner.
+   - Any federal/state withholding is preserved as a new "Other" income source named `"Migrated: withholding from prior Roth conversion (<original name>)"`. This keeps Safe Harbor / quarterly estimated-tax math stable. Users can delete the placeholder if they prefer.
+   - The legacy source is removed.
+
+3. **Regression tests cover all migration paths.** Primary owner, spouse owner, withholding preservation, modern-data no-op, and sentinel-never-leaks-to-UI. 5 tests, all passing.
+
+**Architectural benefit:** Now that `IncomeType.rothConversion` doesn't exist, the double-entry bug is impossible to reintroduce. It's not a filter that could be removed by mistake — it's a data-model invariant.
+
+**Commit:** `46d1b95` — "Remove IncomeType.rothConversion and migrate legacy data"
+
+---
+
 ## 📋 Queued for this release
 
-Before the 1.7.2 ship, the rest of the short-list from the [response doc](2026-04-23-ron-park.md):
+Rest of the short-list from the [response doc](2026-04-23-ron-park.md):
 
-- **Roth amount double-entered (Income page + Scenario slider).** Auto-link or zero the Income page on first slider move. (~15 min)
 - **Spouse side shows "RMD" label, your side doesn't.** Consistency fix. (~15 min)
 - **Explicit year labels everywhere.** "2025 State Tax Balance" not "Prior Year Balance"; same for all "Prior year" labels. (~30 min)
 - **W-2 Box 1 / Box 2 / Box 17 tooltips on income + withholding rows.** (~15 min)
@@ -163,6 +185,6 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ## Meta
 
-- **Total items tracked:** 22 (2 shipped, 9 queued, 10 deferred, 2 needs-discussion)
+- **Total items tracked:** 22 (3 shipped, 8 queued, 10 deferred, 2 needs-discussion)
 - **Last updated:** 2026-04-24
 - **Update frequency:** As items land
