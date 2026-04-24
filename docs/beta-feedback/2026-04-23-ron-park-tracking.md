@@ -87,6 +87,30 @@ Implementation replaced the whole `CurrencyField` with SwiftUI's built-in `TextF
 
 ---
 
+### Fix #5 — Ambiguous "Prior Year" labels replaced with explicit year + foundation for year-over-year history
+
+**What Ron saw:** "Prior year state tax balance — So this is 2025, not 2024, right? (Just trying to make sure 'Prior' is always used consistently)." And: "SALT > Estimated State Tax Payments (auto) — what's the auto part? ... It wasn't clear to me this wasn't asking for 2025 est taxes paid."
+
+**Root cause:** Several labels in Income & Deductions and Quarterly Tax said "Prior Year" without specifying which year. The naïve fix (interpolate `currentYear - 1` from the system clock) would silently break on January 1 of each year — labels would flip to the new year while the user's stored data still reflected the prior year's plan.
+
+**What's fixed — design the foundation for year-over-year history while fixing the labels:**
+
+1. **New persisted `planYear` field** added to the user's profile. Unlike `currentYear` (which tracks the system clock and auto-advances on January 1), `planYear` is stable once set — it only changes when explicitly bumped.
+
+2. **All year-specific UI labels now use `planYear` and `planYear - 1` directly**, e.g.:
+   - "2025 State Tax Balance"
+   - "auto-calculated for 2026"
+   - "2025 Tax Information" (in Safe Harbor section)
+   - "100% of 2025 Tax" (in Safe Harbor amount line)
+
+3. **Existing users are migrated automatically**: on first launch of 1.7.2, `planYear` defaults to the system year at load time and is persisted. From then on, the field is stable regardless of calendar rollover.
+
+4. **Forward compatibility:** `planYear` is the anchor for the future year-over-year history feature (deferred to 1.9). When that feature ships, it can migrate today's flat fields into per-year snapshots keyed by `planYear`, and add a "Start planning 2027" workflow that bumps `planYear` and freezes the prior year's plan. Without today's change, that feature would have nowhere to attach.
+
+**Commit:** `4af0db4` — "Replace ambiguous 'Prior Year' labels with explicit years via persisted planYear"
+
+---
+
 ## 📋 Queued for this release
 
 Rest of the short-list from the [response doc](2026-04-23-ron-park.md):
@@ -195,6 +219,6 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ## Meta
 
-- **Total items tracked:** 22 (4 shipped, 7 queued, 10 deferred, 2 needs-discussion)
+- **Total items tracked:** 22 (5 shipped, 6 queued, 10 deferred, 2 needs-discussion)
 - **Last updated:** 2026-04-24
 - **Update frequency:** As items land
