@@ -692,6 +692,11 @@ struct SocialSecurityPlannerView: View {
                     assumptionSliders
                 }
             }
+
+            Text("Planning Horizon Age is how long you want your plan to support you — not a prediction of death. Pick high to be safe (95 is a common default).")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))
@@ -704,8 +709,13 @@ struct SocialSecurityPlannerView: View {
 
     @ViewBuilder
     private var assumptionSliders: some View {
+        // Re-labeled from "Life Expectancy" — Ron Park feedback: users
+        // misread that as "predict when I'll die." The right framing
+        // (per Boldin and other planners): "How long do you want your
+        // plan to support you?" Conservative users pick higher (95 is
+        // a common default).
         assumptionSlider(
-            label: "Your Life Expectancy",
+            label: "Your Planning Horizon Age",
             value: Binding(
                 get: { Double(dataManager.ssWhatIfParams.primaryLifeExpectancy) },
                 set: { dataManager.ssWhatIfParams.primaryLifeExpectancy = Int($0) }
@@ -717,7 +727,7 @@ struct SocialSecurityPlannerView: View {
 
         if dataManager.enableSpouse {
             assumptionSlider(
-                label: "\(dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName) Life Expectancy",
+                label: "\(dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName) Planning Horizon Age",
                 value: Binding(
                     get: { Double(dataManager.ssWhatIfParams.spouseLifeExpectancy) },
                     set: { dataManager.ssWhatIfParams.spouseLifeExpectancy = Int($0) }

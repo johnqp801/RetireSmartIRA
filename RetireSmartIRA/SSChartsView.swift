@@ -94,11 +94,11 @@ struct SSCumulativeBenefitsChart: View {
     }
 
     private var lifeExpectancyRule: some ChartContent {
-        RuleMark(x: .value("Life Expectancy", lifeExpectancy))
+        RuleMark(x: .value("Planning Horizon", lifeExpectancy))
             .foregroundStyle(.gray.opacity(0.5))
             .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
             .annotation(position: .top, alignment: .trailing) {
-                Text("LE: \(lifeExpectancy)")
+                Text("Plan to: \(lifeExpectancy)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

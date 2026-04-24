@@ -143,7 +143,10 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     } else {
-                        Picker("Heir's Filing Status", selection: $dataManager.legacyHeirFilingStatus) {
+                        // Labels say "Primary Heir's" (not "Heir's") to make the
+                        // single-heir model unambiguous — Ron Park feedback: users
+                        // wondered whether they should aggregate multiple children.
+                        Picker("Primary Heir's Filing Status", selection: $dataManager.legacyHeirFilingStatus) {
                             Text("Single").tag(FilingStatus.single)
                             Text("Married Filing Jointly").tag(FilingStatus.marriedFilingJointly)
                         }
@@ -151,7 +154,7 @@ struct SettingsView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text("Heir's Estimated Salary")
+                                Text("Primary Heir's Salary (today's dollars)")
                                 Spacer()
                                 Text(dataManager.legacyHeirEstimatedSalary, format: .currency(code: "USD").precision(.fractionLength(0)))
                                     .foregroundStyle(.secondary)
@@ -159,13 +162,13 @@ struct SettingsView: View {
                             Slider(value: $dataManager.legacyHeirEstimatedSalary, in: 0...500_000, step: 5_000)
                         }
 
-                        Text("The app calculates your heir's actual tax using progressive federal brackets based on their salary plus inherited IRA distributions. Adjust these to model different heirs.")
+                        Text("Use today's salary — the legacy projection runs in today's dollars throughout. The app calculates your heir's tax using progressive federal brackets based on their salary plus inherited IRA distributions.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text("Heir's Birth Year (optional)")
+                                Text("Primary Heir's Birth Year (optional)")
                                 Spacer()
                                 TextField("—", text: Binding(
                                     get: { dataManager.legacyHeirBirthYear.map(String.init) ?? "" },
