@@ -480,11 +480,11 @@ struct LegacyImpactView: View {
                     if let beYear = breakEvenYr {
                         if beYear == 0 {
                             VStack(spacing: 2) {
-                                Text("Under these assumptions, Roth wins immediately.")
+                                Text("Roth wins immediately at your current inputs.")
                                     .font(detailFont)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.green)
-                                Text("Higher future tax rates (widow bracket jump or the SECURE Act 10-year rule for heirs) would strengthen the advantage further.")
+                                Text("Adjust the growth rate, conversion amount, or your inputs above to see how the result moves. Higher future tax rates (widow bracket jump, or the SECURE Act 10-year rule for heirs) would strengthen the advantage further.")
                                     .font(detailFont)
                                     .foregroundStyle(.secondary)
                             }
@@ -492,11 +492,11 @@ struct LegacyImpactView: View {
                             .frame(maxWidth: .infinity)
                         } else {
                             VStack(spacing: 2) {
-                                Text("Under these assumptions, Roth overtakes Traditional at year \(beYear).")
+                                Text("Roth overtakes Traditional at year \(beYear), at your current inputs.")
                                     .font(detailFont)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.blue)
-                                Text("Higher future tax rates (widow bracket jump or the SECURE Act 10-year rule for heirs) would move the crossover earlier.")
+                                Text("Adjust the growth rate, conversion amount, or your inputs above to see how the crossover moves. Higher future tax rates (widow bracket jump, or the SECURE Act 10-year rule for heirs) would move the crossover earlier.")
                                     .font(detailFont)
                                     .foregroundStyle(.secondary)
                             }
