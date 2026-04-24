@@ -1810,31 +1810,63 @@ class DataManager: ObservableObject {
     // MARK: - Per-Decision Tax Impact Helpers
 
     /// Computes total tax for a hypothetical gross income and deduction scenario.
-    /// Used internally to measure incremental impact of individual decisions.
-    private func totalTaxFor(grossIncome: Double, deduction: Double, nii: Double? = nil) -> Double {
+    /// Mirrors the `scenarioTotalTax` pipeline exactly — uses `calculateStateTaxFromGross`
+    /// (not `calculateStateTax`) so the SS-exemption logic matches. Callers must supply
+    /// the hypothetical `taxableSocialSecurity` that reflects their scenario (varying
+    /// SS-affecting inputs like Roth conversion or withdrawals changes the SS combined-income
+    /// test and therefore the taxable-SS amount).
+    private func totalTaxFor(
+        grossIncome: Double,
+        taxableSocialSecurity: Double,
+        deduction: Double,
+        nii: Double? = nil
+    ) -> Double {
         let taxable = max(0, grossIncome - deduction)
         let fed = calculateFederalTax(income: taxable, filingStatus: filingStatus)
-        let state = calculateStateTax(income: taxable, filingStatus: filingStatus)
+        let state = calculateStateTaxFromGross(
+            grossIncome: grossIncome,
+            forState: selectedState,
+            filingStatus: filingStatus,
+            taxableSocialSecurity: taxableSocialSecurity
+        )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt
         return fed + state + niit + amt
     }
 
-    /// Tax impact of Roth conversions alone (approximate — removes conversions and measures difference)
+    /// Tax impact of Roth conversions alone. Removes conversions from the scenario
+    /// (rebuilding gross income with the recomputed SS-combined-income) and measures
+    /// the tax difference.
     var rothConversionTaxImpact: Double {
         guard scenarioTotalRothConversion > 0 else { return 0 }
+        // Taxable SS with the Roth conversion removed from the combined-income test.
+        let ssWithoutConv = calculateTaxableSocialSecurity(
+            filingStatus: filingStatus,
+            additionalIncome: scenarioTotalWithdrawals
+        )
+        let baseWithoutConv = scenarioOrdinaryIncomeSubtotal + ssWithoutConv + preferentialIncome()
+        let grossWithoutConv = baseWithoutConv + scenarioTotalWithdrawals - scenarioStockGainAvoided
         let withoutConversions = totalTaxFor(
-            grossIncome: scenarioGrossIncome - scenarioTotalRothConversion,
+            grossIncome: grossWithoutConv,
+            taxableSocialSecurity: ssWithoutConv,
             deduction: effectiveDeductionAmount
         )
         return scenarioTotalTax - withoutConversions
     }
 
-    /// Tax impact of extra withdrawals alone
+    /// Tax impact of extra withdrawals alone (RMDs kept; only the discretionary portion removed).
     var extraWithdrawalTaxImpact: Double {
         guard scenarioTotalExtraWithdrawal > 0 else { return 0 }
+        let rmdsOnly = scenarioTotalWithdrawals - scenarioTotalExtraWithdrawal
+        let ssWithout = calculateTaxableSocialSecurity(
+            filingStatus: filingStatus,
+            additionalIncome: scenarioTotalRothConversion + rmdsOnly
+        )
+        let baseWithout = scenarioOrdinaryIncomeSubtotal + ssWithout + preferentialIncome()
+        let grossWithout = baseWithout + scenarioTotalRothConversion + rmdsOnly - scenarioStockGainAvoided
         let withoutWithdrawals = totalTaxFor(
-            grossIncome: scenarioGrossIncome - scenarioTotalExtraWithdrawal,
+            grossIncome: grossWithout,
+            taxableSocialSecurity: ssWithout,
             deduction: effectiveDeductionAmount
         )
         return scenarioTotalTax - withoutWithdrawals
@@ -1849,8 +1881,17 @@ class DataManager: ObservableObject {
         let regularRMD = calculateCombinedRMD()
         let taxableQCDOffset = min(scenarioTotalQCD, regularRMD)
         guard taxableQCDOffset > 0 else { return 0 }
+        // Hypothetical "without QCD": the QCD-offset portion of RMD becomes taxable again.
+        // Both SS combined-income and gross income grow by taxableQCDOffset.
+        let ssWithoutQCD = calculateTaxableSocialSecurity(
+            filingStatus: filingStatus,
+            additionalIncome: scenarioTotalRothConversion + scenarioTotalWithdrawals + taxableQCDOffset
+        )
+        let baseWithoutQCD = scenarioOrdinaryIncomeSubtotal + ssWithoutQCD + preferentialIncome()
+        let grossWithoutQCD = baseWithoutQCD + scenarioTotalRothConversion + scenarioTotalWithdrawals + taxableQCDOffset - scenarioStockGainAvoided
         let withoutQCD = totalTaxFor(
-            grossIncome: scenarioGrossIncome + taxableQCDOffset,
+            grossIncome: grossWithoutQCD,
+            taxableSocialSecurity: ssWithoutQCD,
             deduction: effectiveDeductionAmount
         )
         return withoutQCD - scenarioTotalTax
@@ -1888,11 +1929,20 @@ class DataManager: ObservableObject {
         return delta * Double(medicareMemberCount)
     }
 
-    /// Tax impact of inherited IRA extra withdrawals (Traditional only — Roth is tax-free)
+    /// Tax impact of inherited IRA extra withdrawals (Traditional only — Roth is tax-free).
+    /// Inherited extras are part of `scenarioTotalWithdrawals`; removing them requires
+    /// recomputing the SS combined-income test.
     var inheritedExtraWithdrawalTaxImpact: Double {
         guard inheritedTraditionalExtraTotal > 0 else { return 0 }
+        let ssWithout = calculateTaxableSocialSecurity(
+            filingStatus: filingStatus,
+            additionalIncome: scenarioTotalRothConversion + scenarioTotalWithdrawals - inheritedTraditionalExtraTotal
+        )
+        let baseWithout = scenarioOrdinaryIncomeSubtotal + ssWithout + preferentialIncome()
+        let grossWithout = baseWithout + scenarioTotalRothConversion + scenarioTotalWithdrawals - inheritedTraditionalExtraTotal - scenarioStockGainAvoided
         let withoutInherited = totalTaxFor(
-            grossIncome: scenarioGrossIncome - inheritedTraditionalExtraTotal,
+            grossIncome: grossWithout,
+            taxableSocialSecurity: ssWithout,
             deduction: effectiveDeductionAmount
         )
         return scenarioTotalTax - withoutInherited
@@ -1970,6 +2020,7 @@ class DataManager: ObservableObject {
 
     /// Tax savings from the stock donation's itemized deduction (FMV for long-term, cost basis for short-term).
     /// This represents the reduction in cash the user must pay in taxes.
+    /// Only the deduction changes; gross income and SS combined-income are unchanged.
     var stockDeductionTaxSavings: Double {
         guard stockDonationEnabled, stockCurrentValue > 0, scenarioEffectiveItemize else { return 0 }
         let stockDeduction = scenarioStockIsLongTerm ? stockCurrentValue : stockPurchasePrice
@@ -1978,6 +2029,7 @@ class DataManager: ObservableObject {
         let effectiveDeductionWithout = max(deductionWithout, standardDeductionAmount)
         let withoutDeduction = totalTaxFor(
             grossIncome: scenarioGrossIncome,
+            taxableSocialSecurity: scenarioTaxableSocialSecurity,
             deduction: effectiveDeductionWithout
         )
         return withoutDeduction - scenarioTotalTax
@@ -1990,8 +2042,19 @@ class DataManager: ObservableObject {
         guard stockDonationEnabled, scenarioStockGainAvoided > 0 else { return 0 }
         // Compare: current scenario vs. scenario where gain IS realized (added to gross income)
         // but stock deduction is still present (isolates just the gain effect)
+        // Hypothetical "gain realized": capital gain enters SS combined-income too.
+        let ssWithGain = calculateTaxableSocialSecurity(
+            filingStatus: filingStatus,
+            additionalIncome: scenarioTotalRothConversion + scenarioTotalWithdrawals + scenarioStockGainAvoided
+        )
+        let baseWithGain = scenarioOrdinaryIncomeSubtotal + ssWithGain + preferentialIncome() + scenarioStockGainAvoided
+        let grossWithGain = baseWithGain + scenarioTotalRothConversion + scenarioTotalWithdrawals
+        // (stockGainAvoided is added via the preferential-income bump above since it would be LTCG
+        //  when realized as long-term; short-term gain would land in ordinary — but since this is
+        //  a comparison against a donation-enabled scenario, the delta is what matters.)
         let withGainRealized = totalTaxFor(
-            grossIncome: scenarioGrossIncome + scenarioStockGainAvoided,
+            grossIncome: grossWithGain,
+            taxableSocialSecurity: ssWithGain,
             deduction: effectiveDeductionAmount,
             nii: scenarioNetInvestmentIncome + scenarioStockGainAvoided
         )
@@ -2003,7 +2066,8 @@ class DataManager: ObservableObject {
         stockDeductionTaxSavings + stockCapGainsTaxAvoided
     }
 
-    /// Tax savings from cash donation
+    /// Tax savings from cash donation. Only the deduction changes; gross income and
+    /// SS combined-income are unchanged.
     var cashDonationTaxSavings: Double {
         guard cashDonationAmount > 0 else { return 0 }
         let charWithout = scenarioCharitableDeductions - cashDonationAmount
@@ -2013,6 +2077,7 @@ class DataManager: ObservableObject {
         let effectiveDeductionWithout = max(deductionWithout, standardDeductionAmount)
         let withoutCash = totalTaxFor(
             grossIncome: scenarioGrossIncome,
+            taxableSocialSecurity: scenarioTaxableSocialSecurity,
             deduction: effectiveDeductionWithout
         )
         return withoutCash - scenarioTotalTax

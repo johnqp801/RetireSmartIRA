@@ -3881,6 +3881,54 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(dm.rothConversionTaxImpact > 0)
     }
 
+    /// Regression for Ron Park's "$1 → $702" bug. The invariant
+    /// `rothConversionTaxImpact == scenarioTotalTax(withConv) - scenarioTotalTax(withoutConv)`
+    /// must hold for every realistic scenario, including ones with Social Security income,
+    /// state tax, and preferential income — not just the minimal Florida+pension case.
+    /// Also: $1 conversion cannot produce more than ~$1 of additional tax (marginal
+    /// rates can't exceed ~100% even at worst-case cliffs).
+    @Test("Roth impact invariant holds with $1 conversion + CA + SS + dividends")
+    func rothImpactDollarConversionMatchesDifference_CA_SS() {
+        let dm = makeDM(birthYear: 1960, filingStatus: .marriedFilingJointly, state: .california)
+        dm.enableSpouse = true
+        var c = DateComponents(); c.year = 1962; c.month = 1; c.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: c)!
+        dm.incomeSources = [
+            IncomeSource(name: "Your SS", type: .socialSecurity, annualAmount: 30_000, owner: .primary),
+            IncomeSource(name: "Spouse SS", type: .socialSecurity, annualAmount: 20_000, owner: .spouse),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000, owner: .primary),
+            IncomeSource(name: "Dividends", type: .qualifiedDividends, annualAmount: 3_000, owner: .primary),
+        ]
+        let taxBefore = dm.scenarioTotalTax
+        dm.yourRothConversion = 1  // Ron's exact reproducer
+        let taxAfter = dm.scenarioTotalTax
+        let impact = dm.rothConversionTaxImpact
+        // A $1 conversion can't produce more than a few dollars of additional tax.
+        #expect(impact < 10, "rothConversionTaxImpact was \(impact) for a $1 conversion — Ron's bug")
+        // Impact must equal the actual tax delta.
+        #expect(isClose(impact, taxAfter - taxBefore, tolerance: 1.0), "impact=\(impact), delta=\(taxAfter - taxBefore)")
+    }
+
+    /// Same invariant with a larger conversion — validates the fix across sizes.
+    @Test("Roth impact invariant holds with $25K conversion + CA + SS + dividends")
+    func rothImpactLargerConversionMatchesDifference_CA_SS() {
+        let dm = makeDM(birthYear: 1960, filingStatus: .marriedFilingJointly, state: .california)
+        dm.enableSpouse = true
+        var c = DateComponents(); c.year = 1962; c.month = 1; c.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: c)!
+        dm.incomeSources = [
+            IncomeSource(name: "Your SS", type: .socialSecurity, annualAmount: 30_000, owner: .primary),
+            IncomeSource(name: "Spouse SS", type: .socialSecurity, annualAmount: 20_000, owner: .spouse),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000, owner: .primary),
+            IncomeSource(name: "Dividends", type: .qualifiedDividends, annualAmount: 3_000, owner: .primary),
+        ]
+        let taxBefore = dm.scenarioTotalTax
+        dm.yourRothConversion = 25_000
+        let taxAfter = dm.scenarioTotalTax
+        let impact = dm.rothConversionTaxImpact
+        #expect(isClose(impact, taxAfter - taxBefore, tolerance: 1.0))
+    }
+
     // -- extraWithdrawalTaxImpact --
 
     @Test("Extra withdrawal tax impact is zero with no withdrawal")
