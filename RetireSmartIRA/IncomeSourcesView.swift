@@ -684,7 +684,7 @@ struct IncomeSourcesView: View {
 
                         Picker("Income Type", selection: $incomeType) {
                             ForEach(IncomeType.allCases, id: \.self) { type in
-                                Text(type.rawValue).tag(type)
+                                Text(type.displayName).tag(type)
                             }
                         }
 
@@ -693,12 +693,12 @@ struct IncomeSourcesView: View {
                             .keyboardType(.decimalPad)
                             #endif
 
-                        TextField("Federal Withholding (optional)", text: $federalWithholding)
+                        TextField("Annual Federal Withholding (W-2 Box 2, optional)", text: $federalWithholding)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
                             #endif
 
-                        TextField("State Withholding (optional)", text: $stateWithholding)
+                        TextField("Annual State Withholding (W-2 Box 17, optional)", text: $stateWithholding)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
                             #endif
@@ -707,6 +707,53 @@ struct IncomeSourcesView: View {
                             ForEach(Owner.allCases, id: \.self) { owner in
                                 Text(owner.rawValue).tag(owner)
                             }
+                        }
+                    }
+
+                    if incomeType == .consulting {
+                        Section("About Employment / W-2 Income") {
+                            Text("Enter **W-2 Box 1** — Wages, tips, other compensation. This is the amount *after* any pre-tax 401(k), HSA, or FSA contributions.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Do not use Box 3 (Social Security wages), which is typically larger because it excludes only the 401(k) portion. Box 1 is what flows to line 1a of your Form 1040.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Self-employment / 1099 income goes here too — use your net profit after business expenses.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if incomeType == .interest {
+                        Section("About Taxable Interest") {
+                            Text("Enter taxable interest from bank accounts, CDs, Treasuries, corporate bonds, and money-market funds — Form 1099-INT Box 1. This is what the IRS taxes at ordinary income rates.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Don't use this for municipal bond interest — select 'Tax-Exempt Interest' instead. Don't use this for mortgage interest you paid (that's an itemized deduction, not income).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if incomeType == .dividends {
+                        Section("About Ordinary Dividends") {
+                            Text("Enter ordinary (non-qualified) dividends from Form 1099-DIV. These are taxed at your ordinary income rate.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("The value to enter is **Box 1a minus Box 1b** (total ordinary dividends minus the qualified portion). If your 1099-DIV shows a non-zero Box 1b, create a separate entry using the 'Qualified Dividends' type for that amount — qualified dividends are taxed at capital-gains rates.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if incomeType == .qualifiedDividends {
+                        Section("About Qualified Dividends") {
+                            Text("Enter the qualified-dividend portion from Form 1099-DIV **Box 1b**. Qualified dividends are taxed at the preferential capital-gains rates (0% / 15% / 20%) instead of ordinary income rates.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("If you also have non-qualified dividends (Box 1a minus Box 1b), add a separate entry with type 'Ordinary Dividends'.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
 

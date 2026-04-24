@@ -108,6 +108,18 @@ enum IncomeType: String, Codable, CaseIterable {
     case rmd = "RMD"
     case other = "Other"
 
+    /// User-facing display name for the income-type picker. Defaults to the
+    /// Codable raw value; override only where the UI should read differently
+    /// than the stored serialization key (so stored data stays backward
+    /// compatible without a migration).
+    var displayName: String {
+        switch self {
+        case .dividends: return "Ordinary Dividends"   // pairs with "Qualified Dividends"
+        case .interest: return "Taxable Interest"      // pairs with "Tax-Exempt Interest"
+        default: return rawValue
+        }
+    }
+
     /// Legacy (pre-1.7.2) raw value for the removed `.rothConversion` case.
     /// Roth conversion is now exclusively modeled via the Scenarios-tab slider,
     /// not as an income line. Persisted data containing this raw value is
