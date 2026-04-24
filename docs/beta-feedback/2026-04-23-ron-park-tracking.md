@@ -160,6 +160,39 @@ Implementation replaced the whole `CurrencyField` with SwiftUI's built-in `TextF
 
 ---
 
+### Fix #8 — "Life Expectancy" → "Planning Horizon Age" + heir-label clarity
+
+**What Ron saw:** Two related label issues — (a) "Life Expectancy" prompted users to predict their death date instead of the safer planner-style framing; Ron specifically said he initially under-entered, then bumped it up by 7 years after seeing how Boldin frames it. (b) "Heir's Estimated Salary" left ambiguity about whether to aggregate multiple children.
+
+**What's fixed:**
+- "Your Life Expectancy" / "Spouse Life Expectancy" → "Your Planning Horizon Age" / "Spouse Planning Horizon Age"
+- New caption under the sliders: "Planning Horizon Age is how long you want your plan to support you — not a prediction of death. Pick high to be safe (95 is a common default)."
+- Chart RuleMark label: "Life Expectancy" → "Planning Horizon"; annotation "LE: 85" → "Plan to: 85"
+- "Heir's Filing Status" → "Primary Heir's Filing Status"
+- "Heir's Estimated Salary" → "Primary Heir's Salary (today's dollars)" — also addresses Ron's separate "how far out?" question
+- "Heir's Birth Year (optional)" → "Primary Heir's Birth Year (optional)"
+- Helper text rewritten to lead with the today's-dollars framing
+
+Internal property names (`primaryLifeExpectancy` / `spouseLifeExpectancy`) intentionally left as-is — they persist to UserDefaults under those keys, and renaming would require a migration. The user-facing label change is what matters.
+
+**Commit:** `c6a4102` — "Rename 'Life Expectancy' → 'Planning Horizon Age'; clarify primary-heir labels"
+
+---
+
+### Fix #9 — Legacy Impact "Roth wins" text obviously reactive
+
+**What Ron saw:** "'Under these assumptions, Roth wins immediately' — does this text ever change?" The text WAS dynamic (it switches between year-0 break-even and "overtakes at year N" cases), but the qualifier "Under these assumptions" was buried at the front of the sentence and Ron didn't register it as reactive.
+
+**What's fixed:** Both branches rewritten so the user-input dependency is explicit and interactivity is invited:
+- "Roth wins immediately at your current inputs." + "Adjust the growth rate, conversion amount, or your inputs above to see how the result moves. ..."
+- "Roth overtakes Traditional at year N, at your current inputs." + "Adjust the growth rate, conversion amount, or your inputs above to see how the crossover moves. ..."
+
+The "(box around the whole section)" piece of Ron's Legacy Impact note was already true in the code; he self-corrected in his original feedback ("Ah, dang it's there").
+
+**Commit:** `1aa3fab` — "Make Legacy Impact 'Roth wins' text obviously reactive to inputs"
+
+---
+
 ## 📋 Queued for this release
 
 Rest of the short-list from the [response doc](2026-04-23-ron-park.md):
@@ -282,6 +315,6 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 ## Meta
 
-- **Total items tracked:** 22 (7 shipped, 3 queued, 11 deferred, 2 needs-discussion). Items 1 & 2 of the queue (SALT legend, slider/graph color alignment) rolled into the deferred color-system refresh after research showed they're symptoms of a larger design issue. Fix #7 (tax-color correction) was a small but impactful piece of that larger work that we extracted and shipped now.
+- **Total items tracked:** 22 (9 shipped, 1 queued, 11 deferred, 2 needs-discussion). Items 1 & 2 of the queue (SALT legend, slider/graph color alignment) rolled into the deferred color-system refresh. Fix #7 (tax-color correction) was a small but impactful piece of that larger work, extracted and shipped now. Fixes #8 and #9 were the Planning Horizon rename + Legacy Impact polish from the original short-list.
 - **Last updated:** 2026-04-24
 - **Update frequency:** As items land
