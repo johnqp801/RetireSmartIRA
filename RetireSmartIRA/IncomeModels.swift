@@ -30,12 +30,34 @@ struct IncomeSource: Identifiable, Codable {
     }
 
     // MARK: - Data Migration
-    // Decode legacy data that used a single "taxWithholding" field
+    //
+    // Decodes:
+    //   (1) Legacy single "taxWithholding" field → federalWithholding.
+    //   (2) Legacy `.rothConversion` IncomeType raw value ("Roth Conversion").
+    //       The enum case was removed in 1.7.2 because Roth conversions are now
+    //       modeled exclusively via the Scenarios slider. Sources decoded with
+    //       the legacy raw value are marked with a sentinel name prefix so
+    //       `PersistenceManager.loadAll` can migrate them into yourRothConversion
+    //       / spouseRothConversion and remove them from the income list.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        type = try container.decode(IncomeType.self, forKey: .type)
+        let decodedName = try container.decode(String.self, forKey: .name)
+
+        // Decode type as raw string so we can detect the removed `.rothConversion` case.
+        let typeRaw = try container.decode(String.self, forKey: .type)
+        if typeRaw == IncomeType.legacyRothConversionRawValue {
+            type = .other
+            name = IncomeSource.legacyRothConversionSentinelPrefix + decodedName
+        } else if let matched = IncomeType(rawValue: typeRaw) {
+            type = matched
+            name = decodedName
+        } else {
+            // Unknown type (future enum value, corrupt data): fall back to .other
+            type = .other
+            name = decodedName
+        }
+
         annualAmount = try container.decode(Double.self, forKey: .annualAmount)
         owner = try container.decode(Owner.self, forKey: .owner)
 
@@ -49,6 +71,12 @@ struct IncomeSource: Identifiable, Codable {
             stateWithholding = 0
         }
     }
+
+    /// Sentinel prefix applied to the `name` of legacy `.rothConversion` income
+    /// sources during decode. `PersistenceManager.loadAll` detects this prefix
+    /// and migrates the source (amount → scenario slider; withholding → an "Other"
+    /// placeholder) before any UI sees it. No user will ever see the sentinel.
+    static let legacyRothConversionSentinelPrefix = "__LEGACY_ROTH_CONVERSION__::"
 
     private enum CodingKeys: String, CodingKey {
         case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding
@@ -78,8 +106,13 @@ enum IncomeType: String, Codable, CaseIterable {
     case consulting = "Employment/Other Income"
     case stateTaxRefund = "State Tax Refund"
     case rmd = "RMD"
-    case rothConversion = "Roth Conversion"
     case other = "Other"
+
+    /// Legacy (pre-1.7.2) raw value for the removed `.rothConversion` case.
+    /// Roth conversion is now exclusively modeled via the Scenarios-tab slider,
+    /// not as an income line. Persisted data containing this raw value is
+    /// migrated on load via `IncomeSource.init(from:)` + `PersistenceManager.loadAll`.
+    static let legacyRothConversionRawValue = "Roth Conversion"
 }
 
 enum FilingStatus: String, Codable, CaseIterable {

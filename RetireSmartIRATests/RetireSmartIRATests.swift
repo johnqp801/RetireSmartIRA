@@ -5038,7 +5038,6 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(!DataManager.niitQualifyingTypes.contains(.socialSecurity))
         #expect(!DataManager.niitQualifyingTypes.contains(.pension))
         #expect(!DataManager.niitQualifyingTypes.contains(.rmd))
-        #expect(!DataManager.niitQualifyingTypes.contains(.rothConversion))
         #expect(!DataManager.niitQualifyingTypes.contains(.consulting))
         #expect(!DataManager.niitQualifyingTypes.contains(.stateTaxRefund))
         #expect(!DataManager.niitQualifyingTypes.contains(.other))
@@ -6723,6 +6722,137 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             #expect(abs(payments.federal.q1 - payments.federal.q2) < 1)
             #expect(abs(payments.federal.q2 - payments.federal.q3) < 1)
             #expect(abs(payments.federal.q3 - payments.federal.q4) < 1)
+        }
+    }
+}
+
+// MARK: - Legacy Roth-Conversion IncomeType Migration (1.7.2)
+
+/// Regression coverage for the 1.7.2 migration that removes `.rothConversion`
+/// from the `IncomeType` enum. Pre-1.7.2 persisted income sources with raw
+/// value "Roth Conversion" must migrate cleanly on load: the amount lands on
+/// the scenario slider, withholding is preserved, and no legacy sentinel
+/// leaks into the UI.
+@Suite("Legacy Roth Conversion Migration", .serialized)
+@MainActor struct LegacyRothConversionMigrationTests {
+
+    /// Builds a JSON blob representing a pre-1.7.2 income source with the
+    /// removed `.rothConversion` type. Stores it in a fresh UserDefaults
+    /// suite and returns that suite so each test is isolated.
+    private func makeLegacyDefaults(
+        amount: Double,
+        owner: String,
+        federalWithholding: Double = 0,
+        stateWithholding: Double = 0,
+        name: String = "Roth Conversion"
+    ) -> UserDefaults {
+        let suiteName = "test.roth-migration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let json = """
+        [
+          {
+            "id": "\(UUID().uuidString)",
+            "name": "\(name)",
+            "type": "Roth Conversion",
+            "annualAmount": \(amount),
+            "federalWithholding": \(federalWithholding),
+            "stateWithholding": \(stateWithholding),
+            "owner": "\(owner)"
+          }
+        ]
+        """.data(using: .utf8)!
+        defaults.set(json, forKey: "incomeSources")
+        return defaults
+    }
+
+    @Test("Primary-owner legacy Roth Conversion moves to yourRothConversion slider")
+    func migratePrimaryOwner() {
+        let defaults = makeLegacyDefaults(amount: 50_000, owner: "You")
+        let dm = DataManager(skipPersistence: true)
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        #expect(dm.yourRothConversion == 50_000)
+        #expect(dm.spouseRothConversion == 0)
+        #expect(dm.incomeSources.isEmpty)
+    }
+
+    @Test("Spouse-owner legacy Roth Conversion moves to spouseRothConversion slider")
+    func migrateSpouseOwner() {
+        let defaults = makeLegacyDefaults(amount: 30_000, owner: "Spouse")
+        let dm = DataManager(skipPersistence: true)
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        #expect(dm.yourRothConversion == 0)
+        #expect(dm.spouseRothConversion == 30_000)
+        #expect(dm.incomeSources.isEmpty)
+    }
+
+    @Test("Legacy withholding preserved as an 'Other' placeholder source")
+    func migrationPreservesWithholding() {
+        let defaults = makeLegacyDefaults(
+            amount: 40_000,
+            owner: "You",
+            federalWithholding: 8_000,
+            stateWithholding: 1_000,
+            name: "2025 conversion"
+        )
+        let dm = DataManager(skipPersistence: true)
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        #expect(dm.yourRothConversion == 40_000)
+        #expect(dm.incomeSources.count == 1)
+        let placeholder = dm.incomeSources[0]
+        #expect(placeholder.type == .other)
+        #expect(placeholder.annualAmount == 0)
+        #expect(placeholder.federalWithholding == 8_000)
+        #expect(placeholder.stateWithholding == 1_000)
+        #expect(placeholder.owner == .primary)
+        #expect(placeholder.name.contains("Migrated"))
+        #expect(placeholder.name.contains("2025 conversion"))
+        // Combined household withholding is preserved — Safe Harbor stays stable.
+        #expect(dm.totalFederalWithholding == 8_000)
+        #expect(dm.totalStateWithholding == 1_000)
+    }
+
+    @Test("No legacy sources → no-op, nothing migrated")
+    func migrationNoOpOnModernData() {
+        let suiteName = "test.roth-migration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        // A clean modern income source with no legacy rothConversion.
+        let json = """
+        [
+          {
+            "id": "\(UUID().uuidString)",
+            "name": "Pension",
+            "type": "Pension",
+            "annualAmount": 40000,
+            "federalWithholding": 0,
+            "stateWithholding": 0,
+            "owner": "You"
+          }
+        ]
+        """.data(using: .utf8)!
+        defaults.set(json, forKey: "incomeSources")
+
+        let dm = DataManager(skipPersistence: true)
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        #expect(dm.yourRothConversion == 0)
+        #expect(dm.spouseRothConversion == 0)
+        #expect(dm.incomeSources.count == 1)
+        #expect(dm.incomeSources[0].type == .pension)
+    }
+
+    @Test("Legacy sentinel never leaks into user-visible income source names")
+    func sentinelDoesNotLeak() {
+        let defaults = makeLegacyDefaults(amount: 25_000, owner: "You", name: "My conversion")
+        let dm = DataManager(skipPersistence: true)
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        // The source was removed (no withholding → no placeholder needed).
+        // But even if a placeholder existed, no name should carry the sentinel prefix.
+        for source in dm.incomeSources {
+            #expect(!source.name.contains("__LEGACY_ROTH_CONVERSION__"))
         }
     }
 }

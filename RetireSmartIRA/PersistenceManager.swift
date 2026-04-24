@@ -119,6 +119,13 @@ struct PersistenceManager {
            let decoded = try? JSONDecoder().decode([IncomeSource].self, from: data) {
             dm.incomeSources = decoded
         }
+        // Migrate legacy `.rothConversion` income sources (pre-1.7.2) into the
+        // scenario slider. IncomeSource.init decode marks legacy sources with
+        // the `legacyRothConversionSentinelPrefix` on `name`; this block moves
+        // the amount to the slider, preserves any withholding as an "Other"
+        // placeholder so totals don't silently change, and removes the sentinel
+        // sources.
+        migrateLegacyRothConversionSources(into: dm)
         if let data = defaults.data(forKey: StorageKey.deductionItems),
            let decoded = try? JSONDecoder().decode([DeductionItem].self, from: data) {
             dm.deductionItems = decoded
@@ -257,6 +264,53 @@ struct PersistenceManager {
 
         // Social Security Planner data
         dm.loadSSData()
+    }
+
+    // MARK: - Legacy Data Migration
+
+    /// Migrate pre-1.7.2 `.rothConversion` income sources into the scenario
+    /// Roth Conversion slider. Sentinel-prefixed names (applied during decode
+    /// in `IncomeSource.init(from:)`) identify legacy sources. Each source:
+    ///   - `annualAmount` is added to `yourRothConversion` or `spouseRothConversion`
+    ///     based on its `owner`.
+    ///   - Any federal/state withholding is preserved as a new "Other" income
+    ///     source named "Migrated: withholding from prior Roth conversion". This
+    ///     keeps total-withholding sums (and therefore Safe Harbor / quarterly
+    ///     estimated-tax calculations) stable across the migration. Users can
+    ///     delete the placeholder if they prefer.
+    ///   - The legacy source is then removed from `incomeSources`.
+    /// No-op when no legacy sources are present.
+    @MainActor
+    private static func migrateLegacyRothConversionSources(into dm: DataManager) {
+        let prefix = IncomeSource.legacyRothConversionSentinelPrefix
+        let legacySources = dm.incomeSources.filter { $0.name.hasPrefix(prefix) }
+        guard !legacySources.isEmpty else { return }
+
+        var migratedSources: [IncomeSource] = []
+        for source in legacySources {
+            if source.owner == .spouse {
+                dm.spouseRothConversion += source.annualAmount
+            } else {
+                dm.yourRothConversion += source.annualAmount
+            }
+
+            let originalName = String(source.name.dropFirst(prefix.count))
+            let withholdingTotal = source.federalWithholding + source.stateWithholding
+            if withholdingTotal > 0 {
+                migratedSources.append(
+                    IncomeSource(
+                        name: "Migrated: withholding from prior Roth conversion (\(originalName))",
+                        type: .other,
+                        annualAmount: 0,
+                        federalWithholding: source.federalWithholding,
+                        stateWithholding: source.stateWithholding,
+                        owner: source.owner
+                    )
+                )
+            }
+        }
+        dm.incomeSources.removeAll { $0.name.hasPrefix(prefix) }
+        dm.incomeSources.append(contentsOf: migratedSources)
     }
 
     // MARK: - Save All
