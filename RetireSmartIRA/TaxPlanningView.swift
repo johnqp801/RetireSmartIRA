@@ -3505,57 +3505,43 @@ struct TaxImpactView: View {
 /// An editable text field that syncs with a Double binding.
 /// Shows the current value formatted as currency; typing a number updates the binding
 /// (and any connected slider). Clamps to min...max on commit.
+/// Currency-formatted text field that shares a single source of truth with its
+/// binding. Uses SwiftUI's built-in `TextField(value:format:)` so the value is
+/// always in lockstep with anything else bound to the same source (e.g., the
+/// adjacent Slider in Scenarios). The previous implementation maintained a
+/// separate `@State` string and sync'd it via `@FocusState`-gated `onChange`
+/// handlers; that pattern silently dropped slider → text-box updates on macOS
+/// because clicking a Slider doesn't clear TextField focus there.
+///
+/// Out-of-range values are clamped on commit via a custom binding wrapper.
 struct CurrencyField: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
     let color: Color
 
-    @State private var text: String = ""
-    @FocusState private var isFocused: Bool
+    /// Clamped projection of `value` so a user typing "999999999" for a slider
+    /// whose max is e.g. $500K gets pulled back into range on commit.
+    private var clampedValue: Binding<Double> {
+        Binding(
+            get: { value },
+            set: { value = min(max($0, range.lowerBound), range.upperBound) }
+        )
+    }
 
     var body: some View {
-        TextField("$0", text: $text)
-            #if os(iOS)
-            .keyboardType(.numberPad)
-            #endif
-            .multilineTextAlignment(.trailing)
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .foregroundStyle(color)
-            .frame(width: 100)
-            .focused($isFocused)
-            .onAppear { text = formatValue(value) }
-            .onSubmit { commitText() }
-            .onChange(of: value) { _, newValue in
-                if !isFocused { text = formatValue(newValue) }
-            }
-            .onChange(of: text) { _, newText in
-                // Live-parse while typing so slider and model stay in sync
-                if isFocused {
-                    let cleaned = newText.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "")
-                    if let parsed = Double(cleaned), parsed >= range.lowerBound {
-                        value = min(parsed, range.upperBound)
-                    }
-                }
-            }
-            .onChange(of: isFocused) { _, focused in
-                if focused {
-                    // Show raw number for easier editing
-                    text = value == 0 ? "" : "\(Int(value))"
-                } else {
-                    commitText()
-                }
-            }
-    }
-
-    private func commitText() {
-        let parsed = Double(text.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "")) ?? 0
-        value = min(max(parsed, range.lowerBound), range.upperBound)
-        text = formatValue(value)
-    }
-
-    private func formatValue(_ v: Double) -> String {
-        v.formatted(.currency(code: "USD").precision(.fractionLength(0)))
+        TextField(
+            "$0",
+            value: clampedValue,
+            format: .currency(code: "USD").precision(.fractionLength(0))
+        )
+        #if os(iOS)
+        .keyboardType(.numberPad)
+        #endif
+        .multilineTextAlignment(.trailing)
+        .font(.subheadline)
+        .fontWeight(.semibold)
+        .foregroundStyle(color)
+        .frame(width: 100)
     }
 }
 
