@@ -1272,6 +1272,15 @@ struct TaxPlanningView: View {
                             .fontWeight(.semibold)
                             .foregroundStyle(.red)
                     }
+                } else {
+                    HStack {
+                        Text("RMD")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("Not yet required")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 WithdrawalSliderCard(
