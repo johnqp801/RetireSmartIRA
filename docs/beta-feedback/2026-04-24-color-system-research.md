@@ -180,8 +180,241 @@ Concerns to resolve:
 
 ---
 
-## Addendum: pending Gemini input
+## Addendum: Gemini outside opinion (2026-04-24)
 
-The Gemini prompt ([drafted in session 2026-04-24](./2026-04-24-ron-park-tracking.md)) asks for an independent opinion on market norms and a prescriptive recommendation for our audience. When that response comes back, append it below for triangulation.
+Gemini's independent audit, requested for triangulation:
 
-*(Append Gemini response here.)*
+### Framing
+
+> "When beta users in the pre-retiree/retiree demographic flag that an app feels 'inconsistent' and 'too colorful,' it is almost always a symptom of **cognitive overload masking as a visual design complaint**. At this life stage, users are managing six-figure decisions with high anxiety; they need a tool that feels like a steady fiduciary, not a gamified trading app."
+
+### Market survey (agrees with our external agent)
+
+- **Boldin**: muted, 1–2 dominant UI hues; shades-of-same-hue for categorical data; semantic color scattered only carefully.
+- **Empower**: stark base + 1–2 UI hues, but *allocation charts* can carry 4–6 hues. Core UI stays neutral; color complexity is contained inside charts.
+- **Fidelity**: muted, dominantly white/gray/"Fidelity Green." **Uses monochromatic scales (shades of same hue) for categorical data** rather than distinct hues.
+- **Vanguard**: most muted of the group — nearly monochrome UI with signature burgundy only for branding. Relies on **typography, whitespace, and layout** for categorical grouping instead of color.
+- **TurboTax**: vibrant but surgically precise. Color guides the user through high-friction processes (e.g., bright green "Refund" ticker as focal point) — color for *feedback*, not data categorization.
+
+### Category synthesis
+
+- Norm clusters firmly on the **"muted institutional"** end.
+- Core UI is monochrome (white/slate/gray) + one primary brand color for interactive elements.
+- **"Consumer fintech vibrant" is actively avoided because it signals gamification, which degrades trust in long-term wealth management.**
+
+### Functional color vocabulary for the 55+ demographic
+
+| Color | Meaning | Notes |
+|---|---|---|
+| Green | Growth, savings, positive cash flow | Hardwired |
+| Red | Loss, penalty, critical error | **NOT for standard taxes — see below** |
+| Amber / neutral orange | Caution, approaching a threshold | |
+
+**Specific corrective — taxes should NOT be red:**
+
+> "Taxes are an expected reality, not a penalty. Using red for taxes owed causes unnecessary panic. Use a neutral tone (like slate gray or muted orange) for standard tax liabilities, reserving red only for penalties or avoidable tax traps."
+
+This is a new actionable insight not surfaced by our internal audit or external agent. Our current code renders federal/state/NIIT/AMT tax amounts in red throughout the Dashboard (lines 632–646) and Quarterly Tax view. Under Gemini's rubric, we're telling every user their *normal* tax obligation is a crisis.
+
+### Prescriptive recommendations
+
+- **Hues per screen:** one primary accent (subdued navy or teal) + one secondary semantic (red or green only for alerts/positive reinforcement).
+- **Palette structure:** 80% whitespace + grays, 15% primary brand hue, 5% semantic color.
+- **Categorical data:** stop using distinct hues. Use **monochromatic shading** (e.g., dark blue = Traditional IRA, medium blue = Roth, light blue = Taxable brokerage) + typography weight + spatial grouping.
+- **Charts:** if multiple hues are unavoidable, use a muted, colorblind-safe *sequential* palette (slate / navy / teal).
+- **Avoid:** purples, hot pinks, neons (read as "crypto" or "budgeting app"). Avoid vibrant "buy now" greens — use grounded forest/emerald instead.
+
+### Cognition research cited
+
+- **Stroop effect**: when users have to reassess what a color means based on which screen they're on, cognitive load spikes.
+- **Colin Ware's *Information Visualization***: as eyes age (55+), contrast sensitivity decreases and susceptibility to visual clutter increases. Too many colors literally impair a user's ability to quickly read and trust a chart.
+
+### Single highest-leverage recommendation (Gemini's headline)
+
+> **"Decouple your UI palette from your Data Visualization palette. Reserve vibrant semantic colors (red/green) exclusively for UI alerts, text readouts, and primary actions. For all charts, tables, and categorical data (Roth, Traditional, SALT caps), use a strict, muted, cohesive palette (like varying shades of slate, navy, and gray). If an element does not require the user to take immediate action or feel a specific emotion, it should not be brightly colored."**
+
+---
+
+## Triangulation — what changes in our recommendation
+
+Our internal audit, the external agent's survey, and Gemini's audit converge on the core diagnosis. But Gemini adds three specific moves we should adopt:
+
+### 1. Taxes are not red
+
+Our current dashboard tells users their federal tax, state tax, NIIT, and AMT are all in red. For most users those are normal, expected, already-paid obligations — not crises. Gemini's fix: reserve red only for **penalties and avoidable tax traps** (missed RMDs, underpayment penalties, NIIT crossing a threshold that could have been avoided). Standard tax liabilities go to slate gray or neutral orange.
+
+**Implication for our design spec:** add a specific rule — "red is reserved for penalties, deadlines, and avoidable cliffs. Normal tax amounts are neutral."
+
+### 2. Monochromatic shading for categorical data
+
+Our initial proposed palette assigned three different categorical hues (Roth green, Traditional blue, Inherited amber). Gemini's approach: **same brand hue, different shades** — e.g., Traditional dark blue, Roth medium blue, Taxable brokerage light blue. This matches Fidelity's real-world implementation and dramatically reduces screen-level color count.
+
+**Implication for our design spec:** switch the categorical strategy from "one distinct hue per concept" to "shades of the brand color." Brand becomes the unifying anchor. Semantic green/red remain, but rarely co-occur with categorical shading.
+
+### 3. UI palette vs. Data Viz palette
+
+Our current spec implied one unified palette. Gemini's rubric separates them:
+- **UI palette** (navigation, buttons, alerts, form labels): brand + semantic + neutrals.
+- **Data Viz palette** (charts, category badges, series colors): muted sequential scale of the brand hue.
+
+These don't share colors except the brand accent.
+
+**Implication for our design spec:** the design-token file gets two namespaces: `Color.UI.*` and `Color.Chart.*`. Chart colors are shades, UI colors are solids.
+
+---
+
+## Updated prescriptive direction (post-Gemini)
+
+| Role | Color | Rule |
+|---|---|---|
+| Brand (primary accent) | One muted hue — navy, teal, or forest green | Used for interactive elements and as the anchor for Data Viz shades |
+| Semantic: positive | Grounded green (forest/emerald, not neon) | Savings, refunds, on-track projections, successful actions |
+| Semantic: negative / critical | Red | **Penalties, deadlines, avoidable cliffs only.** Not for standard taxes. |
+| Semantic: warning | Amber | Approaching a threshold (IRMAA cliff, RMD deadline, ACA subsidy cliff when that lands) |
+| Standard tax amounts | Slate gray or neutral muted tone | Expected obligation, not a crisis |
+| Categorical (charts, badges) | Shades of the brand hue (sequential scale) | Traditional / Roth / Inherited / Brokerage → dark → medium → light → lighter |
+| Chrome / neutrals | Grays, white, muted slate | Backgrounds, dividers, non-informational UI |
+
+Screens target: brand + 1 active semantic + neutrals. Charts use shades. **Max 3 distinct hues visible on any screen.**
+
+### What NOT to change from the original plan
+
+- Still defer to 1.8.
+- Still need a design-system tokens file.
+- Still need audit-and-update all ~800 call sites.
+- Still need a beta pass with Ron to validate the result before GA.
+
+### New work items the Gemini input adds
+
+- **Tax-color correction pass** (can potentially ship in 1.7.2 as a targeted fix — smaller scope than the full color-system overhaul): change federal/state/NIIT/AMT amounts on the Dashboard and Quarterly Tax view from red to a neutral tone, reserving red for actual penalties/deadlines. This would make the app feel less panicky *immediately*, even before the full design-system refresh.
+- **Monochromatic-shades token work**: define the sequential brand-color scale for categorical data (5 shades minimum for series charts).
+
+---
+
+## Addendum: ChatGPT outside opinion (2026-04-24)
+
+Second independent audit, requested for triangulation alongside Gemini's.
+
+### Framing
+
+> "I would take the beta user's concern seriously. For this category, too colorful is a real risk."
+
+### Market survey (agrees with both our agent and Gemini)
+
+- **Boldin**: the most relevant benchmark. Light institutional base, teal/green as dominant success/progress color, occasional orange for CTAs, restrained chart colors. Some multi-hue screens but the interface still feels planner-like.
+- **Empower**: professional dashboard framing. Blue/teal/green accents, restrained cards, color used mostly for account/portfolio status rather than decorative energy.
+- **Vanguard**: most institutional. Heavy white/neutral space, very limited accenting, "save, invest, retire" utility feel.
+- **Fidelity**: utility-first. Didn't have enough screenshot evidence for detailed chart-color claims.
+- **TurboTax**: more vibrant than the retirement planners, but dominant pattern is still one strong brand color + semantic moments (teal/green for refund/positive outcome, red check for completion) + lots of white space.
+
+### Category synthesis
+
+> "The category norm clusters closer to muted institutional than consumer-fintech vibrant. These products are helping people make high-stakes, numerically dense decisions; they cannot feel like a budgeting toy, crypto dashboard, or gamified wellness app. RetireSmartIRA can be warmer and more modern than Vanguard, but it should not look more colorful than Boldin or TurboTax."
+
+Concrete ceiling: "Should not look more colorful than Boldin or TurboTax" — a useful anchor we can visually benchmark against.
+
+### Proposed semantic color vocabulary
+
+| Color | Meaning |
+|---|---|
+| Primary blue/teal | Navigation, selected state, neutral emphasis |
+| Green | Tax savings, surplus, favorable movement, "room available" |
+| Red | Tax-owed **increase**, penalty, over-threshold, adverse movement |
+| Amber | Warning / proximity / cliff risk — **not "bad" yet** |
+| Gray / slate | Baseline, historical, neutral, disabled, secondary data |
+
+Note the distinction: **red means "an *increase* in tax owed"**, not the total tax figure. Another vote in favor of Gemini's "don't color standard taxes red" point.
+
+### The governing rule
+
+> **"A hue can have only one job. If amber means IRMAA warning in one place, it should not mean 'charitable giving category' elsewhere. If green means savings, do not also use green as 'Traditional IRA' unless the chart is clearly categorical and isolated."**
+
+### Specific new idea: solve categorical with *style*, not more color
+
+> "For Roth vs. Traditional, I would not solve this mainly with more color. Use labels, grouping, line style, fill style, icons, and typography. Example: Roth line = solid primary accent; Traditional line = dashed slate; taxable account = dotted gray. In tables, use column grouping and headers rather than colored cells everywhere. In charts, if Roth must have a color, use a consistent muted accent and avoid making it look like 'good' merely because it is green."
+
+This is a different approach from Gemini's "monochromatic shades of the brand hue." Both solve the same problem (too many hues for categorical data); this one uses **stroke style + fill pattern + typography** instead of color altogether.
+
+### Critical insight — "green is good" can mislead *in this app specifically*
+
+> "Bright green can feel like 'buy now' or 'winning,' which is dangerous when the correct tax decision may increase taxes today to reduce future taxes."
+
+This is a RetireSmartIRA-specific warning nobody else flagged. Our core thesis is that sometimes the right move is to accept more tax *now* to avoid more tax *later* (Roth conversions, early RMDs in low-income years). If the UI colors "pay less tax today" as green-good, users may miss the long-term frame. Green should be reserved for **unambiguously positive** outcomes, not short-term tax bill changes.
+
+### Cognition research cited
+
+- **"Don't rely on color alone; pair color with text/icons/structure"** — accessibility best practice.
+- **Visual search / color combinations under cognitive load** — color choices affect task performance.
+- **Data visualization / multiple encodings** — color competes with other visual features; too many encodings can make clusters harder to perceive.
+
+### Single highest-leverage recommendation (ChatGPT's headline)
+
+> **"Create a written semantic color contract and audit every screen against it. Not a palette board — a contract. For each color, define: 'This color means X, never Y.' Then reduce screen-level color until the only saturated elements are decision-critical: savings, cost, warning, threshold, selected control."**
+
+The framing as a *contract* (not a style guide) is notable — it's a set of bans as much as a set of choices.
+
+---
+
+## Final synthesis — three sources converging
+
+| Point | Internal audit | External agent | Gemini | ChatGPT |
+|---|---|---|---|---|
+| Category norm is muted | — | ✓ | ✓ | ✓ |
+| Max 3–5 hues per screen | ✓ (we're at 8–9) | ✓ | ✓ (2) | ✓ (3) |
+| One hue = one meaning | ✓ (top-3 inconsistency) | ✓ | ✓ | ✓ (explicit rule) |
+| Need custom brand color | ✓ (AccentColor empty) | ✓ (all peers have one) | ✓ | ✓ |
+| Categorical should not be "more color" | — | ✓ (Monarch systematic) | ✓ (monochromatic shades) | ✓ (line style / typography) |
+| **Taxes ≠ red** | — | — | ✓ | ✓ (increases only) |
+| **Green-is-good can mislead this app** | — | — | — | ✓ (unique) |
+| Decouple UI palette from chart palette | — | — | ✓ | — (implicit in "contract") |
+| Written contract / design tokens required | ✓ (no tokens today) | ✓ (published design systems) | ✓ (tokens) | ✓ ("not a palette — a contract") |
+
+**Unanimous verdict:** the beta user's concern is accurate, the problem is global, and the fix is a constrained, written color contract with category-norm-level muted palette.
+
+## Final prescriptive direction (post-triangulation)
+
+### The color contract (to be formalized into a Swift design-token file)
+
+| Role | Color | The contract |
+|---|---|---|
+| **Brand / primary accent** | One muted hue (proposed: deep teal or navy — pending design review) | Interactive elements, selected state, navigation. The anchor. |
+| **Semantic: positive** | Grounded green (forest / emerald — not neon) | **Unambiguous wins only**: tax refunds, "room available in bracket," successful saves. Not used for scenario comparisons where "lower tax today" may be the wrong answer. |
+| **Semantic: negative / critical** | Red | **Penalties, deadlines, avoidable cliffs, adverse increases** (e.g., a Roth conversion that pushes past the IRMAA cliff). **Never for standard expected tax amounts.** |
+| **Semantic: warning** | Amber | Approaching-a-threshold (IRMAA cliff, ACA cliff when it lands, RMD deadline). Not "bad," just "pay attention." |
+| **Neutral tax amounts** | Slate gray | Standard federal / state / NIIT / AMT figures — the things that are true but not crises. |
+| **Categorical (charts, badges)** | **Shape + style + typography, not color.** Solid primary accent for the featured series; dashed slate for the comparison series; dotted gray for tertiary. If chart needs color per series, use shades of the brand hue. | Max 1 saturated hue per chart. Legend always visible. |
+| **Chrome / backgrounds** | White / very light gray / slate gray for dividers | 80% of screen pixels. |
+
+### Screen-level rule
+
+**Max 3 saturated hues visible on any screen**: brand + one active semantic + one chart-accent. Everything else is neutral.
+
+### Rules formulated as bans (the "contract" framing)
+
+- Purple is not a category color. Period. (Spouse-owner badges move to brand-tinted or icon-differentiated.)
+- Red is not used for standard tax amounts. Red appears only next to penalties, cliff violations, deadlines, and adverse deltas (+$X).
+- Green is not used for "category = Roth." Roth gets the brand accent or a shape difference.
+- No decorative color on section headers or strategy-guide icons. If the icon doesn't carry information, it's gray.
+- AccentColor.colorset gets a real brand color defined. `.tint(.accentColor)` becomes the standard path.
+- Line-style encoding (solid / dashed / dotted) is a first-class tool for categorical distinction in charts.
+
+### Low-hanging fruit: ship a "tax-color correction" in 1.7.2
+
+Before the full color-system refresh lands in 1.8, one specific change emerged from both Gemini and ChatGPT that's scoped small enough to ship now: **recolor standard tax amounts from red to slate gray on the Dashboard + Quarterly Tax view.** Reserve red only for penalties, deadlines, and adverse deltas. This alone removes the "everything feels alarming" undertone Ron reported without requiring a palette decision.
+
+Scope: ~8 call sites in `DashboardView.swift` and `QuarterlyTaxView.swift`. Pure color-literal change. ~30 minutes.
+
+### Still-open decisions (for design review before 1.8 starts)
+
+- Brand color: deep teal vs. navy vs. muted forest green. ChatGPT suggests teal/navy; Gemini flexible; internal preference TBD. Recommend a Visual Companion mockup session to pick.
+- Categorical strategy: shades-of-brand-hue (Gemini) vs. line-style-and-typography (ChatGPT). Not mutually exclusive — could use line style for *series* comparisons (Roth-vs-Traditional wealth curves) and shades for *allocation* charts. Worth a design decision.
+- Whether to keep green for "tax refund" in addition to "savings" — ChatGPT's warning about the Roth-vs-Traditional frame argues for narrowing green further.
+
+---
+
+## Action summary
+
+1. **Research doc complete** (this file). Three-source triangulation done.
+2. **Decision recorded:** color-system refresh scheduled for 1.8 as its own workstream.
+3. **Quick win for 1.7.2:** the tax-color correction (red → slate for standard amounts) — candidate for inclusion in the current branch if we want it.
+4. **Next for 1.8:** pick brand color (design review), write the Swift design-token file, audit and update all ~800 call sites, visual validation, beta pass with Ron.
