@@ -216,9 +216,18 @@ Estimate: ~3 hours of implementation + notarization. Can ship same-day.
 
 **Scope:** Biggest single-feature ask in Ron's review. $2,300/mo real-dollar stakes at the $84K cliff. A new subsidy engine, FPL + applicable-figure tables, cliff banner in Scenarios, dashboard card.
 
-**Why deferred:** ~1 week engineering effort. Won't fit in 1.7.2 bug-fix release. Sequenced as the headline of 1.8.
+**Why deferred:** ~1 week engineering effort. Sequenced as part of 1.9 (1.8 is the standalone color refresh).
 
-**Next step:** Design doc + spec + plan (using brainstorming + writing-plans flow) to be built out between 1.7.2 ship and 1.8 start.
+**Next step:** Design doc + spec + plan in the 1.9 brainstorm.
+
+**Spec input from 2026-04-24 conversation — Medicare plan-type awareness:** the IRMAA math is identical for Original Medicare and Medicare Advantage (Part C), but the BASE monthly costs differ:
+
+- **Original Medicare**: Part B premium (~$185/mo 2025) + standalone Part D plan ($0–100+/mo) + optional Medigap supplement ($50–300/mo)
+- **Medicare Advantage (MA / MA-PD)**: single monthly plan premium ($0–200+/mo) bundling A + B + (often) D
+
+The IRMAA Part B surcharge is the same regardless of plan type. The IRMAA Part D surcharge is also the same. So when we show "this Roth conversion costs $X/yr in IRMAA," the answer doesn't change. But when we show "your total Medicare cost," we need a Profile-level question: **"Are you on Original Medicare, Medicare Advantage, or pre-Medicare?"** Drives the base-cost line (with sensible defaults; user can override with their actual statement).
+
+Captured here so the 1.9 ACA brainstorm includes this from day 1 — IRMAA modeling exists today, but it surfaces only the surcharge delta, not the total monthly cost. The 1.9 work should add the total-cost picture for both plan types.
 
 ---
 
