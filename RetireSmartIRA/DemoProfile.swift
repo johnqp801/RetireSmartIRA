@@ -61,14 +61,16 @@ enum DemoProfile {
     private static func configureProfile(_ profile: ProfileManager) {
         profile.userName = "Pat"
 
+        // Pat: 64 in 2026 — 1 year from Medicare, IRMAA tier shifts visible
         var c = DateComponents()
-        c.year = 1968; c.month = 6; c.day = 15
+        c.year = 1962; c.month = 6; c.day = 15
         if let d = Calendar.current.date(from: c) { profile.birthDate = d }
 
         profile.spouseName = "Sue"
 
+        // Sue: 62 in 2026 — earliest claim age for SS, "should she claim now?" decision live
         var cs = DateComponents()
-        cs.year = 1970; cs.month = 9; cs.day = 22
+        cs.year = 1964; cs.month = 9; cs.day = 22
         if let d = Calendar.current.date(from: cs) { profile.spouseBirthDate = d }
 
         profile.enableSpouse = true
@@ -119,7 +121,7 @@ enum DemoProfile {
                 decedentRBDStatus: .afterRBD,
                 yearOfInheritance: 2023,
                 decedentBirthYear: 1942,
-                beneficiaryBirthYear: 1968
+                beneficiaryBirthYear: 1962
             )
         ]
     }
