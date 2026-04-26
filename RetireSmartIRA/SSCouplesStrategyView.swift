@@ -878,17 +878,15 @@ struct SSCouplesStrategyView: View {
 
     private func cellColor(intensity: Double, isHighestLifetime: Bool) -> Color {
         if isHighestLifetime {
-            return Color.UI.brandTeal.opacity(0.2)
+            return Color.UI.brandTeal.opacity(0.30)
         }
-        // Gradient from red (low) through yellow to green (high)
+        // Sequential heatmap: brand-teal opacity ramp (low intensity → near-clear,
+        // high intensity → ~80% of the highest-cell opacity). Spec §5 forbids
+        // semantic green/red gradients in charts; the brand-teal-opacity ramp
+        // gives an ordered "more = darker" visual without bleeding semantic
+        // meaning into chart chrome.
         let clamped = min(max(intensity, 0), 1)
-        if clamped < 0.5 {
-            let t = clamped * 2
-            return Color(red: 0.9 - t * 0.4, green: 0.3 + t * 0.5, blue: 0.2, opacity: 0.15 + t * 0.1)
-        } else {
-            let t = (clamped - 0.5) * 2
-            return Color(red: 0.5 - t * 0.3, green: 0.8 + t * 0.1, blue: 0.2, opacity: 0.2 + t * 0.1)
-        }
+        return Color.UI.brandTeal.opacity(0.04 + clamped * 0.20)
     }
 
     private func abbreviatedCurrency(_ value: Double) -> String {

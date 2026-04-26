@@ -305,7 +305,7 @@ struct StateComparisonView: View {
                     .chartYAxis {
                         AxisMarks(values: .automatic(desiredCount: 5)) { value in
                             AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
-                                .foregroundStyle(.gray.opacity(0.3))
+                                .foregroundStyle(Color.Chart.gray4.opacity(0.5))
                             AxisValueLabel {
                                 if let val = value.as(Double.self) {
                                     Text(chartYAxisLabel(val))

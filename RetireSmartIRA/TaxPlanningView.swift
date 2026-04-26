@@ -3338,7 +3338,7 @@ struct TaxImpactView: View {
                     }
                 }
                 .padding(12)
-                .background(Color.gray.opacity(0.1))
+                .background(Color.UI.surfaceInset)
                 .cornerRadius(8)
             } else if !spouseEnabled && totalRothConversion > 0 && totalWithdrawals > 0 {
                 // Single-person combined breakdown
@@ -3376,7 +3376,7 @@ struct TaxImpactView: View {
                     }
                 }
                 .padding(12)
-                .background(Color.gray.opacity(0.1))
+                .background(Color.UI.surfaceInset)
                 .cornerRadius(8)
             }
 
