@@ -17,7 +17,7 @@ struct SSCumulativeBenefitsChart: View {
     let breakEvenComparisons: [SSBreakEvenComparison]
     let highlightClaimingAge: Int?
 
-    private let scenarioColors: [String: Color] = []
+    private let scenarioColors: [String: Color] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
