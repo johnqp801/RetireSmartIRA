@@ -25,7 +25,7 @@ struct IncomeSourcesView: View {
                     Text(dataManager.totalAnnualIncome(), format: .currency(code: "USD"))
                         .font(.largeTitle)
                         .fontWeight(.bold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -67,7 +67,7 @@ struct IncomeSourcesView: View {
                                     .font(.callout)
                                     .fontWeight(.semibold)
                                     .padding()
-                                    .background(Color.blue)
+                                    .background(Color.UI.brandTeal)
                                     .foregroundStyle(.white)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
@@ -160,7 +160,7 @@ struct IncomeSourcesView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {
                                 Image(systemName: "cross.case.fill")
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                 Text("Medical Deduction")
                                     .font(.caption)
                                     .fontWeight(.semibold)
@@ -184,7 +184,7 @@ struct IncomeSourcesView: View {
                                     Text("−\(dataManager.medicalAGIFloor.formatted(.currency(code: "USD")))")
                                         .font(.caption)
                                         .fontWeight(.medium)
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(Color.UI.textPrimary)
                                 }
                                 Divider()
                                 HStack {
@@ -195,7 +195,7 @@ struct IncomeSourcesView: View {
                                     Text(dataManager.deductibleMedicalExpenses, format: .currency(code: "USD"))
                                         .font(.caption)
                                         .fontWeight(.bold)
-                                        .foregroundStyle(dataManager.deductibleMedicalExpenses > 0 ? .green : .secondary)
+                                        .foregroundStyle(dataManager.deductibleMedicalExpenses > 0 ? Color.UI.textPrimary : Color.UI.textSecondary)
                                 }
                             }
 
@@ -204,7 +204,7 @@ struct IncomeSourcesView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color.red.opacity(0.05))
+                        .background(Color.UI.surfaceInset)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
 
@@ -212,7 +212,7 @@ struct IncomeSourcesView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 8) {
                             Image(systemName: "clock.arrow.circlepath")
-                                .foregroundStyle(.indigo)
+                                .foregroundStyle(Color.UI.brandTeal)
                             Text("\(dataManager.priorPlanYear, format: .number.grouping(.never)) State Tax Balance")
                                 .font(.caption)
                                 .fontWeight(.semibold)
@@ -243,11 +243,11 @@ struct IncomeSourcesView: View {
                         } else if dataManager.priorYearStateBalance < 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Semantic.amber)
                                     .font(.caption2)
                                 Text("A state tax refund may be taxable on your federal return if you itemized in \(dataManager.priorPlanYear, format: .number.grouping(.never)). Consider adding a \u{201C}State Tax Refund\u{201D} income source for \(abs(dataManager.priorYearStateBalance).formatted(.currency(code: "USD"))).")
                                     .font(.caption2)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Semantic.amber)
                             }
                         }
 
@@ -256,7 +256,7 @@ struct IncomeSourcesView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(12)
-                    .background(Color.indigo.opacity(0.05))
+                    .background(Color.UI.surfaceInset)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     // SALT cap note
@@ -264,7 +264,7 @@ struct IncomeSourcesView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {
                                 Image(systemName: "building.columns.fill")
-                                    .foregroundStyle(.purple)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                 Text("SALT Deduction Cap")
                                     .font(.caption)
                                     .fontWeight(.semibold)
@@ -291,7 +291,7 @@ struct IncomeSourcesView: View {
                                                 .foregroundStyle(.secondary)
                                             Text("(from income sources)")
                                                 .font(.caption2)
-                                                .foregroundStyle(.green)
+                                                .foregroundStyle(Color.UI.textSecondary)
                                         }
                                         Spacer()
                                         Text(dataManager.totalStateWithholding, format: .currency(code: "USD"))
@@ -329,7 +329,7 @@ struct IncomeSourcesView: View {
                                                 .foregroundStyle(.secondary)
                                             Text("(auto-calculated for \(dataManager.planYear, format: .number.grouping(.never)))")
                                                 .font(.caption2)
-                                                .foregroundStyle(.green)
+                                                .foregroundStyle(Color.UI.textSecondary)
                                         }
                                         Spacer()
                                         Text(dataManager.autoEstimatedStatePayments, format: .currency(code: "USD"))
@@ -357,7 +357,7 @@ struct IncomeSourcesView: View {
                                     Text(dataManager.saltCap, format: .currency(code: "USD"))
                                         .font(.caption)
                                         .fontWeight(.medium)
-                                        .foregroundStyle(dataManager.totalSALTBeforeCap > dataManager.saltCap ? .red : .secondary)
+                                        .foregroundStyle(dataManager.totalSALTBeforeCap > dataManager.saltCap ? Color.UI.textPrimary : Color.UI.textSecondary)
                                 }
                                 Divider()
                                 HStack {
@@ -368,7 +368,7 @@ struct IncomeSourcesView: View {
                                     Text(dataManager.saltAfterCap, format: .currency(code: "USD"))
                                         .font(.caption)
                                         .fontWeight(.bold)
-                                        .foregroundStyle(dataManager.totalSALTBeforeCap > dataManager.saltCap ? .orange : .green)
+                                        .foregroundStyle(dataManager.totalSALTBeforeCap > dataManager.saltCap ? Color.Semantic.amber : Color.UI.textPrimary)
                                 }
                             }
 
@@ -376,11 +376,11 @@ struct IncomeSourcesView: View {
                             if dataManager.additionalSALTAmount > 0 && dataManager.totalStateWithholding > 0 {
                                 HStack(spacing: 4) {
                                     Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.Semantic.amber)
                                         .font(.caption2)
                                     Text("State withholding is now auto-included. If your \u{201C}State & Local Tax\u{201D} entries include withholding amounts, remove them to avoid double-counting.")
                                         .font(.caption2)
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.Semantic.amber)
                                 }
                             }
 
@@ -392,21 +392,21 @@ struct IncomeSourcesView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "gearshape.2.fill")
-                                            .foregroundStyle(.blue)
+                                            .foregroundStyle(Color.UI.brandTeal)
                                             .font(.caption2)
                                         Text("Smart SALT: Estimated State Payments")
                                             .font(.caption2)
                                             .fontWeight(.semibold)
-                                            .foregroundStyle(.blue)
+                                            .foregroundStyle(Color.UI.brandTeal)
                                     }
                                     Text("The estimated state income tax you\u{2019}ll pay during \(String(dataManager.currentYear)) is deductible as SALT on your federal return. RetireSmart IRA automatically calculates this amount based on your income, accounts, and scenario decisions \u{2014} and includes it in your SALT total above. As you complete each tab (Social Security, Income, Accounts, Scenarios), this number updates automatically. No manual entry needed.")
                                         .font(.caption2)
-                                        .foregroundStyle(.blue.opacity(0.8))
+                                        .foregroundStyle(Color.UI.brandTeal.opacity(0.8))
                                 }
                             }
                         }
                         .padding(12)
-                        .background(Color.purple.opacity(0.05))
+                        .background(Color.UI.surfaceInset)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
 
@@ -414,13 +414,13 @@ struct IncomeSourcesView: View {
                     if dataManager.scenarioTotalCharitable > 0 {
                         HStack(spacing: 8) {
                             Image(systemName: "info.circle")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                             Text("Charitable contributions of \(dataManager.scenarioTotalCharitable.formatted(.currency(code: "USD"))) from Scenarios are included in your itemized total.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color.blue.opacity(0.05))
+                        .background(Color.UI.surfaceInset)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
@@ -462,12 +462,12 @@ struct IncomeSourcesView: View {
                         .fontWeight(.bold)
                     if !dataManager.scenarioEffectiveItemize {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background((!dataManager.scenarioEffectiveItemize ? Color.green.opacity(0.1) : Color(PlatformColor.secondarySystemBackground)))
+                .background((!dataManager.scenarioEffectiveItemize ? Color.UI.brandTeal.opacity(0.10) : Color(PlatformColor.secondarySystemBackground)))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 // Itemized
@@ -480,12 +480,12 @@ struct IncomeSourcesView: View {
                         .fontWeight(.bold)
                     if dataManager.scenarioEffectiveItemize {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background((dataManager.scenarioEffectiveItemize ? Color.green.opacity(0.1) : Color(PlatformColor.secondarySystemBackground)))
+                .background((dataManager.scenarioEffectiveItemize ? Color.UI.brandTeal.opacity(0.10) : Color(PlatformColor.secondarySystemBackground)))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
@@ -578,8 +578,8 @@ struct IncomeSourcesView: View {
                                 }
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundStyle(.blue)
+                                .background(Color.UI.brandTeal.opacity(0.10))
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .clipShape(Capsule())
                             }
                         }
@@ -617,9 +617,9 @@ struct IncomeSourcesView: View {
 
         var ownerColor: Color {
             switch source.owner {
-            case .primary: return .blue
-            case .spouse: return .purple
-            case .joint: return .green
+            case .primary: return Color.UI.brandTeal
+            case .spouse: return Color.Chart.callout
+            case .joint: return Color.Chart.gray2
             }
         }
     }
@@ -643,7 +643,7 @@ struct IncomeSourcesView: View {
                 Text(item.annualAmount, format: .currency(code: "USD"))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textPrimary)
             }
             .padding()
             .background(Color(PlatformColor.secondarySystemBackground))
