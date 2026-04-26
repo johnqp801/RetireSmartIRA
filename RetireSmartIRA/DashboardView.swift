@@ -121,8 +121,8 @@ struct DashboardView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .background(Color.accentColor.opacity(0.1))
-            .foregroundStyle(Color.accentColor)
+            .background(Color.UI.brandTeal.opacity(0.1))
+            .foregroundStyle(Color.UI.brandTeal)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .disabled(isGeneratingPDF)
@@ -187,7 +187,6 @@ struct DashboardView: View {
                         Text("\(dataManager.yearsUntilRMD)")
                             .font(.title)
                             .fontWeight(.bold)
-                            .foregroundStyle(.green)
                     }
                 }
             }
@@ -218,7 +217,7 @@ struct DashboardView: View {
             if dataManager.incomeSources.isEmpty {
                 HStack {
                     Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Add income sources in the Income & Deductions tab")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -307,7 +306,6 @@ struct DashboardView: View {
                         Text(yourRMD, format: .currency(code: "USD"))
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundStyle(.red)
                     }
                 }
             }
@@ -322,13 +320,12 @@ struct DashboardView: View {
                             .font(.subheadline)
                         Text("Not eligible for QCD")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                     }
                     Spacer()
                     Text(inheritedRMD, format: .currency(code: "USD"))
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundStyle(.orange)
                 }
             }
 
@@ -342,10 +339,10 @@ struct DashboardView: View {
                 ForEach(urgentAccounts, id: \.0) { name, remaining in
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                            .foregroundStyle(remaining <= 1 ? Color.Semantic.red : Color.Semantic.amber)
                         Text("\(name): \(remaining == 0 ? "deadline this year!" : "\(remaining) year\(remaining == 1 ? "" : "s") until 10-year deadline")")
                             .font(.caption)
-                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                            .foregroundStyle(remaining <= 1 ? Color.Semantic.red : Color.Semantic.amber)
                     }
                 }
             }
@@ -396,7 +393,7 @@ struct DashboardView: View {
                         icon: "arrow.triangle.2.circlepath",
                         label: "Roth Conversions",
                         amount: dataManager.scenarioTotalRothConversion,
-                        color: .purple
+                        color: Color.UI.brandTeal
                     )
                 }
                 if dataManager.scenarioTotalExtraWithdrawal > 0 {
@@ -404,7 +401,7 @@ struct DashboardView: View {
                         icon: "arrow.down.circle.fill",
                         label: "Extra Withdrawals",
                         amount: dataManager.scenarioTotalExtraWithdrawal,
-                        color: .blue
+                        color: Color.UI.brandTeal
                     )
                 }
                 if dataManager.scenarioTotalQCD > 0 {
@@ -412,7 +409,7 @@ struct DashboardView: View {
                         icon: "heart.fill",
                         label: "Qualified Charitable Distribution",
                         amount: dataManager.scenarioTotalQCD,
-                        color: .green
+                        color: Color.UI.brandTeal
                     )
                 }
                 if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
@@ -420,7 +417,7 @@ struct DashboardView: View {
                         icon: "chart.line.uptrend.xyaxis",
                         label: "Appreciated Stock Donation",
                         amount: dataManager.stockCurrentValue,
-                        color: .orange
+                        color: Color.UI.brandTeal
                     )
                 }
                 if dataManager.cashDonationAmount > 0 {
@@ -428,7 +425,7 @@ struct DashboardView: View {
                         icon: "banknote.fill",
                         label: "Cash Donation",
                         amount: dataManager.cashDonationAmount,
-                        color: .teal
+                        color: Color.UI.brandTeal
                     )
                 }
 
@@ -437,7 +434,7 @@ struct DashboardView: View {
                 // Deduction method
                 HStack {
                     Image(systemName: "doc.text.fill")
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .frame(width: 24)
                     Text("Deduction:")
                         .font(.subheadline)
@@ -448,12 +445,12 @@ struct DashboardView: View {
                     Text(dataManager.effectiveDeductionAmount, format: .currency(code: "USD"))
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
             } else {
                 HStack {
                     Image(systemName: "slider.horizontal.3")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Visit Scenarios to model Roth conversions, withdrawals, and charitable giving")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -462,7 +459,7 @@ struct DashboardView: View {
                 // Still show deduction even if no active scenario
                 HStack {
                     Image(systemName: "doc.text.fill")
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .frame(width: 24)
                     Text("Deduction:")
                         .font(.subheadline)
@@ -473,7 +470,7 @@ struct DashboardView: View {
                     Text(dataManager.effectiveDeductionAmount, format: .currency(code: "USD"))
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
             }
         }
@@ -512,7 +509,7 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "gift.fill")
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Long-Term Strategy")
                         .font(.headline)
                 }
@@ -538,11 +535,9 @@ struct DashboardView: View {
                             Text(taxCost, format: .currency(code: "USD").precision(.fractionLength(0)))
                                 .font(.subheadline)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.red)
                         }
 
                         Image(systemName: "arrow.right")
-                            .foregroundStyle(familyGain >= 0 ? .green : .orange)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Projected family wealth gain")
@@ -553,7 +548,6 @@ struct DashboardView: View {
                                 : "-\(abs(familyGain), format: .currency(code: "USD").precision(.fractionLength(0)))")
                                 .font(.subheadline)
                                 .fontWeight(.bold)
-                                .foregroundStyle(familyGain >= 0 ? .green : .orange)
                         }
                     }
 
@@ -561,7 +555,7 @@ struct DashboardView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "shield.fill")
                                 .font(.caption2)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                             Text("Also avoids a surviving spouse bracket jump from MFJ to Single filing")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -579,7 +573,7 @@ struct DashboardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+                    .stroke(Color.UI.brandTeal.opacity(0.20), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
@@ -597,7 +591,7 @@ struct DashboardView: View {
                     Text("Scenario Decisions Included")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                     if dataManager.scenarioTotalRothConversion > 0 {
                         scenarioDecisionRow(label: "Roth Conversion", value: dataManager.scenarioTotalRothConversion)
                     }
@@ -616,7 +610,7 @@ struct DashboardView: View {
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.08))
+                .background(Color.Semantic.amberTint)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
@@ -656,11 +650,11 @@ struct DashboardView: View {
                     if niitDistance > 0 && niitDistance < 10_000 {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                                 .font(.caption)
                             Text("\(niitDistance, format: .currency(code: "USD")) below NIIT threshold")
                                 .font(.caption)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                         }
                     }
                 }
@@ -687,40 +681,40 @@ struct DashboardView: View {
                     // Tier 0: Safe zone indicator
                     HStack {
                         Image(systemName: "checkmark.shield.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                         Text("IRMAA: Standard (no surcharge)")
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .fontWeight(.semibold)
                     }
 
                     if let distanceToNext = irmaa.distanceToNextTier {
                         HStack(spacing: 6) {
                             Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
-                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .blue)
+                                .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                                 .font(.caption)
                             Text("\(distanceToNext, format: .currency(code: "USD")) below first IRMAA cliff")
                                 .font(.caption)
-                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                                .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : .secondary)
                         }
                     }
                 } else {
                     // Tier 1-5: Surcharge + cliff distances
-                    taxRow(label: "IRMAA Surcharge (per person)", value: irmaa.annualSurchargePerPerson, color: .pink)
+                    taxRow(label: "IRMAA Surcharge (per person)", value: irmaa.annualSurchargePerPerson)
 
                     if memberCount > 1 {
-                        taxRow(label: "IRMAA Household (\(memberCount) on Medicare)", value: dataManager.scenarioIRMAATotalSurcharge, isBold: true, color: .pink)
+                        taxRow(label: "IRMAA Household (\(memberCount) on Medicare)", value: dataManager.scenarioIRMAATotalSurcharge, isBold: true)
                     }
 
                     // Distance to next tier
                     if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                         HStack(spacing: 6) {
                             Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
-                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .blue)
+                                .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                                 .font(.caption)
                             Text("\(distanceToNext, format: .currency(code: "USD")) until next IRMAA tier")
                                 .font(.caption)
-                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                                .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : .secondary)
                         }
                     }
 
@@ -730,7 +724,7 @@ struct DashboardView: View {
                         let householdSavings = savingsPerPerson * Double(memberCount)
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.down.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Reduce income by \(distanceToPrev + 1, format: .currency(code: "USD")) to drop a tier")
@@ -738,7 +732,7 @@ struct DashboardView: View {
                                     .fontWeight(.medium)
                                 Text("Saves \(householdSavings, format: .currency(code: "USD"))/year\(memberCount > 1 ? " household" : "")")
                                     .font(.caption2)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.brandTeal)
                             }
                         }
                     }
@@ -761,7 +755,7 @@ struct DashboardView: View {
                 if dataManager.taxExemptInterestIRMAAImpact > 0 {
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                             .font(.caption)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Tax-exempt interest is increasing your Medicare premiums.")
@@ -778,10 +772,10 @@ struct DashboardView: View {
             if dataManager.totalWithholding > 0 {
                 Divider()
                 if dataManager.totalFederalWithholding > 0 {
-                    taxRow(label: "Federal Withholding Paid", value: dataManager.totalFederalWithholding, color: .green)
+                    taxRow(label: "Federal Withholding Paid", value: dataManager.totalFederalWithholding)
                 }
                 if dataManager.totalStateWithholding > 0 {
-                    taxRow(label: "State Withholding Paid", value: dataManager.totalStateWithholding, color: .green)
+                    taxRow(label: "State Withholding Paid", value: dataManager.totalStateWithholding)
                 }
                 taxRow(label: "Remaining Federal Tax", value: dataManager.scenarioRemainingFederalTax, isBold: true)
                 taxRow(label: "Remaining State Tax", value: dataManager.scenarioRemainingStateTax, isBold: true)
@@ -793,7 +787,7 @@ struct DashboardView: View {
                 let minQ = min(payments.q1, payments.q2, payments.q3, payments.q4)
                 let maxQ = max(payments.q1, payments.q2, payments.q3, payments.q4)
                 if minQ == maxQ {
-                    taxRow(label: "Per-Quarter Payment", value: payments.q1, isBold: true, color: .orange)
+                    taxRow(label: "Per-Quarter Payment", value: payments.q1, isBold: true, color: Color.Semantic.amber)
                 } else {
                     HStack {
                         Text("Quarterly Range")
@@ -803,7 +797,7 @@ struct DashboardView: View {
                         Text("\(minQ.formatted(.currency(code: "USD"))) \u{2013} \(maxQ.formatted(.currency(code: "USD")))")
                             .font(.subheadline)
                             .fontWeight(.bold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                     }
                 }
 
@@ -817,7 +811,6 @@ struct DashboardView: View {
                         Text(payments.federalTotal, format: .currency(code: "USD"))
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.blue)
                     }
                 }
                 if payments.stateTotal > 0 {
@@ -829,7 +822,6 @@ struct DashboardView: View {
                         Text(payments.stateTotal, format: .currency(code: "USD"))
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.orange)
                     }
                 }
 
@@ -932,7 +924,6 @@ struct DashboardView: View {
             Text(value < 0 ? "−\(abs(value).formatted(.currency(code: "USD")))" : "+\(value.formatted(.currency(code: "USD")))")
                 .font(.caption)
                 .fontWeight(.medium)
-                .foregroundStyle(value < 0 ? .green : .orange)
         }
     }
 
@@ -984,15 +975,15 @@ struct DashboardView: View {
                     breakdownHeader("Scenario Decisions")
 
                     if dataManager.scenarioTotalRothConversion > 0 {
-                        breakdownRow("Roth Conversions", value: dataManager.scenarioTotalRothConversion, color: .orange)
+                        breakdownRow("Roth Conversions", value: dataManager.scenarioTotalRothConversion)
                     }
 
                     if dataManager.scenarioTotalExtraWithdrawal > 0 {
-                        breakdownRow("Extra Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal, color: .orange)
+                        breakdownRow("Extra Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal)
                     }
 
                     if dataManager.scenarioStockGainAvoided > 0 {
-                        breakdownRow("Stock Gain Avoided", value: -dataManager.scenarioStockGainAvoided, color: .green)
+                        breakdownRow("Stock Gain Avoided", value: -dataManager.scenarioStockGainAvoided)
                     }
                 }
 
@@ -1006,13 +997,13 @@ struct DashboardView: View {
                 DisclosureGroup(isExpanded: $deductionExpanded) {
                     deductionBreakdownContent
                 } label: {
-                    breakdownRow("Itemized Deductions", value: -dataManager.effectiveDeductionAmount, color: .green)
+                    breakdownRow("Itemized Deductions", value: -dataManager.effectiveDeductionAmount)
                 }
             } else {
                 DisclosureGroup(isExpanded: $deductionExpanded) {
                     standardDeductionBreakdownContent
                 } label: {
-                    breakdownRow("Standard Deduction", value: -dataManager.effectiveDeductionAmount, color: .green)
+                    breakdownRow("Standard Deduction", value: -dataManager.effectiveDeductionAmount)
                 }
             }
 
@@ -1057,8 +1048,7 @@ struct DashboardView: View {
                     if line.rate == 0 {
                         breakdownRow(
                             "\(formatCurrency(line.taxableInBracket)) at 0% (tax-free)",
-                            value: 0,
-                            color: .green
+                            value: 0
                         )
                     } else {
                         breakdownRow(
@@ -1100,12 +1090,12 @@ struct DashboardView: View {
                     value: stateBreakdown.totalStateTax
                 )
             } else {
-                breakdownRow("No state income tax", value: 0, color: .green)
+                breakdownRow("No state income tax", value: 0)
             }
 
             // Exemptions
             if stateBreakdown.totalExempted > 0 {
-                breakdownRow("Retirement Income Exempt", value: -stateBreakdown.totalExempted, color: .green)
+                breakdownRow("Retirement Income Exempt", value: -stateBreakdown.totalExempted)
             }
 
             // CA exemption credits
@@ -1119,7 +1109,7 @@ struct DashboardView: View {
                     currentYear: dataManager.currentYear
                 )
                 if credits > 0 {
-                    breakdownRow("Exemption Credits", value: -credits, color: .green)
+                    breakdownRow("Exemption Credits", value: -credits)
                 }
             }
 
@@ -1238,7 +1228,7 @@ struct DashboardView: View {
                 if dataManager.totalSALTBeforeCap > dataManager.saltCap {
                     let capStr = dataManager.saltCap.formatted(.currency(code: "USD"))
                     breakdownDetailRow("Federal Cap (\(capStr))",
-                                       value: -(dataManager.totalSALTBeforeCap - dataManager.saltAfterCap), color: .red)
+                                       value: -(dataManager.totalSALTBeforeCap - dataManager.saltAfterCap), color: Color.Semantic.red)
                 }
                 breakdownDetailRow("SALT Deducted", value: dataManager.saltAfterCap, isBold: true)
             }
@@ -1247,7 +1237,7 @@ struct DashboardView: View {
             if dataManager.totalMedicalExpenses > 0 {
                 breakdownDetail("Medical Expenses")
                 breakdownDetailRow("Total Medical", value: dataManager.totalMedicalExpenses)
-                breakdownDetailRow("7.5% AGI Floor", value: -dataManager.medicalAGIFloor, color: .red)
+                breakdownDetailRow("7.5% AGI Floor", value: -dataManager.medicalAGIFloor, color: Color.Semantic.red)
                 breakdownDetailRow("Deductible Medical", value: dataManager.deductibleMedicalExpenses, isBold: true)
             }
 
@@ -1278,11 +1268,11 @@ struct DashboardView: View {
             if dataManager.totalItemizedDeductions > dataManager.standardDeductionAmount {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption2)
                     Text("Itemizing saves \(dataManager.totalItemizedDeductions - dataManager.standardDeductionAmount, format: .currency(code: "USD")) vs standard deduction")
                         .font(.caption2)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
                 .padding(.top, 2)
             }
@@ -1303,11 +1293,11 @@ struct DashboardView: View {
                 if dataManager.standardDeductionAmount >= dataManager.totalItemizedDeductions {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(.caption2)
                         Text("Standard deduction saves \(dataManager.standardDeductionAmount - dataManager.totalItemizedDeductions, format: .currency(code: "USD")) vs itemizing")
                             .font(.caption2)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                     .padding(.top, 2)
                 }
@@ -1386,18 +1376,18 @@ struct DashboardView: View {
 
     private func incomeColor(for category: String) -> Color {
         switch category {
-        case "Social Security": return Color(red: 0.18, green: 0.45, blue: 0.95)       // Royal blue
-        case "Pension": return Color(red: 0.05, green: 0.72, blue: 0.40)               // Emerald
-        case "RMD": return Color(red: 0.58, green: 0.22, blue: 0.90)                   // Rich violet
-        case "Inherited IRA RMD": return Color(red: 1.0, green: 0.55, blue: 0.08)      // Vivid orange
-        case "Dividends", "Qualified Dividends": return Color(red: 0.0, green: 0.75, blue: 0.70) // Bright teal
-        case "Interest": return Color(red: 0.15, green: 0.65, blue: 0.95)              // Sky blue
-        case "Tax-Exempt Interest": return Color(red: 0.40, green: 0.80, blue: 0.60)   // Soft green (tax-free)
-        case "Capital Gains (Long-term)", "Capital Gains (Short-term)": return Color(red: 0.92, green: 0.25, blue: 0.55) // Hot pink
-        case "Roth Conversion": return Color(red: 0.85, green: 0.15, blue: 0.40)       // Ruby
-        case "Employment/Other Income": return Color(red: 0.35, green: 0.25, blue: 0.85) // Deep indigo
-        case "State Tax Refund": return Color(red: 0.0, green: 0.82, blue: 0.55)       // Bright mint
-        default: return Color(red: 0.55, green: 0.55, blue: 0.62)
+        case "Social Security":                                  return Color.Chart.heroTeal
+        case "Pension":                                          return Color.Chart.tealRamp1
+        case "RMD":                                              return Color.Chart.tealRamp3
+        case "Inherited IRA RMD":                               return Color.Chart.tealRamp5
+        case "Dividends", "Qualified Dividends":                return Color.Chart.tealRamp2
+        case "Interest":                                         return Color.Chart.tealRamp4
+        case "Tax-Exempt Interest":                              return Color.Chart.tealRamp6
+        case "Capital Gains (Long-term)", "Capital Gains (Short-term)": return Color.Chart.callout
+        case "Roth Conversion":                                  return Color.Chart.gray1
+        case "Employment/Other Income":                         return Color.Chart.gray2
+        case "State Tax Refund":                                return Color.Chart.gray3
+        default:                                                 return Color.Chart.gray4
         }
     }
 
@@ -1414,7 +1404,7 @@ struct DashboardView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(
                                 LinearGradient(
-                                    colors: [Color(red: 0.18, green: 0.45, blue: 0.95), Color(red: 0.0, green: 0.75, blue: 0.70)],
+                                    colors: [Color.Chart.heroTeal, Color.Chart.tealRamp2],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -1485,7 +1475,7 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [Color(red: 0.18, green: 0.45, blue: 0.95).opacity(0.35), Color(red: 0.0, green: 0.75, blue: 0.70).opacity(0.35)],
+                            colors: [Color.Chart.heroTeal.opacity(0.35), Color.Chart.tealRamp2.opacity(0.35)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
@@ -1543,13 +1533,13 @@ struct DashboardView: View {
             let segments = bracketChartSegments
             let bracketInfo = dataManager.federalBracketInfo(income: income, filingStatus: dataManager.filingStatus)
             let bracketColors: [Color] = [
-                Color(red: 0.05, green: 0.78, blue: 0.35),   // 10% — emerald green
-                Color(red: 0.0, green: 0.72, blue: 0.68),    // 12% — teal
-                Color(red: 0.98, green: 0.78, blue: 0.0),    // 22% — bright gold
-                Color(red: 1.0, green: 0.50, blue: 0.0),     // 24% — vivid orange
-                Color(red: 0.92, green: 0.22, blue: 0.50),   // 32% — hot pink
-                Color(red: 0.58, green: 0.22, blue: 0.88),   // 35% — vivid purple
-                Color(red: 0.18, green: 0.30, blue: 0.85),   // 37% — deep blue
+                Color.Chart.tealRamp1,  // 10%
+                Color.Chart.tealRamp2,  // 12%
+                Color.Chart.tealRamp3,  // 22%
+                Color.Chart.tealRamp4,  // 24%
+                Color.Chart.tealRamp5,  // 32%
+                Color.Chart.tealRamp6,  // 35%
+                Color.Chart.callout,    // 37%
             ]
 
             VStack(alignment: .leading, spacing: 16) {
@@ -1559,7 +1549,7 @@ struct DashboardView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(
                                 LinearGradient(
-                                    colors: [.green.opacity(0.85), .red.opacity(0.85)],
+                                    colors: [Color.Chart.tealRamp1, Color.Chart.tealRamp6],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
@@ -1692,7 +1682,7 @@ struct DashboardView: View {
                     let nextRate = nextBracketRate(after: bracketInfo.currentRate)
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.right.circle.fill")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(.caption)
                         Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the \(nextRate)% bracket")
                             .font(.caption)
@@ -1700,7 +1690,7 @@ struct DashboardView: View {
                 } else if bracketInfo.currentRate >= 0.37 {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.amber)
                             .font(.caption)
                         Text("In the top **37%** federal bracket")
                             .font(.caption)
@@ -1714,7 +1704,7 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [.green.opacity(0.3), .red.opacity(0.3)],
+                            colors: [Color.Chart.tealRamp1.opacity(0.3), Color.Chart.tealRamp6.opacity(0.3)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
@@ -1791,12 +1781,12 @@ struct DashboardView: View {
             let segments = irmaaTierSegments
             let memberCount = dataManager.medicareMemberCount
             let tierColors: [Color] = [
-                Color(red: 0.05, green: 0.78, blue: 0.35),   // Standard — emerald green
-                Color(red: 0.98, green: 0.78, blue: 0.0),    // Tier 1 — bright gold
-                Color(red: 1.0, green: 0.50, blue: 0.0),     // Tier 2 — vivid orange
-                Color(red: 0.92, green: 0.22, blue: 0.50),   // Tier 3 — hot pink
-                Color(red: 0.58, green: 0.22, blue: 0.88),   // Tier 4 — vivid purple
-                Color(red: 0.18, green: 0.30, blue: 0.85),   // Tier 5 — deep blue
+                Color.Chart.tealRamp1,  // Standard — no surcharge
+                Color.Chart.tealRamp2,  // Tier 1
+                Color.Chart.tealRamp3,  // Tier 2
+                Color.Chart.tealRamp4,  // Tier 3
+                Color.Chart.tealRamp5,  // Tier 4
+                Color.Chart.tealRamp6,  // Tier 5
             ]
 
             VStack(alignment: .leading, spacing: 16) {
@@ -1806,7 +1796,7 @@ struct DashboardView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(
                                 LinearGradient(
-                                    colors: [.green.opacity(0.85), .red.opacity(0.85)],
+                                    colors: [Color.Chart.tealRamp1, Color.Chart.tealRamp6],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -1920,17 +1910,17 @@ struct DashboardView: View {
                     if irmaa.tier == 0 {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("No IRMAA surcharge")
                                 .font(.caption)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     } else {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                                 .font(.caption)
                             Text("Tier \(irmaa.tier): \(irmaa.annualSurchargePerPerson, format: .currency(code: "USD").precision(.fractionLength(0)))/yr per person\(memberCount > 1 ? " (\(dataManager.scenarioIRMAATotalSurcharge, format: .currency(code: "USD").precision(.fractionLength(0))) household)" : "")")
                                 .font(.caption)
@@ -1940,11 +1930,11 @@ struct DashboardView: View {
                     if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                         HStack(spacing: 6) {
                             Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
-                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .blue)
+                                .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                                 .font(.caption)
                             Text("\(distanceToNext, format: .currency(code: "USD").precision(.fractionLength(0))) below next IRMAA cliff")
                                 .font(.caption)
-                                .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                                .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : .secondary)
                         }
                     }
 
@@ -1953,11 +1943,11 @@ struct DashboardView: View {
                         let householdSavings = savingsPerPerson * Double(memberCount)
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.down.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("Reduce by \(distanceToPrev + 1, format: .currency(code: "USD").precision(.fractionLength(0))) to save \(householdSavings, format: .currency(code: "USD").precision(.fractionLength(0)))/yr")
                                 .font(.caption)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     }
                 }
@@ -1969,7 +1959,7 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [.green.opacity(0.3), .red.opacity(0.3)],
+                            colors: [Color.Chart.tealRamp1.opacity(0.3), Color.Chart.tealRamp6.opacity(0.3)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
@@ -2006,14 +1996,13 @@ struct DashboardView: View {
                     )
                 }
 
-                // Generate colors for state brackets (gradient from green to red)
+                // Map state brackets to Chart.tealRamp palette (up to 6 segments)
+                let chartRamp: [Color] = [
+                    Color.Chart.tealRamp1, Color.Chart.tealRamp2, Color.Chart.tealRamp3,
+                    Color.Chart.tealRamp4, Color.Chart.tealRamp5, Color.Chart.tealRamp6
+                ]
                 let stateColors: [Color] = segments.enumerated().map { i, _ in
-                    let t = segments.count > 1 ? Double(i) / Double(segments.count - 1) : 0
-                    return Color(
-                        red: t * 0.9,
-                        green: (1 - t) * 0.7 + 0.1,
-                        blue: 0.2
-                    )
+                    chartRamp[min(i, chartRamp.count - 1)]
                 }
 
                 let currentIdx = segments.firstIndex(where: { $0.isCurrent }) ?? 0
@@ -2030,7 +2019,7 @@ struct DashboardView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(
                                     LinearGradient(
-                                        colors: [.green.opacity(0.85), .orange.opacity(0.85)],
+                                        colors: [Color.Chart.tealRamp1, Color.Chart.tealRamp5],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
@@ -2138,7 +2127,7 @@ struct DashboardView: View {
                         let nextRate = nextStateRate(after: bracketInfo.currentRate, brackets: brackets)
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.right.circle.fill")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the \(String(format: "%.1f", nextRate))% bracket")
                                 .font(.caption)
@@ -2152,7 +2141,7 @@ struct DashboardView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(
                             LinearGradient(
-                                colors: [.green.opacity(0.3), .orange.opacity(0.3)],
+                                colors: [Color.Chart.tealRamp1.opacity(0.3), Color.Chart.tealRamp5.opacity(0.3)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
@@ -2197,7 +2186,7 @@ struct DashboardView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(
                                 LinearGradient(
-                                    colors: [.green.opacity(0.85), .red.opacity(0.55)],
+                                    colors: [Color.Chart.tealRamp1, Color.Chart.tealRamp6],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
@@ -2225,15 +2214,15 @@ struct DashboardView: View {
                     let thresholdX = w * threshold / chartMax
                     let niitZoneWidth = w - thresholdX
 
-                    // Green zone (no NIIT)
+                    // No-NIIT zone
                     UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
-                        .fill(Color(red: 0.05, green: 0.78, blue: 0.35))
+                        .fill(Color.Chart.tealRamp1)
                         .frame(width: thresholdX, height: barHeight)
                         .offset(y: topPad)
 
-                    // Red zone (NIIT applies)
+                    // NIIT zone
                     UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 5, topTrailingRadius: 5)
-                        .fill(Color.red.opacity(0.75))
+                        .fill(Color.Chart.tealRamp6)
                         .frame(width: niitZoneWidth, height: barHeight)
                         .offset(x: thresholdX, y: topPad)
 
@@ -2274,12 +2263,12 @@ struct DashboardView: View {
                 HStack(spacing: 16) {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(Color(red: 0.05, green: 0.78, blue: 0.35))
+                            .fill(Color.Chart.tealRamp1)
                             .frame(width: 8, height: 8)
                         VStack(alignment: .leading, spacing: 0) {
                             Text("No NIIT")
                                 .font(.system(size: 10, weight: !isAbove ? .bold : .medium))
-                                .foregroundStyle(Color(red: 0.05, green: 0.78, blue: 0.35))
+                                .foregroundStyle(Color.Chart.tealRamp1)
                             Text("< \(chartYAxisLabel(threshold))")
                                 .font(.system(size: 8))
                                 .foregroundStyle(.secondary)
@@ -2287,12 +2276,12 @@ struct DashboardView: View {
                     }
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(Color.red.opacity(0.75))
+                            .fill(Color.Chart.tealRamp6)
                             .frame(width: 8, height: 8)
                         VStack(alignment: .leading, spacing: 0) {
                             Text("3.8% NIIT")
                                 .font(.system(size: 10, weight: isAbove ? .bold : .medium))
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.Chart.tealRamp6)
                             Text("\(chartYAxisLabel(threshold))+")
                                 .font(.system(size: 8))
                                 .foregroundStyle(.secondary)
@@ -2306,7 +2295,7 @@ struct DashboardView: View {
                     if isAbove {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.Semantic.amber)
                                 .font(.caption)
                             Text("NIIT: \(niit.annualNIITax, format: .currency(code: "USD").precision(.fractionLength(0)))/yr on \(niit.taxableNII, format: .currency(code: "USD").precision(.fractionLength(0))) of investment income")
                                 .font(.caption)
@@ -2314,23 +2303,23 @@ struct DashboardView: View {
                     } else {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("No NIIT — MAGI is below the \(chartYAxisLabel(threshold)) threshold")
                                 .font(.caption)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     }
 
                     if niit.distanceToThreshold > 0 && niit.distanceToThreshold < 50_000 {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                                 .font(.caption)
                             Text("\(niit.distanceToThreshold, format: .currency(code: "USD").precision(.fractionLength(0))) below NIIT threshold")
                                 .font(.caption)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                         }
                     }
                 }
@@ -2342,7 +2331,7 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [.green.opacity(0.3), .red.opacity(0.3)],
+                            colors: [Color.Chart.tealRamp1.opacity(0.3), Color.Chart.tealRamp6.opacity(0.3)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
@@ -2375,7 +2364,7 @@ struct DashboardView: View {
             if items.isEmpty {
                 HStack {
                     Image(systemName: "checkmark.circle")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("No action items yet. Add income sources and explore Scenarios to generate your to-do list.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -2409,7 +2398,7 @@ struct DashboardView: View {
             } label: {
                 Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(isCompleted ? .green : .secondary)
+                    .foregroundStyle(isCompleted ? Color.UI.brandTeal : .secondary)
             }
             .buttonStyle(.plain)
 
@@ -2443,12 +2432,12 @@ struct DashboardView: View {
 
     private func categoryColor(_ category: ActionCategory) -> Color {
         switch category {
-        case .rmd: return .red
-        case .rothConversion: return .purple
-        case .qcd: return .green
-        case .withdrawal: return .blue
-        case .estimatedTax: return .orange
-        case .charitable: return .teal
+        case .rmd:            return Color.Semantic.amber    // RMD deadline = action required
+        case .rothConversion: return Color.UI.brandTeal      // Forward planning action
+        case .qcd:            return Color.UI.brandTeal      // Forward planning action
+        case .withdrawal:     return Color.UI.brandTeal      // Forward planning action
+        case .estimatedTax:   return Color.Semantic.amber    // Quarterly deadline = action required
+        case .charitable:     return Color.UI.brandTeal      // Forward planning action
         }
     }
 
@@ -2460,12 +2449,12 @@ struct DashboardView: View {
                 .font(.headline)
 
             HStack(alignment: .top, spacing: 16) {
-                balanceColumn(title: "Traditional IRA/\n401(k)", amount: dataManager.totalTraditionalIRABalance, color: .blue)
+                balanceColumn(title: "Traditional IRA/\n401(k)", amount: dataManager.totalTraditionalIRABalance, color: Color.UI.textPrimary)
                 Divider()
-                balanceColumn(title: "Roth IRA/401(k)", amount: dataManager.totalRothBalance, color: .green)
+                balanceColumn(title: "Roth IRA/401(k)", amount: dataManager.totalRothBalance, color: Color.UI.textPrimary)
                 if dataManager.hasInheritedAccounts {
                     Divider()
-                    balanceColumn(title: "Inherited IRA", amount: dataManager.totalInheritedBalance, color: .orange)
+                    balanceColumn(title: "Inherited IRA", amount: dataManager.totalInheritedBalance, color: Color.UI.textPrimary)
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -2591,7 +2580,7 @@ struct OwnerBalanceRow: View {
             HStack {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(.blue)
+                        .fill(Color.Chart.tealRamp2)
                         .frame(width: 8, height: 8)
                     Text("Traditional")
                         .font(.caption)
@@ -2605,7 +2594,7 @@ struct OwnerBalanceRow: View {
 
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(.green)
+                        .fill(Color.Chart.tealRamp5)
                         .frame(width: 8, height: 8)
                     Text("Roth")
                         .font(.caption)
