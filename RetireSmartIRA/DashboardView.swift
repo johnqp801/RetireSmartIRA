@@ -1374,20 +1374,39 @@ struct DashboardView: View {
             .map { IncomeSlice(category: $0.key, amount: $0.value, color: incomeColor(for: $0.key)) }
     }
 
+    /// Color mapping for income categories in pie/donut charts.
+    /// Spreads ~13 income types across the full Chart palette (heroTeal +
+    /// 6 tealRamps + 5 grays + sand callout = 13 distinct colors). "Kinship"
+    /// pairs (Dividends/Qualified, RMD/Inherited, Interest/Tax-Exempt,
+    /// Cap Gains LT/ST) are placed in adjacent palette slots so they read
+    /// as related-but-distinct in the chart.
     private func incomeColor(for category: String) -> Color {
         switch category {
+        // Hero — the largest "primary" income for most retirees
         case "Social Security":                                  return Color.Chart.heroTeal
+
+        // Teal ramp family: pension/dividends/interest (recurring streams)
         case "Pension":                                          return Color.Chart.tealRamp1
-        case "RMD":                                              return Color.Chart.tealRamp3
-        case "Inherited IRA RMD":                               return Color.Chart.tealRamp5
-        case "Dividends", "Qualified Dividends":                return Color.Chart.tealRamp2
+        case "Dividends":                                        return Color.Chart.tealRamp2
+        case "Qualified Dividends":                              return Color.Chart.tealRamp3
         case "Interest":                                         return Color.Chart.tealRamp4
-        case "Tax-Exempt Interest":                              return Color.Chart.tealRamp6
-        case "Capital Gains (Long-term)", "Capital Gains (Short-term)": return Color.Chart.callout
-        case "Roth Conversion":                                  return Color.Chart.gray1
-        case "Employment/Other Income":                         return Color.Chart.gray2
-        case "State Tax Refund":                                return Color.Chart.gray3
-        default:                                                 return Color.Chart.gray4
+        case "Tax-Exempt Interest":                              return Color.Chart.tealRamp5
+
+        // Gray family: RMDs (distribution events, not yield streams)
+        case "RMD":                                              return Color.Chart.gray1
+        case "Inherited IRA RMD":                                return Color.Chart.gray2
+
+        // Sand callout: capital gains (one-time realization events, distinct kind)
+        case "Capital Gains (Long-term)",
+             "Capital Gains (Short-term)":                       return Color.Chart.callout
+
+        // Lower-frequency / discretionary types
+        case "Roth Conversion":                                  return Color.Chart.gray3
+        case "Employment/Other Income":                          return Color.Chart.gray4
+        case "State Tax Refund":                                 return Color.Chart.tealRamp6
+
+        // Anything else — muted gray fallback
+        default:                                                 return Color.Chart.gray5
         }
     }
 
