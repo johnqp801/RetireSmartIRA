@@ -831,11 +831,19 @@ class DataManager: ObservableObject {
     }
 
     func saveTaxBrackets() {
+        #if DEBUG
+        PersistenceManager.saveTaxBrackets(currentTaxBrackets, defaults: DemoProfile.defaults)
+        #else
         PersistenceManager.saveTaxBrackets(currentTaxBrackets)
+        #endif
     }
 
     func saveAllData() {
+        #if DEBUG
+        PersistenceManager.saveAll(from: self, defaults: DemoProfile.defaults)
+        #else
         PersistenceManager.saveAll(from: self)
+        #endif
     }
 
     /// Resets all scenario properties to defaults.

@@ -24,7 +24,16 @@ typealias PlatformColor = NSColor
 
 @main
 struct RetireSmartIRAApp: App {
-    @StateObject private var dataManager = DataManager()
+    @StateObject private var dataManager: DataManager = {
+        #if DEBUG
+        if DemoProfile.isActive {
+            let dm = DataManager(skipPersistence: true)
+            DemoProfile.reset(into: dm)
+            return dm
+        }
+        #endif
+        return DataManager()
+    }()
     @StateObject private var termsManager = TermsAcceptanceManager()
 
     var body: some Scene {

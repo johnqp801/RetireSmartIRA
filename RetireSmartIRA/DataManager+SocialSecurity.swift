@@ -24,7 +24,11 @@ extension DataManager {
     // MARK: - Load / Save
 
     func loadSSData() {
+        #if DEBUG
+        let defaults = DemoProfile.defaults
+        #else
         let defaults = UserDefaults.standard
+        #endif
 
         if let data = defaults.data(forKey: SSStorageKey.primarySSBenefit),
            let decoded = try? JSONDecoder().decode(SSBenefitEstimate.self, from: data) {
@@ -52,7 +56,11 @@ extension DataManager {
     }
 
     func saveSSData() {
+        #if DEBUG
+        let defaults = DemoProfile.defaults
+        #else
         let defaults = UserDefaults.standard
+        #endif
 
         if let benefit = primarySSBenefit,
            let data = try? JSONEncoder().encode(benefit) {
