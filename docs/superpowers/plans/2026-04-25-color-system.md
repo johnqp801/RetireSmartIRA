@@ -12,6 +12,33 @@
 
 ---
 
+## ⚠️ Plan Addendum 2026-04-25 — Snapshot testing deferred to 1.9
+
+**Decision:** swift-snapshot-testing has been **removed** from the project. Tasks below that reference it should be adapted as follows. This addendum overrides the plan body where they conflict.
+
+**Why:** swift-snapshot-testing 1.18+ has experimental Swift Testing integration that doesn't link cleanly in our Xcode 16 project. Earlier versions (1.16.x, 1.17.x) hit other XCTest linker issues when the package was attached to the wrong target. We burned ~45 min on it and decided to defer rather than keep fighting.
+
+**Replacement strategy for 1.8:**
+- **Component visual verification:** Use `#Preview` macros in each component file (gives instant Xcode Canvas live preview in light + dark mode). Already prescribed in the plan code blocks for `BrandButton`, `MetricCard`, `Badge`, `InfoButton`.
+- **Behavior tests:** Each component still gets an XCTest file with non-visual assertions (e.g., "tertiaryUtility style renders gray text", "MetricCard.Category.error sets red stripe").
+- **Per-screen visual regression:** Manual smoke check (Cmd+B, Cmd+R, eyeball light + dark mode). User does this during Phase 3 migrations.
+- **Token correctness:** WCAG contrast assertion tests (Task 1.8) — pure XCTest, no external dep.
+
+**Specific task adjustments:**
+- **Task 0.2** (Add swift-snapshot-testing): ~~Done~~ → Reverted, package removed at commit `03b8208`. Skip going forward.
+- **Task 2.1** (BrandButton snapshot tests): Replace `BrandButtonSnapshotTests.swift` with `BrandButtonTests.swift` — XCTest behavior assertions only (e.g., `test_primary_style_uses_filled_teal_background`). Keep the `#Preview` blocks in the source file — they replace snapshot baselines for visual review.
+- **Task 2.2** (MetricCard snapshot tests): Same pattern — replace snapshot tests with behavior tests.
+- **Task 2.3** (Badge snapshot tests): Same.
+- **Task 2.4** (InfoButton snapshot tests): Same.
+- **Task 3.0** (ScreenSnapshotTests scaffold): Skip entirely. Manual visual review replaces it.
+- **Tasks 3.1–3.10** (per-screen migration): Skip Step 7-9 (snapshot test add/record/inspect). Keep Step 11 (manual smoke test in simulator) — that's the regression net.
+- **Task 4.1** (Visual regression sweep): Keep — it was already a manual review task. Just don't expect snapshot baselines.
+
+**Deferred follow-up for 1.9:**
+- Re-add a snapshot testing solution before 1.9 ACA work begins. By that time, either swift-snapshot-testing's Swift Testing integration will have stabilized, or Apple's native Swift Testing will offer image-snapshot support. Track this as a 1.9 prerequisite.
+
+---
+
 ## Working agreement
 
 - **Branch:** create `1.8/color-system` feature branch (Task 0). All work lands there. Merge to main only when 1.8 is App-Store-ready.

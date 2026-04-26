@@ -45,17 +45,17 @@ struct SSCumulativeBenefitsChart: View {
 
     private var colorScale: KeyValuePairs<String, Color> {
         [
-            "Claim at 62": .red,
-            "Claim at 63": .orange,
-            "Claim at 64": .yellow,
-            "Claim at 65": .mint,
-            "Claim at 66": .teal,
-            "Claim at 66 (FRA)": .teal,
-            "Claim at 67": .blue,
-            "Claim at 67 (FRA)": .blue,
-            "Claim at 68": .indigo,
-            "Claim at 69": .purple,
-            "Claim at 70": .green,
+            "Claim at 62": Color.Chart.tealRamp1,
+            "Claim at 63": Color.Chart.tealRamp2,
+            "Claim at 64": Color.Chart.tealRamp2,
+            "Claim at 65": Color.Chart.tealRamp3,
+            "Claim at 66": Color.Chart.tealRamp4,
+            "Claim at 66 (FRA)": Color.Chart.tealRamp4,
+            "Claim at 67": Color.Chart.tealRamp5,
+            "Claim at 67 (FRA)": Color.Chart.tealRamp5,
+            "Claim at 68": Color.Chart.tealRamp5,
+            "Claim at 69": Color.Chart.tealRamp6,
+            "Claim at 70": Color.Chart.tealRamp6,
         ]
     }
 
@@ -95,7 +95,7 @@ struct SSCumulativeBenefitsChart: View {
 
     private var lifeExpectancyRule: some ChartContent {
         RuleMark(x: .value("Planning Horizon", lifeExpectancy))
-            .foregroundStyle(.gray.opacity(0.5))
+            .foregroundStyle(Color.Chart.gray3.opacity(0.6))
             .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
             .annotation(position: .top, alignment: .trailing) {
                 Text("Plan to: \(lifeExpectancy)")
@@ -106,13 +106,13 @@ struct SSCumulativeBenefitsChart: View {
 
     private func breakEvenRule(age: Int) -> some ChartContent {
         RuleMark(x: .value("Break-even", age))
-            .foregroundStyle(.orange.opacity(0.4))
+            .foregroundStyle(Color.Chart.gray2.opacity(0.6))
             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
             .annotation(position: .top, alignment: .leading) {
                 Text("BE \(age)")
                     .font(.caption2)
                     .fontWeight(.medium)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textSecondary)
                     .padding(.horizontal, 3)
                     .padding(.vertical, 1)
                     .background(Color(PlatformColor.systemBackground).opacity(0.85))
@@ -148,9 +148,9 @@ struct SSCumulativeBenefitsChart: View {
 
     private var legend: some View {
         let labels: [(String, Color)] = [
-            ("Claim at 62", .red),
-            ("Claim at 67", .blue),
-            ("Claim at 70", .green),
+            ("Claim at 62", Color.Chart.tealRamp1),
+            ("Claim at 67", Color.Chart.tealRamp5),
+            ("Claim at 70", Color.Chart.tealRamp6),
         ]
         return HStack(spacing: 16) {
             ForEach(labels, id: \.0) { label, color in
@@ -195,9 +195,9 @@ struct SSMonthlyComparisonChart: View {
 
     var body: some View {
         let bars = [
-            BenefitBar(label: "Age 62", age: 62, amount: benefitAt62, color: .red, isPlanned: plannedAge == 62),
-            BenefitBar(label: "FRA", age: 67, amount: benefitAtFRA, color: .blue, isPlanned: plannedAge == 67),
-            BenefitBar(label: "Age 70", age: 70, amount: benefitAt70, color: .green, isPlanned: plannedAge == 70),
+            BenefitBar(label: "Age 62", age: 62, amount: benefitAt62, color: Color.Chart.tealRamp1, isPlanned: plannedAge == 62),
+            BenefitBar(label: "FRA", age: 67, amount: benefitAtFRA, color: Color.Chart.tealRamp3, isPlanned: plannedAge == 67),
+            BenefitBar(label: "Age 70", age: 70, amount: benefitAt70, color: Color.Chart.tealRamp6, isPlanned: plannedAge == 70),
         ]
 
         Chart(bars) { bar in

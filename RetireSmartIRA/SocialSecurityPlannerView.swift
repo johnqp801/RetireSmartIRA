@@ -201,7 +201,7 @@ struct SocialSecurityPlannerView: View {
                             } label: {
                                 Image(systemName: "info.circle")
                                     .font(.subheadline)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.brandTeal)
                             }
                             .buttonStyle(.plain)
                             .popover(isPresented: $showInfoPopover) {
@@ -223,7 +223,7 @@ struct SocialSecurityPlannerView: View {
                         if let b = dataManager.primarySSBenefit, b.isAlreadyClaiming {
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                 Text("Receiving Benefits")
                                     .font(.title3)
                                     .fontWeight(.semibold)
@@ -231,7 +231,7 @@ struct SocialSecurityPlannerView: View {
                         } else if effectiveResult.isCollecting {
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                 Text("Collecting")
                                     .font(.title3)
                                     .fontWeight(.semibold)
@@ -241,7 +241,7 @@ struct SocialSecurityPlannerView: View {
                             let yearsUntil = planned - dataManager.currentAge
                             HStack(spacing: 8) {
                                 Image(systemName: "clock.fill")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                 Text("Starts at Age \(planned)")
                                     .font(.title3)
                                     .fontWeight(.semibold)
@@ -262,7 +262,7 @@ struct SocialSecurityPlannerView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: "info.circle")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                 Text("Enter your SSA benefit estimates to get started")
                                     .font(.callout)
                             }
@@ -285,12 +285,12 @@ struct SocialSecurityPlannerView: View {
                                 if let sb = dataManager.spouseSSBenefit, sb.isAlreadyClaiming {
                                     Image(systemName: "checkmark.seal.fill")
                                         .font(.caption2)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.UI.brandTeal)
                                 } else if !spouseResult.isCollecting {
                                     let spousePlanned = dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67
                                     Text("Age \(spousePlanned)")
                                         .font(.caption)
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(Color.UI.brandTeal)
                                 }
                                 Spacer()
                                 if spouseResult.monthly > 0 {
@@ -350,8 +350,8 @@ struct SocialSecurityPlannerView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Color.green.opacity(0.1))
-                        .foregroundStyle(.green)
+                        .background(Color.UI.brandTeal.opacity(0.1))
+                        .foregroundStyle(Color.UI.brandTeal)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                 }
@@ -420,7 +420,7 @@ struct SocialSecurityPlannerView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                     .font(.caption)
                                 Text("Receiving Benefits")
                                     .font(.subheadline)
@@ -456,11 +456,11 @@ struct SocialSecurityPlannerView: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 0) {
-                        benefitColumn(label: "Age 62", amount: b.benefitAt62, color: .red)
+                        benefitColumn(label: "Age 62", amount: b.benefitAt62, color: Color.Chart.tealRamp1)
                         Spacer()
-                        benefitColumn(label: "FRA", amount: b.benefitAtFRA, color: .blue)
+                        benefitColumn(label: "FRA", amount: b.benefitAtFRA, color: Color.Chart.tealRamp3)
                         Spacer()
-                        benefitColumn(label: "Age 70", amount: b.benefitAt70, color: .green)
+                        benefitColumn(label: "Age 70", amount: b.benefitAt70, color: Color.Chart.tealRamp6)
                     }
 
                     Divider()
@@ -494,10 +494,10 @@ struct SocialSecurityPlannerView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "person.2.fill")
                                 .font(.caption2)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                             Text("Includes \(SSCalculationEngine.formatCurrency(effectiveResult.spousalTopUp))/mo spousal top-up")
                                 .font(.caption)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     } else if !effectiveResult.isCollecting {
                         // Not collecting yet — show own-record amount
@@ -560,7 +560,7 @@ struct SocialSecurityPlannerView: View {
             } else {
                 HStack {
                     Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Add benefit estimates from your SSA statement")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -722,7 +722,7 @@ struct SocialSecurityPlannerView: View {
             ),
             displayText: "\(dataManager.ssWhatIfParams.primaryLifeExpectancy)",
             range: 70...100,
-            tint: .blue
+            tint: Color.UI.brandTeal
         )
 
         if dataManager.enableSpouse {
@@ -734,7 +734,7 @@ struct SocialSecurityPlannerView: View {
                 ),
                 displayText: "\(dataManager.ssWhatIfParams.spouseLifeExpectancy)",
                 range: 70...100,
-                tint: .purple
+                tint: Color.Chart.callout
             )
         }
 
@@ -744,7 +744,7 @@ struct SocialSecurityPlannerView: View {
             displayText: String(format: "%.1f%%", dataManager.ssWhatIfParams.colaRate),
             range: 0...5,
             step: 0.5,
-            tint: .green
+            tint: Color.UI.brandTeal
         )
 
         valuationModeToggle
@@ -778,7 +778,7 @@ struct SocialSecurityPlannerView: View {
                         value: $dataManager.ssWhatIfParams.discountRate,
                         in: 1...6, step: 0.5
                     )
-                    .tint(.blue)
+                    .tint(Color.UI.brandTeal)
                     Text("\(dataManager.ssWhatIfParams.discountRate, specifier: "%.1f")%")
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -836,14 +836,14 @@ struct SocialSecurityPlannerView: View {
             if dataManager.ssAutoSync {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Benefits automatically synced to Income & Deductions")
                         .font(.callout)
                 }
             } else {
                 HStack {
                     Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                     Text("Auto-sync disabled. Manage SS income manually in Income & Deductions.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -865,7 +865,7 @@ struct SocialSecurityPlannerView: View {
 
             HStack {
                 Image(systemName: "info.circle")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Enter your benefit estimates to see claiming age analysis, break-even charts, and strategy comparisons.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -889,8 +889,8 @@ struct SocialSecurityPlannerView: View {
                     .fontWeight(.semibold)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color.green.opacity(0.15))
-                    .foregroundStyle(.green)
+                    .background(Color.UI.brandTeal.opacity(0.15))
+                    .foregroundStyle(Color.UI.brandTeal)
                     .clipShape(Capsule())
             }
 
@@ -965,7 +965,7 @@ struct SocialSecurityPlannerView: View {
                 .padding()
                 .background(
                     LinearGradient(
-                        colors: [Color.green.opacity(0.85), Color.green.opacity(0.65)],
+                        colors: [Color.UI.brandTeal.opacity(0.85), Color.UI.brandTeal.opacity(0.65)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -1035,7 +1035,7 @@ struct SocialSecurityPlannerView: View {
                 .padding()
                 .background(
                     LinearGradient(
-                        colors: [Color.green.opacity(0.85), Color.green.opacity(0.65)],
+                        colors: [Color.UI.brandTeal.opacity(0.85), Color.UI.brandTeal.opacity(0.65)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -1066,7 +1066,7 @@ struct SocialSecurityPlannerView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.green.opacity(0.3), lineWidth: 1.5)
+                .stroke(Color.UI.brandTeal.opacity(0.3), lineWidth: 1.5)
         )
         .shadow(color: .black.opacity(0.08), radius: 12, y: 6)
     }
@@ -1134,7 +1134,7 @@ struct SocialSecurityPlannerView: View {
                         Text("Survivor income drops \(String(format: "%.0f", scenario.percentReduction))%")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
@@ -1213,7 +1213,7 @@ struct SocialSecurityPlannerView: View {
                     .clipShape(Capsule())
                 }
                 Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.UI.brandTeal)
             }
 
             // Primary
@@ -1239,7 +1239,7 @@ struct SocialSecurityPlannerView: View {
                     if pResult.includesSpousalTopUp {
                         Text("Includes \(SSCalculationEngine.formatCurrency(pResult.spousalTopUp)) spousal top-up")
                             .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
             }
@@ -1270,7 +1270,7 @@ struct SocialSecurityPlannerView: View {
                         if sResult.includesSpousalTopUp {
                             Text("Includes \(SSCalculationEngine.formatCurrency(sResult.spousalTopUp)) spousal top-up")
                                 .font(.caption2)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     }
                 }
@@ -1287,7 +1287,7 @@ struct SocialSecurityPlannerView: View {
                         Text(SSCalculationEngine.formatCurrency(combinedMonthly) + "/mo")
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                         Text(SSCalculationEngine.formatCurrency(combinedMonthly * 12) + "/yr")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1347,7 +1347,7 @@ struct SocialSecurityPlannerView: View {
                     Text(SSCalculationEngine.formatCurrency(taxableSS))
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundStyle(taxableSS > 0 ? .orange : .green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
 
@@ -1355,10 +1355,10 @@ struct SocialSecurityPlannerView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.green.opacity(0.2))
+                        .fill(Color.UI.surfaceInset)
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(taxableSS > 0 ? Color.orange : Color.green)
+                        .fill(Color.UI.brandTeal)
                         .frame(width: geo.size.width * min(taxablePercent / 100, 1.0), height: 8)
                 }
             }
@@ -1367,7 +1367,7 @@ struct SocialSecurityPlannerView: View {
             if taxableSS == 0 {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
                     Text("Your Social Security benefits are not taxable at current income levels.")
                         .font(.caption)
@@ -1376,7 +1376,7 @@ struct SocialSecurityPlannerView: View {
             } else {
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
                     Text("\(String(format: "%.0f", taxablePercent))% of your SS benefits are taxable. This is automatically included in your tax calculations.")
                         .font(.caption)
@@ -1419,8 +1419,8 @@ struct SocialSecurityPlannerView: View {
                     .fontWeight(.semibold)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.green.opacity(0.15))
-                    .foregroundStyle(.green)
+                    .background(Color.UI.brandTeal.opacity(0.15))
+                    .foregroundStyle(Color.UI.brandTeal)
                     .clipShape(Capsule())
                 Button {
                     showCouplesInfoPopover.toggle()
@@ -1451,7 +1451,7 @@ struct SocialSecurityPlannerView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "person.fill")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .frame(width: 20)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Individual Analysis")
@@ -1465,7 +1465,7 @@ struct SocialSecurityPlannerView: View {
 
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "person.2.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .frame(width: 20)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Couples Optimization")
@@ -1480,7 +1480,7 @@ struct SocialSecurityPlannerView: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "star.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textSecondary)
                     .font(.caption)
                 Text("In most cases, the couples strategy is the more important decision.")
                     .font(.caption)
@@ -1496,7 +1496,7 @@ struct SocialSecurityPlannerView: View {
     private var keyDecisionAnchor: some View {
         HStack(spacing: 8) {
             Image(systemName: "target")
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.UI.brandTeal)
             Text("Your key decision: when to start collecting benefits")
                 .font(.subheadline)
                 .fontWeight(.medium)

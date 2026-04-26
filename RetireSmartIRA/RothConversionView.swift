@@ -139,7 +139,7 @@ struct RothConversionView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Conversion Opportunity Window")
                         .font(.headline)
                 }
@@ -149,7 +149,7 @@ struct RothConversionView: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .background(Color.yellow.opacity(0.1))
+            .background(Color.UI.surfaceInset)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
@@ -183,7 +183,7 @@ struct RothConversionView: View {
                 if spouseEnabled {
                     HStack {
                         Image(systemName: "info.circle")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                         Text("Tax impact based on joint filing")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -208,10 +208,10 @@ struct RothConversionView: View {
                 if let amount = Double(conversionAmount), amount > selectedBalance, selectedBalance > 0 {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                         Text("Amount exceeds \(selectedOwnerLabel.lowercased())'s traditional IRA balance")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                     }
                 }
 
@@ -221,7 +221,7 @@ struct RothConversionView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(selectedBalance > 0 ? Color.blue : Color.gray)
+                        .background(selectedBalance > 0 ? Color.UI.brandTeal : Color.UI.brandTealDisabled)
                         .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
@@ -254,13 +254,13 @@ struct RothConversionView: View {
                     TaxRow(
                         label: "Federal Tax on Conversion",
                         amount: analysis.federalTax,
-                        color: .blue
+                        color: Color.UI.textPrimary
                     )
 
                     TaxRow(
                         label: "\(dataManager.selectedState.rawValue) Tax on Conversion",
                         amount: analysis.stateTax,
-                        color: .orange
+                        color: Color.UI.textPrimary
                     )
 
                     Divider()
@@ -274,7 +274,7 @@ struct RothConversionView: View {
                             Text(analysis.totalTax, format: .currency(code: "USD"))
                                 .font(.title3)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Total Tax Due")
@@ -283,7 +283,7 @@ struct RothConversionView: View {
                             Text(analysis.totalTax, format: .currency(code: "USD"))
                                 .font(.title3)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                     }
                 }
@@ -361,7 +361,7 @@ struct RothConversionView: View {
                     marginalBefore: analysis.federalMarginalBefore,
                     marginalAfter: analysis.federalMarginalAfter,
                     crosses: analysis.crossesFederalBracket,
-                    color: .blue
+                    color: Color.UI.brandTeal
                 )
 
                 // State bracket analysis — conditional on tax system type
@@ -373,14 +373,14 @@ struct RothConversionView: View {
                         marginalBefore: analysis.stateMarginalBefore,
                         marginalAfter: analysis.stateMarginalAfter,
                         crosses: analysis.crossesStateBracket,
-                        color: .orange
+                        color: Color.UI.brandTeal
                     )
                 } else if case .flat(let rate) = dataManager.selectedStateConfig.taxSystem {
                     HStack {
                         Text(dataManager.selectedState.rawValue)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textPrimary)
                         Spacer()
                         Text(String(format: "Flat rate: %.2f%%", rate * 100))
                             .font(.subheadline)
@@ -391,22 +391,22 @@ struct RothConversionView: View {
                         Text(dataManager.selectedState.rawValue)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                         Spacer()
                         Text("No state income tax")
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 } else if case .specialLimited = dataManager.selectedStateConfig.taxSystem {
                     HStack {
                         Text(dataManager.selectedState.rawValue)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                         Spacer()
                         Text("No general income tax")
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
             }
@@ -479,14 +479,14 @@ struct RateRow: View {
             Text("\(federalRate, specifier: "%.1f")%")
                 .font(.callout)
                 .fontWeight(.semibold)
-                .foregroundStyle(highlight ? .orange : .primary)
+                .foregroundStyle(highlight ? Color.Semantic.amber : Color.UI.textPrimary)
                 .frame(width: 72, alignment: .trailing)
 
             if let stateRate = stateRate {
                 Text("\(stateRate, specifier: "%.1f")%")
                     .font(.callout)
                     .fontWeight(.semibold)
-                    .foregroundStyle(highlight ? .orange : .primary)
+                    .foregroundStyle(highlight ? Color.Semantic.amber : Color.UI.textPrimary)
                     .frame(width: 72, alignment: .trailing)
             } else {
                 Text("")
@@ -541,7 +541,7 @@ struct BracketAnalysisCard: View {
                     Text(bracketBefore.roomRemaining, format: .currency(code: "USD"))
                         .font(.callout)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
 
@@ -550,11 +550,11 @@ struct BracketAnalysisCard: View {
 
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                     Text("Conversion pushes into the \(marginalAfter, specifier: "%.0f")% bracket")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                 }
             }
         }
@@ -595,7 +595,7 @@ struct StrategyTip: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.UI.brandTeal)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 4) {

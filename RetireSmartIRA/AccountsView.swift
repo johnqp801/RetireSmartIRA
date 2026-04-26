@@ -37,7 +37,7 @@ struct AccountsView: View {
                             Text(dataManager.totalRothBalance, format: .currency(code: "USD"))
                                 .font(.title2)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
 
                         if dataManager.hasInheritedAccounts {
@@ -48,7 +48,7 @@ struct AccountsView: View {
                                 Text(dataManager.totalInheritedBalance, format: .currency(code: "USD"))
                                     .font(.title2)
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.UI.textSecondary)
                             }
                         }
                     }
@@ -98,7 +98,7 @@ struct AccountsView: View {
                                     .font(.callout)
                                     .fontWeight(.semibold)
                                     .padding()
-                                    .background(Color.blue)
+                                    .background(Color.UI.brandTeal)
                                     .foregroundStyle(.white)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
@@ -183,8 +183,8 @@ struct AccountRow: View {
                         .font(.caption2)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.2))
-                        .foregroundStyle(.orange)
+                        .background(Color.UI.textSecondary.opacity(0.12))
+                        .foregroundStyle(Color.UI.textSecondary)
                         .clipShape(Capsule())
 
                     if let year = account.yearOfInheritance {
@@ -197,8 +197,8 @@ struct AccountRow: View {
                                 .font(.caption2)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.teal.opacity(0.2))
-                                .foregroundStyle(.teal)
+                                .background(Color.UI.brandTeal.opacity(0.18))
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .clipShape(Capsule())
                         }
                     }
@@ -212,9 +212,9 @@ struct AccountRow: View {
     
     var ownerColor: Color {
         switch account.owner {
-        case .primary: return .blue
-        case .spouse: return .purple
-        case .joint: return .green
+        case .primary: return Color.Chart.heroTeal   // categorical: primary account holder
+        case .spouse:  return Color.Chart.gray2       // categorical: spouse
+        case .joint:   return Color.Chart.callout     // categorical: joint / warm-sand accent
         }
     }
 }
@@ -294,42 +294,42 @@ struct AddAccountView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 beneficiaryCategoryRow(
                                     icon: "heart.fill",
-                                    color: .pink,
+                                    color: Color.UI.brandTeal,
                                     title: "Spouse",
                                     description: "You were married to the original account owner at the time of their death.",
                                     rule: "Eligible — Lifetime stretch distributions"
                                 )
                                 beneficiaryCategoryRow(
                                     icon: "figure.and.child.holdinghands",
-                                    color: .blue,
+                                    color: Color.UI.brandTeal,
                                     title: "Minor Child",
                                     description: "You are the decedent's child who had not yet reached age 21 at the time of their death.",
                                     rule: "Eligible — Stretch until age 21, then 10-year rule"
                                 )
                                 beneficiaryCategoryRow(
                                     icon: "accessibility",
-                                    color: .purple,
+                                    color: Color.Chart.gray2,
                                     title: "Disabled Individual",
                                     description: "You meet the IRS definition of disabled under IRC §72(m)(7) — unable to engage in substantial gainful activity due to a medically determinable condition.",
                                     rule: "Eligible — Lifetime stretch distributions"
                                 )
                                 beneficiaryCategoryRow(
                                     icon: "cross.case.fill",
-                                    color: .purple,
+                                    color: Color.Chart.gray2,
                                     title: "Chronically Ill Individual",
                                     description: "You are certified by a licensed healthcare practitioner as unable to perform at least 2 daily living activities for at least 90 days, or require substantial supervision due to cognitive impairment.",
                                     rule: "Eligible — Lifetime stretch distributions"
                                 )
                                 beneficiaryCategoryRow(
                                     icon: "calendar.badge.clock",
-                                    color: .teal,
+                                    color: Color.UI.brandTeal,
                                     title: "Not >10 Years Younger",
                                     description: "You are not more than 10 years younger than the deceased account owner. Example: the decedent was born in 1950 and you were born in 1945–1960.",
                                     rule: "Eligible — Lifetime stretch distributions"
                                 )
                                 beneficiaryCategoryRow(
                                     icon: "clock.badge.exclamationmark",
-                                    color: .orange,
+                                    color: Color.Semantic.amber,
                                     title: "Non-Eligible Designated",
                                     description: "You are a named beneficiary (person, not an entity) who does not fit any of the above categories. This is the most common category for adult children, siblings, friends, etc.",
                                     rule: "10-year rule — Must empty account within 10 years"
@@ -337,7 +337,7 @@ struct AddAccountView: View {
                                 Divider().padding(.vertical, 4)
                                 beneficiaryCategoryRow(
                                     icon: "calendar.badge.checkmark",
-                                    color: .teal,
+                                    color: Color.UI.brandTeal,
                                     title: "Inherited before 2020?",
                                     description: "If the original owner died before January 1, 2020, the account is grandfathered under pre-SECURE Act rules. Non-eligible beneficiaries keep the old lifetime stretch — not the 10-year rule. Enter the correct Year Inherited and the app will apply the right rule.",
                                     rule: "Pre-SECURE — Lifetime stretch retained"
@@ -488,7 +488,7 @@ struct AddAccountView: View {
                 Text(rule)
                     .font(.caption2)
                     .fontWeight(.medium)
-                    .foregroundStyle(rule.hasPrefix("Eligible") ? .green : .orange)
+                    .foregroundStyle(rule.hasPrefix("Eligible") ? Color.UI.textPrimary : Color.UI.textSecondary)
             }
         }
     }

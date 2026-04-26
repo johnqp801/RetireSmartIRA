@@ -48,7 +48,7 @@ struct SettingsView: View {
 
                 LabeledContent("QCD Eligible") {
                     Text(dataManager.isQCDEligible ? "Yes" : "Not yet")
-                        .foregroundStyle(dataManager.isQCDEligible ? .green : .secondary)
+                        .foregroundStyle(dataManager.isQCDEligible ? Color.UI.textPrimary : .secondary)
                 }
             }
 
@@ -96,7 +96,7 @@ struct SettingsView: View {
 
                     LabeledContent("Spouse QCD Eligible") {
                         Text(dataManager.spouseIsQCDEligible ? "Yes" : "Not yet")
-                            .foregroundStyle(dataManager.spouseIsQCDEligible ? .green : .secondary)
+                            .foregroundStyle(dataManager.spouseIsQCDEligible ? Color.UI.textPrimary : .secondary)
                     }
                 }
             }
@@ -135,8 +135,8 @@ struct SettingsView: View {
                     // inheritor is someone other than the spouse.
                     if dataManager.legacyHeirType == "spouse" {
                         HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(.blue)
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("Your spouse's income, filing status, and age come from your household inputs — no additional heir details needed.")
                                 .font(.caption)
@@ -195,7 +195,7 @@ struct SettingsView: View {
 
                         HStack(alignment: .top, spacing: 6) {
                             Image(systemName: "person.2")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("Modeling one primary heir. If you have multiple heirs (e.g. several children), enter the one with the highest expected salary — that gives the conservative case where Roth conversions save the most tax.")
                                 .font(.caption)
@@ -211,7 +211,7 @@ struct SettingsView: View {
                             default: return "clock.fill"
                             }
                         }())
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(.caption)
                         Text(dataManager.legacyHeirTypeDescription)
                             .font(.caption)
@@ -242,7 +242,7 @@ struct SettingsView: View {
                 Link(destination: URL(string: "https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-required-minimum-distributions-rmds")!) {
                     LabeledContent("IRS RMD Information") {
                         Image(systemName: "arrow.up.right.square")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
             }
@@ -369,7 +369,7 @@ struct SettingsView: View {
                         Spacer()
                         if state == dataManager.selectedState {
                             Image(systemName: "checkmark")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .fontWeight(.semibold)
                         }
                     }

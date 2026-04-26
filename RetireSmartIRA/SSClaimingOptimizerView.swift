@@ -112,18 +112,18 @@ struct SSClaimingOptimizerView: View {
                             Text("Break-even at \(be)")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundColor(be <= lifeExpectancy ? .green : .orange)
+                                .foregroundStyle(Color.UI.textPrimary)
                         } else {
                             Text("Later never catches up")
                                 .font(.caption)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.UI.textSecondary)
                         }
 
                         if comparison.advantageAtLifeExpectancy != 0 {
                             let adv = comparison.advantageAtLifeExpectancy
                             Text("\(adv > 0 ? "+" : "")\(SSCalculationEngine.formatLargeCurrency(adv)) by age \(lifeExpectancy)")
                                 .font(.caption)
-                                .foregroundStyle(adv > 0 ? .green : .red)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                     }
                 }
@@ -165,13 +165,13 @@ struct SSClaimingOptimizerView: View {
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(Color.blue)
+                                    .background(Color.UI.brandTeal)
                                     .clipShape(Capsule())
                             }
                             if scenario.label.contains("FRA") {
                                 Text("FRA")
                                     .font(.caption2)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.brandTeal)
                             }
                         }
                     }
@@ -189,7 +189,7 @@ struct SSClaimingOptimizerView: View {
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 8)
-                .background(isPlanned ? Color.blue.opacity(0.08) : Color.clear)
+                .background(isPlanned ? Color.UI.surfaceInset : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 if scenario.claimingAge < 70 {

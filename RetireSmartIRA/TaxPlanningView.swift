@@ -224,24 +224,24 @@ struct TaxPlanningView: View {
                 let additionalCost = (irmaa.annualSurchargePerPerson - baseline.annualSurchargePerPerson) * Double(dataManager.medicareMemberCount)
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.Semantic.red)
                     Text("\u{26A0}\u{FE0F} Pushes you into IRMAA Tier \(irmaa.tier) \u{2014} adds \(additionalCost, format: .currency(code: "USD"))/year in Medicare surcharges")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.Semantic.red)
                 }
                 .padding(8)
-                .background(Color.red.opacity(0.08))
+                .background(Color.Semantic.redTint)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             } else if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 && distanceToNext < 20_000 {
                 // Close to a cliff — orange caution
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                     Text("\(distanceToNext, format: .currency(code: "USD")) until IRMAA Tier \(irmaa.tier + 1) cliff")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                 }
             }
         }
@@ -359,7 +359,7 @@ struct TaxPlanningView: View {
         HStack(spacing: 12) {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.title3)
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.UI.brandTeal)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Ready to see the full picture?")
                     .font(.subheadline)
@@ -374,7 +374,7 @@ struct TaxPlanningView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                .stroke(Color.UI.brandTeal.opacity(0.2), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -539,7 +539,7 @@ struct TaxPlanningView: View {
                     Text(taxableIncome, format: .currency(code: "USD"))
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundStyle(totalRothConversion > 0 || totalWithdrawals > 0 || hasAnyCharitable ? .orange : .primary)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
 
@@ -562,7 +562,7 @@ struct TaxPlanningView: View {
                         .font(.subheadline)
                 }
                 .buttonStyle(.bordered)
-                .tint(.red)
+                .tint(Color.Semantic.red)
                 .confirmationDialog("Reset all scenario values to defaults?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
                     Button("Reset Scenario", role: .destructive) {
                         dataManager.resetScenario()
@@ -597,13 +597,13 @@ struct TaxPlanningView: View {
                         if recommended == .standard {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.caption2)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     }
                     Text(standard, format: .currency(code: "USD"))
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(recommended == .standard ? .green : .secondary)
+                        .foregroundStyle(recommended == .standard ? Color.UI.brandTeal : Color.UI.textSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -616,7 +616,7 @@ struct TaxPlanningView: View {
                         if recommended == .itemized {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.caption2)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                         Text("Itemized")
                             .font(.caption)
@@ -625,7 +625,7 @@ struct TaxPlanningView: View {
                     Text(itemized, format: .currency(code: "USD"))
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(recommended == .itemized ? .green : .secondary)
+                        .foregroundStyle(recommended == .itemized ? Color.UI.brandTeal : Color.UI.textSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -653,7 +653,7 @@ struct TaxPlanningView: View {
             if !itemizeDeductions {
                 Text("Standard deduction selected \u{2014} stock and cash donations will not reduce taxable income")
                     .font(.caption2)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textSecondary)
                     .italic()
             }
         }
@@ -682,12 +682,12 @@ struct TaxPlanningView: View {
                 if dataManager.scenarioTotalRothConversion > 0 {
                     let impact = dataManager.rothConversionTaxImpact
                     let _ = netImpact += impact
-                    impactRow(label: "Roth Conversions", amount: impact, isPositive: false, color: .purple)
+                    impactRow(label: "Roth Conversions", amount: impact, isPositive: false, color: Color.UI.brandTeal)
 
                     let irmaaImpact = dataManager.rothConversionIRMAAImpact
                     if irmaaImpact > 0 {
                         let _ = netImpact += irmaaImpact
-                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
+                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
                     }
 
                     // NIIT breakdown (informational — already included in tax impact above)
@@ -705,12 +705,12 @@ struct TaxPlanningView: View {
                 if dataManager.scenarioTotalExtraWithdrawal > 0 {
                     let impact = dataManager.extraWithdrawalTaxImpact
                     let _ = netImpact += impact
-                    impactRow(label: "Extra Withdrawals", amount: impact, isPositive: false, color: .blue)
+                    impactRow(label: "Extra Withdrawals", amount: impact, isPositive: false, color: Color.Chart.callout)
 
                     let irmaaImpact = dataManager.extraWithdrawalIRMAAImpact
                     if irmaaImpact > 0 {
                         let _ = netImpact += irmaaImpact
-                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
+                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
                     }
 
                     let wdlNIIT = dataManager.extraWithdrawalNIITImpact
@@ -727,12 +727,12 @@ struct TaxPlanningView: View {
                 if dataManager.inheritedTraditionalExtraTotal > 0 {
                     let impact = dataManager.inheritedExtraWithdrawalTaxImpact
                     let _ = netImpact += impact
-                    impactRow(label: "Inherited IRA Withdrawals", amount: impact, isPositive: false, color: .indigo)
+                    impactRow(label: "Inherited IRA Withdrawals", amount: impact, isPositive: false, color: Color.Chart.gray2)
 
                     let irmaaImpact = dataManager.inheritedExtraWithdrawalIRMAAImpact
                     if irmaaImpact > 0 {
                         let _ = netImpact += irmaaImpact
-                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: .pink)
+                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
                     }
 
                     let inhNIIT = dataManager.inheritedExtraWithdrawalNIITImpact
@@ -749,12 +749,12 @@ struct TaxPlanningView: View {
                 if totalQCD > 0 {
                     let savings = dataManager.qcdTaxSavings
                     let _ = netImpact -= savings
-                    impactRow(label: "QCD", amount: savings, isPositive: true, color: .green)
+                    impactRow(label: "QCD", amount: savings, isPositive: true, color: Color.Semantic.green)
 
                     let irmaaSavings = dataManager.qcdIRMAASavings
                     if irmaaSavings > 0 {
                         let _ = netImpact -= irmaaSavings
-                        impactRow(label: "  IRMAA Savings", amount: irmaaSavings, isPositive: true, color: .pink)
+                        impactRow(label: "  IRMAA Savings", amount: irmaaSavings, isPositive: true, color: Color.Chart.gray3)
                     }
 
                     let qcdNIIT = dataManager.qcdNIITSavings
@@ -795,14 +795,14 @@ struct TaxPlanningView: View {
                     let deductionSavings = dataManager.stockDeductionTaxSavings
                     if deductionSavings > 0 {
                         let _ = netImpact -= deductionSavings
-                        impactRow(label: "Stock Donation Tax Reduction", amount: deductionSavings, isPositive: true, color: .orange)
+                        impactRow(label: "Stock Donation Tax Reduction", amount: deductionSavings, isPositive: true, color: Color.Chart.gray4)
                     }
 
                     // Tax on gain avoided (by donating instead of selling)
                     let gainsAvoided = dataManager.stockCapGainsTaxAvoided
                     if gainsAvoided > 0 {
                         let _ = netImpact -= gainsAvoided
-                        impactRow(label: dataManager.scenarioStockIsLongTerm ? "Cap Gains Avoided" : "Gain Tax Avoided", amount: gainsAvoided, isPositive: true, color: .orange)
+                        impactRow(label: dataManager.scenarioStockIsLongTerm ? "Cap Gains Avoided" : "Gain Tax Avoided", amount: gainsAvoided, isPositive: true, color: Color.Chart.gray4)
                     }
 
                     // Note if not itemizing (deduction provides no benefit)
@@ -818,7 +818,7 @@ struct TaxPlanningView: View {
                 if dataManager.cashDonationAmount > 0 {
                     let savings = dataManager.cashDonationTaxSavings
                     let _ = netImpact -= savings
-                    impactRow(label: "Cash Donation", amount: savings, isPositive: true, color: .teal)
+                    impactRow(label: "Cash Donation", amount: savings, isPositive: true, color: Color.Chart.gray1)
                 }
 
                 Divider()
@@ -838,7 +838,7 @@ struct TaxPlanningView: View {
                     Text("\(displayNet >= 0 ? "+" : "")\(displayNet.formatted(.currency(code: "USD")))")
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(displayNet >= 0 ? .red : .green)
+                        .foregroundStyle(displayNet < 0 ? Color.Semantic.green : Color.UI.textPrimary)
                 }
 
                 Text("Approximate \u{2014} individual impacts may not sum exactly to net due to progressive tax interaction")
@@ -864,7 +864,7 @@ struct TaxPlanningView: View {
             Text("\(isPositive ? "saves" : "adds") ~\(amount.formatted(.currency(code: "USD")))")
                 .font(.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(isPositive ? .green : .red)
+                .foregroundStyle(Color.UI.textPrimary)
         }
     }
 
@@ -904,48 +904,48 @@ struct TaxPlanningView: View {
             + cashSavings
 
         // Base bar
-        bars.append(WaterfallBar(label: "Base Tax", yStart: 0, yEnd: baseTax, color: .gray, isTotal: true))
+        bars.append(WaterfallBar(label: "Base Tax", yStart: 0, yEnd: baseTax, color: Color.Chart.heroTeal, isTotal: true))
 
         var runningTotal = baseTax
 
         // Costs (go UP)
         let rothTotal = rothImpact + rothIRMAA
         if rothTotal > 0 {
-            bars.append(WaterfallBar(label: "Roth", yStart: runningTotal, yEnd: runningTotal + rothTotal, color: .purple, isTotal: false))
+            bars.append(WaterfallBar(label: "Roth", yStart: runningTotal, yEnd: runningTotal + rothTotal, color: Color.UI.brandTeal, isTotal: false))
             runningTotal += rothTotal
         }
 
         let wdlTotal = wdlImpact + wdlIRMAA
         if wdlTotal > 0 {
-            bars.append(WaterfallBar(label: "Withdrawals", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: .blue, isTotal: false))
+            bars.append(WaterfallBar(label: "Withdrawals", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: Color.Chart.callout, isTotal: false))
             runningTotal += wdlTotal
         }
 
         let inhTotal = inhImpact + inhIRMAA
         if inhTotal > 0 {
-            bars.append(WaterfallBar(label: "Inherited", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: .indigo, isTotal: false))
+            bars.append(WaterfallBar(label: "Inherited", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: Color.Chart.gray2, isTotal: false))
             runningTotal += inhTotal
         }
 
         // Savings (go DOWN)
         let qcdTotal = qcdSavings + qcdIRMAA
         if qcdTotal > 0 {
-            bars.append(WaterfallBar(label: "QCD", yStart: runningTotal, yEnd: runningTotal - qcdTotal, color: .green, isTotal: false))
+            bars.append(WaterfallBar(label: "QCD", yStart: runningTotal, yEnd: runningTotal - qcdTotal, color: Color.Semantic.green, isTotal: false))
             runningTotal -= qcdTotal
         }
 
         if stockSavings > 0 {
-            bars.append(WaterfallBar(label: "Stock", yStart: runningTotal, yEnd: runningTotal - stockSavings, color: .orange, isTotal: false))
+            bars.append(WaterfallBar(label: "Stock", yStart: runningTotal, yEnd: runningTotal - stockSavings, color: Color.Chart.gray4, isTotal: false))
             runningTotal -= stockSavings
         }
 
         if cashSavings > 0 {
-            bars.append(WaterfallBar(label: "Cash", yStart: runningTotal, yEnd: runningTotal - cashSavings, color: .teal, isTotal: false))
+            bars.append(WaterfallBar(label: "Cash", yStart: runningTotal, yEnd: runningTotal - cashSavings, color: Color.Chart.gray1, isTotal: false))
             runningTotal -= cashSavings
         }
 
         // Final bar
-        bars.append(WaterfallBar(label: "Final Tax", yStart: 0, yEnd: finalTax, color: .gray.opacity(0.8), isTotal: true))
+        bars.append(WaterfallBar(label: "Final Tax", yStart: 0, yEnd: finalTax, color: Color.Chart.heroTeal.opacity(0.8), isTotal: true))
 
         return bars
     }
@@ -973,7 +973,7 @@ struct TaxPlanningView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(
                                     LinearGradient(
-                                        colors: [.purple.opacity(0.85), .green.opacity(0.85)],
+                                        colors: [Color.UI.brandTeal.opacity(0.85), Color.Chart.heroTeal.opacity(0.85)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
@@ -1048,7 +1048,7 @@ struct TaxPlanningView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(
                             LinearGradient(
-                                colors: [.purple.opacity(0.3), .green.opacity(0.3)],
+                                colors: [Color.UI.brandTeal.opacity(0.3), Color.Chart.heroTeal.opacity(0.3)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
@@ -1075,7 +1075,7 @@ struct TaxPlanningView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Conversion Opportunity Window")
                         .font(.headline)
                 }
@@ -1093,7 +1093,7 @@ struct TaxPlanningView: View {
                 }
             }
             .padding()
-            .background(Color.yellow.opacity(0.1))
+            .background(Color.UI.surfaceInset)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
@@ -1105,7 +1105,7 @@ struct TaxPlanningView: View {
             stepNumber: 1,
             title: "Roth Conversions",
             description: "Move funds from a Traditional IRA to a Roth IRA. You\u{2019}ll pay tax now, but future growth and withdrawals are tax-free. There\u{2019}s no age restriction \u{2014} this is especially valuable before RMDs begin, when your income may be lower. As you adjust the amount, watch the tax impact update on the right.",
-            stepColor: .orange,
+            stepColor: Color.UI.brandTeal,
             icon: "arrow.right.arrow.left"
         ) {
             rothConversionContent
@@ -1139,7 +1139,7 @@ struct TaxPlanningView: View {
                     balance: dataManager.primaryTraditionalIRABalance,
                     amount: $dataManager.yourRothConversion,
                     sliderMax: yourSliderMax,
-                    tint: .orange
+                    tint: Color.UI.brandTeal
                 )
 
                 if dataManager.yourRothConversion > 0 {
@@ -1155,7 +1155,7 @@ struct TaxPlanningView: View {
                     balance: dataManager.spouseTraditionalIRABalance,
                     amount: $dataManager.spouseRothConversion,
                     sliderMax: spouseSliderMax,
-                    tint: .orange
+                    tint: Color.Chart.callout
                 )
 
                 if dataManager.spouseRothConversion > 0 {
@@ -1175,7 +1175,7 @@ struct TaxPlanningView: View {
                         Text(totalRothConversion, format: .currency(code: "USD"))
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Combined Roth Conversions")
@@ -1184,7 +1184,7 @@ struct TaxPlanningView: View {
                         Text(totalRothConversion, format: .currency(code: "USD"))
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
             }
@@ -1200,7 +1200,7 @@ struct TaxPlanningView: View {
                 let bracketPct = String(format: "%.0f", room.currentRate * 100)
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     if room.roomRemaining > 0 {
                         Text("Federal: \(room.roomRemaining.formatted(.currency(code: "USD"))) remaining in \(bracketPct)% bracket")
                             .font(.caption)
@@ -1217,7 +1217,7 @@ struct TaxPlanningView: View {
             if totalRothConversion > 0 {
                 HStack(spacing: 6) {
                     Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Increases tax today to reduce lifetime RMDs and create tax-free growth for you and your heirs.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -1228,7 +1228,7 @@ struct TaxPlanningView: View {
             if totalRothConversion > 0 {
                 HStack(spacing: 6) {
                     Image(systemName: "calendar.badge.clock")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Roth conversions may affect quarterly estimated tax payments. See the Quarterly Tax screen for payment timing details and safe harbor considerations.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -1245,7 +1245,7 @@ struct TaxPlanningView: View {
             stepNumber: 2,
             title: "IRA/401(k) Withdrawals",
             description: "Withdraw cash from your retirement savings for living expenses or other needs. Withdrawals are penalty-free after age 59\u{00BD}. Required Minimum Distributions (RMDs) are shown automatically. Any extra withdrawals add to your taxable income \u{2014} see the impact on tax rates and IRMAA on the right.",
-            stepColor: .blue,
+            stepColor: Color.Chart.callout,
             icon: "banknote"
         ) {
             withdrawalContent
@@ -1270,7 +1270,7 @@ struct TaxPlanningView: View {
                         Spacer()
                         Text(yourRMD, format: .currency(code: "USD"))
                             .fontWeight(.semibold)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 } else {
                     HStack {
@@ -1287,7 +1287,7 @@ struct TaxPlanningView: View {
                     label: "Extra Withdrawal",
                     amount: $dataManager.yourExtraWithdrawal,
                     sliderMax: max(200_000, dataManager.primaryTraditionalIRABalance),
-                    tint: .blue
+                    tint: Color.Chart.callout
                 )
 
                 if dataManager.isRMDRequired || dataManager.yourExtraWithdrawal > 0 {
@@ -1313,7 +1313,7 @@ struct TaxPlanningView: View {
                         Spacer()
                         Text(spouseRMD, format: .currency(code: "USD"))
                             .fontWeight(.semibold)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 } else {
                     HStack {
@@ -1330,7 +1330,7 @@ struct TaxPlanningView: View {
                     label: "Extra Withdrawal",
                     amount: $dataManager.spouseExtraWithdrawal,
                     sliderMax: max(200_000, dataManager.spouseTraditionalIRABalance),
-                    tint: .blue
+                    tint: Color.Chart.callout
                 )
 
                 if dataManager.spouseIsRMDRequired || dataManager.spouseExtraWithdrawal > 0 {
@@ -1353,7 +1353,7 @@ struct TaxPlanningView: View {
                     Spacer()
                     Text(combinedRMD, format: .currency(code: "USD"))
                         .fontWeight(.semibold)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
 
@@ -1364,7 +1364,7 @@ struct TaxPlanningView: View {
                 Text(totalWithdrawals, format: .currency(code: "USD"))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.textPrimary)
             }
         }
     }
@@ -1378,7 +1378,7 @@ struct TaxPlanningView: View {
                 stepNumber: 3,
                 title: "Inherited IRA Withdrawals",
                 description: "If you\u{2019}ve inherited a Traditional IRA, required annual distributions may apply depending on the original owner\u{2019}s RBD status and your beneficiary type. You can take extra withdrawals beyond the required amount. Inherited Traditional distributions are taxable but not eligible for QCDs.",
-                stepColor: .indigo,
+                stepColor: Color.Chart.gray2,
                 icon: "archivebox"
             ) {
                 inheritedWithdrawalContent
@@ -1405,14 +1405,14 @@ struct TaxPlanningView: View {
                             .fontWeight(.medium)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.indigo.opacity(0.15))
+                            .background(Color.UI.surfaceInset)
                             .clipShape(Capsule())
                     }
                     Spacer()
                     Text(isRoth ? "Roth" : "Traditional")
                         .font(.caption2)
                         .fontWeight(.medium)
-                        .foregroundStyle(isRoth ? .green : .orange)
+                        .foregroundStyle(isRoth ? Color.UI.brandTeal : Color.UI.textSecondary)
                 }
 
                 // Balance
@@ -1435,7 +1435,7 @@ struct TaxPlanningView: View {
                         Spacer()
                         Text(beneficiary.rawValue)
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                     }
                 }
 
@@ -1447,7 +1447,7 @@ struct TaxPlanningView: View {
                         Spacer()
                         Text(result.annualRMD, format: .currency(code: "USD"))
                             .fontWeight(.semibold)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 } else {
                     HStack {
@@ -1464,10 +1464,10 @@ struct TaxPlanningView: View {
                 if let deadline = result.mustEmptyByYear, let remaining = result.yearsRemaining {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                            .foregroundStyle(remaining <= 1 ? Color.Semantic.red : Color.Semantic.amber)
                         Text("Must empty by end of \(deadline) (\(remaining) year\(remaining == 1 ? "" : "s") remaining)")
                             .font(.caption)
-                            .foregroundStyle(remaining <= 1 ? .red : .orange)
+                            .foregroundStyle(remaining <= 1 ? Color.Semantic.red : Color.Semantic.amber)
                     }
                 }
 
@@ -1478,7 +1478,7 @@ struct TaxPlanningView: View {
                         label: "Extra Withdrawal",
                         amount: inheritedWithdrawalBinding(for: account.id),
                         sliderMax: extraMax,
-                        tint: .indigo
+                        tint: Color.Chart.gray2
                     )
                 }
 
@@ -1486,10 +1486,10 @@ struct TaxPlanningView: View {
                 if isRoth {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                         Text("Roth \u{2014} withdrawals are tax-free")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                     }
                 }
             }
@@ -1508,7 +1508,7 @@ struct TaxPlanningView: View {
                 Text(dataManager.inheritedExtraWithdrawalTotal, format: .currency(code: "USD"))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(Color.UI.textPrimary)
             }
             if dataManager.inheritedTraditionalExtraTotal > 0 && dataManager.inheritedTraditionalExtraTotal < dataManager.inheritedExtraWithdrawalTotal {
                 HStack {
@@ -1519,7 +1519,7 @@ struct TaxPlanningView: View {
                     Text(dataManager.inheritedTraditionalExtraTotal, format: .currency(code: "USD"))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.UI.textSecondary)
                 }
             }
         }
@@ -1552,7 +1552,7 @@ struct TaxPlanningView: View {
                 stepNumber: 1,
                 title: "Roth Conversions",
                 description: "Move funds from a Traditional IRA to a Roth IRA. You\u{2019}ll pay tax now, but future growth and withdrawals are tax-free.",
-                stepColor: .orange,
+                stepColor: Color.UI.brandTeal,
                 icon: "arrow.right.arrow.left",
                 isExpanded: showRothSheet,
                 action: { withAnimation(.easeInOut(duration: 0.3)) { showRothSheet.toggle() } }
@@ -1583,10 +1583,10 @@ struct TaxPlanningView: View {
                 VStack {
                     Image(systemName: "lightbulb.fill")
                         .font(.title2)
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
                 .frame(width: 44, height: 44)
-                .background(Color.orange.opacity(0.15))
+                .background(Color.UI.surfaceInset)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -1607,17 +1607,11 @@ struct TaxPlanningView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(14)
-            .background(
-                LinearGradient(
-                    colors: [Color.orange.opacity(0.08), Color.yellow.opacity(0.05)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .background(Color.UI.surfaceInset)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                    .stroke(Color.UI.brandTeal.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -1636,7 +1630,7 @@ struct TaxPlanningView: View {
                         Text("The goal: shift money from tax-deferred accounts into tax-free accounts at favorable rates, before RMDs begin.")
                             .font(.callout)
                             .fontWeight(.medium)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
 
                     Divider()
@@ -1645,7 +1639,7 @@ struct TaxPlanningView: View {
                     rothGuideSection(
                         number: 1,
                         icon: "calendar.badge.clock",
-                        color: .blue,
+                        color: Color.Chart.tealRamp1,
                         title: "Convert During Low-Tax Years",
                         body: "Many retirees have a window between retirement and the start of RMDs (age 73) when taxable income is lower. Converting during these years lets you pay tax at moderate rates \u{2014} often the 22% or 24% brackets \u{2014} rather than higher rates that may apply later when RMDs stack on top of Social Security, dividends, and other income."
                     )
@@ -1654,7 +1648,7 @@ struct TaxPlanningView: View {
                     rothGuideSection(
                         number: 2,
                         icon: "chart.bar.fill",
-                        color: .green,
+                        color: Color.Chart.tealRamp2,
                         title: "Fill Up the Current Tax Bracket",
                         body: "Many planners recommend converting just enough each year to stay within a desired bracket \u{2014} often the top of the 24% bracket. The logic: if RMDs later push income into the 32% bracket or higher, paying 24% today is advantageous."
                     )
@@ -1663,7 +1657,7 @@ struct TaxPlanningView: View {
                     rothGuideSection(
                         number: 3,
                         icon: "person.fill.xmark",
-                        color: .red,
+                        color: Color.Chart.tealRamp3,
                         title: "Protect the Surviving Spouse",
                         body: "When one spouse dies, the survivor files as Single, and tax brackets compress dramatically. The same income that was comfortably in the 24% bracket when filing jointly can quickly fall into the 32% bracket for a single filer. Converting while both spouses are alive lets you pay tax at joint rates and reduces future RMDs that could push the surviving spouse into higher brackets."
                     )
@@ -1672,7 +1666,7 @@ struct TaxPlanningView: View {
                     rothGuideSection(
                         number: 4,
                         icon: "gift.fill",
-                        color: .purple,
+                        color: Color.Chart.tealRamp4,
                         title: "Roth Assets Are Better for Heirs",
                         body: "Under current law, most non-spouse heirs must withdraw inherited retirement accounts within 10 years. If they inherit a Traditional IRA, every dollar is taxable \u{2014} often at their own high marginal rates during peak earning years. If they inherit a Roth IRA, withdrawals are generally tax-free. Many families prefer leaving heirs larger Roth balances and smaller Traditional IRAs."
                     )
@@ -1681,7 +1675,7 @@ struct TaxPlanningView: View {
                     rothGuideSection(
                         number: 5,
                         icon: "arrow.down.right",
-                        color: .orange,
+                        color: Color.Chart.tealRamp5,
                         title: "Reduce Future RMDs",
                         body: "Every dollar moved into a Roth reduces the Traditional IRA balance that generates RMDs. This can lower lifetime taxable income, reduce the chance of hitting higher tax brackets, and potentially avoid Medicare premium surcharges (IRMAA)."
                     )
@@ -1690,7 +1684,7 @@ struct TaxPlanningView: View {
                     rothGuideSection(
                         number: 6,
                         icon: "stairs",
-                        color: .teal,
+                        color: Color.Chart.tealRamp6,
                         title: "Convert Gradually, Not All at Once",
                         body: "Rather than converting everything at once, most strategies involve annual conversions over many years, carefully balancing tax brackets, Medicare premium thresholds (IRMAA), and cash available to pay the conversion tax."
                     )
@@ -1708,19 +1702,19 @@ struct TaxPlanningView: View {
                                 phase: "1",
                                 title: "Joint Lifetime",
                                 detail: "Convert at favorable joint tax rates",
-                                color: .blue
+                                color: Color.Chart.tealRamp2
                             )
                             rothGuidePhaseRow(
                                 phase: "2",
                                 title: "Surviving Spouse",
                                 detail: "Smaller RMDs mean lower single-filer taxes",
-                                color: .orange
+                                color: Color.Chart.tealRamp4
                             )
                             rothGuidePhaseRow(
                                 phase: "3",
                                 title: "Inheritance",
                                 detail: "Heirs receive tax-free Roth withdrawals",
-                                color: .purple
+                                color: Color.Chart.tealRamp6
                             )
                         }
 
@@ -1730,13 +1724,13 @@ struct TaxPlanningView: View {
                             .padding(.top, 4)
                     }
                     .padding()
-                    .background(Color.orange.opacity(0.08))
+                    .background(Color.UI.surfaceInset)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
 
                     // CTA
                     HStack(spacing: 8) {
                         Image(systemName: "hand.point.up.left.fill")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                         Text("Use Step 1 above to model different Roth conversion amounts and see the tax impact in real time.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1811,10 +1805,10 @@ struct TaxPlanningView: View {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
                 if dataManager.yourRothConversion > 0 {
-                    summaryRow(label: spouseEnabled ? "Your Conversion" : "Conversion", value: dataManager.yourRothConversion, color: .orange)
+                    summaryRow(label: spouseEnabled ? "Your Conversion" : "Conversion", value: dataManager.yourRothConversion, color: Color.UI.brandTeal)
                 }
                 if spouseEnabled && dataManager.spouseRothConversion > 0 {
-                    summaryRow(label: "\(spouseLabel)'s Conversion", value: dataManager.spouseRothConversion, color: .orange)
+                    summaryRow(label: "\(spouseLabel)'s Conversion", value: dataManager.spouseRothConversion, color: Color.Chart.callout)
                 }
             }
         } else {
@@ -1835,7 +1829,7 @@ struct TaxPlanningView: View {
                 stepNumber: 2,
                 title: "IRA/401(k) Withdrawals",
                 description: "Withdraw cash from your retirement savings. RMDs are shown automatically. Extra withdrawals add to taxable income.",
-                stepColor: .blue,
+                stepColor: Color.Chart.callout,
                 icon: "banknote",
                 isExpanded: showWithdrawalSheet,
                 action: { withAnimation(.easeInOut(duration: 0.3)) { showWithdrawalSheet.toggle() } }
@@ -1862,10 +1856,10 @@ struct TaxPlanningView: View {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
                 if combinedRMD > 0 {
-                    summaryRow(label: "Required RMD", value: combinedRMD, color: .red)
+                    summaryRow(label: "Required RMD", value: combinedRMD, color: Color.UI.textPrimary)
                 }
                 if totalExtraWithdrawal > 0 {
-                    summaryRow(label: "Extra Withdrawals", value: totalExtraWithdrawal, color: .blue)
+                    summaryRow(label: "Extra Withdrawals", value: totalExtraWithdrawal, color: Color.Chart.callout)
                 }
             }
         } else {
@@ -1888,7 +1882,7 @@ struct TaxPlanningView: View {
                     stepNumber: 3,
                     title: "Inherited IRA Withdrawals",
                     description: "Required distributions from inherited IRAs. You can take extra withdrawals beyond the required amount.",
-                    stepColor: .indigo,
+                    stepColor: Color.Chart.gray2,
                     icon: "archivebox",
                     isExpanded: showInheritedSheet,
                     action: { withAnimation(.easeInOut(duration: 0.3)) { showInheritedSheet.toggle() } }
@@ -1918,10 +1912,10 @@ struct TaxPlanningView: View {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
                 if totalRequired > 0 {
-                    summaryRow(label: "Required Distribution", value: totalRequired, color: .red)
+                    summaryRow(label: "Required Distribution", value: totalRequired, color: Color.UI.textPrimary)
                 }
                 if totalExtra > 0 {
-                    summaryRow(label: "Extra Withdrawals", value: totalExtra, color: .indigo)
+                    summaryRow(label: "Extra Withdrawals", value: totalExtra, color: Color.Chart.gray2)
                 }
                 HStack(spacing: 4) {
                     Text("\(dataManager.inheritedAccounts.count) account\(dataManager.inheritedAccounts.count == 1 ? "" : "s")")
@@ -1947,7 +1941,7 @@ struct TaxPlanningView: View {
                 stepNumber: charitableStepNumber,
                 title: "Charitable Contributions",
                 description: "Reduce your tax burden through QCDs, appreciated stock donations, and cash gifts.",
-                stepColor: .green,
+                stepColor: Color.Semantic.green,
                 icon: "heart.circle",
                 isExpanded: showCharitableSheet,
                 action: { withAnimation(.easeInOut(duration: 0.3)) { showCharitableSheet.toggle() } }
@@ -1974,13 +1968,13 @@ struct TaxPlanningView: View {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
                 if totalQCD > 0 {
-                    summaryRow(label: "QCD", value: totalQCD, color: .green)
+                    summaryRow(label: "QCD", value: totalQCD, color: Color.Semantic.green)
                 }
                 if dataManager.stockDonationEnabled && stockCurrentValueNum > 0 {
-                    summaryRow(label: "Stock Donation", value: stockCurrentValueNum, color: .green)
+                    summaryRow(label: "Stock Donation", value: stockCurrentValueNum, color: Color.Semantic.green)
                 }
                 if dataManager.cashDonationAmount > 0 {
-                    summaryRow(label: "Cash Donation", value: dataManager.cashDonationAmount, color: .green)
+                    summaryRow(label: "Cash Donation", value: dataManager.cashDonationAmount, color: Color.Semantic.green)
                 }
             }
         } else {
@@ -2016,7 +2010,7 @@ struct TaxPlanningView: View {
             stepNumber: charitableStepNumber,
             title: "Charitable Contributions",
             description: "Reduce your tax burden through charitable giving. QCDs (age 70\u{00BD}+) transfer IRA funds directly to charity and can satisfy RMDs tax-free. Donating appreciated stock avoids tax on unrealized gains \u{2014} long-term holdings get a fair market value deduction, while short-term holdings are deductible at cost basis. Cash donations provide a deduction when itemizing. Each method has different tax benefits \u{2014} combine them to optimize your strategy.",
-            stepColor: .green,
+            stepColor: Color.Semantic.green,
             icon: "heart.circle"
         ) {
             charitableContent
@@ -2031,7 +2025,7 @@ struct TaxPlanningView: View {
                 Text("Total: \(totalCharitable, format: .currency(code: "USD"))")
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.Semantic.green)
             }
         }
 
@@ -2058,11 +2052,11 @@ struct TaxPlanningView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                CurrencyField(value: $dataManager.yourQCDAmount, range: 0...yourMaxQCD, color: .green)
+                                CurrencyField(value: $dataManager.yourQCDAmount, range: 0...yourMaxQCD, color: Color.Semantic.green)
                             }
 
                             Slider(value: $dataManager.yourQCDAmount, in: 0...yourMaxQCD, step: 500)
-                                .tint(.green)
+                                .tint(Color.Semantic.green)
 
                             HStack {
                                 Text("$0")
@@ -2084,11 +2078,11 @@ struct TaxPlanningView: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                CurrencyField(value: $dataManager.spouseQCDAmount, range: 0...spouseMaxQCD, color: .green)
+                                CurrencyField(value: $dataManager.spouseQCDAmount, range: 0...spouseMaxQCD, color: Color.Semantic.green)
                             }
 
                             Slider(value: $dataManager.spouseQCDAmount, in: 0...spouseMaxQCD, step: 500)
-                                .tint(.green)
+                                .tint(Color.Semantic.green)
 
                             HStack {
                                 Text("$0")
@@ -2113,7 +2107,7 @@ struct TaxPlanningView: View {
                             Text(totalQCD, format: .currency(code: "USD"))
                                 .font(.title3)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.Semantic.green)
                         }
                     }
 
@@ -2128,7 +2122,7 @@ struct TaxPlanningView: View {
                             Text(min(totalQCD, combinedRMD), format: .currency(code: "USD"))
                                 .font(.callout)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.Semantic.green)
                         }
                         HStack {
                             Text("Remaining RMD")
@@ -2138,7 +2132,7 @@ struct TaxPlanningView: View {
                             Text(adjustedCombinedRMD, format: .currency(code: "USD"))
                                 .font(.callout)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(adjustedCombinedRMD > 0 ? .red : .green)
+                                .foregroundStyle(adjustedCombinedRMD > 0 ? Color.UI.textPrimary : Color.Semantic.green)
                         }
                     }
 
@@ -2162,7 +2156,7 @@ struct TaxPlanningView: View {
         } label: {
             HStack {
                 Image(systemName: "heart.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.Semantic.green)
                 Text("QCD \u{2014} From RMD")
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -2172,7 +2166,7 @@ struct TaxPlanningView: View {
         if dataManager.hasInheritedAccounts {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Inherited IRA distributions are not eligible for QCDs. Only distributions from your own Traditional IRA qualify for QCD treatment.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -2243,13 +2237,13 @@ struct TaxPlanningView: View {
                                 Text("\(stockHoldingPeriodText) (\(stockIsLongTerm ? "Long-term \u{2713}" : "Short-term"))")
                                     .font(.callout)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(stockIsLongTerm ? .green : .orange)
+                                    .foregroundStyle(stockIsLongTerm ? Color.UI.brandTeal : Color.Semantic.amber)
                             }
 
                             if !stockIsLongTerm {
                                 Text("Short-term holding \u{2014} deduction limited to cost basis, but donating still avoids tax on the gain")
                                     .font(.caption2)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Semantic.amber)
                                     .italic()
                             }
 
@@ -2262,7 +2256,7 @@ struct TaxPlanningView: View {
                                     Text(stockCurrentValueNum - stockPurchasePriceValue, format: .currency(code: "USD"))
                                         .font(.callout)
                                         .fontWeight(.semibold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.UI.textPrimary)
                                 }
 
                                 HStack {
@@ -2273,7 +2267,7 @@ struct TaxPlanningView: View {
                                     Text(stockGainAvoided, format: .currency(code: "USD"))
                                         .font(.callout)
                                         .fontWeight(.semibold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.Semantic.green)
                                 }
                                 .padding(.leading, 8)
 
@@ -2301,7 +2295,7 @@ struct TaxPlanningView: View {
                                     Text(deduction, format: .currency(code: "USD"))
                                         .font(.callout)
                                         .fontWeight(.semibold)
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.UI.textSecondary)
                                 }
                                 Text(stockIsLongTerm ? "Fair market value deduction" : "Cost basis deduction (short-term)")
                                     .font(.caption2)
@@ -2315,7 +2309,7 @@ struct TaxPlanningView: View {
         } label: {
             HStack {
                 Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Appreciated Stock Donation")
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -2335,7 +2329,7 @@ struct TaxPlanningView: View {
                 }
 
                 Slider(value: $dataManager.cashDonationAmount, in: 0...200_000, step: 500)
-                    .tint(.purple)
+                    .tint(Color.UI.brandTeal)
 
                 HStack {
                     Text("$0")
@@ -2357,13 +2351,13 @@ struct TaxPlanningView: View {
                         Text(itemizeDeductions ? dataManager.cashDonationAmount : 0, format: .currency(code: "USD"))
                             .font(.callout)
                             .fontWeight(.semibold)
-                            .foregroundStyle(itemizeDeductions ? .orange : .red)
+                            .foregroundStyle(itemizeDeductions ? Color.UI.textSecondary : Color.Semantic.red)
                     }
 
                     if !itemizeDeductions {
                         Text("Taking standard deduction \u{2014} cash donations don't reduce taxes")
                             .font(.caption2)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.red)
                             .italic()
                     }
                 }
@@ -2372,7 +2366,7 @@ struct TaxPlanningView: View {
         } label: {
             HStack {
                 Image(systemName: "banknote.fill")
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Cash / Bank Account Donation")
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -2392,10 +2386,10 @@ struct TaxPlanningView: View {
                 VStack {
                     Image(systemName: "heart.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.Semantic.green)
                 }
                 .frame(width: 44, height: 44)
-                .background(Color.green.opacity(0.15))
+                .background(Color.UI.surfaceInset)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -2416,17 +2410,11 @@ struct TaxPlanningView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(14)
-            .background(
-                LinearGradient(
-                    colors: [Color.green.opacity(0.08), Color.blue.opacity(0.05)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .background(Color.UI.surfaceInset)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                    .stroke(Color.Semantic.green.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -2441,7 +2429,7 @@ struct TaxPlanningView: View {
                         Label("Traditional Charitable Deductions", systemImage: "gift.fill")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
 
                         Text("Charitable giving can play a useful role in managing taxes and smoothing income over time, especially for retirees who are trying to stay within a specific tax bracket while doing Roth conversions. Traditional charitable contributions\u{2014}whether made in cash or appreciated stock\u{2014}generally reduce taxable income if you itemize deductions. By lowering taxable income, these deductions can create additional \u{201C}room\u{201D} within a tax bracket, which can allow you to convert more money from a traditional IRA to a Roth IRA without moving into a higher marginal tax rate.")
                             .font(.callout)
@@ -2458,7 +2446,7 @@ struct TaxPlanningView: View {
                         Label("Donating Appreciated Stock", systemImage: "chart.line.uptrend.xyaxis.circle.fill")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
 
                         Text("Donating appreciated stock can be particularly efficient because you typically receive a charitable deduction equal to the market value of the shares while avoiding the capital gains tax that would have been owed if the stock were sold. This makes stock donations a powerful way to support charities while simultaneously reducing the taxable income reported on your return. Cash donations work similarly from a deduction standpoint, though they do not provide the added benefit of eliminating embedded capital gains.")
                             .font(.callout)
@@ -2475,7 +2463,7 @@ struct TaxPlanningView: View {
                         Label("Qualified Charitable Distributions (QCDs)", systemImage: "heart.circle.fill")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.green)
 
                         Text("For retirees over age 70\u{00BD}, Qualified Charitable Distributions (QCDs) from an IRA offer an even more powerful planning tool. A QCD sends funds directly from the IRA to a charity and the distribution is excluded from taxable income, even though it can count toward satisfying required minimum distributions (RMDs). Because the distribution never appears in adjusted gross income (AGI), QCDs can reduce both taxable income and modified AGI, which may help manage tax brackets and potentially reduce exposure to IRMAA Medicare surcharges.")
                             .font(.callout)
@@ -2492,7 +2480,7 @@ struct TaxPlanningView: View {
                         Label("Combining Strategies", systemImage: "arrow.triangle.merge")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Color.UI.brandTeal)
 
                         Text("Used strategically, a combination of charitable deductions, appreciated stock donations, and QCDs can help manage income levels while creating more flexibility to perform Roth conversions within a targeted tax bracket.")
                             .font(.callout)
@@ -2544,7 +2532,7 @@ struct TaxPlanningView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(
                                 LinearGradient(
-                                    colors: [.blue.opacity(0.85), .purple.opacity(0.85)],
+                                    colors: [Color.UI.brandTeal.opacity(0.85), Color.Chart.heroTeal.opacity(0.85)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -2579,7 +2567,7 @@ struct TaxPlanningView: View {
                     Text(afterTaxable, format: .currency(code: "USD").precision(.fractionLength(0)))
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(afterTaxable > beforeTaxable ? .red : .green)
+                        .foregroundStyle(afterTaxable > beforeTaxable ? Color.UI.textPrimary : Color.Semantic.green)
                 }
 
                 // Deduction Status
@@ -2599,16 +2587,16 @@ struct TaxPlanningView: View {
                             Text("Itemized \(dataManager.totalItemizedDeductions, format: .currency(code: "USD").precision(.fractionLength(0)))")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                         let extraDeduction = dataManager.totalItemizedDeductions - dataManager.standardDeductionAmount
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption2)
                             Text("Charitable giving triggers itemizing — \(extraDeduction, format: .currency(code: "USD").precision(.fractionLength(0))) more in deductions")
                                 .font(.caption)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     } else {
                         HStack {
@@ -2637,7 +2625,7 @@ struct TaxPlanningView: View {
                     Text(additionalTax, format: .currency(code: "USD").precision(.fractionLength(0)))
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(additionalTax > 0 ? .red : .green)
+                        .foregroundStyle(additionalTax > 0 ? Color.UI.textPrimary : Color.Semantic.green)
                 }
 
                 // Effective Rate on Scenario Income
@@ -2671,7 +2659,7 @@ struct TaxPlanningView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [.blue.opacity(0.3), .purple.opacity(0.3)],
+                            colors: [Color.UI.brandTeal.opacity(0.3), Color.Chart.heroTeal.opacity(0.3)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
@@ -2760,7 +2748,7 @@ struct TaxPlanningView: View {
                     marginalBefore: analysis.federalMarginalBefore,
                     marginalAfter: analysis.federalMarginalAfter,
                     crosses: analysis.crossesFederalBracket,
-                    color: .blue
+                    color: Color.UI.brandTeal
                 )
 
                 // State bracket analysis — conditional on tax system type
@@ -2772,14 +2760,14 @@ struct TaxPlanningView: View {
                         marginalBefore: analysis.stateMarginalBefore,
                         marginalAfter: analysis.stateMarginalAfter,
                         crosses: analysis.crossesStateBracket,
-                        color: .orange
+                        color: Color.Chart.callout
                     )
                 } else if case .flat(let rate) = dataManager.selectedStateConfig.taxSystem {
                     HStack {
                         Text(dataManager.selectedState.rawValue)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Chart.callout)
                         Spacer()
                         Text(String(format: "Flat rate: %.2f%%", rate * 100))
                             .font(.subheadline)
@@ -2790,22 +2778,22 @@ struct TaxPlanningView: View {
                         Text(dataManager.selectedState.rawValue)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                         Spacer()
                         Text("No state income tax")
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                     }
                 } else if case .specialLimited = dataManager.selectedStateConfig.taxSystem {
                     HStack {
                         Text(dataManager.selectedState.rawValue)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                         Spacer()
                         Text("No general income tax")
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                     }
                 }
             }
@@ -2828,7 +2816,7 @@ struct TaxPlanningView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "cross.case.fill")
-                        .foregroundStyle(.pink)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Medicare IRMAA")
                         .font(.headline)
                 }
@@ -2852,7 +2840,7 @@ struct TaxPlanningView: View {
                     Text(irmaa.tier == 0 ? "Standard (no surcharge)" : "Tier \(irmaa.tier)")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(irmaa.tier > 0 ? .red : .green)
+                        .foregroundStyle(irmaa.tier > 0 ? Color.Semantic.red : Color.Semantic.green)
                 }
 
                 // Surcharge amount
@@ -2866,7 +2854,7 @@ struct TaxPlanningView: View {
                             Text(irmaa.annualSurchargePerPerson, format: .currency(code: "USD"))
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.UI.textPrimary)
                             if memberCount > 1 {
                                 Text("per person")
                                     .font(.caption2)
@@ -2884,7 +2872,7 @@ struct TaxPlanningView: View {
                             Text(dataManager.scenarioIRMAATotalSurcharge, format: .currency(code: "USD"))
                                 .font(.subheadline)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                     }
 
@@ -2917,10 +2905,10 @@ struct TaxPlanningView: View {
                 if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                     HStack(spacing: 6) {
                         Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
-                            .foregroundStyle(distanceToNext < 10_000 ? .orange : .blue)
+                            .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                         Text("\(distanceToNext, format: .currency(code: "USD")) until next IRMAA tier")
                             .font(.caption)
-                            .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                            .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.textSecondary)
                     }
                 }
 
@@ -2930,14 +2918,14 @@ struct TaxPlanningView: View {
                     let householdSavings = savingsPerPerson * Double(memberCount)
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.down.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("You're \(distanceToPrev + 1, format: .currency(code: "USD")) above the Tier \(irmaa.tier) cliff")
                                 .font(.caption)
                                 .fontWeight(.medium)
                             Text("Reduce income by that amount to save \(householdSavings, format: .currency(code: "USD"))/year\(memberCount > 1 ? " household" : "")")
                                 .font(.caption)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.Semantic.green)
                         }
                     }
                 }
@@ -2947,10 +2935,10 @@ struct TaxPlanningView: View {
                     let additionalCost = (irmaa.annualSurchargePerPerson - baseline.annualSurchargePerPerson) * Double(memberCount)
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.red)
                         Text("Scenario decisions push you from Tier \(baseline.tier) to Tier \(irmaa.tier) — adding \(additionalCost, format: .currency(code: "USD"))/year in surcharges")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.red)
                     }
                 }
 
@@ -2978,7 +2966,7 @@ struct TaxPlanningView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Image(systemName: "percent")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Net Investment Income Tax")
                         .font(.headline)
                 }
@@ -3044,7 +3032,7 @@ struct TaxPlanningView: View {
                         Text(niit.annualNIITax, format: .currency(code: "USD"))
                             .font(.subheadline)
                             .fontWeight(.bold)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
 
                     if dataManager.scenarioIncreasedNIIT {
@@ -3052,30 +3040,30 @@ struct TaxPlanningView: View {
                         if additionalNIIT > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(Color.Semantic.red)
                                 Text("Scenario decisions add \(additionalNIIT, format: .currency(code: "USD")) in NIIT by raising MAGI above the threshold")
                                     .font(.caption)
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(Color.Semantic.red)
                             }
                         }
                     }
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: niit.distanceToThreshold < 10_000 ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
-                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .green)
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? Color.Semantic.amber : Color.Semantic.green)
                         Text("NIIT: Below threshold (no surtax)")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .green)
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? Color.Semantic.amber : Color.Semantic.green)
                     }
 
                     HStack(spacing: 6) {
                         Image(systemName: niit.distanceToThreshold < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
-                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .blue)
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                             .font(.caption)
                         Text("\(niit.distanceToThreshold, format: .currency(code: "USD")) below NIIT threshold")
                             .font(.caption)
-                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? .orange : .secondary)
+                            .foregroundStyle(niit.distanceToThreshold < 10_000 ? Color.Semantic.amber : Color.UI.textSecondary)
                     }
                 }
 
@@ -3288,7 +3276,7 @@ struct TaxImpactView: View {
                                 Spacer()
                                 Text(yourRothAmount, format: .currency(code: "USD"))
                                     .font(.caption)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.UI.brandTeal)
                             }
                         }
 
@@ -3300,7 +3288,7 @@ struct TaxImpactView: View {
                                 Spacer()
                                 Text(yourWithdrawalAmount, format: .currency(code: "USD"))
                                     .font(.caption)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.Chart.callout)
                             }
                         }
                     }
@@ -3322,7 +3310,7 @@ struct TaxImpactView: View {
                                 Spacer()
                                 Text(spouseRothAmount, format: .currency(code: "USD"))
                                     .font(.caption)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Chart.callout)
                             }
                         }
 
@@ -3334,7 +3322,7 @@ struct TaxImpactView: View {
                                 Spacer()
                                 Text(spouseWithdrawalAmount, format: .currency(code: "USD"))
                                     .font(.caption)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.Chart.gray2)
                             }
                         }
                     }
@@ -3350,7 +3338,7 @@ struct TaxImpactView: View {
                     }
                 }
                 .padding(12)
-                .background(Color.gray.opacity(0.1))
+                .background(Color.UI.surfaceInset)
                 .cornerRadius(8)
             } else if !spouseEnabled && totalRothConversion > 0 && totalWithdrawals > 0 {
                 // Single-person combined breakdown
@@ -3365,7 +3353,7 @@ struct TaxImpactView: View {
                         Spacer()
                         Text(totalRothConversion, format: .currency(code: "USD"))
                             .font(.callout)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
 
                     HStack {
@@ -3374,7 +3362,7 @@ struct TaxImpactView: View {
                         Spacer()
                         Text(totalWithdrawals, format: .currency(code: "USD"))
                             .font(.callout)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.Chart.callout)
                     }
 
                     Divider()
@@ -3388,7 +3376,7 @@ struct TaxImpactView: View {
                     }
                 }
                 .padding(12)
-                .background(Color.gray.opacity(0.1))
+                .background(Color.UI.surfaceInset)
                 .cornerRadius(8)
             }
 
@@ -3406,7 +3394,7 @@ struct TaxImpactView: View {
                             Spacer()
                             Text(qcdAmount, format: .currency(code: "USD"))
                                 .font(.callout)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.Semantic.green)
                         }
                     }
 
@@ -3417,13 +3405,13 @@ struct TaxImpactView: View {
                             Spacer()
                             Text(stockDonationValue, format: .currency(code: "USD"))
                                 .font(.callout)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.Semantic.green)
                         }
 
                         if stockDonationGain > 0 {
                             Text("  Gain of \(stockDonationGain, format: .currency(code: "USD")) not taxed")
                                 .font(.caption)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.Semantic.green)
                         }
                     }
 
@@ -3434,7 +3422,7 @@ struct TaxImpactView: View {
                             Spacer()
                             Text(cashDonationAmount, format: .currency(code: "USD"))
                                 .font(.callout)
-                                .foregroundStyle(itemizeDeductions ? .orange : .red)
+                                .foregroundStyle(itemizeDeductions ? Color.UI.textSecondary : Color.Semantic.red)
                         }
                     }
 
@@ -3446,11 +3434,11 @@ struct TaxImpactView: View {
                         Spacer()
                         Text(totalCharitable, format: .currency(code: "USD"))
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                     }
                 }
                 .padding(12)
-                .background(Color.green.opacity(0.05))
+                .background(Color.UI.surfaceInset)
                 .cornerRadius(8)
             }
 
@@ -3462,7 +3450,7 @@ struct TaxImpactView: View {
                     Spacer()
                     Text(scenarioAnalysis.federalTax, format: .currency(code: "USD"))
                         .fontWeight(.semibold)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
 
                 HStack {
@@ -3471,7 +3459,7 @@ struct TaxImpactView: View {
                     Spacer()
                     Text(scenarioAnalysis.stateTax, format: .currency(code: "USD"))
                         .fontWeight(.semibold)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
 
                 Divider()
@@ -3483,7 +3471,7 @@ struct TaxImpactView: View {
                     Text(scenarioAnalysis.totalTax, format: .currency(code: "USD"))
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
 
                 if totalDistribution > 0 {

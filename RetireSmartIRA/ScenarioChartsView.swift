@@ -88,26 +88,20 @@ private var scenarioFederalBracketChart: some View {
             let segments = scenarioBracketSegments
             let bracketInfo = dataManager.federalBracketInfo(income: afterIncome, filingStatus: dataManager.filingStatus)
             let bracketColors: [Color] = [
-                Color(red: 0.05, green: 0.78, blue: 0.35),
-                Color(red: 0.0, green: 0.72, blue: 0.68),
-                Color(red: 0.98, green: 0.78, blue: 0.0),
-                Color(red: 1.0, green: 0.50, blue: 0.0),
-                Color(red: 0.92, green: 0.22, blue: 0.50),
-                Color(red: 0.58, green: 0.22, blue: 0.88),
-                Color(red: 0.18, green: 0.30, blue: 0.85),
+                Color.Chart.tealRamp1,
+                Color.Chart.tealRamp2,
+                Color.Chart.tealRamp3,
+                Color.Chart.tealRamp4,
+                Color.Chart.tealRamp5,
+                Color.Chart.tealRamp6,
+                Color.Chart.tealRamp6,
             ]
 
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(
-                                LinearGradient(
-                                    colors: [.green.opacity(0.85), .red.opacity(0.85)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(Color.UI.brandTeal)
                             .frame(width: 40, height: 40)
                         Image(systemName: "chart.bar.xaxis.ascending")
                             .font(.title3)
@@ -238,7 +232,7 @@ private var scenarioFederalBracketChart: some View {
                 let afterAvgFed = afterIncome > 0 ? (afterFedTax / afterIncome) * 100 : 0
                 HStack(spacing: 6) {
                     Image(systemName: "percent")
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
                     Text("Avg rate:")
                         .font(.caption)
@@ -252,7 +246,7 @@ private var scenarioFederalBracketChart: some View {
                     Text(String(format: "%.1f%%", afterAvgFed))
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(afterAvgFed > beforeAvgFed ? .red : .green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
 
                 // Room remaining callout
@@ -261,7 +255,7 @@ private var scenarioFederalBracketChart: some View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.right.circle.fill")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the \(nextRate)% bracket")
                                 .font(.caption)
@@ -276,7 +270,7 @@ private var scenarioFederalBracketChart: some View {
                 } else if bracketInfo.currentRate >= 0.37 {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.amber)
                             .font(.caption)
                         Text("In the top **37%** federal bracket")
                             .font(.caption)
@@ -288,14 +282,7 @@ private var scenarioFederalBracketChart: some View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [.green.opacity(0.3), .red.opacity(0.3)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(Color.UI.brandTeal.opacity(0.25), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
         }
@@ -330,14 +317,13 @@ private var scenarioStateBracketChart: some View {
                     )
                 }
 
-                // Generate colors for state brackets (gradient from green to red)
+                // Sequential colors for state brackets using tealRamp
+                let ramp: [Color] = [
+                    Color.Chart.tealRamp1, Color.Chart.tealRamp2, Color.Chart.tealRamp3,
+                    Color.Chart.tealRamp4, Color.Chart.tealRamp5, Color.Chart.tealRamp6
+                ]
                 let stateColors: [Color] = segments.enumerated().map { i, _ in
-                    let t = segments.count > 1 ? Double(i) / Double(segments.count - 1) : 0
-                    return Color(
-                        red: t * 0.9,
-                        green: (1 - t) * 0.7 + 0.1,
-                        blue: 0.2
-                    )
+                    ramp[min(i, ramp.count - 1)]
                 }
 
                 let currentIdx = segments.firstIndex(where: { $0.isCurrent }) ?? 0
@@ -351,13 +337,7 @@ private var scenarioStateBracketChart: some View {
                     HStack(spacing: 10) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.green.opacity(0.85), .orange.opacity(0.85)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
+                                .fill(Color.UI.brandTeal)
                                 .frame(width: 40, height: 40)
                             Image(systemName: "building.columns.fill")
                                 .font(.title3)
@@ -481,7 +461,7 @@ private var scenarioStateBracketChart: some View {
                     let afterAvgState = afterIncome > 0 ? (afterStateTax / afterIncome) * 100 : 0
                     HStack(spacing: 6) {
                         Image(systemName: "percent")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(.caption)
                         Text("Avg rate:")
                             .font(.caption)
@@ -495,14 +475,14 @@ private var scenarioStateBracketChart: some View {
                         Text(String(format: "%.1f%%", afterAvgState))
                             .font(.caption)
                             .fontWeight(.bold)
-                            .foregroundStyle(afterAvgState > beforeAvgState ? .red : .green)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
 
                     // Room remaining callout
                     if bracketInfo.roomRemaining > 0 {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.right.circle.fill")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .font(.caption)
                             Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the next state bracket")
                                 .font(.caption)
@@ -514,14 +494,7 @@ private var scenarioStateBracketChart: some View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.green.opacity(0.3), .orange.opacity(0.3)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            lineWidth: 1
-                        )
+                        .stroke(Color.UI.brandTeal.opacity(0.25), lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
             }
@@ -586,25 +559,19 @@ private var scenarioIRMAAChart: some View {
         let segments = scenarioIRMAATierSegments
         let memberCount = dataManager.medicareMemberCount
         let tierColors: [Color] = [
-            Color(red: 0.05, green: 0.78, blue: 0.35),
-            Color(red: 0.98, green: 0.78, blue: 0.0),
-            Color(red: 1.0, green: 0.50, blue: 0.0),
-            Color(red: 0.92, green: 0.22, blue: 0.50),
-            Color(red: 0.58, green: 0.22, blue: 0.88),
-            Color(red: 0.18, green: 0.30, blue: 0.85),
+            Color.Chart.tealRamp1,
+            Color.Chart.tealRamp2,
+            Color.Chart.tealRamp3,
+            Color.Chart.tealRamp4,
+            Color.Chart.tealRamp5,
+            Color.Chart.tealRamp6,
         ]
 
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(
-                            LinearGradient(
-                                colors: [.green.opacity(0.85), .red.opacity(0.85)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Color.UI.brandTeal)
                         .frame(width: 40, height: 40)
                     Image(systemName: "heart.text.square.fill")
                         .font(.title3)
@@ -727,17 +694,17 @@ private var scenarioIRMAAChart: some View {
                 if irmaa.tier == 0 {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(.caption)
                         Text("No IRMAA surcharge")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                             .font(.caption)
                         Text("Tier \(irmaa.tier): \(irmaa.annualSurchargePerPerson, format: .currency(code: "USD").precision(.fractionLength(0)))/yr per person\(memberCount > 1 ? " (\(dataManager.scenarioIRMAATotalSurcharge, format: .currency(code: "USD").precision(.fractionLength(0))) household)" : "")")
                             .font(.caption)
@@ -747,22 +714,22 @@ private var scenarioIRMAAChart: some View {
                 if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                     HStack(spacing: 6) {
                         Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
-                            .foregroundStyle(distanceToNext < 10_000 ? .orange : .blue)
+                            .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                             .font(.caption)
                         Text("\(distanceToNext, format: .currency(code: "USD").precision(.fractionLength(0))) below next IRMAA cliff")
                             .font(.caption)
-                            .foregroundStyle(distanceToNext < 10_000 ? .orange : .secondary)
+                            .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.textSecondary)
                     }
                 }
 
                 if dataManager.scenarioPushedToHigherIRMAATier {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.circle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.red)
                             .font(.caption)
                         Text("Scenario pushes you to a **higher IRMAA tier**")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.red)
                     }
                 }
 
@@ -771,11 +738,11 @@ private var scenarioIRMAAChart: some View {
                     let householdSavings = savingsPerPerson * Double(memberCount)
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.down.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                             .font(.caption)
                         Text("Reduce by \(distanceToPrev + 1, format: .currency(code: "USD").precision(.fractionLength(0))) to save \(householdSavings, format: .currency(code: "USD").precision(.fractionLength(0)))/yr")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Semantic.green)
                     }
                 }
             }
@@ -785,14 +752,7 @@ private var scenarioIRMAAChart: some View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    LinearGradient(
-                        colors: [.green.opacity(0.3), .red.opacity(0.3)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 1
-                )
+                .stroke(Color.UI.brandTeal.opacity(0.25), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
     }
@@ -817,13 +777,7 @@ private var scenarioNIITChart: some View {
             HStack(spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(
-                            LinearGradient(
-                                colors: [.green.opacity(0.85), .red.opacity(0.85)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(Color.UI.brandTeal)
                         .frame(width: 40, height: 40)
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.title3)
@@ -844,15 +798,15 @@ private var scenarioNIITChart: some View {
                 let w = geo.size.width
                 let thresholdX = CGFloat(threshold / chartMax) * w
 
-                // Left zone: No NIIT (green)
+                // Left zone: No NIIT (tealRamp1)
                 UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
-                    .fill(Color(red: 0.05, green: 0.78, blue: 0.35))
+                    .fill(Color.Chart.tealRamp1)
                     .frame(width: thresholdX, height: barHeight)
                     .offset(y: topPad)
 
-                // Right zone: 3.8% NIIT (red/orange)
+                // Right zone: 3.8% NIIT (tealRamp6)
                 UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 5, topTrailingRadius: 5)
-                    .fill(Color(red: 0.92, green: 0.22, blue: 0.22).opacity(0.85))
+                    .fill(Color.Chart.tealRamp6.opacity(0.85))
                     .frame(width: w - thresholdX, height: barHeight)
                     .offset(x: thresholdX, y: topPad)
 
@@ -902,7 +856,7 @@ private var scenarioNIITChart: some View {
                 VStack(spacing: 1) {
                     Text("No NIIT")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.05, green: 0.78, blue: 0.35))
+                        .foregroundStyle(Color.Chart.tealRamp1)
                     Text("< \(scenarioChartLabel(threshold))")
                         .font(.system(size: 8))
                         .foregroundStyle(.secondary)
@@ -912,7 +866,7 @@ private var scenarioNIITChart: some View {
                 VStack(spacing: 1) {
                     Text("3.8% NIIT")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.Chart.tealRamp6)
                     Text(scenarioChartLabel(threshold) + "+")
                         .font(.system(size: 8))
                         .foregroundStyle(.secondary)
@@ -926,12 +880,12 @@ private var scenarioNIITChart: some View {
                 if niit.annualNIITax > 0 {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.UI.textPrimary)
                             .font(.caption)
                         Text("NIIT: \(niit.annualNIITax, format: .currency(code: "USD").precision(.fractionLength(0)))/yr")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
 
                     if dataManager.scenarioIncreasedNIIT {
@@ -939,23 +893,23 @@ private var scenarioNIITChart: some View {
                         if niitIncrease > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.up.circle.fill")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Semantic.amber)
                                     .font(.caption)
                                 Text("Scenario adds \(niitIncrease, format: .currency(code: "USD").precision(.fractionLength(0))) in NIIT")
                                     .font(.caption)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Semantic.amber)
                             }
                         }
                     }
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(.caption)
                         let distance = niit.distanceToThreshold
                         Text("No NIIT — \(max(0, distance), format: .currency(code: "USD").precision(.fractionLength(0))) below threshold")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
             }
@@ -965,14 +919,7 @@ private var scenarioNIITChart: some View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    LinearGradient(
-                        colors: [.green.opacity(0.3), .red.opacity(0.3)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 1
-                )
+                .stroke(Color.UI.brandTeal.opacity(0.25), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
     }

@@ -110,7 +110,7 @@ struct GuideView: View {
             HStack {
                 Image(systemName: "sparkles")
                     .font(.title)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Get Started")
                     .font(.title2)
                     .fontWeight(.bold)
@@ -145,7 +145,7 @@ struct GuideView: View {
                 Text("\(progress.completedSteps) of \(progress.totalSteps)")
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundStyle(progress.isComplete ? .green : .secondary)
+                    .foregroundStyle(progress.isComplete ? Color.UI.brandTeal : Color.UI.textSecondary)
             }
 
             // Progress bar
@@ -155,7 +155,7 @@ struct GuideView: View {
                         .fill(Color(PlatformColor.systemGray5))
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(progress.isComplete ? Color.green : Color.blue)
+                        .fill(Color.UI.brandTeal)
                         .frame(width: geometry.size.width * Double(progress.completedSteps) / Double(progress.totalSteps), height: 8)
                 }
             }
@@ -172,10 +172,10 @@ struct GuideView: View {
             if progress.isComplete {
                 HStack {
                     Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("All set! Your data is ready for tax planning.")
                         .font(.subheadline)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
                 .padding(.top, 4)
             }
@@ -193,7 +193,7 @@ struct GuideView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isComplete ? .green : .secondary)
+                    .foregroundStyle(isComplete ? Color.UI.brandTeal : Color.UI.textSecondary)
                     .font(.title3)
                 Text(title)
                     .font(.subheadline)
@@ -219,20 +219,20 @@ struct GuideView: View {
 
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "hand.raised.fill")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
                     Text("All values are entered manually \u{2014} the app does not import from banks, brokerages, or aggregators like Empower or Credit Karma. The one exception is an optional Social Security earnings-history XML import on the SS tab. Use prior-year tax documents and account statements as your source.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .padding(8)
-                .background(Color.blue.opacity(0.05))
+                .background(Color.UI.surfaceInset)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 gatherCategory(
                     icon: "calendar",
                     title: "Personal Information",
-                    color: .gray,
+                    color: Color.UI.textSecondary,
                     items: [
                         "Date of birth (yours and spouse\u{2019}s if married filing jointly)",
                         "State of residence",
@@ -243,7 +243,7 @@ struct GuideView: View {
                 gatherCategory(
                     icon: "building.columns.fill",
                     title: "Account Balances (as of Dec. 31 of prior year)",
-                    color: .blue,
+                    color: Color.UI.brandTeal,
                     items: [
                         "Traditional IRA and/or Traditional 401(k) balances",
                         "Roth IRA and/or Roth 401(k) balances",
@@ -254,7 +254,7 @@ struct GuideView: View {
                 gatherCategory(
                     icon: "person.text.rectangle.fill",
                     title: "Social Security",
-                    color: .blue,
+                    color: Color.UI.brandTeal,
                     items: [
                         "If already receiving: your current monthly benefit amount (from SSA-1099 or bank deposit)",
                         "If not yet claiming: estimated benefits at ages 62, FRA, and 70 (from ssa.gov/myaccount)",
@@ -266,7 +266,7 @@ struct GuideView: View {
                 gatherCategory(
                     icon: "banknote.fill",
                     title: "Other Income Sources (annual amounts)",
-                    color: .green,
+                    color: Color.UI.brandTeal,
                     items: [
                         "Pension or annuity amounts (current year statement or prior year 1099-R)",
                         "Interest and dividends (use prior year 1099-INT / 1099-DIV as a starting estimate)",
@@ -277,7 +277,7 @@ struct GuideView: View {
 
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
                     Text("For income that varies year to year \u{2014} interest, dividends, capital gains, consulting \u{2014} last year\u{2019}s tax documents are a good starting point. You can always update amounts as the year progresses.")
                         .font(.caption2)
@@ -287,7 +287,7 @@ struct GuideView: View {
                 gatherCategory(
                     icon: "checkmark.shield.fill",
                     title: "Withholding (per income source)",
-                    color: .green,
+                    color: Color.UI.brandTeal,
                     items: [
                         "Federal tax withholding from each source (W-4P elections or prior year statements)",
                         "State tax withholding from each source"
@@ -297,7 +297,7 @@ struct GuideView: View {
                 gatherCategory(
                     icon: "building.columns.fill",
                     title: "Prior Year State Taxes",
-                    color: .indigo,
+                    color: Color.UI.brandTeal,
                     items: [
                         "Balance due paid with your prior year\u{2019}s state return (usually in April)",
                         "Or state tax refund received (may be taxable if you itemized last year)"
@@ -307,7 +307,7 @@ struct GuideView: View {
                 gatherCategory(
                     icon: "doc.text.fill",
                     title: "Deductions (if you may itemize)",
-                    color: .orange,
+                    color: Color.UI.textSecondary,
                     items: [
                         "Mortgage interest (Form 1098)",
                         "Property tax (annual amount from county/city bill)",
@@ -319,7 +319,7 @@ struct GuideView: View {
                 gatherCategory(
                     icon: "doc.plaintext",
                     title: "Prior Year Tax Return (for reference)",
-                    color: .purple,
+                    color: Color.UI.brandTeal,
                     items: [
                         "Total tax liability (to compare 100% safe harbor vs. 90% current year)",
                         "Whether you itemized or took the standard deduction",
@@ -329,7 +329,7 @@ struct GuideView: View {
 
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
                     Text("Don\u{2019}t sweat it \u{2014} not all of these will apply to you. Start with the basics (birth date, accounts, and income) and add details as you gather them.")
                         .font(.caption)
@@ -342,7 +342,7 @@ struct GuideView: View {
         } label: {
             HStack {
                 Image(systemName: "tray.full.fill")
-                    .foregroundStyle(.teal)
+                    .foregroundStyle(Color.UI.brandTeal)
                     .frame(width: 24)
                 Text("What to Gather Before You Start")
                     .font(.headline)
@@ -386,7 +386,7 @@ struct GuideView: View {
     private var tabGuidesHeader: some View {
         HStack {
             Image(systemName: "square.grid.2x2.fill")
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.UI.brandTeal)
             Text("Tab Guides")
                 .font(.title3)
                 .fontWeight(.semibold)
@@ -429,7 +429,7 @@ struct GuideView: View {
     }
 
     private var myProfileGuide: some View {
-        tabGuideSection(icon: "person.crop.circle.fill", title: "My Profile", color: .gray, isExpanded: $myProfileGuideExpanded) {
+        tabGuideSection(icon: "person.crop.circle.fill", title: "My Profile", color: Color.UI.textSecondary, isExpanded: $myProfileGuideExpanded) {
             guidePoint("Set your date of birth to determine current age, RMD age, and QCD eligibility")
             guidePoint("Choose Single or Married Filing Jointly")
             guidePoint("If married, enable spouse tracking with name and date of birth")
@@ -439,7 +439,7 @@ struct GuideView: View {
     }
 
     private var ssGuide: some View {
-        tabGuideSection(icon: "person.text.rectangle.fill", title: "Social Security", color: .blue, isExpanded: $ssGuideExpanded) {
+        tabGuideSection(icon: "person.text.rectangle.fill", title: "Social Security", color: Color.UI.brandTeal, isExpanded: $ssGuideExpanded) {
             guidePoint("Enter your SSA benefit estimates (at ages 62, FRA, and 70), or toggle \u{201C}Already Receiving\u{201D} to enter your current monthly payment")
             guidePoint("If married, enter benefits for both you and your spouse")
             guidePoint("Claiming Optimizer: compare cumulative lifetime benefits at different claiming ages with break-even analysis")
@@ -452,7 +452,7 @@ struct GuideView: View {
     }
 
     private var accountsGuide: some View {
-        tabGuideSection(icon: "building.columns.fill", title: "Accounts", color: .blue, isExpanded: $accountsGuideExpanded) {
+        tabGuideSection(icon: "building.columns.fill", title: "Accounts", color: Color.UI.brandTeal, isExpanded: $accountsGuideExpanded) {
             guidePoint("Add all retirement accounts: Traditional IRA, Roth IRA, Traditional 401(k), Roth 401(k)")
             guidePoint("Inherited IRAs: select Inherited Traditional IRA or Inherited Roth IRA, then fill in beneficiary type, year inherited, and birth years")
             guidePoint("Enter balances as of December 31 of the prior year \u{2014} these drive RMD calculations")
@@ -464,7 +464,7 @@ struct GuideView: View {
     }
 
     private var incomeGuide: some View {
-        tabGuideSection(icon: "banknote.fill", title: "Income & Deductions", color: .green, isExpanded: $incomeGuideExpanded) {
+        tabGuideSection(icon: "banknote.fill", title: "Income & Deductions", color: Color.UI.brandTeal, isExpanded: $incomeGuideExpanded) {
             guidePoint("Social Security income is auto-synced from the SS Planner \u{2014} look for the \u{201C}Managed by SS Planner\u{201D} badge")
             guidePoint("Add other income sources: pensions, dividends, interest, capital gains, employment/other income")
             guidePoint("Enter federal and state withholding for each source \u{2014} this reduces quarterly payment estimates")
@@ -476,7 +476,7 @@ struct GuideView: View {
     }
 
     private var taxSummaryGuide: some View {
-        tabGuideSection(icon: "chart.bar.fill", title: "Tax Summary", color: .purple, isExpanded: $taxSummaryGuideExpanded) {
+        tabGuideSection(icon: "chart.bar.fill", title: "Tax Summary", color: Color.UI.brandTeal, isExpanded: $taxSummaryGuideExpanded) {
             guidePoint("Shows your complete financial picture at a glance")
             guidePoint("Income Breakdown: all sources plus RMD amounts")
             guidePoint("Tax Projection: federal + state tax, withholding credit, quarterly payment estimate")
@@ -487,7 +487,7 @@ struct GuideView: View {
     }
 
     private var rmdGuide: some View {
-        tabGuideSection(icon: "calendar.badge.clock", title: "RMD Calculator", color: .red, isExpanded: $rmdGuideExpanded) {
+        tabGuideSection(icon: "calendar.badge.clock", title: "RMD Calculator", color: Color.UI.brandTeal, isExpanded: $rmdGuideExpanded) {
             guidePoint("Shows whether RMDs are required based on your age and birth year")
             guidePoint("Displays current year RMD amount using the IRS Uniform Lifetime Table factor")
             guidePoint("Per-account breakdown showing each account\u{2019}s RMD contribution")
@@ -498,7 +498,7 @@ struct GuideView: View {
     }
 
     private var scenariosGuide: some View {
-        tabGuideSection(icon: "slider.horizontal.3", title: "Scenarios", color: .orange, isExpanded: $scenariosGuideExpanded) {
+        tabGuideSection(icon: "slider.horizontal.3", title: "Scenarios", color: Color.UI.brandTeal, isExpanded: $scenariosGuideExpanded) {
             guidePoint("This is the scenario modeling engine \u{2014} changes here flow to Tax Summary and Quarterly Tax")
             guidePoint("Withdrawal Timing: choose which quarter you plan to take each withdrawal or conversion \u{2014} this shifts the tax obligation to that quarter\u{2019}s estimated payment")
             guidePoint("Roth Conversions: set conversion amounts and see real-time bracket impact")
@@ -512,7 +512,7 @@ struct GuideView: View {
     }
 
     private var quarterlyTaxGuide: some View {
-        tabGuideSection(icon: "dollarsign.circle.fill", title: "Quarterly Tax", color: .purple, isExpanded: $quarterlyTaxGuideExpanded) {
+        tabGuideSection(icon: "dollarsign.circle.fill", title: "Quarterly Tax", color: Color.UI.brandTeal, isExpanded: $quarterlyTaxGuideExpanded) {
             guidePoint("Shows estimated quarterly tax payments based on all income and Scenario decisions")
             guidePoint("Annual tax summary: gross income, deductions, taxable income, federal + state tax")
             guidePoint("Federal and state withholding from income sources is credited against each tax liability")
@@ -524,7 +524,7 @@ struct GuideView: View {
     }
 
     private var stateComparisonGuide: some View {
-        tabGuideSection(icon: "map.fill", title: "State Comparison", color: .teal, isExpanded: $stateComparisonGuideExpanded) {
+        tabGuideSection(icon: "map.fill", title: "State Comparison", color: Color.UI.brandTeal, isExpanded: $stateComparisonGuideExpanded) {
             guidePoint("Ranks all 50 states + DC by state income tax based on your current income scenario")
             guidePoint("Shows your state\u{2019}s rank, tax amount, and effective rate at a glance")
             guidePoint("Tap any state for a detailed breakdown: retirement income exemptions, bracket-by-bracket calculations, and a side-by-side comparison to your current state")
@@ -599,7 +599,7 @@ struct GuideView: View {
         } label: {
             HStack {
                 Image(systemName: "lightbulb.fill")
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(Color.UI.brandTeal)
                     .frame(width: 24)
                 Text("Key Concepts")
                     .font(.headline)
@@ -614,7 +614,7 @@ struct GuideView: View {
     private func conceptItem(icon: String, title: String, description: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.UI.brandTeal)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -634,49 +634,49 @@ struct GuideView: View {
             VStack(alignment: .leading, spacing: 16) {
                 tipItem(
                     icon: "arrow.right.arrow.left",
-                    color: .orange,
+                    color: Color.UI.brandTeal,
                     title: "Convert Before RMDs",
                     description: "If you have years before RMDs start, consider Roth conversions to fill up lower tax brackets each year."
                 )
                 tipItem(
                     icon: "heart.fill",
-                    color: .red,
+                    color: Color.UI.brandTeal,
                     title: "Use QCDs If Eligible",
                     description: "If you are age 70\u{00BD}+ and have RMDs, QCDs are the most tax-efficient way to give to charity. Donations must go to a qualifying organization — see IRS Publication 590-B for eligible recipients."
                 )
                 tipItem(
                     icon: "chart.bar.fill",
-                    color: .blue,
+                    color: Color.UI.brandTeal,
                     title: "Watch the Brackets",
                     description: "Use Scenarios\u{2019} bracket analysis to find the sweet spot where you maximize conversions without jumping to a higher marginal rate."
                 )
                 tipItem(
                     icon: "cross.case.fill",
-                    color: .pink,
+                    color: Color.UI.brandTeal,
                     title: "Watch IRMAA Cliffs",
                     description: "IRMAA surcharges are cliff-based \u{2014} crossing a threshold by even $1 can add over $1,100/year per person in Medicare premiums. Check the IRMAA section in Scenarios before finalizing Roth conversions or withdrawals. Your income this year affects premiums two years from now."
                 )
                 tipItem(
                     icon: "person.text.rectangle.fill",
-                    color: .blue,
+                    color: Color.UI.brandTeal,
                     title: "SS and Tax Planning Together",
                     description: "Social Security benefits can be up to 85% taxable depending on your other income. Roth conversions increase provisional income, which can push more SS into the taxable range. Use the Tax Impact card in the SS Planner to see the interaction, and coordinate conversion amounts with your SS taxability."
                 )
                 tipItem(
                     icon: "dollarsign.circle",
-                    color: .green,
+                    color: Color.UI.brandTeal,
                     title: "Track Withholding",
                     description: "Enter federal and state withholding on each income source so quarterly payment estimates reflect what you have already paid."
                 )
                 tipItem(
                     icon: "doc.text.fill",
-                    color: .purple,
+                    color: Color.UI.brandTeal,
                     title: "Check Deductions",
                     description: "If you have significant mortgage interest, property tax, or medical expenses, add them. Charitable contributions may push you over the standard deduction threshold."
                 )
                 tipItem(
                     icon: "arrow.clockwise",
-                    color: .teal,
+                    color: Color.UI.brandTeal,
                     title: "Revisit Quarterly",
                     description: "Review your scenario each quarter. Life changes, market fluctuations, and new income can shift your optimal strategy."
                 )
@@ -685,7 +685,7 @@ struct GuideView: View {
         } label: {
             HStack {
                 Image(systemName: "star.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.brandTeal)
                     .frame(width: 24)
                 Text("Tips & Best Practices")
                     .font(.headline)
@@ -721,7 +721,7 @@ struct GuideView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "doc.text.magnifyingglass")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                     .font(.title3)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Sources & References")
@@ -763,7 +763,7 @@ struct GuideView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "exclamationmark.shield.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textSecondary)
                 Text("Disclaimer")
                     .font(.subheadline)
                     .fontWeight(.semibold)

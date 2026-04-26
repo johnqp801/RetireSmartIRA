@@ -20,7 +20,7 @@ struct ClickwrapView: View {
             VStack(spacing: 8) {
                 Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
                     .font(.system(size: 56))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("RetireSmartIRA")
                     .font(.title)
                     .fontWeight(.bold)
@@ -54,7 +54,7 @@ struct ClickwrapView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.blue)
+                            .background(Color.UI.brandTeal)
                             .foregroundStyle(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
@@ -79,7 +79,7 @@ struct ClickwrapView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(isChecked ? Color.blue : Color.gray.opacity(0.3))
+                        .background(isChecked ? Color.UI.brandTeal : Color.gray.opacity(0.3))
                         .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .animation(.easeInOut(duration: 0.2), value: isChecked)
@@ -112,7 +112,7 @@ struct ClickwrapView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: isChecked ? "checkmark.square.fill" : "square")
                         .font(.title3)
-                        .foregroundStyle(isChecked ? .blue : .secondary)
+                        .foregroundStyle(isChecked ? Color.UI.brandTeal : Color.UI.textSecondary)
                     Text("I have read and agree to the **Terms of Use** (v\(TermsAcceptanceManager.currentToUVersion)) for RetireSmartIRA.")
                         .font(.footnote)
                         .multilineTextAlignment(.leading)
@@ -125,7 +125,7 @@ struct ClickwrapView: View {
             if !hasScrolledToBottom {
                 Label("Please read the full Terms of Use first", systemImage: "arrow.up.doc")
                     .font(.caption2)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.Semantic.amber)
                     .padding(.leading, 38)
             }
         }
@@ -174,7 +174,7 @@ struct ClickwrapView: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.UI.brandTeal)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)

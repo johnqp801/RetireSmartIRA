@@ -103,7 +103,7 @@ struct SSSurvivorAnalysisView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "person.fill.xmark")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text(scenario.title)
                     .font(.headline)
             }
@@ -128,14 +128,14 @@ struct SSSurvivorAnalysisView: View {
                     label: "After",
                     value: SSCalculationEngine.formatCurrency(scenario.householdMonthlyAfter),
                     detail: "/mo survivor",
-                    color: .orange
+                    color: Color.UI.textPrimary
                 )
                 Spacer()
                 statBlock(
                     label: "Monthly Loss",
                     value: SSCalculationEngine.formatCurrency(scenario.monthlyReduction),
                     detail: String(format: "-%.0f%%", scenario.percentReduction),
-                    color: .red
+                    color: Color.UI.textPrimary
                 )
             }
 
@@ -144,21 +144,21 @@ struct SSSurvivorAnalysisView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.right.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
                     Text("Survivor receives: \(scenario.survivorBenefitSource)")
                         .font(.caption)
                 }
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.UI.textSecondary)
                         .font(.caption)
                     Text("Filing status: \(scenario.filingStatusChange)")
                         .font(.caption)
                 }
                 HStack(spacing: 6) {
                     Image(systemName: "dollarsign.circle")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.UI.textSecondary)
                         .font(.caption)
                     Text("Annual income drops by \(SSCalculationEngine.formatCurrency(scenario.monthlyReduction * 12))/yr")
                         .font(.caption)
@@ -189,8 +189,8 @@ struct SSSurvivorAnalysisView: View {
 
     private func survivorBarChart(scenario: SSSurvivorScenario, survivorName: String) -> some View {
         let data: [(String, Double, Color)] = [
-            ("Both Alive", scenario.householdMonthlyBefore, .blue),
-            ("Survivor (\(survivorName))", scenario.householdMonthlyAfter, .orange),
+            ("Both Alive", scenario.householdMonthlyBefore, Color.UI.brandTeal),
+            ("Survivor (\(survivorName))", scenario.householdMonthlyAfter, Color.Chart.gray2),
         ]
 
         return Chart {
@@ -232,17 +232,17 @@ struct SSSurvivorAnalysisView: View {
             VStack(alignment: .leading, spacing: 10) {
                 takeaway(
                     icon: "1.circle.fill",
-                    color: .blue,
+                    color: Color.UI.brandTeal,
                     text: "The survivor keeps the **higher** of the two benefits, not both. Plan for a significant income drop."
                 )
                 takeaway(
                     icon: "2.circle.fill",
-                    color: .blue,
+                    color: Color.UI.brandTeal,
                     text: "Filing status changes from Married Filing Jointly to Single, which can **increase taxes** on the remaining benefit."
                 )
                 takeaway(
                     icon: "3.circle.fill",
-                    color: .blue,
+                    color: Color.UI.brandTeal,
                     text: higherEarnerDelays
                         ? "The higher earner is delaying benefits, which **maximizes the survivor benefit** — a strong strategy."
                         : "Consider having the higher earner **delay to 70** to maximize the survivor benefit for the surviving spouse."
@@ -285,7 +285,7 @@ struct SSSurvivorAnalysisView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Enter benefit estimates for both spouses to see how SS income changes when one spouse passes.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

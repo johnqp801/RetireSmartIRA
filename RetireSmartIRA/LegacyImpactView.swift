@@ -39,7 +39,7 @@ struct LegacyImpactView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(
                                 LinearGradient(
-                                    colors: [.purple.opacity(0.85), .indigo.opacity(0.85)],
+                                    colors: [Color.UI.brandTeal.opacity(0.85), Color.UI.brandTeal.opacity(0.6)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -85,14 +85,14 @@ struct LegacyImpactView: View {
                         if gapYears > 1 {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.clockwise")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                     .font(bodyFont)
                                 Text("You have \(gapYears) gap years before RMDs start at age \(rmdAge). Converting a similar amount each year amplifies this advantage significantly. Re-evaluate annually based on updated brackets, income, and balances.")
                                     .font(bodyFont)
                                     .foregroundStyle(.secondary)
                             }
                             .padding(8)
-                            .background(Color.blue.opacity(0.04))
+                            .background(Color.UI.surfaceInset)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
@@ -111,10 +111,10 @@ struct LegacyImpactView: View {
                         Image(systemName: showLegacyDetails ? "chevron.up" : "chevron.down")
                             .font(detailFont)
                     }
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
-                    .background(Color.blue.opacity(0.06))
+                    .background(Color.UI.brandTeal.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
@@ -164,7 +164,7 @@ struct LegacyImpactView: View {
                 Text("+\(compactCurrency(taxCost))")
                     .font(metricFont)
                     .fontWeight(.bold)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.UI.textPrimary)
                 Text("in tax")
                     .font(detailFont)
                     .foregroundStyle(.secondary)
@@ -174,7 +174,7 @@ struct LegacyImpactView: View {
             Image(systemName: "arrow.right")
                 .font(bodyFont)
                 .fontWeight(.bold)
-                .foregroundStyle(familyGain >= 0 ? .green : .orange)
+                .foregroundStyle(Color.UI.textPrimary)
 
             // Gain: family wealth advantage
             VStack(spacing: 4) {
@@ -184,7 +184,9 @@ struct LegacyImpactView: View {
                 Text(familyGain >= 0 ? "+\(compactCurrency(familyGain))" : "-\(compactCurrency(abs(familyGain)))")
                     .font(metricFont)
                     .fontWeight(.bold)
-                    .foregroundStyle(familyGain >= 0 ? .green : .orange)
+                    // Green when positive (literal dollar gain to family); textPrimary
+                    // when negative (no red for losses per spec). Spec §2 Option B.
+                    .foregroundStyle(familyGain >= 0 ? Color.Semantic.green : Color.UI.textPrimary)
                 Text("in wealth")
                     .font(detailFont)
                     .foregroundStyle(.secondary)
@@ -195,7 +197,7 @@ struct LegacyImpactView: View {
         .padding(.horizontal, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(familyGain >= 0 ? Color.green.opacity(0.06) : Color.orange.opacity(0.06))
+                .fill(Color.UI.surfaceInset)
         )
     }
 
@@ -211,12 +213,12 @@ struct LegacyImpactView: View {
                 Text("\(dataManager.legacyGrowthRate, specifier: "%.1f")%")
                     .font(bodyFont)
                     .fontWeight(.bold)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                     .frame(width: 44, alignment: .trailing)
             }
 
             Slider(value: $dataManager.legacyGrowthRate, in: 0...12, step: 0.5)
-                .tint(.blue)
+                .tint(Color.UI.brandTeal)
 
             HStack {
                 Text("Slide to see how different returns change the break-even year and family wealth advantage.")
@@ -229,14 +231,14 @@ struct LegacyImpactView: View {
                     } label: {
                         Text("Reset to RMD rate")
                             .font(detailFont)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
         .padding(10)
-        .background(Color.blue.opacity(0.04))
+        .background(Color.UI.surfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .onChange(of: dataManager.legacyGrowthRate) {
             dataManager.saveAllData()
@@ -268,11 +270,11 @@ struct LegacyImpactView: View {
                     let conversionLabel = compactCurrency(dataManager.scenarioTotalRothConversion)
                     Text("With \(conversionLabel) Roth conversion")
                         .font(bodyFont)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textSecondary)
                     Text(dataManager.legacyWithConversionTotalWealth, format: .currency(code: "USD").precision(.fractionLength(0)))
                         .font(metricFont)
                         .fontWeight(.bold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -280,14 +282,16 @@ struct LegacyImpactView: View {
             let advantage = dataManager.legacyFamilyWealthAdvantage
             HStack(spacing: 6) {
                 Image(systemName: advantage >= 0 ? "checkmark.seal.fill" : "exclamationmark.circle.fill")
-                    .foregroundStyle(advantage >= 0 ? .green : .orange)
+                    // Green check when family gains money; textPrimary exclamation when not.
+                    .foregroundStyle(advantage >= 0 ? Color.Semantic.green : Color.UI.textPrimary)
                 Text("Net family gain:")
                     .font(itemHeader)
                     .fontWeight(.semibold)
                 Text(abs(advantage), format: .currency(code: "USD").precision(.fractionLength(0)))
                     .font(metricFont)
                     .fontWeight(.bold)
-                    .foregroundStyle(advantage >= 0 ? .green : .orange)
+                    // Green when positive (literal dollar gain). Spec §2 Option B.
+                    .foregroundStyle(advantage >= 0 ? Color.Semantic.green : Color.UI.textPrimary)
             }
             .frame(maxWidth: .infinity)
 
@@ -302,11 +306,11 @@ struct LegacyImpactView: View {
                 if abs(rotp) > 500 {
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "exclamationmark.circle")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                             .font(.caption)
                         Text("Exceptionally high \u{2014} small conversion tax today paired with a long horizon and compounded growth produces large headline returns. Verify your growth-rate assumption and conversion amount; real-world results are sensitive to both.")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                     }
                     .padding(.horizontal, 8)
                 }
@@ -333,7 +337,7 @@ struct LegacyImpactView: View {
                 .frame(maxWidth: .infinity)
         }
         .padding(.vertical, 8)
-        .background(Color.green.opacity(0.04))
+        .background(Color.UI.surfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -359,7 +363,7 @@ struct LegacyImpactView: View {
                 Text(abs(gain), format: .currency(code: "USD").precision(.fractionLength(0)))
                     .font(bodyFont)
                     .fontWeight(.semibold)
-                    .foregroundStyle(gain >= 0 ? .green : .orange)
+                    .foregroundStyle(Color.UI.textPrimary)
             }
             .frame(maxWidth: .infinity)
         }
@@ -375,7 +379,7 @@ struct LegacyImpactView: View {
             }
         }
         .padding(8)
-        .background(Color.blue.opacity(0.04))
+        .background(Color.UI.surfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 8)
     }
@@ -408,7 +412,7 @@ struct LegacyImpactView: View {
                                 y: .value("Value", point.rothValue),
                                 series: .value("Path", "Roth (tax-free)")
                             )
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.Chart.heroTeal)
                             .lineStyle(StrokeStyle(lineWidth: 2.5))
                             .interpolationMethod(.catmullRom)
 
@@ -417,7 +421,7 @@ struct LegacyImpactView: View {
                                 y: .value("Value", point.traditionalValue),
                                 series: .value("Path", "Traditional + tax $ kept")
                             )
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Chart.gray2)
                             .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 3]))
                             .interpolationMethod(.catmullRom)
                         }
@@ -429,23 +433,23 @@ struct LegacyImpactView: View {
                                     yStart: .value("Trad", point.traditionalValue),
                                     yEnd: .value("Roth", point.rothValue)
                                 )
-                                .foregroundStyle(.green.opacity(0.12))
+                                .foregroundStyle(Color.Chart.heroTeal.opacity(0.12))
                                 .interpolationMethod(.catmullRom)
                             }
                         }
 
                         if let beYear = breakEvenYr, beYear > 0 {
                             RuleMark(x: .value("Break-even", beYear))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                                 .annotation(position: .overlay, alignment: .top) {
                                     Text("Yr \(beYear)")
                                         .font(detailFont)
                                         .fontWeight(.bold)
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(Color.UI.brandTeal)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(Color.blue.opacity(0.1))
+                                        .background(Color.UI.brandTeal.opacity(0.1))
                                         .clipShape(RoundedRectangle(cornerRadius: 4))
                                         .offset(y: 4)
                                 }
@@ -483,7 +487,7 @@ struct LegacyImpactView: View {
                                 Text("Roth wins immediately at your current inputs.")
                                     .font(detailFont)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.textPrimary) // NOT green — outcome, not a refund (spec §7)
                                 Text("Adjust the growth rate, conversion amount, or your inputs above to see how the result moves. Higher future tax rates (widow bracket jump, or the SECURE Act 10-year rule for heirs) would strengthen the advantage further.")
                                     .font(detailFont)
                                     .foregroundStyle(.secondary)
@@ -495,7 +499,7 @@ struct LegacyImpactView: View {
                                 Text("Roth overtakes Traditional at year \(beYear), at your current inputs.")
                                     .font(detailFont)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.textPrimary) // NOT blue — outcome description (spec §7)
                                 Text("Adjust the growth rate, conversion amount, or your inputs above to see how the crossover moves. Higher future tax rates (widow bracket jump, or the SECURE Act 10-year rule for heirs) would move the crossover earlier.")
                                     .font(detailFont)
                                     .foregroundStyle(.secondary)
@@ -529,7 +533,7 @@ struct LegacyImpactView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 4) {
                     Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(bodyFont)
                     Text("Why This Works")
                         .font(bodyFont)
@@ -549,7 +553,7 @@ struct LegacyImpactView: View {
                     Text(converted, format: .currency(code: "USD").precision(.fractionLength(0)))
                         .font(bodyFont)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                     Text(" into tax-free compounding.")
                         .font(bodyFont)
                         .foregroundStyle(.secondary)
@@ -564,13 +568,13 @@ struct LegacyImpactView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
-                        Circle().fill(.green).frame(width: 6, height: 6)
+                        Circle().fill(Color.Chart.heroTeal).frame(width: 6, height: 6)
                         Text("Roth compounds at \(growthPct)% tax-free \u{2014} no RMDs, no tax on withdrawal")
                             .font(detailFont)
                             .foregroundStyle(.secondary)
                     }
                     HStack(spacing: 4) {
-                        Circle().fill(.orange).frame(width: 6, height: 6)
+                        Circle().fill(Color.Chart.gray2).frame(width: 6, height: 6)
                         Text("Tax dollars you kept only compound at ~\(taxGrowthFmt)% after tax drag")
                             .font(detailFont)
                             .foregroundStyle(.secondary)
@@ -578,7 +582,7 @@ struct LegacyImpactView: View {
                     if taxPaid > 0 {
                         let taxFV = dataManager.legacyTaxMoneyFutureValue
                         HStack(alignment: .top, spacing: 4) {
-                            Circle().fill(.orange).frame(width: 6, height: 6).padding(.top, 5)
+                            Circle().fill(Color.Chart.gray2).frame(width: 6, height: 6).padding(.top, 5)
                             Text("Opportunity cost: the \(compactCurrency(taxPaid)) you pay in conversion tax today would have grown to about \(compactCurrency(taxFV)) if left invested in a taxable account \u{2014} that's the bar Roth conversion has to clear.")
                                 .font(detailFont)
                                 .foregroundStyle(.secondary)
@@ -592,7 +596,7 @@ struct LegacyImpactView: View {
                     let direction = dataManager.legacyFamilyWealthAdvantage >= 0 ? "adds" : "costs"
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.up.right")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(detailFont)
                         Text("Under these assumptions, every $100K converted \(direction) about \(per100KLabel) of family wealth")
                             .font(detailFont)
@@ -613,12 +617,12 @@ struct LegacyImpactView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: "heart.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(itemHeader)
                     Text("QCD Legacy Benefit")
                         .font(itemHeader)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
                 let qcdAmount = compactCurrency(dataManager.scenarioTotalQCD)
                 let qcdSavings = compactCurrency(dataManager.legacyQCDHeirBenefit)
@@ -634,11 +638,11 @@ struct LegacyImpactView: View {
                 if dataManager.scenarioTotalRothConversion > 0 {
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                             .font(.caption)
                         Text("Trade-off: QCDs can only come from Traditional IRAs. Converted Roth dollars are no longer available for QCDs. If charitable giving is a long-term goal, keeping some Traditional balance preserves that tax-free giving path.")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                     }
                     .padding(.top, 4)
                 }
@@ -660,7 +664,7 @@ struct LegacyImpactView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 4) {
                     Image(systemName: "person.fill.xmark")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.Semantic.amber)
                         .font(bodyFont)
                     Text("Surviving Spouse Tax Bracket Jump")
                         .font(bodyFont)
@@ -676,12 +680,12 @@ struct LegacyImpactView: View {
                             Text("\(currentPct)%")
                                 .font(metricFont)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                         .frame(maxWidth: .infinity)
 
                         Image(systemName: "arrow.right")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.UI.textPrimary)
                             .fontWeight(.bold)
 
                         VStack(spacing: 2) {
@@ -691,7 +695,7 @@ struct LegacyImpactView: View {
                             Text("\(survivorPct)%")
                                 .font(metricFont)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                         .frame(maxWidth: .infinity)
 
@@ -702,7 +706,7 @@ struct LegacyImpactView: View {
                             Text("+\(jumpPts) pts")
                                 .font(metricFont)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -716,12 +720,12 @@ struct LegacyImpactView: View {
                         if savings > 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "shield.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                     .font(detailFont)
                                 Text("Converting now at \(currentPct)% avoids the survivor paying \(survivorPct)% later \u{2014} saves \(compactCurrency(savings)) in bracket arbitrage")
                                     .font(bodyFont)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.textPrimary)
                             }
                         }
                     }
@@ -732,7 +736,7 @@ struct LegacyImpactView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(8)
-                .background(Color.red.opacity(0.04))
+                .background(Color.UI.surfaceInset)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
@@ -767,20 +771,17 @@ struct LegacyImpactView: View {
                 portfolioRow(
                     label: "Traditional IRA",
                     before: dataManager.legacyNoActionTraditionalAtDeath,
-                    after: dataManager.legacyWithScenarioTraditionalAtDeath,
-                    betterIfLower: true
+                    after: dataManager.legacyWithScenarioTraditionalAtDeath
                 )
                 portfolioRow(
                     label: "Roth IRA",
                     before: dataManager.legacyNoActionRothAtDeath,
-                    after: dataManager.legacyWithScenarioRothAtDeath,
-                    betterIfLower: false
+                    after: dataManager.legacyWithScenarioRothAtDeath
                 )
                 portfolioRow(
                     label: "Heir's tax bill",
                     before: dataManager.legacyCostOfInaction,
-                    after: dataManager.legacyWithScenarioHeirTax,
-                    betterIfLower: true
+                    after: dataManager.legacyWithScenarioHeirTax
                 )
 
                 Text("Traditional balance reflects RMDs taken from age \(dataManager.rmdAge)+")
@@ -811,7 +812,7 @@ struct LegacyImpactView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                         .font(bodyFont)
                     Text("What Your Heir Actually Inherits")
                         .font(bodyFont)
@@ -823,7 +824,7 @@ struct LegacyImpactView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 4) {
-                            Circle().fill(.red).frame(width: 6, height: 6)
+                            Circle().fill(Color.Chart.gray2).frame(width: 6, height: 6)
                             if dataManager.legacyHeirType == "spouseThenChild" {
                                 Text("Traditional IRA: \(compactCurrency(tradAtDeath)) \u{2014} spouse rolls over, then child empties in 10 years")
                                     .font(bodyFont)
@@ -840,12 +841,12 @@ struct LegacyImpactView: View {
                             Text("~\(compactCurrency(annualForced))/year added to heir's taxable income")
                                 .font(detailFont)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
 
                         if rothAtDeath > 0 {
                             HStack(spacing: 4) {
-                                Circle().fill(.green).frame(width: 6, height: 6)
+                                Circle().fill(Color.Chart.heroTeal).frame(width: 6, height: 6)
                                 Text("Roth IRA: \(compactCurrency(rothAtDeath)) \u{2014} tax-free, no forced timeline")
                                     .font(bodyFont)
                                     .foregroundStyle(.secondary)
@@ -869,7 +870,7 @@ struct LegacyImpactView: View {
                                         Text("\(Int(taxEst.marginalRate * 100))%")
                                             .font(bodyFont)
                                             .fontWeight(.semibold)
-                                            .foregroundStyle(.red)
+                                            .foregroundStyle(Color.UI.textPrimary)
                                     }
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Annual tax")
@@ -878,7 +879,7 @@ struct LegacyImpactView: View {
                                         Text(compactCurrency(taxEst.incrementalTax))
                                             .font(bodyFont)
                                             .fontWeight(.semibold)
-                                            .foregroundStyle(.red)
+                                            .foregroundStyle(Color.UI.textPrimary)
                                     }
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Total over \(drawdownYears) years")
@@ -887,7 +888,7 @@ struct LegacyImpactView: View {
                                         Text(compactCurrency(taxEst.totalTaxOverDrawdown))
                                             .font(bodyFont)
                                             .fontWeight(.semibold)
-                                            .foregroundStyle(.red)
+                                            .foregroundStyle(Color.UI.textPrimary)
                                     }
                                 }
                             }
@@ -895,11 +896,11 @@ struct LegacyImpactView: View {
                             if taxEst.crossesBracket {
                                 HStack(alignment: .top, spacing: 6) {
                                     Image(systemName: "arrow.up.forward.square.fill")
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.Semantic.amber)
                                         .font(.caption)
                                     Text("Bracket crossing: these distributions push your heir from the \(Int(taxEst.salaryOnlyMarginalRate * 100))% bracket (salary alone) up into the \(Int(taxEst.marginalRate * 100))% bracket.")
                                         .font(.caption)
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.Semantic.amber)
                                 }
                             }
 
@@ -907,11 +908,11 @@ struct LegacyImpactView: View {
                                let heirAge = dataManager.legacyHeirAgeAtInheritance {
                                 HStack(alignment: .top, spacing: 6) {
                                     Image(systemName: "person.crop.circle.badge.exclamationmark")
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(Color.Semantic.amber)
                                         .font(.caption)
                                     Text("Kiddie Tax possible: at the projected inheritance year your heir would be about \(heirAge). If they're a dependent full-time student or minor, unearned income over the annual threshold is taxed at the supporting parent's marginal rate \u{2014} not modeled here.")
                                         .font(.caption)
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(Color.Semantic.amber)
                                 }
                             }
 
@@ -932,7 +933,7 @@ struct LegacyImpactView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(8)
-                        .background(Color.orange.opacity(0.06))
+                        .background(Color.UI.surfaceInset)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
@@ -945,7 +946,7 @@ struct LegacyImpactView: View {
                         default: return "clock.fill"
                         }
                     }())
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .font(detailFont)
                         .padding(.top, 2)
                     Text(dataManager.legacyHeirTypeDescriptionDetailed)
@@ -958,8 +959,10 @@ struct LegacyImpactView: View {
 
     // MARK: - Helpers
 
-    private func portfolioRow(label: String, before: Double, after: Double, betterIfLower: Bool) -> some View {
-        let improved = betterIfLower ? after < before : after > before
+    private func portfolioRow(label: String, before: Double, after: Double) -> some View {
+        // Note: prior version color-coded the "after" column based on whether change
+        // was favorable. Post-1.8 migration, outcome amounts use textPrimary uniformly
+        // (per spec §7 — outcomes are not refunds). Direction parameter removed.
         return HStack {
             Text(label)
                 .font(bodyFont)
@@ -971,7 +974,7 @@ struct LegacyImpactView: View {
             Text(after, format: .currency(code: "USD").precision(.fractionLength(0)))
                 .font(bodyFont)
                 .fontWeight(.semibold)
-                .foregroundStyle(improved ? .green : (after == before ? .secondary : .orange))
+                .foregroundStyle(Color.UI.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
