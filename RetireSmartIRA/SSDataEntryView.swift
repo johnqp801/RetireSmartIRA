@@ -190,7 +190,7 @@ struct SSDataEntryView: View {
         return Toggle(isOn: binding) {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.UI.brandTeal)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Already Receiving Benefits")
                         .font(.subheadline)
@@ -228,13 +228,13 @@ struct SSDataEntryView: View {
             HStack(spacing: 6) {
                 Image(systemName: "lightbulb")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textSecondary)
                 Text("Enter the total amount from your SSA statement or bank deposit. If you receive a spousal top-up, SSA already includes it in your payment \u{2014} do not add it separately.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .padding(10)
-            .background(Color.orange.opacity(0.05))
+            .background(Color.UI.surfaceInset)
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             HStack {
@@ -274,14 +274,14 @@ struct SSDataEntryView: View {
                     Text("Age \(claimingAgeBinding.wrappedValue)")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .frame(width: 70, alignment: .leading)
 
                     Slider(value: Binding(
                         get: { Double(claimingAgeBinding.wrappedValue) },
                         set: { claimingAgeBinding.wrappedValue = Int($0) }
                     ), in: 62...70, step: 1)
-                    .tint(.blue)
+                    .tint(Color.UI.brandTeal)
                 }
 
                 let birthYear = isP ? dataManager.birthYear : dataManager.spouseBirthYear
@@ -295,7 +295,7 @@ struct SSDataEntryView: View {
                          ? "Started \(String(format: "%.1f", adj))% above FRA benefit (delayed credits)"
                          : "Started \(String(format: "%.1f", abs(adj)))% below FRA benefit (early claiming)")
                         .font(.caption)
-                        .foregroundStyle(adj > 0 ? .green : .orange)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
 
                 Text("This helps calculate couples strategy and survivor benefits accurately.")
@@ -314,13 +314,13 @@ struct SSDataEntryView: View {
                     Text(SSCalculationEngine.formatCurrency(monthly * 12) + "/yr")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
 
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle")
                         .font(.caption)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("This amount will be synced to your tax plan as Social Security income.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -355,7 +355,7 @@ struct SSDataEntryView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.bar.doc.horizontal")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(name) SSA Benefit Estimates")
                             .font(.subheadline)
@@ -367,7 +367,7 @@ struct SSDataEntryView: View {
                     Spacer()
                     if hasEstimates {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                     Image(systemName: showEstimatesForClaiming ? "chevron.up" : "chevron.down")
                         .font(.caption)
@@ -404,7 +404,7 @@ struct SSDataEntryView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Where to Find These Numbers")
                     .font(.headline)
             }
@@ -453,14 +453,14 @@ struct SSDataEntryView: View {
                     Text("Age \(claimingAge.wrappedValue)")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .frame(width: 70, alignment: .leading)
 
                     Slider(value: Binding(
                         get: { Double(claimingAge.wrappedValue) },
                         set: { claimingAge.wrappedValue = Int($0) }
                     ), in: 62...70, step: 1)
-                    .tint(.blue)
+                    .tint(Color.UI.brandTeal)
                 }
 
                 let adj = SSCalculationEngine.adjustmentPercentage(
@@ -472,7 +472,7 @@ struct SSDataEntryView: View {
                          ? "+\(String(format: "%.1f", adj))% delayed retirement credits"
                          : "\(String(format: "%.1f", adj))% early claiming reduction")
                         .font(.caption)
-                        .foregroundStyle(adj > 0 ? .green : .orange)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
         }
@@ -531,7 +531,7 @@ struct SSDataEntryView: View {
                         .foregroundStyle(.secondary)
                     Text(SSCalculationEngine.formatCurrency(monthly))
                         .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundColor(.blue)
+                        .foregroundStyle(Color.UI.textPrimary)
                     Text("\(SSCalculationEngine.formatCurrency(monthly * 12))/year")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -583,7 +583,7 @@ struct SSDataEntryView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "doc.text")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Import Your Earnings Record")
                     .font(.headline)
             }
@@ -633,7 +633,7 @@ struct SSDataEntryView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(.white)
                 .frame(width: 18, height: 18)
-                .background(Color.blue)
+                .background(Color.UI.brandTeal)
                 .clipShape(Circle())
             Text(text)
                 .font(.subheadline)
@@ -706,11 +706,11 @@ struct SSDataEntryView: View {
             if !parseSkipped.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                         .font(.caption)
                     Text("\(parseSkipped.count) line(s) skipped — couldn't parse year/amount")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                 }
             }
 
@@ -749,12 +749,12 @@ struct SSDataEntryView: View {
                         Text(atCap ? "MAX" : "")
                             .font(.caption2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                             .frame(width: 30, alignment: .center)
                     }
                     .padding(.vertical, 3)
                     .padding(.horizontal, 8)
-                    .background(record.earnings == 0 ? Color.red.opacity(0.05) : Color.clear)
+                    .background(record.earnings == 0 ? Color.UI.surfaceInset : Color.clear)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -861,7 +861,7 @@ struct SSDataEntryView: View {
                     Text(SSCalculationEngine.formatCurrency(pia.pia))
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
 
@@ -869,11 +869,11 @@ struct SSDataEntryView: View {
 
             // Estimated benefits at key ages
             HStack(spacing: 0) {
-                piaColumn(label: "Age 62", amount: pia.benefitAt62(birthYear: birthYr), color: .red)
+                piaColumn(label: "Age 62", amount: pia.benefitAt62(birthYear: birthYr), color: Color.Chart.tealRamp1)
                 Spacer()
-                piaColumn(label: "FRA", amount: pia.pia, color: .blue)
+                piaColumn(label: "FRA", amount: pia.pia, color: Color.Chart.tealRamp3)
                 Spacer()
-                piaColumn(label: "Age 70", amount: pia.benefitAt70(birthYear: birthYr), color: .green)
+                piaColumn(label: "Age 70", amount: pia.benefitAt70(birthYear: birthYr), color: Color.Chart.tealRamp6)
             }
 
             Divider()
@@ -978,7 +978,7 @@ struct SSDataEntryView: View {
                 HStack(spacing: 4) {
                     Image(systemName: abs(pct) > 10 ? "exclamationmark.triangle" : "info.circle")
                         .font(.caption)
-                        .foregroundStyle(abs(pct) > 10 ? .orange : .blue)
+                        .foregroundStyle(abs(pct) > 10 ? Color.Semantic.amber : Color.UI.brandTeal)
                     Text(abs(pct) > 10
                          ? "Significant difference (\(String(format: "%+.1f%%", pct))). The SSA estimate may assume different future earnings."
                          : "Small difference (\(String(format: "%+.1f%%", pct))). Normal due to rounding and future earnings assumptions.")
@@ -989,7 +989,7 @@ struct SSDataEntryView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle")
                         .font(.caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Calculated PIA closely matches your SSA statement.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -1004,7 +1004,7 @@ struct SSDataEntryView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.Semantic.red)
                 Text("Parse Error")
                     .font(.headline)
             }
