@@ -4,6 +4,8 @@
 
 # Xcode
 *.xcuserdata/
+*.xcuserdatad/
+xcuserdata/
 DerivedData/
 *.xcworkspace/xcuserdata/
 

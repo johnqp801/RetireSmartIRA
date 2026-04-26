@@ -767,20 +767,17 @@ struct LegacyImpactView: View {
                 portfolioRow(
                     label: "Traditional IRA",
                     before: dataManager.legacyNoActionTraditionalAtDeath,
-                    after: dataManager.legacyWithScenarioTraditionalAtDeath,
-                    betterIfLower: true
+                    after: dataManager.legacyWithScenarioTraditionalAtDeath
                 )
                 portfolioRow(
                     label: "Roth IRA",
                     before: dataManager.legacyNoActionRothAtDeath,
-                    after: dataManager.legacyWithScenarioRothAtDeath,
-                    betterIfLower: false
+                    after: dataManager.legacyWithScenarioRothAtDeath
                 )
                 portfolioRow(
                     label: "Heir's tax bill",
                     before: dataManager.legacyCostOfInaction,
-                    after: dataManager.legacyWithScenarioHeirTax,
-                    betterIfLower: true
+                    after: dataManager.legacyWithScenarioHeirTax
                 )
 
                 Text("Traditional balance reflects RMDs taken from age \(dataManager.rmdAge)+")
@@ -958,8 +955,10 @@ struct LegacyImpactView: View {
 
     // MARK: - Helpers
 
-    private func portfolioRow(label: String, before: Double, after: Double, betterIfLower: Bool) -> some View {
-        let improved = betterIfLower ? after < before : after > before
+    private func portfolioRow(label: String, before: Double, after: Double) -> some View {
+        // Note: prior version color-coded the "after" column based on whether change
+        // was favorable. Post-1.8 migration, outcome amounts use textPrimary uniformly
+        // (per spec §7 — outcomes are not refunds). Direction parameter removed.
         return HStack {
             Text(label)
                 .font(bodyFont)

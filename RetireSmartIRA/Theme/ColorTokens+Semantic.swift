@@ -10,7 +10,9 @@ import SwiftUI
 extension Color {
     enum Semantic {
         // MARK: - Green (refund only)
-        static let green         = Color("Green",         bundle: .main)
+        // Asset is "SemanticGreen" (not "Green") to avoid Xcode auto-generated
+        // symbol collision with NSColor.green / Color.green system colors.
+        static let green         = Color("SemanticGreen", bundle: .main)
         static let greenHover    = Color("GreenHover",    bundle: .main)
         static let greenPressed  = Color("GreenPressed",  bundle: .main)
         static let greenDisabled = Color("GreenDisabled", bundle: .main)
@@ -24,7 +26,9 @@ extension Color {
         static let amberTint     = Color("AmberTint",     bundle: .main)
 
         // MARK: - Red (error / blocking only)
-        static let red           = Color("Red",           bundle: .main)
+        // Asset is "SemanticRed" (not "Red") to avoid Xcode auto-generated
+        // symbol collision with NSColor.red / Color.red system colors.
+        static let red           = Color("SemanticRed",   bundle: .main)
         static let redHover      = Color("RedHover",      bundle: .main)
         static let redPressed    = Color("RedPressed",    bundle: .main)
         static let redDisabled   = Color("RedDisabled",   bundle: .main)
