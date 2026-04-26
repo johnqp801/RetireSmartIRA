@@ -94,7 +94,7 @@ struct StateComparisonView: View {
             HStack {
                 Image(systemName: "map.fill")
                     .font(.title2)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("State Tax Comparison")
                     .font(.title2)
                     .fontWeight(.bold)
@@ -157,7 +157,7 @@ struct StateComparisonView: View {
                     Text("#\(current.rank) of \(rankedStates.count)")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(current.rank <= 10 ? .green : current.rank <= 30 ? .orange : .red)
+                        .foregroundStyle(current.rank <= 10 ? Color.UI.brandTeal : current.rank <= 30 ? Color.UI.textSecondary : Color.UI.textPrimary)
                 }
 
                 Divider()
@@ -170,7 +170,7 @@ struct StateComparisonView: View {
                         Text(current.stateTax, format: .currency(code: "USD"))
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundStyle(current.stateTax == 0 ? .green : .primary)
+                            .foregroundStyle(current.stateTax == 0 ? Color.UI.brandTeal : Color.UI.textPrimary)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
@@ -186,7 +186,7 @@ struct StateComparisonView: View {
                 Divider()
                 HStack(spacing: 4) {
                     Image(systemName: rankIcon(for: current))
-                        .foregroundStyle(current.rank <= 10 ? .green : current.rank <= 30 ? .orange : .red)
+                        .foregroundStyle(current.rank <= 10 ? Color.UI.brandTeal : current.rank <= 30 ? Color.UI.textSecondary : Color.UI.textPrimary)
                     Text("For your current plan, your state ranks ")
                         .font(.callout)
                     + Text("#\(current.rank)")
@@ -195,14 +195,14 @@ struct StateComparisonView: View {
                     + Text(" for lowest state tax")
                         .font(.callout)
                 }
-                .foregroundStyle(current.rank <= 10 ? .green : current.rank <= 30 ? .orange : .red)
+                .foregroundStyle(current.rank <= 10 ? Color.UI.brandTeal : current.rank <= 30 ? Color.UI.textSecondary : Color.UI.textPrimary)
             }
             .padding()
             .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.blue, lineWidth: 2)
+                    .stroke(Color.UI.brandTeal, lineWidth: 2)
             )
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
             }
@@ -213,35 +213,19 @@ struct StateComparisonView: View {
     // MARK: - State Comparison Bar Chart
 
     /// Color for a bar based on where the state falls in the tax spectrum.
-    /// Green → Teal → Gold → Orange → Pink → Purple → Blue as tax increases.
+    /// Uses tealRamp for non-current states (sequential, low→high tax).
+    /// Current state bar uses brandTeal for clear identification.
     private func barColor(for item: StateComparisonItem, maxTax: Double) -> Color {
-        if item.isCurrentState { return Color(red: 0.15, green: 0.45, blue: 0.95) }
-        if item.stateTax < 0.01 { return Color(red: 0.05, green: 0.78, blue: 0.35) }
+        if item.isCurrentState { return Color.UI.brandTeal }
+        if item.stateTax < 0.01 { return Color.Chart.tealRamp1 }
 
         let ratio = maxTax > 0 ? min(item.stateTax / maxTax, 1.0) : 0
-
-        // 5-stop spectrum: Green → Gold → Orange → Hot Pink → Purple → Blue
-        if ratio < 0.2 {
-            let t = ratio / 0.2
-            // Green → Teal
-            return Color(red: 0.05 - t * 0.05, green: 0.78 - t * 0.06, blue: 0.35 + t * 0.33)
-        } else if ratio < 0.4 {
-            let t = (ratio - 0.2) / 0.2
-            // Teal → Gold
-            return Color(red: 0.0 + t * 0.98, green: 0.72 + t * 0.06, blue: 0.68 - t * 0.68)
-        } else if ratio < 0.6 {
-            let t = (ratio - 0.4) / 0.2
-            // Gold → Orange
-            return Color(red: 0.98 + t * 0.02, green: 0.78 - t * 0.28, blue: 0.0)
-        } else if ratio < 0.8 {
-            let t = (ratio - 0.6) / 0.2
-            // Orange → Hot Pink
-            return Color(red: 1.0 - t * 0.08, green: 0.50 - t * 0.28, blue: 0.0 + t * 0.50)
-        } else {
-            let t = (ratio - 0.8) / 0.2
-            // Hot Pink → Purple → Blue
-            return Color(red: 0.92 - t * 0.74, green: 0.22 + t * 0.08, blue: 0.50 + t * 0.35)
-        }
+        let ramp: [Color] = [
+            Color.Chart.tealRamp1, Color.Chart.tealRamp2, Color.Chart.tealRamp3,
+            Color.Chart.tealRamp4, Color.Chart.tealRamp5, Color.Chart.tealRamp6
+        ]
+        let idx = Int((ratio * Double(ramp.count - 1)).rounded())
+        return ramp[min(idx, ramp.count - 1)]
     }
 
     @ViewBuilder
@@ -257,13 +241,7 @@ struct StateComparisonView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color(red: 0.1, green: 0.78, blue: 0.45), Color(red: 0.95, green: 0.35, blue: 0.2)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .fill(Color.UI.brandTeal)
                             .frame(width: 40, height: 40)
                         Image(systemName: "chart.bar.fill")
                             .font(.title3)
@@ -289,15 +267,15 @@ struct StateComparisonView: View {
                         if currentTax > 0.01 {
                             RuleMark(y: .value("Your Tax", currentTax))
                                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 3]))
-                                .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.95).opacity(0.6))
+                                .foregroundStyle(Color.UI.brandTeal.opacity(0.6))
                                 .annotation(position: .top, alignment: .leading) {
                                     Text("Your State: \(chartYAxisLabel(currentTax))")
                                         .font(.caption2)
                                         .fontWeight(.bold)
-                                        .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.95))
+                                        .foregroundStyle(Color.UI.brandTeal)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(Color(red: 0.15, green: 0.45, blue: 0.95).opacity(0.15))
+                                        .background(Color.UI.brandTeal.opacity(0.15))
                                         .clipShape(Capsule())
                                 }
                         }
@@ -319,7 +297,7 @@ struct StateComparisonView: View {
                                     let isCurrent = abbrev == dataManager.selectedState.abbreviation
                                     Text(abbrev)
                                         .font(.system(size: isCurrent ? 8 : 7, weight: isCurrent ? .heavy : .regular))
-                                        .foregroundStyle(isCurrent ? Color(red: 0.15, green: 0.45, blue: 0.95) : .primary)
+                                        .foregroundStyle(isCurrent ? Color.UI.brandTeal : .primary)
                                 }
                             }
                         }
@@ -343,10 +321,10 @@ struct StateComparisonView: View {
 
                 // Legend
                 HStack(spacing: 16) {
-                    chartLegendDot(color: Color(red: 0.15, green: 0.45, blue: 0.95), label: "Your state")
-                    chartLegendDot(color: Color(red: 0.05, green: 0.78, blue: 0.35), label: "No/Low tax")
-                    chartLegendDot(color: Color(red: 1.0, green: 0.50, blue: 0.0), label: "Medium tax")
-                    chartLegendDot(color: Color(red: 0.18, green: 0.30, blue: 0.85), label: "High tax")
+                    chartLegendDot(color: Color.UI.brandTeal, label: "Your state")
+                    chartLegendDot(color: Color.Chart.tealRamp1, label: "No/Low tax")
+                    chartLegendDot(color: Color.Chart.tealRamp4, label: "Medium tax")
+                    chartLegendDot(color: Color.Chart.tealRamp6, label: "High tax")
                 }
                 .font(.caption2)
             }
@@ -355,19 +333,7 @@ struct StateComparisonView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.05, green: 0.78, blue: 0.35).opacity(0.4),
-                                Color(red: 1.0, green: 0.50, blue: 0.0).opacity(0.35),
-                                Color(red: 0.58, green: 0.22, blue: 0.88).opacity(0.4),
-                                Color(red: 0.18, green: 0.30, blue: 0.85).opacity(0.4)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        lineWidth: 1.5
-                    )
+                    .stroke(Color.UI.brandTeal.opacity(0.25), lineWidth: 1.5)
             )
             .shadow(color: .black.opacity(0.08), radius: 12, y: 6)
         }
@@ -455,7 +421,7 @@ struct StateComparisonView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.blue)
+                            .background(Color.UI.brandTeal)
                             .clipShape(Capsule())
                     }
                 }
@@ -471,7 +437,7 @@ struct StateComparisonView: View {
                 Text(item.stateTax, format: .currency(code: "USD"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundStyle(item.stateTax == 0 ? .green : .primary)
+                    .foregroundStyle(item.stateTax == 0 ? Color.UI.brandTeal : Color.UI.textPrimary)
                 Text(String(format: "%.2f%%", item.effectiveRate))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -483,17 +449,17 @@ struct StateComparisonView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(item.isCurrentState ? Color.blue.opacity(0.08) : Color.clear)
+        .background(item.isCurrentState ? Color.UI.brandTeal.opacity(0.08) : Color.clear)
     }
 
     // MARK: - Helpers
 
     /// Color for rank badge based on position.
     private func rankColor(for item: StateComparisonItem) -> Color {
-        if item.stateTax < 1 { return .green }
-        if item.rank <= 10 { return .green }
-        if item.rank <= 25 { return .orange }
-        return .red
+        if item.stateTax < 1 { return Color.UI.brandTeal }
+        if item.rank <= 10 { return Color.UI.brandTeal }
+        if item.rank <= 25 { return Color.UI.textSecondary }
+        return Color.UI.textPrimary
     }
 
     /// Icon for the rank summary in the current state card.
@@ -595,7 +561,7 @@ private struct StateTaxDetailSheet: View {
             HStack {
                 Image(systemName: "map.fill")
                     .font(.title2)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.state.rawValue)
                         .font(.title2)
@@ -643,11 +609,11 @@ private struct StateTaxDetailSheet: View {
             } else {
                 Text(absDiff, format: .currency(code: "USD").precision(.fractionLength(0)))
                     .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(isCheaper ? .green : .red)
+                    .foregroundStyle(isCheaper ? Color.Semantic.green : Color.UI.textPrimary)
 
                 Text(isCheaper ? "less per year" : "more per year")
                     .font(.headline)
-                    .foregroundStyle(isCheaper ? .green : .red)
+                    .foregroundStyle(isCheaper ? Color.Semantic.green : Color.UI.textPrimary)
 
                 Text("compared to \(currentStateBreakdown.state.rawValue)")
                     .font(.caption)
@@ -656,7 +622,7 @@ private struct StateTaxDetailSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background((isNeutral ? Color.gray : (isCheaper ? Color.green : Color.red)).opacity(0.06))
+        .background(isCheaper ? Color.Semantic.greenTint : Color.UI.surfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
@@ -727,8 +693,8 @@ private struct StateTaxDetailSheet: View {
             if breakdown.otherIncome > 0 || currentStateBreakdown.otherIncome > 0 {
                 comparisonStatusRow(label: "Other Income",
                                     amount: max(breakdown.otherIncome, currentStateBreakdown.otherIncome),
-                                    thisStatus: "Taxed", thisColor: .red,
-                                    currentStatus: "Taxed", currentColor: .red)
+                                    thisStatus: "Taxed", thisColor: Color.UI.textPrimary,
+                                    currentStatus: "Taxed", currentColor: Color.UI.textPrimary)
             }
 
             Divider()
@@ -742,12 +708,12 @@ private struct StateTaxDetailSheet: View {
                 Text(breakdown.totalExempted, format: .currency(code: "USD").precision(.fractionLength(0)))
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.Semantic.green)
                     .frame(width: 80)
                 Text(currentStateBreakdown.totalExempted, format: .currency(code: "USD").precision(.fractionLength(0)))
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.Semantic.green)
                     .frame(width: 80)
             }
 
@@ -775,19 +741,19 @@ private struct StateTaxDetailSheet: View {
                 Text(thisExempt ? "Exempt" : "Taxed")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(thisExempt ? .green : .red)
+                    .foregroundStyle(thisExempt ? Color.UI.brandTeal : Color.UI.textPrimary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background((thisExempt ? Color.green : Color.red).opacity(0.12))
+                    .background(thisExempt ? Color.UI.brandTeal.opacity(0.12) : Color.UI.surfaceInset)
                     .clipShape(Capsule())
                     .frame(width: 80)
                 Text(currentExempt ? "Exempt" : "Taxed")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(currentExempt ? .green : .red)
+                    .foregroundStyle(currentExempt ? Color.UI.brandTeal : Color.UI.textPrimary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background((currentExempt ? Color.green : Color.red).opacity(0.12))
+                    .background(currentExempt ? Color.UI.brandTeal.opacity(0.12) : Color.UI.surfaceInset)
                     .clipShape(Capsule())
                     .frame(width: 80)
             }
@@ -854,7 +820,7 @@ private struct StateTaxDetailSheet: View {
                     amount: breakdown.socialSecurityIncome,
                     exemptAmount: breakdown.socialSecurityExemptAmount,
                     statusText: breakdown.socialSecurityExempt ? "Exempt" : "Taxed",
-                    statusColor: breakdown.socialSecurityExempt ? .green : .red
+                    statusColor: breakdown.socialSecurityExempt ? Color.UI.brandTeal : Color.UI.textPrimary
                 )
             }
 
@@ -887,7 +853,7 @@ private struct StateTaxDetailSheet: View {
                     amount: breakdown.otherIncome,
                     exemptAmount: 0,
                     statusText: "Taxed",
-                    statusColor: .red
+                    statusColor: Color.UI.textPrimary
                 )
             }
 
@@ -899,12 +865,12 @@ private struct StateTaxDetailSheet: View {
                     Text("Total Exempted")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.Semantic.green)
                     Spacer()
                     Text("-\(breakdown.totalExempted, format: .currency(code: "USD"))")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.Semantic.green)
                 }
             }
 
@@ -983,10 +949,10 @@ private struct StateTaxDetailSheet: View {
                 // No income tax
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("This state does not levy an income tax.")
                         .font(.subheadline)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
             }
 
@@ -999,7 +965,7 @@ private struct StateTaxDetailSheet: View {
                 Text(breakdown.totalStateTax, format: .currency(code: "USD"))
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(breakdown.totalStateTax == 0 ? .green : .primary)
+                    .foregroundStyle(breakdown.totalStateTax == 0 ? Color.UI.brandTeal : Color.UI.textPrimary)
             }
 
             HStack {
@@ -1082,10 +1048,10 @@ private struct StateTaxDetailSheet: View {
                     Text(diff, format: .currency(code: "USD"))
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(isMoreExpensive ? .red : .green)
+                        .foregroundStyle(isMoreExpensive ? Color.UI.textPrimary : Color.Semantic.green)
                     Text(String(format: "%+.2f%%", rateDiff))
                         .font(.caption)
-                        .foregroundStyle(isMoreExpensive ? .red : .green)
+                        .foregroundStyle(isMoreExpensive ? Color.UI.textPrimary : Color.Semantic.green)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -1094,7 +1060,7 @@ private struct StateTaxDetailSheet: View {
                 Divider()
                 HStack(spacing: 4) {
                     Image(systemName: isMoreExpensive ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
-                        .foregroundStyle(isMoreExpensive ? .red : .green)
+                        .foregroundStyle(isMoreExpensive ? Color.UI.textPrimary : Color.Semantic.green)
                     Text("\(item.state.rawValue) costs ")
                         .font(.callout)
                     + Text(abs(diff), format: .currency(code: "USD"))
@@ -1103,7 +1069,7 @@ private struct StateTaxDetailSheet: View {
                     + Text("/year \(isMoreExpensive ? "MORE" : "LESS") than \(currentStateBreakdown.state.rawValue)")
                         .font(.callout)
                 }
-                .foregroundStyle(isMoreExpensive ? .red : .green)
+                .foregroundStyle(isMoreExpensive ? Color.UI.textPrimary : Color.Semantic.green)
             }
         }
         .padding()
@@ -1118,7 +1084,7 @@ private struct StateTaxDetailSheet: View {
         VStack(spacing: 8) {
             HStack {
                 Image(systemName: "lightbulb.fill")
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Key Insight")
                     .font(.headline)
                     .fontWeight(.bold)
@@ -1142,10 +1108,10 @@ private struct StateTaxDetailSheet: View {
 
     /// Color for rank badge.
     private func rankColor(for item: StateComparisonItem) -> Color {
-        if item.stateTax < 1 { return .green }
-        if item.rank <= 10 { return .green }
-        if item.rank <= 25 { return .orange }
-        return .red
+        if item.stateTax < 1 { return Color.UI.brandTeal }
+        if item.rank <= 10 { return Color.UI.brandTeal }
+        if item.rank <= 25 { return Color.UI.textSecondary }
+        return Color.UI.textPrimary
     }
 
     /// Row showing an income type with its exemption status.
@@ -1187,9 +1153,9 @@ private struct StateTaxDetailSheet: View {
     /// Color for exemption status badge.
     private func exemptionStatusColor(_ level: RetirementIncomeExemptions.ExemptionLevel) -> Color {
         switch level {
-        case .full: return .green
-        case .partial: return .orange
-        case .none: return .red
+        case .full: return Color.UI.brandTeal
+        case .partial: return Color.UI.textSecondary
+        case .none: return Color.UI.textPrimary
         }
     }
 
