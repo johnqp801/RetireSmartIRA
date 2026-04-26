@@ -50,7 +50,7 @@ Brand color carries identity. Semantic colors carry meaning. Both follow the "ex
 
 | Color | Kind | Hex (light) | Hex (dark) | The one job | Examples |
 |---|---|---|---|---|---|
-| **Brand Teal** | Brand | `#2A6B7C` | `#3D8FA3` | Primary identity, default UI accent, ordered-data ramps | Nav bar, primary buttons, info-button glyph, card top-stripe, sequential bracket charts |
+| **Brand Teal** | Brand | `#2A6B7C` | `#2A7585` | Primary identity, default UI accent, ordered-data ramps | Nav bar, primary buttons, info-button glyph, card top-stripe, sequential bracket charts |
 | **Green** | Semantic | `#2E7D32` | `#4CAF50` | Money literally returning to the user | "REFUND" badge, refund-amount delta arrow |
 | **Amber** | Semantic | `#B85C00` | `#E08A3A` | Action required (time-sensitive or input-needed) | "DUE" badge, deadline text ("Due Jun 15"), IRMAA-proximity warnings, missing-input prompts |
 | **Red** | Semantic | `#C62828` | `#EF5350` | Error / blocking state | Form validation errors, crossed IRMAA / ACA cliff, invalid input |
@@ -81,8 +81,10 @@ Amber is the most easily abused semantic color (warning fatigue). It applies to:
 | `Color.UI.surfaceDivider` | `rgba(0,0,0,0.08)` | `rgba(255,255,255,0.10)` | Hairlines, separators |
 | `Color.UI.textPrimary` | `#1A1A1A` | `rgba(255,255,255,0.92)` | Headlines, dollar amounts, labels |
 | `Color.UI.textSecondary` | `#666666` | `#9F9FA3` | Deltas, captions, supporting text |
-| `Color.UI.textTertiary` | `#999999` | `#7C7C80` | Disabled, projected, hint text |
+| `Color.UI.textTertiary` | `#8A8A8A` | `#7C7C80` | Disabled, projected, hint text |
 | `Color.UI.textUtility` | `#3A3A3C` | `#D0D0D0` | Tertiary button text (utility actions) |
+
+**2026-04-25 adjustment:** Light-mode `textTertiary` was originally `#999999` but achieved only 2.85:1 contrast on white (WCAG AA Large Text requires ≥ 3.0:1). Darkened to `#8A8A8A` (3.44:1).
 
 Notably: dark mode body text is **92% white**, not pure white. Reduces visual glare on OLED displays per Gemini's recommendation.
 
@@ -128,11 +130,13 @@ For neutral grays, opacity shifts are fine — grays compose well.
 
 | State | Brand Teal (light) | Brand Teal (dark) |
 |---|---|---|
-| Default | `#2A6B7C` | `#3D8FA3` |
-| Hover (macOS) | `#235862` | `#4DA1B5` |
-| Pressed | `#1D4B53` | `#5BB3C7` |
-| Focused | `#2A6B7C` + 2pt focus ring `#7AC5D6` | `#3D8FA3` + ring `#7AC5D6` |
+| Default | `#2A6B7C` | `#2A7585` |
+| Hover (macOS) | `#235862` | `#3A8595` |
+| Pressed | `#1D4B53` | `#4A95A5` |
+| Focused | `#2A6B7C` + 2pt focus ring `#7AC5D6` | `#2A7585` + ring `#7AC5D6` |
 | Disabled | `#A6BDC2` | `#4F6B72` |
+
+**2026-04-25 adjustment:** Dark-mode `brandTeal` was originally `#3D8FA3` but contrast testing showed white text only achieved 3.71:1 contrast (WCAG AA requires ≥ 4.5:1 for normal text). Darkened to `#2A7585` (white-on-it = 5.30:1). Hover/pressed dark variants adjusted proportionally to preserve their relationship to the base.
 
 Same pattern for green, amber, red, sand. Full table in `Color+Tokens.swift` (the implementation file).
 
@@ -299,7 +303,7 @@ This is where the strict contract pays off. Numerical color is a recurring sourc
 | Action-required deadline text | `Color.Semantic.amber` | "Due **Jun 15**" |
 | Action-required dollar amount | `textPrimary` (NOT amber) | "**$3,212** Due Jun 15" |
 | Comparative delta (any sign) | `textSecondary` (`#666`) | "+$1,240 vs 2025" |
-| Disabled / projected value | `textTertiary` (`#999`) | "Projected: $14,200" |
+| Disabled / projected value | `textTertiary` (`#8A8A8A`) | "Projected: $14,200" |
 | Form-validation error value | `Color.Semantic.red` | "$**XYZ** invalid" |
 
 The most-violated rule today is "tax owed should be red." It's not. Per WCAG and per the app's domain logic, taxes are a mechanical reality, not an error state. Coloring them red is emotional design, not informational design.
@@ -438,9 +442,9 @@ This is the complete list of color tokens that will exist after 1.8. Implementat
 extension Color {
   enum UI {
     // Brand
-    static let brandTeal             = Color(...)  // #2A6B7C light / #3D8FA3 dark
-    static let brandTealHover        = Color(...)  // #235862 / #4DA1B5
-    static let brandTealPressed      = Color(...)  // #1D4B53 / #5BB3C7
+    static let brandTeal             = Color(...)  // #2A6B7C light / #2A7585 dark
+    static let brandTealHover        = Color(...)  // #235862 / #3A8595
+    static let brandTealPressed      = Color(...)  // #1D4B53 / #4A95A5
     static let brandTealDisabled     = Color(...)  // #A6BDC2 / #4F6B72
     static let brandTealFocusRing    = Color(...)  // #7AC5D6 / #7AC5D6
 
@@ -454,7 +458,7 @@ extension Color {
     // Text
     static let textPrimary           = Color(...)  // #1A1A1A / rgba(255,255,255,0.92)
     static let textSecondary         = Color(...)  // #666666 / #9F9FA3
-    static let textTertiary          = Color(...)  // #999999 / #7C7C80
+    static let textTertiary          = Color(...)  // #8A8A8A / #7C7C80
     static let textUtility           = Color(...)  // #3A3A3C / #D0D0D0  (tertiary button text)
   }
 
