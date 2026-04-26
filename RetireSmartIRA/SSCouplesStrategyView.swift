@@ -163,11 +163,11 @@ struct SSCouplesStrategyView: View {
                     .font(.headline)
                 Spacer()
                 Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Both Collecting")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.UI.brandTeal)
             }
 
             // Primary
@@ -190,7 +190,7 @@ struct SSCouplesStrategyView: View {
                     if pResult.includesSpousalTopUp {
                         Text("Includes \(SSCalculationEngine.formatCurrency(pResult.spousalTopUp)) spousal top-up")
                             .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
             }
@@ -217,7 +217,7 @@ struct SSCouplesStrategyView: View {
                     if sResult.includesSpousalTopUp {
                         Text("Includes \(SSCalculationEngine.formatCurrency(sResult.spousalTopUp)) spousal top-up")
                             .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
             }
@@ -234,7 +234,7 @@ struct SSCouplesStrategyView: View {
                     Text(SSCalculationEngine.formatCurrency(combinedMonthly) + "/mo")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                     Text(SSCalculationEngine.formatCurrency(combinedMonthly * 12) + "/yr")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -245,7 +245,7 @@ struct SSCouplesStrategyView: View {
             HStack(spacing: 6) {
                 Image(systemName: "link")
                     .font(.caption2)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("These amounts are synced to your Income & Deductions")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -263,7 +263,7 @@ struct SSCouplesStrategyView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "lightbulb")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textSecondary)
                 Text("What-If Explorer")
                     .font(.headline)
             }
@@ -272,7 +272,7 @@ struct SSCouplesStrategyView: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
-        .background(Color.orange.opacity(0.05))
+        .background(Color.UI.surfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
@@ -292,7 +292,7 @@ struct SSCouplesStrategyView: View {
                         Text("Age \(rec.primaryClaimingAge)")
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
 
                     Image(systemName: "plus")
@@ -305,7 +305,7 @@ struct SSCouplesStrategyView: View {
                         Text("Age \(rec.spouseClaimingAge)")
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Color.Chart.callout)
                     }
 
                     Spacer()
@@ -317,7 +317,7 @@ struct SSCouplesStrategyView: View {
                         Text(SSCalculationEngine.formatLargeCurrency(rec.combinedLifetime))
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
 
@@ -325,7 +325,7 @@ struct SSCouplesStrategyView: View {
 
                 HStack(spacing: 8) {
                     Image(systemName: "lightbulb")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.UI.textSecondary)
                     Text(rec.rationale)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -355,7 +355,7 @@ struct SSCouplesStrategyView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "calendar.badge.clock")
                                 .font(.caption2)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                             Text("Ages \(earlierAge)–\(laterAge - 1): \(SSCalculationEngine.formatCurrency(earlyFilerOwn))/mo (own benefit only)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -369,7 +369,7 @@ struct SSCouplesStrategyView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.up.circle.fill")
                                     .font(.caption2)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.UI.brandTeal)
                                 Text("At age \(laterAge): \(earlyFilerName) gets +\(SSCalculationEngine.formatCurrency(earlyFilerTopUp))/mo spousal top-up")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -402,21 +402,21 @@ struct SSCouplesStrategyView: View {
             if isCurrentPlan {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("This is your current plan")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
                 .padding(.vertical, 4)
             } else if showAppliedConfirmation {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Strategy applied! Income & Deductions updated.")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                 }
                 .padding(.vertical, 4)
                 .transition(.opacity)
@@ -473,7 +473,7 @@ struct SSCouplesStrategyView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "questionmark.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("How to Read the Strategy Table")
                         .font(.subheadline)
                         .fontWeight(.medium)
@@ -529,7 +529,7 @@ struct SSCouplesStrategyView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(.white)
                 .frame(width: 20, height: 20)
-                .background(Color.blue)
+                .background(Color.UI.brandTeal)
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
@@ -549,7 +549,7 @@ struct SSCouplesStrategyView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "hand.tap")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Selected Strategy")
                     .font(.headline)
             }
@@ -591,7 +591,7 @@ struct SSCouplesStrategyView: View {
                     Text(SSCalculationEngine.formatLargeCurrency(cell.combinedLifetimeBenefit))
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
 
@@ -632,7 +632,7 @@ struct SSCouplesStrategyView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.UI.textSecondary)
                 Text("Current Rules: Deemed Filing")
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -670,9 +670,9 @@ struct SSCouplesStrategyView: View {
 
             // Legend
             HStack(spacing: 16) {
-                legendItem(color: .green, label: "Highest lifetime")
-                legendItem(color: .blue, label: "Your current plan")
-                legendItem(color: .orange, label: "Selected")
+                legendItem(color: Color.UI.brandTeal, label: "Highest lifetime")
+                legendItem(color: Color.UI.brandTeal, label: "Your current plan")
+                legendItem(color: Color.Chart.callout, label: "Selected")
             }
             .padding(.top, 4)
         }
@@ -720,7 +720,7 @@ struct SSCouplesStrategyView: View {
                         value: $dataManager.ssWhatIfParams.discountRate,
                         in: 1...6, step: 0.5
                     )
-                    .tint(.blue)
+                    .tint(Color.UI.brandTeal)
                     .onChange(of: dataManager.ssWhatIfParams.discountRate) {
                         selectedCell = nil
                         dataManager.saveAllData()
@@ -741,7 +741,7 @@ struct SSCouplesStrategyView: View {
                     Image(systemName: showValuationNote ? "chevron.up" : "chevron.down")
                         .font(.caption2)
                 }
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.UI.brandTeal)
             }
 
             if showValuationNote {
@@ -783,7 +783,7 @@ struct SSCouplesStrategyView: View {
             }
         }
         .padding(10)
-        .background(Color.blue.opacity(0.05))
+        .background(Color.UI.surfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
@@ -865,9 +865,9 @@ struct SSCouplesStrategyView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 3)
                     .stroke(
-                        isSelected ? Color.orange :
-                        cell.isHighestLifetime ? Color.green :
-                        isCurrent ? Color.blue : Color.clear,
+                        isSelected ? Color.Chart.callout :
+                        cell.isHighestLifetime ? Color.UI.brandTeal :
+                        isCurrent ? Color.UI.brandTeal : Color.clear,
                         lineWidth: isSelected || cell.isHighestLifetime ? 2 : 1.5
                     )
             )
@@ -878,7 +878,7 @@ struct SSCouplesStrategyView: View {
 
     private func cellColor(intensity: Double, isHighestLifetime: Bool) -> Color {
         if isHighestLifetime {
-            return Color.green.opacity(0.25)
+            return Color.UI.brandTeal.opacity(0.2)
         }
         // Gradient from red (low) through yellow to green (high)
         let clamped = min(max(intensity, 0), 1)
@@ -907,7 +907,7 @@ struct SSCouplesStrategyView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "person.fill.checkmark")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("\(claimedSpouseName) Has Claimed")
                     .font(.headline)
             }
@@ -933,7 +933,7 @@ struct SSCouplesStrategyView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "arrow.right.circle")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Now let's find the best claiming age for \(decidingSpouseName).")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -965,7 +965,7 @@ struct SSCouplesStrategyView: View {
                         Text("Age \(decidingAge)")
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
 
                     Spacer()
@@ -977,7 +977,7 @@ struct SSCouplesStrategyView: View {
                         Text(SSCalculationEngine.formatLargeCurrency(best.combinedLifetimeBenefit))
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
 
@@ -1000,7 +1000,7 @@ struct SSCouplesStrategyView: View {
                         Text(SSCalculationEngine.formatCurrency(best.primaryMonthly + best.spouseMonthly) + "/mo")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
 
@@ -1008,10 +1008,10 @@ struct SSCouplesStrategyView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                         Text("Includes \(SSCalculationEngine.formatCurrency(decidingMonthly - decidingOwnMonthly))/mo spousal top-up")
                             .font(.caption)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
 
@@ -1096,9 +1096,9 @@ struct SSCouplesStrategyView: View {
 
             // Legend
             HStack(spacing: 16) {
-                legendItem(color: .green, label: "Highest lifetime")
-                legendItem(color: .blue, label: "Current plan")
-                legendItem(color: .orange, label: "Selected")
+                legendItem(color: Color.UI.brandTeal, label: "Highest lifetime")
+                legendItem(color: Color.UI.brandTeal, label: "Current plan")
+                legendItem(color: Color.Chart.callout, label: "Selected")
             }
             .padding(.top, 4)
         }
@@ -1126,9 +1126,9 @@ struct SSCouplesStrategyView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 5)
                 .stroke(
-                    isSelected ? Color.orange :
-                    isBest ? Color.green :
-                    isCurrent ? Color.blue : Color.clear,
+                    isSelected ? Color.Chart.callout :
+                    isBest ? Color.UI.brandTeal :
+                    isCurrent ? Color.UI.brandTeal : Color.clear,
                     lineWidth: isSelected || isBest ? 2.5 : 1.5
                 )
         )
@@ -1147,7 +1147,7 @@ struct SSCouplesStrategyView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "tablecells")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("View Full 9×9 Matrix")
                         .font(.subheadline)
                         .fontWeight(.medium)
@@ -1167,9 +1167,9 @@ struct SSCouplesStrategyView: View {
                 matrixGrid
 
                 HStack(spacing: 16) {
-                    legendItem(color: .green, label: "Highest lifetime")
-                    legendItem(color: .blue, label: "Current plan")
-                    legendItem(color: .orange, label: "Selected")
+                    legendItem(color: Color.UI.brandTeal, label: "Highest lifetime")
+                    legendItem(color: Color.UI.brandTeal, label: "Current plan")
+                    legendItem(color: Color.Chart.callout, label: "Selected")
                 }
                 .padding(.top, 4)
             }
@@ -1223,7 +1223,7 @@ struct SSCouplesStrategyView: View {
                             Text(SSCalculationEngine.formatCurrency(scenario.householdMonthlyAfter) + "/mo")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
 
                         Spacer()
@@ -1235,14 +1235,14 @@ struct SSCouplesStrategyView: View {
                             Text("-\(String(format: "%.0f", scenario.percentReduction))%")
                                 .font(.subheadline)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
                     }
 
                     HStack(spacing: 4) {
                         Image(systemName: "info.circle")
                             .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                         Text(scenario.survivorBenefitSource)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1275,7 +1275,7 @@ struct SSCouplesStrategyView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Enter benefit estimates for both you and your spouse to compare claiming strategies and see survivor analysis.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
