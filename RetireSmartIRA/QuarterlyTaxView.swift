@@ -91,11 +91,11 @@ struct QuarterlyTaxView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "slider.horizontal.3")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                     Text("Reflects Scenario Decisions")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.Semantic.amber)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -140,7 +140,7 @@ struct QuarterlyTaxView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.08))
+            .background(Color.Semantic.amberTint)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
@@ -191,8 +191,8 @@ struct QuarterlyTaxView: View {
 
                 Divider()
 
-                summaryRow(label: "Federal Tax", value: dataManager.scenarioFederalTax, color: .blue)
-                summaryRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax, color: .orange)
+                summaryRow(label: "Federal Tax", value: dataManager.scenarioFederalTax)
+                summaryRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax)
 
                 // NIIT and AMT are standard tax components (not penalties).
                 // Per color contract, render in default neutral — red is
@@ -212,10 +212,10 @@ struct QuarterlyTaxView: View {
 
                 if dataManager.totalWithholding > 0 {
                     if dataManager.totalFederalWithholding > 0 {
-                        summaryRow(label: "Federal Withholding Paid", value: dataManager.totalFederalWithholding, color: .green, prefix: "−")
+                        summaryRow(label: "Federal Withholding Paid", value: dataManager.totalFederalWithholding, prefix: "−")
                     }
                     if dataManager.totalStateWithholding > 0 {
-                        summaryRow(label: "State Withholding Paid", value: dataManager.totalStateWithholding, color: .green, prefix: "−")
+                        summaryRow(label: "State Withholding Paid", value: dataManager.totalStateWithholding, prefix: "−")
                     }
                     summaryRow(label: "Remaining Federal Tax", value: dataManager.scenarioRemainingFederalTax, isBold: true)
                     summaryRow(label: "Remaining State Tax", value: dataManager.scenarioRemainingStateTax, isBold: true)
@@ -241,12 +241,12 @@ struct QuarterlyTaxView: View {
                         Text(payments.q1, format: .currency(code: "USD"))
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Color.UI.textPrimary)
                     } else {
                         Text("\(minQ.formatted(.currency(code: "USD"))) \u{2013} \(maxQ.formatted(.currency(code: "USD")))")
                             .font(.callout)
                             .fontWeight(.bold)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
 
@@ -260,7 +260,7 @@ struct QuarterlyTaxView: View {
                         Text(payments.federalTotal, format: .currency(code: "USD"))
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
                 if payments.stateTotal > 0 {
@@ -272,7 +272,7 @@ struct QuarterlyTaxView: View {
                         Text(payments.stateTotal, format: .currency(code: "USD"))
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
             }
@@ -323,13 +323,13 @@ struct QuarterlyTaxView: View {
                                     Text("Fed \(source.federalWithholding, format: .currency(code: "USD"))")
                                         .font(.callout)
                                         .fontWeight(.semibold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.UI.textPrimary)
                                 }
                                 if source.stateWithholding > 0 {
                                     Text("State \(source.stateWithholding, format: .currency(code: "USD"))")
                                         .font(.callout)
                                         .fontWeight(.semibold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.UI.textPrimary)
                                 }
                             }
                         }
@@ -347,7 +347,7 @@ struct QuarterlyTaxView: View {
                                     Text(dataManager.totalFederalWithholding, format: .currency(code: "USD"))
                                         .font(.callout)
                                         .fontWeight(.bold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.UI.textPrimary)
                                 }
                             }
                             if dataManager.totalStateWithholding > 0 {
@@ -359,7 +359,7 @@ struct QuarterlyTaxView: View {
                                     Text(dataManager.totalStateWithholding, format: .currency(code: "USD"))
                                         .font(.callout)
                                         .fontWeight(.bold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.UI.textPrimary)
                                 }
                             }
                         }
@@ -408,7 +408,7 @@ struct QuarterlyTaxView: View {
                     Text(payments.federalTotal, format: .currency(code: "USD"))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
             if payments.stateTotal > 0 {
@@ -420,7 +420,7 @@ struct QuarterlyTaxView: View {
                     Text(payments.stateTotal, format: .currency(code: "USD"))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
 
@@ -461,7 +461,7 @@ struct QuarterlyTaxView: View {
                     Text(totalPaid, format: .currency(code: "USD"))
                         .font(.callout)
                         .fontWeight(.bold)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
                 HStack {
                     Text("Remaining")
@@ -471,7 +471,7 @@ struct QuarterlyTaxView: View {
                     Text(max(0, totalEstimated - totalPaid), format: .currency(code: "USD"))
                         .font(.callout)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
             }
         }
@@ -533,25 +533,25 @@ struct QuarterlyTaxView: View {
                 NoteRow(
                     icon: "exclamationmark.triangle.fill",
                     text: "Pay 90% of current year tax OR 100% of prior year tax to avoid penalties",
-                    color: .orange
+                    color: Color.Semantic.amber
                 )
 
                 NoteRow(
                     icon: "calendar",
                     text: "These are estimated payments \u{2014} actual tax owed is calculated when filing your return",
-                    color: .blue
+                    color: Color.UI.brandTeal
                 )
 
                 NoteRow(
                     icon: "dollarsign.circle",
                     text: "Adjust payments if income or Scenario decisions change significantly during the year",
-                    color: .purple
+                    color: Color.UI.brandTeal
                 )
 
                 NoteRow(
                     icon: "checkmark.shield",
                     text: "Federal and state withholding from income sources is credited against each tax liability separately",
-                    color: .green
+                    color: Color.UI.brandTeal
                 )
 
                 NoteRow(
@@ -566,7 +566,7 @@ struct QuarterlyTaxView: View {
                     NoteRow(
                         icon: "gearshape.2.fill",
                         text: "Your estimated state tax payments (\(stateTotal.formatted(.currency(code: "USD").precision(.fractionLength(0))))) are automatically included in your SALT deduction \u{2014} no manual entry needed.",
-                        color: .green
+                        color: Color.UI.brandTeal
                     )
                 }
 
@@ -576,7 +576,7 @@ struct QuarterlyTaxView: View {
                     NoteRow(
                         icon: "building.columns.fill",
                         text: "\(dataManager.selectedState.rawValue) uses a \(schedule.label) quarterly schedule for state estimated payments (not equal quarters). Q3 (September) may have no state payment due.",
-                        color: .orange
+                        color: Color.Semantic.amber
                     )
                 }
 
@@ -585,7 +585,7 @@ struct QuarterlyTaxView: View {
                     NoteRow(
                         icon: "doc.text.fill",
                         text: "Uneven quarterly payments may require filing IRS Form 2210, Schedule AI (annualized income). This may incur additional tax preparation fees.",
-                        color: .orange
+                        color: Color.Semantic.amber
                     )
                 }
             }
@@ -602,7 +602,7 @@ struct QuarterlyTaxView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.shield.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.UI.brandTeal)
                 Text("Safe Harbor Method")
                     .font(.headline)
             }
@@ -710,11 +710,11 @@ struct QuarterlyTaxView: View {
                         if dataManager.isStateDisqualifiedFromPriorYear {
                             HStack(spacing: 4) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Semantic.amber)
                                     .font(.caption)
                                 Text("\(dataManager.selectedState.rawValue) does not allow the prior-year safe harbor at your income level. State estimated payments will use the current-year method (\(String(format: "%.0f", dataManager.stateCurrentYearSafeHarborRate * 100))%).")
                                     .font(.caption)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Semantic.amber)
                             }
                         }
 
@@ -725,7 +725,7 @@ struct QuarterlyTaxView: View {
                             Text(dataManager.priorYearSafeHarborAmount.formatted(.currency(code: "USD").precision(.fractionLength(0))))
                                 .font(.callout)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.textPrimary)
                         }
 
                         if dataManager.priorYearFederalTax > 0 && dataManager.priorYearStateTax > 0 {
@@ -800,7 +800,7 @@ struct QuarterlyTaxView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.badge.questionmark")
                         .font(.title3)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Understanding Payment Timing")
                             .font(.headline)
@@ -853,7 +853,7 @@ struct QuarterlyTaxView: View {
 
                 Text("A conversion in Q2, for example, generally needs to be covered by the June or September payment \u{2014} not deferred until January.")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.Semantic.amber)
                     .padding(.top, 2)
             }
 
@@ -885,7 +885,7 @@ struct QuarterlyTaxView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("3 Strategies to Consider")
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -908,11 +908,11 @@ struct QuarterlyTaxView: View {
 
                         HStack(spacing: 6) {
                             Image(systemName: "dollarsign.circle")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                                 .font(.caption)
                             Text("Note: This may incur additional tax preparation fees from your accountant or CPA.")
                                 .font(.caption)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                         }
                         .padding(.top, 2)
                     }
@@ -920,7 +920,7 @@ struct QuarterlyTaxView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "doc.text.fill")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                         Text("IRS Form 2210 May Be Required")
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -947,11 +947,11 @@ struct QuarterlyTaxView: View {
 
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.left.arrow.right")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                             .font(.caption)
                         Text("Estimated payments are different \u{2014} they are credited only to the quarter in which they are paid.")
                             .font(.caption)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.UI.brandTeal)
                     }
                     .padding(.top, 2)
                 }
@@ -959,7 +959,7 @@ struct QuarterlyTaxView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "star.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Withholding vs. Estimated Payments")
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -1007,7 +1007,7 @@ struct QuarterlyTaxView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(.white)
                 .frame(width: 20, height: 20)
-                .background(Circle().fill(.green))
+                .background(Circle().fill(Color.UI.brandTeal))
             Text(text)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -1021,7 +1021,7 @@ struct QuarterlyTaxView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(.white)
                 .frame(width: 20, height: 20)
-                .background(Circle().fill(.blue))
+                .background(Circle().fill(Color.UI.brandTeal))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.callout)
@@ -1061,7 +1061,7 @@ struct QuarterRow: View {
                     if !events.isEmpty {
                         Text(events.joined(separator: " · "))
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textSecondary)
                     }
                 }
 
@@ -1070,7 +1070,7 @@ struct QuarterRow: View {
                 Text(federalAmount + stateAmount, format: .currency(code: "USD"))
                     .font(.callout)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.textPrimary)
             }
 
             // Federal/State sub-rows
@@ -1083,7 +1083,7 @@ struct QuarterRow: View {
                     Text(federalAmount, format: .currency(code: "USD"))
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.blue.opacity(0.7))
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
                 .padding(.leading, 8)
 
@@ -1095,7 +1095,7 @@ struct QuarterRow: View {
                     Text(stateAmount, format: .currency(code: "USD"))
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.orange.opacity(0.8))
+                        .foregroundStyle(Color.UI.textPrimary)
                 }
                 .padding(.leading, 8)
             }
@@ -1107,7 +1107,7 @@ struct QuarterRow: View {
                 Toggle(isOn: $payment.isPaid) {
                     Text(payment.isPaid ? "Paid" : "Not Paid")
                         .font(.caption)
-                        .foregroundStyle(payment.isPaid ? .green : .secondary)
+                        .foregroundStyle(payment.isPaid ? Color.UI.textPrimary : .secondary)
                 }
                 .toggleStyle(.switch)
                 .onChange(of: payment.isPaid) {
