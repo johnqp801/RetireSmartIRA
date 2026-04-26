@@ -14,7 +14,7 @@ struct SourcesReferencesView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.title2)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.brandTeal)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Tax Year \(TaxCalculationEngine.config.taxYear)")
                             .font(.headline)
@@ -190,7 +190,7 @@ struct SourcesReferencesView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: icon)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                         .frame(width: 20)
                     Text(title)
                         .font(.subheadline.weight(.semibold))
@@ -207,7 +207,7 @@ struct SourcesReferencesView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(sources[i].name)
                                         .font(.caption)
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(Color.UI.brandTeal)
                                     Text(sources[i].detail)
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
@@ -215,7 +215,7 @@ struct SourcesReferencesView: View {
                                 Spacer()
                                 Image(systemName: "arrow.up.right.square")
                                     .font(.caption2)
-                                    .foregroundStyle(.blue.opacity(0.6))
+                                    .foregroundStyle(Color.UI.brandTeal.opacity(0.6))
                             }
                         }
                     }
