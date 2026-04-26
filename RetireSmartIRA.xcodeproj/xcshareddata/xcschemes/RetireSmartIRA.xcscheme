@@ -63,6 +63,12 @@
             ReferencedContainer = "container:RetireSmartIRA.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+         <CommandLineArgument
+            argument = "-DemoProfile "
+            isEnabled = "NO">
+         </CommandLineArgument>
+      </CommandLineArguments>
       <StoreKitConfigurationFileReference
          identifier = "../../RetireSmartIRA.storekit">
       </StoreKitConfigurationFileReference>
