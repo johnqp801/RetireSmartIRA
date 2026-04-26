@@ -93,7 +93,7 @@ struct RMDCalculatorView: View {
                     if dataManager.isRMDRequired {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.Semantic.amber)
                             Text("RMDs Required")
                                 .font(.title3)
                                 .fontWeight(.semibold)
@@ -101,7 +101,7 @@ struct RMDCalculatorView: View {
                     } else if hasInheritedRMDs {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.Semantic.amber)
                             Text("Inherited IRA RMDs Required")
                                 .font(.title3)
                                 .fontWeight(.semibold)
@@ -109,7 +109,7 @@ struct RMDCalculatorView: View {
                     } else {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.UI.textPrimary)
                             Text("Not Yet Required")
                                 .font(.title3)
                                 .fontWeight(.semibold)
@@ -139,7 +139,7 @@ struct RMDCalculatorView: View {
 
                     HStack {
                         Image(systemName: "calendar")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                         Text("Annual deadline: December 31")
                             .font(.callout)
                     }
@@ -147,14 +147,14 @@ struct RMDCalculatorView: View {
                     if dataManager.currentAge == dataManager.rmdAge {
                         HStack {
                             Image(systemName: "info.circle")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.UI.brandTeal)
                             Text("First RMD can be delayed until April 1 \(dataManager.currentYear + 1)")
                                 .font(.callout)
                         }
 
                         Text("\u{26A0}\u{FE0F} Warning: Delaying means taking 2 RMDs in one year")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.Semantic.amber)
                             .padding(.leading, 24)
                     }
                 }
@@ -162,13 +162,13 @@ struct RMDCalculatorView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Image(systemName: "calendar")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.Semantic.amber)
                         Text("Inherited IRA: \(dataManager.inheritedIRARMDTotal, format: .currency(code: "USD")) due by December 31")
                             .font(.callout)
                     }
                     HStack {
                         Image(systemName: "clock")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.UI.textPrimary)
                         Text("Own IRA RMDs start in \(dataManager.yearsUntilRMD) years (age \(dataManager.rmdAge))")
                             .font(.callout)
                     }
@@ -176,7 +176,7 @@ struct RMDCalculatorView: View {
             } else {
                 HStack {
                     Image(systemName: "clock")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.UI.textPrimary)
                     Text("RMDs start in \(dataManager.yearsUntilRMD) years")
                         .font(.callout)
                 }
@@ -328,7 +328,7 @@ struct RMDCalculatorView: View {
                                 Text(primaryRMD, format: .currency(code: "USD"))
                                     .font(.callout)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.textPrimary)
                             }
                         }
 
@@ -385,7 +385,7 @@ struct RMDCalculatorView: View {
                                 Text(spouseRMD, format: .currency(code: "USD"))
                                     .font(.callout)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.UI.textPrimary)
                             }
                         }
 
@@ -428,8 +428,8 @@ struct RMDCalculatorView: View {
                                                     .font(.caption2)
                                                     .padding(.horizontal, 4)
                                                     .padding(.vertical, 1)
-                                                    .background(Color.purple.opacity(0.2))
-                                                    .foregroundStyle(.purple)
+                                                    .background(Color.Chart.callout.opacity(0.2))
+                                                    .foregroundStyle(Color.Chart.callout)
                                                     .clipShape(Capsule())
                                             }
                                         }
@@ -443,8 +443,8 @@ struct RMDCalculatorView: View {
                                         .font(.caption2)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(Color.orange.opacity(0.2))
-                                        .foregroundStyle(.orange)
+                                        .background(Color.Semantic.amberTint)
+                                        .foregroundStyle(Color.Semantic.amber)
                                         .clipShape(Capsule())
                                 }
 
@@ -468,7 +468,7 @@ struct RMDCalculatorView: View {
                                             Text(String(deadline))
                                                 .font(.callout)
                                                 .fontWeight(.medium)
-                                                .foregroundStyle(.orange)
+                                                .foregroundStyle(Color.Semantic.amber)
                                         }
                                     }
 
@@ -481,7 +481,7 @@ struct RMDCalculatorView: View {
                                         Text(result.annualRMD, format: .currency(code: "USD"))
                                             .font(.callout)
                                             .fontWeight(.semibold)
-                                            .foregroundStyle(.orange)
+                                            .foregroundStyle(Color.UI.textPrimary)
                                     }
                                 }
                             }
@@ -504,7 +504,7 @@ struct RMDCalculatorView: View {
                         Text(grandTotalRMD, format: .currency(code: "USD"))
                             .font(.title)
                             .fontWeight(.bold)
-                            .foregroundStyle(hasInheritedRMDs && !dataManager.isRMDRequired ? .orange : .blue)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(dataManager.enableSpouse ? "Total Household RMD" : "Total Required Withdrawal")
@@ -513,7 +513,7 @@ struct RMDCalculatorView: View {
                         Text(grandTotalRMD, format: .currency(code: "USD"))
                             .font(.title)
                             .fontWeight(.bold)
-                            .foregroundStyle(hasInheritedRMDs && !dataManager.isRMDRequired ? .orange : .blue)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
             }
@@ -551,15 +551,15 @@ struct RMDCalculatorView: View {
                                             .font(.caption2)
                                             .padding(.horizontal, 4)
                                             .padding(.vertical, 1)
-                                            .background(Color.purple.opacity(0.2))
-                                            .foregroundStyle(.purple)
+                                            .background(Color.Chart.callout.opacity(0.2))
+                                            .foregroundStyle(Color.Chart.callout)
                                             .clipShape(Capsule())
                                     }
                                 }
                                 if let beneficiary = account.beneficiaryType {
                                     Text(beneficiary.rawValue)
                                         .font(.caption)
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.UI.textSecondary)
                                 }
                             }
 
@@ -580,7 +580,7 @@ struct RMDCalculatorView: View {
                                 Text(result.annualRMD, format: .currency(code: "USD"))
                                     .font(.callout)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.UI.textPrimary)
                             } else {
                                 Text("None required")
                                     .font(.callout)
@@ -593,7 +593,7 @@ struct RMDCalculatorView: View {
                             let remaining = result.yearsRemaining ?? 0
                             HStack(spacing: 6) {
                                 Image(systemName: remaining <= 1 ? "exclamationmark.triangle.fill" : "clock")
-                                    .foregroundStyle(remaining <= 1 ? .red : (remaining <= 3 ? .orange : .secondary))
+                                    .foregroundStyle(remaining <= 1 ? Color.Semantic.amber : (remaining <= 3 ? Color.Semantic.amber : Color.UI.textSecondary))
                                 Text("Must empty by end of \(String(deadline))")
                                     .font(.caption)
                                 if remaining > 0 {
@@ -625,14 +625,14 @@ struct RMDCalculatorView: View {
                         Text(dataManager.inheritedIRARMDTotal, format: .currency(code: "USD"))
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.UI.textPrimary)
                     }
                 }
 
                 // QCD ineligibility notice
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.UI.brandTeal)
                     Text("Inherited IRA distributions are not eligible for Qualified Charitable Distributions (QCDs).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -817,7 +817,7 @@ struct RMDCalculatorView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(
                                 LinearGradient(
-                                    colors: [.blue.opacity(0.85), .orange.opacity(0.85)],
+                                    colors: [Color.UI.brandTeal.opacity(0.85), Color.Chart.callout.opacity(0.85)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -844,7 +844,7 @@ struct RMDCalculatorView: View {
                     HStack(spacing: 16) {
                         if hasRegularRMDs {
                             HStack(spacing: 6) {
-                                Circle().fill(.blue).frame(width: 8, height: 8)
+                                Circle().fill(Color.Chart.heroTeal).frame(width: 8, height: 8)
                                 Text("IRA / 401(k)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -852,7 +852,7 @@ struct RMDCalculatorView: View {
                         }
                         if hasInheritedRMDs {
                             HStack(spacing: 6) {
-                                Circle().fill(.orange).frame(width: 8, height: 8)
+                                Circle().fill(Color.Chart.callout).frame(width: 8, height: 8)
                                 Text("Inherited IRA")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -871,8 +871,8 @@ struct RMDCalculatorView: View {
                         .cornerRadius(3)
                     }
                     .chartForegroundStyleScale([
-                        "IRA / 401(k)": Color.blue,
-                        "Inherited IRA": Color.orange
+                        "IRA / 401(k)": Color.Chart.heroTeal,
+                        "Inherited IRA": Color.Chart.callout
                     ])
                     .chartLegend(.hidden)
                     .chartYAxis {
@@ -904,7 +904,7 @@ struct RMDCalculatorView: View {
                            peak.amount > 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.up.right")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.Chart.heroTeal)
                                     .font(.caption)
                                 Text("IRA / 401(k) Peak:")
                                     .font(.caption)
@@ -923,7 +923,7 @@ struct RMDCalculatorView: View {
                            peak.amount > 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.up.right")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.Chart.callout)
                                     .font(.caption)
                                 Text("Inherited IRA Peak:")
                                     .font(.caption)
@@ -948,7 +948,7 @@ struct RMDCalculatorView: View {
                             if let peakTotal = totalsByYear.max(by: { $0.total < $1.total }), peakTotal.total > 0 {
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.up.right")
-                                        .foregroundStyle(.purple)
+                                        .foregroundStyle(Color.UI.brandTeal)
                                         .font(.caption)
                                     Text("Combined Peak:")
                                         .font(.caption)
@@ -986,7 +986,7 @@ struct RMDCalculatorView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [.blue.opacity(0.3), .orange.opacity(0.3)],
+                            colors: [Color.UI.brandTeal.opacity(0.3), Color.Chart.callout.opacity(0.3)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
@@ -1031,7 +1031,7 @@ struct RMDCalculatorView: View {
                                 .frame(width: 50, alignment: .trailing)
                         }
                         Slider(value: $dataManager.primaryGrowthRate, in: -5...12, step: 0.5)
-                            .tint(.blue)
+                            .tint(Color.UI.brandTeal)
                     }
 
                     if dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0 {
@@ -1046,7 +1046,7 @@ struct RMDCalculatorView: View {
                                 .frame(width: 50, alignment: .trailing)
                         }
                         Slider(value: $dataManager.spouseGrowthRate, in: -5...12, step: 0.5)
-                            .tint(.green)
+                            .tint(Color.Chart.callout)
                     }
                 }
                 .padding()
@@ -1230,25 +1230,25 @@ struct RMDCalculatorView: View {
                 InfoRow(
                     icon: "info.circle",
                     text: "RMDs are the minimum amount you must withdraw from retirement accounts annually",
-                    color: .blue
+                    color: Color.UI.brandTeal
                 )
 
                 InfoRow(
                     icon: "exclamationmark.triangle",
                     text: "Penalty for missing RMD: 25% of the amount not withdrawn",
-                    color: .red
+                    color: Color.Semantic.amber
                 )
 
                 InfoRow(
                     icon: "checkmark.circle",
                     text: "Roth IRAs do NOT require RMDs during your lifetime",
-                    color: .green
+                    color: Color.UI.textPrimary
                 )
 
                 InfoRow(
                     icon: "chart.line.uptrend.xyaxis",
                     text: "RMD amount increases each year as life expectancy factor decreases",
-                    color: .purple
+                    color: Color.UI.brandTeal
                 )
             }
             .padding(.top, 8)
@@ -1286,7 +1286,7 @@ struct RMDCalculatorView: View {
                             HStack {
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.down.doc.fill")
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.UI.brandTeal)
                                     Text(account.name)
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
@@ -1295,8 +1295,8 @@ struct RMDCalculatorView: View {
                                             .font(.caption2)
                                             .padding(.horizontal, 4)
                                             .padding(.vertical, 1)
-                                            .background(Color.purple.opacity(0.2))
-                                            .foregroundStyle(.purple)
+                                            .background(Color.Chart.callout.opacity(0.2))
+                                            .foregroundStyle(Color.Chart.callout)
                                             .clipShape(Capsule())
                                     }
                                 }
@@ -1306,8 +1306,8 @@ struct RMDCalculatorView: View {
                                         .font(.caption2)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(Color.orange.opacity(0.2))
-                                        .foregroundStyle(.orange)
+                                        .background(Color.Semantic.amberTint)
+                                        .foregroundStyle(Color.Semantic.amber)
                                         .clipShape(Capsule())
                                 }
                             }
@@ -1350,7 +1350,7 @@ struct RMDCalculatorView: View {
                                         Text(row.rmd > 0 ? row.rmd.formatted(.currency(code: "USD").precision(.fractionLength(0))) : "—")
                                             .font(.caption)
                                             .fontWeight(row.isDeadline ? .bold : .medium)
-                                            .foregroundStyle(row.isDeadline ? .red : (row.rmd > 0 ? .orange : .secondary))
+                                            .foregroundStyle(row.isDeadline ? Color.Semantic.amber : (row.rmd > 0 ? Color.UI.textPrimary : Color.UI.textSecondary))
                                             .frame(width: 90, alignment: .trailing)
 
                                         if projections.first?.remaining != nil {
@@ -1358,7 +1358,7 @@ struct RMDCalculatorView: View {
                                                 Text("\(remaining)")
                                                     .font(.caption)
                                                     .fontWeight(remaining <= 1 ? .bold : .regular)
-                                                    .foregroundStyle(remaining <= 1 ? .red : (remaining <= 3 ? .orange : .secondary))
+                                                    .foregroundStyle(remaining <= 1 ? Color.Semantic.amber : (remaining <= 3 ? Color.Semantic.amber : Color.UI.textSecondary))
                                                     .frame(width: 40, alignment: .trailing)
                                             } else {
                                                 Text("—")
@@ -1371,8 +1371,8 @@ struct RMDCalculatorView: View {
                                     .padding(.vertical, 4)
                                     .padding(.horizontal, 8)
                                     .background(
-                                        row.year == dataManager.currentYear ? Color.orange.opacity(0.1) :
-                                        row.isDeadline ? Color.red.opacity(0.08) :
+                                        row.year == dataManager.currentYear ? Color.UI.surfaceInset :
+                                        row.isDeadline ? Color.Semantic.amberTint :
                                         Color(PlatformColor.secondarySystemBackground)
                                     )
                                     .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -1383,11 +1383,11 @@ struct RMDCalculatorView: View {
                             if let deadline = projections.last, deadline.isDeadline {
                                 HStack(spacing: 6) {
                                     Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(Color.Semantic.amber)
                                         .font(.caption)
                                     Text("Full remaining balance must be withdrawn by end of \(String(deadline.year))")
                                         .font(.caption)
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(Color.Semantic.amber)
                                 }
                                 .padding(.top, 4)
                             }
@@ -1486,7 +1486,7 @@ struct AccountRMDRow: View {
                 Text(rmd, format: .currency(code: "USD"))
                     .font(.callout)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.UI.textPrimary)
             }
         }
         .padding()
@@ -1531,7 +1531,7 @@ struct CombinedRMDProjectionRow: View {
                 Text(totalRMD, format: currencyFormat)
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundStyle(isCurrentYear ? .blue : .primary)
+                    .foregroundStyle(isCurrentYear ? Color.UI.brandTeal : .primary)
                     .frame(width: 80, alignment: .trailing)
             } else {
                 Text("—")
@@ -1542,7 +1542,7 @@ struct CombinedRMDProjectionRow: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .background(isCurrentYear ? Color.blue.opacity(0.1) : Color(PlatformColor.secondarySystemBackground))
+        .background(isCurrentYear ? Color.UI.surfaceInset : Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
@@ -1614,12 +1614,12 @@ struct RMDProjectionRow: View {
             Text(rmd, format: .currency(code: "USD").precision(.fractionLength(0)))
                 .font(.callout)
                 .fontWeight(.semibold)
-                .foregroundStyle(isCurrentYear ? .blue : .primary)
+                .foregroundStyle(isCurrentYear ? Color.UI.brandTeal : .primary)
                 .frame(width: 100, alignment: .trailing)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(isCurrentYear ? Color.blue.opacity(0.1) : Color(PlatformColor.secondarySystemBackground))
+        .background(isCurrentYear ? Color.UI.surfaceInset : Color(PlatformColor.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
