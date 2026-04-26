@@ -51,14 +51,16 @@ Brand color carries identity. Semantic colors carry meaning. Both follow the "ex
 | Color | Kind | Hex (light) | Hex (dark) | The one job | Examples |
 |---|---|---|---|---|---|
 | **Brand Teal** | Brand | `#2A6B7C` | `#2A7585` | Primary identity, default UI accent, ordered-data ramps | Nav bar, primary buttons, info-button glyph, card top-stripe, sequential bracket charts |
-| **Green** | Semantic | `#2E7D32` | `#4CAF50` | Money literally returning to the user | "REFUND" badge, refund-amount delta arrow |
+| **Green** | Semantic | `#2E7D32` | `#4CAF50` | Positive dollar AMOUNT the user receives or saves | "REFUND" badge, "Tax saved: $1,200", "QCD savings: $4,400", "Net family gain: $24,000" |
 | **Amber** | Semantic | `#B85C00` | `#E08A3A` | Action required (time-sensitive or input-needed) | "DUE" badge, deadline text ("Due Jun 15"), IRMAA-proximity warnings, missing-input prompts |
 | **Red** | Semantic | `#C62828` | `#EF5350` | Error / blocking state | Form validation errors, crossed IRMAA / ACA cliff, invalid input |
 
 **Explicitly NOT semantic colors:**
 - **No yellow.** Tip callouts use gray italic + ⓘ icon, not yellow.
 - **Red is never used for "tax owed."** Taxes are a normal mechanical reality, not an error state. Tax amounts are pure black.
-- **Green is never used for "good outcomes" generally.** Only refunds. Savings, gains, lower-tax wins are pure black numbers.
+- **Green is for dollar AMOUNTS only, not strategic conclusions.** "Tax saved: $4,400" → green ✓. "Roth wins immediately" → black ✗ (it's a strategic conclusion, not a dollar amount). Eligibility status ("Yes, eligible") → black. Rates and percentages → black. Pre-tax balances → black.
+
+**2026-04-25 spec update (Option B):** Original strict rule said green = refunds only. Refined after Task 3.9 review: green now applies to any positive dollar AMOUNT representing money the user receives or saves (refunds, calculated tax savings, donation savings, net wealth gain). The constraint that survives: green is never used for non-amount text (eligibility, conclusions, rates, labels).
 
 ### The narrowing rule for amber
 

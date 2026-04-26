@@ -184,7 +184,9 @@ struct LegacyImpactView: View {
                 Text(familyGain >= 0 ? "+\(compactCurrency(familyGain))" : "-\(compactCurrency(abs(familyGain)))")
                     .font(metricFont)
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.UI.textPrimary)
+                    // Green when positive (literal dollar gain to family); textPrimary
+                    // when negative (no red for losses per spec). Spec §2 Option B.
+                    .foregroundStyle(familyGain >= 0 ? Color.Semantic.green : Color.UI.textPrimary)
                 Text("in wealth")
                     .font(detailFont)
                     .foregroundStyle(.secondary)
@@ -280,14 +282,16 @@ struct LegacyImpactView: View {
             let advantage = dataManager.legacyFamilyWealthAdvantage
             HStack(spacing: 6) {
                 Image(systemName: advantage >= 0 ? "checkmark.seal.fill" : "exclamationmark.circle.fill")
-                    .foregroundStyle(Color.UI.textPrimary)
+                    // Green check when family gains money; textPrimary exclamation when not.
+                    .foregroundStyle(advantage >= 0 ? Color.Semantic.green : Color.UI.textPrimary)
                 Text("Net family gain:")
                     .font(itemHeader)
                     .fontWeight(.semibold)
                 Text(abs(advantage), format: .currency(code: "USD").precision(.fractionLength(0)))
                     .font(metricFont)
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.UI.textPrimary)
+                    // Green when positive (literal dollar gain). Spec §2 Option B.
+                    .foregroundStyle(advantage >= 0 ? Color.Semantic.green : Color.UI.textPrimary)
             }
             .frame(maxWidth: .infinity)
 
