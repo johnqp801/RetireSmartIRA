@@ -17,21 +17,12 @@ struct IncomeSourcesView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // Total Income Card
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Total Annual Income")
-                        .font(.headline)
-
-                    Text(dataManager.totalAnnualIncome(), format: .currency(code: "USD"))
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundStyle(Color.UI.textPrimary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(PlatformColor.systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+                // Total Income Card — uses canonical MetricCard
+                MetricCard(
+                    label: "Total Annual Income",
+                    value: dataManager.totalAnnualIncome().formatted(.currency(code: "USD")),
+                    category: .informational
+                )
 
                 // Income Sources List
                 VStack(alignment: .leading, spacing: 16) {
