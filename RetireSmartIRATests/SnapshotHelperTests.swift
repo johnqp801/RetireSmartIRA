@@ -101,4 +101,55 @@ final class SnapshotHelperTests: XCTestCase {
         try SnapshotInternal.write(img, to: nested)
         XCTAssertTrue(FileManager.default.fileExists(atPath: nested.path))
     }
+
+    @MainActor
+    func test_recordOrCompare_writesBaselineWhenMissing() {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("record-mode-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let baselinePath = tmpDir.appendingPathComponent("baseline.png")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: baselinePath.path))
+
+        var observed: SnapshotInternal.Outcome?
+        SnapshotInternal.recordOrCompare(
+            view: Color.orange.frame(width: 10, height: 10),
+            size: nil,
+            baselinePath: baselinePath,
+            forceRecord: false
+        ) { outcome, _ in observed = outcome }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: baselinePath.path),
+                      "Baseline should have been recorded at \(baselinePath.path)")
+        if case .recordedBaseline = observed {} else {
+            XCTFail("Expected .recordedBaseline outcome, got \(String(describing: observed))")
+        }
+    }
+
+    @MainActor
+    func test_recordOrCompare_writesBaselineWhenForceRecordTrue() {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("record-force-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let baselinePath = tmpDir.appendingPathComponent("baseline.png")
+
+        let firstView = Color.purple.frame(width: 10, height: 10)
+        try? SnapshotInternal.write(SnapshotInternal.render(view: firstView, size: nil), to: baselinePath)
+        let firstSize = (try? Data(contentsOf: baselinePath))?.count ?? 0
+        XCTAssertGreaterThan(firstSize, 0)
+
+        var observed: SnapshotInternal.Outcome?
+        SnapshotInternal.recordOrCompare(
+            view: Color.green.frame(width: 50, height: 50),
+            size: nil,
+            baselinePath: baselinePath,
+            forceRecord: true
+        ) { outcome, _ in observed = outcome }
+
+        if case .recordedBaseline = observed {} else {
+            XCTFail("Expected .recordedBaseline outcome under forceRecord, got \(String(describing: observed))")
+        }
+        let secondSize = (try? Data(contentsOf: baselinePath))?.count ?? 0
+        XCTAssertNotEqual(firstSize, secondSize, "Baseline should have been overwritten")
+    }
 }

@@ -29,6 +29,9 @@ enum SnapshotInternal {
     /// Strategy: walk the file path, find the segment "RetireSmartIRATests", and anchor there.
     static func path(for name: String, file: StaticString) -> URL {
         let fileString = "\(file)"
+        guard fileString.hasPrefix("/") else {
+            fatalError("SnapshotInternal.path: #file resolved to a relative path '\(fileString)'. Ensure no BUILD_LIBRARY_FOR_DISTRIBUTION or path-remapping is active in the test target.")
+        }
         // Find the rightmost "RetireSmartIRATests/" — handles worktrees, symlinks, etc.
         guard let testsRange = fileString.range(of: "RetireSmartIRATests/", options: .backwards) else {
             fatalError("SnapshotInternal.path: file path \(fileString) does not contain 'RetireSmartIRATests/'")
@@ -137,10 +140,46 @@ enum SnapshotInternal {
         }
     }
 
+    /// Loads a CGImage from a PNG file at the given URL.
+    /// - Returns: nil if the file does not exist OR is unreadable/corrupt.
+    ///   Callers that need to distinguish must check FileManager.fileExists separately.
     static func load(from url: URL) -> CGImage? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(src, 0, nil)
+    }
+
+    enum Outcome {
+        case recordedBaseline(URL)
+        case match
+        case mismatch(diffPercent: Double, attachments: [XCTAttachment])
+    }
+
+    @MainActor
+    static func recordOrCompare(
+        view: some View,
+        size: CGSize?,
+        baselinePath: URL,
+        forceRecord: Bool,
+        report: (Outcome, _ message: String) -> Void
+    ) {
+        let actual = render(view: view, size: size)
+        let baselineExists = FileManager.default.fileExists(atPath: baselinePath.path)
+
+        if forceRecord || !baselineExists {
+            do {
+                try write(actual, to: baselinePath)
+                report(.recordedBaseline(baselinePath),
+                       "Recorded baseline at \(baselinePath.path)")
+            } catch {
+                report(.recordedBaseline(baselinePath),
+                       "FAILED to write baseline at \(baselinePath.path): \(error)")
+            }
+            return
+        }
+
+        // Compare path: stub for next task
+        report(.match, "")
     }
 
     /// Build a red-tinted diff image from the differing-pixel mask.
@@ -170,5 +209,37 @@ enum SnapshotInternal {
             fatalError("makeDiffImage: failed to construct diff CGImage")
         }
         return image
+    }
+}
+
+@MainActor
+func assertSnapshot(
+    of view: some View,
+    named name: String,
+    size: CGSize? = nil,
+    record: Bool = false,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    let baselinePath = SnapshotInternal.path(for: name, file: file)
+    SnapshotInternal.recordOrCompare(
+        view: view,
+        size: size,
+        baselinePath: baselinePath,
+        forceRecord: record || ProcessInfo.processInfo.environment["RECORD_SNAPSHOTS"] == "1"
+    ) { outcome, message in
+        switch outcome {
+        case .recordedBaseline:
+            XCTFail(message, file: file, line: line)
+        case .match:
+            break  // pass silently
+        case .mismatch(_, let attachments):
+            for att in attachments {
+                XCTContext.runActivity(named: "Snapshot diff: \(name)") { activity in
+                    activity.add(att)
+                }
+            }
+            XCTFail(message, file: file, line: line)
+        }
     }
 }
