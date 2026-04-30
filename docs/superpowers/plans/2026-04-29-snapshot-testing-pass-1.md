@@ -444,12 +444,14 @@ Replace the stub. Add a private helper for byte buffer extraction:
     }
 
     /// Build a red-tinted diff image from the differing-pixel mask.
-    /// Where mask[i] == 1, pixel = (255, 0, 0, 200). Else (0, 0, 0, 0).
+    /// Where mask[i] == 1, pixel = pre-multiplied red at 78% alpha = (200, 0, 0, 200).
+    /// (CGContext requires premultipliedLast for 8bpc RGBA — unpremultipliedLast is unsupported.)
+    /// Else (0, 0, 0, 0). Visually identical to pure red at A=200, but format-valid.
     private static func makeDiffImage(mask: [UInt8], width: Int, height: Int) -> CGImage {
         var bytes = [UInt8](repeating: 0, count: width * height * 4)
         for i in 0..<mask.count where mask[i] == 1 {
             let base = i * 4
-            bytes[base] = 255      // R
+            bytes[base] = 200      // R (premultiplied: 255 * 200/255 = 200)
             bytes[base + 1] = 0    // G
             bytes[base + 2] = 0    // B
             bytes[base + 3] = 200  // A
