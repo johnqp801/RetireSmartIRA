@@ -225,4 +225,37 @@ final class SnapshotHelperTests: XCTestCase {
             XCTFail("Expected .match for identical re-render, got \(String(describing: observed))")
         }
     }
+
+    /// End-to-end test exercising the record-then-verify cycle. Uses recordOrCompare
+    /// directly (not the public assertSnapshot) so we don't fire real XCTFail during
+    /// the recording phase. This test should always pass.
+    @MainActor
+    func test_recordOrCompare_endToEnd_recordThenVerify() {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("e2e-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let baselinePath = tmpDir.appendingPathComponent("baseline.png")
+
+        let view = Color.cyan.frame(width: 30, height: 30)
+
+        // First call: no baseline exists → records and reports .recordedBaseline.
+        var firstOutcome: SnapshotInternal.Outcome?
+        SnapshotInternal.recordOrCompare(
+            view: view, size: nil, baselinePath: baselinePath, forceRecord: false
+        ) { outcome, _ in firstOutcome = outcome }
+
+        if case .recordedBaseline = firstOutcome {} else {
+            XCTFail("First call should have recorded baseline, got \(String(describing: firstOutcome))")
+        }
+
+        // Second call: baseline exists, identical render → reports .match.
+        var secondOutcome: SnapshotInternal.Outcome?
+        SnapshotInternal.recordOrCompare(
+            view: view, size: nil, baselinePath: baselinePath, forceRecord: false
+        ) { outcome, _ in secondOutcome = outcome }
+
+        if case .match = secondOutcome {} else {
+            XCTFail("Second call should have matched, got \(String(describing: secondOutcome))")
+        }
+    }
 }
