@@ -17,9 +17,10 @@
 - **Branch:** `1.9/snapshot-testing-pass-1`. All work lands here. Merge to main when Pass 1 is green and 28 baselines have been visually reviewed.
 - **No SPM dependencies.** This is the entire point — we are not adding `swift-snapshot-testing` or any other package. If a step asks to add a package, stop and re-read this line.
 - **No `project.pbxproj` edits.** The project uses Xcode 16 `PBXFileSystemSynchronizedRootGroup` — new `.swift` files dropped into `RetireSmartIRATests/` are auto-discovered by Xcode. The unstaged `project.pbxproj` change at session start is not from this work; leave it alone.
-- **Build green:** All 670+ existing tests must keep passing throughout. Run the full suite at the end of every Phase.
+- **Build green:** All 688 existing tests must keep passing throughout. Run the full suite at the end of every Phase.
 - **Commit cadence:** every task ends with a commit. No batch commits across tasks.
 - **TDD discipline:** Phase 1 helper tasks are TDD — failing test first, then minimal implementation, then verify pass. Phase 2 component snapshot tests are not TDD in the traditional sense (the "test" is a snapshot recording); but each task ends green with all baselines committed.
+- **`xcodebuild` requires `DEVELOPER_DIR` env var on this machine.** `xcode-select` points to Command Line Tools, not Xcode.app, so every `xcodebuild` invocation in this plan is prefixed with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`. Run commands exactly as shown — do not strip the prefix. (Long-term fix: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`. Out of scope here.)
 
 ---
 
@@ -78,7 +79,7 @@ Establishes the green baseline so we know our changes are responsible for any la
 - [ ] **Step 1: Run the full test suite via xcodebuild**
 
 ```bash
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -184,7 +185,7 @@ enum SnapshotInternal {
 - [ ] **Step 3: Run the test, verify it fails**
 
 ```bash
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -218,7 +219,7 @@ Replace the `path` body in `SnapshotHelper.swift`:
 - [ ] **Step 5: Run the test, verify it passes**
 
 ```bash
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -280,7 +281,7 @@ Add inside `enum SnapshotInternal`:
 - [ ] **Step 3: Run tests, verify failure**
 
 ```bash
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1001,7 +1002,7 @@ Expected: 16 tests passing in `SnapshotHelperTests`.
 - [ ] **Step 3: Run full test suite, verify no existing test regressions**
 
 ```bash
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1137,7 +1138,7 @@ The dark-mode tests add `.background(Color.UI.surfaceApp)` so the dark canvas is
 - [ ] **Step 2: Record baselines via `RECORD_SNAPSHOTS=1`**
 
 ```bash
-RECORD_SNAPSHOTS=1 xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1169,7 +1170,7 @@ If any PNG looks wrong, the underlying component is broken — not the snapshot 
 - [ ] **Step 4: Re-run without record env var, verify all pass**
 
 ```bash
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1291,7 +1292,7 @@ final class MetricCardSnapshotTests: XCTestCase {
 - [ ] **Step 2: Record baselines**
 
 ```bash
-RECORD_SNAPSHOTS=1 xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1407,7 +1408,7 @@ final class BadgeSnapshotTests: XCTestCase {
 - [ ] **Step 2: Record baselines**
 
 ```bash
-RECORD_SNAPSHOTS=1 xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1487,7 +1488,7 @@ final class InfoButtonSnapshotTests: XCTestCase {
 - [ ] **Step 2: Record baselines**
 
 ```bash
-RECORD_SNAPSHOTS=1 xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1587,7 +1588,7 @@ Expected: `M RetireSmartIRA.xcodeproj/project.pbxproj` (the pre-existing change 
 - [ ] **Step 2: Run the full test suite**
 
 ```bash
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1648,7 +1649,7 @@ This is a one-shot manual confirmation that the helper actually catches regressi
 ```bash
 # Temporarily change brand teal in ColorTokens+UI.swift, e.g. flip a hex digit
 # Then re-run snapshot tests:
-xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
