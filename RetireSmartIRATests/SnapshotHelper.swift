@@ -187,6 +187,8 @@ enum SnapshotInternal {
         }
 
         guard actual.width == expected.width && actual.height == expected.height else {
+            // diffPercent: 1.0 is a sentinel meaning "incomparable", not a real per-pixel count.
+            // Callers branching on diffPercent should also inspect the message for context.
             report(.mismatch(diffPercent: 1.0, attachments: makeAttachments(actual: actual, expected: expected, diff: nil)),
                    "Snapshot dimensions changed: baseline \(expected.width)x\(expected.height), actual \(actual.width)x\(actual.height) — delete baseline to re-record")
             return
