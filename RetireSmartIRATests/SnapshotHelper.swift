@@ -39,4 +39,19 @@ enum SnapshotInternal {
         let composed = "\(prefix)__Snapshots__/\(className)/\(name).png"
         return URL(fileURLWithPath: composed)
     }
+
+    @MainActor
+    static func render(view: some View, size: CGSize?) -> CGImage {
+        let sized: AnyView = if let size {
+            AnyView(view.frame(width: size.width, height: size.height))
+        } else {
+            AnyView(view)
+        }
+        let renderer = ImageRenderer(content: sized)
+        renderer.scale = 2.0  // pinned for reproducibility
+        guard let cgImage = renderer.cgImage else {
+            fatalError("SnapshotInternal.render: ImageRenderer returned nil cgImage")
+        }
+        return cgImage
+    }
 }
