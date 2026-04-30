@@ -581,6 +581,9 @@ struct TaxPlanningView: View {
 
     // MARK: - Deduction Comparison Card
 
+    // Intentionally ad-hoc: MetricCard doesn't fit — Standard vs Itemized side-by-side comparison
+    // with checkmarks. Comparison structure is the point.
+    // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
     private var deductionComparisonCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             let standard = dataManager.standardDeductionAmount
@@ -2511,6 +2514,9 @@ struct TaxPlanningView: View {
 
     // MARK: - Tax Impact Section
 
+    // Intentionally ad-hoc: MetricCard doesn't fit — multi-row tax breakdown with conditional sections
+    // (deduction status, before/after columns, tax impact). Detailed analysis card, not a metric.
+    // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
     @ViewBuilder
     private var scenarioSummaryCard: some View {
         if dataManager.hasActiveScenario {

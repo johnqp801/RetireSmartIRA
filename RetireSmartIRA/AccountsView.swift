@@ -121,6 +121,9 @@ struct AccountsView: View {
     }
 }
 
+// Intentionally ad-hoc: MetricCard doesn't fit — list-row context with multiple inline badges
+// (owner, beneficiary, account type). MetricCard is for standalone metrics, not list items.
+// See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
 struct AccountRow: View {
     let account: IRAAccount
     

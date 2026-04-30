@@ -188,6 +188,9 @@ struct SocialSecurityPlannerView: View {
 
     // MARK: - Status Card
 
+    // Intentionally ad-hoc: MetricCard doesn't fit — interactive multi-state benefit-status display
+    // with conditional buttons (claim entry, edit benefit). MetricCard is read-only and single-state.
+    // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
     private var statusCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
