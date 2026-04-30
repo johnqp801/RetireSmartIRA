@@ -152,4 +152,77 @@ final class SnapshotHelperTests: XCTestCase {
         let secondSize = (try? Data(contentsOf: baselinePath))?.count ?? 0
         XCTAssertNotEqual(firstSize, secondSize, "Baseline should have been overwritten")
     }
+
+    @MainActor
+    func test_recordOrCompare_returnsMatchWhenIdentical() throws {
+        let view = Color.red.frame(width: 10, height: 10)
+        let img = SnapshotInternal.render(view: view, size: nil)
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("compare-match-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let baselinePath = tmpDir.appendingPathComponent("RetireSmartIRATests/__Snapshots__/X/test.png")
+        try SnapshotInternal.write(img, to: baselinePath)
+
+        var observed: SnapshotInternal.Outcome?
+        SnapshotInternal.recordOrCompare(
+            view: view,
+            size: nil,
+            baselinePath: baselinePath,
+            forceRecord: false
+        ) { outcome, _ in observed = outcome }
+
+        if case .match = observed {} else {
+            XCTFail("Expected .match, got \(String(describing: observed))")
+        }
+    }
+
+    @MainActor
+    func test_recordOrCompare_returnsMismatchWhenDifferent() throws {
+        let red = Color.red.frame(width: 10, height: 10)
+        let blue = Color.blue.frame(width: 10, height: 10)
+        let redImg = SnapshotInternal.render(view: red, size: nil)
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("compare-mismatch-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let baselinePath = tmpDir.appendingPathComponent("RetireSmartIRATests/__Snapshots__/X/test.png")
+        try SnapshotInternal.write(redImg, to: baselinePath)
+
+        var observed: SnapshotInternal.Outcome?
+        SnapshotInternal.recordOrCompare(
+            view: blue,
+            size: nil,
+            baselinePath: baselinePath,
+            forceRecord: false
+        ) { outcome, _ in observed = outcome }
+
+        guard case let .mismatch(diffPct, attachments) = observed else {
+            XCTFail("Expected .mismatch, got \(String(describing: observed))")
+            return
+        }
+        XCTAssertGreaterThan(diffPct, 0.5, "Red vs blue should be very different")
+        XCTAssertEqual(attachments.count, 3, "Expected actual + expected + diff attachments")
+    }
+
+    @MainActor
+    func test_recordOrCompare_returnsMatchWhenWithinTolerance() throws {
+        let view = Color(red: 0.5, green: 0.5, blue: 0.5).frame(width: 50, height: 50)
+        let img = SnapshotInternal.render(view: view, size: nil)
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("compare-tolerance-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let baselinePath = tmpDir.appendingPathComponent("RetireSmartIRATests/__Snapshots__/X/test.png")
+        try SnapshotInternal.write(img, to: baselinePath)
+
+        var observed: SnapshotInternal.Outcome?
+        SnapshotInternal.recordOrCompare(
+            view: view,
+            size: nil,
+            baselinePath: baselinePath,
+            forceRecord: false
+        ) { outcome, _ in observed = outcome }
+
+        if case .match = observed {} else {
+            XCTFail("Expected .match for identical re-render, got \(String(describing: observed))")
+        }
+    }
 }

@@ -23,6 +23,7 @@ import SwiftUI
 import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
+import AppKit
 
 enum SnapshotInternal {
     /// Computes the baseline PNG URL from the calling test's #file and the snapshot name.
@@ -178,8 +179,56 @@ enum SnapshotInternal {
             return
         }
 
-        // Compare path: stub for next task
-        report(.match, "")
+        // Compare path
+        guard let expected = load(from: baselinePath) else {
+            report(.recordedBaseline(baselinePath),
+                   "Baseline file disappeared between existence check and load: \(baselinePath.path)")
+            return
+        }
+
+        guard actual.width == expected.width && actual.height == expected.height else {
+            report(.mismatch(diffPercent: 1.0, attachments: makeAttachments(actual: actual, expected: expected, diff: nil)),
+                   "Snapshot dimensions changed: baseline \(expected.width)x\(expected.height), actual \(actual.width)x\(actual.height) — delete baseline to re-record")
+            return
+        }
+
+        let diff = compare(actual: actual, expected: expected)
+        let threshold = 0.0001  // 0.01% per spec §4
+        if diff.diffPercent <= threshold {
+            report(.match, "")
+        } else {
+            let pctStr = String(format: "%.4f", diff.diffPercent * 100)
+            report(
+                .mismatch(diffPercent: diff.diffPercent,
+                          attachments: makeAttachments(actual: actual, expected: expected, diff: diff.diffImage)),
+                "Snapshot mismatch: \(pctStr)% pixels differ (threshold: 0.01%) at \(baselinePath.path)"
+            )
+        }
+    }
+
+    static func makeAttachments(actual: CGImage, expected: CGImage, diff: CGImage?) -> [XCTAttachment] {
+        var atts: [XCTAttachment] = []
+
+        let nsActual = NSImage(cgImage: actual, size: NSSize(width: actual.width, height: actual.height))
+        let actualAtt = XCTAttachment(image: nsActual)
+        actualAtt.name = "actual.png"
+        actualAtt.lifetime = .keepAlways
+        atts.append(actualAtt)
+
+        let nsExpected = NSImage(cgImage: expected, size: NSSize(width: expected.width, height: expected.height))
+        let expectedAtt = XCTAttachment(image: nsExpected)
+        expectedAtt.name = "expected.png"
+        expectedAtt.lifetime = .keepAlways
+        atts.append(expectedAtt)
+
+        if let diff {
+            let nsDiff = NSImage(cgImage: diff, size: NSSize(width: diff.width, height: diff.height))
+            let diffAtt = XCTAttachment(image: nsDiff)
+            diffAtt.name = "diff.png"
+            diffAtt.lifetime = .keepAlways
+            atts.append(diffAtt)
+        }
+        return atts
     }
 
     /// Build a red-tinted diff image from the differing-pixel mask.
@@ -234,10 +283,8 @@ func assertSnapshot(
         case .match:
             break  // pass silently
         case .mismatch(_, let attachments):
-            for att in attachments {
-                XCTContext.runActivity(named: "Snapshot diff: \(name)") { activity in
-                    activity.add(att)
-                }
+            XCTContext.runActivity(named: "Snapshot diff: \(name)") { activity in
+                for att in attachments { activity.add(att) }
             }
             XCTFail(message, file: file, line: line)
         }
