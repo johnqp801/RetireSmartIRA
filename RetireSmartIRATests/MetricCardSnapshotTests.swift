@@ -18,7 +18,7 @@ final class MetricCardSnapshotTests: XCTestCase {
             .frame(width: 240)
             .padding()
             .background(Color.UI.surfaceApp)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "MetricCard_informational_dark")
     }
 
@@ -50,7 +50,7 @@ final class MetricCardSnapshotTests: XCTestCase {
         .frame(width: 240)
         .padding()
         .background(Color.UI.surfaceApp)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "MetricCard_actionRequired_dark")
     }
 
@@ -80,7 +80,7 @@ final class MetricCardSnapshotTests: XCTestCase {
         .frame(width: 240)
         .padding()
         .background(Color.UI.surfaceApp)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "MetricCard_error_dark")
     }
 }

@@ -15,7 +15,7 @@ final class BrandButtonSnapshotTests: XCTestCase {
         let view = BrandButton(title: "Convert", style: .primary, size: .standard) {}
             .padding()
             .background(Color.UI.surfaceApp)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "BrandButton_primary_dark")
     }
 
@@ -30,7 +30,7 @@ final class BrandButtonSnapshotTests: XCTestCase {
         let view = BrandButton(title: "Cancel", style: .secondary, size: .standard) {}
             .padding()
             .background(Color.UI.surfaceApp)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "BrandButton_secondary_dark")
     }
 
@@ -45,7 +45,7 @@ final class BrandButtonSnapshotTests: XCTestCase {
         let view = BrandButton(title: "Reset", style: .tertiaryUtility, size: .standard) {}
             .padding()
             .background(Color.UI.surfaceApp)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "BrandButton_tertiaryUtility_dark")
     }
 
@@ -60,7 +60,7 @@ final class BrandButtonSnapshotTests: XCTestCase {
         let view = BrandButton(title: "View breakdown", style: .tertiaryForward, size: .standard) {}
             .padding()
             .background(Color.UI.surfaceApp)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "BrandButton_tertiaryForward_dark")
     }
 
@@ -75,7 +75,7 @@ final class BrandButtonSnapshotTests: XCTestCase {
         let view = BrandButton(title: "Delete", style: .destructiveSecondary, size: .standard) {}
             .padding()
             .background(Color.UI.surfaceApp)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "BrandButton_destructiveSecondary_dark")
     }
 
@@ -90,7 +90,7 @@ final class BrandButtonSnapshotTests: XCTestCase {
         let view = BrandButton(title: "Yes, delete forever", style: .destructivePrimary, size: .standard) {}
             .padding()
             .background(Color.UI.surfaceApp)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "BrandButton_destructivePrimary_dark")
     }
 }

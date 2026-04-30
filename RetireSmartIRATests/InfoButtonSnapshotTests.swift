@@ -27,7 +27,7 @@ final class InfoButtonSnapshotTests: XCTestCase {
         .padding()
         .frame(width: 280)
         .background(Color.UI.surfaceCard)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "InfoButton_inline_dark")
     }
 }

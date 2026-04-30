@@ -15,7 +15,7 @@ final class BadgeSnapshotTests: XCTestCase {
         let view = Badge(text: "REFUND", variant: .refund)
             .padding()
             .background(Color.UI.surfaceCard)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "Badge_refund_dark")
     }
 
@@ -30,7 +30,7 @@ final class BadgeSnapshotTests: XCTestCase {
         let view = Badge(text: "DUE", variant: .due)
             .padding()
             .background(Color.UI.surfaceCard)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "Badge_due_dark")
     }
 
@@ -45,7 +45,7 @@ final class BadgeSnapshotTests: XCTestCase {
         let view = Badge(text: "ERROR", variant: .error)
             .padding()
             .background(Color.UI.surfaceCard)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "Badge_error_dark")
     }
 
@@ -60,7 +60,7 @@ final class BadgeSnapshotTests: XCTestCase {
         let view = Badge(text: "DRAFT", variant: .neutral)
             .padding()
             .background(Color.UI.surfaceCard)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
         assertSnapshot(of: view, named: "Badge_neutral_dark")
     }
 }
