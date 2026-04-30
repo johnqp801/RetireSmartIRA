@@ -41,4 +41,31 @@ final class SnapshotHelperTests: XCTestCase {
         XCTAssertEqual(image.width, 400)   // 200 × 2
         XCTAssertEqual(image.height, 200)  // 100 × 2
     }
+
+    @MainActor
+    func test_compare_identicalImagesProduceZeroDiff() {
+        let view = Color.red.frame(width: 20, height: 20)
+        let img1 = SnapshotInternal.render(view: view, size: nil)
+        let img2 = SnapshotInternal.render(view: view, size: nil)
+        let result = SnapshotInternal.compare(actual: img1, expected: img2)
+        XCTAssertEqual(result.diffPercent, 0.0, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func test_compare_completelyDifferentImagesProduce100PercentDiff() {
+        let red = SnapshotInternal.render(view: Color.red.frame(width: 20, height: 20), size: nil)
+        let blue = SnapshotInternal.render(view: Color.blue.frame(width: 20, height: 20), size: nil)
+        let result = SnapshotInternal.compare(actual: red, expected: blue)
+        XCTAssertGreaterThan(result.diffPercent, 0.99,
+            "Red vs blue should be ~100% different, got \(result.diffPercent)")
+    }
+
+    @MainActor
+    func test_compare_diffImageHasSameDimensionsAsInputs() {
+        let img1 = SnapshotInternal.render(view: Color.red.frame(width: 20, height: 20), size: nil)
+        let img2 = SnapshotInternal.render(view: Color.green.frame(width: 20, height: 20), size: nil)
+        let result = SnapshotInternal.compare(actual: img1, expected: img2)
+        XCTAssertEqual(result.diffImage.width, img1.width)
+        XCTAssertEqual(result.diffImage.height, img1.height)
+    }
 }

@@ -54,4 +54,91 @@ enum SnapshotInternal {
         }
         return cgImage
     }
+
+    struct DiffResult {
+        let diffPercent: Double  // 0.0 to 1.0
+        let diffImage: CGImage   // red-tinted XOR; transparent where equal
+    }
+
+    static func compare(actual: CGImage, expected: CGImage) -> DiffResult {
+        precondition(actual.width == expected.width && actual.height == expected.height,
+                     "compare: images must have same dimensions")
+
+        let width = actual.width
+        let height = actual.height
+        let pixelCount = width * height
+
+        let actualBytes = Self.rgba8Buffer(from: actual)
+        let expectedBytes = Self.rgba8Buffer(from: expected)
+
+        var diffMask = [UInt8](repeating: 0, count: pixelCount)
+        var differingCount = 0
+
+        for i in 0..<pixelCount {
+            let base = i * 4
+            // Per-channel tolerance: treat values within ±1 as equal (sub-pixel rounding).
+            let dr = abs(Int(actualBytes[base]) - Int(expectedBytes[base]))
+            let dg = abs(Int(actualBytes[base + 1]) - Int(expectedBytes[base + 1]))
+            let db = abs(Int(actualBytes[base + 2]) - Int(expectedBytes[base + 2]))
+            let da = abs(Int(actualBytes[base + 3]) - Int(expectedBytes[base + 3]))
+            if dr > 1 || dg > 1 || db > 1 || da > 1 {
+                diffMask[i] = 1
+                differingCount += 1
+            }
+        }
+
+        let diffPercent = Double(differingCount) / Double(pixelCount)
+        let diffImage = Self.makeDiffImage(mask: diffMask, width: width, height: height)
+        return DiffResult(diffPercent: diffPercent, diffImage: diffImage)
+    }
+
+    /// Extract a packed RGBA8 byte buffer from a CGImage, normalizing format.
+    private static func rgba8Buffer(from image: CGImage) -> [UInt8] {
+        let width = image.width
+        let height = image.height
+        let bytesPerRow = width * 4
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo: UInt32 = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let ctx = CGContext(
+            data: &bytes,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else {
+            fatalError("rgba8Buffer: failed to create CGContext")
+        }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return bytes
+    }
+
+    /// Build a red-tinted diff image from the differing-pixel mask.
+    /// Where mask[i] == 1, pixel = (255, 0, 0, 200). Else (0, 0, 0, 0).
+    private static func makeDiffImage(mask: [UInt8], width: Int, height: Int) -> CGImage {
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        for i in 0..<mask.count where mask[i] == 1 {
+            let base = i * 4
+            bytes[base] = 255      // R
+            bytes[base + 1] = 0    // G
+            bytes[base + 2] = 0    // B
+            bytes[base + 3] = 200  // A
+        }
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo: UInt32 = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let ctx = CGContext(
+            data: &bytes,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ), let image = ctx.makeImage() else {
+            fatalError("makeDiffImage: failed to construct diff CGImage")
+        }
+        return image
+    }
 }
