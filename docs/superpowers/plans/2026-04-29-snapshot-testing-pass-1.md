@@ -21,6 +21,7 @@
 - **Commit cadence:** every task ends with a commit. No batch commits across tasks.
 - **TDD discipline:** Phase 1 helper tasks are TDD — failing test first, then minimal implementation, then verify pass. Phase 2 component snapshot tests are not TDD in the traditional sense (the "test" is a snapshot recording); but each task ends green with all baselines committed.
 - **`xcodebuild` requires `DEVELOPER_DIR` env var on this machine.** `xcode-select` points to Command Line Tools, not Xcode.app, so every `xcodebuild` invocation in this plan is prefixed with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`. Run commands exactly as shown — do not strip the prefix. (Long-term fix: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`. Out of scope here.)
+- **App sandbox blocks test-bundle writes to source tree.** The app target has `ENABLE_APP_SANDBOX = YES`, which prevents `CGImageDestinationCreateWithURL` from writing snapshot baseline PNGs to `RetireSmartIRATests/__Snapshots__/`. Workaround: pass `ENABLE_APP_SANDBOX=NO` as a build-setting override on every snapshot-related `xcodebuild test` invocation (record AND verify, to keep the build configuration consistent). This does not modify `project.pbxproj`. Surfaced during Task 2.1 execution. (Long-term fix: disable sandbox on the test target only via `project.pbxproj` — out of scope for Pass 1.)
 
 ---
 
@@ -79,7 +80,7 @@ Establishes the green baseline so we know our changes are responsible for any la
 - [ ] **Step 1: Run the full test suite via xcodebuild**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -185,7 +186,7 @@ enum SnapshotInternal {
 - [ ] **Step 3: Run the test, verify it fails**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -219,7 +220,7 @@ Replace the `path` body in `SnapshotHelper.swift`:
 - [ ] **Step 5: Run the test, verify it passes**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -281,7 +282,7 @@ Add inside `enum SnapshotInternal`:
 - [ ] **Step 3: Run tests, verify failure**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1004,7 +1005,7 @@ Expected: 16 tests passing in `SnapshotHelperTests`.
 - [ ] **Step 3: Run full test suite, verify no existing test regressions**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1140,7 +1141,7 @@ The dark-mode tests add `.background(Color.UI.surfaceApp)` so the dark canvas is
 - [ ] **Step 2: Record baselines via `RECORD_SNAPSHOTS=1`**
 
 ```bash
-RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1172,7 +1173,7 @@ If any PNG looks wrong, the underlying component is broken — not the snapshot 
 - [ ] **Step 4: Re-run without record env var, verify all pass**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1294,7 +1295,7 @@ final class MetricCardSnapshotTests: XCTestCase {
 - [ ] **Step 2: Record baselines**
 
 ```bash
-RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1410,7 +1411,7 @@ final class BadgeSnapshotTests: XCTestCase {
 - [ ] **Step 2: Record baselines**
 
 ```bash
-RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1490,7 +1491,7 @@ final class InfoButtonSnapshotTests: XCTestCase {
 - [ ] **Step 2: Record baselines**
 
 ```bash
-RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+RECORD_SNAPSHOTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1590,7 +1591,7 @@ Expected: `M RetireSmartIRA.xcodeproj/project.pbxproj` (the pre-existing change 
 - [ ] **Step 2: Run the full test suite**
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
@@ -1651,7 +1652,7 @@ This is a one-shot manual confirmation that the helper actually catches regressi
 ```bash
 # Temporarily change brand teal in ColorTokens+UI.swift, e.g. flip a hex digit
 # Then re-run snapshot tests:
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test ENABLE_APP_SANDBOX=NO \
   -project RetireSmartIRA.xcodeproj \
   -scheme RetireSmartIRA \
   -destination 'platform=macOS' \
