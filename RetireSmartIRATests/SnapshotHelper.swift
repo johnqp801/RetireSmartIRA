@@ -21,6 +21,8 @@
 import XCTest
 import SwiftUI
 import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
 
 enum SnapshotInternal {
     /// Computes the baseline PNG URL from the calling test's #file and the snapshot name.
@@ -113,6 +115,32 @@ enum SnapshotInternal {
         }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         return bytes
+    }
+
+    static func write(_ image: CGImage, to url: URL) throws {
+        let dir = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        guard let dest = CGImageDestinationCreateWithURL(
+            url as CFURL,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw NSError(domain: "SnapshotInternal", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Could not create CGImageDestination at \(url.path)"])
+        }
+        CGImageDestinationAddImage(dest, image, nil)
+        guard CGImageDestinationFinalize(dest) else {
+            throw NSError(domain: "SnapshotInternal", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "CGImageDestinationFinalize failed for \(url.path)"])
+        }
+    }
+
+    static func load(from url: URL) -> CGImage? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(src, 0, nil)
     }
 
     /// Build a red-tinted diff image from the differing-pixel mask.

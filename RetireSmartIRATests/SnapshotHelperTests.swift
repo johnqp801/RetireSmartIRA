@@ -68,4 +68,37 @@ final class SnapshotHelperTests: XCTestCase {
         XCTAssertEqual(result.diffImage.width, img1.width)
         XCTAssertEqual(result.diffImage.height, img1.height)
     }
+
+    @MainActor
+    func test_writeAndLoad_roundTripsAnImage() throws {
+        let original = SnapshotInternal.render(view: Color.purple.frame(width: 20, height: 20), size: nil)
+        let tmpURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("snapshot-roundtrip-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: tmpURL) }
+
+        try SnapshotInternal.write(original, to: tmpURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tmpURL.path))
+
+        let loaded = try XCTUnwrap(SnapshotInternal.load(from: tmpURL))
+        let result = SnapshotInternal.compare(actual: original, expected: loaded)
+        XCTAssertEqual(result.diffPercent, 0.0, accuracy: 0.0001,
+                       "PNG round-trip should be lossless for solid color")
+    }
+
+    func test_load_returnsNilForMissingFile() {
+        let missing = URL(fileURLWithPath: "/tmp/definitely-does-not-exist-\(UUID()).png")
+        XCTAssertNil(SnapshotInternal.load(from: missing))
+    }
+
+    @MainActor
+    func test_write_createsIntermediateDirectories() throws {
+        let img = SnapshotInternal.render(view: Color.gray.frame(width: 10, height: 10), size: nil)
+        let baseTmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("nested-\(UUID().uuidString)")
+        let nested = baseTmp.appendingPathComponent("a/b/c/file.png")
+        defer { try? FileManager.default.removeItem(at: baseTmp) }
+
+        try SnapshotInternal.write(img, to: nested)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: nested.path))
+    }
 }
