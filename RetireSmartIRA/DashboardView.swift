@@ -131,7 +131,8 @@ struct DashboardView: View {
     // MARK: - Header Card
 
     private var headerCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            // Header row: year + filing status
             HStack {
                 Text("\(String(dataManager.currentYear)) Tax Year")
                     .font(.title2)
@@ -143,59 +144,37 @@ struct DashboardView: View {
                     .foregroundStyle(.secondary)
             }
 
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Your Age")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text("\(dataManager.currentAge)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                }
+            // Metrics row: ages + RMD status, each as its own MetricCard
+            HStack(spacing: Spacing.sm) {
+                MetricCard(
+                    label: "Your Age",
+                    value: "\(dataManager.currentAge)",
+                    category: .informational
+                )
 
                 if dataManager.enableSpouse {
-                    Spacer()
-                    VStack(alignment: .center, spacing: 4) {
-                        Text("\(dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName) Age")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text("\(dataManager.spouseCurrentAge)")
-                            .font(.title)
-                            .fontWeight(.bold)
-                    }
+                    MetricCard(
+                        label: "\(dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName) Age",
+                        value: "\(dataManager.spouseCurrentAge)",
+                        category: .informational
+                    )
                 }
 
-                Spacer()
-
                 if dataManager.isRMDRequired {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("RMD Status")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        // "Required" is an obligation, not a penalty — use bold
-                        // weight, not red, per the color contract. Red is
-                        // reserved for missed deadlines / actual penalties.
-                        Text("Required")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                    }
+                    MetricCard(
+                        label: "RMD Status",
+                        value: "Required",
+                        category: .informational
+                    )
                 } else {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("Years Until RMD")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text("\(dataManager.yearsUntilRMD)")
-                            .font(.title)
-                            .fontWeight(.bold)
-                    }
+                    MetricCard(
+                        label: "Years Until RMD",
+                        value: "\(dataManager.yearsUntilRMD)",
+                        category: .informational
+                    )
                 }
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(PlatformColor.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         #if canImport(UIKit)
         .sheet(isPresented: $showShareSheet) {
             if let pdfData {
