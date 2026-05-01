@@ -196,14 +196,9 @@ struct SocialSecurityPlannerView: View {
                         Text("Social Security")
                             .font(.headline)
                         if hasBenefitData && bothPlanning {
-                            Button {
+                            InfoButton {
                                 showInfoPopover.toggle()
-                            } label: {
-                                Image(systemName: "info.circle")
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color.UI.brandTeal)
                             }
-                            .buttonStyle(.plain)
                             .popover(isPresented: $showInfoPopover) {
                                 analysisInfoPopover
                             }
