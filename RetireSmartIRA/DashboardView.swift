@@ -215,13 +215,7 @@ struct DashboardView: View {
 
             // Individual income sources
             if dataManager.incomeSources.isEmpty {
-                HStack {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.UI.brandTeal)
-                    Text("Add income sources in the Income & Deductions tab")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("Add income sources in the Income & Deductions tab")
             } else {
                 ForEach(dataManager.incomeSources) { source in
                     HStack {
@@ -660,14 +654,7 @@ struct DashboardView: View {
                 }
 
                 // Local tax note
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                    Text("State tax only \u{2014} local/city taxes (e.g. NYC) are not included.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("State tax only \u{2014} local/city taxes (e.g. NYC) are not included.")
             }
 
             // IRMAA surcharge (separate from income tax — Medicare premium surcharge)
