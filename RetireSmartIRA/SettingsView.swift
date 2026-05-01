@@ -134,14 +134,7 @@ struct SettingsView: View {
                     // birth date). Only ask for heir-specific details when the ultimate
                     // inheritor is someone other than the spouse.
                     if dataManager.legacyHeirType == "spouse" {
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundStyle(Color.UI.brandTeal)
-                                .font(.caption)
-                            Text("Your spouse's income, filing status, and age come from your household inputs — no additional heir details needed.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        InlineHint("Your spouse's income, filing status, and age come from your household inputs — no additional heir details needed.")
                     } else {
                         // Labels say "Primary Heir's" (not "Heir's") to make the
                         // single-heir model unambiguous — Ron Park feedback: users
