@@ -2889,6 +2889,8 @@ struct TaxPlanningView: View {
                 // Distance to next cliff
                 if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                     HStack(spacing: 6) {
+                        // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                        // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                         Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
                             .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                         Text("\(distanceToNext, format: .currency(code: "USD")) until next IRMAA tier")
@@ -3043,6 +3045,8 @@ struct TaxPlanningView: View {
                     }
 
                     HStack(spacing: 6) {
+                        // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                        // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                         Image(systemName: niit.distanceToThreshold < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
                             .foregroundStyle(niit.distanceToThreshold < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                             .font(.caption)

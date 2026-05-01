@@ -969,6 +969,8 @@ struct SSDataEntryView: View {
 
             if abs(pct) > 1 {
                 HStack(spacing: 4) {
+                    // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                    // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                     Image(systemName: abs(pct) > 10 ? "exclamationmark.triangle" : "info.circle")
                         .font(.caption)
                         .foregroundStyle(abs(pct) > 10 ? Color.Semantic.amber : Color.UI.brandTeal)
