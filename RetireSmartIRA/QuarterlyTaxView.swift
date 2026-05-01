@@ -171,6 +171,9 @@ struct QuarterlyTaxView: View {
 
     // MARK: - Annual Tax Summary
 
+    // Intentionally ad-hoc: MetricCard doesn't fit — detailed tax line-item breakdown with multiple
+    // rows and dividers. A summary table, not a metric card.
+    // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
     private var annualTaxSummary: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("\(dataManager.currentYear) Annual Tax Summary")
@@ -227,6 +230,9 @@ struct QuarterlyTaxView: View {
                 let minQ = min(payments.q1, payments.q2, payments.q3, payments.q4)
                 let maxQ = max(payments.q1, payments.q2, payments.q3, payments.q4)
 
+                // Candidate for MetricCard swap — range UX deserves its own treatment first.
+                // Revisit after Pass 2 snapshot tests cover this screen.
+                // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(dataManager.safeHarborMethod.label)
@@ -598,6 +604,9 @@ struct QuarterlyTaxView: View {
 
     // MARK: - Safe Harbor Method Card
 
+    // Intentionally ad-hoc: MetricCard doesn't fit — interactive picker control + detailed
+    // explanation table. Control card, not metric card.
+    // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
     private var safeHarborCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {

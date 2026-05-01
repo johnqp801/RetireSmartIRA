@@ -15,41 +15,30 @@ struct AccountsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // Total Balance Card
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Total IRA Balance")
+                // IRA balance summary — split into 3 MetricCards per 1.9 Task 3
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text("IRA Balances")
                         .font(.headline)
-                    
-                    HStack(spacing: 40) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Traditional")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(dataManager.totalTraditionalIRABalance, format: .currency(code: "USD"))
-                                .font(.title2)
-                                .fontWeight(.bold)
-                        }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Roth")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(dataManager.totalRothBalance, format: .currency(code: "USD"))
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundStyle(Color.UI.textPrimary)
-                        }
+                    HStack(spacing: Spacing.sm) {
+                        MetricCard(
+                            label: "Traditional",
+                            value: dataManager.totalTraditionalIRABalance.formatted(.currency(code: "USD")),
+                            category: .informational
+                        )
+
+                        MetricCard(
+                            label: "Roth",
+                            value: dataManager.totalRothBalance.formatted(.currency(code: "USD")),
+                            category: .informational
+                        )
 
                         if dataManager.hasInheritedAccounts {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Inherited")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text(dataManager.totalInheritedBalance, format: .currency(code: "USD"))
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(Color.UI.textSecondary)
-                            }
+                            MetricCard(
+                                label: "Inherited",
+                                value: dataManager.totalInheritedBalance.formatted(.currency(code: "USD")),
+                                category: .informational
+                            )
                         }
                     }
 
@@ -58,11 +47,6 @@ struct AccountsView: View {
                         .foregroundStyle(.secondary)
                         .italic()
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(PlatformColor.systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
 
                 // Accounts List
                 VStack(alignment: .leading, spacing: 16) {
@@ -137,6 +121,9 @@ struct AccountsView: View {
     }
 }
 
+// Intentionally ad-hoc: MetricCard doesn't fit — list-row context with multiple inline badges
+// (owner, beneficiary, account type). MetricCard is for standalone metrics, not list items.
+// See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
 struct AccountRow: View {
     let account: IRAAccount
     

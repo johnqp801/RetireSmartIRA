@@ -151,6 +151,9 @@ struct LegacyImpactView: View {
 
     // MARK: - Pain vs. Gain Header
 
+    // Intentionally ad-hoc: MetricCard doesn't fit — side-by-side comparison ("Cost Today" vs "Family Gain")
+    // with arrow visual. The comparison structure is the whole point; MetricCard is single-value.
+    // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
     private var painVsGainHeader: some View {
         let taxCost = dataManager.legacyUserCurrentCost
         let familyGain = dataManager.legacyFamilyWealthAdvantage
