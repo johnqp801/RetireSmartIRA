@@ -21,7 +21,8 @@ Tokens and reusable components for the 1.8+ design system.
 |---|---|---|
 | `BrandButton` | `Components/BrandButton.swift` | All buttons — 6 style variants |
 | `MetricCard` | `Components/MetricCard.swift` | Top-stripe metric cards |
-| `InfoButton` | `Components/InfoButton.swift` | Tooltip trigger, ⓘ |
+| `InfoButton` | `Components/InfoButton.swift` | Tappable tooltip trigger, opens popover |
+| `InlineHint` | `Components/InlineHint.swift` | Always-visible icon+text hint (short disclaimers) |
 | `Badge` | `Components/Badge.swift` | Inline category label (REFUND, DUE, etc.) |
 
 ### Spacing & radius
@@ -58,6 +59,37 @@ Special dark-mode rules:
 Open any `Components/*.swift` file in Xcode and use the Canvas (Editor → Canvas, or `⌥⌘↩`) to live-preview the `#Preview` blocks in both light and dark mode. Visual changes during migration should be sanity-checked against the canvas.
 
 XCTest behavior tests live alongside the existing test suite in `RetireSmartIRATests/`. Snapshot testing is deferred to 1.9 — see plan addendum.
+
+## Tooltip & inline-hint vocabulary
+
+Three distinct patterns for explanatory icons. Pick the right one — they look different on purpose.
+
+### `InfoButton` — tappable, opens longer explanation
+
+- Filled `info.circle.fill`, brand-teal, 16pt visual / 24pt hit target
+- Tap reveals a popover or sheet with non-trivial explanation
+- Use for: concepts that need 1-3 paragraphs (RMD age 73 mechanics, IRMAA brackets, Safe Harbor 110% rule)
+- Canonical example as of 1.9: `SocialSecurityPlannerView` analysis popover
+
+### `InlineHint` — always visible, short hint
+
+- Outlined `info.circle`, gray (`Color.UI.textSecondary`), caption-size
+- Always visible. Not tappable.
+- Use for: short disclaimers, clarifying notes, contextual guidance ≤ 2 sentences
+- Examples: "State tax only — local/city taxes are not included.", "Add income sources in the Income & Deductions tab"
+
+### Status indicators (NOT a component)
+
+- Threshold-based icon flip: `info.circle` ↔ `exclamationmark.triangle.fill`
+- Pattern is intentionally ad-hoc — the icon switching IS the UX signal
+- Don't reach for `InlineHint` or `InfoButton` here; they don't fit
+- Each instance has an inline `// Status indicator` comment for future-reader clarity
+
+### When in doubt
+
+If your text fits in one line and is purely informational: `InlineHint`.
+If your text needs 1-3 paragraphs: `InfoButton`.
+If your icon should change based on data state: leave it ad-hoc with a `// Status indicator` comment.
 
 ## Adding a new color
 

@@ -283,13 +283,7 @@ struct SSSurvivorAnalysisView: View {
             Text("Survivor Analysis")
                 .font(.headline)
 
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(Color.UI.brandTeal)
-                Text("Enter benefit estimates for both spouses to see how SS income changes when one spouse passes.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            InlineHint("Enter benefit estimates for both spouses to see how SS income changes when one spouse passes.")
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))

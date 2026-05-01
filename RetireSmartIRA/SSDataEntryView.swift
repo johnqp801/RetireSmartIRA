@@ -317,14 +317,7 @@ struct SSDataEntryView: View {
                         .foregroundStyle(Color.UI.textPrimary)
                 }
 
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(Color.UI.brandTeal)
-                    Text("This amount will be synced to your tax plan as Social Security income.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("This amount will be synced to your tax plan as Social Security income.")
             }
         }
         .padding()
@@ -976,6 +969,8 @@ struct SSDataEntryView: View {
 
             if abs(pct) > 1 {
                 HStack(spacing: 4) {
+                    // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                    // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                     Image(systemName: abs(pct) > 10 ? "exclamationmark.triangle" : "info.circle")
                         .font(.caption)
                         .foregroundStyle(abs(pct) > 10 ? Color.Semantic.amber : Color.UI.brandTeal)

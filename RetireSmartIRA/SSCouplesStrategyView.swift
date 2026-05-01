@@ -1271,13 +1271,7 @@ struct SSCouplesStrategyView: View {
             Text("Couples Strategy")
                 .font(.headline)
 
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(Color.UI.brandTeal)
-                Text("Enter benefit estimates for both you and your spouse to compare claiming strategies and see survivor analysis.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            InlineHint("Enter benefit estimates for both you and your spouse to compare claiming strategies and see survivor analysis.")
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))

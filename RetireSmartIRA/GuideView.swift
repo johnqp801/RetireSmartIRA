@@ -275,14 +275,7 @@ struct GuideView: View {
                     ]
                 )
 
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.UI.brandTeal)
-                        .font(.caption)
-                    Text("For income that varies year to year \u{2014} interest, dividends, capital gains, consulting \u{2014} last year\u{2019}s tax documents are a good starting point. You can always update amounts as the year progresses.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("For income that varies year to year \u{2014} interest, dividends, capital gains, consulting \u{2014} last year\u{2019}s tax documents are a good starting point. You can always update amounts as the year progresses.")
 
                 gatherCategory(
                     icon: "checkmark.shield.fill",

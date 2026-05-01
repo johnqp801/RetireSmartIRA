@@ -1201,19 +1201,10 @@ struct TaxPlanningView: View {
             if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
                 let room = federalBracketRoom
                 let bracketPct = String(format: "%.0f", room.currentRate * 100)
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.UI.brandTeal)
-                    if room.roomRemaining > 0 {
-                        Text("Federal: \(room.roomRemaining.formatted(.currency(code: "USD"))) remaining in \(bracketPct)% bracket")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Federal: At top of \(bracketPct)% bracket")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                let bracketText = room.roomRemaining > 0
+                    ? "Federal: \(room.roomRemaining.formatted(.currency(code: "USD"))) remaining in \(bracketPct)% bracket"
+                    : "Federal: At top of \(bracketPct)% bracket"
+                InlineHint(bracketText)
             }
 
             // Roth conversion framing for novices
@@ -2167,14 +2158,8 @@ struct TaxPlanningView: View {
         }
 
         if dataManager.hasInheritedAccounts {
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle.fill")
-                    .foregroundStyle(Color.UI.brandTeal)
-                Text("Inherited IRA distributions are not eligible for QCDs. Only distributions from your own Traditional IRA qualify for QCD treatment.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 4)
+            InlineHint("Inherited IRA distributions are not eligible for QCDs. Only distributions from your own Traditional IRA qualify for QCD treatment.")
+                .padding(.vertical, 4)
         }
 
         Divider()
@@ -2910,6 +2895,8 @@ struct TaxPlanningView: View {
                 // Distance to next cliff
                 if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                     HStack(spacing: 6) {
+                        // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                        // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                         Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
                             .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                         Text("\(distanceToNext, format: .currency(code: "USD")) until next IRMAA tier")
@@ -3064,6 +3051,8 @@ struct TaxPlanningView: View {
                     }
 
                     HStack(spacing: 6) {
+                        // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                        // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                         Image(systemName: niit.distanceToThreshold < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
                             .foregroundStyle(niit.distanceToThreshold < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                             .font(.caption)

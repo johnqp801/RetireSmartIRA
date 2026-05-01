@@ -194,13 +194,7 @@ struct DashboardView: View {
 
             // Individual income sources
             if dataManager.incomeSources.isEmpty {
-                HStack {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.UI.brandTeal)
-                    Text("Add income sources in the Income & Deductions tab")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("Add income sources in the Income & Deductions tab")
             } else {
                 ForEach(dataManager.incomeSources) { source in
                     HStack {
@@ -639,14 +633,7 @@ struct DashboardView: View {
                 }
 
                 // Local tax note
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                    Text("State tax only \u{2014} local/city taxes (e.g. NYC) are not included.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("State tax only \u{2014} local/city taxes (e.g. NYC) are not included.")
             }
 
             // IRMAA surcharge (separate from income tax — Medicare premium surcharge)
@@ -669,6 +656,8 @@ struct DashboardView: View {
 
                     if let distanceToNext = irmaa.distanceToNextTier {
                         HStack(spacing: 6) {
+                            // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                            // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                             Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
                                 .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                                 .font(.caption)
@@ -688,6 +677,8 @@ struct DashboardView: View {
                     // Distance to next tier
                     if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                         HStack(spacing: 6) {
+                            // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                            // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                             Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
                                 .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                                 .font(.caption)
@@ -1929,6 +1920,8 @@ struct DashboardView: View {
 
                     if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
                         HStack(spacing: 6) {
+                            // Status indicator (threshold-based icon flip) — distinct from InfoButton/InlineHint vocabulary.
+                            // See docs/superpowers/specs/2026-05-01-inline-hint-vocabulary-design.md §4.
                             Image(systemName: distanceToNext < 10_000 ? "exclamationmark.triangle.fill" : "info.circle")
                                 .foregroundStyle(distanceToNext < 10_000 ? Color.Semantic.amber : Color.UI.brandTeal)
                                 .font(.caption)

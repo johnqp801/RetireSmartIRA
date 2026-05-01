@@ -403,16 +403,10 @@ struct IncomeSourcesView: View {
 
                     // Note about charitable deductions
                     if dataManager.scenarioTotalCharitable > 0 {
-                        HStack(spacing: 8) {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(Color.UI.brandTeal)
-                            Text("Charitable contributions of \(dataManager.scenarioTotalCharitable.formatted(.currency(code: "USD"))) from Scenarios are included in your itemized total.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(12)
-                        .background(Color.UI.surfaceInset)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        InlineHint("Charitable contributions of \(dataManager.scenarioTotalCharitable.formatted(.currency(code: "USD"))) from Scenarios are included in your itemized total.")
+                            .padding(12)
+                            .background(Color.UI.surfaceInset)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
                 .padding()
