@@ -553,13 +553,7 @@ struct SocialSecurityPlannerView: View {
                     }
                 }
             } else {
-                HStack {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.UI.brandTeal)
-                    Text("Add benefit estimates from your SSA statement")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("Add benefit estimates from your SSA statement")
 
                 Button {
                     dataEntryPresetClaiming = false
@@ -858,13 +852,7 @@ struct SocialSecurityPlannerView: View {
             Text("Claiming Analysis")
                 .font(.headline)
 
-            HStack {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(Color.UI.brandTeal)
-                Text("Enter your benefit estimates to see claiming age analysis, break-even charts, and strategy comparisons.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            InlineHint("Enter your benefit estimates to see claiming age analysis, break-even charts, and strategy comparisons.")
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))
@@ -1369,14 +1357,7 @@ struct SocialSecurityPlannerView: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.UI.brandTeal)
-                        .font(.caption)
-                    Text("\(String(format: "%.0f", taxablePercent))% of your SS benefits are taxable. This is automatically included in your tax calculations.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("\(String(format: "%.0f", taxablePercent))% of your SS benefits are taxable. This is automatically included in your tax calculations.")
             }
         }
         .padding()
@@ -1417,14 +1398,9 @@ struct SocialSecurityPlannerView: View {
                     .background(Color.UI.brandTeal.opacity(0.15))
                     .foregroundStyle(Color.UI.brandTeal)
                     .clipShape(Capsule())
-                Button {
+                InfoButton {
                     showCouplesInfoPopover.toggle()
-                } label: {
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
                 .popover(isPresented: $showCouplesInfoPopover) {
                     analysisInfoPopover
                 }

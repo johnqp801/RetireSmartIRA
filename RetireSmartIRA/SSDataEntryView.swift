@@ -317,14 +317,7 @@ struct SSDataEntryView: View {
                         .foregroundStyle(Color.UI.textPrimary)
                 }
 
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(Color.UI.brandTeal)
-                    Text("This amount will be synced to your tax plan as Social Security income.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("This amount will be synced to your tax plan as Social Security income.")
             }
         }
         .padding()

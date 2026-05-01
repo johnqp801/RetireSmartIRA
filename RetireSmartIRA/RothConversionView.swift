@@ -181,13 +181,7 @@ struct RothConversionView: View {
                 }
 
                 if spouseEnabled {
-                    HStack {
-                        Image(systemName: "info.circle")
-                            .foregroundStyle(Color.UI.brandTeal)
-                        Text("Tax impact based on joint filing")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    InlineHint("Tax impact based on joint filing")
                 }
 
                 Divider()

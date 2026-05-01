@@ -145,12 +145,7 @@ struct RMDCalculatorView: View {
                     }
 
                     if dataManager.currentAge == dataManager.rmdAge {
-                        HStack {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(Color.UI.brandTeal)
-                            Text("First RMD can be delayed until April 1 \(dataManager.currentYear + 1)")
-                                .font(.callout)
-                        }
+                        InlineHint("First RMD can be delayed until April 1 \(dataManager.currentYear + 1)")
 
                         Text("\u{26A0}\u{FE0F} Warning: Delaying means taking 2 RMDs in one year")
                             .font(.caption)
@@ -630,13 +625,7 @@ struct RMDCalculatorView: View {
                 }
 
                 // QCD ineligibility notice
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color.UI.brandTeal)
-                    Text("Inherited IRA distributions are not eligible for Qualified Charitable Distributions (QCDs).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                InlineHint("Inherited IRA distributions are not eligible for Qualified Charitable Distributions (QCDs).")
             }
             .padding()
             .background(Color(PlatformColor.systemBackground))
