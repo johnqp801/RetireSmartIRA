@@ -1,7 +1,14 @@
 import SwiftUI
 
-/// Filled info icon at 16pt visual size with 24pt hit target.
-/// See docs/superpowers/specs/2026-04-25-color-system-design.md §4.
+/// Filled brand-teal `info.circle.fill` button at 16pt visual size with 24pt hit target.
+/// Use for tappable explanations that open a popover or sheet.
+///
+/// For static, always-visible icon+text hints (short disclaimers, clarifying notes),
+/// use `InlineHint` instead.
+///
+/// See `RetireSmartIRA/Theme/README.md` for the full icon-vocabulary documentation
+/// and `docs/superpowers/specs/2026-04-25-color-system-design.md` §4 for the original
+/// component spec.
 struct InfoButton: View {
     let action: () -> Void
 
