@@ -2773,6 +2773,40 @@ private struct ReduceAGISection: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            // "Why AGI matters" bullets
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Why AGI matters for you:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                let irmaa = dataManager.scenarioIRMAA
+                if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•")
+                        (Text("IRMAA in \(dataManager.medicarePremiumProjectionYear) — currently in tier \(irmaa.tier), ")
+                            + Text(distanceToNext, format: .currency(code: "USD"))
+                            + Text(" to next tier"))
+                            .font(.caption)
+                    }
+                }
+
+                if let aca = dataManager.acaSubsidyResult {
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•")
+                        if aca.isOverCliff {
+                            Text("ACA subsidy — already over the 400% FPL cliff (subsidy $0 this year)")
+                                .font(.caption)
+                                .foregroundStyle(Color.Semantic.amber)
+                        } else if let toCliff = aca.dollarsToCliff {
+                            (Text("ACA subsidy — currently \(Int(aca.fplPercent))% FPL, ")
+                                + Text(toCliff, format: .currency(code: "USD"))
+                                + Text(" to cliff"))
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
         }
         .padding()
         .background(Color.UI.surfaceCard)
