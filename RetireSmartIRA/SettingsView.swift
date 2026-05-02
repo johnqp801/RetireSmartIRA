@@ -101,80 +101,9 @@ struct SettingsView: View {
                 }
             }
 
-            Section {
-                Picker("Your Medicare plan", selection: Binding(
-                    get: { dataManager.scenario.yourMedicarePlanType },
-                    set: { dataManager.scenario.yourMedicarePlanType = $0 }
-                )) {
-                    ForEach(MedicarePlanType.allCases, id: \.self) { plan in
-                        Text(plan.rawValue).tag(plan)
-                    }
-                }
+            MedicareSettingsSection()
 
-                if dataManager.scenario.yourMedicarePlanType != .preMedicare {
-                    HStack {
-                        Text("Your Part B premium override (monthly)")
-                        Spacer()
-                        TextField("$\(Int(TaxCalculationEngine.config.medicare2026.partBStandardMonthly))", value: Binding(
-                            get: { dataManager.scenario.yourMedicarePartBOverride ?? TaxCalculationEngine.config.medicare2026.partBStandardMonthly },
-                            set: { newValue in
-                                dataManager.scenario.yourMedicarePartBOverride = (newValue == TaxCalculationEngine.config.medicare2026.partBStandardMonthly) ? nil : newValue
-                            }
-                        ), format: .currency(code: "USD").precision(.fractionLength(0)))
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                    }
-                    HStack {
-                        Text("Your Part D premium override (monthly)")
-                        Spacer()
-                        TextField("$\(Int(TaxCalculationEngine.config.medicare2026.partDAvgMonthly))", value: Binding(
-                            get: { dataManager.scenario.yourMedicarePartDOverride ?? TaxCalculationEngine.config.medicare2026.partDAvgMonthly },
-                            set: { newValue in
-                                dataManager.scenario.yourMedicarePartDOverride = (newValue == TaxCalculationEngine.config.medicare2026.partDAvgMonthly) ? nil : newValue
-                            }
-                        ), format: .currency(code: "USD").precision(.fractionLength(0)))
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                    }
-
-                    if dataManager.scenario.yourMedicarePlanType == .originalMedicare {
-                        HStack {
-                            Text("Your Medigap premium override (monthly)")
-                            Spacer()
-                            TextField("$\(Int(TaxCalculationEngine.config.medicare2026.medigapAvgMonthly))", value: Binding(
-                                get: { dataManager.scenario.yourMedigapOverride ?? TaxCalculationEngine.config.medicare2026.medigapAvgMonthly },
-                                set: { newValue in
-                                    dataManager.scenario.yourMedigapOverride = (newValue == TaxCalculationEngine.config.medicare2026.medigapAvgMonthly) ? nil : newValue
-                                }
-                            ), format: .currency(code: "USD").precision(.fractionLength(0)))
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
-                        }
-                    }
-                    if dataManager.scenario.yourMedicarePlanType == .medicareAdvantage {
-                        HStack {
-                            Text("Your Advantage premium override (monthly)")
-                            Spacer()
-                            TextField("$\(Int(TaxCalculationEngine.config.medicare2026.advantageAvgMonthly))", value: Binding(
-                                get: { dataManager.scenario.yourAdvantageOverride ?? TaxCalculationEngine.config.medicare2026.advantageAvgMonthly },
-                                set: { newValue in
-                                    dataManager.scenario.yourAdvantageOverride = (newValue == TaxCalculationEngine.config.medicare2026.advantageAvgMonthly) ? nil : newValue
-                                }
-                            ), format: .currency(code: "USD").precision(.fractionLength(0)))
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
-                        }
-                    }
-                }
-            } header: {
-                Text("Medicare — You")
-            } footer: {
-                Text("IRMAA premiums are based on income from 2 years prior. Decisions today affect premiums in 2 years.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-Section("Legacy Planning") {
+            Section("Legacy Planning") {
                 Toggle("Consider Legacy Planning", isOn: $dataManager.enableLegacyPlanning)
 
                 Text("Legacy planning shows the long-term tax impact of your decisions on heirs. Without it, Roth conversions may appear costly without showing the future tax-free growth benefit. You can turn this off if you only want current-year analysis.")
@@ -466,6 +395,226 @@ Section("Legacy Planning") {
                 return String(format: "Progressive, up to %.1f%%", topRate * 100)
             }
             return "Progressive brackets"
+        }
+    }
+}
+
+// MARK: - Medicare Settings Sub-View
+//
+// Extracted into its own type so the SwiftUI type-checker doesn't time out
+// when building the parent SettingsView body.
+
+private struct MedicareSettingsSection: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    var body: some View {
+        MedicareYouSection()
+        MedicareSpouseSection()
+    }
+}
+
+// MARK: - Medicare — You
+
+private struct MedicareYouSection: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    private var mc: TaxYearConfig.MedicarePremiumDefaults { TaxCalculationEngine.config.medicare2026 }
+
+    var body: some View {
+        Section {
+            Picker("Your Medicare plan", selection: Binding(
+                get: { dataManager.scenario.yourMedicarePlanType },
+                set: { dataManager.scenario.yourMedicarePlanType = $0 }
+            )) {
+                ForEach(MedicarePlanType.allCases, id: \.self) { plan in
+                    Text(plan.rawValue).tag(plan)
+                }
+            }
+
+            if dataManager.scenario.yourMedicarePlanType != .preMedicare {
+                HStack {
+                    Text("Your Part B premium override (monthly)")
+                    Spacer()
+                    TextField("$\(Int(mc.partBStandardMonthly))",
+                              value: Binding(
+                                get: { dataManager.scenario.yourMedicarePartBOverride ?? mc.partBStandardMonthly },
+                                set: { newValue in
+                                    dataManager.scenario.yourMedicarePartBOverride =
+                                        (newValue == mc.partBStandardMonthly) ? nil : newValue
+                                }
+                              ),
+                              format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 100)
+                }
+
+                HStack {
+                    Text("Your Part D premium override (monthly)")
+                    Spacer()
+                    TextField("$\(Int(mc.partDAvgMonthly))",
+                              value: Binding(
+                                get: { dataManager.scenario.yourMedicarePartDOverride ?? mc.partDAvgMonthly },
+                                set: { newValue in
+                                    dataManager.scenario.yourMedicarePartDOverride =
+                                        (newValue == mc.partDAvgMonthly) ? nil : newValue
+                                }
+                              ),
+                              format: .currency(code: "USD").precision(.fractionLength(0)))
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 100)
+                }
+
+                if dataManager.scenario.yourMedicarePlanType == .originalMedicare {
+                    HStack {
+                        Text("Your Medigap premium override (monthly)")
+                        Spacer()
+                        TextField("$\(Int(mc.medigapAvgMonthly))",
+                                  value: Binding(
+                                    get: { dataManager.scenario.yourMedigapOverride ?? mc.medigapAvgMonthly },
+                                    set: { newValue in
+                                        dataManager.scenario.yourMedigapOverride =
+                                            (newValue == mc.medigapAvgMonthly) ? nil : newValue
+                                    }
+                                  ),
+                                  format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                    }
+                }
+
+                if dataManager.scenario.yourMedicarePlanType == .medicareAdvantage {
+                    HStack {
+                        Text("Your Advantage premium override (monthly)")
+                        Spacer()
+                        TextField("$\(Int(mc.advantageAvgMonthly))",
+                                  value: Binding(
+                                    get: { dataManager.scenario.yourAdvantageOverride ?? mc.advantageAvgMonthly },
+                                    set: { newValue in
+                                        dataManager.scenario.yourAdvantageOverride =
+                                            (newValue == mc.advantageAvgMonthly) ? nil : newValue
+                                    }
+                                  ),
+                                  format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                    }
+                }
+            }
+        } header: {
+            Text("Medicare — You")
+        } footer: {
+            Text("IRMAA premiums are based on income from 2 years prior. Decisions today affect premiums in 2 years.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .onChange(of: dataManager.scenario.yourMedicarePlanType) { dataManager.saveAllData() }
+        .onChange(of: dataManager.scenario.yourMedicarePartBOverride) { dataManager.saveAllData() }
+        .onChange(of: dataManager.scenario.yourMedicarePartDOverride) { dataManager.saveAllData() }
+        .onChange(of: dataManager.scenario.yourMedigapOverride) { dataManager.saveAllData() }
+        .onChange(of: dataManager.scenario.yourAdvantageOverride) { dataManager.saveAllData() }
+    }
+}
+
+// MARK: - Medicare — Spouse
+
+private struct MedicareSpouseSection: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    private var mc: TaxYearConfig.MedicarePremiumDefaults { TaxCalculationEngine.config.medicare2026 }
+
+    var body: some View {
+        if dataManager.enableSpouse {
+            Section {
+                Picker("Spouse Medicare plan", selection: Binding(
+                    get: { dataManager.scenario.spouseMedicarePlanType },
+                    set: { dataManager.scenario.spouseMedicarePlanType = $0 }
+                )) {
+                    ForEach(MedicarePlanType.allCases, id: \.self) { plan in
+                        Text(plan.rawValue).tag(plan)
+                    }
+                }
+
+                if dataManager.scenario.spouseMedicarePlanType != .preMedicare {
+                    HStack {
+                        Text("Spouse Part B premium override (monthly)")
+                        Spacer()
+                        TextField("$\(Int(mc.partBStandardMonthly))",
+                                  value: Binding(
+                                    get: { dataManager.scenario.spouseMedicarePartBOverride ?? mc.partBStandardMonthly },
+                                    set: { newValue in
+                                        dataManager.scenario.spouseMedicarePartBOverride =
+                                            (newValue == mc.partBStandardMonthly) ? nil : newValue
+                                    }
+                                  ),
+                                  format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                    }
+
+                    HStack {
+                        Text("Spouse Part D premium override (monthly)")
+                        Spacer()
+                        TextField("$\(Int(mc.partDAvgMonthly))",
+                                  value: Binding(
+                                    get: { dataManager.scenario.spouseMedicarePartDOverride ?? mc.partDAvgMonthly },
+                                    set: { newValue in
+                                        dataManager.scenario.spouseMedicarePartDOverride =
+                                            (newValue == mc.partDAvgMonthly) ? nil : newValue
+                                    }
+                                  ),
+                                  format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                    }
+
+                    if dataManager.scenario.spouseMedicarePlanType == .originalMedicare {
+                        HStack {
+                            Text("Spouse Medigap premium override (monthly)")
+                            Spacer()
+                            TextField("$\(Int(mc.medigapAvgMonthly))",
+                                      value: Binding(
+                                        get: { dataManager.scenario.spouseMedigapOverride ?? mc.medigapAvgMonthly },
+                                        set: { newValue in
+                                            dataManager.scenario.spouseMedigapOverride =
+                                                (newValue == mc.medigapAvgMonthly) ? nil : newValue
+                                        }
+                                      ),
+                                      format: .currency(code: "USD").precision(.fractionLength(0)))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                        }
+                    }
+
+                    if dataManager.scenario.spouseMedicarePlanType == .medicareAdvantage {
+                        HStack {
+                            Text("Spouse Advantage premium override (monthly)")
+                            Spacer()
+                            TextField("$\(Int(mc.advantageAvgMonthly))",
+                                      value: Binding(
+                                        get: { dataManager.scenario.spouseAdvantageOverride ?? mc.advantageAvgMonthly },
+                                        set: { newValue in
+                                            dataManager.scenario.spouseAdvantageOverride =
+                                                (newValue == mc.advantageAvgMonthly) ? nil : newValue
+                                        }
+                                      ),
+                                      format: .currency(code: "USD").precision(.fractionLength(0)))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                        }
+                    }
+                }
+            } header: {
+                Text("Medicare — Spouse")
+            } footer: {
+                Text("IRMAA premiums are based on income from 2 years prior. Decisions today affect premiums in 2 years.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .onChange(of: dataManager.scenario.spouseMedicarePlanType) { dataManager.saveAllData() }
+            .onChange(of: dataManager.scenario.spouseMedicarePartBOverride) { dataManager.saveAllData() }
+            .onChange(of: dataManager.scenario.spouseMedicarePartDOverride) { dataManager.saveAllData() }
+            .onChange(of: dataManager.scenario.spouseMedigapOverride) { dataManager.saveAllData() }
+            .onChange(of: dataManager.scenario.spouseAdvantageOverride) { dataManager.saveAllData() }
         }
     }
 }
