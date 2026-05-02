@@ -208,3 +208,24 @@ enum MedicarePlanType: String, Codable, CaseIterable {
     case originalMedicare = "Original Medicare (A+B)"
     case medicareAdvantage = "Medicare Advantage (Part C)"
 }
+
+// MARK: - Strongly-Typed AGI Variants (1.9)
+
+/// Federal AGI as filed on Form 1040 Line 11. Distinct nominal type to prevent
+/// callers from passing the wrong MAGI variant into ACA/IRMAA engines.
+struct FederalAGI: Equatable {
+    let value: Double
+}
+
+/// MAGI used for ACA Marketplace subsidy computation:
+/// `FederalAGI + tax-exempt interest + non-taxable Social Security benefits`.
+/// (Form 8962.)
+struct ACAMAGI: Equatable {
+    let value: Double
+}
+
+/// MAGI used for Medicare IRMAA tier lookup:
+/// `FederalAGI + tax-exempt interest`.
+struct IRMAAMAGI: Equatable {
+    let value: Double
+}
