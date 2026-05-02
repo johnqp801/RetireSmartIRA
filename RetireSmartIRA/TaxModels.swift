@@ -229,3 +229,32 @@ struct ACAMAGI: Equatable {
 struct IRMAAMAGI: Equatable {
     let value: Double
 }
+
+// MARK: - Scenario Warnings (1.9 — engine in ScenarioWarningEngine.swift, Phase 5)
+
+struct ScenarioWarning: Equatable {
+    enum Category: String {
+        case acaCliff
+        case acaApproaching
+        case irmaaTierCrossing
+        case irmaaApproaching
+        case niitCrossing
+        case bracketCrossing
+        case widowBracketJump
+    }
+    enum Timing: String {
+        case currentYear
+        case twoYearsOut
+    }
+    enum Severity: String {
+        case warning
+        case info
+    }
+
+    let category: Category
+    let timing: Timing
+    let severity: Severity
+    let dollarImpactPerYear: Double
+    let messageHeadline: String
+    let messageDetail: String
+}

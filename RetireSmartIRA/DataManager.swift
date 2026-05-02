@@ -1456,6 +1456,14 @@ class DataManager: ObservableObject {
         IRMAAMAGI(value: federalAGI.value + taxExemptInterestTotal)
     }
 
+    // MARK: - Scenario Warnings (1.9 — engine in Phase 5)
+
+    /// Cross-feature scenario warnings. Replaced by `ScenarioWarningEngine.warningsFor(...)`
+    /// in Phase 5; returns empty here so dashboard / inline-warning UI can be wired before then.
+    var activeScenarioWarnings: [ScenarioWarning] {
+        []
+    }
+
     /// IRMAA MAGI = AGI + tax-exempt interest (muni bonds, tax-free money markets).
     /// Tax-exempt interest is not in AGI but the IRS includes it for IRMAA.
     var irmaaMagi: Double {
