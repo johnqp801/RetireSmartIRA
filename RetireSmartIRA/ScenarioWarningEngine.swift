@@ -147,6 +147,23 @@ enum ScenarioWarningEngine {
             ))
         }
 
+        // ──── Widow Bracket Jump (MFJ only) ────
+        if filingStatus == .marriedFilingJointly {
+            let mfjBracket = config.federalBracketsMFJ.lastIndex(where: { federalAGI.value >= $0.threshold }) ?? 0
+            let widowSingleBracket = config.federalBracketsSingle.lastIndex(where: { federalAGI.value >= $0.threshold }) ?? 0
+            if widowSingleBracket > mfjBracket {
+                let widowRate = config.federalBracketsSingle[widowSingleBracket].rate
+                warnings.append(ScenarioWarning(
+                    category: .widowBracketJump,
+                    timing: .currentYear,
+                    severity: .info,
+                    dollarImpactPerYear: 0,
+                    messageHeadline: "Surviving spouse would jump to \(Int(widowRate * 100))% bracket",
+                    messageDetail: "MFJ-to-single transition pushes future widow into a higher tax bracket at this AGI."
+                ))
+            }
+        }
+
         return warnings
     }
 }

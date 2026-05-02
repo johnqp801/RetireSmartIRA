@@ -179,3 +179,56 @@ struct ScenarioWarningEngineNIITBracketTests {
         #expect(warnings.contains { $0.category == .niitCrossing })
     }
 }
+
+@Suite("ScenarioWarningEngine — Widow Bracket Jump")
+struct ScenarioWarningEngineWidowBracketTests {
+
+    private let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+
+    @Test("Widow-bracket-jump fires for MFJ if a single-filer same-AGI would jump bracket")
+    func widowBracketJumpFires() {
+        // MFJ at AGI 200K is in 22% bracket (24% threshold = 211_400). Widow filing single
+        // at 200K is in 32% bracket (32% single threshold = 201_775). Surviving spouse
+        // would jump bracket(s).
+        let warnings = ScenarioWarningEngine.warningsFor(
+            federalAGI: FederalAGI(value: 200_000),
+            acaMAGI: ACAMAGI(value: 200_000),
+            irmaaMAGI: IRMAAMAGI(value: 200_000),
+            baselineIRMAAMAGI: IRMAAMAGI(value: 200_000),
+            primaryAge: 75, spouseAge: 75,
+            primaryMedicarePlanType: .originalMedicare,
+            spouseMedicarePlanType: .originalMedicare,
+            filingStatus: .marriedFilingJointly,
+            enableACAModeling: false,
+            acaHouseholdSize: 2,
+            acaBenchmarkSilverPlanAnnual: 7_800,
+            acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 200_000),
+            config: config
+        )
+        #expect(warnings.contains { $0.category == .widowBracketJump })
+    }
+
+    @Test("Widow-bracket-jump silent for single filer (no jump scenario)")
+    func widowBracketJumpSilentSingle() {
+        let warnings = ScenarioWarningEngine.warningsFor(
+            federalAGI: FederalAGI(value: 200_000),
+            acaMAGI: ACAMAGI(value: 200_000),
+            irmaaMAGI: IRMAAMAGI(value: 200_000),
+            baselineIRMAAMAGI: IRMAAMAGI(value: 200_000),
+            primaryAge: 75, spouseAge: nil,
+            primaryMedicarePlanType: .originalMedicare,
+            spouseMedicarePlanType: .preMedicare,
+            filingStatus: .single,
+            enableACAModeling: false,
+            acaHouseholdSize: 1,
+            acaBenchmarkSilverPlanAnnual: 7_800,
+            acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 200_000),
+            config: config
+        )
+        #expect(!warnings.contains { $0.category == .widowBracketJump })
+    }
+}
