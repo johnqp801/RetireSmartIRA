@@ -414,8 +414,17 @@ class DataManager: ObservableObject {
     /// Calculates state tax starting from gross income (pre-deduction).
     /// Applies the state's own standard deduction, then retirement exemptions, then tax.
     /// Used by state comparison and scenarioStateTax to ensure correct state-specific deductions.
-    func calculateStateTaxFromGross(grossIncome: Double, forState state: USState, filingStatus: FilingStatus, taxableSocialSecurity: Double) -> Double {
+    func calculateStateTaxFromGross(
+        grossIncome: Double,
+        forState state: USState,
+        filingStatus: FilingStatus,
+        taxableSocialSecurity: Double,
+        hsaContributionsAddedBack: Double = 0
+    ) -> Double {
         let config = StateTaxData.config(for: state)
+        let adjustedGross = config.hsaContributionsTaxableForState
+            ? grossIncome + hsaContributionsAddedBack
+            : grossIncome
 
         // Determine state standard deduction
         let stateStandardDeduction: Double
@@ -439,7 +448,7 @@ class DataManager: ObservableObject {
             stateDeduction = stateStandardDeduction
         }
 
-        let stateTaxableIncome = max(0, grossIncome - stateDeduction)
+        let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
         return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity)
     }
 
@@ -1410,7 +1419,8 @@ class DataManager: ObservableObject {
             grossIncome: scenarioGrossIncome,
             forState: selectedState,
             filingStatus: filingStatus,
-            taxableSocialSecurity: scenarioTaxableSocialSecurity
+            taxableSocialSecurity: scenarioTaxableSocialSecurity,
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA
         )
     }
 
@@ -1929,7 +1939,8 @@ class DataManager: ObservableObject {
             grossIncome: grossIncome,
             forState: selectedState,
             filingStatus: filingStatus,
-            taxableSocialSecurity: taxableSocialSecurity
+            taxableSocialSecurity: taxableSocialSecurity,
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA
         )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt

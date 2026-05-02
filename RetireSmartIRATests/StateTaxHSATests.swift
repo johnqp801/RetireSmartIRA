@@ -33,3 +33,66 @@ struct StateHSAAddBackTests {
         }
     }
 }
+
+@Suite("State HSA add-back behavior")
+@MainActor
+struct StateHSAAddBackBehaviorTests {
+
+    @Test("California: HSA contributions added back to state taxable income")
+    func californiaHSAAddBack() {
+        let dm = DataManager(skipPersistence: true)
+        dm.filingStatus = .marriedFilingJointly
+        dm.selectedState = .california
+        let withoutHSA = dm.calculateStateTaxFromGross(
+            grossIncome: 100_000,
+            forState: .california,
+            filingStatus: .marriedFilingJointly,
+            taxableSocialSecurity: 0,
+            hsaContributionsAddedBack: 0
+        )
+        let withHSA = dm.calculateStateTaxFromGross(
+            grossIncome: 100_000,
+            forState: .california,
+            filingStatus: .marriedFilingJointly,
+            taxableSocialSecurity: 0,
+            hsaContributionsAddedBack: 8_550
+        )
+        // CA adds back the $8,550 to taxable income → state tax is HIGHER with HSA add-back
+        #expect(withHSA > withoutHSA)
+    }
+
+    @Test("Texas (no income tax): HSA add-back is a no-op")
+    func texasHSAAddBackNoop() {
+        let dm = DataManager(skipPersistence: true)
+        let zero = dm.calculateStateTaxFromGross(
+            grossIncome: 100_000,
+            forState: .texas,
+            filingStatus: .single,
+            taxableSocialSecurity: 0,
+            hsaContributionsAddedBack: 8_550
+        )
+        #expect(zero == 0)
+    }
+
+    @Test("New York (does not tax HSA): HSA add-back is a no-op")
+    func newYorkHSAAddBackNoop() {
+        let dm = DataManager(skipPersistence: true)
+        dm.filingStatus = .single
+        let withoutHSA = dm.calculateStateTaxFromGross(
+            grossIncome: 100_000,
+            forState: .newYork,
+            filingStatus: .single,
+            taxableSocialSecurity: 0,
+            hsaContributionsAddedBack: 0
+        )
+        let withHSA = dm.calculateStateTaxFromGross(
+            grossIncome: 100_000,
+            forState: .newYork,
+            filingStatus: .single,
+            taxableSocialSecurity: 0,
+            hsaContributionsAddedBack: 8_550
+        )
+        // NY does not tax HSA → state tax is unchanged
+        #expect(withHSA == withoutHSA)
+    }
+}
