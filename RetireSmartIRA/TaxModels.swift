@@ -272,3 +272,18 @@ struct MedicareCostBreakdown: Equatable {
     let irmaaSurcharge: Double      // monthly: IRMAA surcharge portion (transparency)
     let irmaaTier: Int              // 0-5; -1 if pre-Medicare
 }
+
+// MARK: - ACA Subsidy Result (1.9)
+
+struct ACASubsidyResult: Equatable {
+    let acaMAGI: Double
+    let householdSize: Int
+    let fplAmount: Double           // raw FPL dollar amount for the household size
+    let fplPercent: Double          // % of FPL (e.g. 360 means 360%)
+    let applicableFigure: Double    // 0.0-1.0; expected % of income paid for benchmark Silver
+    let benchmarkSilverPlanAnnual: Double
+    let expectedContribution: Double    // = ACAMAGI × applicableFigure
+    let annualPremiumAssistance: Double // = max(0, benchmark - expectedContribution)
+    let dollarsToCliff: Double?     // nil if no cliff present in this year's config
+    let isOverCliff: Bool           // true when MAGI ≥ cliff threshold
+}
