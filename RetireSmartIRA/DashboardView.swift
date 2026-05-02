@@ -2854,6 +2854,8 @@ private struct ReduceAGISection: View {
 
             Divider()
             CostSpikeThisYearChart()
+
+            CostSpikeIrmaaChart()
         }
         .padding()
         .background(Color.UI.surfaceCard)
@@ -2918,6 +2920,56 @@ private struct CostSpikeThisYearChart: View {
             .frame(height: 150)
             .chartXAxisLabel("AGI")
             .chartYAxisLabel("Annual cost")
+        }
+    }
+}
+
+// MARK: - 1.9 Cost-Spike Chart (Bottom Panel — IRMAA)
+
+private struct CostSpikeIrmaaChart: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Cost in \(dataManager.medicarePremiumProjectionYear) (Medicare IRMAA)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+            Text("Based on this year's MAGI per the 2-year lookback")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            let currentMAGI = dataManager.irmaaMAGIWrapped.value
+            let xMin = max(0, currentMAGI - 20_000)
+            let xMax = currentMAGI + 80_000
+            let stepSize = 2_500.0
+            let samples = stride(from: xMin, through: xMax, by: stepSize).map { magi -> (Double, Double) in
+                let irmaa = TaxCalculationEngine.calculateIRMAA(
+                    magi: IRMAAMAGI(value: magi),
+                    filingStatus: dataManager.filingStatus
+                )
+                let medicareCount = max(1, dataManager.medicareMemberCount)
+                return (magi, irmaa.annualSurchargePerPerson * Double(medicareCount))
+            }
+
+            Chart {
+                ForEach(samples, id: \.0) { sample in
+                    LineMark(
+                        x: .value("MAGI", sample.0),
+                        y: .value("Annual IRMAA cost", sample.1)
+                    )
+                    .foregroundStyle(Color.UI.brandTeal)
+                }
+                RuleMark(x: .value("Current MAGI", currentMAGI))
+                    .foregroundStyle(Color.Semantic.amber)
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text("Current")
+                            .font(.caption2)
+                            .foregroundStyle(Color.Semantic.amber)
+                    }
+            }
+            .frame(height: 150)
+            .chartXAxisLabel("MAGI")
+            .chartYAxisLabel("Annual IRMAA cost")
         }
     }
 }
