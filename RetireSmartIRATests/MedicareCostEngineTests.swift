@@ -103,3 +103,108 @@ struct MedicareCostEngineOriginalTests {
         #expect(result.total == 460.00)
     }
 }
+
+@Suite("MedicareCostEngine — Medicare Advantage path")
+struct MedicareCostEngineAdvantageTests {
+
+    @Test("Advantage tier 0: Part B + Part D + Advantage premium, no Medigap")
+    func advantageTier0() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let result = MedicareCostEngine.computeCostForSpouse(
+            planType: .medicareAdvantage,
+            irmaaMAGI: IRMAAMAGI(value: 80_000),
+            partBOverride: nil, partDOverride: nil,
+            medigapOverride: nil, advantageOverride: nil,
+            filingStatus: .single,
+            config: config
+        )
+        #expect(result.medigap == nil)
+        #expect(result.advantagePremium == 50.00)
+        // partB = 185, partD = 50, advantage = 50 → total = 285
+        #expect(result.total == 285.00)
+    }
+
+    @Test("Advantage tier 2 MFJ: full MFJ threshold lookup")
+    func advantageTier2MFJ() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let result = MedicareCostEngine.computeCostForSpouse(
+            planType: .medicareAdvantage,
+            irmaaMAGI: IRMAAMAGI(value: 280_000),  // > MFJ tier 2 threshold of 274_001
+            partBOverride: nil, partDOverride: nil,
+            medigapOverride: nil, advantageOverride: nil,
+            filingStatus: .marriedFilingJointly,
+            config: config
+        )
+        #expect(result.irmaaTier == 2)
+        // Tier 2: partB monthly 405.50 (surcharge = 405.50 - 202.90 = 202.60)
+        //         partD monthly 37.40 (full surcharge)
+        // partB = 185 + 202.60 = 387.60
+        // partD = 50 + 37.40 = 87.40
+        // advantage = 50
+        // total = 525.00
+        #expect(abs(result.partB - 387.60) < 0.01)
+        #expect(abs(result.partD - 87.40) < 0.01)
+        #expect(result.advantagePremium == 50.00)
+        #expect(abs(result.total - 525.00) < 0.01)
+    }
+}
+
+@Suite("MedicareCostEngine — Mixed Household")
+struct MedicareCostEngineMixedHouseholdTests {
+
+    @Test("Primary on Medicare, spouse pre-Medicare: per-spouse breakdown distinct")
+    func mixedHousehold() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let jointMAGI = IRMAAMAGI(value: 200_000)  // under MFJ tier 1 of 218_001 → tier 0
+
+        let primary = MedicareCostEngine.computeCostForSpouse(
+            planType: .originalMedicare,
+            irmaaMAGI: jointMAGI,
+            partBOverride: nil, partDOverride: nil,
+            medigapOverride: nil, advantageOverride: nil,
+            filingStatus: .marriedFilingJointly,
+            config: config
+        )
+        let spouse = MedicareCostEngine.computeCostForSpouse(
+            planType: .preMedicare,
+            irmaaMAGI: jointMAGI,
+            partBOverride: nil, partDOverride: nil,
+            medigapOverride: nil, advantageOverride: nil,
+            filingStatus: .marriedFilingJointly,
+            config: config
+        )
+
+        #expect(primary.total > 0)
+        #expect(spouse.total == 0)
+        #expect(primary.irmaaTier == 0)  // joint MAGI under MFJ tier 1
+        #expect(spouse.irmaaTier == -1)
+    }
+
+    @Test("Mixed household above IRMAA threshold: both Medicare spouses pay surcharge")
+    func mixedHouseholdAboveTier() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let jointMAGI = IRMAAMAGI(value: 230_000)  // > MFJ tier 1 threshold of 218_001
+
+        let primary = MedicareCostEngine.computeCostForSpouse(
+            planType: .originalMedicare,
+            irmaaMAGI: jointMAGI,
+            partBOverride: nil, partDOverride: nil,
+            medigapOverride: nil, advantageOverride: nil,
+            filingStatus: .marriedFilingJointly,
+            config: config
+        )
+        let spouse = MedicareCostEngine.computeCostForSpouse(
+            planType: .medicareAdvantage,
+            irmaaMAGI: jointMAGI,
+            partBOverride: nil, partDOverride: nil,
+            medigapOverride: nil, advantageOverride: nil,
+            filingStatus: .marriedFilingJointly,
+            config: config
+        )
+
+        #expect(primary.irmaaTier == 1)
+        #expect(spouse.irmaaTier == 1)
+        #expect(primary.irmaaSurcharge > 0)
+        #expect(spouse.irmaaSurcharge > 0)
+    }
+}
