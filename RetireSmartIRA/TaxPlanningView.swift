@@ -2461,7 +2461,92 @@ struct TaxPlanningView: View {
             )
         }
 
-        // HSA section in Task 2.10
+        // HSA section
+        Divider()
+
+        let hsaCombinedLimit = dataManager.hsaCombinedLimit()
+        let hsaCombinedTotal = dataManager.scenario.scenarioTotalHSA
+        let hsaOverLimit = hsaCombinedTotal > hsaCombinedLimit
+        let hsaTotalFormatted = hsaCombinedTotal.formatted(.currency(code: "USD"))
+        let hsaLimitFormatted = hsaCombinedLimit.formatted(.currency(code: "USD"))
+
+        HStack {
+            Text("Combined HSA contributions:")
+                .font(.subheadline)
+                .fontWeight(.medium)
+            Spacer()
+            Text("\(hsaTotalFormatted) / \(hsaLimitFormatted)")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(hsaOverLimit ? Color.Semantic.amber : Color.UI.textPrimary)
+        }
+        .padding(.bottom, 4)
+
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your HSA" : "HSA Contribution",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: 0,
+            amount: scenarioBinding(
+                { $0.yourHSAContribution },
+                setter: { $0.yourHSAContribution = $1 }
+            ),
+            sliderMax: hsaCombinedLimit,
+            tint: dataManager.isHSAEligible(for: .primary) ? Color.UI.brandTeal : Color.UI.textSecondary
+        )
+        if !dataManager.isHSAEligible(for: .primary) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                Text("HSA contributions require HDHP coverage, which is incompatible with Medicare enrollment.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+
+        if spouseEnabled {
+            ConversionSliderCard(
+                label: "Spouse's HSA",
+                icon: "person.fill",
+                balance: 0,
+                amount: scenarioBinding(
+                    { $0.spouseHSAContribution },
+                    setter: { $0.spouseHSAContribution = $1 }
+                ),
+                sliderMax: hsaCombinedLimit,
+                tint: dataManager.isHSAEligible(for: .spouse) ? Color.Chart.callout : Color.UI.textSecondary
+            )
+            if !dataManager.isHSAEligible(for: .spouse) {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                    Text("Spouse on Medicare — HSA contributions not allowed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+
+        if hsaOverLimit {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.Semantic.amber)
+                Text("Combined HSA contributions exceed 2026 family limit (\(hsaLimitFormatted))")
+                    .font(.caption)
+                    .foregroundStyle(Color.Semantic.amber)
+            }
+        }
+
+        // CA / NJ state-add-back note
+        if (dataManager.profile.selectedState == .california || dataManager.profile.selectedState == .newJersey)
+            && hsaCombinedTotal > 0 {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                Text("\(dataManager.profile.selectedState == .california ? "California" : "New Jersey"): HSA contributions don't reduce state taxes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     @ViewBuilder
@@ -2512,7 +2597,9 @@ struct TaxPlanningView: View {
         let spouse401k = spouseEnabled ? dataManager.scenario.spouseTraditional401kContribution : 0
         let yourIRA = dataManager.scenario.yourTraditionalIRAContribution
         let spouseIRA = spouseEnabled ? dataManager.scenario.spouseTraditionalIRAContribution : 0
-        let totalContribution = your401k + spouse401k + yourIRA + spouseIRA
+        let yourHSA = dataManager.scenario.yourHSAContribution
+        let spouseHSA = spouseEnabled ? dataManager.scenario.spouseHSAContribution : 0
+        let totalContribution = your401k + spouse401k + yourIRA + spouseIRA + yourHSA + spouseHSA
 
         if totalContribution > 0 {
             Divider()
@@ -2523,11 +2610,17 @@ struct TaxPlanningView: View {
                 if yourIRA > 0 {
                     summaryRow(label: "Your IRA", value: yourIRA, color: Color.UI.brandTeal)
                 }
+                if yourHSA > 0 {
+                    summaryRow(label: "Your HSA", value: yourHSA, color: Color.UI.brandTeal)
+                }
                 if spouseEnabled && spouse401k > 0 {
                     summaryRow(label: "Spouse 401(k)", value: spouse401k, color: Color.Chart.callout)
                 }
                 if spouseEnabled && spouseIRA > 0 {
                     summaryRow(label: "Spouse IRA", value: spouseIRA, color: Color.Chart.callout)
+                }
+                if spouseEnabled && spouseHSA > 0 {
+                    summaryRow(label: "Spouse HSA", value: spouseHSA, color: Color.Chart.callout)
                 }
                 if spouseEnabled && totalContribution > 0 {
                     Divider()
