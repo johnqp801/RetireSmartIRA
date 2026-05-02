@@ -1560,6 +1560,11 @@ class DataManager: ObservableObject {
         primaryMedicareCost.annualTotal + spouseMedicareCost.annualTotal
     }
 
+    /// The tax year used in the projection label, e.g. "2028" if currentYear is 2026.
+    var medicarePremiumProjectionYear: Int {
+        currentYear + 2
+    }
+
     // MARK: - Scenario Warnings (1.9 — engine in Phase 5)
 
     /// Cross-feature scenario warnings. Replaced by `ScenarioWarningEngine.warningsFor(...)`

@@ -1971,13 +1971,13 @@ struct DashboardView: View {
     private var householdMedicareCostSection: some View {
         if dataManager.householdMedicareCostAnnual > 0 {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Household Medicare cost")
+                Text("Projected Medicare cost (\(dataManager.medicarePremiumProjectionYear))")
                     .font(.headline)
 
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle")
                         .foregroundStyle(.secondary)
-                    Text("Premiums based on this scenario's MAGI. Actual IRMAA uses income from 2 years prior.")
+                    Text("Medicare IRMAA premiums are based on income from 2 years prior. Decisions you make today affect your premiums in \(dataManager.medicarePremiumProjectionYear).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
