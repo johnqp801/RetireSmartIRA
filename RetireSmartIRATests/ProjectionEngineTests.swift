@@ -339,4 +339,43 @@ struct ProjectionEngineTests {
         #expect(aca0 > 0)              // SS is flowing (claiming at 62)
         #expect(aca2 > aca0)           // COLA grew the gross SS stream
     }
+
+    @Test("COLA: exact magnitude matches (1+cpi)^yearsSinceClaim over 5 years")
+    func colaExactMagnitudeOverFiveYears() {
+        // This is a regression pin for the COLA workaround. If the formula gets swapped
+        // (e.g., pow→multiply, or yearsSinceClaim off-by-one), this test fails.
+        // The test isolates COLA growth by constructing a scenario where:
+        //   - Person already claiming SS (no claim-year transition during the projection)
+        //   - No traditional/roth/taxable balances, so AGI = taxable SS only
+        //   - acaMagi = grossSS (all pre-Medicare ages 60-64)
+        //   - 2.5% CPI compounding over 5 years should yield grossSS_year4 / grossSS_year0
+        //     ≈ 1.025^4 = 1.10381 (within ~0.1%)
+        let cpi = 0.025
+        let inputs = makeInputs(
+            currentAge: 60,
+            traditional: 0,            // isolate SS as the only AGI source
+            roth: 0,
+            taxable: 0,
+            hsa: 0,
+            ssClaimAge: 60,            // already claiming at scenario start
+            expectedBenefitAtFRA: 5_000
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(cpi: cpi),
+            actionsPerYear: Dictionary(uniqueKeysWithValues: (0..<5).map { (baseYear + $0, []) })
+        )
+
+        let grossSSYear0 = years[0].acaMagi ?? 0
+        let grossSSYear4 = years[4].acaMagi ?? 0
+        #expect(grossSSYear0 > 0)
+
+        // Year 4 means 4 years of COLA compounding from year 0.
+        // (Year 0 itself is the "claim year" — no COLA applied yet.)
+        let expectedRatio = pow(1.0 + cpi, 4.0)   // ≈ 1.103813
+        let actualRatio = grossSSYear4 / grossSSYear0
+        let pctError = abs(actualRatio - expectedRatio) / expectedRatio
+        #expect(pctError < 0.005, "COLA ratio after 4 years should match (1.025)^4 within 0.5%, got \(actualRatio) vs \(expectedRatio)")
+    }
 }

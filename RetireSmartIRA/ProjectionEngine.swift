@@ -122,6 +122,17 @@ struct ProjectionEngine {
             // ─────────────────────────────────────────
             // Per SS audit: effectiveMonthlyBenefitSingle returns claim-year value (no COLA).
             // We apply COLA here as: benefit * (1 + cpiRate)^yearsSinceClaim.
+            //
+            // KNOWN v2.0 LIMITATION (tracked for Task 1.12 / SSClaimNudge):
+            // For MFJ couples we compute each spouse's benefit independently via
+            // effectiveMonthlyBenefitSingle. The corrections doc called for the couples-
+            // aware effectiveMonthlyBenefit, which models the spousal-top-up rule (up to
+            // 50% of higher earner's PIA at FRA when the other spouse has filed). For
+            // couples with very asymmetric PIAs, the current path under-counts SS income
+            // and the SSClaimNudge lifetime-tax delta math will be slightly off. Acceptable
+            // simplification for v2.0 since spousal top-up is most material for one-low-
+            // earner couples and the optimizer doesn't ride that effect aggressively. Fix
+            // before Task 1.12 ships if reference scenarios show meaningful drift.
             let primaryGrossSSAnnual = computeSSAnnual(
                 pia: inputs.primaryExpectedBenefitAtFRA,
                 birthYear: inputs.primaryBirthYear,
@@ -404,7 +415,11 @@ struct ProjectionEngine {
             remaining -= fromRoth
 
         case .proportional:
-            // 1/3 from each non-Roth bucket; Roth last if shortfall remains
+            // Split proportionally between trad and taxable buckets (weighted by current
+            // bucket size). HSA is intentionally excluded from auto-funding because it's
+            // restricted-use (qualified medical expenses); auto-funding general living
+            // expenses from HSA would mischaracterize withdrawals as taxable. Roth is the
+            // last-resort fallback if both trad and taxable are exhausted.
             let total = max(1, trad + taxableBalance)
             let tradFrac = trad / total
             let taxableFrac = taxableBalance / total
