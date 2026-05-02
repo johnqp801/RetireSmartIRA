@@ -1607,7 +1607,47 @@ class DataManager: ObservableObject {
     /// Cross-feature scenario warnings. Replaced by `ScenarioWarningEngine.warningsFor(...)`
     /// in Phase 5; returns empty here so dashboard / inline-warning UI can be wired before then.
     var activeScenarioWarnings: [ScenarioWarning] {
-        []
+        let baselineMAGI = IRMAAMAGI(value: scenarioBaseIncome + taxExemptInterestTotal)
+        let baselineAGI = FederalAGI(value: scenarioBaseIncome)
+        let benchmarkAnnual: Double = {
+            if let monthly = scenario.acaBenchmarkSilverPlanMonthlyOverride {
+                return monthly * 12
+            }
+            return TaxCalculationEngine.config.acaSubsidy2026.nationalAvgBenchmarkSilverPlanAnnual
+        }()
+        let regional: ACASubsidyEngine.AlaskaHawaii = {
+            switch profile.selectedState {
+            case .alaska: return .alaska
+            case .hawaii: return .hawaii
+            default: return .mainland48
+            }
+        }()
+        return ScenarioWarningEngine.warningsFor(
+            federalAGI: federalAGI,
+            acaMAGI: acaMAGI,
+            irmaaMAGI: irmaaMAGIWrapped,
+            baselineIRMAAMAGI: baselineMAGI,
+            primaryAge: currentAge,
+            spouseAge: enableSpouse ? spouseCurrentAge : nil,
+            primaryMedicarePlanType: scenario.yourMedicarePlanType,
+            spouseMedicarePlanType: scenario.spouseMedicarePlanType,
+            filingStatus: filingStatus,
+            enableACAModeling: scenario.enableACAModeling,
+            acaHouseholdSize: scenario.acaHouseholdSize,
+            acaBenchmarkSilverPlanAnnual: benchmarkAnnual,
+            acaRegionalAdjustment: regional,
+            netInvestmentIncome: scenarioNetInvestmentIncome,
+            baselineFederalAGI: baselineAGI,
+            config: TaxCalculationEngine.config
+        )
+    }
+
+    /// Top-N warnings sorted by dollar impact descending. UI uses this for the truncated lists.
+    func topActiveScenarioWarnings(limit: Int = 3) -> [ScenarioWarning] {
+        activeScenarioWarnings
+            .sorted { $0.dollarImpactPerYear > $1.dollarImpactPerYear }
+            .prefix(limit)
+            .map { $0 }
     }
 
     /// IRMAA MAGI = AGI + tax-exempt interest (muni bonds, tax-free money markets).
