@@ -51,10 +51,10 @@ struct MedicareCostEngineOriginalTests {
         #expect(result.irmaaSurcharge == 0)
         #expect(result.medigap == 150.00)
         #expect(result.advantagePremium == nil)
-        // partB = 185 base + 0 surcharge; partD = 50 base + 0 surcharge; medigap = 150
-        // total monthly = 185 + 50 + 150 = 385
-        #expect(result.total == 385.00)
-        #expect(result.annualTotal == 4_620.00)
+        // partB = 202.90 base + 0 surcharge; partD = 50 base + 0 surcharge; medigap = 150
+        // total monthly = 202.90 + 50 + 150 = 402.90
+        #expect(abs(result.total - 402.90) < 0.01)
+        #expect(abs(result.annualTotal - 4_834.80) < 0.01)
     }
 
     @Test("Original Medicare tier 1 (single, MAGI over threshold): IRMAA surcharge added")
@@ -73,14 +73,14 @@ struct MedicareCostEngineOriginalTests {
         #expect(result.irmaaTier == 1)
         // Part B IRMAA tier 1 monthly: 284.10; standard 202.90; surcharge = 81.20
         // Part D IRMAA tier 1 monthly: 14.50 surcharge
-        // partB = 185 + 81.20 = 266.20
+        // partB = 202.90 + 81.20 = 284.10
         // partD = 50 + 14.50 = 64.50
         // medigap = 150
-        // total = 266.20 + 64.50 + 150 = 480.70
-        #expect(abs(result.partB - 266.20) < 0.01)
+        // total = 284.10 + 64.50 + 150 = 498.60
+        #expect(abs(result.partB - 284.10) < 0.01)
         #expect(abs(result.partD - 64.50) < 0.01)
         #expect(result.medigap == 150.00)
-        #expect(abs(result.total - 480.70) < 0.01)
+        #expect(abs(result.total - 498.60) < 0.01)
     }
 
     @Test("Original Medicare with overrides: overrides take precedence")
@@ -120,8 +120,8 @@ struct MedicareCostEngineAdvantageTests {
         )
         #expect(result.medigap == nil)
         #expect(result.advantagePremium == 50.00)
-        // partB = 185, partD = 50, advantage = 50 → total = 285
-        #expect(result.total == 285.00)
+        // partB = 202.90, partD = 50, advantage = 50 → total = 302.90
+        #expect(result.total == 302.90)
     }
 
     @Test("Advantage tier 2 MFJ: full MFJ threshold lookup")
@@ -138,14 +138,14 @@ struct MedicareCostEngineAdvantageTests {
         #expect(result.irmaaTier == 2)
         // Tier 2: partB monthly 405.50 (surcharge = 405.50 - 202.90 = 202.60)
         //         partD monthly 37.40 (full surcharge)
-        // partB = 185 + 202.60 = 387.60
+        // partB = 202.90 + 202.60 = 405.50
         // partD = 50 + 37.40 = 87.40
         // advantage = 50
-        // total = 525.00
-        #expect(abs(result.partB - 387.60) < 0.01)
+        // total = 542.90
+        #expect(abs(result.partB - 405.50) < 0.01)
         #expect(abs(result.partD - 87.40) < 0.01)
         #expect(result.advantagePremium == 50.00)
-        #expect(abs(result.total - 525.00) < 0.01)
+        #expect(abs(result.total - 542.90) < 0.01)
     }
 }
 
@@ -206,6 +206,21 @@ struct MedicareCostEngineMixedHouseholdTests {
         #expect(spouse.irmaaTier == 1)
         #expect(primary.irmaaSurcharge > 0)
         #expect(spouse.irmaaSurcharge > 0)
+    }
+}
+
+@Suite("MedicareCostEngine — partBStandardMonthly constant")
+struct MedicareCostEngineConstantTests {
+
+    @Test("partBStandardMonthly matches CMS 2026 figure of $202.90")
+    func test_partBStandardMonthly_matches_CMS_2026_figure() {
+        // CMS published 2026 standard Part B premium is $202.90/month.
+        // Source: https://www.cms.gov/newsroom/fact-sheets/2026-medicare-parts-b-premiums-and-deductibles
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        #expect(
+            config.medicare2026.partBStandardMonthly == 202.90,
+            "partBStandardMonthly must match CMS 2026 figure of $202.90"
+        )
     }
 }
 

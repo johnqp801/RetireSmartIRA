@@ -41,7 +41,7 @@ struct TaxYearConfigMedicareTests {
     @Test("Medicare premium defaults load from JSON")
     func medicareDefaultsLoad() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        #expect(config.medicare2026.partBStandardMonthly == 185.00)
+        #expect(config.medicare2026.partBStandardMonthly == 202.90)
         #expect(config.medicare2026.partDAvgMonthly == 50.00)
         #expect(config.medicare2026.medigapAvgMonthly == 150.00)
         #expect(config.medicare2026.advantageAvgMonthly == 50.00)

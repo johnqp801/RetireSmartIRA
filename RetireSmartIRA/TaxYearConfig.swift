@@ -257,7 +257,7 @@ struct TaxYearConfig: Codable {
             selfOnly: 4_300, family: 8_550, catchupAge55Plus: 1_000
         ),
         medicare2026: MedicarePremiumDefaults(
-            partBStandardMonthly: 185.00,
+            partBStandardMonthly: 202.90,
             partDAvgMonthly: 50.00,
             medigapAvgMonthly: 150.00,
             advantageAvgMonthly: 50.00
