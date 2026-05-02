@@ -1428,6 +1428,34 @@ class DataManager: ObservableObject {
         return count
     }
 
+    // MARK: - Above-the-Line Deductions (1.9)
+
+    /// Sum of all 1.9 contribution levers that reduce federal AGI.
+    /// Phase 2 wires these to `ScenarioStateManager`; for Task 1.3 the placeholder is 0.
+    var totalAboveTheLineDeductions: Double {
+        // Filled in by Phase 2 — Task 2.6 replaces this body with the live sum.
+        0
+    }
+
+    // MARK: - Strongly-Typed AGI Variants (1.9)
+
+    /// Federal AGI: scenarioGrossIncome minus above-the-line deductions.
+    var federalAGI: FederalAGI {
+        FederalAGI(value: scenarioGrossIncome - totalAboveTheLineDeductions)
+    }
+
+    /// MAGI for ACA Marketplace subsidy: FederalAGI + tax-exempt interest + non-taxable SS.
+    var acaMAGI: ACAMAGI {
+        let nonTaxableSS = max(0, totalSocialSecurityBenefits - scenarioTaxableSocialSecurity)
+        return ACAMAGI(value: federalAGI.value + taxExemptInterestTotal + nonTaxableSS)
+    }
+
+    /// MAGI for Medicare IRMAA: FederalAGI + tax-exempt interest. Replaces the
+    /// untyped `irmaaMagi` over Task 1.4. Kept side-by-side for migration.
+    var irmaaMAGIWrapped: IRMAAMAGI {
+        IRMAAMAGI(value: federalAGI.value + taxExemptInterestTotal)
+    }
+
     /// IRMAA MAGI = AGI + tax-exempt interest (muni bonds, tax-free money markets).
     /// Tax-exempt interest is not in AGI but the IRS includes it for IRMAA.
     var irmaaMagi: Double {

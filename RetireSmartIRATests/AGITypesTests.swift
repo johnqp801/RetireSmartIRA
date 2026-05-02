@@ -39,4 +39,37 @@ struct AGITypesTests {
         #expect(federal.value == aca.value)
         #expect(aca.value == irmaa.value)
     }
+
+    @Test("DataManager.federalAGI equals scenarioGrossIncome minus above-the-line deductions (zero today)")
+    @MainActor
+    func federalAGIComputedProperty() {
+        let dm = DataManager(skipPersistence: true)
+        // No income sources / scenario levers added → scenarioGrossIncome == 0.
+        // No contribution levers exist yet (Phase 2) → totalAboveTheLineDeductions == 0.
+        #expect(dm.federalAGI.value == dm.scenarioGrossIncome)
+    }
+
+    @Test("DataManager.acaMAGI = federalAGI + tax-exempt interest + non-taxable SS")
+    @MainActor
+    func acaMAGIComputedProperty() {
+        let dm = DataManager(skipPersistence: true)
+        // With no income, all three components are zero.
+        #expect(dm.acaMAGI.value == dm.federalAGI.value
+                + dm.taxExemptInterestTotal
+                + (dm.totalSocialSecurityBenefits - dm.scenarioTaxableSocialSecurity))
+    }
+
+    @Test("DataManager.irmaaMAGIWrapped = federalAGI + tax-exempt interest")
+    @MainActor
+    func irmaaMAGIComputedProperty() {
+        let dm = DataManager(skipPersistence: true)
+        #expect(dm.irmaaMAGIWrapped.value == dm.federalAGI.value + dm.taxExemptInterestTotal)
+    }
+
+    @Test("irmaaMAGIWrapped.value matches existing untyped irmaaMagi (no behavior drift)")
+    @MainActor
+    func irmaaMAGIMatchesLegacyDouble() {
+        let dm = DataManager(skipPersistence: true)
+        #expect(dm.irmaaMAGIWrapped.value == dm.irmaaMagi)
+    }
 }
