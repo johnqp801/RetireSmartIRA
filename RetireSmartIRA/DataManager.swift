@@ -1464,7 +1464,7 @@ class DataManager: ObservableObject {
 
     /// Current scenario IRMAA result based on IRMAA MAGI (AGI + tax-exempt interest).
     var scenarioIRMAA: IRMAAResult {
-        calculateIRMAA(magi: irmaaMagi, filingStatus: filingStatus)
+        TaxCalculationEngine.calculateIRMAA(magi: irmaaMAGIWrapped, filingStatus: filingStatus)
     }
 
     /// Total household annual IRMAA surcharge (per-person × number of Medicare members).
@@ -1475,7 +1475,8 @@ class DataManager: ObservableObject {
     /// Baseline IRMAA (without any scenario decisions) for comparison.
     /// Includes tax-exempt interest in MAGI since IRS counts it for IRMAA.
     var baselineIRMAA: IRMAAResult {
-        calculateIRMAA(magi: scenarioBaseIncome + taxExemptInterestTotal, filingStatus: filingStatus)
+        let baselineMAGI = IRMAAMAGI(value: scenarioBaseIncome + taxExemptInterestTotal)
+        return TaxCalculationEngine.calculateIRMAA(magi: baselineMAGI, filingStatus: filingStatus)
     }
 
     /// Whether scenario decisions pushed into a higher IRMAA tier.

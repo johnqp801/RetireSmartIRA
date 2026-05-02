@@ -397,6 +397,12 @@ struct TaxCalculationEngine {
         )
     }
 
+    /// Strongly-typed overload — forwards to the legacy `Double` overload.
+    /// Prevents callers from accidentally passing FederalAGI or ACAMAGI.
+    static func calculateIRMAA(magi: IRMAAMAGI, filingStatus: FilingStatus) -> IRMAAResult {
+        calculateIRMAA(magi: magi.value, filingStatus: filingStatus)
+    }
+
     // MARK: - NIIT
 
     static func calculateNIIT(nii: Double, magi: Double, filingStatus: FilingStatus) -> NIITResult {
