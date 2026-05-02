@@ -43,6 +43,11 @@ class ScenarioStateManager: ObservableObject {
     @Published var yourHSAContribution: Double = 0
     @Published var spouseHSAContribution: Double = 0
 
+    // MARK: - 1.9 Medicare Plan Type (per spouse)
+
+    @Published var yourMedicarePlanType: MedicarePlanType = .preMedicare
+    @Published var spouseMedicarePlanType: MedicarePlanType = .preMedicare
+
     // MARK: - Reset
 
     func resetScenarioState() {
@@ -70,6 +75,8 @@ class ScenarioStateManager: ObservableObject {
         spouseTraditionalIRAContribution = 0
         yourHSAContribution = 0
         spouseHSAContribution = 0
+        yourMedicarePlanType = .preMedicare
+        spouseMedicarePlanType = .preMedicare
     }
 
     // MARK: - Simple Scenario Aggregations

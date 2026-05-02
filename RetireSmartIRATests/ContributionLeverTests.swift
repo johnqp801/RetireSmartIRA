@@ -110,3 +110,99 @@ struct AboveTheLineDeductionTests {
         #expect(dm.federalAGI.value == expected)
     }
 }
+
+@Suite("HSA Combined Limit + Medicare gating")
+@MainActor
+struct HSACombinedLimitTests {
+
+    func dateForYear(_ year: Int) -> Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = 1
+        components.day = 1
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
+    @Test("HSA combined limit for single filer under 55 = self-only")
+    func hsaSingleUnder55() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1980)  // age 46
+        dm.profile.filingStatus = .single
+        #expect(dm.hsaCombinedLimit() == 4_300)
+    }
+
+    @Test("HSA combined limit for single filer age 55+ = self-only + catchup")
+    func hsaSingle55Plus() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1970)  // age 56
+        dm.profile.filingStatus = .single
+        #expect(dm.hsaCombinedLimit() == 5_300)
+    }
+
+    @Test("HSA combined limit for MFJ under 55 = family")
+    func hsaMFJUnder55() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1980)
+        dm.profile.spouseBirthDate = dateForYear(1980)
+        dm.profile.filingStatus = .marriedFilingJointly
+        dm.enableSpouse = true
+        #expect(dm.hsaCombinedLimit() == 8_550)
+    }
+
+    @Test("HSA combined limit for MFJ both 55+ = family + 2× catchup")
+    func hsaMFJBoth55Plus() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1970)
+        dm.profile.spouseBirthDate = dateForYear(1970)
+        dm.profile.filingStatus = .marriedFilingJointly
+        dm.enableSpouse = true
+        #expect(dm.hsaCombinedLimit() == 10_550)  // 8550 + 1000 + 1000
+    }
+
+    @Test("HSA combined limit for MFJ one over 55 = family + 1× catchup")
+    func hsaMFJOneOver55() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1970)   // age 56
+        dm.profile.spouseBirthDate = dateForYear(1980)  // age 46
+        dm.profile.filingStatus = .marriedFilingJointly
+        dm.enableSpouse = true
+        #expect(dm.hsaCombinedLimit() == 9_550)  // 8550 + 1000
+    }
+}
+
+@Suite("HSA Medicare gating")
+@MainActor
+struct HSAMedicareGatingTests {
+
+    func dateForYear(_ year: Int) -> Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = 1
+        components.day = 1
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
+    @Test("HSA-eligible: pre-Medicare returns true")
+    func hsaPreMedicare() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1980)  // age 46
+        dm.scenario.yourMedicarePlanType = .preMedicare
+        #expect(dm.isHSAEligible(for: .primary) == true)
+    }
+
+    @Test("HSA-eligible: original Medicare returns false")
+    func hsaOriginalMedicareBlocks() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1958)  // age 68
+        dm.scenario.yourMedicarePlanType = .originalMedicare
+        #expect(dm.isHSAEligible(for: .primary) == false)
+    }
+
+    @Test("HSA-eligible: Medicare Advantage returns false")
+    func hsaMedicareAdvantageBlocks() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.birthDate = dateForYear(1958)
+        dm.scenario.yourMedicarePlanType = .medicareAdvantage
+        #expect(dm.isHSAEligible(for: .primary) == false)
+    }
+}

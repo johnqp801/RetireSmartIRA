@@ -1485,6 +1485,29 @@ class DataManager: ObservableObject {
         return age >= 50 ? limits.base + limits.catchupAge50Plus : limits.base
     }
 
+    /// Combined HSA limit for the household.
+    /// MFJ + family HDHP coverage assumed when `enableSpouse` is true.
+    /// Per-spouse age-55 catchups stack on top of the family base.
+    func hsaCombinedLimit() -> Double {
+        let limits = TaxCalculationEngine.config.contributionLimitsHSA
+        let baseCap = enableSpouse ? limits.family : limits.selfOnly
+        let catchupYou = currentAge >= 55 ? limits.catchupAge55Plus : 0
+        let catchupSpouse = (enableSpouse && spouseCurrentAge >= 55) ? limits.catchupAge55Plus : 0
+        return baseCap + catchupYou + catchupSpouse
+    }
+
+    /// HSA contributions require HDHP coverage, which is incompatible with Medicare enrollment.
+    /// Returns false when the spouse is on Original Medicare or Medicare Advantage.
+    func isHSAEligible(for owner: Owner) -> Bool {
+        let planType: MedicarePlanType
+        switch owner {
+        case .primary: planType = scenario.yourMedicarePlanType
+        case .spouse: planType = scenario.spouseMedicarePlanType
+        case .joint: return isHSAEligible(for: .primary) && isHSAEligible(for: .spouse)
+        }
+        return planType == .preMedicare
+    }
+
     // MARK: - Scenario Warnings (1.9 — engine in Phase 5)
 
     /// Cross-feature scenario warnings. Replaced by `ScenarioWarningEngine.warningsFor(...)`
