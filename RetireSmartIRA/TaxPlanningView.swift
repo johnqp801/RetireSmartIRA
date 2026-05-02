@@ -1540,20 +1540,15 @@ struct TaxPlanningView: View {
 
     // MARK: - Scenario Bindings (for 401k, IRA, HSA contributions)
 
-    private func preTax401kBinding(for owner: Owner) -> Binding<Double> {
-        Binding<Double>(
-            get: {
-                owner == .primary
-                    ? dataManager.scenario.yourTraditional401kContribution
-                    : dataManager.scenario.spouseTraditional401kContribution
-            },
-            set: { newValue in
-                if owner == .primary {
-                    dataManager.scenario.yourTraditional401kContribution = newValue
-                } else {
-                    dataManager.scenario.spouseTraditional401kContribution = newValue
-                }
-            }
+    /// Creates a Binding bridge to a ScenarioStateManager property.
+    /// Accesses @Published properties via their getter/setter directly.
+    /// Necessary because `scenario` is a `let` constant on DataManager (not @Published),
+    /// so we can't use `$dataManager.scenario.property` directly.
+    private func scenarioBinding(_ property: @escaping (ScenarioStateManager) -> Double,
+                               setter: @escaping (ScenarioStateManager, Double) -> Void) -> Binding<Double> {
+        Binding(
+            get: { property(dataManager.scenario) },
+            set: { setter(dataManager.scenario, $0) }
         )
     }
 
@@ -2395,7 +2390,10 @@ struct TaxPlanningView: View {
             label: spouseEnabled ? "Your Pre-tax 401(k)" : "Pre-tax 401(k) Contribution",
             icon: spouseEnabled ? "person.fill" : nil,
             balance: 0,  // No "balance" concept for contribution levers
-            amount: preTax401kBinding(for: .primary),
+            amount: scenarioBinding(
+                { $0.yourTraditional401kContribution },
+                setter: { $0.yourTraditional401kContribution = $1 }
+            ),
             sliderMax: dataManager.four01kLimit(for: .primary),
             tint: Color.UI.brandTeal
         )
@@ -2410,7 +2408,10 @@ struct TaxPlanningView: View {
                 label: "Spouse's Pre-tax 401(k)",
                 icon: "person.fill",
                 balance: 0,
-                amount: preTax401kBinding(for: .spouse),
+                amount: scenarioBinding(
+                    { $0.spouseTraditional401kContribution },
+                    setter: { $0.spouseTraditional401kContribution = $1 }
+                ),
                 sliderMax: dataManager.four01kLimit(for: .spouse),
                 tint: Color.Chart.callout
             )
@@ -2421,7 +2422,46 @@ struct TaxPlanningView: View {
             )
         }
 
-        // IRA + HSA in subsequent tasks (2.9, 2.10)
+        // IRA sliders
+        Divider()
+
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your Traditional IRA" : "Traditional IRA Contribution",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: 0,
+            amount: scenarioBinding(
+                { $0.yourTraditionalIRAContribution },
+                setter: { $0.yourTraditionalIRAContribution = $1 }
+            ),
+            sliderMax: dataManager.iraLimit(for: .primary),
+            tint: Color.UI.brandTeal
+        )
+        contributionLimitWarning(
+            amount: dataManager.scenario.yourTraditionalIRAContribution,
+            limit: dataManager.iraLimit(for: .primary),
+            label: "Traditional IRA"
+        )
+
+        if spouseEnabled {
+            ConversionSliderCard(
+                label: "Spouse's Traditional IRA",
+                icon: "person.fill",
+                balance: 0,
+                amount: scenarioBinding(
+                    { $0.spouseTraditionalIRAContribution },
+                    setter: { $0.spouseTraditionalIRAContribution = $1 }
+                ),
+                sliderMax: dataManager.iraLimit(for: .spouse),
+                tint: Color.Chart.callout
+            )
+            contributionLimitWarning(
+                amount: dataManager.scenario.spouseTraditionalIRAContribution,
+                limit: dataManager.iraLimit(for: .spouse),
+                label: "Spouse Traditional IRA"
+            )
+        }
+
+        // HSA section in Task 2.10
     }
 
     @ViewBuilder
@@ -2468,18 +2508,26 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var preTaxContributionsSummary: some View {
-        let yourContribution = dataManager.scenario.yourTraditional401kContribution
-        let spouseContribution = spouseEnabled ? dataManager.scenario.spouseTraditional401kContribution : 0
-        let totalContribution = yourContribution + spouseContribution
+        let your401k = dataManager.scenario.yourTraditional401kContribution
+        let spouse401k = spouseEnabled ? dataManager.scenario.spouseTraditional401kContribution : 0
+        let yourIRA = dataManager.scenario.yourTraditionalIRAContribution
+        let spouseIRA = spouseEnabled ? dataManager.scenario.spouseTraditionalIRAContribution : 0
+        let totalContribution = your401k + spouse401k + yourIRA + spouseIRA
 
         if totalContribution > 0 {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
-                if yourContribution > 0 {
-                    summaryRow(label: "Your 401(k)", value: yourContribution, color: Color.UI.brandTeal)
+                if your401k > 0 {
+                    summaryRow(label: "Your 401(k)", value: your401k, color: Color.UI.brandTeal)
                 }
-                if spouseEnabled && spouseContribution > 0 {
-                    summaryRow(label: "Spouse 401(k)", value: spouseContribution, color: Color.Chart.callout)
+                if yourIRA > 0 {
+                    summaryRow(label: "Your IRA", value: yourIRA, color: Color.UI.brandTeal)
+                }
+                if spouseEnabled && spouse401k > 0 {
+                    summaryRow(label: "Spouse 401(k)", value: spouse401k, color: Color.Chart.callout)
+                }
+                if spouseEnabled && spouseIRA > 0 {
+                    summaryRow(label: "Spouse IRA", value: spouseIRA, color: Color.Chart.callout)
                 }
                 if spouseEnabled && totalContribution > 0 {
                     Divider()
