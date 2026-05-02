@@ -63,4 +63,29 @@ final class MultiYearValueTypesTests: XCTestCase {
         XCTAssertTrue(bands.average.isEmpty)
         XCTAssertTrue(bands.pessimistic.isEmpty)
     }
+
+    func test_SensitivityBands_codableRoundTrip_withPopulatedYears() throws {
+        let year2026 = YearRecommendation(
+            year: 2026, agi: 100_000, acaMagi: nil, irmaaMagi: 100_000,
+            taxableIncome: 80_000,
+            taxBreakdown: TaxBreakdown(federal: 10_000, state: 2_000, irmaa: 0, acaPremiumImpact: 0),
+            endOfYearBalances: AccountSnapshot(traditional: 500_000, roth: 100_000, taxable: 50_000, hsa: 10_000),
+            actions: [.rothConversion(amount: 20_000)]
+        )
+        let year2027 = YearRecommendation(
+            year: 2027, agi: 110_000, acaMagi: nil, irmaaMagi: 110_000,
+            taxableIncome: 90_000,
+            taxBreakdown: TaxBreakdown(federal: 12_000, state: 2_500, irmaa: 500, acaPremiumImpact: 0),
+            endOfYearBalances: AccountSnapshot(traditional: 480_000, roth: 130_000, taxable: 50_000, hsa: 11_000),
+            actions: []
+        )
+        let bands = SensitivityBands(
+            optimistic: [year2026, year2027],
+            average: [year2026],
+            pessimistic: []
+        )
+        let data = try JSONEncoder().encode(bands)
+        let decoded = try JSONDecoder().decode(SensitivityBands.self, from: data)
+        XCTAssertEqual(decoded, bands)
+    }
 }

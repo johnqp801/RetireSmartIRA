@@ -54,6 +54,8 @@ struct TaxImpact: Codable, Equatable {
         self.scenarioLifetimeTax = scenarioLifetimeTax
     }
 
+    /// `delta > 0` means the scenario is worse than baseline (more lifetime tax).
+    /// Used by `widowStressDelta` where positive = surviving spouse pays more.
     var delta: Double { scenarioLifetimeTax - baselineLifetimeTax }
 }
 
