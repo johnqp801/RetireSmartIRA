@@ -31,6 +31,7 @@ struct TaxPlanningView: View {
     @State private var showWithdrawalSheet: Bool = false
     @State private var showInheritedSheet: Bool = false
     @State private var showCharitableSheet: Bool = false
+    @State private var showPreTaxContributionsSheet: Bool = false
     @State private var showRothGuide: Bool = false
     @State private var showCharitableGuide: Bool = false
     @State private var showLegacyDetails: Bool = false
@@ -325,6 +326,7 @@ struct TaxPlanningView: View {
                 inheritedWithdrawalCard
                 charitableCard
                 charitableGuideCard
+                preTaxContributionsCard
                 rothConversionCard
                 rothConversionGuideCard
             } else {
@@ -335,6 +337,7 @@ struct TaxPlanningView: View {
                 inheritedWithdrawalCard
                 charitableCard
                 charitableGuideCard
+                preTaxContributionsCard
             }
         })
     }
@@ -426,6 +429,7 @@ struct TaxPlanningView: View {
             inheritedWithdrawalCard
             charitableCard
             charitableGuideCard
+            preTaxContributionsCard
         })
     }
 
@@ -469,6 +473,7 @@ struct TaxPlanningView: View {
                         showWithdrawalSheet = false
                         showInheritedSheet = false
                         showCharitableSheet = false
+                        showPreTaxContributionsSheet = false
                     }
                 }
             }
@@ -1533,6 +1538,25 @@ struct TaxPlanningView: View {
         )
     }
 
+    // MARK: - Scenario Bindings (for 401k, IRA, HSA contributions)
+
+    private func preTax401kBinding(for owner: Owner) -> Binding<Double> {
+        Binding<Double>(
+            get: {
+                owner == .primary
+                    ? dataManager.scenario.yourTraditional401kContribution
+                    : dataManager.scenario.spouseTraditional401kContribution
+            },
+            set: { newValue in
+                if owner == .primary {
+                    dataManager.scenario.yourTraditional401kContribution = newValue
+                } else {
+                    dataManager.scenario.spouseTraditional401kContribution = newValue
+                }
+            }
+        )
+    }
+
     /// Dynamic step number for charitable contributions (shifts when inherited accounts exist)
     private var charitableStepNumber: Int {
         dataManager.hasInheritedAccounts ? 4 : 3
@@ -2358,6 +2382,118 @@ struct TaxPlanningView: View {
                 Text("Cash / Bank Account Donation")
                     .font(.subheadline)
                     .fontWeight(.medium)
+            }
+        }
+    }
+
+    // MARK: - Pre-tax Contributions (401k)
+
+    @ViewBuilder
+    private var preTaxContributionsContent: some View {
+        // 401(k) sliders
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your Pre-tax 401(k)" : "Pre-tax 401(k) Contribution",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: 0,  // No "balance" concept for contribution levers
+            amount: preTax401kBinding(for: .primary),
+            sliderMax: dataManager.four01kLimit(for: .primary),
+            tint: Color.UI.brandTeal
+        )
+        contributionLimitWarning(
+            amount: dataManager.scenario.yourTraditional401kContribution,
+            limit: dataManager.four01kLimit(for: .primary),
+            label: "401(k)"
+        )
+
+        if spouseEnabled {
+            ConversionSliderCard(
+                label: "Spouse's Pre-tax 401(k)",
+                icon: "person.fill",
+                balance: 0,
+                amount: preTax401kBinding(for: .spouse),
+                sliderMax: dataManager.four01kLimit(for: .spouse),
+                tint: Color.Chart.callout
+            )
+            contributionLimitWarning(
+                amount: dataManager.scenario.spouseTraditional401kContribution,
+                limit: dataManager.four01kLimit(for: .spouse),
+                label: "Spouse 401(k)"
+            )
+        }
+
+        // IRA + HSA in subsequent tasks (2.9, 2.10)
+    }
+
+    @ViewBuilder
+    private func contributionLimitWarning(amount: Double, limit: Double, label: String) -> some View {
+        if amount > limit {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.Semantic.amber)
+                Text("\(label) contribution exceeds 2026 limit (\(limit, format: .currency(code: "USD")))")
+                    .font(.caption)
+                    .foregroundStyle(Color.Semantic.amber)
+            }
+        }
+    }
+
+    // MARK: - Pre-tax Contributions Card (401k)
+
+    private var preTaxContributionsCard: some View {
+        AnyView(VStack(spacing: 0) {
+            ScenarioStepCard(
+                stepNumber: 5,
+                title: "Pre-tax Contributions",
+                description: "Reduce your adjusted gross income (AGI) through pre-tax 401(k), traditional IRA, and HSA contributions.",
+                stepColor: Color.UI.brandTeal,
+                icon: "arrow.down.doc",
+                isExpanded: showPreTaxContributionsSheet,
+                action: { withAnimation(.easeInOut(duration: 0.3)) { showPreTaxContributionsSheet.toggle() } }
+            ) {
+                preTaxContributionsSummary
+            }
+
+            if showPreTaxContributionsSheet {
+                VStack(alignment: .leading, spacing: 16) {
+                    preTaxContributionsContent
+                }
+                .padding()
+                .background(Color(PlatformColor.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.top, -8)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+            }
+        })
+    }
+
+    @ViewBuilder
+    private var preTaxContributionsSummary: some View {
+        let yourContribution = dataManager.scenario.yourTraditional401kContribution
+        let spouseContribution = spouseEnabled ? dataManager.scenario.spouseTraditional401kContribution : 0
+        let totalContribution = yourContribution + spouseContribution
+
+        if totalContribution > 0 {
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                if yourContribution > 0 {
+                    summaryRow(label: "Your 401(k)", value: yourContribution, color: Color.UI.brandTeal)
+                }
+                if spouseEnabled && spouseContribution > 0 {
+                    summaryRow(label: "Spouse 401(k)", value: spouseContribution, color: Color.Chart.callout)
+                }
+                if spouseEnabled && totalContribution > 0 {
+                    Divider()
+                    summaryRow(label: "Combined", value: totalContribution, color: Color.UI.textPrimary)
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("No pre-tax contributions configured")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
