@@ -2807,10 +2807,68 @@ private struct ReduceAGISection: View {
                     }
                 }
             }
+
+            // AGI-reducing decisions list
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Your AGI-reducing decisions:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                decisionRow(label: "Pre-tax 401(k) (you)", amount: dataManager.scenario.yourTraditional401kContribution)
+                if dataManager.enableSpouse {
+                    decisionRow(label: "Pre-tax 401(k) (spouse)", amount: dataManager.scenario.spouseTraditional401kContribution)
+                }
+                decisionRow(label: "Traditional IRA (you)", amount: dataManager.scenario.yourTraditionalIRAContribution)
+                if dataManager.enableSpouse {
+                    decisionRow(label: "Traditional IRA (spouse)", amount: dataManager.scenario.spouseTraditionalIRAContribution)
+                }
+                decisionRow(label: "HSA (combined)", amount: dataManager.scenario.scenarioTotalHSA)
+                decisionRow(label: "QCD (existing)", amount: dataManager.scenario.scenarioTotalQCD)
+                decisionRow(label: "Charitable cash (existing)", amount: dataManager.scenario.cashDonationAmount)
+
+                Divider()
+                decisionRow(
+                    label: "Total above-the-line",
+                    amount: dataManager.totalAboveTheLineDeductions,
+                    bold: true
+                )
+                decisionRow(
+                    label: "AGI without reductions",
+                    amount: dataManager.scenarioGrossIncome,
+                    bold: false
+                )
+                decisionRow(
+                    label: "AGI with reductions",
+                    amount: dataManager.federalAGI.value,
+                    bold: true
+                )
+                let estimatedSavings = dataManager.totalAboveTheLineDeductions * dataManager.marginalAGISavingsPerDollar
+                decisionRow(
+                    label: "Tax savings (federal+state)",
+                    amount: estimatedSavings,
+                    bold: false,
+                    tint: Color.Semantic.green
+                )
+            }
         }
         .padding()
         .background(Color.UI.surfaceCard)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func decisionRow(label: String, amount: Double, bold: Bool = false, tint: Color = Color.UI.textPrimary) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(amount, format: .currency(code: "USD"))
+                .font(.caption)
+                .fontWeight(bold ? .semibold : .regular)
+                .foregroundStyle(tint)
+        }
     }
 
     private func format2(_ d: Double) -> String {
