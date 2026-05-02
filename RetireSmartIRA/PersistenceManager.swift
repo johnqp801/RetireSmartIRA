@@ -73,6 +73,11 @@ struct PersistenceManager {
         static let spouseMedigapOverride = "spouseMedigapOverride"
         static let yourAdvantageOverride = "yourAdvantageOverride"
         static let spouseAdvantageOverride = "spouseAdvantageOverride"
+
+        // 1.9 ACA Marketplace Modeling
+        static let enableACAModeling = "enableACAModeling"
+        static let acaHouseholdSize = "acaHouseholdSize"
+        static let acaBenchmarkSilverPlanMonthlyOverride = "acaBenchmarkSilverPlanMonthlyOverride"
     }
 
     // MARK: - Load All
@@ -318,6 +323,18 @@ struct PersistenceManager {
             dm.scenario.spouseAdvantageOverride = defaults.double(forKey: StorageKey.spouseAdvantageOverride)
         }
 
+        // 1.9 ACA Marketplace Modeling
+        if defaults.object(forKey: StorageKey.enableACAModeling) != nil {
+            dm.scenario.enableACAModeling = defaults.bool(forKey: StorageKey.enableACAModeling)
+        }
+        if defaults.object(forKey: StorageKey.acaHouseholdSize) != nil {
+            let n = defaults.integer(forKey: StorageKey.acaHouseholdSize)
+            if n > 0 { dm.scenario.acaHouseholdSize = n }
+        }
+        if defaults.object(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride) != nil {
+            dm.scenario.acaBenchmarkSilverPlanMonthlyOverride = defaults.double(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        }
+
         // Social Security Planner data
         dm.loadSSData()
     }
@@ -496,6 +513,15 @@ struct PersistenceManager {
             defaults.set(v, forKey: StorageKey.spouseAdvantageOverride)
         } else {
             defaults.removeObject(forKey: StorageKey.spouseAdvantageOverride)
+        }
+
+        // 1.9 ACA Marketplace Modeling
+        defaults.set(dm.scenario.enableACAModeling, forKey: StorageKey.enableACAModeling)
+        defaults.set(dm.scenario.acaHouseholdSize, forKey: StorageKey.acaHouseholdSize)
+        if let v = dm.scenario.acaBenchmarkSilverPlanMonthlyOverride {
+            defaults.set(v, forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
         }
 
         // Social Security Planner data

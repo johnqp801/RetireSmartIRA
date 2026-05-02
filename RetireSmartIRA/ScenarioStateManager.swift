@@ -61,6 +61,12 @@ class ScenarioStateManager: ObservableObject {
     @Published var yourAdvantageOverride: Double? = nil
     @Published var spouseAdvantageOverride: Double? = nil
 
+    // MARK: - 1.9 ACA Marketplace Modeling
+
+    @Published var enableACAModeling: Bool = false
+    @Published var acaHouseholdSize: Int = 1
+    @Published var acaBenchmarkSilverPlanMonthlyOverride: Double? = nil
+
     // MARK: - Reset
 
     func resetScenarioState() {
@@ -98,6 +104,9 @@ class ScenarioStateManager: ObservableObject {
         spouseMedigapOverride = nil
         yourAdvantageOverride = nil
         spouseAdvantageOverride = nil
+        enableACAModeling = false
+        acaHouseholdSize = 1
+        acaBenchmarkSilverPlanMonthlyOverride = nil
     }
 
     // MARK: - Simple Scenario Aggregations
