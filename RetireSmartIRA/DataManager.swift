@@ -1433,8 +1433,7 @@ class DataManager: ObservableObject {
     /// Sum of all 1.9 contribution levers that reduce federal AGI.
     /// Phase 2 wires these to `ScenarioStateManager`; for Task 1.3 the placeholder is 0.
     var totalAboveTheLineDeductions: Double {
-        // Filled in by Phase 2 — Task 2.6 replaces this body with the live sum.
-        0
+        scenario.scenarioTotalAboveTheLineDeductions
     }
 
     // MARK: - Strongly-Typed AGI Variants (1.9)
@@ -1454,6 +1453,36 @@ class DataManager: ObservableObject {
     /// untyped `irmaaMagi` over Task 1.4. Kept side-by-side for migration.
     var irmaaMAGIWrapped: IRMAAMAGI {
         IRMAAMAGI(value: federalAGI.value + taxExemptInterestTotal)
+    }
+
+    // MARK: - 1.9 Contribution Limit Helpers
+
+    /// Annual 401(k) elective-deferral limit for `owner` based on their age in the current tax year.
+    /// Age <50 → base. 50-59 or 64+ → base + standard catchup. 60-63 → base + SECURE 2.0 super-catchup.
+    func four01kLimit(for owner: Owner) -> Double {
+        let age: Int
+        switch owner {
+        case .primary: age = currentAge
+        case .spouse: age = spouseCurrentAge
+        case .joint: age = max(currentAge, spouseCurrentAge)
+        }
+        let limits = TaxCalculationEngine.config.contributionLimits401k
+        if age < 50 { return limits.base }
+        if age >= 60 && age <= 63 { return limits.base + limits.catchupAge60To63 }
+        return limits.base + limits.catchupAge50To59  // covers 50-59 and 64+
+    }
+
+    /// Annual Traditional IRA contribution limit for `owner`.
+    /// Age <50 → base. Age 50+ → base + catchup.
+    func iraLimit(for owner: Owner) -> Double {
+        let age: Int
+        switch owner {
+        case .primary: age = currentAge
+        case .spouse: age = spouseCurrentAge
+        case .joint: age = max(currentAge, spouseCurrentAge)
+        }
+        let limits = TaxCalculationEngine.config.contributionLimitsIRA
+        return age >= 50 ? limits.base + limits.catchupAge50Plus : limits.base
     }
 
     // MARK: - Scenario Warnings (1.9 — engine in Phase 5)
