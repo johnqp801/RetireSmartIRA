@@ -15,6 +15,7 @@ enum ScenarioWarningEngine {
         federalAGI: FederalAGI,
         acaMAGI: ACAMAGI,
         irmaaMAGI: IRMAAMAGI,
+        baselineIRMAAMAGI: IRMAAMAGI,
         primaryAge: Int,
         spouseAge: Int?,
         primaryMedicarePlanType: MedicarePlanType,
@@ -66,7 +67,46 @@ enum ScenarioWarningEngine {
             }
         }
 
-        // IRMAA + bracket + NIIT + widow warnings: filled in subsequent tasks (5.2, 5.3, 5.4).
+        // ──── IRMAA tier crossing + approaching ────
+        // Apply only when at least one spouse is on Medicare or within 2 years of 65.
+        let primaryIRMAARelevant = primaryAge >= 63 || primaryMedicarePlanType != .preMedicare
+        let spouseIRMAARelevant: Bool = {
+            guard let age = spouseAge else { return false }
+            return age >= 63 || spouseMedicarePlanType != .preMedicare
+        }()
+        if primaryIRMAARelevant || spouseIRMAARelevant {
+            let scenarioIRMAA = TaxCalculationEngine.calculateIRMAA(magi: irmaaMAGI, filingStatus: filingStatus)
+            let baselineIRMAA = TaxCalculationEngine.calculateIRMAA(magi: baselineIRMAAMAGI, filingStatus: filingStatus)
+            if scenarioIRMAA.tier > baselineIRMAA.tier {
+                let surchargeIncrease = scenarioIRMAA.annualSurchargePerPerson - baselineIRMAA.annualSurchargePerPerson
+                let medicareCount: Int = {
+                    var c = 0
+                    if primaryMedicarePlanType != .preMedicare { c += 1 }
+                    if spouseMedicarePlanType != .preMedicare { c += 1 }
+                    return max(c, 1)
+                }()
+                warnings.append(ScenarioWarning(
+                    category: .irmaaTierCrossing,
+                    timing: .twoYearsOut,
+                    severity: .warning,
+                    dollarImpactPerYear: surchargeIncrease * Double(medicareCount),
+                    messageHeadline: "Crosses IRMAA tier \(scenarioIRMAA.tier)",
+                    messageDetail: "Medicare premium impact in 2 years: ~$\(Int(surchargeIncrease * Double(medicareCount)))/yr."
+                ))
+            } else if let distanceToNext = scenarioIRMAA.distanceToNextTier,
+                      distanceToNext > 0 && distanceToNext < 10_000 {
+                warnings.append(ScenarioWarning(
+                    category: .irmaaApproaching,
+                    timing: .twoYearsOut,
+                    severity: .info,
+                    dollarImpactPerYear: 0,
+                    messageHeadline: "Approaching IRMAA tier \(scenarioIRMAA.tier + 1)",
+                    messageDetail: "Within $\(Int(distanceToNext)) of next IRMAA tier."
+                ))
+            }
+        }
+
+        // bracket + NIIT + widow warnings: filled in subsequent tasks (5.3, 5.4).
         return warnings
     }
 }
