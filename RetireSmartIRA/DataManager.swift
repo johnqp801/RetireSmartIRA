@@ -1565,6 +1565,30 @@ class DataManager: ObservableObject {
         currentYear + 2
     }
 
+    /// Approximate marginal tax saving per $1 reduction in AGI at the current scenario.
+    /// Computed as: federal marginal rate + state marginal rate. Excludes IRMAA/ACA
+    /// effects (which are step-function, surfaced separately in the chart).
+    var marginalAGISavingsPerDollar: Double {
+        // Federal marginal rate at current AGI.
+        let brackets: [TaxYearConfig.BracketEntry] = filingStatus == .single
+            ? TaxCalculationEngine.config.federalBracketsSingle
+            : TaxCalculationEngine.config.federalBracketsMFJ
+        let federalRate = brackets.last(where: { federalAGI.value >= $0.threshold })?.rate ?? 0
+        // State marginal rate (approximation).
+        let stateConfig = StateTaxData.config(for: profile.selectedState)
+        let stateRate: Double
+        switch stateConfig.taxSystem {
+        case .noIncomeTax, .specialLimited:
+            stateRate = 0
+        case .flat(let rate):
+            stateRate = rate
+        case .progressive(let single, let married):
+            let stateBrackets = filingStatus == .single ? single : married
+            stateRate = stateBrackets.last(where: { federalAGI.value >= $0.threshold })?.rate ?? 0
+        }
+        return federalRate + stateRate
+    }
+
     // MARK: - 1.9 ACA Subsidy
 
     /// Whether ACA Marketplace modeling should display in the UI.

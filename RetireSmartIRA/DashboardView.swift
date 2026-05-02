@@ -43,6 +43,7 @@ struct DashboardView: View {
                 incomeBreakdown
                 incomeCompositionChart
                 taxPlanningDecisions
+                ReduceAGISection()
                 legacyStrategySummary
                 taxProjection
                 taxBracketChart
@@ -66,6 +67,7 @@ struct DashboardView: View {
                     incomeBreakdown
                     incomeCompositionChart
                     taxPlanningDecisions
+                    ReduceAGISection()
                     legacyStrategySummary
                     accountBalances
                 }
@@ -2723,6 +2725,62 @@ struct OwnerIncomeRow: View {
                 .fontWeight(.semibold)
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 1.9 Reduce AGI Section
+
+private struct ReduceAGISection: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Reduce AGI")
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(Color.UI.brandTeal)
+            }
+
+            // Pre-Medicare 63-64 projection band (always-visible per spec decision 15)
+            if dataManager.scenario.yourMedicarePlanType == .preMedicare
+               && dataManager.currentAge >= 63 && dataManager.currentAge <= 64 {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .foregroundStyle(Color.Semantic.amber)
+                    Text("Decisions today affect your IRMAA when Medicare starts at age 65 (\(dataManager.medicarePremiumProjectionYear)).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(8)
+                .background(Color.Semantic.amberTint)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // Current AGI + marginal sensitivity
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Current AGI")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(dataManager.federalAGI.value, format: .currency(code: "USD"))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                }
+                Text("Marginal AGI sensitivity: every $1 reduction saves ~$\(format2(dataManager.marginalAGISavingsPerDollar)) this year.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(Color.UI.surfaceCard)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func format2(_ d: Double) -> String {
+        String(format: "%.2f", d)
     }
 }
 
