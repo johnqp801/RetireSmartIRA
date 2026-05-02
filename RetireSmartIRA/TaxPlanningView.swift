@@ -248,6 +248,41 @@ struct TaxPlanningView: View {
         }
     }
 
+    @ViewBuilder
+    private var acaCliffInlineWarning: some View {
+        if let aca = dataManager.acaSubsidyResult, aca.isOverCliff {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.Semantic.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Crosses ACA cliff — \(aca.benchmarkSilverPlanAnnual, format: .currency(code: "USD")) subsidy lost this year.")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    let cliffMAGI = 400 * aca.fplAmount / 100
+                    Text("MAGI is over the 400% FPL threshold (\(cliffMAGI, format: .currency(code: "USD"))). Reduce conversion or AGI to stay below.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(8)
+            .background(Color.Semantic.amberTint)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        } else if let aca = dataManager.acaSubsidyResult,
+                  let dollarsToCliff = aca.dollarsToCliff,
+                  dollarsToCliff > 0 && dollarsToCliff < 5_000 {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundStyle(Color.Semantic.amber)
+                Text("Approaching ACA cliff: \(dollarsToCliff, format: .currency(code: "USD")) to threshold (subsidy zeroes out at 400% FPL).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .background(Color.Semantic.amberTint)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -1200,6 +1235,7 @@ struct TaxPlanningView: View {
             // Inline IRMAA cliff warning
             if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
                 irmaaInlineWarning
+                acaCliffInlineWarning
             }
 
             // Bracket room indicator
