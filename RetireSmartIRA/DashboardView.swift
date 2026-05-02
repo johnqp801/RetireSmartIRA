@@ -2851,6 +2851,9 @@ private struct ReduceAGISection: View {
                     tint: Color.Semantic.green
                 )
             }
+
+            Divider()
+            CostSpikeThisYearChart()
         }
         .padding()
         .background(Color.UI.surfaceCard)
@@ -2873,6 +2876,49 @@ private struct ReduceAGISection: View {
 
     private func format2(_ d: Double) -> String {
         String(format: "%.2f", d)
+    }
+}
+
+// MARK: - 1.9 Cost-Spike Chart (Top Panel)
+
+private struct CostSpikeThisYearChart: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Cost This Year")
+                .font(.subheadline)
+                .fontWeight(.medium)
+
+            let currentAGI = dataManager.federalAGI.value
+            let xMin = max(0, currentAGI - 20_000)
+            let xMax = currentAGI + 80_000
+            let stepSize = 2_500.0
+            let samples = stride(from: xMin, through: xMax, by: stepSize).map { agi -> (Double, Double) in
+                let cost = dataManager.estimatedThisYearCostAtAGI(agi)
+                return (agi, cost)
+            }
+
+            Chart {
+                ForEach(samples, id: \.0) { sample in
+                    LineMark(
+                        x: .value("AGI", sample.0),
+                        y: .value("Cost", sample.1)
+                    )
+                    .foregroundStyle(Color.UI.brandTeal)
+                }
+                RuleMark(x: .value("Current AGI", currentAGI))
+                    .foregroundStyle(Color.Semantic.amber)
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text("Current")
+                            .font(.caption2)
+                            .foregroundStyle(Color.Semantic.amber)
+                    }
+            }
+            .frame(height: 150)
+            .chartXAxisLabel("AGI")
+            .chartYAxisLabel("Annual cost")
+        }
     }
 }
 

@@ -1589,6 +1589,61 @@ class DataManager: ObservableObject {
         return federalRate + stateRate
     }
 
+    /// Approximate this-year cost at a hypothetical AGI:
+    /// federal tax + state tax + (ACA premium impact = lost subsidy if over cliff).
+    /// Used by the cost-spike chart's top panel.
+    func estimatedThisYearCostAtAGI(_ hypotheticalAGI: Double) -> Double {
+        // Federal: progressive tax on hypothetical AGI minus standard deduction.
+        let stdDed = standardDeductionAmount
+        let federalTaxable = max(0, hypotheticalAGI - stdDed)
+        let brackets: [TaxYearConfig.BracketEntry] = filingStatus == .single
+            ? TaxCalculationEngine.config.federalBracketsSingle
+            : TaxCalculationEngine.config.federalBracketsMFJ
+        var federalTax = 0.0
+        var remaining = federalTaxable
+        for (i, bracket) in brackets.enumerated() {
+            let nextThreshold = (i + 1 < brackets.count) ? brackets[i + 1].threshold : .infinity
+            let bracketWidth = min(remaining, nextThreshold - bracket.threshold)
+            if bracketWidth > 0 {
+                federalTax += bracketWidth * bracket.rate
+                remaining -= bracketWidth
+            }
+            if remaining <= 0 { break }
+        }
+
+        // State tax via existing helper.
+        let stateTax = calculateStateTaxFromGross(
+            grossIncome: hypotheticalAGI,
+            forState: profile.selectedState,
+            filingStatus: filingStatus,
+            taxableSocialSecurity: scenarioTaxableSocialSecurity,
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+        )
+
+        // ACA premium impact: lost subsidy if over cliff.
+        var acaImpact = 0.0
+        if scenario.enableACAModeling, shouldDisplayACASection {
+            let benchmarkAnnual: Double = {
+                if let monthly = scenario.acaBenchmarkSilverPlanMonthlyOverride {
+                    return monthly * 12
+                }
+                return TaxCalculationEngine.config.acaSubsidy2026.nationalAvgBenchmarkSilverPlanAnnual
+            }()
+            let aca = ACASubsidyEngine.calculateSubsidy(
+                acaMAGI: ACAMAGI(value: hypotheticalAGI),
+                householdSize: max(1, scenario.acaHouseholdSize),
+                benchmarkSilverPlanAnnualPremium: benchmarkAnnual,
+                regionalAdjustment: profile.selectedState == .alaska ? .alaska
+                    : (profile.selectedState == .hawaii ? .hawaii : .mainland48),
+                config: TaxCalculationEngine.config
+            )
+            // Lost subsidy = benchmark - subsidy received
+            acaImpact = benchmarkAnnual - aca.annualPremiumAssistance
+        }
+
+        return federalTax + stateTax + acaImpact
+    }
+
     // MARK: - 1.9 ACA Subsidy
 
     /// Whether ACA Marketplace modeling should display in the UI.
