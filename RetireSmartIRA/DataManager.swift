@@ -1518,6 +1518,48 @@ class DataManager: ObservableObject {
         return planType == .preMedicare
     }
 
+    // MARK: - 1.9 Household Medicare Cost
+
+    /// Per-spouse Medicare cost for the primary spouse, using the engine.
+    var primaryMedicareCost: MedicareCostBreakdown {
+        MedicareCostEngine.computeCostForSpouse(
+            planType: scenario.yourMedicarePlanType,
+            irmaaMAGI: irmaaMAGIWrapped,
+            partBOverride: scenario.yourMedicarePartBOverride,
+            partDOverride: scenario.yourMedicarePartDOverride,
+            medigapOverride: scenario.yourMedigapOverride,
+            advantageOverride: scenario.yourAdvantageOverride,
+            filingStatus: filingStatus,
+            config: TaxCalculationEngine.config
+        )
+    }
+
+    /// Per-spouse Medicare cost for the spouse. Returns zero-cost if `enableSpouse` is false.
+    var spouseMedicareCost: MedicareCostBreakdown {
+        guard enableSpouse else {
+            return MedicareCostBreakdown(
+                planType: .preMedicare,
+                partB: 0, partD: 0, medigap: nil, advantagePremium: nil,
+                total: 0, annualTotal: 0,
+                irmaaSurcharge: 0, irmaaTier: -1
+            )
+        }
+        return MedicareCostEngine.computeCostForSpouse(
+            planType: scenario.spouseMedicarePlanType,
+            irmaaMAGI: irmaaMAGIWrapped,
+            partBOverride: scenario.spouseMedicarePartBOverride,
+            partDOverride: scenario.spouseMedicarePartDOverride,
+            medigapOverride: scenario.spouseMedigapOverride,
+            advantageOverride: scenario.spouseAdvantageOverride,
+            filingStatus: filingStatus,
+            config: TaxCalculationEngine.config
+        )
+    }
+
+    var householdMedicareCostAnnual: Double {
+        primaryMedicareCost.annualTotal + spouseMedicareCost.annualTotal
+    }
+
     // MARK: - Scenario Warnings (1.9 — engine in Phase 5)
 
     /// Cross-feature scenario warnings. Replaced by `ScenarioWarningEngine.warningsFor(...)`

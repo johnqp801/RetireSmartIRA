@@ -208,3 +208,27 @@ struct MedicareCostEngineMixedHouseholdTests {
         #expect(spouse.irmaaSurcharge > 0)
     }
 }
+
+@Suite("DataManager — householdMedicareCost")
+@MainActor
+struct DataManagerHouseholdMedicareCostTests {
+
+    @Test("Both spouses pre-Medicare: householdMedicareCost = 0")
+    func bothPreMedicare() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.filingStatus = .marriedFilingJointly
+        dm.scenario.yourMedicarePlanType = .preMedicare
+        dm.scenario.spouseMedicarePlanType = .preMedicare
+        #expect(dm.householdMedicareCostAnnual == 0)
+    }
+
+    @Test("Single filer on Original Medicare: householdMedicareCost matches engine")
+    func singleOriginalMedicare() {
+        let dm = DataManager(skipPersistence: true)
+        dm.profile.filingStatus = .single
+        dm.scenario.yourMedicarePlanType = .originalMedicare
+        let primary = dm.primaryMedicareCost
+        #expect(primary.planType == .originalMedicare)
+        #expect(dm.householdMedicareCostAnnual == primary.annualTotal)
+    }
+}
