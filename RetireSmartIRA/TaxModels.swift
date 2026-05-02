@@ -258,3 +258,17 @@ struct ScenarioWarning: Equatable {
     let messageHeadline: String
     let messageDetail: String
 }
+
+// MARK: - Medicare Cost Breakdown (1.9)
+
+struct MedicareCostBreakdown: Equatable {
+    let planType: MedicarePlanType
+    let partB: Double               // monthly: base + IRMAA Part B surcharge
+    let partD: Double               // monthly: base + IRMAA Part D surcharge
+    let medigap: Double?            // monthly: Original Medicare only
+    let advantagePremium: Double?   // monthly: Medicare Advantage only
+    let total: Double               // monthly total
+    let annualTotal: Double         // = total × 12
+    let irmaaSurcharge: Double      // monthly: IRMAA surcharge portion (transparency)
+    let irmaaTier: Int              // 0-5; -1 if pre-Medicare
+}
