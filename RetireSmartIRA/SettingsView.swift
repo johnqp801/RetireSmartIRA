@@ -103,6 +103,8 @@ struct SettingsView: View {
 
             MedicareSettingsSection()
 
+            ACASettingsSection()
+
             Section("Legacy Planning") {
                 Toggle("Consider Legacy Planning", isOn: $dataManager.enableLegacyPlanning)
 
@@ -615,6 +617,74 @@ private struct MedicareSpouseSection: View {
             .onChange(of: dataManager.scenario.spouseMedicarePartDOverride) { dataManager.saveAllData() }
             .onChange(of: dataManager.scenario.spouseMedigapOverride) { dataManager.saveAllData() }
             .onChange(of: dataManager.scenario.spouseAdvantageOverride) { dataManager.saveAllData() }
+        }
+    }
+}
+
+// MARK: - ACA Marketplace
+
+private struct ACASettingsSection: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    private var aca: TaxYearConfig.ACASubsidyConfig { TaxCalculationEngine.config.acaSubsidy2026 }
+
+    var body: some View {
+        Section {
+            Toggle("Model ACA Marketplace subsidy", isOn: Binding(
+                get: { dataManager.scenario.enableACAModeling },
+                set: {
+                    dataManager.scenario.enableACAModeling = $0
+                    dataManager.saveAllData()
+                }
+            ))
+
+            if dataManager.scenario.enableACAModeling {
+                Stepper(
+                    "Household size: \(dataManager.scenario.acaHouseholdSize)",
+                    onIncrement: {
+                        if dataManager.scenario.acaHouseholdSize < 8 {
+                            dataManager.scenario.acaHouseholdSize += 1
+                            dataManager.saveAllData()
+                        }
+                    },
+                    onDecrement: {
+                        if dataManager.scenario.acaHouseholdSize > 1 {
+                            dataManager.scenario.acaHouseholdSize -= 1
+                            dataManager.saveAllData()
+                        }
+                    }
+                )
+
+                let defaultMonthly = aca.nationalAvgBenchmarkSilverPlanAnnual / 12
+
+                HStack {
+                    Text("Local benchmark Silver plan (monthly)")
+                    Spacer()
+                    TextField(
+                        "$\(Int(defaultMonthly))",
+                        value: Binding(
+                            get: { dataManager.scenario.acaBenchmarkSilverPlanMonthlyOverride ?? defaultMonthly },
+                            set: { newValue in
+                                if newValue == defaultMonthly {
+                                    dataManager.scenario.acaBenchmarkSilverPlanMonthlyOverride = nil
+                                } else {
+                                    dataManager.scenario.acaBenchmarkSilverPlanMonthlyOverride = newValue
+                                }
+                                dataManager.saveAllData()
+                            }
+                        ),
+                        format: .currency(code: "USD").precision(.fractionLength(0))
+                    )
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 100)
+                }
+            }
+        } header: {
+            Text("ACA Marketplace")
+        } footer: {
+            Text("Single-year directional estimate. Default uses national average benchmark Silver plan; override with your local plan from healthcare.gov for a more accurate dollar figure.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }
