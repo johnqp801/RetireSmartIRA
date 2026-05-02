@@ -121,7 +121,7 @@ struct MedicareCostEngineAdvantageTests {
         #expect(result.medigap == nil)
         #expect(result.advantagePremium == 50.00)
         // partB = 202.90, partD = 50, advantage = 50 → total = 302.90
-        #expect(result.total == 302.90)
+        #expect(abs(result.total - 302.90) < 0.01)
     }
 
     @Test("Advantage tier 2 MFJ: full MFJ threshold lookup")
