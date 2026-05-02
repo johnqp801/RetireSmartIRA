@@ -34,3 +34,16 @@ struct TaxYearConfigContributionLimitsTests {
         #expect(config.contributionLimitsHSA.catchupAge55Plus == 1_000)
     }
 }
+
+@Suite("TaxYearConfig — Medicare 2026 defaults")
+struct TaxYearConfigMedicareTests {
+
+    @Test("Medicare premium defaults load from JSON")
+    func medicareDefaultsLoad() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        #expect(config.medicare2026.partBStandardMonthly == 185.00)
+        #expect(config.medicare2026.partDAvgMonthly == 50.00)
+        #expect(config.medicare2026.medigapAvgMonthly == 150.00)
+        #expect(config.medicare2026.advantageAvgMonthly == 50.00)
+    }
+}

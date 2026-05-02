@@ -85,6 +85,9 @@ struct TaxYearConfig: Codable {
     let contributionLimitsIRA: ContributionLimitsIRA
     let contributionLimitsHSA: ContributionLimitsHSA
 
+    // MARK: - Medicare Premium Defaults (1.9)
+    let medicare2026: MedicarePremiumDefaults
+
     // MARK: - Nested Types
 
     struct BracketEntry: Codable {
@@ -116,6 +119,13 @@ struct TaxYearConfig: Codable {
         let selfOnly: Double
         let family: Double
         let catchupAge55Plus: Double
+    }
+
+    struct MedicarePremiumDefaults: Codable {
+        let partBStandardMonthly: Double
+        let partDAvgMonthly: Double
+        let medigapAvgMonthly: Double
+        let advantageAvgMonthly: Double
     }
 
     // MARK: - Conversion to App Types
@@ -224,6 +234,12 @@ struct TaxYearConfig: Codable {
         ),
         contributionLimitsHSA: ContributionLimitsHSA(
             selfOnly: 4_300, family: 8_550, catchupAge55Plus: 1_000
+        ),
+        medicare2026: MedicarePremiumDefaults(
+            partBStandardMonthly: 185.00,
+            partDAvgMonthly: 50.00,
+            medigapAvgMonthly: 150.00,
+            advantageAvgMonthly: 50.00
         )
     )
 }
