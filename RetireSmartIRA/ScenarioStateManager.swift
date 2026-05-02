@@ -34,6 +34,15 @@ class ScenarioStateManager: ObservableObject {
     @Published var completedActionKeys: Set<String> = []
     @Published var quarterlyPayments: [QuarterlyPayment] = []
 
+    // MARK: - 1.9 Contribution Levers
+
+    @Published var yourTraditional401kContribution: Double = 0
+    @Published var spouseTraditional401kContribution: Double = 0
+    @Published var yourTraditionalIRAContribution: Double = 0
+    @Published var spouseTraditionalIRAContribution: Double = 0
+    @Published var yourHSAContribution: Double = 0
+    @Published var spouseHSAContribution: Double = 0
+
     // MARK: - Reset
 
     func resetScenarioState() {
@@ -55,6 +64,12 @@ class ScenarioStateManager: ObservableObject {
         inheritedExtraWithdrawals = [:]
         deductionOverride = nil
         completedActionKeys = []
+        yourTraditional401kContribution = 0
+        spouseTraditional401kContribution = 0
+        yourTraditionalIRAContribution = 0
+        spouseTraditionalIRAContribution = 0
+        yourHSAContribution = 0
+        spouseHSAContribution = 0
     }
 
     // MARK: - Simple Scenario Aggregations
@@ -69,5 +84,24 @@ class ScenarioStateManager: ObservableObject {
 
     var scenarioTotalQCD: Double {
         yourQCDAmount + spouseQCDAmount
+    }
+
+    // MARK: - 1.9 Above-the-Line Aggregations
+
+    var scenarioTotalTraditional401k: Double {
+        yourTraditional401kContribution + spouseTraditional401kContribution
+    }
+
+    var scenarioTotalTraditionalIRA: Double {
+        yourTraditionalIRAContribution + spouseTraditionalIRAContribution
+    }
+
+    var scenarioTotalHSA: Double {
+        yourHSAContribution + spouseHSAContribution
+    }
+
+    /// All 1.9 above-the-line deductions: 401(k) + IRA + HSA combined for both spouses.
+    var scenarioTotalAboveTheLineDeductions: Double {
+        scenarioTotalTraditional401k + scenarioTotalTraditionalIRA + scenarioTotalHSA
     }
 }
