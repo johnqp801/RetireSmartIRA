@@ -101,7 +101,80 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Legacy Planning") {
+            Section {
+                Picker("Your Medicare plan", selection: Binding(
+                    get: { dataManager.scenario.yourMedicarePlanType },
+                    set: { dataManager.scenario.yourMedicarePlanType = $0 }
+                )) {
+                    ForEach(MedicarePlanType.allCases, id: \.self) { plan in
+                        Text(plan.rawValue).tag(plan)
+                    }
+                }
+
+                if dataManager.scenario.yourMedicarePlanType != .preMedicare {
+                    HStack {
+                        Text("Your Part B premium override (monthly)")
+                        Spacer()
+                        TextField("$\(Int(TaxCalculationEngine.config.medicare2026.partBStandardMonthly))", value: Binding(
+                            get: { dataManager.scenario.yourMedicarePartBOverride ?? TaxCalculationEngine.config.medicare2026.partBStandardMonthly },
+                            set: { newValue in
+                                dataManager.scenario.yourMedicarePartBOverride = (newValue == TaxCalculationEngine.config.medicare2026.partBStandardMonthly) ? nil : newValue
+                            }
+                        ), format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                    }
+                    HStack {
+                        Text("Your Part D premium override (monthly)")
+                        Spacer()
+                        TextField("$\(Int(TaxCalculationEngine.config.medicare2026.partDAvgMonthly))", value: Binding(
+                            get: { dataManager.scenario.yourMedicarePartDOverride ?? TaxCalculationEngine.config.medicare2026.partDAvgMonthly },
+                            set: { newValue in
+                                dataManager.scenario.yourMedicarePartDOverride = (newValue == TaxCalculationEngine.config.medicare2026.partDAvgMonthly) ? nil : newValue
+                            }
+                        ), format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                    }
+
+                    if dataManager.scenario.yourMedicarePlanType == .originalMedicare {
+                        HStack {
+                            Text("Your Medigap premium override (monthly)")
+                            Spacer()
+                            TextField("$\(Int(TaxCalculationEngine.config.medicare2026.medigapAvgMonthly))", value: Binding(
+                                get: { dataManager.scenario.yourMedigapOverride ?? TaxCalculationEngine.config.medicare2026.medigapAvgMonthly },
+                                set: { newValue in
+                                    dataManager.scenario.yourMedigapOverride = (newValue == TaxCalculationEngine.config.medicare2026.medigapAvgMonthly) ? nil : newValue
+                                }
+                            ), format: .currency(code: "USD").precision(.fractionLength(0)))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                        }
+                    }
+                    if dataManager.scenario.yourMedicarePlanType == .medicareAdvantage {
+                        HStack {
+                            Text("Your Advantage premium override (monthly)")
+                            Spacer()
+                            TextField("$\(Int(TaxCalculationEngine.config.medicare2026.advantageAvgMonthly))", value: Binding(
+                                get: { dataManager.scenario.yourAdvantageOverride ?? TaxCalculationEngine.config.medicare2026.advantageAvgMonthly },
+                                set: { newValue in
+                                    dataManager.scenario.yourAdvantageOverride = (newValue == TaxCalculationEngine.config.medicare2026.advantageAvgMonthly) ? nil : newValue
+                                }
+                            ), format: .currency(code: "USD").precision(.fractionLength(0)))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                        }
+                    }
+                }
+            } header: {
+                Text("Medicare — You")
+            } footer: {
+                Text("IRMAA premiums are based on income from 2 years prior. Decisions today affect premiums in 2 years.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+Section("Legacy Planning") {
                 Toggle("Consider Legacy Planning", isOn: $dataManager.enableLegacyPlanning)
 
                 Text("Legacy planning shows the long-term tax impact of your decisions on heirs. Without it, Roth conversions may appear costly without showing the future tax-free growth benefit. You can turn this off if you only want current-year analysis.")
