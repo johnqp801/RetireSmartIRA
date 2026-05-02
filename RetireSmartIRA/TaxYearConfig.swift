@@ -88,6 +88,9 @@ struct TaxYearConfig: Codable {
     // MARK: - Medicare Premium Defaults (1.9)
     let medicare2026: MedicarePremiumDefaults
 
+    // MARK: - ACA Subsidy (1.9)
+    let acaSubsidy2026: ACASubsidyConfig
+
     // MARK: - Nested Types
 
     struct BracketEntry: Codable {
@@ -126,6 +129,24 @@ struct TaxYearConfig: Codable {
         let partDAvgMonthly: Double
         let medigapAvgMonthly: Double
         let advantageAvgMonthly: Double
+    }
+
+    struct ACASubsidyConfig: Codable {
+        let fpl2026: FPL2026
+        let applicableFigures: [ApplicableFigure]
+        let hasCliff: Bool
+        let nationalAvgBenchmarkSilverPlanAnnual: Double
+
+        struct FPL2026: Codable {
+            let householdSizeToFPL: [String: Double]
+            let alaskaMultiplier: Double
+            let hawaiiMultiplier: Double
+        }
+
+        struct ApplicableFigure: Codable {
+            let fplPercent: Double
+            let applicableFigure: Double
+        }
     }
 
     // MARK: - Conversion to App Types
@@ -240,6 +261,25 @@ struct TaxYearConfig: Codable {
             partDAvgMonthly: 50.00,
             medigapAvgMonthly: 150.00,
             advantageAvgMonthly: 50.00
+        ),
+        acaSubsidy2026: ACASubsidyConfig(
+            fpl2026: ACASubsidyConfig.FPL2026(
+                householdSizeToFPL: [
+                    "1": 15_060, "2": 20_440, "3": 25_820, "4": 31_200,
+                    "5": 36_580, "6": 41_960, "7": 47_340, "8": 52_720
+                ],
+                alaskaMultiplier: 1.25, hawaiiMultiplier: 1.15
+            ),
+            applicableFigures: [
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 100, applicableFigure: 0.00),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 150, applicableFigure: 0.00),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 200, applicableFigure: 0.04),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 250, applicableFigure: 0.06),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 300, applicableFigure: 0.08),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 400, applicableFigure: 1.00)
+            ],
+            hasCliff: true,
+            nationalAvgBenchmarkSilverPlanAnnual: 7_800
         )
     )
 }

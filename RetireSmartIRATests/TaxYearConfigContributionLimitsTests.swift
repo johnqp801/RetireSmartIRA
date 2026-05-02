@@ -47,3 +47,34 @@ struct TaxYearConfigMedicareTests {
         #expect(config.medicare2026.advantageAvgMonthly == 50.00)
     }
 }
+
+@Suite("TaxYearConfig — ACA Subsidy 2026")
+struct TaxYearConfigACASubsidyTests {
+
+    @Test("ACA FPL table loads with all 8 household sizes")
+    func fplTableLoads() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["1"] == 15_060)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["8"] == 52_720)
+        #expect(config.acaSubsidy2026.fpl2026.alaskaMultiplier == 1.25)
+        #expect(config.acaSubsidy2026.fpl2026.hawaiiMultiplier == 1.15)
+    }
+
+    @Test("ACA applicable figures table loads in ascending fplPercent order")
+    func applicableFiguresLoad() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let figures = config.acaSubsidy2026.applicableFigures
+        #expect(figures.count >= 5)
+        #expect(figures.first?.fplPercent == 100)
+        #expect(figures.last?.fplPercent == 400)
+        // Cliff present: last entry's applicable_figure is 1.0 (subsidy = 0)
+        #expect(figures.last?.applicableFigure == 1.00)
+    }
+
+    @Test("ACA cliff flag and benchmark Silver plan annual load")
+    func cliffAndBenchmark() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        #expect(config.acaSubsidy2026.hasCliff == true)
+        #expect(config.acaSubsidy2026.nationalAvgBenchmarkSilverPlanAnnual == 7_800)
+    }
+}
