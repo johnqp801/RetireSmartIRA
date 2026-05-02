@@ -198,3 +198,13 @@ struct ScenarioTaxAnalysis {
     let crossesFederalBracket: Bool
     let crossesStateBracket: Bool
 }
+
+// MARK: - Medicare Plan Type (1.9)
+
+/// Medicare plan type per spouse. Drives `MedicareCostEngine` cost composition
+/// and HSA-eligibility gating (HSA requires HDHP coverage incompatible with Medicare).
+enum MedicarePlanType: String, Codable, CaseIterable {
+    case preMedicare = "Pre-Medicare"
+    case originalMedicare = "Original Medicare (A+B)"
+    case medicareAdvantage = "Medicare Advantage (Part C)"
+}
