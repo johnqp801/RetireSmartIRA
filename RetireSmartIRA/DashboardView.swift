@@ -2856,6 +2856,31 @@ private struct ReduceAGISection: View {
             CostSpikeThisYearChart()
 
             CostSpikeIrmaaChart()
+
+            // Active warnings, top 3 by impact + "+N more"
+            let warnings = dataManager.activeScenarioWarnings
+                .sorted { $0.dollarImpactPerYear > $1.dollarImpactPerYear }
+            let topWarnings = Array(warnings.prefix(3))
+            let remainingCount = warnings.count - topWarnings.count
+
+            if !topWarnings.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Active warnings (top \(topWarnings.count) by impact)")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    ForEach(Array(topWarnings.enumerated()), id: \.offset) { _, warning in
+                        warningRow(warning: warning)
+                    }
+
+                    if remainingCount > 0 {
+                        Text("+ \(remainingCount) more")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .padding()
         .background(Color.UI.surfaceCard)
@@ -2878,6 +2903,29 @@ private struct ReduceAGISection: View {
 
     private func format2(_ d: Double) -> String {
         String(format: "%.2f", d)
+    }
+
+    @ViewBuilder
+    private func warningRow(warning: ScenarioWarning) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: warning.severity == .warning ? "exclamationmark.triangle.fill" : "info.circle")
+                .foregroundStyle(warning.severity == .warning ? Color.Semantic.amber : Color.UI.brandTeal)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack {
+                    Text(warning.messageHeadline)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    let timing = warning.timing == .currentYear ? "this year" : "in \(dataManager.medicarePremiumProjectionYear)"
+                    Text(timing)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(warning.messageDetail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
