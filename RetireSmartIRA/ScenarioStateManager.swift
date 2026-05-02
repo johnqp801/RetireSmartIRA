@@ -48,6 +48,19 @@ class ScenarioStateManager: ObservableObject {
     @Published var yourMedicarePlanType: MedicarePlanType = .preMedicare
     @Published var spouseMedicarePlanType: MedicarePlanType = .preMedicare
 
+    // MARK: - 1.9 Medicare Premium Overrides (per spouse, optional)
+    //
+    // Nil = use config default. Non-nil = user-corrected value.
+
+    @Published var yourMedicarePartBOverride: Double? = nil
+    @Published var spouseMedicarePartBOverride: Double? = nil
+    @Published var yourMedicarePartDOverride: Double? = nil
+    @Published var spouseMedicarePartDOverride: Double? = nil
+    @Published var yourMedigapOverride: Double? = nil
+    @Published var spouseMedigapOverride: Double? = nil
+    @Published var yourAdvantageOverride: Double? = nil
+    @Published var spouseAdvantageOverride: Double? = nil
+
     // MARK: - Reset
 
     func resetScenarioState() {
@@ -77,6 +90,14 @@ class ScenarioStateManager: ObservableObject {
         spouseHSAContribution = 0
         yourMedicarePlanType = .preMedicare
         spouseMedicarePlanType = .preMedicare
+        yourMedicarePartBOverride = nil
+        spouseMedicarePartBOverride = nil
+        yourMedicarePartDOverride = nil
+        spouseMedicarePartDOverride = nil
+        yourMedigapOverride = nil
+        spouseMedigapOverride = nil
+        yourAdvantageOverride = nil
+        spouseAdvantageOverride = nil
     }
 
     // MARK: - Simple Scenario Aggregations
