@@ -48,6 +48,7 @@ struct DashboardView: View {
                 taxBracketChart
                 stateBracketChart
                 irmaaTierChart
+                householdMedicareCostSection
                 niitPositionChart
                 accountBalances
             }
@@ -78,6 +79,7 @@ struct DashboardView: View {
                     taxBracketChart
                     stateBracketChart
                     irmaaTierChart
+                    householdMedicareCostSection
                     niitPositionChart
                 }
                 .padding()
@@ -1960,6 +1962,79 @@ struct DashboardView: View {
                     )
             )
             .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+        }
+    }
+
+    // MARK: - Household Medicare Cost Section
+
+    @ViewBuilder
+    private var householdMedicareCostSection: some View {
+        if dataManager.householdMedicareCostAnnual > 0 {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Household Medicare cost")
+                    .font(.headline)
+
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                    Text("Premiums based on this scenario's MAGI. Actual IRMAA uses income from 2 years prior.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                medicareCostRow(label: "You", breakdown: dataManager.primaryMedicareCost)
+                if dataManager.enableSpouse {
+                    medicareCostRow(label: "Spouse", breakdown: dataManager.spouseMedicareCost)
+                }
+
+                Divider()
+                HStack {
+                    Text("Total annual")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text(dataManager.householdMedicareCostAnnual, format: .currency(code: "USD"))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                }
+            }
+            .padding()
+            .background(Color.UI.surfaceCard)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    @ViewBuilder
+    private func medicareCostRow(label: String, breakdown: MedicareCostBreakdown) -> some View {
+        if breakdown.planType == .preMedicare {
+            HStack {
+                Text(label)
+                Spacer()
+                Text("Pre-Medicare")
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("\(label) (\(breakdown.planType.rawValue))")
+                        .font(.subheadline)
+                    Spacer()
+                    Text(breakdown.annualTotal, format: .currency(code: "USD"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                if breakdown.irmaaSurcharge > 0 {
+                    HStack {
+                        Text("  ↳ IRMAA surcharge (annual)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(breakdown.irmaaSurcharge * 12, format: .currency(code: "USD"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
     }
 
