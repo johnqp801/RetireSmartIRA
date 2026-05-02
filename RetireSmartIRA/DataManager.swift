@@ -285,11 +285,13 @@ class DataManager: ObservableObject {
     var birthYear: Int { profile.birthYear }
     var spouseBirthYear: Int { profile.spouseBirthYear }
     var currentAge: Int { profile.currentAge }
+    var displayAge: Int { profile.displayAge }
     var rmdAge: Int { profile.rmdAge }
     var yearsUntilRMD: Int { profile.yearsUntilRMD }
     var isRMDRequired: Bool { profile.isRMDRequired }
     var isQCDEligible: Bool { profile.isQCDEligible }
     var spouseCurrentAge: Int { profile.spouseCurrentAge }
+    var spouseDisplayAge: Int { profile.spouseDisplayAge }
     var spouseRmdAge: Int { profile.spouseRmdAge }
     var spouseYearsUntilRMD: Int { profile.spouseYearsUntilRMD }
     var spouseIsRMDRequired: Bool { profile.spouseIsRMDRequired }

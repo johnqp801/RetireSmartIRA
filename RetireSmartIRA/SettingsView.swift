@@ -37,7 +37,7 @@ struct SettingsView: View {
                            displayedComponents: .date)
 
                 LabeledContent("Current Age") {
-                    Text("\(dataManager.currentAge)")
+                    Text("\(dataManager.displayAge)")
                         .foregroundStyle(.secondary)
                 }
 
@@ -85,7 +85,7 @@ struct SettingsView: View {
                                displayedComponents: .date)
 
                     LabeledContent("Spouse Current Age") {
-                        Text("\(dataManager.spouseCurrentAge)")
+                        Text("\(dataManager.spouseDisplayAge)")
                             .foregroundStyle(.secondary)
                     }
 
