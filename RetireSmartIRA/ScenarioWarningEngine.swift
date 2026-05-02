@@ -25,6 +25,8 @@ enum ScenarioWarningEngine {
         acaHouseholdSize: Int,
         acaBenchmarkSilverPlanAnnual: Double,
         acaRegionalAdjustment: ACASubsidyEngine.AlaskaHawaii,
+        netInvestmentIncome: Double = 0,
+        baselineFederalAGI: FederalAGI,
         config: TaxYearConfig
     ) -> [ScenarioWarning] {
 
@@ -106,7 +108,45 @@ enum ScenarioWarningEngine {
             }
         }
 
-        // bracket + NIIT + widow warnings: filled in subsequent tasks (5.3, 5.4).
+        // ──── NIIT crossing ────
+        // Fires when scenario AGI crosses NIIT threshold AND positive NII exists.
+        let niitThreshold = filingStatus == .single ? config.niitThresholdSingle : config.niitThresholdMFJ
+        if netInvestmentIncome > 0
+            && federalAGI.value >= niitThreshold
+            && baselineFederalAGI.value < niitThreshold {
+            let nii = TaxCalculationEngine.calculateNIIT(
+                nii: netInvestmentIncome,
+                magi: federalAGI.value,
+                filingStatus: filingStatus
+            )
+            warnings.append(ScenarioWarning(
+                category: .niitCrossing,
+                timing: .currentYear,
+                severity: .info,
+                dollarImpactPerYear: nii.annualNIITax,
+                messageHeadline: "Crosses NIIT threshold",
+                messageDetail: "Net investment income now subject to 3.8% surtax: ~$\(Int(nii.annualNIITax))/yr."
+            ))
+        }
+
+        // ──── Bracket crossing ────
+        let brackets: [TaxYearConfig.BracketEntry] = filingStatus == .single
+            ? config.federalBracketsSingle
+            : config.federalBracketsMFJ
+        let baselineBracketIndex = brackets.lastIndex(where: { baselineFederalAGI.value >= $0.threshold }) ?? 0
+        let scenarioBracketIndex = brackets.lastIndex(where: { federalAGI.value >= $0.threshold }) ?? 0
+        if scenarioBracketIndex > baselineBracketIndex {
+            let scenarioBracket = brackets[scenarioBracketIndex]
+            warnings.append(ScenarioWarning(
+                category: .bracketCrossing,
+                timing: .currentYear,
+                severity: .info,
+                dollarImpactPerYear: 0,
+                messageHeadline: "Crosses into \(Int(scenarioBracket.rate * 100))% bracket",
+                messageDetail: "Marginal federal rate increases."
+            ))
+        }
+
         return warnings
     }
 }

@@ -27,6 +27,8 @@ struct ScenarioWarningEngineACATests {
             acaHouseholdSize: 1,
             acaBenchmarkSilverPlanAnnual: 7_800,
             acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 0),
             config: config
         )
         #expect(warnings.contains { $0.category == .acaCliff })
@@ -47,6 +49,8 @@ struct ScenarioWarningEngineACATests {
             acaHouseholdSize: 1,
             acaBenchmarkSilverPlanAnnual: 7_800,
             acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 0),
             config: config
         )
         #expect(warnings.contains { $0.category == .acaApproaching })
@@ -67,6 +71,8 @@ struct ScenarioWarningEngineACATests {
             acaHouseholdSize: 1,
             acaBenchmarkSilverPlanAnnual: 7_800,
             acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 0),
             config: config
         )
         #expect(!warnings.contains { $0.category == .acaCliff })
@@ -93,6 +99,8 @@ struct ScenarioWarningEngineIRMAATests {
             acaHouseholdSize: 1,
             acaBenchmarkSilverPlanAnnual: 7_800,
             acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 0),
             config: config
         )
         #expect(warnings.contains { $0.category == .irmaaTierCrossing })
@@ -113,6 +121,8 @@ struct ScenarioWarningEngineIRMAATests {
             acaHouseholdSize: 1,
             acaBenchmarkSilverPlanAnnual: 7_800,
             acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 0),
             config: config
         )
         #expect(warnings.contains { $0.category == .irmaaApproaching })
@@ -133,9 +143,39 @@ struct ScenarioWarningEngineIRMAATests {
             acaHouseholdSize: 2,
             acaBenchmarkSilverPlanAnnual: 7_800,
             acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 0),
             config: config
         )
         #expect(!warnings.contains { $0.category == .irmaaTierCrossing })
         #expect(!warnings.contains { $0.category == .irmaaApproaching })
+    }
+}
+
+@Suite("ScenarioWarningEngine — NIIT + Bracket")
+struct ScenarioWarningEngineNIITBracketTests {
+
+    private let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+
+    @Test("NIIT crossing warning fires when MFJ AGI crosses 250K with positive NII")
+    func niitCrossingMFJ() {
+        let warnings = ScenarioWarningEngine.warningsFor(
+            federalAGI: FederalAGI(value: 260_000),
+            acaMAGI: ACAMAGI(value: 260_000),
+            irmaaMAGI: IRMAAMAGI(value: 260_000),
+            baselineIRMAAMAGI: IRMAAMAGI(value: 200_000),
+            primaryAge: 70, spouseAge: 70,
+            primaryMedicarePlanType: .originalMedicare,
+            spouseMedicarePlanType: .originalMedicare,
+            filingStatus: .marriedFilingJointly,
+            enableACAModeling: false,
+            acaHouseholdSize: 2,
+            acaBenchmarkSilverPlanAnnual: 7_800,
+            acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 5_000,
+            baselineFederalAGI: FederalAGI(value: 200_000),
+            config: config
+        )
+        #expect(warnings.contains { $0.category == .niitCrossing })
     }
 }
