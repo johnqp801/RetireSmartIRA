@@ -162,30 +162,16 @@ struct OptimizationEngineTests {
 
     // MARK: - Heuristic correctness
 
-    @Test("Tax-deferred-heavy scenario: optimizer matches or beats no-conversion baseline")
+    @Test("Tax-deferred-heavy scenario: optimizer recommends meaningful conversions when RMD pressure exists")
     func recommendsConversionsForLargeTraditional() {
-        // v2.0 Note: without RMD modeling, Roth conversions are only strictly beneficial
-        // in specific scenarios (e.g., SS-onset bracket arbitrage with near-depleting trad,
-        // or expense-below-deduction situations). The optimizer correctly identifies when
-        // conversions are not beneficial and returns the no-conversion path.
-        //
-        // This test verifies the optimizer handles a tax-deferred-heavy scenario correctly:
-        // 1. The result path has the correct length
-        // 2. The optimizer never produces a WORSE lifetime tax than baseline
-        // 3. Any conversions that DO appear are positive amounts (not conversion(0) noise)
-        //
-        // $2M traditional, $0 Roth, $100K taxable, no pension, no SS until 70:
-        // aggressive Roth conversion would theoretically help pre-SS (before age 70 AGI
-        // jumps due to $3,500/month SS × 85% taxable SS calculation). However in v2.0,
-        // the $100K taxable auto-funds year-1 expenses and trad is not needed; once taxable
-        // depletes, trad withdrawal + large SS creates high provisional income. The optimizer
-        // evaluates whether any candidate amount produces lower lifetime tax and picks
-        // the best option — which may be zero conversions if none of the fixed candidates
-        // produce lower lifetime tax given the exact bracket arithmetic.
+        // v2.0 Phase 1 (RMD modeling): person age 60 with $2M traditional, no Roth, low expenses.
+        // With SECURE 2.0 (birthYear = currentYear - 60 ≥ 1960 → rmdAge = 75), there is a
+        // 15-year window of low AGI before RMDs hit at 75. The optimizer should fill brackets
+        // with Roth conversions to reduce future RMD-driven AGI.
         let inputs = MultiYearStaticInputs(
             startingBalances: AccountSnapshot(traditional: 2_000_000, roth: 0, taxable: 100_000, hsa: 0),
             primaryCurrentAge: 60, spouseCurrentAge: nil,
-            filingStatus: .single, state: "TX",
+            filingStatus: .single, state: "TX",  // no state income tax
             primarySSClaimAge: 70, spouseSSClaimAge: nil,
             primaryExpectedBenefitAtFRA: 3_500, spouseExpectedBenefitAtFRA: nil,
             primaryBirthYear: Calendar.current.component(.year, from: Date()) - 60,
@@ -197,11 +183,17 @@ struct OptimizationEngineTests {
             baselineAnnualExpenses: 50_000
         )
         var assumptions = makeAssumptions()
-        assumptions.horizonEndAge = 75
+        assumptions.horizonEndAge = 90  // long enough for RMDs to bite meaningfully
         let result = OptimizationEngine().optimize(inputs: inputs, assumptions: assumptions)
 
-        // Path must cover the full 16-year horizon
-        #expect(result.recommendedPath.count == 16)
+        let totalConversions = result.recommendedPath.flatMap { $0.actions }
+            .compactMap { if case .rothConversion(let a) = $0 { return a } else { return nil } }
+            .reduce(0.0, +)
+
+        // With RMD pressure, optimizer should recommend SOMETHING — at least $20K total
+        // across the 30-year horizon. Soft floor; tighten if real-world testing supports.
+        #expect(totalConversions > 20_000,
+            "RMD pressure should drive optimizer to recommend meaningful conversions; got \(totalConversions)")
 
         // Optimizer must never make things worse than baseline
         let baseYear = Calendar.current.component(.year, from: Date())

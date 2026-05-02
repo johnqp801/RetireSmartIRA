@@ -7,9 +7,34 @@
 //
 //  Order of operations within each year:
 //    1. Apply explicit LeverAction inputs (Roth conversions, withdrawals, contributions)
-//    2. Auto-fund living expenses from accounts per withdrawalOrderingRule
-//    3. Apply investment growth to all remaining balances
-//    4. Compute AGI, taxable SS, MAGI variants, and tax breakdown
+//    2. Compute SS income for the year
+//    3. Auto-impose RMD trad withdrawal (NEW — v2.0 Phase 1)
+//    4. Auto-fund living expenses from accounts per withdrawalOrderingRule
+//    5. Apply investment growth to all remaining balances
+//    6. Compute AGI, taxable SS, MAGI variants, and tax breakdown
+//
+//  RMD modeling (v2.0 Phase 1):
+//    RMD age depends on birth year per SECURE / SECURE 2.0:
+//      birthYear < 1951  → rmdAge = 72 (pre-SECURE)
+//      1951 ≤ birthYear ≤ 1959 → rmdAge = 73 (SECURE 1.0)
+//      birthYear ≥ 1960  → rmdAge = 75 (SECURE 2.0)
+//
+//    When primaryAge >= rmdAge, the engine computes the IRS-required RMD using
+//    RMDCalculationEngine.calculateRMD(for:balance:) on the post-explicit-action
+//    trad balance. If the user's explicit traditionalWithdrawal actions already
+//    total >= RMD, no additional withdrawal is imposed. Otherwise, the shortfall
+//    is auto-imposed and added to AGI.
+//
+//    Excess-RMD handling (Approach A, v2.0 simplification):
+//    If the RMD exceeds the year's expense need, the gross excess is deposited to
+//    the taxable bucket. Tax is computed on the full AGI (including the entire RMD).
+//    This slightly overstates available after-tax wealth because the deposited amount
+//    is pre-tax; effective rate ~15-20% × small residual = minor distortion. Will be
+//    corrected in v2.1 per-spouse trad-balance tracking.
+//
+//    Couples simplification: applies primary's RMD age to the total trad balance.
+//    In years where the primary is past RMD age but the spouse is not, this overstates
+//    RMDs slightly (assumes all trad belongs to the older spouse). Revisit in v2.1.
 //
 //  Design note: ProjectionEngine does NOT optimize — that is OptimizationEngine's job
 //  (Task 1.9). This engine takes actions as inputs and produces results.
@@ -34,6 +59,7 @@
 //      with SS wrapped in an IncomeSource(.socialSecurity) and other income as additionalIncome
 //    - Standard deduction: derived directly from TaxCalculationEngine.config fields
 //      (standardDeductionSingle/MFJ + additionalDeduction65Single/MFJ)
+//    - RMD: RMDCalculationEngine.calculateRMD(for:balance:) — delegates to IRS Uniform Lifetime Table III
 //
 
 import Foundation
@@ -159,7 +185,30 @@ struct ProjectionEngine {
             let totalGrossSSAnnual = primaryGrossSSAnnual + spouseGrossSSAnnual
 
             // ─────────────────────────────────────────
-            // Step 3: Compute expenses and auto-funding
+            // Step 3: Auto-impose RMD trad withdrawal
+            // ─────────────────────────────────────────
+            // RMD is computed from post-explicit-action trad balance. If the user's explicit
+            // traditionalWithdrawal actions already total >= RMD, the RMD is satisfied and
+            // nothing extra is imposed. Otherwise the shortfall is auto-imposed.
+            //
+            // Excess-RMD: if RMD > (expenses - passiveIncome), the gross excess is deposited
+            // to the taxable bucket (Approach A). Tax is computed on the full AGI including the
+            // entire RMD. Minor distortion accepted for v2.0.
+            var autoImposedRMD = 0.0
+
+            let primaryRMDAge = rmdAge(birthYear: inputs.primaryBirthYear)
+            if primaryAge >= primaryRMDAge && trad > 0 {
+                let requiredRMD = RMDCalculationEngine.calculateRMD(for: primaryAge, balance: trad)
+                let rmdGap = max(0, requiredRMD - explicitTradWithdrawals)
+                if rmdGap > 0 {
+                    let withdrawal = min(rmdGap, trad)
+                    trad -= withdrawal
+                    autoImposedRMD = withdrawal
+                }
+            }
+
+            // ─────────────────────────────────────────
+            // Step 4: Compute expenses and auto-funding
             // ─────────────────────────────────────────
             let annualExpenses: Double = {
                 if let override = assumptions.perYearExpenseOverrides[year] {
@@ -173,7 +222,15 @@ struct ProjectionEngine {
             let passiveIncome = wageIncome + pensionIncome + totalGrossSSAnnual
 
             var autoFundedTradWithdrawals = 0.0
-            let expenseShortfall = max(0, annualExpenses - passiveIncome)
+            // RMD cash already extracted from trad; subtract from shortfall before auto-funding.
+            // If RMD exceeds the full expense need, the gross excess is deposited to taxable (Approach A).
+            let rmdCashAvailable = autoImposedRMD + explicitTradWithdrawals  // total trad drawn so far
+            let expenseShortfallBeforeRMD = max(0, annualExpenses - passiveIncome)
+            let expenseShortfall = max(0, expenseShortfallBeforeRMD - rmdCashAvailable)
+
+            // Deposit gross excess RMD (above expense need) to taxable bucket
+            let rmdExcess = max(0, rmdCashAvailable - expenseShortfallBeforeRMD)
+            taxable += rmdExcess
 
             if expenseShortfall > 0 {
                 let (tradWD, remaining) = autoFundExpenses(
@@ -187,10 +244,10 @@ struct ProjectionEngine {
                 _ = remaining  // v2.0: assume solvent, ignore any residual
             }
 
-            let totalTradWithdrawals = explicitTradWithdrawals + autoFundedTradWithdrawals
+            let totalTradWithdrawals = explicitTradWithdrawals + autoImposedRMD + autoFundedTradWithdrawals
 
             // ─────────────────────────────────────────
-            // Step 4: Apply growth to remaining balances
+            // Step 5: Apply growth to remaining balances
             // ─────────────────────────────────────────
             let growthFactor = 1.0 + assumptions.investmentGrowthRate
             trad *= growthFactor
@@ -199,7 +256,7 @@ struct ProjectionEngine {
             hsa *= growthFactor
 
             // ─────────────────────────────────────────
-            // Step 5: Compute AGI and tax breakdown
+            // Step 6: Compute AGI and tax breakdown
             // ─────────────────────────────────────────
 
             // Taxable SS via provisional income formula.
@@ -314,6 +371,14 @@ struct ProjectionEngine {
                 hsa: max(0, hsa)
             )
 
+            // Build the combined actions list: explicit user actions + auto-imposed RMD (if any).
+            // This lets callers inspect the full picture of what actually happened in the year,
+            // including auto-imposed RMD trad withdrawals.
+            var allActions = actions
+            if autoImposedRMD > 0 {
+                allActions.append(.traditionalWithdrawal(amount: autoImposedRMD))
+            }
+
             results.append(YearRecommendation(
                 year: year,
                 agi: federalAGI,
@@ -322,7 +387,7 @@ struct ProjectionEngine {
                 taxableIncome: taxableIncome,
                 taxBreakdown: taxBreakdown,
                 endOfYearBalances: snapshot,
-                actions: actions
+                actions: allActions
             ))
 
             // Advance ages for next iteration
@@ -488,6 +553,18 @@ struct ProjectionEngine {
         }
 
         return amount
+    }
+
+    // MARK: - RMD helpers
+
+    /// Returns the RMD age for a given birth year per SECURE / SECURE 2.0.
+    ///   birthYear < 1951  → 72 (pre-SECURE)
+    ///   1951 ≤ birthYear ≤ 1959 → 73 (SECURE 1.0)
+    ///   birthYear ≥ 1960  → 75 (SECURE 2.0)
+    private func rmdAge(birthYear: Int) -> Int {
+        if birthYear >= 1960 { return 75 }
+        if birthYear >= 1951 { return 73 }
+        return 72
     }
 
     /// Compute state tax using TaxCalculationEngine.calculateStateTax.

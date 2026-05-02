@@ -340,6 +340,154 @@ struct ProjectionEngineTests {
         #expect(aca2 > aca0)           // COLA grew the gross SS stream
     }
 
+    // MARK: RMD tests (v2.0 Phase 1)
+
+    @Test("RMD: no auto-imposed RMD when age below 73")
+    func rmdNotImposedBelowAge73() {
+        let inputs = makeInputs(currentAge: 70, traditional: 1_000_000)
+        let engine = ProjectionEngine()
+        let years = engine.project(inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []])
+        // No RMD pressure; person is 70, birthYear ≈ currentYear-70 → rmdAge 75 (SECURE 2.0).
+        // No trad withdrawal should be forced.
+        let actions = years[0].actions
+        let totalTradWithdrawal = actions.compactMap {
+            if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
+        }.reduce(0.0, +)
+        #expect(totalTradWithdrawal == 0)
+    }
+
+    @Test("RMD: auto-imposed when primary age >= 73 (born 1955)")
+    func rmdImposedAtAge73() {
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 73, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 67, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1955,  // → rmdAge = 73
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []])
+
+        // Year 0 should reflect RMD income in AGI.
+        // RMD on $1M @ age 73 ≈ $1M / 26.5 ≈ $37,735
+        #expect(years[0].agi > 30_000)  // some RMD-driven AGI
+        #expect(years[0].agi < 50_000)  // not absurd
+    }
+
+    @Test("RMD: auto-imposed satisfies explicit traditionalWithdrawal already covering it")
+    func rmdSatisfiedByExplicitWithdrawal() {
+        // Setup: age 73, $1M trad. RMD ≈ $37,735.
+        // Explicit action: $50K trad withdrawal (more than RMD).
+        // Engine should NOT auto-impose additional RMD on top.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 73, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 67, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1955, spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.traditionalWithdrawal(amount: 50_000)]]
+        )
+        // Total trad withdrawal in actions list should be just the $50K (no extra RMD top-up since 50K > RMD)
+        let totalTrad = years[0].actions.compactMap {
+            if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
+        }.reduce(0.0, +)
+        #expect(abs(totalTrad - 50_000) < 100)  // approx, RMD is below 50K so no extra imposed
+    }
+
+    @Test("RMD: at age 75 birth-year >= 1960")
+    func rmdAtAge75ForLaterBirthYear() {
+        // Person born 1962 has rmdAge 75. At currentAge 75 → RMD year 1.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 75, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 67, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1962,  // → rmdAge = 75
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []])
+        // RMD on $1M at age 75 ≈ $1M / 24.6 ≈ $40,650
+        #expect(years[0].agi > 30_000)
+        #expect(years[0].agi < 60_000)
+    }
+
+    @Test("RMD: born 1962, age 73 → no RMD yet (RMD age is 75)")
+    func noRMDForLaterBirthYearAtAge73() {
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 73, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 67, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1962,  // → rmdAge = 75 (SECURE 2.0)
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []])
+        // Born 1962, age 73, RMD age 75 → no RMD yet
+        #expect(years[0].agi == 0)
+    }
+
+    @Test("RMD: continues each year past RMD age")
+    func rmdContinuesEachYear() {
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 73, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 67, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1955,  // rmdAge = 73
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [], baseYear + 1: [], baseYear + 2: []]
+        )
+        // Each year should have RMD-driven AGI.
+        #expect(years[0].agi > 0)
+        #expect(years[1].agi > 0)
+        #expect(years[2].agi > 0)
+        // Trad balance should not have grown uncontrolled (RMDs are withdrawing)
+        #expect(years[2].endOfYearBalances.traditional < 1_500_000)
+    }
+
     @Test("COLA: exact magnitude matches (1+cpi)^yearsSinceClaim over 5 years")
     func colaExactMagnitudeOverFiveYears() {
         // This is a regression pin for the COLA workaround. If the formula gets swapped
