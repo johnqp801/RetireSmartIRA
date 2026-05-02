@@ -1565,6 +1565,43 @@ class DataManager: ObservableObject {
         currentYear + 2
     }
 
+    // MARK: - 1.9 ACA Subsidy
+
+    /// Whether ACA Marketplace modeling should display in the UI.
+    /// True only when user has enabled it AND at least one spouse is pre-Medicare (<65).
+    var shouldDisplayACASection: Bool {
+        guard scenario.enableACAModeling else { return false }
+        let primaryPreMedicare = currentAge < 65 || scenario.yourMedicarePlanType == .preMedicare
+        let spousePreMedicare = enableSpouse
+            && (spouseCurrentAge < 65 || scenario.spouseMedicarePlanType == .preMedicare)
+        return primaryPreMedicare || spousePreMedicare
+    }
+
+    /// ACA subsidy result from the engine. Returns nil when section is gated off.
+    var acaSubsidyResult: ACASubsidyResult? {
+        guard shouldDisplayACASection else { return nil }
+        let benchmarkAnnual: Double = {
+            if let monthly = scenario.acaBenchmarkSilverPlanMonthlyOverride {
+                return monthly * 12
+            }
+            return TaxCalculationEngine.config.acaSubsidy2026.nationalAvgBenchmarkSilverPlanAnnual
+        }()
+        let regional: ACASubsidyEngine.AlaskaHawaii = {
+            switch profile.selectedState {
+            case .alaska: return .alaska
+            case .hawaii: return .hawaii
+            default: return .mainland48
+            }
+        }()
+        return ACASubsidyEngine.calculateSubsidy(
+            acaMAGI: acaMAGI,
+            householdSize: max(1, scenario.acaHouseholdSize),
+            benchmarkSilverPlanAnnualPremium: benchmarkAnnual,
+            regionalAdjustment: regional,
+            config: TaxCalculationEngine.config
+        )
+    }
+
     // MARK: - Scenario Warnings (1.9 — engine in Phase 5)
 
     /// Cross-feature scenario warnings. Replaced by `ScenarioWarningEngine.warningsFor(...)`
