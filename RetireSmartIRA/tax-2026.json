@@ -87,5 +87,23 @@
   "caExemptionPhaseoutMFJ": 504406,
   "caExemptionPhaseoutReductionPer2500": 6.0,
 
-  "medicalAGIFloorRate": 0.075
+  "medicalAGIFloorRate": 0.075,
+
+  "contributionLimits401k": {
+    "base": 23500,
+    "catchupAge50To59": 7500,
+    "catchupAge60To63": 11250,
+    "catchupAge64Plus": 7500
+  },
+
+  "contributionLimitsIRA": {
+    "base": 7000,
+    "catchupAge50Plus": 1000
+  },
+
+  "contributionLimitsHSA": {
+    "selfOnly": 4300,
+    "family": 8550,
+    "catchupAge55Plus": 1000
+  }
 }
