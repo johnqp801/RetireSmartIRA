@@ -1969,33 +1969,62 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var householdMedicareCostSection: some View {
-        if dataManager.householdMedicareCostAnnual > 0 {
+        if dataManager.householdMedicareCostAnnual > 0
+           || (dataManager.scenario.yourMedicarePlanType == .preMedicare
+               && dataManager.currentAge >= 63 && dataManager.currentAge <= 64) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Projected Medicare cost (\(dataManager.medicarePremiumProjectionYear))")
-                    .font(.headline)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                    Text("Medicare IRMAA premiums are based on income from 2 years prior. Decisions you make today affect your premiums in \(dataManager.medicarePremiumProjectionYear).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                // Pre-Medicare 63-64 projection band
+                if dataManager.scenario.yourMedicarePlanType == .preMedicare
+                   && dataManager.currentAge >= 63 && dataManager.currentAge <= 64 {
+                    let preMedicareIrmaa = TaxCalculationEngine.calculateIRMAA(
+                        magi: dataManager.irmaaMAGIWrapped,
+                        filingStatus: dataManager.filingStatus
+                    )
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .foregroundStyle(Color.Semantic.amber)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Decisions today affect Medicare premiums starting at age 65")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Current scenario projects to IRMAA tier \(preMedicareIrmaa.tier).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.Semantic.amberTint)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
 
-                medicareCostRow(label: "You", breakdown: dataManager.primaryMedicareCost)
-                if dataManager.enableSpouse {
-                    medicareCostRow(label: "Spouse", breakdown: dataManager.spouseMedicareCost)
-                }
+                // Medicare cost details (only shown when actively on Medicare)
+                if dataManager.householdMedicareCostAnnual > 0 {
+                    Text("Projected Medicare cost (\(dataManager.medicarePremiumProjectionYear))")
+                        .font(.headline)
 
-                Divider()
-                HStack {
-                    Text("Total annual")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text(dataManager.householdMedicareCostAnnual, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.bold)
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text("Medicare IRMAA premiums are based on income from 2 years prior. Decisions you make today affect your premiums in \(dataManager.medicarePremiumProjectionYear).")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    medicareCostRow(label: "You", breakdown: dataManager.primaryMedicareCost)
+                    if dataManager.enableSpouse {
+                        medicareCostRow(label: "Spouse", breakdown: dataManager.spouseMedicareCost)
+                    }
+
+                    Divider()
+                    HStack {
+                        Text("Total annual")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(dataManager.householdMedicareCostAnnual, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                    }
                 }
             }
             .padding()
