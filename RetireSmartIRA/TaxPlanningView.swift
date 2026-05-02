@@ -283,6 +283,32 @@ struct TaxPlanningView: View {
         }
     }
 
+    @ViewBuilder
+    private func topWarningsBand(limit: Int = 2) -> some View {
+        let top = dataManager.topActiveScenarioWarnings(limit: limit)
+        if !top.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(top, id: \.messageHeadline) { warning in
+                    HStack(spacing: 6) {
+                        Image(systemName: warning.severity == .warning ? "exclamationmark.triangle.fill" : "info.circle")
+                            .foregroundStyle(warning.severity == .warning ? Color.Semantic.amber : Color.UI.brandTeal)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(warning.messageHeadline)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Text(warning.messageDetail)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding(8)
+            .background(Color.Semantic.amberTint)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -1402,6 +1428,8 @@ struct TaxPlanningView: View {
                     .foregroundStyle(Color.UI.textPrimary)
             }
         }
+
+        topWarningsBand()
     }
 
     // MARK: - Step 3: Inherited IRA Withdrawals (conditional)
@@ -2415,6 +2443,8 @@ struct TaxPlanningView: View {
                     .fontWeight(.medium)
             }
         }
+
+        topWarningsBand()
     }
 
     // MARK: - Pre-tax Contributions (401k)
@@ -2583,6 +2613,8 @@ struct TaxPlanningView: View {
                     .foregroundStyle(.secondary)
             }
         }
+
+        topWarningsBand()
     }
 
     @ViewBuilder
