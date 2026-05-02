@@ -45,8 +45,8 @@
 //
 //  PERFORMANCE:
 //  ────────────
-//  For a 30-year horizon with K=8 candidate amounts:
-//    30 years × 8 candidates × 30-year ProjectionEngine runs = 7,200 year-iterations
+//  For a 30-year horizon with K=7 candidate amounts:
+//    30 years × 7 candidates × 30-year ProjectionEngine runs = 6,300 year-iterations
 //  This runs in ~few hundred ms on M1 base — well within the <2s spec budget.
 //  Scope E remains a 2.1 enhancement target once perf measurement confirms it is worth
 //  the additional implementation complexity.
