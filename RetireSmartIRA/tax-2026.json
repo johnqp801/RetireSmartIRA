@@ -105,5 +105,12 @@
     "selfOnly": 4300,
     "family": 8550,
     "catchupAge55Plus": 1000
+  },
+
+  "medicare2026": {
+    "partBStandardMonthly": 185.00,
+    "partDAvgMonthly": 50.00,
+    "medigapAvgMonthly": 150.00,
+    "advantageAvgMonthly": 50.00
   }
 }
