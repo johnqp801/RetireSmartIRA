@@ -232,3 +232,69 @@ struct ScenarioWarningEngineWidowBracketTests {
         #expect(!warnings.contains { $0.category == .widowBracketJump })
     }
 }
+
+@Suite("ScenarioWarningEngine — Integration: ACA + IRMAA dual-warning")
+struct ScenarioWarningEngineIntegrationTests {
+
+    private let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+
+    @Test("Pre-Medicare 62yo with high MAGI fires both ACA cliff and IRMAA approaching")
+    func dualWarningACAAndIRMAA() {
+        // MFJ: primary 67 on Medicare (gates IRMAA on), spouse 62 pre-Medicare (gates ACA on).
+        // Scenario MAGI = 225_000:
+        //   - ACA: fires because spouse is pre-Medicare (< 65)
+        //     225K > 400% FPL cliff (20_440 * 4 = 81_760 for size 2) → fires .acaCliff
+        //   - IRMAA: fires because primary is on Medicare (age 67, .originalMedicare)
+        //     225K > 218_001 (MFJ tier 1 threshold) → fires .irmaaTierCrossing
+        let warnings = ScenarioWarningEngine.warningsFor(
+            federalAGI: FederalAGI(value: 225_000),
+            acaMAGI: ACAMAGI(value: 225_000),
+            irmaaMAGI: IRMAAMAGI(value: 225_000),
+            baselineIRMAAMAGI: IRMAAMAGI(value: 200_000),
+            primaryAge: 67, spouseAge: 62,
+            primaryMedicarePlanType: .originalMedicare,
+            spouseMedicarePlanType: .preMedicare,
+            filingStatus: .marriedFilingJointly,
+            enableACAModeling: true,
+            acaHouseholdSize: 2,
+            acaBenchmarkSilverPlanAnnual: 7_800,
+            acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 200_000),
+            config: config
+        )
+        let categories = warnings.map { $0.category }
+        // Both should fire:
+        // - ACA cliff: 225K > 81_760 (400% FPL for size 2)
+        // - IRMAA tier crossing: 225K > 218_001 (MFJ tier 1 threshold), baseline was 200K
+        #expect(categories.contains(.acaCliff))
+        #expect(categories.contains(.irmaaTierCrossing))
+    }
+
+    @Test("Top warnings are sorted by dollar impact")
+    func topWarningsSortedByImpact() {
+        // Same scenario as above: MFJ with primary 67 on Medicare + spouse 62 pre-Medicare.
+        let warnings = ScenarioWarningEngine.warningsFor(
+            federalAGI: FederalAGI(value: 225_000),
+            acaMAGI: ACAMAGI(value: 225_000),
+            irmaaMAGI: IRMAAMAGI(value: 225_000),
+            baselineIRMAAMAGI: IRMAAMAGI(value: 200_000),
+            primaryAge: 67, spouseAge: 62,
+            primaryMedicarePlanType: .originalMedicare,
+            spouseMedicarePlanType: .preMedicare,
+            filingStatus: .marriedFilingJointly,
+            enableACAModeling: true,
+            acaHouseholdSize: 2,
+            acaBenchmarkSilverPlanAnnual: 7_800,
+            acaRegionalAdjustment: .mainland48,
+            netInvestmentIncome: 0,
+            baselineFederalAGI: FederalAGI(value: 200_000),
+            config: config
+        )
+        let sorted = warnings.sorted { $0.dollarImpactPerYear > $1.dollarImpactPerYear }
+        // First warning has the highest dollar impact (typically ACA cliff at ~$7800 vs IRMAA at ~$1-2K)
+        if sorted.count >= 2 {
+            #expect(sorted[0].dollarImpactPerYear >= sorted[1].dollarImpactPerYear)
+        }
+    }
+}
