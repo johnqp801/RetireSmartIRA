@@ -66,6 +66,15 @@ struct ConstraintAcceptor {
     /// Returns nil when:
     /// - `irmaaMagi` is nil (person is pre-Medicare)
     /// - The IRMAA result is tier 0 (standard premium, no surcharge)
+    ///
+    /// **MFJ cost note (v2.0 simplification):** `annualSurchargePerPerson` is the
+    /// per-spouse surcharge amount. For MFJ couples where both spouses are on Medicare,
+    /// the household actually pays 2× this. Currently the engine surfaces the per-person
+    /// cost only — matching `ProjectionEngine`'s `taxBreakdown.irmaa` which is also
+    /// per-person. This consistently understates IRMAA cost for couples by half. Acceptable
+    /// for v2.0 since the under-count is uniform across all paths the optimizer compares
+    /// (relative ranking is preserved); revisit when ProjectionEngine starts modelling
+    /// per-spouse Medicare enrollment ages — fix both files together.
     private func detectIRMAAHit(
         year: YearRecommendation,
         filingStatus: FilingStatus
@@ -149,25 +158,27 @@ struct ConstraintAcceptor {
 
         let income = year.taxableIncome
 
-        // 12→22 overrun: income crossed above 22% bracket start
-        if income > threshold22 {
-            let overrun = income - threshold22
-            let cost = overrun * 0.10   // 22% - 12% = 10pp marginal jump
-            return ConstraintHit(
-                year: year.year,
-                type: .bracketOverrun(fromBracket: 12, toBracket: 22),
-                cost: cost,
-                acceptanceRationale: ""
-            )
-        }
-
-        // 22→24 overrun: income crossed above 24% bracket start
+        // Check 24% overrun FIRST (more severe). If income spans threshold24, that's the
+        // hit we want to surface — checking 22 first would short-circuit and emit the wrong
+        // type with the wrong cost (income > threshold24 implies income > threshold22).
         if income > threshold24 {
             let overrun = income - threshold24
             let cost = overrun * 0.02   // 24% - 22% = 2pp marginal jump
             return ConstraintHit(
                 year: year.year,
                 type: .bracketOverrun(fromBracket: 22, toBracket: 24),
+                cost: cost,
+                acceptanceRationale: ""
+            )
+        }
+
+        // 12→22 overrun: income crossed above 22% bracket start but didn't reach 24%
+        if income > threshold22 {
+            let overrun = income - threshold22
+            let cost = overrun * 0.10   // 22% - 12% = 10pp marginal jump
+            return ConstraintHit(
+                year: year.year,
+                type: .bracketOverrun(fromBracket: 12, toBracket: 22),
                 cost: cost,
                 acceptanceRationale: ""
             )

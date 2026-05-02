@@ -125,18 +125,36 @@ struct ConstraintAcceptorTests {
         #expect(hits.filter { if case .bracketOverrun = $0.type { return true } else { return false } }.isEmpty)
     }
 
-    @Test("Bracket: 22% → 24% overrun flagged when in 22% band (single, taxableIncome $80k, no 12→22 trip since it IS in 22%)")
+    @Test("Bracket: 22% → 24% overrun flagged when income crosses into 24% band")
     func bracket22to24Overrun() {
-        // 2026 single: 22% band is $50,400 – $105,700; 24% starts at $105,700
-        // taxableIncome $110k crosses into 24%
+        // 2026 single: 22% band is $50,400–$105,700; 24% starts at $105,700.
+        // taxableIncome $110k is INSIDE 24%, so the more severe overrun (22→24) should be
+        // emitted. (Previously this test asserted 12→22 fired here, which masked a dead-code
+        // bug where the 24% branch was unreachable.)
         let path = [year(year: 2026, agi: 135_000, taxableIncome: 110_000)]
         let acceptor = ConstraintAcceptor()
         let hits = acceptor.detect(path: path, filingStatus: .single, householdSize: 1)
         let overruns = hits.compactMap { hit -> (Int, Int)? in
             if case .bracketOverrun(let from, let to) = hit.type { return (from, to) } else { return nil }
         }
-        // Should flag 12→22 (higher priority) not 22→24, since income also crossed 12→22
-        // Only the most severe (12→22) overrun should be emitted
+        #expect(overruns.count == 1)
+        #expect(overruns[0].0 == 22 && overruns[0].1 == 24)
+        // Cost = (110,000 - 105,700) × 0.02 = $86
+        if let hit = hits.first(where: { if case .bracketOverrun = $0.type { return true } else { return false } }) {
+            #expect(abs(hit.cost - 86.0) < 1.0)
+        }
+    }
+
+    @Test("Bracket: 12% → 22% emitted (not 22→24) when income inside 22% band")
+    func bracket12to22OnlyWhenInside22Band() {
+        // 2026 single: income $80k is between threshold22 ($50,400) and threshold24 ($105,700).
+        // Should emit 12→22 only — the 22→24 branch must NOT fire.
+        let path = [year(year: 2026, agi: 95_000, taxableIncome: 80_000)]
+        let acceptor = ConstraintAcceptor()
+        let hits = acceptor.detect(path: path, filingStatus: .single, householdSize: 1)
+        let overruns = hits.compactMap { hit -> (Int, Int)? in
+            if case .bracketOverrun(let from, let to) = hit.type { return (from, to) } else { return nil }
+        }
         #expect(overruns.count == 1)
         #expect(overruns[0].0 == 12 && overruns[0].1 == 22)
     }
