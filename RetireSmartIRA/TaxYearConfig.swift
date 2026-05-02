@@ -80,6 +80,11 @@ struct TaxYearConfig: Codable {
     // MARK: - Medical Deduction
     let medicalAGIFloorRate: Double
 
+    // MARK: - Contribution Limits (1.9)
+    let contributionLimits401k: ContributionLimits401k
+    let contributionLimitsIRA: ContributionLimitsIRA
+    let contributionLimitsHSA: ContributionLimitsHSA
+
     // MARK: - Nested Types
 
     struct BracketEntry: Codable {
@@ -93,6 +98,24 @@ struct TaxYearConfig: Codable {
         let mfjThreshold: Double
         let partBMonthly: Double
         let partDMonthly: Double
+    }
+
+    struct ContributionLimits401k: Codable {
+        let base: Double
+        let catchupAge50To59: Double
+        let catchupAge60To63: Double
+        let catchupAge64Plus: Double
+    }
+
+    struct ContributionLimitsIRA: Codable {
+        let base: Double
+        let catchupAge50Plus: Double
+    }
+
+    struct ContributionLimitsHSA: Codable {
+        let selfOnly: Double
+        let family: Double
+        let catchupAge55Plus: Double
     }
 
     // MARK: - Conversion to App Types
@@ -191,6 +214,16 @@ struct TaxYearConfig: Codable {
         qcdAnnualLimit: 111000,
         caExemptionCreditPerPerson: 144, caExemptionPhaseoutSingle: 252203,
         caExemptionPhaseoutMFJ: 504406, caExemptionPhaseoutReductionPer2500: 6.0,
-        medicalAGIFloorRate: 0.075
+        medicalAGIFloorRate: 0.075,
+        contributionLimits401k: ContributionLimits401k(
+            base: 23_500, catchupAge50To59: 7_500,
+            catchupAge60To63: 11_250, catchupAge64Plus: 7_500
+        ),
+        contributionLimitsIRA: ContributionLimitsIRA(
+            base: 7_000, catchupAge50Plus: 1_000
+        ),
+        contributionLimitsHSA: ContributionLimitsHSA(
+            selfOnly: 4_300, family: 8_550, catchupAge55Plus: 1_000
+        )
     )
 }
