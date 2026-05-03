@@ -22,7 +22,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("Performance — full compute() across personas")
+@Suite("Performance — full compute() across personas", .serialized)
 struct MultiYearPerfTests {
 
     private var baseYear: Int { Calendar.current.component(.year, from: Date()) }

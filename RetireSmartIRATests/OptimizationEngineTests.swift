@@ -12,7 +12,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("OptimizationEngine — Scope C+D greedy with lookahead")
+@Suite("OptimizationEngine — Scope C+D greedy with lookahead", .serialized)
 struct OptimizationEngineTests {
 
     private func makeStandardInputs(currentAge: Int = 65) -> MultiYearStaticInputs {

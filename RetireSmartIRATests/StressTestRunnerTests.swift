@@ -7,7 +7,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("StressTestRunner — ±2pp sensitivity bands")
+@Suite("StressTestRunner — ±2pp sensitivity bands", .serialized)
 struct StressTestRunnerTests {
 
     private func makeInputs() -> MultiYearStaticInputs {

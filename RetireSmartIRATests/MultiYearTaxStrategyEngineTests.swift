@@ -7,7 +7,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("MultiYearTaxStrategyEngine — top-level coordinator")
+@Suite("MultiYearTaxStrategyEngine — top-level coordinator", .serialized)
 struct MultiYearTaxStrategyEngineTests {
 
     private var baseYear: Int { Calendar.current.component(.year, from: Date()) }

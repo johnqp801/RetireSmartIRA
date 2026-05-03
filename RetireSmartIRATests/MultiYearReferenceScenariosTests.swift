@@ -19,7 +19,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("Reference Scenarios — end-to-end engine validation")
+@Suite("Reference Scenarios — end-to-end engine validation", .serialized)
 struct MultiYearReferenceScenariosTests {
 
     private var baseYear: Int { Calendar.current.component(.year, from: Date()) }

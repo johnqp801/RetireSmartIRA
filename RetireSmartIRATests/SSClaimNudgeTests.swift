@@ -7,7 +7,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("SSClaimNudge — claim-age perturbation flag")
+@Suite("SSClaimNudge — claim-age perturbation flag", .serialized)
 struct SSClaimNudgeTests {
 
     private var baseYear: Int { Calendar.current.component(.year, from: Date()) }

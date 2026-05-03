@@ -7,7 +7,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("ProjectionEngine — year-by-year simulation")
+@Suite("ProjectionEngine — year-by-year simulation", .serialized)
 @MainActor
 struct ProjectionEngineTests {
 

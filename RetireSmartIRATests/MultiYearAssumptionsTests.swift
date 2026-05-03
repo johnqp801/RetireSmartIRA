@@ -68,7 +68,7 @@ final class MultiYearAssumptionsTests: XCTestCase {
     }
 }
 
-@Suite("MultiYearAssumptions — new fields")
+@Suite("MultiYearAssumptions — new fields", .serialized)
 struct MultiYearAssumptionsNewFieldsTests {
 
     @Test("terminalLiquidationTaxRate defaults to 0.22")

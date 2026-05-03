@@ -7,7 +7,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("WidowStressTest — single-spouse mortality scenario")
+@Suite("WidowStressTest — single-spouse mortality scenario", .serialized)
 struct WidowStressTestTests {
 
     private var baseYear: Int { Calendar.current.component(.year, from: Date()) }
