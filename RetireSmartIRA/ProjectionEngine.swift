@@ -8,10 +8,16 @@
 //  Order of operations within each year:
 //    1. Apply explicit LeverAction inputs (Roth conversions, withdrawals, contributions)
 //    2. Compute SS income for the year
-//    3. Auto-impose RMD trad withdrawal (NEW — v2.0 Phase 1)
+//    3. Auto-impose RMD trad withdrawal (v2.0 Phase 1)
 //    4. Auto-fund living expenses from accounts per withdrawalOrderingRule
 //    5. Apply investment growth to all remaining balances
 //    6. Compute AGI, taxable SS, MAGI variants, and tax breakdown
+//    7. Debit year's total tax (max(0, taxBreakdown.total)) from the taxable bucket.
+//       If taxable is insufficient, debit what's available; remainder is assumed paid
+//       from external sources (v2.0 limitation — v2.1 will let users designate source).
+//       endOfYearBalances.taxable therefore reflects the realistic post-tax position.
+//       This closes the phantom-wealth gap that existed when taxes were computed but
+//       never debited (projected wealth was overstated by the cumulative tax bill).
 //
 //  RMD modeling (v2.0 Phase 1):
 //    RMD age depends on birth year per SECURE / SECURE 2.0:
@@ -25,12 +31,12 @@
 //    total >= RMD, no additional withdrawal is imposed. Otherwise, the shortfall
 //    is auto-imposed and added to AGI.
 //
-//    Excess-RMD handling (Approach A, v2.0 simplification):
+//    Excess-RMD handling (Approach A):
 //    If the RMD exceeds the year's expense need, the gross excess is deposited to
 //    the taxable bucket. Tax is computed on the full AGI (including the entire RMD).
-//    This slightly overstates available after-tax wealth because the deposited amount
-//    is pre-tax; effective rate ~15-20% × small residual = minor distortion. Will be
-//    corrected in v2.1 per-spouse trad-balance tracking.
+//    The year's total tax is then debited from taxable (Step 7), so the net position
+//    in taxable reflects what the user actually holds after paying tax on the RMD.
+//    Per-spouse trad-balance tracking deferred to v2.1.
 //
 //    Couples simplification: applies primary's RMD age to the total trad balance.
 //    In years where the primary is past RMD age but the spouse is not, this overstates
@@ -378,6 +384,30 @@ struct ProjectionEngine {
                 irmaa: irmaaCost,
                 acaPremiumImpact: acaPremiumImpact
             )
+
+            // ─────────────────────────────────────────
+            // Step 7: Debit year's total tax from the taxable bucket
+            // ─────────────────────────────────────────
+            // taxBreakdown.total = federal + state + irmaa + acaPremiumImpact.
+            // acaPremiumImpact is negative for subsidy savings (reduces net cost), positive
+            // for an ACA cliff penalty (increases net cost). Using taxBreakdown.total correctly
+            // nets these out. max(0, ...) guards against the edge case where a large ACA subsidy
+            // makes total negative — a positive subsidy cash-flow, not a debit.
+            //
+            // If taxable is insufficient, debit what's available; the remainder is implicitly
+            // assumed paid from external sources (v2.0 limitation). v2.1 will let users
+            // designate the tax-payment source (Roth / trad / taxable / external).
+            //
+            // This step closes the phantom-wealth gap: the previous engine reported taxBreakdown
+            // but never debited any account, so projected end-of-horizon wealth was overstated
+            // by the cumulative tax bill (significant at 6% compounding over 30 years).
+            //
+            // Note on excess RMD: gross RMD still flows to the taxable bucket (Approach A),
+            // and the year's tax is then debited from taxable. The net effect is the post-tax
+            // position the user actually holds.
+            let yearTaxBurden = max(0, taxBreakdown.total)
+            let taxDebit = min(taxable, yearTaxBurden)
+            taxable -= taxDebit
 
             let snapshot = AccountSnapshot(
                 traditional: max(0, trad),

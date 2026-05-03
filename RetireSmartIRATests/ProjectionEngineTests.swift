@@ -631,4 +631,96 @@ struct ProjectionEngineTests {
         let expectedIRMAA = result.annualSurchargePerPerson * 1.0
         #expect(abs(years[0].taxBreakdown.irmaa - expectedIRMAA) < 0.01)
     }
+
+    // MARK: Tax debit tests (Bug #2 fix)
+
+    @Test("Tax debit: taxable reduced by year's tax when taxable > tax")
+    func taxDebitReducesTaxableWhenSufficient() {
+        // Single filer age 67. Use a large pension income (not from accounts, so no auto-fund
+        // withdrawal) to generate a predictable federal tax. Starting taxable = 500K so debit
+        // won't exhaust it. Verify endOfYearBalances.taxable == (500K × 1.06) - tax.
+        // No explicit actions, no expense shortfall (pension covers expenses).
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 500_000, hsa: 0),
+            primaryCurrentAge: 67, spouseCurrentAge: nil,
+            filingStatus: .single, state: "TX",  // TX = no state tax; isolates federal only
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 67,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 80_000, spousePensionIncome: 0,  // drives AGI / tax
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 80_000  // covered by pension; no account drawdown
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(growth: 0.06),
+            actionsPerYear: [baseYear: []]
+        )
+        let y = years[0]
+        let taxBurden = max(0, y.taxBreakdown.total)
+        #expect(taxBurden > 0, "Should have non-zero federal tax on $80K pension income")
+        // Expected: taxable grows 6%, then tax is debited.
+        let expectedTaxable = 500_000.0 * 1.06 - taxBurden
+        #expect(abs(y.endOfYearBalances.taxable - expectedTaxable) < 1.0)
+        // Taxable must be strictly less than starting × growthFactor when tax > 0
+        #expect(y.endOfYearBalances.taxable < 500_000.0 * 1.06)
+    }
+
+    @Test("Tax debit: taxable floored at 0 when tax > taxable (insufficient taxable balance)")
+    func taxDebitDoesNotGoBelowZeroWhenInsufficient() {
+        // Same scenario but taxable starts near-zero so the tax can't be fully covered.
+        // Engine should not crash; taxable should be 0 (not negative).
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 100, hsa: 0),
+            primaryCurrentAge: 67, spouseCurrentAge: nil,
+            filingStatus: .single, state: "TX",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 67,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 80_000, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 80_000
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(growth: 0.06),
+            actionsPerYear: [baseYear: []]
+        )
+        let y = years[0]
+        // Must not crash; taxable should be 0 (fully drained, not negative)
+        #expect(y.endOfYearBalances.taxable == 0)
+        // Tax burden is still reported correctly in taxBreakdown regardless of available taxable
+        #expect(y.taxBreakdown.total > 0)
+    }
+
+    @Test("Tax debit: no debit when tax is zero")
+    func taxDebitNoDebitOnZeroTax() {
+        // Person with zero AGI → zero tax → taxable should grow unimpeded.
+        // Single age 60, Roth-only (no taxable income), not yet claiming SS, no pension/wage.
+        let inputs = makeInputs(
+            currentAge: 60,
+            traditional: 0,
+            roth: 500_000,
+            taxable: 200_000,
+            ssClaimAge: 70  // no SS yet
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(growth: 0.06),
+            actionsPerYear: [baseYear: []]
+        )
+        let y = years[0]
+        #expect(y.taxBreakdown.total <= 0, "Zero AGI means zero (or negative-subsidy) tax")
+        // No debit → taxable grows at full 6%
+        #expect(abs(y.endOfYearBalances.taxable - 200_000.0 * 1.06) < 1.0)
+    }
 }
