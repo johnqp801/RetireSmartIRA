@@ -761,6 +761,17 @@ struct IncomeSourcesView: View {
                         }
                     }
 
+                    if incomeType == .vaDisability {
+                        Section("About VA Disability Compensation") {
+                            Text("VA Disability compensation is **fully excluded from gross income** under IRC §104(a)(4). It is never subject to federal income tax, state income tax, or the Social Security provisional income test — regardless of your rating or the amount received.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Enter your annual benefit here for budgeting purposes. This app correctly treats it as tax-exempt: it will not appear in your federal AGI, state taxable income, MAGI for ACA or IRMAA, or any other tax calculation.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     // Delete button — only visible when editing an existing income source
                     if incomeToEdit != nil {
                         Section {

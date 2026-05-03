@@ -964,10 +964,11 @@ class DataManager: ObservableObject {
             .reduce(0) { $0 + $1.annualAmount }
     }
 
-    /// Ordinary taxable income (excludes long-term cap gains, qualified dividends, and tax-exempt interest)
+    /// Ordinary taxable income (excludes long-term cap gains, qualified dividends,
+    /// tax-exempt interest, and VA Disability — IRC §104(a)(4), never in AGI).
     func ordinaryTaxableIncome(filingStatus: FilingStatus = .single) -> Double {
         let otherIncome = incomeSources
-            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest }
+            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest && $0.type != .vaDisability }
             .reduce(0) { $0 + $1.annualAmount }
         let taxableSS = calculateTaxableSocialSecurity(filingStatus: filingStatus)
         return otherIncome + taxableSS

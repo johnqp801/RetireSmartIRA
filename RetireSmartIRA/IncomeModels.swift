@@ -106,6 +106,11 @@ enum IncomeType: String, Codable, CaseIterable {
     case consulting = "Employment/Other Income"
     case stateTaxRefund = "State Tax Refund"
     case rmd = "RMD"
+    // IRC §104(a)(4): VA Disability compensation is excluded from gross income.
+    // It never enters federal AGI, federal taxable income, state AGI, provisional
+    // income for Social Security taxation, MAGI for ACA/IRMAA, NIIT, or AMT.
+    // Tracked here for user budgeting only — the entire tax engine treats it as zero.
+    case vaDisability = "VA Disability"
     case other = "Other"
 
     /// User-facing display name for the income-type picker. Defaults to the

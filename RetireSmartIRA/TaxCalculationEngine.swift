@@ -480,8 +480,10 @@ struct TaxCalculationEngine {
             .filter { $0.type == .socialSecurity }
             .reduce(0.0) { $0 + $1.annualAmount }
 
+        // VA Disability is excluded from provisional income per IRC §104(a)(4) —
+        // it is never in gross income and therefore never in the combined-income test.
         let otherIncome = incomeSources
-            .filter { $0.type != .socialSecurity }
+            .filter { $0.type != .socialSecurity && $0.type != .vaDisability }
             .reduce(0.0) { $0 + $1.annualAmount }
 
         let combinedIncome = otherIncome + additionalIncome + (ssIncome * 0.5)
