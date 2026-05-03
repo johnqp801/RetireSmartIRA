@@ -175,6 +175,26 @@ struct OptimizationEngine {
         return candidates
     }
 
+    // MARK: - Terminal liquidation tax helper
+    //
+    // Estimates the future tax burden of leftover Traditional balance at the
+    // end of the horizon. Critical for the optimizer's objective function:
+    // without this, the engine treats deferred trad as free wealth and biases
+    // toward "do nothing" (Bug 1 — Terminal Tax Illusion).
+    //
+    // Uses MultiYearAssumptions.terminalLiquidationTaxRate (default 0.22).
+    // For pre-Plan-B v2.0 ship, the rate is hardcoded in MultiYearAssumptions
+    // defaults; Plan B will surface it in onboarding.
+    private func terminalLiquidationTax(
+        _ path: [YearRecommendation],
+        rate: Double
+    ) -> Double {
+        guard let last = path.last else { return 0 }
+        let trad = last.endOfYearBalances.primaryTraditional
+                 + last.endOfYearBalances.spouseTraditional
+        return trad * rate
+    }
+
     // MARK: - Public API
 
     func optimize(
