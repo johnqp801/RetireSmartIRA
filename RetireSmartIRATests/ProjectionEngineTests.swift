@@ -974,4 +974,127 @@ struct ProjectionEngineTests {
         // No debit → taxable grows at full 6%
         #expect(abs(y.endOfYearBalances.taxable - 200_000.0 * 1.06) < 1.0)
     }
+
+    // MARK: Bug D — Per-spouse trad tracking for correct couples RMD
+
+    @Test("Bug D: mixed-age couple, neither at RMD age → no RMD imposed")
+    func bugD_mixedAgeNeitherAtRmdAge() {
+        // Primary age 70, spouse age 70, both born 1962 (rmdAge 75). Neither has an RMD obligation.
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(primaryTraditional: 500_000, spouseTraditional: 500_000,
+                                              roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 70, spouseCurrentAge: 70,
+            filingStatus: .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: 1962,      // rmdAge = 75 (SECURE 2.0)
+            spouseBirthYear: 1962,       // rmdAge = 75 (SECURE 2.0)
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: []]
+        )
+        // No RMD obligation for either — no auto-imposed trad withdrawal
+        let tradAutoActions = years[0].actions.compactMap {
+            if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
+        }
+        #expect(tradAutoActions.isEmpty, "Neither spouse at RMD age — no auto-imposed RMD expected")
+        #expect(years[0].agi == 0)
+    }
+
+    @Test("Bug D: only primary at RMD age — RMD imposed on primary's bucket only, not combined")
+    func bugD_onlyPrimaryAtRmdAge() {
+        // Primary age 75 (born 1955, rmdAge 73 — past RMD threshold), spouse age 67 (born 1965, rmdAge 75 — not yet).
+        // Primary has $500K trad, spouse has $500K trad.
+        //
+        // Correct behavior: RMD on primary's $500K only (not combined $1M).
+        // Bug (before fix): RMD was computed on total $1M, applying primary's age to both.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(primaryTraditional: 500_000, spouseTraditional: 500_000,
+                                              roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 75, spouseCurrentAge: 67,
+            filingStatus: .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: 1955,      // rmdAge = 73 — primary past RMD threshold at 75
+            spouseBirthYear: 1965,       // rmdAge = 75 — spouse not yet at 67
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: []]
+        )
+        // Expected: RMD on primary's $500K only
+        let expectedRMD = RMDCalculationEngine.calculateRMD(for: 75, balance: 500_000)
+        // Bug would produce: RMD on $1M (combined)
+        let buggyRMD = RMDCalculationEngine.calculateRMD(for: 75, balance: 1_000_000)
+        #expect(buggyRMD > expectedRMD, "RMD on $1M must exceed RMD on $500K — confirms test is meaningful")
+
+        let tradAutoActions = years[0].actions.compactMap {
+            if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
+        }
+        #expect(!tradAutoActions.isEmpty, "Primary is past RMD age — auto-imposed RMD expected")
+        let autoRMD = tradAutoActions.reduce(0.0, +)
+        #expect(abs(autoRMD - expectedRMD) < 1.0,
+                "Auto RMD must equal RMD($500K primary)=\(expectedRMD). Got \(autoRMD). Buggy value: \(buggyRMD)")
+        // Primary's bucket should be depleted by the RMD; spouse's bucket untouched before growth
+        #expect(years[0].endOfYearBalances.primaryTraditional < 500_000 * 1.06 + 1.0)
+        #expect(abs(years[0].endOfYearBalances.spouseTraditional - 500_000 * 1.06) < 1.0,
+                "Spouse's trad bucket should grow undisturbed — no RMD from spouse's bucket")
+    }
+
+    @Test("Bug D: both spouses at RMD age — each gets independent RMD on their own bucket")
+    func bugD_bothAtRmdAge() {
+        // Primary age 76 (born 1955, rmdAge 73), spouse age 75 (born 1957, rmdAge 73).
+        // Primary has $600K, spouse has $400K trad.
+        // Each should have an independent RMD; total auto-imposed = RMD($600K,76) + RMD($400K,75).
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(primaryTraditional: 600_000, spouseTraditional: 400_000,
+                                              roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 76, spouseCurrentAge: 75,
+            filingStatus: .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: 1955,    // rmdAge = 73 (SECURE 1.0) — primary past RMD threshold
+            spouseBirthYear: 1957,     // rmdAge = 73 (SECURE 1.0) — spouse past RMD threshold
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: []]
+        )
+        let primaryRMD = RMDCalculationEngine.calculateRMD(for: 76, balance: 600_000)
+        let spouseRMD = RMDCalculationEngine.calculateRMD(for: 75, balance: 400_000)
+        let expectedTotal = primaryRMD + spouseRMD
+
+        let tradAutoActions = years[0].actions.compactMap {
+            if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
+        }
+        #expect(!tradAutoActions.isEmpty, "Both spouses past RMD age — auto-imposed RMD expected")
+        let autoTotal = tradAutoActions.reduce(0.0, +)
+        #expect(abs(autoTotal - expectedTotal) < 1.0,
+                "Total auto RMD must equal sum of independent per-spouse RMDs: expected \(expectedTotal), got \(autoTotal)")
+        // AGI should reflect the combined RMD
+        #expect(years[0].agi >= expectedTotal - 1.0)
+    }
 }

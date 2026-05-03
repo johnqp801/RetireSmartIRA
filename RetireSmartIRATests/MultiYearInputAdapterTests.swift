@@ -32,7 +32,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
 
     func test_buildInputs_collapsesRetirementAccountsIntoTwoBuckets() {
         let dm = makeDataManager()
-        // Add one account of each of the 6 1.9 AccountType cases.
+        // Add one account of each of the 6 1.9 AccountType cases (all owner .primary).
         dm.iraAccounts = [
             IRAAccount(name: "Trad IRA",          accountType: .traditionalIRA,          balance: 100_000, owner: .primary),
             IRAAccount(name: "Trad 401k",         accountType: .traditional401k,         balance: 50_000,  owner: .primary),
@@ -50,10 +50,78 @@ final class MultiYearInputAdapterTests: XCTestCase {
             baselineAnnualExpenses: 0
         )
 
+        // traditional = sum of both buckets (backwards-compat computed property)
         XCTAssertEqual(inputs.startingBalances.traditional, 175_000, accuracy: 0.01,
                        "traditional = trad IRA + trad 401k + inherited trad IRA")
+        // All trad goes to primary bucket since all accounts are owner .primary
+        XCTAssertEqual(inputs.startingBalances.primaryTraditional, 175_000, accuracy: 0.01,
+                       "primaryTraditional should equal all trad when all accounts are primary-owned")
+        XCTAssertEqual(inputs.startingBalances.spouseTraditional, 0, accuracy: 0.01,
+                       "spouseTraditional should be 0 when no spouse-owned trad accounts exist")
         XCTAssertEqual(inputs.startingBalances.roth, 140_000, accuracy: 0.01,
                        "roth = roth IRA + roth 401k + inherited roth IRA")
+    }
+
+    func test_buildInputs_splitsTradByOwner_primaryOnly() {
+        // When all trad accounts belong to primary, primaryTraditional should be the sum
+        // and spouseTraditional should be 0.
+        let dm = makeDataManager()
+        dm.iraAccounts = [
+            IRAAccount(name: "Primary Trad IRA",  accountType: .traditionalIRA,  balance: 200_000, owner: .primary),
+            IRAAccount(name: "Primary Trad 401k", accountType: .traditional401k, balance: 100_000, owner: .primary),
+        ]
+
+        let inputs = MultiYearInputAdapter.build(
+            from: dm, scenarioState: dm.scenario,
+            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0
+        )
+
+        XCTAssertEqual(inputs.startingBalances.primaryTraditional, 300_000, accuracy: 0.01,
+                       "All trad from primary-owned accounts → primaryTraditional")
+        XCTAssertEqual(inputs.startingBalances.spouseTraditional, 0, accuracy: 0.01,
+                       "No spouse-owned trad accounts → spouseTraditional = 0")
+    }
+
+    func test_buildInputs_splitsTradByOwner_spouseOnly() {
+        // When all trad accounts belong to spouse, spouseTraditional should be the sum
+        // and primaryTraditional should be 0.
+        let dm = makeDataManager()
+        dm.iraAccounts = [
+            IRAAccount(name: "Spouse Trad IRA",   accountType: .traditionalIRA,  balance: 150_000, owner: .spouse),
+            IRAAccount(name: "Spouse Trad 401k",  accountType: .traditional401k, balance: 75_000,  owner: .spouse),
+        ]
+
+        let inputs = MultiYearInputAdapter.build(
+            from: dm, scenarioState: dm.scenario,
+            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0
+        )
+
+        XCTAssertEqual(inputs.startingBalances.primaryTraditional, 0, accuracy: 0.01,
+                       "No primary-owned trad accounts → primaryTraditional = 0")
+        XCTAssertEqual(inputs.startingBalances.spouseTraditional, 225_000, accuracy: 0.01,
+                       "All trad from spouse-owned accounts → spouseTraditional")
+    }
+
+    func test_buildInputs_splitsTradByOwner_mixedOwnership() {
+        // When both spouses have trad accounts, each bucket should carry the correct sum.
+        let dm = makeDataManager()
+        dm.iraAccounts = [
+            IRAAccount(name: "Primary Trad IRA",  accountType: .traditionalIRA,  balance: 400_000, owner: .primary),
+            IRAAccount(name: "Spouse Trad IRA",   accountType: .traditionalIRA,  balance: 300_000, owner: .spouse),
+            IRAAccount(name: "Spouse Trad 401k",  accountType: .traditional401k, balance: 100_000, owner: .spouse),
+        ]
+
+        let inputs = MultiYearInputAdapter.build(
+            from: dm, scenarioState: dm.scenario,
+            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0
+        )
+
+        XCTAssertEqual(inputs.startingBalances.primaryTraditional, 400_000, accuracy: 0.01,
+                       "primaryTraditional = sum of primary-owned trad accounts")
+        XCTAssertEqual(inputs.startingBalances.spouseTraditional, 400_000, accuracy: 0.01,
+                       "spouseTraditional = sum of spouse-owned trad accounts")
+        XCTAssertEqual(inputs.startingBalances.traditional, 800_000, accuracy: 0.01,
+                       "traditional (computed) = primaryTraditional + spouseTraditional")
     }
 
     func test_buildInputs_passesUserTaxableAndHSABalances() {

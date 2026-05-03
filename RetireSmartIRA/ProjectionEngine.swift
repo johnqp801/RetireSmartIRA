@@ -20,7 +20,7 @@
 //       This closes the phantom-wealth gap that existed when taxes were computed but
 //       never debited (projected wealth was overstated by the cumulative tax bill).
 //
-//  RMD modeling (v2.0 Phase 1):
+//  RMD modeling (v2.0):
 //    RMD age depends on birth year per SECURE / SECURE 2.0:
 //      birthYear < 1951  → rmdAge = 72 (pre-SECURE)
 //      1951 ≤ birthYear ≤ 1959 → rmdAge = 73 (SECURE 1.0)
@@ -29,21 +29,28 @@
 //    Per IRS Pub 590-B, RMDs are calculated using the prior-year-end balance, which
 //    equals the start of the current year's loop iteration — BEFORE any explicit Roth
 //    conversions, withdrawals, or contributions are applied. The engine captures
-//    startOfYearTrad before step 1 and uses it as the RMD basis in step 3.
-//    This prevents the optimizer from illegally reducing current-year RMD obligations
-//    by testing large Roth conversions that shrink the post-action trad balance.
+//    startOfYearPrimaryTrad / startOfYearSpouseTrad before step 1 and uses them as
+//    the RMD basis in step 3. This prevents the optimizer from illegally reducing
+//    current-year RMD obligations by testing large Roth conversions.
 //
-//    When primaryAge >= rmdAge, the engine computes the IRS-required RMD using
-//    RMDCalculationEngine.calculateRMD(for:balance:) on the start-of-year trad balance.
-//    If the user's explicit traditionalWithdrawal actions already total >= RMD, no
-//    additional withdrawal is imposed. Otherwise the shortfall is auto-imposed and
-//    added to AGI.
+//    Per-spouse RMD computation (v2.0 — Bug D fix):
+//    AccountSnapshot now carries primaryTraditional and spouseTraditional as separate
+//    buckets. Each spouse's RMD is computed independently on their own start-of-year
+//    balance using their own RMD age. For a 73/65 couple, only the 73-year-old's
+//    bucket contributes an RMD; the younger spouse's bucket has no obligation yet.
+//    Previously, applying primary's RMD age to the combined total would force ~2× the
+//    actual required RMD for mixed-age couples.
+//
+//    Explicit withdrawal attribution (older-spouse-first rule):
+//    LeverAction.traditionalWithdrawal and .rothConversion amounts are attributed to
+//    the OLDER spouse's bucket first, then the younger. This naturally satisfies the
+//    older spouse's RMD obligation first and is tax-sensible (older = more RMD pressure).
+//    The fourOhOneKContribution contribution goes to the primary's bucket by default.
 //
 //    Excess-RMD handling (Approach A):
-//    If the RMD exceeds the year's expense need, the gross excess is deposited to
-//    the taxable bucket. Tax is computed on the full AGI (including the entire RMD).
-//    The year's total tax is then debited from taxable (Step 7), so the net position
-//    in taxable reflects what the user actually holds after paying tax on the RMD.
+//    If the combined RMD exceeds the year's expense need, the gross excess is deposited
+//    to the taxable bucket. Tax is computed on the full AGI (including the entire RMD).
+//    The year's total tax is then debited from taxable (Step 7).
 //
 //  Action clamping (v2.0):
 //    Every explicit LeverAction is clamped to its source-bucket balance at the time
@@ -56,9 +63,6 @@
 //    spouse is still on an ACA Marketplace plan after the older spouse turns 65.
 //    IRMAA MAGI tracking starts when EITHER spouse is within the 2-year lookback window
 //    (age >= 63), not just the primary.
-//
-//    Couples simplification: applies primary's RMD age to the total trad balance.
-//    Per-spouse trad-balance tracking deferred to v2.1.
 //
 //  Design note: ProjectionEngine does NOT optimize — that is OptimizationEngine's job
 //  (Task 1.9). This engine takes actions as inputs and produces results.
@@ -106,8 +110,10 @@ struct ProjectionEngine {
         let sortedYears = actionsPerYear.keys.sorted()
         guard !sortedYears.isEmpty else { return [] }
 
-        // Mutable state that evolves year-over-year
-        var trad = inputs.startingBalances.traditional
+        // Mutable state that evolves year-over-year.
+        // Bug D fix: split trad into per-spouse buckets so RMDs can be computed independently.
+        var primaryTrad = inputs.startingBalances.primaryTraditional
+        var spouseTrad = inputs.startingBalances.spouseTraditional
         var roth = inputs.startingBalances.roth
         var taxable = inputs.startingBalances.taxable
         var hsa = inputs.startingBalances.hsa
@@ -122,36 +128,85 @@ struct ProjectionEngine {
         for year in sortedYears {
             let actions = actionsPerYear[year] ?? []
 
-            // Bug A fix: capture start-of-year trad balance BEFORE step 1 mutations.
+            // Bug A + D fix: capture per-spouse start-of-year trad balances BEFORE step 1 mutations.
             // Per IRS Pub 590-B, the RMD basis is the prior-year-end balance, which
             // equals the beginning of the current year's loop — before any explicit
             // Roth conversions, withdrawals, or contributions are applied.
-            let startOfYearTrad = trad
+            let startOfYearPrimaryTrad = primaryTrad
+            let startOfYearSpouseTrad = spouseTrad
 
             // ─────────────────────────────────────────
             // Step 1: Apply explicit LeverActions
             // ─────────────────────────────────────────
             // Bug B fix: every action is clamped to its source-bucket balance.
-            // This prevents the optimizer from minting phantom wealth by testing
-            // conversion or withdrawal amounts that exceed the user's actual balance.
+            // Bug D fix: trad withdrawals and conversions use older-spouse-first attribution.
             //
             // Track income events for AGI computation
-            var explicitTradWithdrawals = 0.0   // add to AGI
-            var explicitRothConversions = 0.0   // add to AGI
-            var aboveTheLineDeductions = 0.0    // HSA + pre-tax 401k contributions; reduces AGI
+            var explicitPrimaryTradWithdrawals = 0.0   // primary's trad pulled out (for RMD check)
+            var explicitSpouseTradWithdrawals = 0.0    // spouse's trad pulled out (for RMD check)
+            var explicitRothConversions = 0.0          // add to AGI
+            var aboveTheLineDeductions = 0.0           // HSA + pre-tax 401k; reduces AGI
+
+            // Helper: is primary the older spouse (or single filer)?
+            let primaryIsOlderOrSingle = (spouseAge == nil) || (primaryAge >= spouseAge!)
 
             for action in actions {
                 switch action {
                 case .rothConversion(let amount):
-                    let actual = min(amount, max(0, trad))
-                    trad -= actual
-                    roth += actual
-                    explicitRothConversions += actual
+                    // Draw from OLDER spouse's bucket first, then younger.
+                    // Roth conversions count toward the AGI but NOT toward RMD satisfaction
+                    // (per IRS, RMD must be taken first as an actual distribution).
+                    var remaining = amount
+                    if primaryIsOlderOrSingle {
+                        let fromPrimary = min(remaining, max(0, primaryTrad))
+                        primaryTrad -= fromPrimary
+                        roth += fromPrimary
+                        explicitRothConversions += fromPrimary
+                        remaining -= fromPrimary
+                        if remaining > 0 {
+                            let fromSpouse = min(remaining, max(0, spouseTrad))
+                            spouseTrad -= fromSpouse
+                            roth += fromSpouse
+                            explicitRothConversions += fromSpouse
+                        }
+                    } else {
+                        let fromSpouse = min(remaining, max(0, spouseTrad))
+                        spouseTrad -= fromSpouse
+                        roth += fromSpouse
+                        explicitRothConversions += fromSpouse
+                        remaining -= fromSpouse
+                        if remaining > 0 {
+                            let fromPrimary = min(remaining, max(0, primaryTrad))
+                            primaryTrad -= fromPrimary
+                            roth += fromPrimary
+                            explicitRothConversions += fromPrimary
+                        }
+                    }
 
                 case .traditionalWithdrawal(let amount):
-                    let actual = min(amount, max(0, trad))
-                    trad -= actual
-                    explicitTradWithdrawals += actual
+                    // Draw from OLDER spouse's bucket first, then younger.
+                    var remaining = amount
+                    if primaryIsOlderOrSingle {
+                        let fromPrimary = min(remaining, max(0, primaryTrad))
+                        primaryTrad -= fromPrimary
+                        explicitPrimaryTradWithdrawals += fromPrimary
+                        remaining -= fromPrimary
+                        if remaining > 0 {
+                            let fromSpouse = min(remaining, max(0, spouseTrad))
+                            spouseTrad -= fromSpouse
+                            explicitSpouseTradWithdrawals += fromSpouse
+                        }
+                    } else {
+                        let fromSpouse = min(remaining, max(0, spouseTrad))
+                        spouseTrad -= fromSpouse
+                        explicitSpouseTradWithdrawals += fromSpouse
+                        remaining -= fromSpouse
+                        if remaining > 0 {
+                            let fromPrimary = min(remaining, max(0, primaryTrad))
+                            primaryTrad -= fromPrimary
+                            explicitPrimaryTradWithdrawals += fromPrimary
+                        }
+                    }
 
                 case .taxableWithdrawal(let amount):
                     let actual = min(amount, max(0, taxable))
@@ -172,9 +227,10 @@ struct ProjectionEngine {
                     aboveTheLineDeductions += actual
 
                 case .fourOhOneKContribution(let amount):
+                    // Default to primary's bucket (one employer's 401k per spouse; primary default)
                     let actual = min(amount, max(0, taxable))
                     taxable -= actual
-                    trad += actual
+                    primaryTrad += actual
                     // Pre-tax 401k contribution: reduces AGI (treated like HSA as above-the-line deduction)
                     aboveTheLineDeductions += actual
 
@@ -185,6 +241,9 @@ struct ProjectionEngine {
                     break   // marker only — no balance change
                 }
             }
+
+            // Combined explicit trad withdrawals for AGI
+            let explicitTradWithdrawals = explicitPrimaryTradWithdrawals + explicitSpouseTradWithdrawals
 
             // ─────────────────────────────────────────
             // Step 2: Compute SS income for this year
@@ -228,30 +287,44 @@ struct ProjectionEngine {
             let totalGrossSSAnnual = primaryGrossSSAnnual + spouseGrossSSAnnual
 
             // ─────────────────────────────────────────
-            // Step 3: Auto-impose RMD trad withdrawal
+            // Step 3: Auto-impose per-spouse RMD withdrawals
             // ─────────────────────────────────────────
-            // Bug A fix: RMD basis is startOfYearTrad (prior-year-end balance), per IRS
-            // Pub 590-B. Using the post-step-1 balance would allow Roth conversion
-            // candidates to illegally shrink the current year's RMD obligation.
+            // Bug A fix: RMD basis is the start-of-year balance per IRS Pub 590-B.
+            // Bug D fix: each spouse's RMD is computed independently on their own bucket.
+            //   For a 73/65 couple, only the primary's bucket has an obligation.
+            //   The explicit trad withdrawals attributed to each spouse in step 1 are
+            //   used as the offset against each spouse's required RMD.
             //
-            // If the user's explicit traditionalWithdrawal actions already total >= RMD,
-            // the RMD is satisfied and nothing extra is imposed. Otherwise the shortfall
-            // is auto-imposed.
-            //
-            // Excess-RMD: if RMD > (expenses - passiveIncome), the gross excess is deposited
-            // to the taxable bucket (Approach A). Tax is computed on the full AGI including the
-            // entire RMD. Minor distortion accepted for v2.0.
+            // Excess-RMD: if combined RMD > expense need, the gross excess is deposited
+            // to the taxable bucket (Approach A). Tax is computed on the full AGI.
             var autoImposedRMD = 0.0
 
+            // Primary's RMD
             let primaryRMDAge = rmdAge(birthYear: inputs.primaryBirthYear)
-            if primaryAge >= primaryRMDAge && startOfYearTrad > 0 {
-                let requiredRMD = RMDCalculationEngine.calculateRMD(for: primaryAge, balance: startOfYearTrad)
-                let rmdGap = max(0, requiredRMD - explicitTradWithdrawals)
-                if rmdGap > 0 {
-                    let withdrawal = min(rmdGap, trad)
-                    trad -= withdrawal
-                    autoImposedRMD = withdrawal
-                }
+            let primaryRequired: Double = {
+                guard primaryAge >= primaryRMDAge, startOfYearPrimaryTrad > 0 else { return 0 }
+                return RMDCalculationEngine.calculateRMD(for: primaryAge, balance: startOfYearPrimaryTrad)
+            }()
+            let primaryRmdShortfall = max(0, primaryRequired - explicitPrimaryTradWithdrawals)
+            if primaryRmdShortfall > 0 {
+                let withdrawal = min(primaryRmdShortfall, primaryTrad)
+                primaryTrad -= withdrawal
+                autoImposedRMD += withdrawal
+            }
+
+            // Spouse's RMD (if applicable)
+            let spouseRequired: Double = {
+                guard let sa = spouseAge, let sby = inputs.spouseBirthYear,
+                      startOfYearSpouseTrad > 0 else { return 0 }
+                let spouseRMDAge = rmdAge(birthYear: sby)
+                guard sa >= spouseRMDAge else { return 0 }
+                return RMDCalculationEngine.calculateRMD(for: sa, balance: startOfYearSpouseTrad)
+            }()
+            let spouseRmdShortfall = max(0, spouseRequired - explicitSpouseTradWithdrawals)
+            if spouseRmdShortfall > 0 {
+                let withdrawal = min(spouseRmdShortfall, spouseTrad)
+                spouseTrad -= withdrawal
+                autoImposedRMD += withdrawal
             }
 
             // ─────────────────────────────────────────
@@ -280,12 +353,15 @@ struct ProjectionEngine {
             taxable += rmdExcess
 
             if expenseShortfall > 0 {
+                // Bug D: pass both per-spouse trad buckets; older-spouse-first is applied inside.
                 let (tradWD, remaining) = autoFundExpenses(
                     shortfall: expenseShortfall,
-                    trad: &trad,
+                    primaryTrad: &primaryTrad,
+                    spouseTrad: &spouseTrad,
                     taxableBalance: &taxable,
                     roth: &roth,
-                    rule: assumptions.withdrawalOrderingRule
+                    rule: assumptions.withdrawalOrderingRule,
+                    primaryIsOlderOrSingle: primaryIsOlderOrSingle
                 )
                 autoFundedTradWithdrawals = tradWD
                 _ = remaining  // v2.0: assume solvent, ignore any residual
@@ -297,7 +373,8 @@ struct ProjectionEngine {
             // Step 5: Apply growth to remaining balances
             // ─────────────────────────────────────────
             let growthFactor = 1.0 + assumptions.investmentGrowthRate
-            trad *= growthFactor
+            primaryTrad *= growthFactor
+            spouseTrad *= growthFactor
             roth *= growthFactor
             taxable *= growthFactor
             hsa *= growthFactor
@@ -467,7 +544,8 @@ struct ProjectionEngine {
             taxable -= taxDebit
 
             let snapshot = AccountSnapshot(
-                traditional: max(0, trad),
+                primaryTraditional: max(0, primaryTrad),
+                spouseTraditional: max(0, spouseTrad),
                 roth: max(0, roth),
                 taxable: max(0, taxable),
                 hsa: max(0, hsa)
@@ -540,47 +618,66 @@ struct ProjectionEngine {
 
     /// Auto-fund the expense shortfall from account buckets per the withdrawal ordering rule.
     /// Returns (totalTradWithdrawn, remainingShortfall).
-    /// Mutates trad, taxable, and roth directly.
+    /// Mutates primaryTrad, spouseTrad, taxable, and roth directly.
+    /// When drawing from trad, uses older-spouse-first order (primaryIsOlderOrSingle).
     private func autoFundExpenses(
         shortfall: Double,
-        trad: inout Double,
+        primaryTrad: inout Double,
+        spouseTrad: inout Double,
         taxableBalance: inout Double,
         roth: inout Double,
-        rule: WithdrawalOrderingRule
+        rule: WithdrawalOrderingRule,
+        primaryIsOlderOrSingle: Bool
     ) -> (tradWithdrawn: Double, remaining: Double) {
         var remaining = shortfall
         var tradWithdrawn = 0.0
+
+        // Helper: withdraw `amount` from trad buckets using older-spouse-first ordering.
+        func withdrawFromTrad(_ amount: Double) -> Double {
+            var toWithdraw = amount
+            var withdrawn = 0.0
+            if primaryIsOlderOrSingle {
+                let fromPrimary = min(toWithdraw, max(0, primaryTrad))
+                primaryTrad -= fromPrimary; withdrawn += fromPrimary; toWithdraw -= fromPrimary
+                if toWithdraw > 0 {
+                    let fromSpouse = min(toWithdraw, max(0, spouseTrad))
+                    spouseTrad -= fromSpouse; withdrawn += fromSpouse
+                }
+            } else {
+                let fromSpouse = min(toWithdraw, max(0, spouseTrad))
+                spouseTrad -= fromSpouse; withdrawn += fromSpouse; toWithdraw -= fromSpouse
+                if toWithdraw > 0 {
+                    let fromPrimary = min(toWithdraw, max(0, primaryTrad))
+                    primaryTrad -= fromPrimary; withdrawn += fromPrimary
+                }
+            }
+            return withdrawn
+        }
+
+        let combinedTrad = primaryTrad + spouseTrad
 
         switch rule {
         case .taxEfficient, .preserveRoth:
             // Order: taxable → traditional → roth
             let fromTaxable = min(remaining, max(0, taxableBalance))
-            taxableBalance -= fromTaxable
-            remaining -= fromTaxable
+            taxableBalance -= fromTaxable; remaining -= fromTaxable
 
-            let fromTrad = min(remaining, max(0, trad))
-            trad -= fromTrad
-            tradWithdrawn += fromTrad
-            remaining -= fromTrad
+            let fromTrad = withdrawFromTrad(min(remaining, max(0, combinedTrad)))
+            tradWithdrawn += fromTrad; remaining -= fromTrad
 
             let fromRoth = min(remaining, max(0, roth))
-            roth -= fromRoth
-            remaining -= fromRoth
+            roth -= fromRoth; remaining -= fromRoth
 
         case .depleteTradFirst:
             // Order: traditional → taxable → roth
-            let fromTrad = min(remaining, max(0, trad))
-            trad -= fromTrad
-            tradWithdrawn += fromTrad
-            remaining -= fromTrad
+            let fromTrad = withdrawFromTrad(min(remaining, max(0, combinedTrad)))
+            tradWithdrawn += fromTrad; remaining -= fromTrad
 
             let fromTaxable = min(remaining, max(0, taxableBalance))
-            taxableBalance -= fromTaxable
-            remaining -= fromTaxable
+            taxableBalance -= fromTaxable; remaining -= fromTaxable
 
             let fromRoth = min(remaining, max(0, roth))
-            roth -= fromRoth
-            remaining -= fromRoth
+            roth -= fromRoth; remaining -= fromRoth
 
         case .proportional:
             // Split proportionally between trad and taxable buckets (weighted by current
@@ -588,21 +685,19 @@ struct ProjectionEngine {
             // restricted-use (qualified medical expenses); auto-funding general living
             // expenses from HSA would mischaracterize withdrawals as taxable. Roth is the
             // last-resort fallback if both trad and taxable are exhausted.
-            let total = max(1, trad + taxableBalance)
-            let tradFrac = trad / total
+            let total = max(1, combinedTrad + taxableBalance)
+            let tradFrac = combinedTrad / total
             let taxableFrac = taxableBalance / total
 
-            let fromTrad = min(remaining * tradFrac, max(0, trad))
+            let fromTrad = withdrawFromTrad(min(remaining * tradFrac, max(0, combinedTrad)))
             let fromTaxable = min(remaining * taxableFrac, max(0, taxableBalance))
-            trad -= fromTrad
             taxableBalance -= fromTaxable
             tradWithdrawn += fromTrad
             remaining -= (fromTrad + fromTaxable)
 
             // If still short, try Roth last
             let fromRoth = min(remaining, max(0, roth))
-            roth -= fromRoth
-            remaining -= fromRoth
+            roth -= fromRoth; remaining -= fromRoth
         }
 
         return (tradWithdrawn, remaining)

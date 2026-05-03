@@ -11,10 +11,11 @@
 //  Field-name mapping from 1.9 API (recorded here for downstream task reference):
 //
 //  Account buckets:
-//    traditional = iraAccounts filtered by .accountType.isTraditionalType
-//    roth        = iraAccounts filtered by .accountType.isRothType
-//    taxable     = caller-supplied (no AccountType for taxable in 1.9)
-//    hsa         = caller-supplied (no AccountType for HSA in 1.9)
+//    primaryTraditional = iraAccounts filtered by .accountType.isTraditionalType && .owner == .primary
+//    spouseTraditional  = iraAccounts filtered by .accountType.isTraditionalType && .owner == .spouse
+//    roth               = iraAccounts filtered by .accountType.isRothType (both spouses combined)
+//    taxable            = caller-supplied (no AccountType for taxable in 1.9)
+//    hsa                = caller-supplied (no AccountType for HSA in 1.9)
 //
 //  Demographics:
 //    primaryCurrentAge   = dataManager.currentAge        (currentYear - birthYear)
@@ -71,19 +72,24 @@ enum MultiYearInputAdapter {
     ) -> MultiYearStaticInputs {
 
         // MARK: Account Buckets
-        // Roll up the 6 1.9 AccountType cases into the engine's two buckets.
+        // Roll up the 6 1.9 AccountType cases. Traditional buckets are split by owner so the
+        // engine can compute per-spouse RMDs independently (Bug D fix — per-spouse tracking).
         // AccountType.isTraditionalType covers .traditionalIRA, .traditional401k, .inheritedTraditionalIRA
         // AccountType.isRothType covers .rothIRA, .roth401k, .inheritedRothIRA
         let allAccounts = dataManager.iraAccounts
-        let traditional = allAccounts
-            .filter { $0.accountType.isTraditionalType }
+        let primaryTraditional = allAccounts
+            .filter { $0.accountType.isTraditionalType && $0.owner == .primary }
+            .reduce(0.0) { $0 + $1.balance }
+        let spouseTraditional = allAccounts
+            .filter { $0.accountType.isTraditionalType && $0.owner == .spouse }
             .reduce(0.0) { $0 + $1.balance }
         let roth = allAccounts
             .filter { $0.accountType.isRothType }
             .reduce(0.0) { $0 + $1.balance }
 
         let snapshot = AccountSnapshot(
-            traditional: traditional,
+            primaryTraditional: primaryTraditional,
+            spouseTraditional: spouseTraditional,
             roth: roth,
             taxable: currentTaxableBalance,
             hsa: currentHSABalance
