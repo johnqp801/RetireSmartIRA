@@ -7,7 +7,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("ScenarioWarningEngine — ACA", .serialized)
+@Suite("ScenarioWarningEngine — ACA")
 struct ScenarioWarningEngineACATests {
 
     private let config = TaxYearConfig.loadOrFallback(forYear: 2026)
@@ -79,7 +79,7 @@ struct ScenarioWarningEngineACATests {
     }
 }
 
-@Suite("ScenarioWarningEngine — IRMAA", .serialized)
+@Suite("ScenarioWarningEngine — IRMAA")
 struct ScenarioWarningEngineIRMAATests {
 
     private let config = TaxYearConfig.loadOrFallback(forYear: 2026)
@@ -152,7 +152,7 @@ struct ScenarioWarningEngineIRMAATests {
     }
 }
 
-@Suite("ScenarioWarningEngine — NIIT + Bracket", .serialized)
+@Suite("ScenarioWarningEngine — NIIT + Bracket")
 struct ScenarioWarningEngineNIITBracketTests {
 
     private let config = TaxYearConfig.loadOrFallback(forYear: 2026)
@@ -180,7 +180,7 @@ struct ScenarioWarningEngineNIITBracketTests {
     }
 }
 
-@Suite("ScenarioWarningEngine — Widow Bracket Jump", .serialized)
+@Suite("ScenarioWarningEngine — Widow Bracket Jump")
 struct ScenarioWarningEngineWidowBracketTests {
 
     private let config = TaxYearConfig.loadOrFallback(forYear: 2026)
@@ -233,7 +233,7 @@ struct ScenarioWarningEngineWidowBracketTests {
     }
 }
 
-@Suite("ScenarioWarningEngine — Integration: ACA + IRMAA dual-warning", .serialized)
+@Suite("ScenarioWarningEngine — Integration: ACA + IRMAA dual-warning")
 struct ScenarioWarningEngineIntegrationTests {
 
     private let config = TaxYearConfig.loadOrFallback(forYear: 2026)

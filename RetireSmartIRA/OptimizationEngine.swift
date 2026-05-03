@@ -53,7 +53,7 @@
 //
 //  ALGORITHM (fixed-point iteration with cliff-aware candidates):
 //  ────────────────────────────────────────────────────────────────
-//  Outer loop (cap = 5, exit on convergence):
+//  Outer loop (cap = 2, exit on convergence; see optimize() body for cap rationale):
 //    Inner loop — for each year Y in baseYear...endYear (forward):
 //      Compute current-iteration baseline projection (inside the Y loop).
 //      Generate cliff candidates from actual MAGI / taxable income for Y.
