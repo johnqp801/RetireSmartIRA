@@ -16,6 +16,12 @@ struct YearRecommendation: Codable, Equatable {
     let taxBreakdown: TaxBreakdown
     let endOfYearBalances: AccountSnapshot
     let actions: [LeverAction]
+    /// Number of household members enrolled in Medicare this year (0, 1, or 2).
+    /// Set by ProjectionEngine based on each person's age vs their
+    /// primaryMedicareEnrollmentAge / spouseMedicareEnrollmentAge.
+    /// Used by ConstraintAcceptor to scale annualSurchargePerPerson correctly
+    /// for MFJ couples where both spouses are on Medicare.
+    let medicareEnrolledCount: Int
 
     init(
         year: Int,
@@ -25,7 +31,8 @@ struct YearRecommendation: Codable, Equatable {
         taxableIncome: Double,
         taxBreakdown: TaxBreakdown,
         endOfYearBalances: AccountSnapshot,
-        actions: [LeverAction]
+        actions: [LeverAction],
+        medicareEnrolledCount: Int = 0
     ) {
         self.year = year
         self.agi = agi
@@ -35,5 +42,6 @@ struct YearRecommendation: Codable, Equatable {
         self.taxBreakdown = taxBreakdown
         self.endOfYearBalances = endOfYearBalances
         self.actions = actions
+        self.medicareEnrolledCount = medicareEnrolledCount
     }
 }

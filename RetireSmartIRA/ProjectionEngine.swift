@@ -52,6 +52,7 @@
 //    - State tax: TaxCalculationEngine.calculateStateTax(income:forState:filingStatus:taxableSocialSecurity:
 //      incomeSources:currentAge:enableSpouse:spouseBirthYear:currentYear:)
 //    - IRMAA cost: TaxCalculationEngine.calculateIRMAA(magi:Double,filingStatus:) → IRMAAResult.annualSurchargePerPerson
+//      × medicareEnrolledCount (0/1/2 based on primary + spouse ages vs enrollment ages)
 //    - ACA subsidy: ACASubsidyEngine.calculateSubsidy(acaMAGI:householdSize:benchmarkSilverPlanAnnualPremium:config:)
 //      → ACASubsidyResult.annualPremiumAssistance; acaPremiumImpact = -annualPremiumAssistance (negative = savings)
 //    - SS benefit: SSCalculationEngine.effectiveMonthlyBenefitSingle; COLA = cpiRate^yearsSinceClaim applied here
@@ -334,14 +335,28 @@ struct ProjectionEngine {
                 year: year
             )
 
-            // IRMAA surcharge (annual, per person)
+            // Count how many household members are enrolled in Medicare this year.
+            // Single filer: 1 if primaryAge >= primaryMedicareEnrollmentAge, else 0.
+            // MFJ: above + 1 if spouse exists AND spouseAge >= spouseMedicareEnrollmentAge.
+            let primaryOnMedicare = primaryAge >= inputs.primaryMedicareEnrollmentAge ? 1 : 0
+            let spouseOnMedicare: Int = {
+                guard let sa = spouseAge, let sma = inputs.spouseMedicareEnrollmentAge else { return 0 }
+                return sa >= sma ? 1 : 0
+            }()
+            let medicareEnrolledCount = primaryOnMedicare + spouseOnMedicare
+
+            // IRMAA surcharge — scaled by number of Medicare-enrolled household members.
+            // annualSurchargePerPerson is the per-spouse amount; for MFJ couples where both
+            // are on Medicare the household pays 2× this. Using per-person only would halve
+            // the perceived penalty and cause the optimizer to over-recommend conversions
+            // that cross IRMAA tiers (the cost-vs-savings comparison would be wrong).
             let irmaaCost: Double = {
-                guard let irmaaMagi = irmaaMagiValue, primaryAge >= 65 else { return 0 }
+                guard let irmaaMagi = irmaaMagiValue, medicareEnrolledCount > 0 else { return 0 }
                 let result = TaxCalculationEngine.calculateIRMAA(
                     magi: irmaaMagi,
                     filingStatus: inputs.filingStatus
                 )
-                return result.annualSurchargePerPerson
+                return result.annualSurchargePerPerson * Double(medicareEnrolledCount)
             }()
 
             // ACA premium impact (negative = subsidy savings)
@@ -387,7 +402,8 @@ struct ProjectionEngine {
                 taxableIncome: taxableIncome,
                 taxBreakdown: taxBreakdown,
                 endOfYearBalances: snapshot,
-                actions: allActions
+                actions: allActions,
+                medicareEnrolledCount: medicareEnrolledCount
             ))
 
             // Advance ages for next iteration

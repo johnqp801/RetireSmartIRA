@@ -67,25 +67,20 @@ struct ConstraintAcceptor {
     /// - `irmaaMagi` is nil (person is pre-Medicare)
     /// - The IRMAA result is tier 0 (standard premium, no surcharge)
     ///
-    /// **MFJ cost note (v2.0 simplification):** `annualSurchargePerPerson` is the
-    /// per-spouse surcharge amount. For MFJ couples where both spouses are on Medicare,
-    /// the household actually pays 2× this. Currently the engine surfaces the per-person
-    /// cost only — matching `ProjectionEngine`'s `taxBreakdown.irmaa` which is also
-    /// per-person. This consistently understates IRMAA cost for couples by half. Acceptable
-    /// for v2.0 since the under-count is uniform across all paths the optimizer compares
-    /// (relative ranking is preserved); revisit when ProjectionEngine starts modelling
-    /// per-spouse Medicare enrollment ages — fix both files together.
+    /// Cost is scaled by `year.medicareEnrolledCount` (0/1/2) so that MFJ couples
+    /// where both spouses are on Medicare pay 2× the per-person surcharge. This matches
+    /// ProjectionEngine's `taxBreakdown.irmaa` computation.
     private func detectIRMAAHit(
         year: YearRecommendation,
         filingStatus: FilingStatus
     ) -> ConstraintHit? {
-        guard let magi = year.irmaaMagi else { return nil }
+        guard let magi = year.irmaaMagi, year.medicareEnrolledCount > 0 else { return nil }
         let result = TaxCalculationEngine.calculateIRMAA(magi: magi, filingStatus: filingStatus)
         guard result.tier > 0 else { return nil }
         return ConstraintHit(
             year: year.year,
             type: .irmaaTier(level: result.tier),
-            cost: result.annualSurchargePerPerson,
+            cost: result.annualSurchargePerPerson * Double(year.medicareEnrolledCount),
             acceptanceRationale: ""
         )
     }

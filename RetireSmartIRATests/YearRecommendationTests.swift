@@ -58,4 +58,28 @@ final class YearRecommendationTests: XCTestCase {
         )
         XCTAssertTrue(rec.actions.isEmpty)
     }
+
+    func test_YearRecommendation_medicareEnrolledCount_defaultsToZero() {
+        let rec = YearRecommendation(
+            year: 2030, agi: 50_000, acaMagi: nil, irmaaMagi: 50_000,
+            taxableIncome: 30_000, taxBreakdown: .zero,
+            endOfYearBalances: .zero, actions: []
+        )
+        XCTAssertEqual(rec.medicareEnrolledCount, 0)
+    }
+
+    func test_YearRecommendation_medicareEnrolledCount_codableRoundTrip() throws {
+        // Confirm medicareEnrolledCount encodes/decodes correctly for 0, 1, and 2.
+        for count in [0, 1, 2] {
+            let rec = YearRecommendation(
+                year: 2031, agi: 80_000, acaMagi: nil, irmaaMagi: 80_000,
+                taxableIncome: 60_000, taxBreakdown: .zero,
+                endOfYearBalances: .zero, actions: [],
+                medicareEnrolledCount: count
+            )
+            let data = try JSONEncoder().encode(rec)
+            let decoded = try JSONDecoder().decode(YearRecommendation.self, from: data)
+            XCTAssertEqual(decoded.medicareEnrolledCount, count)
+        }
+    }
 }

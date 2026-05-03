@@ -526,4 +526,109 @@ struct ProjectionEngineTests {
         let pctError = abs(actualRatio - expectedRatio) / expectedRatio
         #expect(pctError < 0.005, "COLA ratio after 4 years should match (1.025)^4 within 0.5%, got \(actualRatio) vs \(expectedRatio)")
     }
+
+    // MARK: IRMAA Medicare-enrolled-count tests (Bug #1 fix)
+
+    @Test("IRMAA: single filer at 65 — medicareEnrolledCount == 1, irmaaCost == 1× perPerson")
+    func irmaaSingleFilerCount1() {
+        // Single filer, age 65. MAGI must exceed the tier-1 threshold so IRMAA is non-zero.
+        // We do a Roth conversion large enough to push MAGI above $109,001 (2026 single tier-1).
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 2_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 65, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 65,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 150_000)]]
+        )
+        // medicareEnrolledCount should be 1 (only primary on Medicare)
+        #expect(years[0].medicareEnrolledCount == 1)
+        // IRMAA cost should equal annualSurchargePerPerson × 1 (non-zero because MAGI > tier-1)
+        let irmaaMagi = years[0].irmaaMagi ?? 0
+        let result = TaxCalculationEngine.calculateIRMAA(magi: irmaaMagi, filingStatus: .single)
+        #expect(result.tier > 0)
+        let expectedIRMAA = result.annualSurchargePerPerson * 1.0
+        #expect(abs(years[0].taxBreakdown.irmaa - expectedIRMAA) < 0.01)
+    }
+
+    @Test("IRMAA: MFJ both spouses age 65+ — medicareEnrolledCount == 2, irmaaCost == 2× perPerson")
+    func irmaaMFJBothOnMedicareCount2() {
+        // MFJ, primary age 67, spouse age 65. Both past enrollment age 65.
+        // Large Roth conversion to push MAGI above tier-1 MFJ threshold ($218,001 in 2026).
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 4_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 67, spouseCurrentAge: 65,
+            filingStatus: .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: currentYear - 67,
+            spouseBirthYear: currentYear - 65,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 300_000)]]
+        )
+        // Both spouses are on Medicare → count = 2
+        #expect(years[0].medicareEnrolledCount == 2)
+        // IRMAA cost = annualSurchargePerPerson × 2
+        let irmaaMagi = years[0].irmaaMagi ?? 0
+        let result = TaxCalculationEngine.calculateIRMAA(magi: irmaaMagi, filingStatus: .marriedFilingJointly)
+        #expect(result.tier > 0)
+        let expectedIRMAA = result.annualSurchargePerPerson * 2.0
+        #expect(abs(years[0].taxBreakdown.irmaa - expectedIRMAA) < 0.01)
+    }
+
+    @Test("IRMAA: MFJ only primary on Medicare — medicareEnrolledCount == 1, irmaaCost == 1× perPerson")
+    func irmaaMFJOnlyPrimaryOnMedicareCount1() {
+        // MFJ, primary age 67 (on Medicare), spouse age 62 (not yet on Medicare).
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 4_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 67, spouseCurrentAge: 62,
+            filingStatus: .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: currentYear - 67,
+            spouseBirthYear: currentYear - 62,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 300_000)]]
+        )
+        // Only primary on Medicare → count = 1
+        #expect(years[0].medicareEnrolledCount == 1)
+        // IRMAA cost = annualSurchargePerPerson × 1
+        let irmaaMagi = years[0].irmaaMagi ?? 0
+        let result = TaxCalculationEngine.calculateIRMAA(magi: irmaaMagi, filingStatus: .marriedFilingJointly)
+        #expect(result.tier > 0)
+        let expectedIRMAA = result.annualSurchargePerPerson * 1.0
+        #expect(abs(years[0].taxBreakdown.irmaa - expectedIRMAA) < 0.01)
+    }
 }
