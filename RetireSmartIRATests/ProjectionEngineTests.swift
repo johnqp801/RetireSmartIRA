@@ -318,11 +318,22 @@ struct ProjectionEngineTests {
         // grossSS (taxable + non-taxable SS), a cleaner COLA signal than AGI because the
         // SS taxation formula has non-linearities around the provisional-income thresholds.
         // All three years are pre-Medicare (ages 62, 63, 64) so acaMagi is always non-nil.
-        let inputs = makeInputs(
-            currentAge: 62,
-            traditional: 100_000,
-            ssClaimAge: 62,
-            expectedBenefitAtFRA: 8_000  // monthly at FRA; claiming at 62 reduces ~30%
+        // acaEnrolled: true so acaMagi is computed (Bug C fix: acaMagi requires acaEnrolled=true
+        // AND anyPreMedicare; pre-Medicare at 62 satisfies the age condition).
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 100_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 62, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 62, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 8_000, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 62,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: true,   // required for acaMagi to be non-nil (post Bug C fix)
+            acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
         )
         let engine = ProjectionEngine()
         let years = engine.project(
@@ -332,8 +343,8 @@ struct ProjectionEngineTests {
         )
         // acaMagi = federalAGI + nonTaxableSS = taxableSS + nonTaxableSS = grossSS.
         // With 2.5% COLA, grossSS grows year over year: year2 acaMagi > year0 acaMagi.
-        #expect(years[0].acaMagi != nil)   // pre-Medicare (age 62) → acaMagi defined
-        #expect(years[2].acaMagi != nil)   // pre-Medicare (age 64) → acaMagi defined
+        #expect(years[0].acaMagi != nil)   // pre-Medicare (age 62), acaEnrolled=true → acaMagi defined
+        #expect(years[2].acaMagi != nil)   // pre-Medicare (age 64), acaEnrolled=true → acaMagi defined
         let aca0 = years[0].acaMagi ?? 0
         let aca2 = years[2].acaMagi ?? 0
         #expect(aca0 > 0)              // SS is flowing (claiming at 62)
@@ -498,15 +509,23 @@ struct ProjectionEngineTests {
         //   - acaMagi = grossSS (all pre-Medicare ages 60-64)
         //   - 2.5% CPI compounding over 5 years should yield grossSS_year4 / grossSS_year0
         //     ≈ 1.025^4 = 1.10381 (within ~0.1%)
+        // acaEnrolled: true so acaMagi is non-nil for the pre-Medicare ages 60-64
+        // (Bug C fix requires acaEnrolled=true AND anyPreMedicare for acaMagi to be set).
         let cpi = 0.025
-        let inputs = makeInputs(
-            currentAge: 60,
-            traditional: 0,            // isolate SS as the only AGI source
-            roth: 0,
-            taxable: 0,
-            hsa: 0,
-            ssClaimAge: 60,            // already claiming at scenario start
-            expectedBenefitAtFRA: 5_000
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 60, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 60, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 5_000, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 60,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: true,   // required for acaMagi to be non-nil (post Bug C fix)
+            acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
         )
         let engine = ProjectionEngine()
         let years = engine.project(
@@ -699,6 +718,238 @@ struct ProjectionEngineTests {
         #expect(y.endOfYearBalances.taxable == 0)
         // Tax burden is still reported correctly in taxBreakdown regardless of available taxable
         #expect(y.taxBreakdown.total > 0)
+    }
+
+    // MARK: Bug A — RMD basis is start-of-year trad balance
+
+    @Test("Bug A: RMD computed on start-of-year trad balance, not post-conversion balance")
+    func bugA_rmdBasisIsStartOfYearTrad() {
+        // Person born 1955 (rmdAge 73), age 73, $1M trad.
+        // Apply a large Roth conversion of $200K.
+        //
+        // Per IRS rules, the RMD must be taken BEFORE a Roth conversion; the conversion
+        // does NOT satisfy the RMD. The RMD basis is the prior-year-end balance ($1M).
+        //
+        // Bug (before fix): engine used post-conversion $800K as RMD basis → auto-RMD ~$30.2K
+        // Fix: engine uses start-of-year $1M as RMD basis → auto-RMD ~$37.7K
+        //
+        // Because Roth conversions are tracked in `explicitRothConversions` (not
+        // `explicitTradWithdrawals`), the RMD shortfall = full RMD on $1M regardless of
+        // conversion size.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 73, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1955,  // → rmdAge = 73
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 200_000)]]
+        )
+        // Correct RMD = RMD on $1M (start-of-year). The buggy basis would be $800K (post-conversion).
+        let expectedRMD = RMDCalculationEngine.calculateRMD(for: 73, balance: 1_000_000)
+        let buggyRMD = RMDCalculationEngine.calculateRMD(for: 73, balance: 800_000)
+        #expect(expectedRMD > buggyRMD, "RMD on $1M must exceed RMD on $800K — confirms test is meaningful")
+
+        // The auto-imposed traditionalWithdrawal must equal the full RMD on $1M.
+        // (Roth conversions don't count toward RMD satisfaction in the engine's logic.)
+        let tradAutoActions = years[0].actions.compactMap {
+            if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
+        }
+        let autoRMD = tradAutoActions.reduce(0.0, +)
+        #expect(abs(autoRMD - expectedRMD) < 1.0,
+                "Auto RMD must equal RMD($1M)=\(expectedRMD). Got \(autoRMD). Buggy basis would give \(buggyRMD)")
+        // AGI includes both the $200K conversion income AND the auto-imposed RMD income
+        #expect(years[0].agi >= 200_000 + expectedRMD - 1.0)
+    }
+
+    @Test("Bug A: partial conversion — auto-RMD uses full start-of-year balance, not post-conversion balance")
+    func bugA_partialConversionRmdOnFullBalance() {
+        // Person born 1955 (rmdAge 73), age 73, $1M trad.
+        // Apply a small $10K Roth conversion (well below the ~$37.7K RMD).
+        //
+        // Roth conversions do NOT satisfy RMD obligations in the engine (they're tracked
+        // separately as `explicitRothConversions`, not `explicitTradWithdrawals`). So the
+        // auto-imposed RMD shortfall = full RMD($1M), regardless of conversion size.
+        //
+        // Bug (before fix): auto-RMD was based on post-conversion $990K → ~$37.4K
+        // Fix: auto-RMD based on start-of-year $1M → ~$37.7K
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 73, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1955,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 10_000)]]
+        )
+        // Correct: auto-RMD = full RMD on $1M (conversions don't count toward RMD shortfall)
+        let expectedAutoRMD = RMDCalculationEngine.calculateRMD(for: 73, balance: 1_000_000)
+        // Bug would produce: RMD on $990K (post-conversion basis)
+        let buggyAutoRMD = RMDCalculationEngine.calculateRMD(for: 73, balance: 990_000)
+        #expect(expectedAutoRMD > buggyAutoRMD, "RMD on $1M must exceed RMD on $990K — confirms test is meaningful")
+
+        let tradAutoActions = years[0].actions.compactMap {
+            if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
+        }
+        #expect(!tradAutoActions.isEmpty, "Auto-imposed RMD shortfall should be present")
+        let autoRMD = tradAutoActions.reduce(0.0, +)
+        // Must match the full $1M basis, NOT the post-conversion basis
+        #expect(abs(autoRMD - expectedAutoRMD) < 1.0,
+                "Auto RMD must equal RMD($1M)=\(expectedAutoRMD). Got \(autoRMD). Buggy basis would give \(buggyAutoRMD)")
+    }
+
+    // MARK: Bug B — Unbounded explicit actions clamped to source bucket
+
+    @Test("Bug B: Roth conversion clamped when amount exceeds trad balance")
+    func bugB_rothConversionClamped() {
+        // Person with $50K trad, $0 roth. Request $200K Roth conversion.
+        // Bug: trad goes -$150K, roth gains $200K (phantom wealth).
+        // Fix: actual conversion = $50K, trad = $0, roth = $50K * 1.06.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 50_000, roth: 0, taxable: 100_000, hsa: 0),
+            primaryCurrentAge: 60, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 60,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(growth: 0.06),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 200_000)]]
+        )
+        let y = years[0]
+        // trad should be 0 (clamped, not negative)
+        #expect(y.endOfYearBalances.traditional == 0, "trad must be 0 after clamped conversion, not negative")
+        // roth should be ~$50K * 1.06 (only $50K transferred, not $200K)
+        #expect(abs(y.endOfYearBalances.roth - 50_000 * 1.06) < 1.0,
+                "roth should reflect only $50K conversion, not phantom $200K")
+        // AGI should include only $50K of conversion income, not $200K
+        #expect(y.agi < 100_000, "AGI should reflect only the $50K actual conversion")
+        #expect(y.agi >= 50_000, "AGI must include the $50K conversion income")
+    }
+
+    @Test("Bug B: taxableWithdrawal clamped when amount exceeds taxable balance")
+    func bugB_taxableWithdrawalClamped() {
+        // Person with $20K taxable, request $100K taxableWithdrawal.
+        // Bug: taxable goes -$80K.
+        // Fix: taxable = $0 after withdrawal.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 20_000, hsa: 0),
+            primaryCurrentAge: 60, spouseCurrentAge: nil,
+            filingStatus: .single, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 60,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(growth: 0.06),
+            actionsPerYear: [baseYear: [.taxableWithdrawal(amount: 100_000)]]
+        )
+        // taxable should be 0 (clamped), not negative
+        #expect(years[0].endOfYearBalances.taxable == 0, "taxable must not go negative from over-withdrawal")
+    }
+
+    // MARK: Bug C — ACA gating must check EITHER spouse
+
+    @Test("Bug C: acaMagi non-nil when spouse is pre-Medicare even if primary is post-Medicare")
+    func bugC_acaMagiNonNilWhenSpousePreMedicare() {
+        // MFJ: primary age 67 (post-Medicare), spouse age 62 (pre-Medicare), acaEnrolled = true.
+        // Before fix: acaMagi = nil because primaryAge >= 65.
+        // After fix: acaMagi != nil because spouse is still pre-Medicare.
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 500_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 67, spouseCurrentAge: 62,
+            filingStatus: .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: currentYear - 67,
+            spouseBirthYear: currentYear - 62,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: true,   // <-- enrolled
+            acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: []]
+        )
+        // Spouse (62) is still pre-Medicare → ACA exposure exists → acaMagi should be non-nil
+        #expect(years[0].acaMagi != nil,
+                "acaMagi must be non-nil: spouse age 62 is still pre-Medicare on ACA plan")
+    }
+
+    @Test("Bug C: acaMagi is nil when both spouses are post-Medicare")
+    func bugC_acaMagiNilWhenBothPostMedicare() {
+        // MFJ: primary age 67, spouse age 67, both post-Medicare. acaEnrolled = true.
+        // Both are past Medicare enrollment age → no one is on ACA → acaMagi should be nil.
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 500_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 67, spouseCurrentAge: 67,
+            filingStatus: .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: currentYear - 67,
+            spouseBirthYear: currentYear - 67,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: true,
+            acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0
+        )
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: []]
+        )
+        // Both spouses (67, 67) are past Medicare enrollment age → acaMagi should be nil
+        #expect(years[0].acaMagi == nil,
+                "acaMagi must be nil: both spouses are post-Medicare, no ACA exposure")
     }
 
     @Test("Tax debit: no debit when tax is zero")

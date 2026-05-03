@@ -7,6 +7,7 @@
 //
 //  Order of operations within each year:
 //    1. Apply explicit LeverAction inputs (Roth conversions, withdrawals, contributions)
+//       Each action is clamped to the source-bucket balance so balances never go negative.
 //    2. Compute SS income for the year
 //    3. Auto-impose RMD trad withdrawal (v2.0 Phase 1)
 //    4. Auto-fund living expenses from accounts per withdrawalOrderingRule
@@ -25,22 +26,39 @@
 //      1951 ≤ birthYear ≤ 1959 → rmdAge = 73 (SECURE 1.0)
 //      birthYear ≥ 1960  → rmdAge = 75 (SECURE 2.0)
 //
+//    Per IRS Pub 590-B, RMDs are calculated using the prior-year-end balance, which
+//    equals the start of the current year's loop iteration — BEFORE any explicit Roth
+//    conversions, withdrawals, or contributions are applied. The engine captures
+//    startOfYearTrad before step 1 and uses it as the RMD basis in step 3.
+//    This prevents the optimizer from illegally reducing current-year RMD obligations
+//    by testing large Roth conversions that shrink the post-action trad balance.
+//
 //    When primaryAge >= rmdAge, the engine computes the IRS-required RMD using
-//    RMDCalculationEngine.calculateRMD(for:balance:) on the post-explicit-action
-//    trad balance. If the user's explicit traditionalWithdrawal actions already
-//    total >= RMD, no additional withdrawal is imposed. Otherwise, the shortfall
-//    is auto-imposed and added to AGI.
+//    RMDCalculationEngine.calculateRMD(for:balance:) on the start-of-year trad balance.
+//    If the user's explicit traditionalWithdrawal actions already total >= RMD, no
+//    additional withdrawal is imposed. Otherwise the shortfall is auto-imposed and
+//    added to AGI.
 //
 //    Excess-RMD handling (Approach A):
 //    If the RMD exceeds the year's expense need, the gross excess is deposited to
 //    the taxable bucket. Tax is computed on the full AGI (including the entire RMD).
 //    The year's total tax is then debited from taxable (Step 7), so the net position
 //    in taxable reflects what the user actually holds after paying tax on the RMD.
-//    Per-spouse trad-balance tracking deferred to v2.1.
+//
+//  Action clamping (v2.0):
+//    Every explicit LeverAction is clamped to its source-bucket balance at the time
+//    it executes. This prevents the optimizer from minting phantom wealth by testing
+//    conversion or withdrawal amounts that exceed the user's actual balance.
+//
+//  ACA / IRMAA MAGI gating (v2.0):
+//    ACA MAGI is tracked when EITHER spouse is pre-Medicare (age < medicareEnrollmentAge).
+//    Gating on primary age only was incorrect for mixed-age couples where the younger
+//    spouse is still on an ACA Marketplace plan after the older spouse turns 65.
+//    IRMAA MAGI tracking starts when EITHER spouse is within the 2-year lookback window
+//    (age >= 63), not just the primary.
 //
 //    Couples simplification: applies primary's RMD age to the total trad balance.
-//    In years where the primary is past RMD age but the spouse is not, this overstates
-//    RMDs slightly (assumes all trad belongs to the older spouse). Revisit in v2.1.
+//    Per-spouse trad-balance tracking deferred to v2.1.
 //
 //  Design note: ProjectionEngine does NOT optimize — that is OptimizationEngine's job
 //  (Task 1.9). This engine takes actions as inputs and produces results.
@@ -104,9 +122,19 @@ struct ProjectionEngine {
         for year in sortedYears {
             let actions = actionsPerYear[year] ?? []
 
+            // Bug A fix: capture start-of-year trad balance BEFORE step 1 mutations.
+            // Per IRS Pub 590-B, the RMD basis is the prior-year-end balance, which
+            // equals the beginning of the current year's loop — before any explicit
+            // Roth conversions, withdrawals, or contributions are applied.
+            let startOfYearTrad = trad
+
             // ─────────────────────────────────────────
             // Step 1: Apply explicit LeverActions
             // ─────────────────────────────────────────
+            // Bug B fix: every action is clamped to its source-bucket balance.
+            // This prevents the optimizer from minting phantom wealth by testing
+            // conversion or withdrawal amounts that exceed the user's actual balance.
+            //
             // Track income events for AGI computation
             var explicitTradWithdrawals = 0.0   // add to AGI
             var explicitRothConversions = 0.0   // add to AGI
@@ -115,32 +143,40 @@ struct ProjectionEngine {
             for action in actions {
                 switch action {
                 case .rothConversion(let amount):
-                    trad -= amount
-                    roth += amount
-                    explicitRothConversions += amount
+                    let actual = min(amount, max(0, trad))
+                    trad -= actual
+                    roth += actual
+                    explicitRothConversions += actual
 
                 case .traditionalWithdrawal(let amount):
-                    trad -= amount
-                    explicitTradWithdrawals += amount
+                    let actual = min(amount, max(0, trad))
+                    trad -= actual
+                    explicitTradWithdrawals += actual
 
                 case .taxableWithdrawal(let amount):
-                    taxable -= amount
+                    let actual = min(amount, max(0, taxable))
+                    taxable -= actual
                     // Zero-gain approximation: no AGI impact in v2.0 (cost-basis tracking deferred to v2.1)
+                    _ = actual
 
                 case .rothWithdrawal(let amount):
-                    roth -= amount
+                    let actual = min(amount, max(0, roth))
+                    roth -= actual
                     // Qualified Roth withdrawals: no AGI impact
+                    _ = actual
 
                 case .hsaContribution(let amount):
-                    taxable -= amount
-                    hsa += amount
-                    aboveTheLineDeductions += amount
+                    let actual = min(amount, max(0, taxable))
+                    taxable -= actual
+                    hsa += actual
+                    aboveTheLineDeductions += actual
 
                 case .fourOhOneKContribution(let amount):
-                    trad += amount
-                    taxable -= amount
+                    let actual = min(amount, max(0, taxable))
+                    taxable -= actual
+                    trad += actual
                     // Pre-tax 401k contribution: reduces AGI (treated like HSA as above-the-line deduction)
-                    aboveTheLineDeductions += amount
+                    aboveTheLineDeductions += actual
 
                 case .deferSocialSecurity:
                     break   // marker only — no balance change
@@ -194,9 +230,13 @@ struct ProjectionEngine {
             // ─────────────────────────────────────────
             // Step 3: Auto-impose RMD trad withdrawal
             // ─────────────────────────────────────────
-            // RMD is computed from post-explicit-action trad balance. If the user's explicit
-            // traditionalWithdrawal actions already total >= RMD, the RMD is satisfied and
-            // nothing extra is imposed. Otherwise the shortfall is auto-imposed.
+            // Bug A fix: RMD basis is startOfYearTrad (prior-year-end balance), per IRS
+            // Pub 590-B. Using the post-step-1 balance would allow Roth conversion
+            // candidates to illegally shrink the current year's RMD obligation.
+            //
+            // If the user's explicit traditionalWithdrawal actions already total >= RMD,
+            // the RMD is satisfied and nothing extra is imposed. Otherwise the shortfall
+            // is auto-imposed.
             //
             // Excess-RMD: if RMD > (expenses - passiveIncome), the gross excess is deposited
             // to the taxable bucket (Approach A). Tax is computed on the full AGI including the
@@ -204,8 +244,8 @@ struct ProjectionEngine {
             var autoImposedRMD = 0.0
 
             let primaryRMDAge = rmdAge(birthYear: inputs.primaryBirthYear)
-            if primaryAge >= primaryRMDAge && trad > 0 {
-                let requiredRMD = RMDCalculationEngine.calculateRMD(for: primaryAge, balance: trad)
+            if primaryAge >= primaryRMDAge && startOfYearTrad > 0 {
+                let requiredRMD = RMDCalculationEngine.calculateRMD(for: primaryAge, balance: startOfYearTrad)
                 let rmdGap = max(0, requiredRMD - explicitTradWithdrawals)
                 if rmdGap > 0 {
                     let withdrawal = min(rmdGap, trad)
@@ -299,15 +339,30 @@ struct ProjectionEngine {
             let nonTaxableSS = max(0, totalGrossSSAnnual - taxableSS)
             let magiAddback = nonTaxableSS  // tax-exempt interest = 0 in v2.0
 
-            // ACA MAGI: relevant only when primary is pre-Medicare (age < 65)
-            let acaMagiValue: Double? = primaryAge < 65
-                ? federalAGI + magiAddback
-                : nil
+            // Bug C fix: ACA MAGI is tracked when EITHER spouse is pre-Medicare.
+            // Gating on primaryAge < 65 alone was incorrect for mixed-age couples where
+            // the younger spouse is still on an ACA Marketplace plan after the older
+            // spouse turns 65. Both spouses are tested against their own enrollment age.
+            let primaryPreMedicare = primaryAge < inputs.primaryMedicareEnrollmentAge
+            let spousePreMedicare: Bool = {
+                guard let sa = spouseAge, let sma = inputs.spouseMedicareEnrollmentAge else { return false }
+                return sa < sma
+            }()
+            let anyPreMedicare = primaryPreMedicare || spousePreMedicare
 
-            // IRMAA MAGI: relevant from age 63 (2-year lookback window for Medicare)
-            let irmaaMagiValue: Double? = primaryAge >= 63
-                ? federalAGI + magiAddback
-                : nil
+            let acaMagiValue: Double? = (anyPreMedicare && inputs.acaEnrolled) ? federalAGI + magiAddback : nil
+
+            // Bug C fix: IRMAA MAGI tracking starts from EITHER spouse reaching age 63
+            // (2-year lookback). Using primary-only missed the window where only the
+            // spouse approaches Medicare.
+            let primaryWithinIrmaaWindow = primaryAge >= 63
+            let spouseWithinIrmaaWindow: Bool = {
+                guard let sa = spouseAge else { return false }
+                return sa >= 63
+            }()
+            let anyInIrmaaWindow = primaryWithinIrmaaWindow || spouseWithinIrmaaWindow
+
+            let irmaaMagiValue: Double? = anyInIrmaaWindow ? federalAGI + magiAddback : nil
 
             // Standard deduction — derived from TaxCalculationEngine.config
             let stdDed = standardDeduction(
@@ -366,8 +421,10 @@ struct ProjectionEngine {
             }()
 
             // ACA premium impact (negative = subsidy savings)
+            // acaMagiValue is already nil when no one is pre-Medicare (Bug C fix upstream),
+            // so guarding on acaMagiValue != nil is sufficient — no separate age check needed.
             let acaPremiumImpact: Double = {
-                guard primaryAge < 65, inputs.acaEnrolled, let acaMagi = acaMagiValue else { return 0 }
+                guard inputs.acaEnrolled, let acaMagi = acaMagiValue else { return 0 }
                 let taxConfig = TaxCalculationEngine.config
                 let result = ACASubsidyEngine.calculateSubsidy(
                     acaMAGI: ACAMAGI(value: acaMagi),
