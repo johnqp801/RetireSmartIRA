@@ -17,6 +17,8 @@ struct MultiYearAssumptions: Codable, Equatable {
     var perYearExpenseOverrides: [Int: Double]   // year -> override expense amount
     var currentTaxableBalance: Double            // user-input, not in 1.9 AccountType
     var currentHSABalance: Double                // user-input, not in 1.9 AccountType
+    var terminalLiquidationTaxRate: Double       // default 0.22 — see optimizer-correctness-fixes spec
+    var cliffBuffer: Double                      // default 5_000 — IRMAA/ACA cliff safety margin
 
     init(
         horizonEndAge: Int = 95,
@@ -27,7 +29,9 @@ struct MultiYearAssumptions: Codable, Equatable {
         stressTestEnabled: Bool = true,
         perYearExpenseOverrides: [Int: Double] = [:],
         currentTaxableBalance: Double = 0,
-        currentHSABalance: Double = 0
+        currentHSABalance: Double = 0,
+        terminalLiquidationTaxRate: Double = 0.22,
+        cliffBuffer: Double = 5_000
     ) {
         self.horizonEndAge = horizonEndAge
         self.horizonEndAgeSpouse = horizonEndAgeSpouse
@@ -38,6 +42,8 @@ struct MultiYearAssumptions: Codable, Equatable {
         self.perYearExpenseOverrides = perYearExpenseOverrides
         self.currentTaxableBalance = currentTaxableBalance
         self.currentHSABalance = currentHSABalance
+        self.terminalLiquidationTaxRate = terminalLiquidationTaxRate
+        self.cliffBuffer = cliffBuffer
     }
 
     static let `default` = MultiYearAssumptions()

@@ -1,3 +1,4 @@
+import Testing
 import XCTest
 @testable import RetireSmartIRA
 
@@ -64,5 +65,33 @@ final class MultiYearAssumptionsTests: XCTestCase {
         let assumptions = MultiYearAssumptions.default
         XCTAssertEqual(assumptions.horizonEndAge(for: .primary), 95)
         XCTAssertEqual(assumptions.horizonEndAge(for: .spouse), 95)
+    }
+}
+
+@Suite("MultiYearAssumptions — new fields")
+struct MultiYearAssumptionsNewFieldsTests {
+
+    @Test("terminalLiquidationTaxRate defaults to 0.22")
+    func terminalLiquidationTaxRateDefault() {
+        let a = MultiYearAssumptions.default
+        #expect(a.terminalLiquidationTaxRate == 0.22)
+    }
+
+    @Test("cliffBuffer defaults to 5_000")
+    func cliffBufferDefault() {
+        let a = MultiYearAssumptions.default
+        #expect(a.cliffBuffer == 5_000)
+    }
+
+    @Test("MultiYearAssumptions accepts override for terminalLiquidationTaxRate")
+    func terminalLiquidationTaxRateOverride() {
+        let a = MultiYearAssumptions(terminalLiquidationTaxRate: 0.32)
+        #expect(a.terminalLiquidationTaxRate == 0.32)
+    }
+
+    @Test("MultiYearAssumptions accepts override for cliffBuffer")
+    func cliffBufferOverride() {
+        let a = MultiYearAssumptions(cliffBuffer: 10_000)
+        #expect(a.cliffBuffer == 10_000)
     }
 }
