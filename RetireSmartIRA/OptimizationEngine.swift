@@ -96,6 +96,85 @@ struct OptimizationEngine {
         200_000
     ]
 
+    // MARK: - Cliff candidate generator
+    //
+    // Generates per-year Roth conversion amounts that land MAGI / taxable income
+    // at strategically useful targets:
+    //   - IRMAA Tier boundaries (with `cliffBuffer` margin below each)
+    //   - ACA 400% FPL (with `cliffBuffer` margin below)
+    //   - Ordinary tax bracket tops (NO buffer — these aren't cliffs, just fill targets)
+    //
+    // Returns the conversion-AMOUNT deltas, not absolute MAGI targets. Caller
+    // unions these with the static candidate set in optimize().
+    //
+    // Reads thresholds DIRECTLY from TaxCalculationEngine.config. Does NOT CPI-project,
+    // because the underlying engine (TaxCalculationEngine.calculateIRMAA) does
+    // not year-adjust either; we must aim at exactly what the engine penalizes.
+    //
+    // Filtering:
+    //   - Drops non-positive deltas (cliff already passed)
+    //   - Drops deltas > $500_000 (unreasonable single-year conversion size)
+    //
+    // `internal` (not `private`) so unit tests can call it directly.
+    static func cliffCandidates(
+        forYear year: Int,
+        baselineIRMAAMagi: Double?,
+        baselineACAMagi: Double?,
+        baselineTaxableIncome: Double,
+        filingStatus: FilingStatus,
+        householdSize: Int,
+        assumptions: MultiYearAssumptions
+    ) -> [Double] {
+        var candidates: [Double] = []
+        let buffer = assumptions.cliffBuffer
+        let cap: Double = 500_000
+
+        // ─── IRMAA tier candidates (only if Medicare-relevant) ───
+        if let irmaaMagi = baselineIRMAAMagi {
+            // TaxCalculationEngine.config.irmaaTiers has 6 entries: tier 0 (no surcharge) + tiers 1-5.
+            // We want fill-to-(threshold - buffer) for tiers 1-5 only (skip tier 0, which has
+            // threshold == 0 and is the standard zone).
+            for tierEntry in TaxCalculationEngine.config.irmaaTiers where tierEntry.tier > 0 {
+                let threshold = filingStatus == .single
+                    ? tierEntry.singleThreshold
+                    : tierEntry.mfjThreshold
+                let target = threshold - buffer
+                let delta = target - irmaaMagi
+                if delta > 0 && delta <= cap {
+                    candidates.append(delta)
+                }
+            }
+        }
+
+        // ─── ACA 400% FPL candidate (only if ACA-relevant) ───
+        if let acaMagi = baselineACAMagi {
+            // householdSizeToFPL is keyed by string ("1", "2", ...). Cap at 8 (config max).
+            let key = String(min(householdSize, 8))
+            if let fpl = TaxCalculationEngine.config.acaSubsidy2026.fpl2026.householdSizeToFPL[key] {
+                let cliff = fpl * 4.0
+                let target = cliff - buffer
+                let delta = target - acaMagi
+                if delta > 0 && delta <= cap {
+                    candidates.append(delta)
+                }
+            }
+        }
+
+        // ─── Ordinary tax bracket tops (no buffer) ───
+        let brackets = TaxCalculationEngine.config.toTaxBrackets()
+        let bracketArray = filingStatus == .single ? brackets.federalSingle : brackets.federalMarried
+        // Bracket "top" for bracket i = bracket i+1's threshold. Last bracket has no top.
+        for i in 0..<(bracketArray.count - 1) {
+            let top = bracketArray[i + 1].threshold
+            let delta = top - baselineTaxableIncome
+            if delta > 0 && delta <= cap {
+                candidates.append(delta)
+            }
+        }
+
+        return candidates
+    }
+
     // MARK: - Public API
 
     func optimize(
