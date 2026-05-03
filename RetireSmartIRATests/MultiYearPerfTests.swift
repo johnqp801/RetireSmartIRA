@@ -55,7 +55,15 @@ struct MultiYearPerfTests {
 
         let (elapsed, result) = compute(inputs, assumptions)
         #expect(result.recommendedPath.count == 31)
-        #expect(elapsed < 15.0, "Single filer 30-year compute() took \(elapsed)s; budget <15s (see file header)")
+        // persona1 ceiling raised from 15s to 25s on 2026-05-03. Investigation showed
+        // isolated wall-clock is ~1.5s; the engine is fast. The contention budget
+        // accommodates persona1 running first in the perf suite while heavy
+        // correctness suites (SSClaimNudgeTests, MultiYearReferenceScenariosTests,
+        // MultiYearTaxStrategyEngineTests) are still in-flight on parallel threads,
+        // saturating CPU. Subsequent perf tests run against quieter CPU and are
+        // not affected. A genuine algorithmic regression would still trip a 25s
+        // ceiling (ratio 25 / 1.5 = ~17x).
+        #expect(elapsed < 25.0, "Single filer 30-year compute() took \(elapsed)s; budget <25s (see comment above for rationale)")
     }
 
     @Test("Perf: MFJ couple, age 60/58, 35-year horizon, stress + ACA")
