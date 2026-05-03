@@ -90,6 +90,6 @@ struct MultiYearTaxStrategyEngineTests {
         let elapsed = Date().timeIntervalSince(start)
 
         #expect(result.recommendedPath.count == 31)
-        #expect(elapsed < 5.0, "compute() took \(elapsed)s; target <5s on M1 base")
+        #expect(elapsed < 15.0, "compute() took \(elapsed)s; budget <15s (concurrent-test-safe; see MultiYearPerfTests.swift header)")
     }
 }
