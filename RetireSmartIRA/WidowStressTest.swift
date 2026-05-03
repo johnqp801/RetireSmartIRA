@@ -13,12 +13,17 @@
 //  a two-segment projection (MFJ up to widow year, single thereafter).
 //
 //  Algorithm:
-//    1. Run baseline (MFJ throughout) → sum taxBreakdown.total = baselineLifetimeTax
+//    1. Run baseline (MFJ throughout) → baselineObjective = Result.totalObjectiveCost
 //    2. Build widow variant: filingStatus → .single, deceased spouse's SS/wage/pension
 //       zeroed out, surviving spouse inherits all balances.
-//    3. Run widow on OptimizationEngine → widowLifetimeTax
-//    4. Return TaxImpact(baselineLifetimeTax, widowLifetimeTax)
-//       where delta = widowLifetimeTax - baselineLifetimeTax (positive = widow pays more)
+//    3. Run widow on OptimizationEngine → widowObjective = Result.totalObjectiveCost
+//    4. Return TaxImpact(baselineObjective, widowObjective)
+//       where delta = widowObjective - baselineObjective (positive = widow pays more)
+//
+//  Both objectives include in-horizon tax AND terminal liquidation tax, matching
+//  exactly what OptimizationEngine.optimize() minimizes. Using totalObjectiveCost
+//  (rather than summing taxBreakdown.total manually) avoids Terminal Tax Illusion
+//  regression where wrapper deltas were inconsistent with optimizer ranking.
 //
 //  Single-filer inputs (no spouse): returns TaxImpact(0, 0) — no widow penalty applies.
 //
@@ -44,16 +49,16 @@ struct WidowStressTest {
 
         // Baseline: full MFJ projection
         let baseline = engine.optimize(inputs: inputs, assumptions: assumptions)
-        let baselineLifetimeTax = baseline.recommendedPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
+        let baselineObjective = baseline.totalObjectiveCost
 
         // Widow variant (v2.0 simplification: single-filer from year 0)
         let widowInputs = makeWidowVariant(inputs: inputs)
         let widow = engine.optimize(inputs: widowInputs, assumptions: assumptions)
-        let widowLifetimeTax = widow.recommendedPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
+        let widowObjective = widow.totalObjectiveCost
 
         return TaxImpact(
-            baselineLifetimeTax: baselineLifetimeTax,
-            scenarioLifetimeTax: widowLifetimeTax
+            baselineLifetimeTax: baselineObjective,
+            scenarioLifetimeTax: widowObjective
         )
     }
 
@@ -94,6 +99,13 @@ struct WidowStressTest {
                 acaHouseholdSize: 1,
                 primaryMedicareEnrollmentAge: inputs.primaryMedicareEnrollmentAge,
                 spouseMedicareEnrollmentAge: nil,
+                // V2.0 SIMPLIFICATION (Gemini review 2026-05-03): surviving spouse inherits
+                // the FULL married-couple baseline expenses. Real-world surviving spouses
+                // typically spend 20-30% less. Using 100% is conservative — over-states the
+                // widow penalty (the optimizer is forced to fund the same lifestyle on a
+                // single-filer tax bracket, leading to bracket overruns). Acceptable for v2.0
+                // as a "worst case" stress estimate. v2.1 should apply a 0.8 multiplier (or
+                // surface the multiplier to the user as a tunable assumption).
                 baselineAnnualExpenses: inputs.baselineAnnualExpenses
             )
         } else {
@@ -124,6 +136,13 @@ struct WidowStressTest {
                 acaHouseholdSize: 1,
                 primaryMedicareEnrollmentAge: spouseMedAge,
                 spouseMedicareEnrollmentAge: nil,
+                // V2.0 SIMPLIFICATION (Gemini review 2026-05-03): surviving spouse inherits
+                // the FULL married-couple baseline expenses. Real-world surviving spouses
+                // typically spend 20-30% less. Using 100% is conservative — over-states the
+                // widow penalty (the optimizer is forced to fund the same lifestyle on a
+                // single-filer tax bracket, leading to bracket overruns). Acceptable for v2.0
+                // as a "worst case" stress estimate. v2.1 should apply a 0.8 multiplier (or
+                // surface the multiplier to the user as a tunable assumption).
                 baselineAnnualExpenses: inputs.baselineAnnualExpenses
             )
         }

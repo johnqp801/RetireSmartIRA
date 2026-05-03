@@ -79,6 +79,10 @@ struct OptimizationEngine {
     struct Result {
         let recommendedPath: [YearRecommendation]
         let tradeOffsAccepted: [ConstraintHit]
+        /// In-horizon tax + terminal liquidation tax — mirrors what optimize()'s objective
+        /// minimizes. Wrappers (WidowStressTest, SSClaimNudge) should read this directly
+        /// instead of re-summing taxBreakdown.total, which omits terminal liquidation tax.
+        let totalObjectiveCost: Double
     }
 
     // MARK: - Candidate conversion amounts
@@ -200,6 +204,24 @@ struct OptimizationEngine {
         return trad * rate
     }
 
+    // MARK: - Shared objective helper
+    //
+    // Computes the optimizer's full objective for a path: in-horizon tax + terminal
+    // liquidation tax. Used at Result construction and by wrappers (WidowStressTest,
+    // SSClaimNudge) that need to evaluate path objectives consistently with how the
+    // optimizer ranked them. Static so wrappers can call it after a ProjectionEngine.project()
+    // without needing an OptimizationEngine instance.
+    static func computeObjectiveCost(
+        path: [YearRecommendation],
+        terminalLiquidationTaxRate: Double
+    ) -> Double {
+        let inHorizon = path.reduce(0.0) { $0 + $1.taxBreakdown.total }
+        guard let last = path.last else { return inHorizon }
+        let trad = last.endOfYearBalances.primaryTraditional
+                 + last.endOfYearBalances.spouseTraditional
+        return inHorizon + (trad * terminalLiquidationTaxRate)
+    }
+
     // MARK: - Public API
 
     func optimize(
@@ -211,7 +233,7 @@ struct OptimizationEngine {
 
         // Empty horizon (e.g., horizonEndAge < currentAge): return empty result
         guard horizonYears > 0 else {
-            return Result(recommendedPath: [], tradeOffsAccepted: [])
+            return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0)
         }
 
         let endYear = baseYear + horizonYears - 1
@@ -369,6 +391,13 @@ struct OptimizationEngine {
             ))
         }
 
-        return Result(recommendedPath: finalPath, tradeOffsAccepted: acceptedHits)
+        return Result(
+            recommendedPath: finalPath,
+            tradeOffsAccepted: acceptedHits,
+            totalObjectiveCost: OptimizationEngine.computeObjectiveCost(
+                path: finalPath,
+                terminalLiquidationTaxRate: assumptions.terminalLiquidationTaxRate
+            )
+        )
     }
 }
