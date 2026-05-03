@@ -80,7 +80,13 @@ struct SSCalculationEngine {
         } else if claimTotal < fraTotal {
             return applyEarlyReduction(pia: pia, monthsEarly: fraTotal - claimTotal)
         } else {
-            return applyDelayedCredits(pia: pia, monthsDelayed: claimTotal - fraTotal)
+            // Defensive cap: SSA stops Delayed Retirement Credits at age 70.
+            // UI bounds claim age 62-70, but cap here too so the math is correct
+            // even if a bad input slips through (e.g., claimingAge > 70).
+            // (ChatGPT review 2026-05-03 #1)
+            let maxMonthsDelayed = (70 * 12) - fraTotal
+            let cappedMonths = min(claimTotal - fraTotal, maxMonthsDelayed)
+            return applyDelayedCredits(pia: pia, monthsDelayed: max(0, cappedMonths))
         }
     }
 
@@ -479,19 +485,29 @@ struct SSCalculationEngine {
             deceasedSurvivorAmount = max(deceasedActualBenefit, ribLimFloor)
         }
 
-        // Apply survivor age reduction if claiming before survivor FRA
+        // Apply survivor age reduction if claiming before survivor FRA.
+        //
+        // Per SSA POMS RS 00207.001D: survivor benefits are reduced 19/40 of 1%
+        // (= 0.475%) per month of early claim before the survivor's FRA, capped at
+        // 28.5% maximum total reduction. The cap is reached at exactly 60 months early
+        // (regardless of FRA), which is why claiming earlier than 60-months-before-FRA
+        // produces the same benefit as claiming at age 60.
+        //
+        // Previously used a linear approximation (28.5% / monthsToFRA per month) that
+        // under-stated reduction at intermediate ages — e.g., claim at 65 with FRA 67
+        // gave 8.14% reduction instead of the correct 11.4%, inflating widow benefits
+        // by ~$1K/yr per year for typical scenarios. (ChatGPT review 2026-05-03 #2)
+        //
+        // SSA uses months, but the calling sites in this engine use years for
+        // survivorAge / survivorFRAYears — month-level precision is a v2.1 follow-up.
         if let sAge = survivorAge, let fraYrs = survivorFRAYears, sAge < fraYrs {
-            // Survivor benefit reduction: roughly linear from 71.5% at 60 to 100% at FRA
-            // SSA uses months, but for this planning tool we approximate with years
             let survivorFRAMonths = fraYrs * 12
             let survivorClaimMonths = sAge * 12
-            let monthsEarly = survivorFRAMonths - survivorClaimMonths
-            // Maximum reduction at 60 is 28.5% (71.5% of full)
-            // Reduction per month = 28.5% / 84 months (from 60 to 67) ≈ 0.339% per month
-            let maxReductionMonths = (fraYrs - 60) * 12
-            let reductionPerMonth = 0.285 / Double(maxReductionMonths)
-            let reductionFactor = 1.0 - Double(min(monthsEarly, maxReductionMonths)) * reductionPerMonth
-            deceasedSurvivorAmount *= max(reductionFactor, 0.715)
+            let monthsEarly = max(0, survivorFRAMonths - survivorClaimMonths)
+            let perMonthReduction = 19.0 / 40.0 / 100.0  // = 0.00475
+            let totalReduction = min(Double(monthsEarly) * perMonthReduction, 0.285)
+            let reductionFactor = 1.0 - totalReduction
+            deceasedSurvivorAmount *= reductionFactor
         }
 
         return max(survivorOwnBenefit, deceasedSurvivorAmount)
