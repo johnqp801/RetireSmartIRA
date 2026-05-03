@@ -52,8 +52,24 @@ struct OptimizationEngineTests {
         return a
     }
 
-    private func lifetimeTax(of path: [YearRecommendation]) -> Double {
-        path.reduce(0.0) { $0 + $1.taxBreakdown.total }
+    /// Computes the full objective the optimizer minimizes: in-horizon tax (sum of
+    /// taxBreakdown.total across all years) plus the terminal liquidation tax on the
+    /// remaining traditional balance.
+    ///
+    /// Before Task 4 (optimizer-correctness-fixes), this helper summed only in-horizon
+    /// tax, matching the OLD narrow objective. After Task 4 wired terminal liquidation
+    /// tax into the optimizer's objective, the narrow sum became a misleading metric —
+    /// the optimizer legitimately picks paths with slightly more in-horizon tax if they
+    /// end with a lower traditional balance (lower terminal tax), producing a better
+    /// full objective. This helper was updated in Task 7 to mirror the optimizer's
+    /// actual objective so tests assert on the quantity the optimizer truly minimizes.
+    private func lifetimeTax(of path: [YearRecommendation],
+                             assumptions: MultiYearAssumptions = .default) -> Double {
+        let inHorizon = path.reduce(0.0) { $0 + $1.taxBreakdown.total }
+        let terminalTrad = (path.last?.endOfYearBalances.primaryTraditional ?? 0)
+                         + (path.last?.endOfYearBalances.spouseTraditional ?? 0)
+        let terminalTax = terminalTrad * assumptions.terminalLiquidationTaxRate
+        return inHorizon + terminalTax
     }
 
     // MARK: - Smoke + correctness
@@ -75,7 +91,7 @@ struct OptimizationEngineTests {
         let assumptions = makeAssumptions()
 
         let optResult = OptimizationEngine().optimize(inputs: inputs, assumptions: assumptions)
-        let optTax = lifetimeTax(of: optResult.recommendedPath)
+        let optTax = lifetimeTax(of: optResult.recommendedPath, assumptions: assumptions)
 
         // Compute baseline: zero conversions every year
         let baseYear = Calendar.current.component(.year, from: Date())
@@ -84,7 +100,7 @@ struct OptimizationEngineTests {
         let baselinePath = ProjectionEngine().project(
             inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions
         )
-        let baselineTax = lifetimeTax(of: baselinePath)
+        let baselineTax = lifetimeTax(of: baselinePath, assumptions: assumptions)
 
         #expect(optTax <= baselineTax, "Optimizer (\(optTax)) should not exceed baseline (\(baselineTax))")
     }
@@ -156,7 +172,7 @@ struct OptimizationEngineTests {
         let result = OptimizationEngine().optimize(inputs: inputs, assumptions: assumptions)
         #expect(result.recommendedPath.count == 6)
         // No income → no tax
-        let lifetime = lifetimeTax(of: result.recommendedPath)
+        let lifetime = lifetimeTax(of: result.recommendedPath, assumptions: assumptions)
         #expect(lifetime < 100, "Zero-balance scenario should produce ~zero lifetime tax")
     }
 
@@ -200,8 +216,8 @@ struct OptimizationEngineTests {
         let endYear = baseYear + (assumptions.horizonEndAge - inputs.primaryCurrentAge)
         let baselineActions = Dictionary(uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) })
         let baselinePath = ProjectionEngine().project(inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions)
-        let baselineTax = lifetimeTax(of: baselinePath)
-        let optimizedTax = lifetimeTax(of: result.recommendedPath)
+        let baselineTax = lifetimeTax(of: baselinePath, assumptions: assumptions)
+        let optimizedTax = lifetimeTax(of: result.recommendedPath, assumptions: assumptions)
         #expect(optimizedTax <= baselineTax, "Optimizer must not exceed baseline tax for any input")
 
         // Any conversions that appear must be positive (no rothConversion(0) noise)
