@@ -16,12 +16,12 @@
 //  average (no perturbed OptimizationEngine runs).
 //
 //  Performance budget: ~few hundred ms for typical 30-year horizon on M1 base.
-//  Total dispatch per compute():
-//    - 1× OptimizationEngine for main path
-//    - 3× OptimizationEngine via StressTestRunner (when enabled)
-//    - 2× OptimizationEngine via WidowStressTest (baseline + widow variant)
-//    - N× OptimizationEngine via SSClaimNudge (1 baseline + 4 perturbations × 1-2 spouses)
-//  Total: 6-10 optimize() calls. At ~few hundred ms each = well under <5s budget.
+//  Total optimize() calls per compute() (with dependency-injected baseline):
+//    - 1× main optimization (the single source of truth for the baseline)
+//    - 2× StressTestRunner (optimistic + pessimistic; average reuses main baseline)
+//    - 1× WidowStressTest (widow variant only; baseline injected from main)
+//    - 0× SSClaimNudge (static-ladder; baseline injected from main)
+//  Total: 4 optimize() calls (down from 6-10 pre-injection).
 //
 
 import Foundation
@@ -35,14 +35,18 @@ struct MultiYearTaxStrategyEngine {
         assumptions: MultiYearAssumptions
     ) -> MultiYearStrategyResult {
 
-        // Main optimization
+        // Main optimization (the single source of truth for the baseline)
         let optEngine = OptimizationEngine()
         let optResult = optEngine.optimize(inputs: inputs, assumptions: assumptions)
 
-        // Sensitivity bands (only if enabled)
+        // Sensitivity bands — pass baseline path through to skip the redundant "average" run
         let bands: SensitivityBands
         if assumptions.stressTestEnabled {
-            bands = StressTestRunner().run(inputs: inputs, assumptions: assumptions)
+            bands = StressTestRunner().run(
+                inputs: inputs,
+                assumptions: assumptions,
+                baselinePath: optResult.recommendedPath
+            )
         } else {
             // Disabled: optimistic and pessimistic mirror the recommended path
             bands = SensitivityBands(
@@ -52,11 +56,21 @@ struct MultiYearTaxStrategyEngine {
             )
         }
 
-        // Widow stress test (always runs; separate concern per spec)
-        let widowImpact = WidowStressTest().run(inputs: inputs, assumptions: assumptions)
+        // Widow stress test — pass baseline through to skip the redundant baseline run
+        let widowImpact = WidowStressTest().run(
+            inputs: inputs,
+            assumptions: assumptions,
+            baselinePath: optResult.recommendedPath,
+            baselineObjective: optResult.totalObjectiveCost
+        )
 
-        // SS claim-age nudge
-        let ssFlag = SSClaimNudge().compute(inputs: inputs, assumptions: assumptions)
+        // SS claim-age nudge — pass baseline through to skip the redundant baseline run
+        let ssFlag = SSClaimNudge().compute(
+            inputs: inputs,
+            assumptions: assumptions,
+            baselinePath: optResult.recommendedPath,
+            baselineObjective: optResult.totalObjectiveCost
+        )
 
         return MultiYearStrategyResult(
             recommendedPath: optResult.recommendedPath,

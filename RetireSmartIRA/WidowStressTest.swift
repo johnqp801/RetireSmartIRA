@@ -14,6 +14,7 @@
 //
 //  Algorithm:
 //    1. Run baseline (MFJ throughout) → baselineObjective = Result.totalObjectiveCost
+//       (or use injected baselineObjective when provided by coordinator — see below)
 //    2. Build widow variant: filingStatus → .single, deceased spouse's SS/wage/pension
 //       zeroed out, surviving spouse inherits all balances.
 //    3. Run widow on OptimizationEngine → widowObjective = Result.totalObjectiveCost
@@ -27,6 +28,11 @@
 //
 //  Single-filer inputs (no spouse): returns TaxImpact(0, 0) — no widow penalty applies.
 //
+//  Performance optimization: accepts optional baselinePath and baselineObjective parameters.
+//  When both are provided (injected by MultiYearTaxStrategyEngine), the internal baseline
+//  computation is skipped. When either is nil, the baseline is computed internally
+//  (preserves existing behavior for standalone callers / unit tests).
+//
 
 import Foundation
 
@@ -37,7 +43,9 @@ struct WidowStressTest {
     func run(
         inputs: MultiYearStaticInputs,
         assumptions: MultiYearAssumptions,
-        widowhoodAge: Int = 75
+        widowhoodAge: Int = 75,
+        baselinePath: [YearRecommendation]? = nil,
+        baselineObjective: Double? = nil
     ) -> TaxImpact {
         // Single-filer scenarios: no widow penalty applies
         guard inputs.filingStatus == .marriedFilingJointly,
@@ -47,9 +55,15 @@ struct WidowStressTest {
 
         let engine = OptimizationEngine()
 
-        // Baseline: full MFJ projection
-        let baseline = engine.optimize(inputs: inputs, assumptions: assumptions)
-        let baselineObjective = baseline.totalObjectiveCost
+        // Baseline: use injected path/objective when both provided; otherwise compute.
+        let baselineObj: Double
+        if let injectedPath = baselinePath, let injectedObj = baselineObjective {
+            _ = injectedPath  // path itself isn't used here, only the cost — but keep parameter for symmetry
+            baselineObj = injectedObj
+        } else {
+            let baseline = engine.optimize(inputs: inputs, assumptions: assumptions)
+            baselineObj = baseline.totalObjectiveCost
+        }
 
         // Widow variant (v2.0 simplification: single-filer from year 0)
         let widowInputs = makeWidowVariant(inputs: inputs)
@@ -57,7 +71,7 @@ struct WidowStressTest {
         let widowObjective = widow.totalObjectiveCost
 
         return TaxImpact(
-            baselineLifetimeTax: baselineObjective,
+            baselineLifetimeTax: baselineObj,
             scenarioLifetimeTax: widowObjective
         )
     }

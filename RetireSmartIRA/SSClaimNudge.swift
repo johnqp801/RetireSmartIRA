@@ -9,7 +9,7 @@
 //  Perturbations tested: [-2, -1, +1, +2] years (skipped if out of SSA allowed range 62-70).
 //
 //  Algorithm (static-ladder, post-Gemini-review 2026-05-03):
-//    1. Run OptimizationEngine.optimize() ONCE for the baseline
+//    1. Acquire baseline path and objective cost (from injected params or by running optimize())
 //    2. Extract the baseline's locked Roth conversion actions (keyed by year)
 //    3. For each ±1, ±2 perturbation of each spouse's SS claim age:
 //       a. Project the SAME Roth ladder (no re-optimization) with the shifted SS age,
@@ -31,6 +31,12 @@
 //  of delaying the higher earner. Acceptable for v2.0; revisit when ProjectionEngine adopts
 //  couples-aware SS calculation.
 //
+//  Performance optimization: accepts optional baselinePath and baselineObjective parameters.
+//  When both are provided (injected by MultiYearTaxStrategyEngine), the internal baseline
+//  optimize() call is skipped entirely (0 optimize() calls for SSClaimNudge at coordinator
+//  level). When either is nil, the baseline is computed internally (preserves existing
+//  behavior for standalone callers / unit tests).
+//
 
 import Foundation
 
@@ -43,17 +49,30 @@ struct SSClaimNudge {
 
     init() {}
 
-    func compute(inputs: MultiYearStaticInputs, assumptions: MultiYearAssumptions) -> ClaimAgeFlag? {
+    func compute(
+        inputs: MultiYearStaticInputs,
+        assumptions: MultiYearAssumptions,
+        baselinePath: [YearRecommendation]? = nil,
+        baselineObjective: Double? = nil
+    ) -> ClaimAgeFlag? {
         let engine = OptimizationEngine()
         let projector = ProjectionEngine()
 
-        // Run optimize() ONCE for the baseline
-        let baseline = engine.optimize(inputs: inputs, assumptions: assumptions)
-        let baselineObjective = baseline.totalObjectiveCost
+        // Baseline: use injected path/objective when both provided; otherwise compute.
+        let baselineRecommendedPath: [YearRecommendation]
+        let baselineObj: Double
+        if let injectedPath = baselinePath, let injectedObj = baselineObjective {
+            baselineRecommendedPath = injectedPath
+            baselineObj = injectedObj
+        } else {
+            let baseline = engine.optimize(inputs: inputs, assumptions: assumptions)
+            baselineRecommendedPath = baseline.recommendedPath
+            baselineObj = baseline.totalObjectiveCost
+        }
 
         // Extract baseline's locked Roth conversion actions, keyed by year
         var baselineActions: [Int: [LeverAction]] = [:]
-        for yearRec in baseline.recommendedPath {
+        for yearRec in baselineRecommendedPath {
             baselineActions[yearRec.year] = yearRec.actions.filter {
                 if case .rothConversion = $0 { return true }
                 return false
@@ -75,7 +94,7 @@ struct SSClaimNudge {
             let candidateObjective = OptimizationEngine.computeObjectiveCost(
                 path: candidatePath, terminalLiquidationTaxRate: assumptions.terminalLiquidationTaxRate
             )
-            let savings = baselineObjective - candidateObjective  // positive = savings
+            let savings = baselineObj - candidateObjective  // positive = savings
 
             if savings > Self.savingsThreshold && savings > bestSavings {
                 bestSavings = savings
@@ -101,7 +120,7 @@ struct SSClaimNudge {
                 let candidateObjective = OptimizationEngine.computeObjectiveCost(
                     path: candidatePath, terminalLiquidationTaxRate: assumptions.terminalLiquidationTaxRate
                 )
-                let savings = baselineObjective - candidateObjective
+                let savings = baselineObj - candidateObjective
 
                 if savings > Self.savingsThreshold && savings > bestSavings {
                     bestSavings = savings
