@@ -244,6 +244,7 @@ struct OptimizationEngine {
                     actionsPerYear: trialActions
                 )
                 let lifetimeTax = path.reduce(0.0) { $0 + $1.taxBreakdown.total }
+                              + terminalLiquidationTax(path, rate: assumptions.terminalLiquidationTaxRate)
 
                 if lifetimeTax < bestLifetimeTax {
                     bestLifetimeTax = lifetimeTax
@@ -293,7 +294,9 @@ struct OptimizationEngine {
             actionsPerYear: baselineActions
         )
         let baselineLifetimeTax = baselinePath.reduce(0.0) { $0 + $1.taxBreakdown.total }
+                                + terminalLiquidationTax(baselinePath, rate: assumptions.terminalLiquidationTaxRate)
         let currentLifetimeTax = finalPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
+                               + terminalLiquidationTax(finalPath, rate: assumptions.terminalLiquidationTaxRate)
         let lifetimeSavings = baselineLifetimeTax - currentLifetimeTax
 
         var acceptedHits: [ConstraintHit] = []

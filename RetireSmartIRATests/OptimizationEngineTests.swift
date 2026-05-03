@@ -229,4 +229,65 @@ struct OptimizationEngineTests {
         #expect(result.recommendedPath.count == 31)
         #expect(elapsed < 15.0, "30-year optimize() took \(elapsed)s; budget <15s (concurrent-test-safe; see MultiYearPerfTests.swift header)")
     }
+
+    // MARK: - Bug 1 fix: Terminal Tax Illusion
+
+    @Test("Bug 1 fix: optimizer prefers conversions over leaving large terminal trad balance")
+    func terminalTaxIllusionFix() {
+        // Profile: age 65, single, $1M traditional, no Roth, no income, no SS until 70,
+        // very short 3-year horizon (65→67). No RMDs yet. No income other than taxable
+        // withdrawals to cover expenses. The only reason to convert is to reduce the
+        // terminal traditional balance that faces a 22% assumed liquidation tax.
+        //
+        // Without the terminal tax fix: converting is "worse" because it generates
+        // current-year tax with no offsetting benefit in the 3-year objective window.
+        // Optimizer recommends $0 conversions. (terminalLiquidationTaxRate=0 → $0 conversions)
+        //
+        // With the fix: optimizer sees that converting at ~10-12% now avoids 22%
+        // on the terminal balance, so some conversions are strictly better.
+        // Verify by comparing: terminalLiquidationTaxRate=0 → $0 conversions;
+        // terminalLiquidationTaxRate=0.22 → meaningful conversions.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 100_000, hsa: 0),
+            primaryCurrentAge: 65,
+            spouseCurrentAge: nil,
+            filingStatus: .single,
+            state: "TX",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 3_000, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 65,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 40_000
+        )
+
+        // Buggy objective (no terminal tax): optimizer should find $0 conversions optimal
+        // in a 3-year window where converting just adds current tax with no in-window payoff.
+        var assumptionsNoTerminalTax = makeAssumptions()
+        assumptionsNoTerminalTax.horizonEndAge = 67  // 3-year horizon: ages 65, 66, 67
+        assumptionsNoTerminalTax.stressTestEnabled = false
+        assumptionsNoTerminalTax.terminalLiquidationTaxRate = 0.0  // Bug 1: treats trad as free
+        let resultNoTerminalTax = OptimizationEngine().optimize(inputs: inputs, assumptions: assumptionsNoTerminalTax)
+        let conversionsNoTerminalTax = resultNoTerminalTax.recommendedPath.flatMap { $0.actions }
+            .compactMap { if case .rothConversion(let a) = $0 { return a } else { return nil } }
+            .reduce(0.0, +)
+        #expect(conversionsNoTerminalTax == 0.0,
+            "Without terminal tax in objective (rate=0), optimizer should prefer $0 conversions in a 3-year window; got \(conversionsNoTerminalTax)")
+
+        // Fixed objective (with terminal tax): optimizer should now find conversions
+        // because converting at ~10-12% today avoids 22% on terminal balance.
+        var assumptionsWithTerminalTax = makeAssumptions()
+        assumptionsWithTerminalTax.horizonEndAge = 67  // same 3-year horizon
+        assumptionsWithTerminalTax.stressTestEnabled = false
+        assumptionsWithTerminalTax.terminalLiquidationTaxRate = 0.22  // fixed objective
+        let resultWithTerminalTax = OptimizationEngine().optimize(inputs: inputs, assumptions: assumptionsWithTerminalTax)
+        let conversionsWithTerminalTax = resultWithTerminalTax.recommendedPath.flatMap { $0.actions }
+            .compactMap { if case .rothConversion(let a) = $0 { return a } else { return nil } }
+            .reduce(0.0, +)
+        #expect(conversionsWithTerminalTax > 50_000,
+            "With terminal liquidation tax in objective (rate=0.22), optimizer must find meaningful conversions in 3-year window; got \(conversionsWithTerminalTax)")
+    }
 }
