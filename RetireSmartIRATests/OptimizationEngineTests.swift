@@ -230,6 +230,53 @@ struct OptimizationEngineTests {
         #expect(elapsed < 15.0, "30-year optimize() took \(elapsed)s; budget <15s (concurrent-test-safe; see MultiYearPerfTests.swift header)")
     }
 
+    // MARK: - Bug 2 fix: Greedy Trap
+
+    @Test("Bug 2 fix: optimizer discovers multi-year ladders requiring sustained commitment")
+    func greedyTrapFix() {
+        // Profile: age 60, MFJ, $2M traditional, retiring early. The optimal strategy is
+        // to convert ~$80-120K/yr for 5+ years before SS starts at 67, draining the
+        // traditional below the next-IRMAA-tier line. A single year of conversion
+        // doesn't move the needle on year-6 RMDs; the synergy is only visible if the
+        // optimizer can "see" sustained commitment across years.
+        //
+        // Bug 2 fixed: the inner loop now fills future undecided years with the prior
+        // iteration's locked decisions (instead of [] which masks all synergies).
+        // Combined with the fixed-point outer loop, the optimizer should converge to
+        // a multi-year ladder.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 2_000_000, roth: 0, taxable: 100_000, hsa: 0),
+            primaryCurrentAge: 60,
+            spouseCurrentAge: 60,
+            filingStatus: .marriedFilingJointly,
+            state: "TX",
+            primarySSClaimAge: 67, spouseSSClaimAge: 67,
+            primaryExpectedBenefitAtFRA: 2_500, spouseExpectedBenefitAtFRA: 2_000,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 60,
+            spouseBirthYear: Calendar.current.component(.year, from: Date()) - 60,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 60_000
+        )
+        var assumptions = makeAssumptions()
+        assumptions.horizonEndAge = 90
+        assumptions.stressTestEnabled = false
+        let result = OptimizationEngine().optimize(inputs: inputs, assumptions: assumptions)
+
+        // Count years with non-trivial conversions (>$10K) in the pre-SS window (years 0-6)
+        let preSSYears = result.recommendedPath.prefix(7)
+        let preSSConversionYears = preSSYears.filter { yearRec in
+            yearRec.actions.contains { action in
+                if case .rothConversion(let amt) = action { return amt > 10_000 }
+                return false
+            }
+        }
+        #expect(preSSConversionYears.count >= 3,
+            "Optimizer must recommend conversions in 3+ pre-SS years (sustained ladder); got \(preSSConversionYears.count)")
+    }
+
     // MARK: - Bug 1 fix: Terminal Tax Illusion
 
     @Test("Bug 1 fix: optimizer prefers conversions over leaving large terminal trad balance")

@@ -51,16 +51,21 @@
 //  Scope E remains a 2.1 enhancement target once perf measurement confirms it is worth
 //  the additional implementation complexity.
 //
-//  ALGORITHM (forward greedy with full-horizon lookahead):
-//  ────────────────────────────────────────────────────────
-//  For each year Y in baseYear...endYear (forward):
-//    For each candidate amount c in candidateAmounts:
-//      Set trialActions[Y] = [.rothConversion(c)] (or empty if c == 0)
-//      Fill all undecided future years with empty action lists
-//      Run ProjectionEngine for the full horizon → get lifetimeTax
-//    Lock in the candidate that produced the lowest lifetimeTax for year Y
+//  ALGORITHM (fixed-point iteration with cliff-aware candidates):
+//  ────────────────────────────────────────────────────────────────
+//  Outer loop (cap = 5, exit on convergence):
+//    Inner loop — for each year Y in baseYear...endYear (forward):
+//      Compute current-iteration baseline projection (inside the Y loop).
+//      Generate cliff candidates from actual MAGI / taxable income for Y.
+//      Union cliff candidates with static candidateAmounts; dedupe within $1K.
+//      For each candidate amount c:
+//        Set trialActions[Y] = [.rothConversion(c)] (or empty if c == 0)
+//        Future years keep PRIOR-iteration locked decisions (not [])
+//        Run ProjectionEngine for the full horizon → get objective (lifetime tax + terminal)
+//      Lock in the candidate that produced the lowest objective for year Y.
+//    Check convergence: if locked == previousLocked, exit outer loop early.
 //
-//  After all years decided, run ProjectionEngine once more for the final path.
+//  After convergence (or cap), run ProjectionEngine once more for the final path.
 //  Run ConstraintAcceptor to detect IRMAA / ACA / bracket hits.
 //  Accept each hit where lifetime savings (vs no-conversion baseline) ≥ hit.cost.
 //
@@ -212,56 +217,107 @@ struct OptimizationEngine {
         let endYear = baseYear + horizonYears - 1
 
         // ───────────────────────────────────────────────────────────
-        // Greedy forward loop — lock in one year at a time
+        // Initial locked state: $0 for every year (matches old single-pass behavior).
+        // The fixed-point iteration will refine this.
         // ───────────────────────────────────────────────────────────
-        var lockedActions: [Int: [LeverAction]] = [:]
+        var locked: [Int: [LeverAction]] = Dictionary(
+            uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) }
+        )
 
-        for yearIdx in 0..<horizonYears {
-            let Y = baseYear + yearIdx
+        // ───────────────────────────────────────────────────────────
+        // Outer fixed-point iteration loop (cap = 5)
+        //
+        // Each iteration runs a forward greedy pass over all years, using the
+        // PRIOR iteration's locked decisions as the future-year fill (instead
+        // of $0). Repeats until locked stops changing OR cap reached.
+        //
+        // Iteration cap of 5 is the safety net per spec; typical convergence
+        // is 2-3 iterations. If cap hits without convergence, we accept the
+        // iteration-5 result as best-effort.
+        // ───────────────────────────────────────────────────────────
+        let maxIterations = 5
+        var iteration = 0
+        var converged = false
+        while iteration < maxIterations && !converged {
+            iteration += 1
+            let previousLocked = locked
 
-            var bestAmount = 0.0
-            var bestLifetimeTax = Double.infinity
+            // ───── Inner forward greedy pass ─────
+            for yearIdx in 0..<horizonYears {
+                let Y = baseYear + yearIdx
 
-            for amount in candidateAmounts {
-                // Build a trial action map: locked decisions + this candidate for Y +
-                // empty lists for all undecided future years.
-                var trialActions = lockedActions
-                trialActions[Y] = (amount > 0) ? [.rothConversion(amount: amount)] : []
-                // Fill undecided future years with empty action lists.
-                // Guard against Y == endYear (last year of horizon), where
-                // (Y + 1)...endYear would be an invalid descending range.
-                if Y < endYear {
-                    for y in (Y + 1)...endYear {
-                        if trialActions[y] == nil {
-                            trialActions[y] = []
-                        }
+                // Compute baseline projection NOW with current `locked` (which has
+                // been updated through year Y-1 in this pass). Critical for cliff
+                // candidate generation: stale baseline → wrong distance-to-cliff.
+                // (Gemini correction; see spec section "Algorithm".)
+                let currentBaselinePath = ProjectionEngine().project(
+                    inputs: inputs, assumptions: assumptions, actionsPerYear: locked
+                )
+                let baselineRec = currentBaselinePath[yearIdx]
+
+                // Generate per-year cliff candidates using the actual baseline MAGI/income for Y.
+                let cliffs = OptimizationEngine.cliffCandidates(
+                    forYear: Y,
+                    baselineIRMAAMagi: baselineRec.irmaaMagi,
+                    baselineACAMagi: baselineRec.acaMagi,
+                    baselineTaxableIncome: baselineRec.taxableIncome,
+                    filingStatus: inputs.filingStatus,
+                    householdSize: inputs.acaHouseholdSize,
+                    assumptions: assumptions
+                )
+
+                // Union with static set; dedupe within $1K tolerance.
+                let allAmounts = (candidateAmounts + cliffs).sorted()
+                var deduped: [Double] = []
+                for amt in allAmounts {
+                    if let last = deduped.last, abs(amt - last) < 1_000 { continue }
+                    deduped.append(amt)
+                }
+
+                var bestAmount: Double = 0
+                var bestObjective = Double.infinity
+
+                for amount in deduped {
+                    var trialActions = locked
+                    trialActions[Y] = (amount > 0) ? [.rothConversion(amount: amount)] : []
+                    // Future undecided years keep PRIOR-iteration locked values.
+                    // (No more `trialActions[y] = []` — that was Bug 2.)
+
+                    let path = ProjectionEngine().project(
+                        inputs: inputs, assumptions: assumptions, actionsPerYear: trialActions
+                    )
+                    let objective = path.reduce(0.0) { $0 + $1.taxBreakdown.total }
+                                  + terminalLiquidationTax(path, rate: assumptions.terminalLiquidationTaxRate)
+
+                    if objective < bestObjective {
+                        bestObjective = objective
+                        bestAmount = amount
                     }
                 }
 
-                let path = ProjectionEngine().project(
-                    inputs: inputs,
-                    assumptions: assumptions,
-                    actionsPerYear: trialActions
-                )
-                let lifetimeTax = path.reduce(0.0) { $0 + $1.taxBreakdown.total }
-                              + terminalLiquidationTax(path, rate: assumptions.terminalLiquidationTaxRate)
-
-                if lifetimeTax < bestLifetimeTax {
-                    bestLifetimeTax = lifetimeTax
-                    bestAmount = amount
-                }
+                locked[Y] = (bestAmount > 0) ? [.rothConversion(amount: bestAmount)] : []
             }
 
-            lockedActions[Y] = (bestAmount > 0) ? [.rothConversion(amount: bestAmount)] : []
+            // ───── Convergence check ─────
+            if locked == previousLocked {
+                converged = true
+            }
         }
+
+        // Optional debug: log if we hit the cap without converging.
+        #if DEBUG
+        if !converged {
+            print("OptimizationEngine: hit iteration cap (\(maxIterations)) without convergence")
+        }
+        #endif
 
         // ───────────────────────────────────────────────────────────
         // Final projection with all locked-in actions
         // ───────────────────────────────────────────────────────────
 
-        // Ensure every year in [baseYear...endYear] has an entry (should all be filled
-        // by the loop, but this is the safety net).
-        var finalActions = lockedActions
+        // Safety net: ensure every year in [baseYear...endYear] has an entry
+        // (the loop above should have filled them all).
+        var finalActions = locked
         for y in baseYear...endYear {
             if finalActions[y] == nil {
                 finalActions[y] = []
@@ -269,13 +325,12 @@ struct OptimizationEngine {
         }
 
         let finalPath = ProjectionEngine().project(
-            inputs: inputs,
-            assumptions: assumptions,
-            actionsPerYear: finalActions
+            inputs: inputs, assumptions: assumptions, actionsPerYear: finalActions
         )
 
         // ───────────────────────────────────────────────────────────
-        // Constraint acceptance rationale
+        // Constraint acceptance rationale (objective includes terminal tax,
+        // matching the inner-loop comparison)
         // ───────────────────────────────────────────────────────────
 
         let hits = ConstraintAcceptor().detect(
@@ -284,14 +339,11 @@ struct OptimizationEngine {
             householdSize: inputs.acaHouseholdSize
         )
 
-        // Compute no-conversion baseline lifetime tax for the acceptance comparison.
         let baselineActions = Dictionary(
             uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) }
         )
         let baselinePath = ProjectionEngine().project(
-            inputs: inputs,
-            assumptions: assumptions,
-            actionsPerYear: baselineActions
+            inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions
         )
         let baselineLifetimeTax = baselinePath.reduce(0.0) { $0 + $1.taxBreakdown.total }
                                 + terminalLiquidationTax(baselinePath, rate: assumptions.terminalLiquidationTaxRate)
@@ -301,12 +353,7 @@ struct OptimizationEngine {
 
         var acceptedHits: [ConstraintHit] = []
         for hit in hits {
-            guard lifetimeSavings >= hit.cost else {
-                // Hit cost exceeds lifetime savings — the optimizer did not knowingly
-                // accept this trade-off. For v2.0 this is treated as a non-accepted hit
-                // (the optimizer's candidate selection should avoid such paths anyway).
-                continue
-            }
+            guard lifetimeSavings >= hit.cost else { continue }
             let rationale = ConstraintAcceptor().formatAcceptanceRationale(
                 lifetimeSavings: lifetimeSavings,
                 constraintCost: hit.cost
