@@ -61,10 +61,11 @@ class IncomeDeductionsManager: ObservableObject {
             .reduce(0) { $0 + $1.annualAmount }
     }
 
-    /// Ordinary income from sources — excludes SS, cap gains, qualified dividends, tax-exempt interest.
+    /// Ordinary income from sources — excludes SS, cap gains, qualified dividends,
+    /// tax-exempt interest, and VA Disability (IRC §104(a)(4) — never in AGI).
     var ordinaryIncomeSubtotal: Double {
         incomeSources
-            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest }
+            .filter { $0.type != .socialSecurity && $0.type != .capitalGainsLong && $0.type != .qualifiedDividends && $0.type != .taxExemptInterest && $0.type != .vaDisability }
             .reduce(0) { $0 + $1.annualAmount }
     }
 
