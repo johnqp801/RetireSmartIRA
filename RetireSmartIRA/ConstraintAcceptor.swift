@@ -115,6 +115,14 @@ struct ConstraintAcceptor {
         // Consistent with ScenarioWarningEngine's dollarImpactPerYear convention:
         // crossing the cliff means the person now owes the full benchmark premium with
         // no subsidy assistance.
+        //
+        // V2.0 SIMPLIFICATION (Gemini review 2026-05-03): this is a conservative MAX
+        // cost. Real cost = the actual subsidy the user was receiving (could be much
+        // less than the full benchmark premium, especially for users near the upper
+        // income range whose subsidy was already small). Using the full benchmark as
+        // a blunt deterrent is acceptable for v2.0 — it just means the optimizer is
+        // slightly more reluctant to cross the ACA cliff than it strictly needs to be.
+        // V2.1 should compute the true subsidy lost based on the user's pre-cliff MAGI.
         let cost = acaConfig.nationalAvgBenchmarkSilverPlanAnnual
 
         return ConstraintHit(
@@ -127,13 +135,26 @@ struct ConstraintAcceptor {
 
     /// Detect a federal bracket overrun for a year.
     ///
-    /// Only the most severe overrun per year is flagged (12→22 takes priority over 22→24).
     /// "Painful" jumps are 12%→22% and 22%→24%, since those are the transitions most
     /// Roth-conversion planning aims to avoid.
     ///
-    /// Cost = marginal-rate jump × overrun amount.
-    ///   - 12→22: `(taxableIncome - threshold_22) × 0.10`
-    ///   - 22→24: `(taxableIncome - threshold_24) × 0.02`
+    /// Cost is CUMULATIVE across all bracket boundaries crossed. A jump from 12% all
+    /// the way to 24% pays both the 22%-vs-12% penalty on the dollars between
+    /// threshold22 and threshold24, AND the 24%-vs-22% penalty on the dollars above
+    /// threshold24. The previous implementation only counted the highest marginal jump
+    /// and lost the 12→22 portion entirely on multi-bracket conversions, causing the
+    /// optimizer to accept aggressive conversions that looked cheaper than they were
+    /// (Gemini review 2026-05-03).
+    ///
+    /// Implicit assumption: cost is computed as if the user is "natively" in the 12%
+    /// bracket. Users with native taxable income already in 22% see a slight over-count
+    /// of the 12→22 portion. This is conservative (favors rejecting aggressive trades
+    /// rather than accepting bad ones) and acceptable for v2.0. v2.1 should compute
+    /// pre-conversion income to attribute the marginal cost more precisely.
+    ///
+    /// Type:
+    ///   - 12→24: income > threshold24 (most severe; reports the full traversal)
+    ///   - 12→22: income > threshold22 but ≤ threshold24
     private func detectBracketOverrun(
         year: YearRecommendation,
         filingStatus: FilingStatus
@@ -153,21 +174,21 @@ struct ConstraintAcceptor {
 
         let income = year.taxableIncome
 
-        // Check 24% overrun FIRST (more severe). If income spans threshold24, that's the
-        // hit we want to surface — checking 22 first would short-circuit and emit the wrong
-        // type with the wrong cost (income > threshold24 implies income > threshold22).
+        // Multi-bracket jump: income crossed both 22% AND 24% thresholds.
+        // Sum the penalties for both crossings.
         if income > threshold24 {
-            let overrun = income - threshold24
-            let cost = overrun * 0.02   // 24% - 22% = 2pp marginal jump
+            let twentyTwoPortion = (threshold24 - threshold22) * 0.10  // 22% - 12% = 10pp
+            let twentyFourPortion = (income - threshold24) * 0.02      // 24% - 22% = 2pp
+            let cost = twentyTwoPortion + twentyFourPortion
             return ConstraintHit(
                 year: year.year,
-                type: .bracketOverrun(fromBracket: 22, toBracket: 24),
+                type: .bracketOverrun(fromBracket: 12, toBracket: 24),
                 cost: cost,
                 acceptanceRationale: ""
             )
         }
 
-        // 12→22 overrun: income crossed above 22% bracket start but didn't reach 24%
+        // Single-boundary 12→22: income crossed above 22% bracket start but didn't reach 24%
         if income > threshold22 {
             let overrun = income - threshold22
             let cost = overrun * 0.10   // 22% - 12% = 10pp marginal jump

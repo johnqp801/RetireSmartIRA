@@ -127,12 +127,15 @@ struct ConstraintAcceptorTests {
         #expect(hits.filter { if case .bracketOverrun = $0.type { return true } else { return false } }.isEmpty)
     }
 
-    @Test("Bracket: 22% → 24% overrun flagged when income crosses into 24% band")
+    @Test("Bracket: 12% → 24% multi-bracket overrun emits cumulative cost")
     func bracket22to24Overrun() {
-        // 2026 single: 22% band is $50,400–$105,700; 24% starts at $105,700.
-        // taxableIncome $110k is INSIDE 24%, so the more severe overrun (22→24) should be
-        // emitted. (Previously this test asserted 12→22 fired here, which masked a dead-code
-        // bug where the 24% branch was unreachable.)
+        // 2026 single: 12% ends at $50,400; 22% band $50,400–$105,700; 24% starts at $105,700.
+        // taxableIncome $110k crosses BOTH 22% and 24% boundaries.
+        //
+        // Updated 2026-05-03 (Gemini review of ConstraintAcceptor): the cost calculation
+        // now sums penalties across ALL crossed boundaries (was previously only counting
+        // the 22→24 marginal jump and silently losing the 12→22 portion).
+        // Type changed from (22, 24) to (12, 24) to reflect the full traversal.
         let path = [year(year: 2026, agi: 135_000, taxableIncome: 110_000)]
         let acceptor = ConstraintAcceptor()
         let hits = acceptor.detect(path: path, filingStatus: .single, householdSize: 1)
@@ -140,10 +143,13 @@ struct ConstraintAcceptorTests {
             if case .bracketOverrun(let from, let to) = hit.type { return (from, to) } else { return nil }
         }
         #expect(overruns.count == 1)
-        #expect(overruns[0].0 == 22 && overruns[0].1 == 24)
-        // Cost = (110,000 - 105,700) × 0.02 = $86
+        #expect(overruns[0].0 == 12 && overruns[0].1 == 24)
+        // Cumulative cost:
+        //   22% portion: (105,700 - 50,400) × 0.10 = $5,530
+        //   24% portion: (110,000 - 105,700) × 0.02 = $86
+        //   Total: $5,616
         if let hit = hits.first(where: { if case .bracketOverrun = $0.type { return true } else { return false } }) {
-            #expect(abs(hit.cost - 86.0) < 1.0)
+            #expect(abs(hit.cost - 5_616.0) < 1.0)
         }
     }
 
