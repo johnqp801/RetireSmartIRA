@@ -36,6 +36,17 @@ struct MultiYearStaticInputs: Equatable {
     let primaryPensionIncome: Double
     let spousePensionIncome: Double
 
+    // V2.0 SIMPLIFICATION (Gemini review 2026-05-03): Captures dividends, interest,
+    // capital gains (both short and long), state tax refunds, and "other" income types
+    // that don't fit consulting/pension/SS. All are taxed as ORDINARY income for v2.0,
+    // even though qualified dividends and long-term capital gains warrant preferential
+    // rate treatment. This over-states tax by ~5pp on those dollars — conservative
+    // direction, makes the optimizer slightly less aggressive than truly optimal.
+    // V2.1 will classify by income type via a Path B refactor (ProjectionEngine
+    // consumes [IncomeSource] directly with allowlist semantics).
+    let primaryOtherOrdinaryIncome: Double   // dividends + interest + cap gains + state refund + other (taxable, ordinary rate)
+    let spouseOtherOrdinaryIncome: Double    // same, for spouse
+
     // ACA / Medicare context
     let acaEnrolled: Bool
     let acaHouseholdSize: Int
@@ -61,6 +72,8 @@ struct MultiYearStaticInputs: Equatable {
         spouseWageIncome: Double,
         primaryPensionIncome: Double,
         spousePensionIncome: Double,
+        primaryOtherOrdinaryIncome: Double = 0,   // NEW — see field comment above
+        spouseOtherOrdinaryIncome: Double = 0,    // NEW — see field comment above
         acaEnrolled: Bool,
         acaHouseholdSize: Int,
         primaryMedicareEnrollmentAge: Int,
@@ -82,6 +95,8 @@ struct MultiYearStaticInputs: Equatable {
         self.spouseWageIncome = spouseWageIncome
         self.primaryPensionIncome = primaryPensionIncome
         self.spousePensionIncome = spousePensionIncome
+        self.primaryOtherOrdinaryIncome = primaryOtherOrdinaryIncome
+        self.spouseOtherOrdinaryIncome = spouseOtherOrdinaryIncome
         self.acaEnrolled = acaEnrolled
         self.acaHouseholdSize = acaHouseholdSize
         self.primaryMedicareEnrollmentAge = primaryMedicareEnrollmentAge
@@ -107,6 +122,8 @@ struct MultiYearStaticInputs: Equatable {
             spouseWageIncome: spouseWageIncome,
             primaryPensionIncome: primaryPensionIncome,
             spousePensionIncome: spousePensionIncome,
+            primaryOtherOrdinaryIncome: primaryOtherOrdinaryIncome,
+            spouseOtherOrdinaryIncome: spouseOtherOrdinaryIncome,
             acaEnrolled: acaEnrolled,
             acaHouseholdSize: acaHouseholdSize,
             primaryMedicareEnrollmentAge: primaryMedicareEnrollmentAge,

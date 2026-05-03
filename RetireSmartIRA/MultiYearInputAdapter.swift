@@ -32,8 +32,12 @@
 //    spouseBirthYear            = dataManager.spouseBirthYear
 //
 //  Income (derived from incomeSources array by IncomeType):
-//    wage income   = IncomeType.consulting ("Employment/Other Income") filtered by owner
-//    pension income = IncomeType.pension filtered by owner
+//    wage income            = IncomeType.consulting ("Employment/Other Income") filtered by owner
+//    pension income         = IncomeType.pension filtered by owner
+//    other ordinary income  = dividends + qualifiedDividends + interest + capitalGainsShort
+//                             + capitalGainsLong + stateTaxRefund + other (filtered by owner)
+//                             V2.0 SIMPLIFICATION: all taxed as ordinary; v2.1 will preserve
+//                             preferential rate on LTCG and qualified dividends.
 //
 //  ACA / Medicare:
 //    acaEnrolled             = scenarioState.enableACAModeling
@@ -117,11 +121,14 @@ enum MultiYearInputAdapter {
         // MARK: Income (derived from incomeSources array)
         // Wage/employment income uses IncomeType.consulting ("Employment/Other Income").
         // Pension income uses IncomeType.pension.
+        // Other ordinary income (dividends, interest, cap gains, state refund, other) uses isOtherOrdinary.
         let sources = dataManager.incomeSources
         let primaryWage = primaryIncome(from: sources, type: .consulting)
         let spouseWage = spouseIncome(from: sources, type: .consulting, enableSpouse: dataManager.enableSpouse)
         let primaryPension = primaryIncome(from: sources, type: .pension)
         let spousePension = spouseIncome(from: sources, type: .pension, enableSpouse: dataManager.enableSpouse)
+        let primaryOther = Self.primaryOtherOrdinaryIncome(from: sources)
+        let spouseOther = Self.spouseOtherOrdinaryIncome(from: sources, enableSpouse: dataManager.enableSpouse)
 
         // MARK: ACA / Medicare
         let acaEnrolled = scenarioState.enableACAModeling
@@ -149,6 +156,8 @@ enum MultiYearInputAdapter {
             spouseWageIncome: spouseWage,
             primaryPensionIncome: primaryPension,
             spousePensionIncome: spousePension,
+            primaryOtherOrdinaryIncome: primaryOther,
+            spouseOtherOrdinaryIncome: spouseOther,
             acaEnrolled: acaEnrolled,
             acaHouseholdSize: acaSize,
             primaryMedicareEnrollmentAge: primaryMedAge,
@@ -173,5 +182,50 @@ enum MultiYearInputAdapter {
         return sources
             .filter { $0.type == incomeType && $0.owner == .spouse }
             .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Sum annualAmount for all primary-owner income sources whose type contributes
+    /// to AGI as ORDINARY income, EXCLUDING types handled separately:
+    ///   - .consulting (wage), .pension (already extracted as their own fields)
+    ///   - .socialSecurity (handled via SSBenefitEstimate model)
+    ///   - .rmd (engine-generated, not user-entered)
+    ///   - .vaDisability, .taxExemptInterest (excluded from AGI by design)
+    private static func primaryOtherOrdinaryIncome(from sources: [IncomeSource]) -> Double {
+        sources
+            .filter { $0.owner == .primary && Self.isOtherOrdinary(type: $0.type) }
+            .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Same as primaryOtherOrdinaryIncome but for spouse owner.
+    /// Returns 0 when spouse is not enabled.
+    private static func spouseOtherOrdinaryIncome(from sources: [IncomeSource], enableSpouse: Bool) -> Double {
+        guard enableSpouse else { return 0 }
+        return sources
+            .filter { $0.owner == .spouse && Self.isOtherOrdinary(type: $0.type) }
+            .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Allowlist of IncomeType cases that are taxable as ORDINARY income and not
+    /// already handled by another field on MultiYearStaticInputs.
+    ///
+    /// V2.0 simplification: includes capitalGainsLong and qualifiedDividends, both of
+    /// which warrant preferential rate treatment that this v2.0 mapping doesn't model.
+    /// Conservative over-tax direction; v2.1 Path B refactor will classify properly.
+    ///
+    /// Exhaustive switch (no default branch): any future IncomeType case must be
+    /// explicitly classified here — Swift will fail to compile otherwise.
+    private static func isOtherOrdinary(type incomeType: IncomeType) -> Bool {
+        switch incomeType {
+        case .dividends, .qualifiedDividends, .interest,
+             .capitalGainsShort, .capitalGainsLong,
+             .stateTaxRefund, .other:
+            return true
+        case .consulting, .pension:
+            return false  // already extracted as wage / pension
+        case .socialSecurity, .rmd:
+            return false  // handled separately
+        case .vaDisability, .taxExemptInterest:
+            return false  // excluded from AGI by design
+        }
     }
 }

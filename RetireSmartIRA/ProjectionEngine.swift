@@ -339,7 +339,10 @@ struct ProjectionEngine {
 
             let wageIncome = inputs.primaryWageIncome + inputs.spouseWageIncome
             let pensionIncome = inputs.primaryPensionIncome + inputs.spousePensionIncome
-            let passiveIncome = wageIncome + pensionIncome + totalGrossSSAnnual
+            // V2.0: otherOrdinaryIncome captures dividends + interest + cap gains + state refund + other,
+            // all taxed as ordinary for v2.0 simplicity. V2.1 will classify properly.
+            let otherOrdinaryIncome = inputs.primaryOtherOrdinaryIncome + inputs.spouseOtherOrdinaryIncome
+            let passiveIncome = wageIncome + pensionIncome + otherOrdinaryIncome + totalGrossSSAnnual
 
             var autoFundedTradWithdrawals = 0.0
             // RMD cash already extracted from trad; subtract from shortfall before auto-funding.
@@ -390,7 +393,7 @@ struct ProjectionEngine {
                 type: .socialSecurity,
                 annualAmount: totalGrossSSAnnual
             )
-            let otherIncomeForSSTax = pensionIncome + wageIncome
+            let otherIncomeForSSTax = pensionIncome + wageIncome + otherOrdinaryIncome
                 + totalTradWithdrawals + explicitRothConversions
             let taxableSS = TaxCalculationEngine.calculateTaxableSocialSecurity(
                 filingStatus: inputs.filingStatus,
@@ -399,12 +402,14 @@ struct ProjectionEngine {
             )
 
             // Federal AGI
-            // = pension + wage + traditional withdrawals (explicit + auto-funded)
+            // = pension + wage + other ordinary income (dividends, interest, cap gains, etc.)
+            //   + traditional withdrawals (explicit + auto-funded)
             //   + Roth conversions + taxable SS
             //   - above-the-line deductions (HSA contribution, 401k contribution)
             let federalAGI = max(0,
                 pensionIncome
                 + wageIncome
+                + otherOrdinaryIncome  // V2.0: ordinary-rate bucket; v2.1 will classify LTCG/qualDiv separately
                 + totalTradWithdrawals
                 + explicitRothConversions
                 + taxableSS
