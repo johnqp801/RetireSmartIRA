@@ -87,5 +87,51 @@
   "caExemptionPhaseoutMFJ": 504406,
   "caExemptionPhaseoutReductionPer2500": 6.0,
 
-  "medicalAGIFloorRate": 0.075
+  "medicalAGIFloorRate": 0.075,
+
+  "contributionLimits401k": {
+    "base": 23500,
+    "catchupAge50To59": 7500,
+    "catchupAge60To63": 11250,
+    "catchupAge64Plus": 7500
+  },
+
+  "contributionLimitsIRA": {
+    "base": 7000,
+    "catchupAge50Plus": 1000
+  },
+
+  "contributionLimitsHSA": {
+    "selfOnly": 4300,
+    "family": 8550,
+    "catchupAge55Plus": 1000
+  },
+
+  "medicare2026": {
+    "partBStandardMonthly": 202.90,
+    "partDAvgMonthly": 50.00,
+    "medigapAvgMonthly": 150.00,
+    "advantageAvgMonthly": 50.00
+  },
+
+  "acaSubsidy2026": {
+    "fpl2026": {
+      "householdSizeToFPL": {
+        "1": 15060, "2": 20440, "3": 25820, "4": 31200, "5": 36580,
+        "6": 41960, "7": 47340, "8": 52720
+      },
+      "alaskaMultiplier": 1.25,
+      "hawaiiMultiplier": 1.15
+    },
+    "applicableFigures": [
+      { "fplPercent": 100, "applicableFigure": 0.00 },
+      { "fplPercent": 150, "applicableFigure": 0.00 },
+      { "fplPercent": 200, "applicableFigure": 0.04 },
+      { "fplPercent": 250, "applicableFigure": 0.06 },
+      { "fplPercent": 300, "applicableFigure": 0.08 },
+      { "fplPercent": 400, "applicableFigure": 1.00 }
+    ],
+    "hasCliff": true,
+    "nationalAvgBenchmarkSilverPlanAnnual": 7800
+  }
 }

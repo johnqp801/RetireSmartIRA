@@ -53,8 +53,23 @@ class ProfileManager: ObservableObject {
         Calendar.current.component(.year, from: spouseBirthDate)
     }
 
+    /// Tax-year age — the age the user reaches at end of `currentYear`. Used by
+    /// IRS-driven gates (RMD `>=73/75`, senior bonus deduction `>=65`, HSA catch-up
+    /// `>=55`). Do NOT use for displaying "your age right now" — see `displayAge`.
     var currentAge: Int {
         currentYear - birthYear
+    }
+
+    /// Age right now, by the calendar. Use for any UI displaying "your current age."
+    /// Differs from `currentAge` between January 1 and the user's birthday in the year
+    /// they cross an age boundary.
+    var displayAge: Int {
+        age(asOf: Date())
+    }
+
+    /// Testable variant: age as of the given date.
+    func age(asOf date: Date) -> Int {
+        Calendar.current.dateComponents([.year], from: birthDate, to: date).year ?? 0
     }
 
     var rmdAge: Int {
@@ -88,9 +103,22 @@ class ProfileManager: ObservableObject {
 
     // MARK: - Spouse Computed Properties
 
+    /// Tax-year age for the spouse. See `currentAge` for semantics.
     var spouseCurrentAge: Int {
         guard enableSpouse else { return 0 }
         return currentYear - spouseBirthYear
+    }
+
+    /// Spouse age right now, by the calendar. See `displayAge`. Returns 0 when no spouse.
+    var spouseDisplayAge: Int {
+        guard enableSpouse else { return 0 }
+        return spouseAge(asOf: Date())
+    }
+
+    /// Testable variant: spouse age as of the given date. Returns 0 when no spouse.
+    func spouseAge(asOf date: Date) -> Int {
+        guard enableSpouse else { return 0 }
+        return Calendar.current.dateComponents([.year], from: spouseBirthDate, to: date).year ?? 0
     }
 
     var spouseRmdAge: Int {

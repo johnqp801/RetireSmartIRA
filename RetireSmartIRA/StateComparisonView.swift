@@ -45,7 +45,13 @@ struct StateComparisonView: View {
         let taxableSS = dataManager.scenarioTaxableSocialSecurity
 
         let items = USState.allCases.map { state -> StateComparisonItem in
-            let tax = dataManager.calculateStateTaxFromGross(grossIncome: grossIncome, forState: state, filingStatus: fs, taxableSocialSecurity: taxableSS)
+            let tax = dataManager.calculateStateTaxFromGross(
+                grossIncome: grossIncome,
+                forState: state,
+                filingStatus: fs,
+                taxableSocialSecurity: taxableSS,
+                hsaContributionsAddedBack: dataManager.scenario.scenarioTotalHSA
+            )
             let effectiveRate = grossIncome > 0 ? (tax / grossIncome) * 100 : 0
             let config = StateTaxData.config(for: state)
             return StateComparisonItem(

@@ -31,6 +31,7 @@ struct TaxPlanningView: View {
     @State private var showWithdrawalSheet: Bool = false
     @State private var showInheritedSheet: Bool = false
     @State private var showCharitableSheet: Bool = false
+    @State private var showPreTaxContributionsSheet: Bool = false
     @State private var showRothGuide: Bool = false
     @State private var showCharitableGuide: Bool = false
     @State private var showLegacyDetails: Bool = false
@@ -247,6 +248,67 @@ struct TaxPlanningView: View {
         }
     }
 
+    @ViewBuilder
+    private var acaCliffInlineWarning: some View {
+        if let aca = dataManager.acaSubsidyResult, aca.isOverCliff {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.Semantic.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Crosses ACA cliff — \(aca.benchmarkSilverPlanAnnual, format: .currency(code: "USD")) subsidy lost this year.")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    let cliffMAGI = 400 * aca.fplAmount / 100
+                    Text("MAGI is over the 400% FPL threshold (\(cliffMAGI, format: .currency(code: "USD"))). Reduce conversion or AGI to stay below.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(8)
+            .background(Color.Semantic.amberTint)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        } else if let aca = dataManager.acaSubsidyResult,
+                  let dollarsToCliff = aca.dollarsToCliff,
+                  dollarsToCliff > 0 && dollarsToCliff < 5_000 {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundStyle(Color.Semantic.amber)
+                Text("Approaching ACA cliff: \(dollarsToCliff, format: .currency(code: "USD")) to threshold (subsidy zeroes out at 400% FPL).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .background(Color.Semantic.amberTint)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    @ViewBuilder
+    private func topWarningsBand(limit: Int = 2) -> some View {
+        let top = dataManager.topActiveScenarioWarnings(limit: limit)
+        if !top.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(top, id: \.messageHeadline) { warning in
+                    HStack(spacing: 6) {
+                        Image(systemName: warning.severity == .warning ? "exclamationmark.triangle.fill" : "info.circle")
+                            .foregroundStyle(warning.severity == .warning ? Color.Semantic.amber : Color.UI.brandTeal)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(warning.messageHeadline)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Text(warning.messageDetail)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding(8)
+            .background(Color.Semantic.amberTint)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -325,6 +387,7 @@ struct TaxPlanningView: View {
                 inheritedWithdrawalCard
                 charitableCard
                 charitableGuideCard
+                preTaxContributionsCard
                 rothConversionCard
                 rothConversionGuideCard
             } else {
@@ -335,6 +398,7 @@ struct TaxPlanningView: View {
                 inheritedWithdrawalCard
                 charitableCard
                 charitableGuideCard
+                preTaxContributionsCard
             }
         })
     }
@@ -426,6 +490,7 @@ struct TaxPlanningView: View {
             inheritedWithdrawalCard
             charitableCard
             charitableGuideCard
+            preTaxContributionsCard
         })
     }
 
@@ -469,6 +534,7 @@ struct TaxPlanningView: View {
                         showWithdrawalSheet = false
                         showInheritedSheet = false
                         showCharitableSheet = false
+                        showPreTaxContributionsSheet = false
                     }
                 }
             }
@@ -1195,6 +1261,7 @@ struct TaxPlanningView: View {
             // Inline IRMAA cliff warning
             if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
                 irmaaInlineWarning
+                acaCliffInlineWarning
             }
 
             // Bracket room indicator
@@ -1361,6 +1428,8 @@ struct TaxPlanningView: View {
                     .foregroundStyle(Color.UI.textPrimary)
             }
         }
+
+        topWarningsBand()
     }
 
     // MARK: - Step 3: Inherited IRA Withdrawals (conditional)
@@ -1530,6 +1599,20 @@ struct TaxPlanningView: View {
                     dataManager.inheritedExtraWithdrawals.removeValue(forKey: accountId)
                 }
             }
+        )
+    }
+
+    // MARK: - Scenario Bindings (for 401k, IRA, HSA contributions)
+
+    /// Creates a Binding bridge to a ScenarioStateManager property.
+    /// Accesses @Published properties via their getter/setter directly.
+    /// Necessary because `scenario` is a `let` constant on DataManager (not @Published),
+    /// so we can't use `$dataManager.scenario.property` directly.
+    private func scenarioBinding(_ property: @escaping (ScenarioStateManager) -> Double,
+                               setter: @escaping (ScenarioStateManager, Double) -> Void) -> Binding<Double> {
+        Binding(
+            get: { property(dataManager.scenario) },
+            set: { setter(dataManager.scenario, $0) }
         )
     }
 
@@ -2358,6 +2441,268 @@ struct TaxPlanningView: View {
                 Text("Cash / Bank Account Donation")
                     .font(.subheadline)
                     .fontWeight(.medium)
+            }
+        }
+
+        topWarningsBand()
+    }
+
+    // MARK: - Pre-tax Contributions (401k)
+
+    @ViewBuilder
+    private var preTaxContributionsContent: some View {
+        // 401(k) sliders
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your Pre-tax 401(k)" : "Pre-tax 401(k) Contribution",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: 0,  // No "balance" concept for contribution levers
+            amount: scenarioBinding(
+                { $0.yourTraditional401kContribution },
+                setter: { $0.yourTraditional401kContribution = $1 }
+            ),
+            sliderMax: dataManager.four01kLimit(for: .primary),
+            tint: Color.UI.brandTeal
+        )
+        contributionLimitWarning(
+            amount: dataManager.scenario.yourTraditional401kContribution,
+            limit: dataManager.four01kLimit(for: .primary),
+            label: "401(k)"
+        )
+
+        if spouseEnabled {
+            ConversionSliderCard(
+                label: "Spouse's Pre-tax 401(k)",
+                icon: "person.fill",
+                balance: 0,
+                amount: scenarioBinding(
+                    { $0.spouseTraditional401kContribution },
+                    setter: { $0.spouseTraditional401kContribution = $1 }
+                ),
+                sliderMax: dataManager.four01kLimit(for: .spouse),
+                tint: Color.Chart.callout
+            )
+            contributionLimitWarning(
+                amount: dataManager.scenario.spouseTraditional401kContribution,
+                limit: dataManager.four01kLimit(for: .spouse),
+                label: "Spouse 401(k)"
+            )
+        }
+
+        // IRA sliders
+        Divider()
+
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your Traditional IRA" : "Traditional IRA Contribution",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: 0,
+            amount: scenarioBinding(
+                { $0.yourTraditionalIRAContribution },
+                setter: { $0.yourTraditionalIRAContribution = $1 }
+            ),
+            sliderMax: dataManager.iraLimit(for: .primary),
+            tint: Color.UI.brandTeal
+        )
+        contributionLimitWarning(
+            amount: dataManager.scenario.yourTraditionalIRAContribution,
+            limit: dataManager.iraLimit(for: .primary),
+            label: "Traditional IRA"
+        )
+
+        if spouseEnabled {
+            ConversionSliderCard(
+                label: "Spouse's Traditional IRA",
+                icon: "person.fill",
+                balance: 0,
+                amount: scenarioBinding(
+                    { $0.spouseTraditionalIRAContribution },
+                    setter: { $0.spouseTraditionalIRAContribution = $1 }
+                ),
+                sliderMax: dataManager.iraLimit(for: .spouse),
+                tint: Color.Chart.callout
+            )
+            contributionLimitWarning(
+                amount: dataManager.scenario.spouseTraditionalIRAContribution,
+                limit: dataManager.iraLimit(for: .spouse),
+                label: "Spouse Traditional IRA"
+            )
+        }
+
+        // HSA section
+        Divider()
+
+        let hsaCombinedLimit = dataManager.hsaCombinedLimit()
+        let hsaCombinedTotal = dataManager.scenario.scenarioTotalHSA
+        let hsaOverLimit = hsaCombinedTotal > hsaCombinedLimit
+        let hsaTotalFormatted = hsaCombinedTotal.formatted(.currency(code: "USD"))
+        let hsaLimitFormatted = hsaCombinedLimit.formatted(.currency(code: "USD"))
+
+        HStack {
+            Text("Combined HSA contributions:")
+                .font(.subheadline)
+                .fontWeight(.medium)
+            Spacer()
+            Text("\(hsaTotalFormatted) / \(hsaLimitFormatted)")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(hsaOverLimit ? Color.Semantic.amber : Color.UI.textPrimary)
+        }
+        .padding(.bottom, 4)
+
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your HSA" : "HSA Contribution",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: 0,
+            amount: scenarioBinding(
+                { $0.yourHSAContribution },
+                setter: { $0.yourHSAContribution = $1 }
+            ),
+            sliderMax: hsaCombinedLimit,
+            tint: dataManager.isHSAEligible(for: .primary) ? Color.UI.brandTeal : Color.UI.textSecondary
+        )
+        if !dataManager.isHSAEligible(for: .primary) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                Text("HSA contributions require HDHP coverage, which is incompatible with Medicare enrollment.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+
+        if spouseEnabled {
+            ConversionSliderCard(
+                label: "Spouse's HSA",
+                icon: "person.fill",
+                balance: 0,
+                amount: scenarioBinding(
+                    { $0.spouseHSAContribution },
+                    setter: { $0.spouseHSAContribution = $1 }
+                ),
+                sliderMax: hsaCombinedLimit,
+                tint: dataManager.isHSAEligible(for: .spouse) ? Color.Chart.callout : Color.UI.textSecondary
+            )
+            if !dataManager.isHSAEligible(for: .spouse) {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                    Text("Spouse on Medicare — HSA contributions not allowed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+
+        if hsaOverLimit {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.Semantic.amber)
+                Text("Combined HSA contributions exceed 2026 family limit (\(hsaLimitFormatted))")
+                    .font(.caption)
+                    .foregroundStyle(Color.Semantic.amber)
+            }
+        }
+
+        // CA / NJ state-add-back note
+        if (dataManager.profile.selectedState == .california || dataManager.profile.selectedState == .newJersey)
+            && hsaCombinedTotal > 0 {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                Text("\(dataManager.profile.selectedState == .california ? "California" : "New Jersey"): HSA contributions don't reduce state taxes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+
+        topWarningsBand()
+    }
+
+    @ViewBuilder
+    private func contributionLimitWarning(amount: Double, limit: Double, label: String) -> some View {
+        if amount > limit {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.Semantic.amber)
+                Text("\(label) contribution exceeds 2026 limit (\(limit, format: .currency(code: "USD")))")
+                    .font(.caption)
+                    .foregroundStyle(Color.Semantic.amber)
+            }
+        }
+    }
+
+    // MARK: - Pre-tax Contributions Card (401k)
+
+    private var preTaxContributionsCard: some View {
+        AnyView(VStack(spacing: 0) {
+            ScenarioStepCard(
+                stepNumber: 5,
+                title: "Pre-tax Contributions",
+                description: "Reduce your adjusted gross income (AGI) through pre-tax 401(k), traditional IRA, and HSA contributions.",
+                stepColor: Color.UI.brandTeal,
+                icon: "arrow.down.doc",
+                isExpanded: showPreTaxContributionsSheet,
+                action: { withAnimation(.easeInOut(duration: 0.3)) { showPreTaxContributionsSheet.toggle() } }
+            ) {
+                preTaxContributionsSummary
+            }
+
+            if showPreTaxContributionsSheet {
+                VStack(alignment: .leading, spacing: 16) {
+                    preTaxContributionsContent
+                }
+                .padding()
+                .background(Color(PlatformColor.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.top, -8)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+            }
+        })
+    }
+
+    @ViewBuilder
+    private var preTaxContributionsSummary: some View {
+        let your401k = dataManager.scenario.yourTraditional401kContribution
+        let spouse401k = spouseEnabled ? dataManager.scenario.spouseTraditional401kContribution : 0
+        let yourIRA = dataManager.scenario.yourTraditionalIRAContribution
+        let spouseIRA = spouseEnabled ? dataManager.scenario.spouseTraditionalIRAContribution : 0
+        let yourHSA = dataManager.scenario.yourHSAContribution
+        let spouseHSA = spouseEnabled ? dataManager.scenario.spouseHSAContribution : 0
+        let totalContribution = your401k + spouse401k + yourIRA + spouseIRA + yourHSA + spouseHSA
+
+        if totalContribution > 0 {
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                if your401k > 0 {
+                    summaryRow(label: "Your 401(k)", value: your401k, color: Color.UI.brandTeal)
+                }
+                if yourIRA > 0 {
+                    summaryRow(label: "Your IRA", value: yourIRA, color: Color.UI.brandTeal)
+                }
+                if yourHSA > 0 {
+                    summaryRow(label: "Your HSA", value: yourHSA, color: Color.UI.brandTeal)
+                }
+                if spouseEnabled && spouse401k > 0 {
+                    summaryRow(label: "Spouse 401(k)", value: spouse401k, color: Color.Chart.callout)
+                }
+                if spouseEnabled && spouseIRA > 0 {
+                    summaryRow(label: "Spouse IRA", value: spouseIRA, color: Color.Chart.callout)
+                }
+                if spouseEnabled && spouseHSA > 0 {
+                    summaryRow(label: "Spouse HSA", value: spouseHSA, color: Color.Chart.callout)
+                }
+                if spouseEnabled && totalContribution > 0 {
+                    Divider()
+                    summaryRow(label: "Combined", value: totalContribution, color: Color.UI.textPrimary)
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("No pre-tax contributions configured")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

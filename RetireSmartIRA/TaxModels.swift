@@ -198,3 +198,92 @@ struct ScenarioTaxAnalysis {
     let crossesFederalBracket: Bool
     let crossesStateBracket: Bool
 }
+
+// MARK: - Medicare Plan Type (1.9)
+
+/// Medicare plan type per spouse. Drives `MedicareCostEngine` cost composition
+/// and HSA-eligibility gating (HSA requires HDHP coverage incompatible with Medicare).
+enum MedicarePlanType: String, Codable, CaseIterable {
+    case preMedicare = "Pre-Medicare"
+    case originalMedicare = "Original Medicare (A+B)"
+    case medicareAdvantage = "Medicare Advantage (Part C)"
+}
+
+// MARK: - Strongly-Typed AGI Variants (1.9)
+
+/// Federal AGI as filed on Form 1040 Line 11. Distinct nominal type to prevent
+/// callers from passing the wrong MAGI variant into ACA/IRMAA engines.
+struct FederalAGI: Equatable {
+    let value: Double
+}
+
+/// MAGI used for ACA Marketplace subsidy computation:
+/// `FederalAGI + tax-exempt interest + non-taxable Social Security benefits`.
+/// (Form 8962.)
+struct ACAMAGI: Equatable {
+    let value: Double
+}
+
+/// MAGI used for Medicare IRMAA tier lookup:
+/// `FederalAGI + tax-exempt interest`.
+struct IRMAAMAGI: Equatable {
+    let value: Double
+}
+
+// MARK: - Scenario Warnings (1.9 — engine in ScenarioWarningEngine.swift, Phase 5)
+
+struct ScenarioWarning: Equatable {
+    enum Category: String {
+        case acaCliff
+        case acaApproaching
+        case irmaaTierCrossing
+        case irmaaApproaching
+        case niitCrossing
+        case bracketCrossing
+        case widowBracketJump
+    }
+    enum Timing: String {
+        case currentYear
+        case twoYearsOut
+    }
+    enum Severity: String {
+        case warning
+        case info
+    }
+
+    let category: Category
+    let timing: Timing
+    let severity: Severity
+    let dollarImpactPerYear: Double
+    let messageHeadline: String
+    let messageDetail: String
+}
+
+// MARK: - Medicare Cost Breakdown (1.9)
+
+struct MedicareCostBreakdown: Equatable {
+    let planType: MedicarePlanType
+    let partB: Double               // monthly: base + IRMAA Part B surcharge
+    let partD: Double               // monthly: base + IRMAA Part D surcharge
+    let medigap: Double?            // monthly: Original Medicare only
+    let advantagePremium: Double?   // monthly: Medicare Advantage only
+    let total: Double               // monthly total
+    let annualTotal: Double         // = total × 12
+    let irmaaSurcharge: Double      // monthly: IRMAA surcharge portion (transparency)
+    let irmaaTier: Int              // 0-5; -1 if pre-Medicare
+}
+
+// MARK: - ACA Subsidy Result (1.9)
+
+struct ACASubsidyResult: Equatable {
+    let acaMAGI: Double
+    let householdSize: Int
+    let fplAmount: Double           // raw FPL dollar amount for the household size
+    let fplPercent: Double          // % of FPL (e.g. 360 means 360%)
+    let applicableFigure: Double    // 0.0-1.0; expected % of income paid for benchmark Silver
+    let benchmarkSilverPlanAnnual: Double
+    let expectedContribution: Double    // = ACAMAGI × applicableFigure
+    let annualPremiumAssistance: Double // = max(0, benchmark - expectedContribution)
+    let dollarsToCliff: Double?     // nil if no cliff present in this year's config
+    let isOverCliff: Bool           // true when MAGI ≥ cliff threshold
+}

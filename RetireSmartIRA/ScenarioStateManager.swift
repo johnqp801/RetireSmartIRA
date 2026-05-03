@@ -34,6 +34,39 @@ class ScenarioStateManager: ObservableObject {
     @Published var completedActionKeys: Set<String> = []
     @Published var quarterlyPayments: [QuarterlyPayment] = []
 
+    // MARK: - 1.9 Contribution Levers
+
+    @Published var yourTraditional401kContribution: Double = 0
+    @Published var spouseTraditional401kContribution: Double = 0
+    @Published var yourTraditionalIRAContribution: Double = 0
+    @Published var spouseTraditionalIRAContribution: Double = 0
+    @Published var yourHSAContribution: Double = 0
+    @Published var spouseHSAContribution: Double = 0
+
+    // MARK: - 1.9 Medicare Plan Type (per spouse)
+
+    @Published var yourMedicarePlanType: MedicarePlanType = .preMedicare
+    @Published var spouseMedicarePlanType: MedicarePlanType = .preMedicare
+
+    // MARK: - 1.9 Medicare Premium Overrides (per spouse, optional)
+    //
+    // Nil = use config default. Non-nil = user-corrected value.
+
+    @Published var yourMedicarePartBOverride: Double? = nil
+    @Published var spouseMedicarePartBOverride: Double? = nil
+    @Published var yourMedicarePartDOverride: Double? = nil
+    @Published var spouseMedicarePartDOverride: Double? = nil
+    @Published var yourMedigapOverride: Double? = nil
+    @Published var spouseMedigapOverride: Double? = nil
+    @Published var yourAdvantageOverride: Double? = nil
+    @Published var spouseAdvantageOverride: Double? = nil
+
+    // MARK: - 1.9 ACA Marketplace Modeling
+
+    @Published var enableACAModeling: Bool = false
+    @Published var acaHouseholdSize: Int = 1
+    @Published var acaBenchmarkSilverPlanMonthlyOverride: Double? = nil
+
     // MARK: - Reset
 
     func resetScenarioState() {
@@ -55,6 +88,25 @@ class ScenarioStateManager: ObservableObject {
         inheritedExtraWithdrawals = [:]
         deductionOverride = nil
         completedActionKeys = []
+        yourTraditional401kContribution = 0
+        spouseTraditional401kContribution = 0
+        yourTraditionalIRAContribution = 0
+        spouseTraditionalIRAContribution = 0
+        yourHSAContribution = 0
+        spouseHSAContribution = 0
+        yourMedicarePlanType = .preMedicare
+        spouseMedicarePlanType = .preMedicare
+        yourMedicarePartBOverride = nil
+        spouseMedicarePartBOverride = nil
+        yourMedicarePartDOverride = nil
+        spouseMedicarePartDOverride = nil
+        yourMedigapOverride = nil
+        spouseMedigapOverride = nil
+        yourAdvantageOverride = nil
+        spouseAdvantageOverride = nil
+        enableACAModeling = false
+        acaHouseholdSize = 1
+        acaBenchmarkSilverPlanMonthlyOverride = nil
     }
 
     // MARK: - Simple Scenario Aggregations
@@ -69,5 +121,24 @@ class ScenarioStateManager: ObservableObject {
 
     var scenarioTotalQCD: Double {
         yourQCDAmount + spouseQCDAmount
+    }
+
+    // MARK: - 1.9 Above-the-Line Aggregations
+
+    var scenarioTotalTraditional401k: Double {
+        yourTraditional401kContribution + spouseTraditional401kContribution
+    }
+
+    var scenarioTotalTraditionalIRA: Double {
+        yourTraditionalIRAContribution + spouseTraditionalIRAContribution
+    }
+
+    var scenarioTotalHSA: Double {
+        yourHSAContribution + spouseHSAContribution
+    }
+
+    /// All 1.9 above-the-line deductions: 401(k) + IRA + HSA combined for both spouses.
+    var scenarioTotalAboveTheLineDeductions: Double {
+        scenarioTotalTraditional401k + scenarioTotalTraditionalIRA + scenarioTotalHSA
     }
 }

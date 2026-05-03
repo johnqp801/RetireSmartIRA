@@ -61,6 +61,23 @@ struct PersistenceManager {
         static let legacySpouseSurvivorYears = "legacySpouseSurvivorYears"
         static let legacyGrowthRate = "legacyGrowthRate"
         static let taxBrackets = "taxBrackets"
+
+        // 1.9 Medicare
+        static let yourMedicarePlanType = "yourMedicarePlanType"
+        static let spouseMedicarePlanType = "spouseMedicarePlanType"
+        static let yourMedicarePartBOverride = "yourMedicarePartBOverride"
+        static let spouseMedicarePartBOverride = "spouseMedicarePartBOverride"
+        static let yourMedicarePartDOverride = "yourMedicarePartDOverride"
+        static let spouseMedicarePartDOverride = "spouseMedicarePartDOverride"
+        static let yourMedigapOverride = "yourMedigapOverride"
+        static let spouseMedigapOverride = "spouseMedigapOverride"
+        static let yourAdvantageOverride = "yourAdvantageOverride"
+        static let spouseAdvantageOverride = "spouseAdvantageOverride"
+
+        // 1.9 ACA Marketplace Modeling
+        static let enableACAModeling = "enableACAModeling"
+        static let acaHouseholdSize = "acaHouseholdSize"
+        static let acaBenchmarkSilverPlanMonthlyOverride = "acaBenchmarkSilverPlanMonthlyOverride"
     }
 
     // MARK: - Load All
@@ -272,6 +289,52 @@ struct PersistenceManager {
             dm.legacy.legacyGrowthRate = defaults.double(forKey: StorageKey.legacyGrowthRate)
         }
 
+        // 1.9 Medicare plan type + premium overrides
+        if let raw = defaults.string(forKey: StorageKey.yourMedicarePlanType),
+           let plan = MedicarePlanType(rawValue: raw) {
+            dm.scenario.yourMedicarePlanType = plan
+        }
+        if let raw = defaults.string(forKey: StorageKey.spouseMedicarePlanType),
+           let plan = MedicarePlanType(rawValue: raw) {
+            dm.scenario.spouseMedicarePlanType = plan
+        }
+        if defaults.object(forKey: StorageKey.yourMedicarePartBOverride) != nil {
+            dm.scenario.yourMedicarePartBOverride = defaults.double(forKey: StorageKey.yourMedicarePartBOverride)
+        }
+        if defaults.object(forKey: StorageKey.spouseMedicarePartBOverride) != nil {
+            dm.scenario.spouseMedicarePartBOverride = defaults.double(forKey: StorageKey.spouseMedicarePartBOverride)
+        }
+        if defaults.object(forKey: StorageKey.yourMedicarePartDOverride) != nil {
+            dm.scenario.yourMedicarePartDOverride = defaults.double(forKey: StorageKey.yourMedicarePartDOverride)
+        }
+        if defaults.object(forKey: StorageKey.spouseMedicarePartDOverride) != nil {
+            dm.scenario.spouseMedicarePartDOverride = defaults.double(forKey: StorageKey.spouseMedicarePartDOverride)
+        }
+        if defaults.object(forKey: StorageKey.yourMedigapOverride) != nil {
+            dm.scenario.yourMedigapOverride = defaults.double(forKey: StorageKey.yourMedigapOverride)
+        }
+        if defaults.object(forKey: StorageKey.spouseMedigapOverride) != nil {
+            dm.scenario.spouseMedigapOverride = defaults.double(forKey: StorageKey.spouseMedigapOverride)
+        }
+        if defaults.object(forKey: StorageKey.yourAdvantageOverride) != nil {
+            dm.scenario.yourAdvantageOverride = defaults.double(forKey: StorageKey.yourAdvantageOverride)
+        }
+        if defaults.object(forKey: StorageKey.spouseAdvantageOverride) != nil {
+            dm.scenario.spouseAdvantageOverride = defaults.double(forKey: StorageKey.spouseAdvantageOverride)
+        }
+
+        // 1.9 ACA Marketplace Modeling
+        if defaults.object(forKey: StorageKey.enableACAModeling) != nil {
+            dm.scenario.enableACAModeling = defaults.bool(forKey: StorageKey.enableACAModeling)
+        }
+        if defaults.object(forKey: StorageKey.acaHouseholdSize) != nil {
+            let n = defaults.integer(forKey: StorageKey.acaHouseholdSize)
+            if n > 0 { dm.scenario.acaHouseholdSize = n }
+        }
+        if defaults.object(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride) != nil {
+            dm.scenario.acaBenchmarkSilverPlanMonthlyOverride = defaults.double(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        }
+
         // Social Security Planner data
         dm.loadSSData()
     }
@@ -406,6 +469,59 @@ struct PersistenceManager {
             defaults.set(customRate, forKey: StorageKey.legacyGrowthRate)
         } else {
             defaults.removeObject(forKey: StorageKey.legacyGrowthRate)
+        }
+
+        // 1.9 Medicare plan type + premium overrides
+        defaults.set(dm.scenario.yourMedicarePlanType.rawValue, forKey: StorageKey.yourMedicarePlanType)
+        defaults.set(dm.scenario.spouseMedicarePlanType.rawValue, forKey: StorageKey.spouseMedicarePlanType)
+        if let v = dm.scenario.yourMedicarePartBOverride {
+            defaults.set(v, forKey: StorageKey.yourMedicarePartBOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.yourMedicarePartBOverride)
+        }
+        if let v = dm.scenario.spouseMedicarePartBOverride {
+            defaults.set(v, forKey: StorageKey.spouseMedicarePartBOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.spouseMedicarePartBOverride)
+        }
+        if let v = dm.scenario.yourMedicarePartDOverride {
+            defaults.set(v, forKey: StorageKey.yourMedicarePartDOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.yourMedicarePartDOverride)
+        }
+        if let v = dm.scenario.spouseMedicarePartDOverride {
+            defaults.set(v, forKey: StorageKey.spouseMedicarePartDOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.spouseMedicarePartDOverride)
+        }
+        if let v = dm.scenario.yourMedigapOverride {
+            defaults.set(v, forKey: StorageKey.yourMedigapOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.yourMedigapOverride)
+        }
+        if let v = dm.scenario.spouseMedigapOverride {
+            defaults.set(v, forKey: StorageKey.spouseMedigapOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.spouseMedigapOverride)
+        }
+        if let v = dm.scenario.yourAdvantageOverride {
+            defaults.set(v, forKey: StorageKey.yourAdvantageOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.yourAdvantageOverride)
+        }
+        if let v = dm.scenario.spouseAdvantageOverride {
+            defaults.set(v, forKey: StorageKey.spouseAdvantageOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.spouseAdvantageOverride)
+        }
+
+        // 1.9 ACA Marketplace Modeling
+        defaults.set(dm.scenario.enableACAModeling, forKey: StorageKey.enableACAModeling)
+        defaults.set(dm.scenario.acaHouseholdSize, forKey: StorageKey.acaHouseholdSize)
+        if let v = dm.scenario.acaBenchmarkSilverPlanMonthlyOverride {
+            defaults.set(v, forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        } else {
+            defaults.removeObject(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
         }
 
         // Social Security Planner data

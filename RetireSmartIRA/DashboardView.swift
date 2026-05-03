@@ -43,11 +43,13 @@ struct DashboardView: View {
                 incomeBreakdown
                 incomeCompositionChart
                 taxPlanningDecisions
+                ReduceAGISection()
                 legacyStrategySummary
                 taxProjection
                 taxBracketChart
                 stateBracketChart
                 irmaaTierChart
+                householdMedicareCostSection
                 niitPositionChart
                 accountBalances
             }
@@ -65,6 +67,7 @@ struct DashboardView: View {
                     incomeBreakdown
                     incomeCompositionChart
                     taxPlanningDecisions
+                    ReduceAGISection()
                     legacyStrategySummary
                     accountBalances
                 }
@@ -78,6 +81,7 @@ struct DashboardView: View {
                     taxBracketChart
                     stateBracketChart
                     irmaaTierChart
+                    householdMedicareCostSection
                     niitPositionChart
                 }
                 .padding()
@@ -1963,6 +1967,108 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - Household Medicare Cost Section
+
+    @ViewBuilder
+    private var householdMedicareCostSection: some View {
+        if dataManager.householdMedicareCostAnnual > 0
+           || (dataManager.scenario.yourMedicarePlanType == .preMedicare
+               && dataManager.currentAge >= 63 && dataManager.currentAge <= 64) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Pre-Medicare 63-64 projection band
+                if dataManager.scenario.yourMedicarePlanType == .preMedicare
+                   && dataManager.currentAge >= 63 && dataManager.currentAge <= 64 {
+                    let preMedicareIrmaa = TaxCalculationEngine.calculateIRMAA(
+                        magi: dataManager.irmaaMAGIWrapped,
+                        filingStatus: dataManager.filingStatus
+                    )
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .foregroundStyle(Color.Semantic.amber)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Decisions today affect Medicare premiums starting at age 65")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Current scenario projects to IRMAA tier \(preMedicareIrmaa.tier).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.Semantic.amberTint)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                // Medicare cost details (only shown when actively on Medicare)
+                if dataManager.householdMedicareCostAnnual > 0 {
+                    Text("Projected Medicare cost (\(dataManager.medicarePremiumProjectionYear))")
+                        .font(.headline)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text("Medicare IRMAA premiums are based on income from 2 years prior. Decisions you make today affect your premiums in \(dataManager.medicarePremiumProjectionYear).")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    medicareCostRow(label: "You", breakdown: dataManager.primaryMedicareCost)
+                    if dataManager.enableSpouse {
+                        medicareCostRow(label: "Spouse", breakdown: dataManager.spouseMedicareCost)
+                    }
+
+                    Divider()
+                    HStack {
+                        Text("Total annual")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(dataManager.householdMedicareCostAnnual, format: .currency(code: "USD"))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                    }
+                }
+            }
+            .padding()
+            .background(Color.UI.surfaceCard)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    @ViewBuilder
+    private func medicareCostRow(label: String, breakdown: MedicareCostBreakdown) -> some View {
+        if breakdown.planType == .preMedicare {
+            HStack {
+                Text(label)
+                Spacer()
+                Text("Pre-Medicare")
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("\(label) (\(breakdown.planType.rawValue))")
+                        .font(.subheadline)
+                    Spacer()
+                    Text(breakdown.annualTotal, format: .currency(code: "USD"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                if breakdown.irmaaSurcharge > 0 {
+                    HStack {
+                        Text("  ↳ IRMAA surcharge (annual)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(breakdown.irmaaSurcharge * 12, format: .currency(code: "USD"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Chart 4: State Tax Bracket Position
 
     @ViewBuilder
@@ -2619,6 +2725,300 @@ struct OwnerIncomeRow: View {
                 .fontWeight(.semibold)
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 1.9 Reduce AGI Section
+
+private struct ReduceAGISection: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Reduce AGI")
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(Color.UI.brandTeal)
+            }
+
+            // Pre-Medicare 63-64 projection band (always-visible per spec decision 15)
+            if dataManager.scenario.yourMedicarePlanType == .preMedicare
+               && dataManager.currentAge >= 63 && dataManager.currentAge <= 64 {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .foregroundStyle(Color.Semantic.amber)
+                    Text("Decisions today affect your IRMAA when Medicare starts at age 65 (\(dataManager.medicarePremiumProjectionYear)).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(8)
+                .background(Color.Semantic.amberTint)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // Current AGI + marginal sensitivity
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Current AGI")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(dataManager.federalAGI.value, format: .currency(code: "USD"))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                }
+                Text("Marginal AGI sensitivity: every $1 reduction saves ~$\(format2(dataManager.marginalAGISavingsPerDollar)) this year.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            // "Why AGI matters" bullets
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Why AGI matters for you:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                let irmaa = dataManager.scenarioIRMAA
+                if let distanceToNext = irmaa.distanceToNextTier, distanceToNext > 0 {
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•")
+                        (Text("IRMAA in \(dataManager.medicarePremiumProjectionYear) — currently in tier \(irmaa.tier), ")
+                            + Text(distanceToNext, format: .currency(code: "USD"))
+                            + Text(" to next tier"))
+                            .font(.caption)
+                    }
+                }
+
+                if let aca = dataManager.acaSubsidyResult {
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•")
+                        if aca.isOverCliff {
+                            Text("ACA subsidy — already over the 400% FPL cliff (subsidy $0 this year)")
+                                .font(.caption)
+                                .foregroundStyle(Color.Semantic.amber)
+                        } else if let toCliff = aca.dollarsToCliff {
+                            (Text("ACA subsidy — currently \(Int(aca.fplPercent))% FPL, ")
+                                + Text(toCliff, format: .currency(code: "USD"))
+                                + Text(" to cliff"))
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
+
+            // AGI-reducing decisions list
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Your AGI-reducing decisions:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                decisionRow(label: "Pre-tax 401(k) (you)", amount: dataManager.scenario.yourTraditional401kContribution)
+                if dataManager.enableSpouse {
+                    decisionRow(label: "Pre-tax 401(k) (spouse)", amount: dataManager.scenario.spouseTraditional401kContribution)
+                }
+                decisionRow(label: "Traditional IRA (you)", amount: dataManager.scenario.yourTraditionalIRAContribution)
+                if dataManager.enableSpouse {
+                    decisionRow(label: "Traditional IRA (spouse)", amount: dataManager.scenario.spouseTraditionalIRAContribution)
+                }
+                decisionRow(label: "HSA (combined)", amount: dataManager.scenario.scenarioTotalHSA)
+                decisionRow(label: "QCD (existing)", amount: dataManager.scenario.scenarioTotalQCD)
+                decisionRow(label: "Charitable cash (existing)", amount: dataManager.scenario.cashDonationAmount)
+
+                Divider()
+                decisionRow(
+                    label: "Total above-the-line",
+                    amount: dataManager.totalAboveTheLineDeductions,
+                    bold: true
+                )
+                decisionRow(
+                    label: "AGI without reductions",
+                    amount: dataManager.scenarioGrossIncome,
+                    bold: false
+                )
+                decisionRow(
+                    label: "AGI with reductions",
+                    amount: dataManager.federalAGI.value,
+                    bold: true
+                )
+                let estimatedSavings = dataManager.totalAboveTheLineDeductions * dataManager.marginalAGISavingsPerDollar
+                decisionRow(
+                    label: "Tax savings (federal+state)",
+                    amount: estimatedSavings,
+                    bold: false,
+                    tint: Color.Semantic.green
+                )
+            }
+
+            Divider()
+            CostSpikeThisYearChart()
+
+            CostSpikeIrmaaChart()
+
+            // Active warnings, top 3 by impact + "+N more"
+            let warnings = dataManager.activeScenarioWarnings
+                .sorted { $0.dollarImpactPerYear > $1.dollarImpactPerYear }
+            let topWarnings = Array(warnings.prefix(3))
+            let remainingCount = warnings.count - topWarnings.count
+
+            if !topWarnings.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Active warnings (top \(topWarnings.count) by impact)")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    ForEach(Array(topWarnings.enumerated()), id: \.offset) { _, warning in
+                        warningRow(warning: warning)
+                    }
+
+                    if remainingCount > 0 {
+                        Text("+ \(remainingCount) more")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color.UI.surfaceCard)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func decisionRow(label: String, amount: Double, bold: Bool = false, tint: Color = Color.UI.textPrimary) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(amount, format: .currency(code: "USD"))
+                .font(.caption)
+                .fontWeight(bold ? .semibold : .regular)
+                .foregroundStyle(tint)
+        }
+    }
+
+    private func format2(_ d: Double) -> String {
+        String(format: "%.2f", d)
+    }
+
+    @ViewBuilder
+    private func warningRow(warning: ScenarioWarning) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: warning.severity == .warning ? "exclamationmark.triangle.fill" : "info.circle")
+                .foregroundStyle(warning.severity == .warning ? Color.Semantic.amber : Color.UI.brandTeal)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack {
+                    Text(warning.messageHeadline)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    let timing = warning.timing == .currentYear ? "this year" : "in \(dataManager.medicarePremiumProjectionYear)"
+                    Text(timing)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(warning.messageDetail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - 1.9 Cost-Spike Chart (Top Panel)
+
+private struct CostSpikeThisYearChart: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Cost This Year")
+                .font(.subheadline)
+                .fontWeight(.medium)
+
+            let currentAGI = dataManager.federalAGI.value
+            let xMin = max(0, currentAGI - 20_000)
+            let xMax = currentAGI + 80_000
+            let stepSize = 2_500.0
+            let samples = stride(from: xMin, through: xMax, by: stepSize).map { agi -> (Double, Double) in
+                let cost = dataManager.estimatedThisYearCostAtAGI(agi)
+                return (agi, cost)
+            }
+
+            Chart {
+                ForEach(samples, id: \.0) { sample in
+                    LineMark(
+                        x: .value("AGI", sample.0),
+                        y: .value("Cost", sample.1)
+                    )
+                    .foregroundStyle(Color.UI.brandTeal)
+                }
+                RuleMark(x: .value("Current AGI", currentAGI))
+                    .foregroundStyle(Color.Semantic.amber)
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text("Current")
+                            .font(.caption2)
+                            .foregroundStyle(Color.Semantic.amber)
+                    }
+            }
+            .frame(height: 150)
+            .chartXAxisLabel("AGI")
+            .chartYAxisLabel("Annual cost")
+        }
+    }
+}
+
+// MARK: - 1.9 Cost-Spike Chart (Bottom Panel — IRMAA)
+
+private struct CostSpikeIrmaaChart: View {
+    @EnvironmentObject var dataManager: DataManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Cost in \(dataManager.medicarePremiumProjectionYear) (Medicare IRMAA)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+            Text("Based on this year's MAGI per the 2-year lookback")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            let currentMAGI = dataManager.irmaaMAGIWrapped.value
+            let xMin = max(0, currentMAGI - 20_000)
+            let xMax = currentMAGI + 80_000
+            let stepSize = 2_500.0
+            let samples = stride(from: xMin, through: xMax, by: stepSize).map { magi -> (Double, Double) in
+                let irmaa = TaxCalculationEngine.calculateIRMAA(
+                    magi: IRMAAMAGI(value: magi),
+                    filingStatus: dataManager.filingStatus
+                )
+                let medicareCount = max(1, dataManager.medicareMemberCount)
+                return (magi, irmaa.annualSurchargePerPerson * Double(medicareCount))
+            }
+
+            Chart {
+                ForEach(samples, id: \.0) { sample in
+                    LineMark(
+                        x: .value("MAGI", sample.0),
+                        y: .value("Annual IRMAA cost", sample.1)
+                    )
+                    .foregroundStyle(Color.UI.brandTeal)
+                }
+                RuleMark(x: .value("Current MAGI", currentMAGI))
+                    .foregroundStyle(Color.Semantic.amber)
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text("Current")
+                            .font(.caption2)
+                            .foregroundStyle(Color.Semantic.amber)
+                    }
+            }
+            .frame(height: 150)
+            .chartXAxisLabel("MAGI")
+            .chartYAxisLabel("Annual IRMAA cost")
+        }
     }
 }
 

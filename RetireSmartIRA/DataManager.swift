@@ -285,11 +285,13 @@ class DataManager: ObservableObject {
     var birthYear: Int { profile.birthYear }
     var spouseBirthYear: Int { profile.spouseBirthYear }
     var currentAge: Int { profile.currentAge }
+    var displayAge: Int { profile.displayAge }
     var rmdAge: Int { profile.rmdAge }
     var yearsUntilRMD: Int { profile.yearsUntilRMD }
     var isRMDRequired: Bool { profile.isRMDRequired }
     var isQCDEligible: Bool { profile.isQCDEligible }
     var spouseCurrentAge: Int { profile.spouseCurrentAge }
+    var spouseDisplayAge: Int { profile.spouseDisplayAge }
     var spouseRmdAge: Int { profile.spouseRmdAge }
     var spouseYearsUntilRMD: Int { profile.spouseYearsUntilRMD }
     var spouseIsRMDRequired: Bool { profile.spouseIsRMDRequired }
@@ -414,8 +416,17 @@ class DataManager: ObservableObject {
     /// Calculates state tax starting from gross income (pre-deduction).
     /// Applies the state's own standard deduction, then retirement exemptions, then tax.
     /// Used by state comparison and scenarioStateTax to ensure correct state-specific deductions.
-    func calculateStateTaxFromGross(grossIncome: Double, forState state: USState, filingStatus: FilingStatus, taxableSocialSecurity: Double) -> Double {
+    func calculateStateTaxFromGross(
+        grossIncome: Double,
+        forState state: USState,
+        filingStatus: FilingStatus,
+        taxableSocialSecurity: Double,
+        hsaContributionsAddedBack: Double = 0
+    ) -> Double {
         let config = StateTaxData.config(for: state)
+        let adjustedGross = config.hsaContributionsTaxableForState
+            ? grossIncome + hsaContributionsAddedBack
+            : grossIncome
 
         // Determine state standard deduction
         let stateStandardDeduction: Double
@@ -439,7 +450,7 @@ class DataManager: ObservableObject {
             stateDeduction = stateStandardDeduction
         }
 
-        let stateTaxableIncome = max(0, grossIncome - stateDeduction)
+        let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
         return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity)
     }
 
@@ -1410,7 +1421,8 @@ class DataManager: ObservableObject {
             grossIncome: scenarioGrossIncome,
             forState: selectedState,
             filingStatus: filingStatus,
-            taxableSocialSecurity: scenarioTaxableSocialSecurity
+            taxableSocialSecurity: scenarioTaxableSocialSecurity,
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA
         )
     }
 
@@ -1428,6 +1440,297 @@ class DataManager: ObservableObject {
         return count
     }
 
+    // MARK: - Above-the-Line Deductions (1.9)
+
+    /// Sum of all 1.9 contribution levers that reduce federal AGI.
+    /// Phase 2 wires these to `ScenarioStateManager`; for Task 1.3 the placeholder is 0.
+    var totalAboveTheLineDeductions: Double {
+        scenario.scenarioTotalAboveTheLineDeductions
+    }
+
+    // MARK: - Strongly-Typed AGI Variants (1.9)
+
+    /// Federal AGI: scenarioGrossIncome minus above-the-line deductions.
+    var federalAGI: FederalAGI {
+        FederalAGI(value: scenarioGrossIncome - totalAboveTheLineDeductions)
+    }
+
+    /// MAGI for ACA Marketplace subsidy: FederalAGI + tax-exempt interest + non-taxable SS.
+    var acaMAGI: ACAMAGI {
+        let nonTaxableSS = max(0, totalSocialSecurityBenefits - scenarioTaxableSocialSecurity)
+        return ACAMAGI(value: federalAGI.value + taxExemptInterestTotal + nonTaxableSS)
+    }
+
+    /// MAGI for Medicare IRMAA: FederalAGI + tax-exempt interest. Replaces the
+    /// untyped `irmaaMagi` over Task 1.4. Kept side-by-side for migration.
+    var irmaaMAGIWrapped: IRMAAMAGI {
+        IRMAAMAGI(value: federalAGI.value + taxExemptInterestTotal)
+    }
+
+    // MARK: - 1.9 Contribution Limit Helpers
+
+    /// Annual 401(k) elective-deferral limit for `owner` based on their age in the current tax year.
+    /// Age <50 → base. 50-59 or 64+ → base + standard catchup. 60-63 → base + SECURE 2.0 super-catchup.
+    func four01kLimit(for owner: Owner) -> Double {
+        let age: Int
+        switch owner {
+        case .primary: age = currentAge
+        case .spouse: age = spouseCurrentAge
+        case .joint: age = max(currentAge, spouseCurrentAge)
+        }
+        let limits = TaxCalculationEngine.config.contributionLimits401k
+        if age < 50 { return limits.base }
+        if age >= 60 && age <= 63 { return limits.base + limits.catchupAge60To63 }
+        return limits.base + limits.catchupAge50To59  // covers 50-59 and 64+
+    }
+
+    /// Annual Traditional IRA contribution limit for `owner`.
+    /// Age <50 → base. Age 50+ → base + catchup.
+    func iraLimit(for owner: Owner) -> Double {
+        let age: Int
+        switch owner {
+        case .primary: age = currentAge
+        case .spouse: age = spouseCurrentAge
+        case .joint: age = max(currentAge, spouseCurrentAge)
+        }
+        let limits = TaxCalculationEngine.config.contributionLimitsIRA
+        return age >= 50 ? limits.base + limits.catchupAge50Plus : limits.base
+    }
+
+    /// Combined HSA limit for the household.
+    /// MFJ + family HDHP coverage assumed when `enableSpouse` is true.
+    /// Per-spouse age-55 catchups stack on top of the family base.
+    func hsaCombinedLimit() -> Double {
+        let limits = TaxCalculationEngine.config.contributionLimitsHSA
+        let baseCap = enableSpouse ? limits.family : limits.selfOnly
+        let catchupYou = currentAge >= 55 ? limits.catchupAge55Plus : 0
+        let catchupSpouse = (enableSpouse && spouseCurrentAge >= 55) ? limits.catchupAge55Plus : 0
+        return baseCap + catchupYou + catchupSpouse
+    }
+
+    /// HSA contributions require HDHP coverage, which is incompatible with Medicare enrollment.
+    /// Returns false when the spouse is on Original Medicare or Medicare Advantage.
+    func isHSAEligible(for owner: Owner) -> Bool {
+        let planType: MedicarePlanType
+        switch owner {
+        case .primary: planType = scenario.yourMedicarePlanType
+        case .spouse: planType = scenario.spouseMedicarePlanType
+        case .joint: return isHSAEligible(for: .primary) && isHSAEligible(for: .spouse)
+        }
+        return planType == .preMedicare
+    }
+
+    // MARK: - 1.9 Household Medicare Cost
+
+    /// Per-spouse Medicare cost for the primary spouse, using the engine.
+    var primaryMedicareCost: MedicareCostBreakdown {
+        MedicareCostEngine.computeCostForSpouse(
+            planType: scenario.yourMedicarePlanType,
+            irmaaMAGI: irmaaMAGIWrapped,
+            partBOverride: scenario.yourMedicarePartBOverride,
+            partDOverride: scenario.yourMedicarePartDOverride,
+            medigapOverride: scenario.yourMedigapOverride,
+            advantageOverride: scenario.yourAdvantageOverride,
+            filingStatus: filingStatus,
+            config: TaxCalculationEngine.config
+        )
+    }
+
+    /// Per-spouse Medicare cost for the spouse. Returns zero-cost if `enableSpouse` is false.
+    var spouseMedicareCost: MedicareCostBreakdown {
+        guard enableSpouse else {
+            return MedicareCostBreakdown(
+                planType: .preMedicare,
+                partB: 0, partD: 0, medigap: nil, advantagePremium: nil,
+                total: 0, annualTotal: 0,
+                irmaaSurcharge: 0, irmaaTier: -1
+            )
+        }
+        return MedicareCostEngine.computeCostForSpouse(
+            planType: scenario.spouseMedicarePlanType,
+            irmaaMAGI: irmaaMAGIWrapped,
+            partBOverride: scenario.spouseMedicarePartBOverride,
+            partDOverride: scenario.spouseMedicarePartDOverride,
+            medigapOverride: scenario.spouseMedigapOverride,
+            advantageOverride: scenario.spouseAdvantageOverride,
+            filingStatus: filingStatus,
+            config: TaxCalculationEngine.config
+        )
+    }
+
+    var householdMedicareCostAnnual: Double {
+        primaryMedicareCost.annualTotal + spouseMedicareCost.annualTotal
+    }
+
+    /// The tax year used in the projection label, e.g. "2028" if currentYear is 2026.
+    var medicarePremiumProjectionYear: Int {
+        currentYear + 2
+    }
+
+    /// Approximate marginal tax saving per $1 reduction in AGI at the current scenario.
+    /// Computed as: federal marginal rate + state marginal rate. Excludes IRMAA/ACA
+    /// effects (which are step-function, surfaced separately in the chart).
+    var marginalAGISavingsPerDollar: Double {
+        // Federal marginal rate at current AGI.
+        let brackets: [TaxYearConfig.BracketEntry] = filingStatus == .single
+            ? TaxCalculationEngine.config.federalBracketsSingle
+            : TaxCalculationEngine.config.federalBracketsMFJ
+        let federalRate = brackets.last(where: { federalAGI.value >= $0.threshold })?.rate ?? 0
+        // State marginal rate (approximation).
+        let stateConfig = StateTaxData.config(for: profile.selectedState)
+        let stateRate: Double
+        switch stateConfig.taxSystem {
+        case .noIncomeTax, .specialLimited:
+            stateRate = 0
+        case .flat(let rate):
+            stateRate = rate
+        case .progressive(let single, let married):
+            let stateBrackets = filingStatus == .single ? single : married
+            stateRate = stateBrackets.last(where: { federalAGI.value >= $0.threshold })?.rate ?? 0
+        }
+        return federalRate + stateRate
+    }
+
+    /// Approximate this-year cost at a hypothetical AGI:
+    /// federal tax + state tax + (ACA premium impact = lost subsidy if over cliff).
+    /// Used by the cost-spike chart's top panel.
+    func estimatedThisYearCostAtAGI(_ hypotheticalAGI: Double) -> Double {
+        // Federal: progressive tax on hypothetical AGI minus standard deduction.
+        let stdDed = standardDeductionAmount
+        let federalTaxable = max(0, hypotheticalAGI - stdDed)
+        let brackets: [TaxYearConfig.BracketEntry] = filingStatus == .single
+            ? TaxCalculationEngine.config.federalBracketsSingle
+            : TaxCalculationEngine.config.federalBracketsMFJ
+        var federalTax = 0.0
+        var remaining = federalTaxable
+        for (i, bracket) in brackets.enumerated() {
+            let nextThreshold = (i + 1 < brackets.count) ? brackets[i + 1].threshold : .infinity
+            let bracketWidth = min(remaining, nextThreshold - bracket.threshold)
+            if bracketWidth > 0 {
+                federalTax += bracketWidth * bracket.rate
+                remaining -= bracketWidth
+            }
+            if remaining <= 0 { break }
+        }
+
+        // State tax via existing helper.
+        let stateTax = calculateStateTaxFromGross(
+            grossIncome: hypotheticalAGI,
+            forState: profile.selectedState,
+            filingStatus: filingStatus,
+            taxableSocialSecurity: scenarioTaxableSocialSecurity,
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+        )
+
+        // ACA premium impact: lost subsidy if over cliff.
+        var acaImpact = 0.0
+        if scenario.enableACAModeling, shouldDisplayACASection {
+            let benchmarkAnnual: Double = {
+                if let monthly = scenario.acaBenchmarkSilverPlanMonthlyOverride {
+                    return monthly * 12
+                }
+                return TaxCalculationEngine.config.acaSubsidy2026.nationalAvgBenchmarkSilverPlanAnnual
+            }()
+            let aca = ACASubsidyEngine.calculateSubsidy(
+                acaMAGI: ACAMAGI(value: hypotheticalAGI),
+                householdSize: max(1, scenario.acaHouseholdSize),
+                benchmarkSilverPlanAnnualPremium: benchmarkAnnual,
+                regionalAdjustment: profile.selectedState == .alaska ? .alaska
+                    : (profile.selectedState == .hawaii ? .hawaii : .mainland48),
+                config: TaxCalculationEngine.config
+            )
+            // Lost subsidy = benchmark - subsidy received
+            acaImpact = benchmarkAnnual - aca.annualPremiumAssistance
+        }
+
+        return federalTax + stateTax + acaImpact
+    }
+
+    // MARK: - 1.9 ACA Subsidy
+
+    /// Whether ACA Marketplace modeling should display in the UI.
+    /// True only when user has enabled it AND at least one spouse is pre-Medicare (<65).
+    var shouldDisplayACASection: Bool {
+        guard scenario.enableACAModeling else { return false }
+        let primaryPreMedicare = currentAge < 65 || scenario.yourMedicarePlanType == .preMedicare
+        let spousePreMedicare = enableSpouse
+            && (spouseCurrentAge < 65 || scenario.spouseMedicarePlanType == .preMedicare)
+        return primaryPreMedicare || spousePreMedicare
+    }
+
+    /// ACA subsidy result from the engine. Returns nil when section is gated off.
+    var acaSubsidyResult: ACASubsidyResult? {
+        guard shouldDisplayACASection else { return nil }
+        let benchmarkAnnual: Double = {
+            if let monthly = scenario.acaBenchmarkSilverPlanMonthlyOverride {
+                return monthly * 12
+            }
+            return TaxCalculationEngine.config.acaSubsidy2026.nationalAvgBenchmarkSilverPlanAnnual
+        }()
+        let regional: ACASubsidyEngine.AlaskaHawaii = {
+            switch profile.selectedState {
+            case .alaska: return .alaska
+            case .hawaii: return .hawaii
+            default: return .mainland48
+            }
+        }()
+        return ACASubsidyEngine.calculateSubsidy(
+            acaMAGI: acaMAGI,
+            householdSize: max(1, scenario.acaHouseholdSize),
+            benchmarkSilverPlanAnnualPremium: benchmarkAnnual,
+            regionalAdjustment: regional,
+            config: TaxCalculationEngine.config
+        )
+    }
+
+    // MARK: - Scenario Warnings (1.9 — engine in Phase 5)
+
+    /// Cross-feature scenario warnings. Replaced by `ScenarioWarningEngine.warningsFor(...)`
+    /// in Phase 5; returns empty here so dashboard / inline-warning UI can be wired before then.
+    var activeScenarioWarnings: [ScenarioWarning] {
+        let baselineMAGI = IRMAAMAGI(value: scenarioBaseIncome + taxExemptInterestTotal)
+        let baselineAGI = FederalAGI(value: scenarioBaseIncome)
+        let benchmarkAnnual: Double = {
+            if let monthly = scenario.acaBenchmarkSilverPlanMonthlyOverride {
+                return monthly * 12
+            }
+            return TaxCalculationEngine.config.acaSubsidy2026.nationalAvgBenchmarkSilverPlanAnnual
+        }()
+        let regional: ACASubsidyEngine.AlaskaHawaii = {
+            switch profile.selectedState {
+            case .alaska: return .alaska
+            case .hawaii: return .hawaii
+            default: return .mainland48
+            }
+        }()
+        return ScenarioWarningEngine.warningsFor(
+            federalAGI: federalAGI,
+            acaMAGI: acaMAGI,
+            irmaaMAGI: irmaaMAGIWrapped,
+            baselineIRMAAMAGI: baselineMAGI,
+            primaryAge: currentAge,
+            spouseAge: enableSpouse ? spouseCurrentAge : nil,
+            primaryMedicarePlanType: scenario.yourMedicarePlanType,
+            spouseMedicarePlanType: scenario.spouseMedicarePlanType,
+            filingStatus: filingStatus,
+            enableACAModeling: scenario.enableACAModeling,
+            acaHouseholdSize: scenario.acaHouseholdSize,
+            acaBenchmarkSilverPlanAnnual: benchmarkAnnual,
+            acaRegionalAdjustment: regional,
+            netInvestmentIncome: scenarioNetInvestmentIncome,
+            baselineFederalAGI: baselineAGI,
+            config: TaxCalculationEngine.config
+        )
+    }
+
+    /// Top-N warnings sorted by dollar impact descending. UI uses this for the truncated lists.
+    func topActiveScenarioWarnings(limit: Int = 3) -> [ScenarioWarning] {
+        activeScenarioWarnings
+            .sorted { $0.dollarImpactPerYear > $1.dollarImpactPerYear }
+            .prefix(limit)
+            .map { $0 }
+    }
+
     /// IRMAA MAGI = AGI + tax-exempt interest (muni bonds, tax-free money markets).
     /// Tax-exempt interest is not in AGI but the IRS includes it for IRMAA.
     var irmaaMagi: Double {
@@ -1436,7 +1739,7 @@ class DataManager: ObservableObject {
 
     /// Current scenario IRMAA result based on IRMAA MAGI (AGI + tax-exempt interest).
     var scenarioIRMAA: IRMAAResult {
-        calculateIRMAA(magi: irmaaMagi, filingStatus: filingStatus)
+        TaxCalculationEngine.calculateIRMAA(magi: irmaaMAGIWrapped, filingStatus: filingStatus)
     }
 
     /// Total household annual IRMAA surcharge (per-person × number of Medicare members).
@@ -1447,7 +1750,8 @@ class DataManager: ObservableObject {
     /// Baseline IRMAA (without any scenario decisions) for comparison.
     /// Includes tax-exempt interest in MAGI since IRS counts it for IRMAA.
     var baselineIRMAA: IRMAAResult {
-        calculateIRMAA(magi: scenarioBaseIncome + taxExemptInterestTotal, filingStatus: filingStatus)
+        let baselineMAGI = IRMAAMAGI(value: scenarioBaseIncome + taxExemptInterestTotal)
+        return TaxCalculationEngine.calculateIRMAA(magi: baselineMAGI, filingStatus: filingStatus)
     }
 
     /// Whether scenario decisions pushed into a higher IRMAA tier.
@@ -1840,7 +2144,8 @@ class DataManager: ObservableObject {
             grossIncome: grossIncome,
             forState: selectedState,
             filingStatus: filingStatus,
-            taxableSocialSecurity: taxableSocialSecurity
+            taxableSocialSecurity: taxableSocialSecurity,
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA
         )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt

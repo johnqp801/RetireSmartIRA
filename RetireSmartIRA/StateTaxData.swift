@@ -216,11 +216,16 @@ struct StateTaxConfig {
     /// Current-year safe harbor percentage. Most states use 0.90 (like federal).
     /// GA/CO/OK use 0.70, MA/NJ/RI use 0.80, HI uses 0.60.
     let currentYearSafeHarborRate: Double
+    /// CA and NJ tax HSA contributions as ordinary income at the state level
+    /// (federal AGI reduction still applies, but state AGI does not).
+    /// Defaults to false for the other 48 states + DC.
+    let hsaContributionsTaxableForState: Bool
 
     init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
          stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
          safeHarborRule: StateSafeHarborRule = .mirrorsFederal,
-         currentYearSafeHarborRate: Double = 0.90) {
+         currentYearSafeHarborRate: Double = 0.90,
+         hsaContributionsTaxableForState: Bool = false) {
         self.state = state
         self.taxSystem = taxSystem
         self.retirementExemptions = retirementExemptions
@@ -228,6 +233,7 @@ struct StateTaxConfig {
         self.estimatedPaymentSchedule = estimatedPaymentSchedule
         self.safeHarborRule = safeHarborRule
         self.currentYearSafeHarborRate = currentYearSafeHarborRate
+        self.hsaContributionsTaxableForState = hsaContributionsTaxableForState
     }
 }
 
@@ -597,7 +603,8 @@ struct StateTaxData {
             ),
             stateDeduction: .fixed(single: 5_706, married: 11_412),
             estimatedPaymentSchedule: .california,
-            safeHarborRule: .mirrorsFederalWithDisqualification(disqualifyAGI: 1_000_000)
+            safeHarborRule: .mirrorsFederalWithDisqualification(disqualifyAGI: 1_000_000),
+            hsaContributionsTaxableForState: true
         )
 
         // Connecticut — 3% to 6.99% (7 brackets)
@@ -979,7 +986,8 @@ struct StateTaxData {
             ),
             stateDeduction: .none,
             safeHarborRule: .mirrorsFederal,
-            currentYearSafeHarborRate: 0.80
+            currentYearSafeHarborRate: 0.80,
+            hsaContributionsTaxableForState: true
         )
 
         // New Mexico — 1.7% to 5.9% (4 brackets)
