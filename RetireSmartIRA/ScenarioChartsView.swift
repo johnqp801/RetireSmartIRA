@@ -1,7 +1,7 @@
 import SwiftUI
 import Charts
 
-/// Scenario bracket, IRMAA, and NIIT charts extracted from TaxPlanningView
+/// Scenario bracket, IRMAA, and NIIT charts extracted from ScenarioBuilderView
 /// to reduce view hierarchy depth and prevent stack overflow on physical devices.
 struct ScenarioChartsView: View {
     @EnvironmentObject var dataManager: DataManager

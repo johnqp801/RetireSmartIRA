@@ -1,5 +1,5 @@
 //
-//  TaxPlanningView.swift
+//  ScenarioBuilderView.swift
 //  RetireSmartIRA
 //
 //  Scenario modeling — Roth conversions, withdrawals, and charitable giving
@@ -8,7 +8,7 @@
 import SwiftUI
 import Charts
 
-struct TaxPlanningView: View {
+struct ScenarioBuilderView: View {
     @EnvironmentObject var dataManager: DataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -4018,9 +4018,9 @@ struct ScenarioStepSection<Content: View>: View {
     }
 }
 
-struct TaxPlanningView_Previews: PreviewProvider {
+struct ScenarioBuilderView_Previews: PreviewProvider {
     static var previews: some View {
-        TaxPlanningView()
+        ScenarioBuilderView()
             .environmentObject(DataManager())
     }
 }

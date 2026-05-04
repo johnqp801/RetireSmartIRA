@@ -105,7 +105,7 @@ struct ContentView: View {
         case 2: IncomeSourcesView()
         case 3: AccountsView()
         case 4: RMDCalculatorView()
-        case 5: TaxPlanningView()
+        case 5: ScenarioBuilderView()
         case 6: DashboardView()
         case 7: QuarterlyTaxView()
         case 8: StateComparisonView()
@@ -173,7 +173,7 @@ struct ContentView: View {
         case 2: IncomeSourcesView()
         case 3: AccountsView()
         case 4: RMDCalculatorView()
-        case 5: TaxPlanningView()
+        case 5: ScenarioBuilderView()
         case 6: DashboardView()
         case 7: QuarterlyTaxView()
         case 8: StateComparisonView()
@@ -223,7 +223,7 @@ struct ContentView: View {
                 }
                 .tag(4)
 
-            TaxPlanningView()
+            ScenarioBuilderView()
                 .tabItem {
                     Label("Scenarios", systemImage: "slider.horizontal.3")
                 }
