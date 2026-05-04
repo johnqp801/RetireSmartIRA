@@ -45,9 +45,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         // traditional = sum of both buckets (backwards-compat computed property)
@@ -72,8 +70,9 @@ final class MultiYearInputAdapterTests: XCTestCase {
         ]
 
         let inputs = MultiYearInputAdapter.build(
-            from: dm, scenarioState: dm.scenario,
-            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertEqual(inputs.startingBalances.primaryTraditional, 300_000, accuracy: 0.01,
@@ -92,8 +91,9 @@ final class MultiYearInputAdapterTests: XCTestCase {
         ]
 
         let inputs = MultiYearInputAdapter.build(
-            from: dm, scenarioState: dm.scenario,
-            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertEqual(inputs.startingBalances.primaryTraditional, 0, accuracy: 0.01,
@@ -112,8 +112,9 @@ final class MultiYearInputAdapterTests: XCTestCase {
         ]
 
         let inputs = MultiYearInputAdapter.build(
-            from: dm, scenarioState: dm.scenario,
-            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertEqual(inputs.startingBalances.primaryTraditional, 400_000, accuracy: 0.01,
@@ -129,9 +130,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 25_000,
-            currentHSABalance: 8_000,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions(currentTaxableBalance: 25_000, currentHSABalance: 8_000)
         )
 
         XCTAssertEqual(inputs.startingBalances.taxable, 25_000, accuracy: 0.01)
@@ -146,9 +145,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertEqual(inputs.primaryBirthYear, 1961)
@@ -164,9 +161,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertNil(inputs.spouseCurrentAge)
@@ -198,9 +193,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertEqual(inputs.primarySSClaimAge, 70)
@@ -226,9 +219,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertEqual(inputs.primaryPensionIncome, 24_000, accuracy: 0.01)
@@ -245,9 +236,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertTrue(inputs.acaEnrolled)
@@ -260,9 +249,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 96_000
+            assumptions: MultiYearAssumptions(baselineAnnualExpenses: 96_000)
         )
 
         XCTAssertEqual(inputs.baselineAnnualExpenses, 96_000, accuracy: 0.01)
@@ -276,9 +263,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         XCTAssertNotNil(inputs.spouseCurrentAge)

@@ -199,9 +199,7 @@ struct VADisabilityTests {
         let inputs = MultiYearInputAdapter.build(
             from: dm,
             scenarioState: dm.scenario,
-            currentTaxableBalance: 0,
-            currentHSABalance: 0,
-            baselineAnnualExpenses: 0
+            assumptions: MultiYearAssumptions()
         )
 
         // Only pension ($24K) should be in primaryPensionIncome; VA Disability ($30K) must be invisible.
