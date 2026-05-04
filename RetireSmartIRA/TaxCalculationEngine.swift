@@ -355,7 +355,11 @@ struct TaxCalculationEngine {
         let tiers = irmaa2026Tiers
         let standardB = irmaaStandardPartB
 
-        let roundedMAGI = magi.rounded()
+        // Use floor (not rounded) so a MAGI of $X.51 stays in the lower tier instead
+        // of being rounded up and triggering the next tier. IRMAA and NIIT thresholds
+        // are at integer dollar amounts, so any sub-dollar excess shouldn't promote a
+        // user across the threshold. (ChatGPT review 2026-05-03 #5)
+        let roundedMAGI = floor(magi)
         var matchedTier = tiers[0]
         for tier in tiers.reversed() {
             let threshold = filingStatus == .single ? tier.singleThreshold : tier.mfjThreshold
@@ -408,9 +412,16 @@ struct TaxCalculationEngine {
     static func calculateNIIT(nii: Double, magi: Double, filingStatus: FilingStatus) -> NIITResult {
         let threshold = filingStatus == .single ? niitThresholdSingle : niitThresholdMFJ
 
-        let roundedMAGI = magi.rounded()
+        // Use floor (not rounded) so a MAGI of $X.51 stays in the lower tier instead
+        // of being rounded up and triggering the next tier. IRMAA and NIIT thresholds
+        // are at integer dollar amounts, so any sub-dollar excess shouldn't promote a
+        // user across the threshold. (ChatGPT review 2026-05-03 #5)
+        let roundedMAGI = floor(magi)
         let magiExcess = max(0, roundedMAGI - threshold)
-        let taxableNII = min(nii, magiExcess)
+        // Clamp to non-negative: if NII is negative (capital losses exceed gains),
+        // taxableNII would be negative and produce a negative NIIT, which is wrong —
+        // NIIT cannot reduce regular tax. (ChatGPT review 2026-05-03 #8)
+        let taxableNII = max(0, min(nii, magiExcess))
         let tax = taxableNII * niitRate
         let distance = threshold - roundedMAGI
 
@@ -431,7 +442,16 @@ struct TaxCalculationEngine {
         var addBacks = 0.0
         if scenarioEffectiveItemize {
             addBacks += saltAfterCap
-            addBacks += deductibleMedicalExpenses
+            // Removed: addBacks += deductibleMedicalExpenses
+            // Post-TCJA, the regular-tax and AMT medical floors are both 7.5% of AGI,
+            // so deductible medical expenses are NOT added back for AMT purposes. The
+            // previous code over-stated AMTI for users with large medical deductions
+            // (typically older retirees with significant healthcare costs), which would
+            // spuriously trigger or inflate AMT. (ChatGPT review 2026-05-03 #6)
+            //
+            // The deductibleMedicalExpenses parameter is retained on the function
+            // signature for API stability but is no longer used.
+            _ = deductibleMedicalExpenses
         }
         let amti = taxableIncome + addBacks
 

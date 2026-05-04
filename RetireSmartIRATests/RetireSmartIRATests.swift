@@ -5376,10 +5376,15 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioAMTAmount, 0))
     }
 
-    @Test("AMT triggered with high SALT + medical at moderate income")
-    func amtTriggeredHighSALT() {
+    // Updated 2026-05-03 (ChatGPT review #1, #6): post-TCJA AMT no longer adds back
+    // deductible medical expenses, and exemption phaseout rate is 0.25 (not 0.50).
+    // With SALT-only add-back the TMT ($10,699) is less than regular tax ($14,699),
+    // so this scenario correctly does NOT trigger AMT under corrected 2026 math.
+    @Test("AMT not triggered — high SALT + medical, SALT-only add-back post-TCJA")
+    func amtNotTriggeredHighSALTPostTCJA() {
         // Single, under 65, $150K pension, high SALT + medical
-        // Large add-backs push TMT above regular tax
+        // Post-TCJA: medical is NOT added back to AMTI (same 7.5% floor in regular tax and AMT).
+        // SALT cap: min($45K, $40,400) = $40,400 (2026 OBBBA cap, no phaseout at $150K income)
         let dm = makeDM(birthYear: 1970, filingStatus: .single, state: .california)
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 150_000)
@@ -5389,20 +5394,22 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             DeductionItem(name: "Medical", type: .medicalExpenses, annualAmount: 30_000)
         ]
         // SALT: min($45K, $40,400 cap) = $40,400
-        // Medical: $30K − 7.5% × $150K = $30K − $11,250 = $18,750 deductible
+        // Medical: $30K − 7.5% × $150K = $18,750 deductible (reduces regular taxable only)
         // Itemized total: $40,400 + $18,750 = $59,150 > $16,100 standard → itemizes
         // Regular taxable: $150K − $59,150 = $90,850
-        // Regular tax: 10% × $12.4K + 12% × $38K + 22% × $40,450 = $14,699
+        // Regular tax: 10%×$12.4K + 12%×$38K + 22%×$40,450 = $14,699
         //
-        // AMT: AMTI = $90,850 + $40,400 + $18,750 = $150,000
-        //   Exemption: $90,100 (no phaseout, $150K < $500K)
-        //   Taxable AMTI: $59,900
-        //   TMT: $59,900 × 26% = $15,574
-        //   AMT = max(0, $15,574 − $14,699) = $875
-        #expect(dm.scenarioAMTAmount > 0, "AMT should trigger with high SALT add-backs")
-        #expect(isClose(dm.scenarioAMTAmount, 875, tolerance: 5.0))
+        // AMT add-backs: SALT $40,400 ONLY (medical NOT added back — post-TCJA fix)
+        // AMTI = $90,850 + $40,400 = $131,250
+        // Phaseout: $131,250 < $500K threshold → exemption = $90,100 (full)
+        // Taxable AMTI: $131,250 − $90,100 = $41,150
+        // TMT: $41,150 × 26% = $10,699
+        // AMT = max(0, $10,699 − $14,699) = $0
+        #expect(isClose(dm.scenarioAMTAmount, 0), "AMT should not trigger — SALT-only add-back insufficient post-TCJA")
     }
 
+    // Updated 2026-05-03 (ChatGPT review #1): amtPhaseoutRate corrected from 0.50 → 0.25
+    // (IRS statutory rate: exemption reduces by $0.25 per dollar above the threshold).
     @Test("AMT exemption phaseout at high AMTI")
     func amtExemptionPhaseout() {
         let dm = makeDM(birthYear: 1970, filingStatus: .single, state: .california)
@@ -5412,30 +5419,34 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             regularTax: 100_000,
             filingStatus: .single
         )
-        // AMTI = $600K (no itemizing → no add-backs for direct call w/ standard deduction)
-        // Phaseout: ($600K − $500K) × 0.50 = $50,000
-        // Exemption: max(0, $90,100 − $50,000) = $40,100
-        // Taxable AMTI: $600K − $40,100 = $559,900
-        #expect(isClose(result.exemption, 40_100, tolerance: 1.0))
-        #expect(isClose(result.taxableAMTI, 559_900, tolerance: 1.0))
+        // AMTI = $600K (no itemizing → no add-backs; scenarioEffectiveItemize=false)
+        // Phaseout: ($600K − $500K) × 0.25 = $25,000
+        // Exemption: max(0, $90,100 − $25,000) = $65,100
+        // Taxable AMTI: $600K − $65,100 = $534,900
+        #expect(isClose(result.exemption, 65_100, tolerance: 1.0))
+        #expect(isClose(result.taxableAMTI, 534_900, tolerance: 1.0))
     }
 
+    // Updated 2026-05-03 (ChatGPT review #1): amtPhaseoutRate corrected from 0.50 → 0.25.
+    // Full phaseout requires (AMTI − $500K) × 0.25 ≥ $90,100 → AMTI ≥ $860,400.
+    // Raised taxableIncome to $900K to reliably achieve full phaseout at 0.25 rate.
     @Test("AMT exemption fully phased out")
     func amtExemptionFullPhaseout() {
         let dm = makeDM(birthYear: 1970, filingStatus: .single, state: .california)
         let result = dm.calculateAMT(
-            taxableIncome: 700_000,
-            regularTax: 200_000,
+            taxableIncome: 900_000,
+            regularTax: 300_000,
             filingStatus: .single
         )
-        // AMTI = $700K
-        // Phaseout: ($700K − $500K) × 0.50 = $100,000
-        // Exemption: max(0, $90,100 − $100,000) = $0
+        // AMTI = $900K (no itemizing → no add-backs; scenarioEffectiveItemize=false)
+        // Phaseout: ($900K − $500K) × 0.25 = $100,000 > $90,100 → exemption = $0
         #expect(isClose(result.exemption, 0))
-        #expect(isClose(result.taxableAMTI, 700_000, tolerance: 1.0))
+        #expect(isClose(result.taxableAMTI, 900_000, tolerance: 1.0))
     }
 
-    @Test("scenarioTotalTax includes AMT when triggered")
+    // Updated 2026-05-03 (ChatGPT review #6): post-TCJA medical not added back to AMTI.
+    // scenarioTotalTax always equals federal + state + NIIT + AMT, even when AMT = $0.
+    @Test("scenarioTotalTax always equals component sum (AMT = $0 in this scenario)")
     func totalTaxIncludesAMT() {
         let dm = makeDM(birthYear: 1970, filingStatus: .single, state: .california)
         dm.incomeSources = [
@@ -5447,9 +5458,11 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         ]
         let total = dm.scenarioTotalTax
         let withoutAMT = dm.scenarioFederalTax + dm.scenarioStateTax + dm.scenarioNIITAmount
-        // Total should include AMT
-        #expect(total > withoutAMT, "scenarioTotalTax should include AMT when triggered")
-        #expect(isClose(total, withoutAMT + dm.scenarioAMTAmount))
+        // Post-TCJA: medical not added back → AMTI = $131,250 → TMT < regular tax → AMT = $0
+        // scenarioTotalTax = federal + state + NIIT + AMT (even when AMT is $0)
+        #expect(isClose(dm.scenarioAMTAmount, 0), "AMT should be $0 for this scenario post-TCJA")
+        #expect(isClose(total, withoutAMT + dm.scenarioAMTAmount),
+                "scenarioTotalTax should always equal the component sum")
     }
 
     @Test("MFJ higher exemption means harder to trigger AMT")
@@ -5586,7 +5599,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     func c_amt() {
         let dm = makeScenarioC()
         // AMTI = $904,440 (standard deduction → no add-backs)
-        // Exemption fully phased out: ($904K − $500K) × 0.50 = $202K > $90.1K → exemption = $0
+        // Phaseout (rate 0.25): ($904K − $500K) × 0.25 = $101K > $90,100 → exemption = $0
+        // (Comment updated 2026-05-03 — phaseout rate corrected 0.50 → 0.25; result unchanged
+        // because $101K > $90,100 still fully eliminates the exemption at this income level.)
         let result = dm.scenarioAMT
         #expect(isClose(result.exemption, 0, tolerance: 1.0))
         // But TMT ≈ $227,553 < regular tax $246,400 → AMT = $0
@@ -5720,17 +5735,19 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     }
 }
 
-/// Scenario E: Single, Age 56, California — massive AMT triggered by large
-/// itemized deductions that are fully added back for AMT purposes.
+/// Scenario E: Single, Age 56, California — formerly AMT-triggering; post-TCJA fix
+/// shows AMT = $0 because deductible medical is no longer added back to AMTI.
 ///
-/// Hits: AMT 28% bracket, AMT exemption partial phaseout ($10K reduction),
-/// SALT phaseout ($35,900 cap), 7.5% medical AGI floor, large add-backs
-/// ($196,900), NIIT, CA 11.3% bracket. Tests the full interaction of
-/// itemized deductions with AMT.
+/// Updated 2026-05-03 (ChatGPT review #6): medical deduction add-back removed. Only
+/// SALT ($35,900) is added back. AMTI = $359,000 < phaseout threshold → full $90,100
+/// exemption → taxableAMTI $268,900 → TMT $58,914 < regular tax $62,848 → AMT = $0.
+///
+/// Still exercises: SALT partial phaseout ($35,900 cap at $520K MAGI), 7.5% medical
+/// AGI floor, large itemized deductions, NIIT, CA 11.3% bracket.
 ///
 /// Income: Pension $400K + Interest $20K + LT CG $100K
 /// Deductions: Property Tax $200K + Medical $200K
-@Suite("High-Income Stress Test E: AMT Trigger", .serialized)
+@Suite("High-Income Stress Test E: Large Itemized Deductions (AMT = $0 Post-TCJA Fix)", .serialized)
 @MainActor struct StressTestE_AMT {
 
     private func makeScenarioE() -> DataManager {
@@ -5799,24 +5816,30 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 62_848, tolerance: 2.0))
     }
 
-    @Test("E: AMT = $42,434 (large add-backs push TMT well above regular tax)")
+    // Updated 2026-05-03 (ChatGPT review #1, #6): post-TCJA AMT no longer adds back
+    // deductible medical expenses, and exemption phaseout rate is 0.25 (not 0.50).
+    // Re-derived expected values below. AMT = $0 because TMT < regular tax.
+    @Test("E: AMT = $0 (medical not added back post-TCJA; TMT $58,914 < regular $62,848)")
     func e_amt() {
         let dm = makeScenarioE()
         let result = dm.scenarioAMT
-        // Add-backs: SALT $35,900 + medical $161K = $196,900
-        // AMTI = $323,100 + $196,900 = $520,000
-        #expect(isClose(result.amti, 520_000, tolerance: 1.0))
-        // Exemption: phaseout = ($520K − $500K) × 0.50 = $10K → $90,100 − $10K = $80,100
-        #expect(isClose(result.exemption, 80_100, tolerance: 1.0))
-        // Taxable AMTI: $520K − $80,100 = $439,900
-        #expect(isClose(result.taxableAMTI, 439_900, tolerance: 1.0))
-        // Ordinary AMTI: $439,900 − $100K CG = $339,900 → above $244,500 → hits 28% AMT bracket
-        // TMT ordinary: $244,500×26% + $95,400×28% = $63,570 + $26,712 = $90,282
-        // TMT cap gains: $100K at 15% preferential = $15,000
-        // TMT total: $105,282
-        #expect(isClose(result.tentativeMinimumTax, 105_282, tolerance: 2.0))
-        // AMT = $105,282 − $62,848 = $42,434
-        #expect(isClose(result.amt, 42_434, tolerance: 2.0))
+        // Add-backs: SALT $35,900 ONLY (medical NOT added back — post-TCJA fix)
+        // AMTI = $323,100 + $35,900 = $359,000
+        #expect(isClose(result.amti, 359_000, tolerance: 1.0))
+        // Phaseout: $359,000 < $500,000 threshold → phaseout = $0 → exemption = $90,100 (full)
+        #expect(isClose(result.exemption, 90_100, tolerance: 1.0))
+        // Taxable AMTI: $359,000 − $90,100 = $268,900
+        #expect(isClose(result.taxableAMTI, 268_900, tolerance: 1.0))
+        // Ordinary AMTI: $268,900 − $100K CG = $168,900 → below $244,500 → 26% only
+        // TMT ordinary: $168,900 × 26% = $43,914
+        // TMT cap gains: taxOnTotal($268,900) − taxOnOrdinary($168,900) at cap gains brackets
+        //   taxOnTotal($268,900) = $49,450×0% + $219,450×15% = $32,917.50
+        //   taxOnOrdinary($168,900) = $49,450×0% + $119,450×15% = $17,917.50
+        //   cap gains portion = $15,000
+        // TMT total: $43,914 + $15,000 = $58,914
+        #expect(isClose(result.tentativeMinimumTax, 58_914, tolerance: 2.0))
+        // AMT = max(0, $58,914 − $62,848) = $0 (regular tax exceeds TMT)
+        #expect(isClose(result.amt, 0, tolerance: 2.0))
     }
 
     @Test("E: CA state tax ≈ $11,296 (state itemized deductions)")
@@ -5840,15 +5863,18 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioNIITAmount, 4_560, tolerance: 1.0))
     }
 
-    @Test("E: Total tax ≈ $121,138 (AMT adds $42K to total)")
+    // Updated 2026-05-03 (ChatGPT review #6): AMT = $0 post-TCJA fix.
+    // Total = federal + CA + NIIT + AMT $0.
+    @Test("E: Total tax ≈ $78,704 (AMT = $0 post-TCJA; federal + CA + NIIT only)")
     func e_totalTax() {
         let dm = makeScenarioE()
-        // Federal $62,848 + CA $11,296 + NIIT $4,560 + AMT $42,434 = $121,138
+        // Federal $62,848 + CA $11,296 + NIIT $4,560 + AMT $0 = $78,703.85
         // (CA state tax reduced by state-specific itemized deductions: $361K vs $5.7K standard)
-        #expect(isClose(dm.scenarioTotalTax, 121_137.85, tolerance: 5.0))
-        // AMT should still add significant tax
+        #expect(isClose(dm.scenarioTotalTax, 78_703.85, tolerance: 5.0))
+        // scenarioTotalTax should equal component sum regardless of AMT amount
         let withoutAMT = dm.scenarioFederalTax + dm.scenarioStateTax + dm.scenarioNIITAmount
-        #expect(dm.scenarioTotalTax > withoutAMT + 40_000, "AMT should add >$40K to total tax")
+        #expect(isClose(dm.scenarioTotalTax, withoutAMT + dm.scenarioAMTAmount),
+                "scenarioTotalTax must equal federal + state + NIIT + AMT")
     }
 }
 

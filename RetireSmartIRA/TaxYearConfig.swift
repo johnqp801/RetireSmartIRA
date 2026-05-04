@@ -229,7 +229,8 @@ struct TaxYearConfig: Codable {
         saltExpandedFirstYear: 2025, saltExpandedLastYear: 2029, saltDefaultCap: 10000,
         amtExemptionSingle: 90100, amtExemptionMFJ: 140200,
         amtPhaseoutThresholdSingle: 500000, amtPhaseoutThresholdMFJ: 1000000,
-        amtPhaseoutRate: 0.50, amt26PercentLimit: 244500, amtRate26: 0.26, amtRate28: 0.28,
+        // amtPhaseoutRate per IRS: 25% (was 0.50 — wrong by 2x; ChatGPT review 2026-05-03 #1)
+        amtPhaseoutRate: 0.25, amt26PercentLimit: 244500, amtRate26: 0.26, amtRate28: 0.28,
         irmaaStandardPartB: 202.90,
         irmaaTiers: [
             IRMAATierEntry(tier: 0, singleThreshold: 0, mfjThreshold: 0, partBMonthly: 202.90, partDMonthly: 0),
