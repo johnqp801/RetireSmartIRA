@@ -70,10 +70,10 @@ struct MultiYearAssumptions: Codable, Equatable {
         self.perYearExpenseOverrides = try c.decode([Int: Double].self, forKey: .perYearExpenseOverrides)
         self.currentTaxableBalance = try c.decode(Double.self, forKey: .currentTaxableBalance)
         self.currentHSABalance = try c.decode(Double.self, forKey: .currentHSABalance)
-        self.baselineAnnualExpenses = (try? c.decode(Double.self, forKey: .baselineAnnualExpenses)) ?? 60_000
+        self.baselineAnnualExpenses = try c.decodeIfPresent(Double.self, forKey: .baselineAnnualExpenses) ?? 60_000
         self.terminalLiquidationTaxRate = try c.decode(Double.self, forKey: .terminalLiquidationTaxRate)
         self.cliffBuffer = try c.decode(Double.self, forKey: .cliffBuffer)
-        self.dismissedInsightKeys = (try? c.decode(Set<String>.self, forKey: .dismissedInsightKeys)) ?? []
+        self.dismissedInsightKeys = try c.decodeIfPresent(Set<String>.self, forKey: .dismissedInsightKeys) ?? []
     }
 
     static let `default` = MultiYearAssumptions()

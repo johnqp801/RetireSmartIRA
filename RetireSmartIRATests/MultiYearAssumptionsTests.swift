@@ -104,6 +104,32 @@ final class MultiYearAssumptionsTests: XCTestCase {
         XCTAssertEqual(decoded.baselineAnnualExpenses, 75_000)
         XCTAssertEqual(decoded.dismissedInsightKeys, ["ss-nudge-67-23k", "widow-stress-major"])
     }
+
+    func testMultiYearAssumptions_CorruptType_Throws() throws {
+        // JSON with a non-Double value for baselineAnnualExpenses — the decoder
+        // MUST throw rather than silently fall back to the default. This locks in
+        // the contract the dirty-flag pattern in Bundle C will depend on.
+        let badJSON = """
+        {
+            "horizonEndAge": 95,
+            "cpiRate": 0.025,
+            "investmentGrowthRate": 0.06,
+            "withdrawalOrderingRule": "tax_efficient",
+            "stressTestEnabled": true,
+            "perYearExpenseOverrides": {},
+            "currentTaxableBalance": 0,
+            "currentHSABalance": 0,
+            "terminalLiquidationTaxRate": 0.22,
+            "cliffBuffer": 5000,
+            "baselineAnnualExpenses": "not-a-number"
+        }
+        """.data(using: .utf8)!
+
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(MultiYearAssumptions.self, from: badJSON),
+            "Decoder must throw on type-mismatched baselineAnnualExpenses"
+        )
+    }
 }
 
 @Suite("MultiYearAssumptions — new fields", .serialized)
