@@ -43,7 +43,18 @@ enum MedicareCostEngine {
         let partB = partBBase + max(0, partBSurcharge)
 
         // Part D: base (override or config default) + IRMAA Part D surcharge.
-        let partDBase = partDOverride ?? config.medicare2026.partDAvgMonthly
+        //
+        // For Medicare Advantage Plus Drug (MAPD) plans, Part D coverage is INCLUDED
+        // in the Advantage premium — adding partDBase separately would double-count
+        // ~$50/month. However, Part D IRMAA surcharge is still separately billed by
+        // CMS even with MAPD, so the surcharge portion still applies. (ChatGPT review 2026-05-03 #2)
+        let partDBase: Double = {
+            switch planType {
+            case .originalMedicare: return partDOverride ?? config.medicare2026.partDAvgMonthly
+            case .medicareAdvantage: return 0  // Part D coverage included in Advantage premium
+            case .preMedicare: return 0  // unreachable due to early return above
+            }
+        }()
         let partDSurcharge = irmaa.monthlyPartD  // Part D IRMAA is purely additive surcharge
         let partD = partDBase + partDSurcharge
 

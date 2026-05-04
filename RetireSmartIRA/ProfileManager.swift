@@ -58,12 +58,23 @@ class ProfileManager: ObservableObject {
     }
 
     var rmdAge: Int {
-        if birthYear >= 1951 && birthYear <= 1959 {
-            return 73
-        } else if birthYear >= 1960 {
+        // SECURE Act 2.0 RMD age dispatcher by birth year cohort.
+        if birthYear >= 1960 {
             return 75
-        } else {
+        } else if birthYear >= 1951 {
+            return 73
+        } else if birthYear >= 1950 || (birthYear == 1949) {
+            // Born July 1, 1949 - 1950: SECURE Act 1.0 raised from 70½ to 72.
+            // (Note: precise SECURE 1.0 boundary is July 1, 1949. We approximate
+            // by treating all of 1949 as the new-cohort; the half-year nuance
+            // would require birth-month data, which the profile doesn't store.)
             return 72
+        } else {
+            // Born before 1949: pre-SECURE rules, RMD age 70½. Returned as 70
+            // here since rmdAge is Int. Practical impact for V2.0 is minimal —
+            // these users are 76+ and already deep in their RMDs; the engine's
+            // job is to plan FORWARD, not retroactively model past distributions.
+            return 70
         }
     }
 
@@ -95,12 +106,15 @@ class ProfileManager: ObservableObject {
 
     var spouseRmdAge: Int {
         guard enableSpouse else { return 0 }
-        if spouseBirthYear >= 1951 && spouseBirthYear <= 1959 {
-            return 73
-        } else if spouseBirthYear >= 1960 {
+        // SECURE Act 2.0 RMD age dispatcher by birth year cohort (mirrors rmdAge above).
+        if spouseBirthYear >= 1960 {
             return 75
-        } else {
+        } else if spouseBirthYear >= 1951 {
+            return 73
+        } else if spouseBirthYear >= 1950 || (spouseBirthYear == 1949) {
             return 72
+        } else {
+            return 70
         }
     }
 

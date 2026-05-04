@@ -154,10 +154,15 @@ struct ACASubsidyEngineCliffTests {
             regionalAdjustment: .mainland48,
             config: config
         )
-        // applicable_figure interpolated between 300%(0.08) and 400%(1.00):
-        // 360% is 60% of the way → 0.08 + 0.60 × 0.92 = 0.632
-        // expected = 54216 × 0.632 ≈ 34_265
-        // subsidy = max(0, 7800 - 34265) = 0
-        #expect(result.annualPremiumAssistance == 0)
+        // CORRECTED (ChatGPT review 2026-05-03 #1): cliff sentinel row (400% → 1.00) is now
+        // excluded from interpolation. The last non-cliff row is 300% → 0.08. A household
+        // at 360% FPL is above the last interpolatable row but below the cliff, so applicable
+        // figure stays at 0.08 (pre-ARPA expected contribution ceiling).
+        // applicable_figure = 0.08
+        // expected contribution = 54216 × 0.08 ≈ 4337.28
+        // subsidy = max(0, 7800 - 4337.28) ≈ 3462.72
+        #expect(abs(result.applicableFigure - 0.08) < 0.001)
+        #expect(result.annualPremiumAssistance > 0)
+        #expect(abs(result.annualPremiumAssistance - (7_800 - 54_216 * 0.08)) < 1.0)
     }
 }

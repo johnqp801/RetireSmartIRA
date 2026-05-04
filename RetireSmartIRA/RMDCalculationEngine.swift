@@ -13,12 +13,25 @@ struct RMDCalculationEngine {
     // MARK: - Core RMD
 
     static func calculateRMD(for age: Int, balance: Double) -> Double {
+        // V2.0 SIMPLIFICATION: First-RMD April 1 deferral not modeled.
+        // IRS allows the FIRST RMD to be deferred until April 1 of the year following
+        // the year the owner reaches RMD age. This engine assumes the RMD is taken
+        // in the turning-RMD-age year (no deferral). A user who defers their first
+        // RMD would actually take TWO RMDs in year 2 (year-1 deferred + year-2 current)
+        // — that double-RMD is not modeled here. V2.1 task.
         let divisor = lifeExpectancyFactor(for: age)
         return balance / divisor
     }
 
     // MARK: - IRS Uniform Lifetime Table III
 
+    // V2.0 SIMPLIFICATION: Joint Life and Last Survivor Expectancy Table not embedded.
+    // When the sole designated beneficiary is a spouse MORE than 10 years younger, IRS
+    // allows using the Joint Life table (IRS Pub 590-B Table II), which produces a
+    // larger factor (smaller RMD) than Uniform Lifetime Table III. This engine always
+    // uses Uniform Lifetime Table III, which slightly over-states RMDs for affected
+    // households. V2.1 should embed the Joint Life table and branch on the spouse-age
+    // differential when the sole-beneficiary-spouse flag is set.
     static func lifeExpectancyFactor(for age: Int) -> Double {
         let table: [Int: Double] = [
             70: 29.1, 71: 28.2, 72: 27.4, 73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7,
@@ -100,6 +113,14 @@ struct RMDCalculationEngine {
         //   per-type switch with rbdStatus forced to .beforeRBD via effectiveRBDStatus.
         if isRothInherited {
             if beneficiaryType == .spouse {
+                // V2.0 SIMPLIFICATION: Spouse inherited Roth uses zero-RMD placeholder.
+                // A surviving spouse who inherits a Roth IRA has no RMD obligation until
+                // the year the decedent would have reached applicable RMD age (§1.408-8(c)(2)).
+                // This placeholder correctly returns $0 for the PRE-applicable-age period but
+                // UNDER-STATES future RMDs after that date — in reality the spouse should begin
+                // taking RMDs (using their own SLE as sole beneficiary). V2.1 task: track
+                // the decedent's would-be RMD age and switch to lifetime-stretch RMD calculation
+                // once that year is reached.
                 return InheritedRMDResult(
                     annualRMD: 0,
                     mustEmptyByYear: nil,
@@ -164,6 +185,12 @@ struct RMDCalculationEngine {
             )
 
         case .notTenYearsYounger:
+            // V2.0 SIMPLIFICATION: Beneficiary classification trusts user-declared input.
+            // The engine does not validate the .notTenYearsYounger designation against
+            // actual birth years of the beneficiary and decedent — a user who incorrectly
+            // self-declares as a non-EDB (e.g., they ARE more than 10 years younger) would
+            // receive the wrong RMD treatment (lifetime stretch instead of 10-year rule).
+            // V2.1 task: validate against stored birth years and warn or auto-correct.
             guard yearsElapsed >= 1 else {
                 return InheritedRMDResult(annualRMD: 0, mustEmptyByYear: nil, yearsRemaining: nil,
                                           rule: "Not >10 years younger — RMDs begin the year after inheritance")

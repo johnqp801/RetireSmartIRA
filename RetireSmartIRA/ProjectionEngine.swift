@@ -22,9 +22,10 @@
 //
 //  RMD modeling (v2.0):
 //    RMD age depends on birth year per SECURE / SECURE 2.0:
-//      birthYear < 1951  → rmdAge = 72 (pre-SECURE)
-//      1951 ≤ birthYear ≤ 1959 → rmdAge = 73 (SECURE 1.0)
-//      birthYear ≥ 1960  → rmdAge = 75 (SECURE 2.0)
+//      birthYear < 1949  → rmdAge = 70 (pre-SECURE; represents 70½, returned as Int)
+//      birthYear 1949-1950 → rmdAge = 72 (SECURE Act 1.0 boundary ~July 1, 1949)
+//      1951 ≤ birthYear ≤ 1959 → rmdAge = 73 (SECURE Act 1.0)
+//      birthYear ≥ 1960  → rmdAge = 75 (SECURE Act 2.0)
 //
 //    Per IRS Pub 590-B, RMDs are calculated using the prior-year-end balance, which
 //    equals the start of the current year's loop iteration — BEFORE any explicit Roth
@@ -765,9 +766,11 @@ struct ProjectionEngine {
     ///   1951 ≤ birthYear ≤ 1959 → 73 (SECURE 1.0)
     ///   birthYear ≥ 1960  → 75 (SECURE 2.0)
     private func rmdAge(birthYear: Int) -> Int {
+        // SECURE Act 2.0 RMD age dispatcher (mirrors ProfileManager.rmdAge).
         if birthYear >= 1960 { return 75 }
         if birthYear >= 1951 { return 73 }
-        return 72
+        if birthYear >= 1949 { return 72 }  // SECURE Act 1.0 boundary ~July 1, 1949; approximate as all of 1949
+        return 70  // pre-SECURE: RMD age 70½, returned as Int
     }
 
     /// Compute state tax using TaxCalculationEngine.calculateStateTax.

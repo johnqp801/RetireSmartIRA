@@ -97,23 +97,33 @@ enum ACASubsidyEngine {
 
     /// Linear interpolation of applicable_figure between two adjacent FPL-percent rows.
     /// Below the first row → returns the first row's figure (0.00).
-    /// Above the cliff entry → returns 1.0 (caller short-circuits before calling).
+    /// Above the cliff entry → caller short-circuits before calling (see calculateSubsidy step 4).
     static func interpolateApplicableFigure(
         fplPercent: Double,
         schedule: [TaxYearConfig.ACASubsidyConfig.ApplicableFigure]
     ) -> Double {
-        guard let first = schedule.first else { return 0.0 }
+        // Filter out cliff sentinel rows (applicableFigure >= 1.0) — these mark the
+        // hard subsidy cliff and should not be used as interpolation endpoints.
+        // Without this, a household at 350% FPL would get interpolated between
+        // (300% → 0.08) and (400% → 1.00) → ~0.54 applicable figure (~54% of income
+        // expected as premium), which is wrong. The 300-400% FPL band should stay
+        // near the 300% schedule value (~8%) which represents pre-ARPA expected
+        // contribution ceiling. (ChatGPT review 2026-05-03 #1)
+        let interpolatable = schedule.filter { $0.applicableFigure < 1.0 }
+
+        guard let first = interpolatable.first else { return 0.0 }
         if fplPercent <= first.fplPercent { return first.applicableFigure }
+
         // Find the bracket: the largest row whose fplPercent <= fplPercent, and the next row.
-        for i in 0..<(schedule.count - 1) {
-            let lo = schedule[i]
-            let hi = schedule[i + 1]
+        for i in 0..<(interpolatable.count - 1) {
+            let lo = interpolatable[i]
+            let hi = interpolatable[i + 1]
             if fplPercent >= lo.fplPercent && fplPercent < hi.fplPercent {
                 let fraction = (fplPercent - lo.fplPercent) / (hi.fplPercent - lo.fplPercent)
                 return lo.applicableFigure + fraction * (hi.applicableFigure - lo.applicableFigure)
             }
         }
-        // At or beyond last row.
-        return schedule.last!.applicableFigure
+        // Above the last interpolatable row but below the cliff: stay at the last value.
+        return interpolatable.last!.applicableFigure
     }
 }
