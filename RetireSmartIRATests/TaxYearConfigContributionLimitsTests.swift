@@ -13,24 +13,30 @@ struct TaxYearConfigContributionLimitsTests {
     @Test("401(k) limits load with base + 3 catchup tiers")
     func four01kLimits() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        #expect(config.contributionLimits401k.base == 23_500)
-        #expect(config.contributionLimits401k.catchupAge50To59 == 7_500)
-        #expect(config.contributionLimits401k.catchupAge60To63 == 11_250)
-        #expect(config.contributionLimits401k.catchupAge64Plus == 7_500)
+        // Updated 2026-05-03 (constants refresh): old expected base 23_500/catchup50 7_500/catchup60 11_250/catchup64 7_500;
+        // new expected values reflect IRS Notice 2025-67 and SECURE 2.0 formula.
+        #expect(config.contributionLimits401k.base == 24_500)
+        #expect(config.contributionLimits401k.catchupAge50To59 == 8_000)
+        #expect(config.contributionLimits401k.catchupAge60To63 == 12_000)
+        #expect(config.contributionLimits401k.catchupAge64Plus == 8_000)
     }
 
     @Test("IRA limits load with base + over-50 catchup")
     func iraLimits() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        #expect(config.contributionLimitsIRA.base == 7_000)
-        #expect(config.contributionLimitsIRA.catchupAge50Plus == 1_000)
+        // Updated 2026-05-03 (constants refresh): old expected base 7_000/catchup 1_000;
+        // new expected values reflect IRS Notice 2025-67.
+        #expect(config.contributionLimitsIRA.base == 7_500)
+        #expect(config.contributionLimitsIRA.catchupAge50Plus == 1_100)
     }
 
     @Test("HSA limits load with self-only / family / over-55 catchup")
     func hsaLimits() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        #expect(config.contributionLimitsHSA.selfOnly == 4_300)
-        #expect(config.contributionLimitsHSA.family == 8_550)
+        // Updated 2026-05-03 (constants refresh): old expected selfOnly 4_300/family 8_550;
+        // new expected values reflect IRS Pub 969 / Rev. Proc. 2025-19.
+        #expect(config.contributionLimitsHSA.selfOnly == 4_400)
+        #expect(config.contributionLimitsHSA.family == 8_750)
         #expect(config.contributionLimitsHSA.catchupAge55Plus == 1_000)
     }
 }
@@ -54,8 +60,10 @@ struct TaxYearConfigACASubsidyTests {
     @Test("ACA FPL table loads with all 8 household sizes")
     func fplTableLoads() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["1"] == 15_060)
-        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["8"] == 52_720)
+        // Updated 2026-05-03 (constants refresh): old expected HH1 15_060/HH8 52_720;
+        // new expected values reflect HHS ASPE 2026 Poverty Guidelines.
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["1"] == 15_960)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["8"] == 55_720)
         #expect(config.acaSubsidy2026.fpl2026.alaskaMultiplier == 1.25)
         #expect(config.acaSubsidy2026.fpl2026.hawaiiMultiplier == 1.15)
     }

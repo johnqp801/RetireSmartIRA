@@ -36,11 +36,13 @@ struct ScenarioWarningEngineACATests {
 
     @Test("ACA approaching warning fires when within $5K of cliff")
     func acaApproachingFires() {
+        // Updated 2026-05-03 (constants refresh): old cliff was 400% of 15_060 = 60_240; old MAGI 57_000 was 3_240 from cliff.
+        // New cliff = 400% of 15_960 = 63_840. MAGI 60_000 is 3_840 from new cliff (within $5K threshold).
         let warnings = ScenarioWarningEngine.warningsFor(
-            federalAGI: FederalAGI(value: 57_000),
-            acaMAGI: ACAMAGI(value: 57_000),  // ~378% FPL for size 1; cliff at 60240
-            irmaaMAGI: IRMAAMAGI(value: 57_000),
-            baselineIRMAAMAGI: IRMAAMAGI(value: 57_000),
+            federalAGI: FederalAGI(value: 60_000),
+            acaMAGI: ACAMAGI(value: 60_000),  // ~375.9% FPL for size 1; cliff at 63_840
+            irmaaMAGI: IRMAAMAGI(value: 60_000),
+            baselineIRMAAMAGI: IRMAAMAGI(value: 60_000),
             primaryAge: 62, spouseAge: nil,
             primaryMedicarePlanType: .preMedicare,
             spouseMedicarePlanType: .preMedicare,

@@ -54,8 +54,9 @@ struct CliffCandidateGeneratorTests {
 
     @Test("Generates ACA 400% FPL fill candidate when ACA-relevant")
     func acaCliffMFJHousehold2() {
-        // 2026 FPL household size 2: 20_440. 400% = 81_760. Target = 81_760 - 5_000 = 76_760
-        // Baseline acaMagi = 50_000 → candidate = 76_760 - 50_000 = 26_760
+        // Updated 2026-05-03 (constants refresh): old FPL HH2 20_440 / 400% = 81_760 / candidate 26_760.
+        // New FPL HH2 = 21_640. 400% = 86_560. Target = 86_560 - 5_000 = 81_560
+        // Baseline acaMagi = 50_000 → candidate = 81_560 - 50_000 = 31_560
         let candidates = OptimizationEngine.cliffCandidates(
             forYear: 2026,
             baselineIRMAAMagi: nil,
@@ -65,8 +66,8 @@ struct CliffCandidateGeneratorTests {
             householdSize: 2,
             assumptions: makeAssumptions()
         )
-        #expect(candidates.contains(where: { abs($0 - 26_760) < 1 }),
-            "Expected ACA 400% FPL fill ~$26,760; got \(candidates)")
+        #expect(candidates.contains(where: { abs($0 - 31_560) < 1 }),
+            "Expected ACA 400% FPL fill ~$31,560; got \(candidates)")
     }
 
     @Test("Generates ordinary bracket fill candidates with no buffer")

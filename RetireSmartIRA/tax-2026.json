@@ -65,10 +65,10 @@
   "irmaaTiers": [
     { "tier": 0, "singleThreshold": 0, "mfjThreshold": 0, "partBMonthly": 202.90, "partDMonthly": 0 },
     { "tier": 1, "singleThreshold": 109001, "mfjThreshold": 218001, "partBMonthly": 284.10, "partDMonthly": 14.50 },
-    { "tier": 2, "singleThreshold": 137001, "mfjThreshold": 274001, "partBMonthly": 405.50, "partDMonthly": 37.40 },
-    { "tier": 3, "singleThreshold": 171001, "mfjThreshold": 342001, "partBMonthly": 527.00, "partDMonthly": 60.30 },
-    { "tier": 4, "singleThreshold": 205001, "mfjThreshold": 410001, "partBMonthly": 608.40, "partDMonthly": 83.10 },
-    { "tier": 5, "singleThreshold": 500001, "mfjThreshold": 750001, "partBMonthly": 689.90, "partDMonthly": 91.00 }
+    { "tier": 2, "singleThreshold": 137001, "mfjThreshold": 274001, "partBMonthly": 405.80, "partDMonthly": 37.50 },
+    { "tier": 3, "singleThreshold": 171001, "mfjThreshold": 342001, "partBMonthly": 527.50, "partDMonthly": 60.40 },
+    { "tier": 4, "singleThreshold": 205001, "mfjThreshold": 410001, "partBMonthly": 649.20, "partDMonthly": 83.30 },
+    { "tier": 5, "singleThreshold": 500001, "mfjThreshold": 750001, "partBMonthly": 689.80, "partDMonthly": 91.00 }
   ],
 
   "niitRate": 0.038,
@@ -90,20 +90,20 @@
   "medicalAGIFloorRate": 0.075,
 
   "contributionLimits401k": {
-    "base": 23500,
-    "catchupAge50To59": 7500,
-    "catchupAge60To63": 11250,
-    "catchupAge64Plus": 7500
+    "base": 24500,
+    "catchupAge50To59": 8000,
+    "catchupAge60To63": 12000,
+    "catchupAge64Plus": 8000
   },
 
   "contributionLimitsIRA": {
-    "base": 7000,
-    "catchupAge50Plus": 1000
+    "base": 7500,
+    "catchupAge50Plus": 1100
   },
 
   "contributionLimitsHSA": {
-    "selfOnly": 4300,
-    "family": 8550,
+    "selfOnly": 4400,
+    "family": 8750,
     "catchupAge55Plus": 1000
   },
 
@@ -117,8 +117,8 @@
   "acaSubsidy2026": {
     "fpl2026": {
       "householdSizeToFPL": {
-        "1": 15060, "2": 20440, "3": 25820, "4": 31200, "5": 36580,
-        "6": 41960, "7": 47340, "8": 52720
+        "1": 15960, "2": 21640, "3": 27320, "4": 33000, "5": 38680,
+        "6": 44360, "7": 50040, "8": 55720
       },
       "alaskaMultiplier": 1.25,
       "hawaiiMultiplier": 1.15

@@ -235,10 +235,10 @@ struct TaxYearConfig: Codable {
         irmaaTiers: [
             IRMAATierEntry(tier: 0, singleThreshold: 0, mfjThreshold: 0, partBMonthly: 202.90, partDMonthly: 0),
             IRMAATierEntry(tier: 1, singleThreshold: 109001, mfjThreshold: 218001, partBMonthly: 284.10, partDMonthly: 14.50),
-            IRMAATierEntry(tier: 2, singleThreshold: 137001, mfjThreshold: 274001, partBMonthly: 405.50, partDMonthly: 37.40),
-            IRMAATierEntry(tier: 3, singleThreshold: 171001, mfjThreshold: 342001, partBMonthly: 527.00, partDMonthly: 60.30),
-            IRMAATierEntry(tier: 4, singleThreshold: 205001, mfjThreshold: 410001, partBMonthly: 608.40, partDMonthly: 83.10),
-            IRMAATierEntry(tier: 5, singleThreshold: 500001, mfjThreshold: 750001, partBMonthly: 689.90, partDMonthly: 91.00)
+            IRMAATierEntry(tier: 2, singleThreshold: 137001, mfjThreshold: 274001, partBMonthly: 405.80, partDMonthly: 37.50),
+            IRMAATierEntry(tier: 3, singleThreshold: 171001, mfjThreshold: 342001, partBMonthly: 527.50, partDMonthly: 60.40),
+            IRMAATierEntry(tier: 4, singleThreshold: 205001, mfjThreshold: 410001, partBMonthly: 649.20, partDMonthly: 83.30),
+            IRMAATierEntry(tier: 5, singleThreshold: 500001, mfjThreshold: 750001, partBMonthly: 689.80, partDMonthly: 91.00)
         ],
         niitRate: 0.038, niitThresholdSingle: 200000, niitThresholdMFJ: 250000,
         ssTaxationThreshold1Single: 25000, ssTaxationThreshold2Single: 34000,
@@ -248,14 +248,14 @@ struct TaxYearConfig: Codable {
         caExemptionPhaseoutMFJ: 504406, caExemptionPhaseoutReductionPer2500: 6.0,
         medicalAGIFloorRate: 0.075,
         contributionLimits401k: ContributionLimits401k(
-            base: 23_500, catchupAge50To59: 7_500,
-            catchupAge60To63: 11_250, catchupAge64Plus: 7_500
+            base: 24_500, catchupAge50To59: 8_000,
+            catchupAge60To63: 12_000, catchupAge64Plus: 8_000
         ),
         contributionLimitsIRA: ContributionLimitsIRA(
-            base: 7_000, catchupAge50Plus: 1_000
+            base: 7_500, catchupAge50Plus: 1_100
         ),
         contributionLimitsHSA: ContributionLimitsHSA(
-            selfOnly: 4_300, family: 8_550, catchupAge55Plus: 1_000
+            selfOnly: 4_400, family: 8_750, catchupAge55Plus: 1_000
         ),
         medicare2026: MedicarePremiumDefaults(
             partBStandardMonthly: 202.90,
@@ -266,8 +266,8 @@ struct TaxYearConfig: Codable {
         acaSubsidy2026: ACASubsidyConfig(
             fpl2026: ACASubsidyConfig.FPL2026(
                 householdSizeToFPL: [
-                    "1": 15_060, "2": 20_440, "3": 25_820, "4": 31_200,
-                    "5": 36_580, "6": 41_960, "7": 47_340, "8": 52_720
+                    "1": 15_960, "2": 21_640, "3": 27_320, "4": 33_000,
+                    "5": 38_680, "6": 44_360, "7": 50_040, "8": 55_720
                 ],
                 alaskaMultiplier: 1.25, hawaiiMultiplier: 1.15
             ),

@@ -142,17 +142,19 @@ struct MedicareCostEngineAdvantageTests {
         #expect(result.irmaaTier == 2)
         // CORRECTED (ChatGPT review 2026-05-03 #2): MAPD plans include Part D base in
         // the Advantage premium. partDBase is now 0 for .medicareAdvantage; Part D IRMAA
-        // surcharge is still separately billed by CMS (37.40 at tier 2).
-        // Tier 2: partB monthly 405.50 (surcharge = 405.50 - 202.90 = 202.60)
-        //         partD base = 0 (included in Advantage), IRMAA surcharge 37.40
-        // partB = 202.90 + 202.60 = 405.50
-        // partD = 0 + 37.40 = 37.40
+        // surcharge is still separately billed by CMS.
+        // Updated 2026-05-03 (constants refresh): old expected partB 405.50/partD 37.40 derived from old constants;
+        // new expected partB 405.80/partD 37.50 reflects updated 2026 CMS values.
+        // Tier 2: partB monthly 405.80 (surcharge = 405.80 - 202.90 = 202.90)
+        //         partD base = 0 (included in Advantage), IRMAA surcharge 37.50
+        // partB = 202.90 + 202.90 = 405.80
+        // partD = 0 + 37.50 = 37.50
         // advantage = 50
-        // total = 492.90
-        #expect(abs(result.partB - 405.50) < 0.01)
-        #expect(abs(result.partD - 37.40) < 0.01)
+        // total = 493.30
+        #expect(abs(result.partB - 405.80) < 0.01)
+        #expect(abs(result.partD - 37.50) < 0.01)
         #expect(result.advantagePremium == 50.00)
-        #expect(abs(result.total - 492.90) < 0.01)
+        #expect(abs(result.total - 493.30) < 0.01)
     }
 }
 

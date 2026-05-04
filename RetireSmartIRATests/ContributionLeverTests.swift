@@ -23,63 +23,72 @@ struct ContributionLimitTests {
     func four01kUnder50() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1980)  // age 46 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 23_500)
+        // Updated 2026-05-03 (constants refresh): old expected 23_500; new expected 24_500 reflects IRS Notice 2025-67.
+        #expect(dm.four01kLimit(for: .primary) == 24_500)
     }
 
     @Test("401(k) age 50 → base + standard catchup")
     func four01kAge50() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1976)  // age 50 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)  // 23_500 + 7_500
+        // Updated 2026-05-03 (constants refresh): old expected 31_000 (23_500 + 7_500); new expected 32_500 (24_500 + 8_000).
+        #expect(dm.four01kLimit(for: .primary) == 32_500)  // 24_500 + 8_000
     }
 
     @Test("401(k) age 59 → base + standard catchup")
     func four01kAge59() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1967)  // age 59 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)
+        // Updated 2026-05-03 (constants refresh): old expected 31_000; new expected 32_500.
+        #expect(dm.four01kLimit(for: .primary) == 32_500)
     }
 
     @Test("401(k) age 60 → base + super catchup (SECURE 2.0)")
     func four01kAge60SuperCatchup() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1966)  // age 60 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 34_750)  // 23_500 + 11_250
+        // Updated 2026-05-03 (constants refresh): old expected 34_750 (23_500 + 11_250); new expected 36_500 (24_500 + 12_000).
+        #expect(dm.four01kLimit(for: .primary) == 36_500)  // 24_500 + 12_000
     }
 
     @Test("401(k) age 63 → base + super catchup (last super-catchup year)")
     func four01kAge63SuperCatchup() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1963)  // age 63 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 34_750)
+        // Updated 2026-05-03 (constants refresh): old expected 34_750; new expected 36_500.
+        #expect(dm.four01kLimit(for: .primary) == 36_500)
     }
 
     @Test("401(k) age 64 → drops back to standard catchup")
     func four01kAge64DropsBack() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1962)  // age 64 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)
+        // Updated 2026-05-03 (constants refresh): old expected 31_000; new expected 32_500.
+        #expect(dm.four01kLimit(for: .primary) == 32_500)
     }
 
     @Test("401(k) age 70 → standard catchup")
     func four01kAge70() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1956)  // age 70 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)
+        // Updated 2026-05-03 (constants refresh): old expected 31_000; new expected 32_500.
+        #expect(dm.four01kLimit(for: .primary) == 32_500)
     }
 
     @Test("IRA under 50 → base only")
     func iraUnder50() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1980)
-        #expect(dm.iraLimit(for: .primary) == 7_000)
+        // Updated 2026-05-03 (constants refresh): old expected 7_000; new expected 7_500 reflects IRS Notice 2025-67.
+        #expect(dm.iraLimit(for: .primary) == 7_500)
     }
 
     @Test("IRA age 50+ → base + 1000 catchup")
     func iraAge50Plus() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1976)
-        #expect(dm.iraLimit(for: .primary) == 8_000)
+        // Updated 2026-05-03 (constants refresh): old expected 8_000 (7_000 + 1_000); new expected 8_600 (7_500 + 1_100).
+        #expect(dm.iraLimit(for: .primary) == 8_600)
     }
 }
 
@@ -128,7 +137,8 @@ struct HSACombinedLimitTests {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1980)  // age 46
         dm.profile.filingStatus = .single
-        #expect(dm.hsaCombinedLimit() == 4_300)
+        // Updated 2026-05-03 (constants refresh): old expected 4_300; new expected 4_400 reflects IRS Rev. Proc. 2025-19.
+        #expect(dm.hsaCombinedLimit() == 4_400)
     }
 
     @Test("HSA combined limit for single filer age 55+ = self-only + catchup")
@@ -136,7 +146,8 @@ struct HSACombinedLimitTests {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1970)  // age 56
         dm.profile.filingStatus = .single
-        #expect(dm.hsaCombinedLimit() == 5_300)
+        // Updated 2026-05-03 (constants refresh): old expected 5_300 (4_300 + 1_000); new expected 5_400 (4_400 + 1_000).
+        #expect(dm.hsaCombinedLimit() == 5_400)
     }
 
     @Test("HSA combined limit for MFJ under 55 = family")
@@ -146,7 +157,8 @@ struct HSACombinedLimitTests {
         dm.profile.spouseBirthDate = dateForYear(1980)
         dm.profile.filingStatus = .marriedFilingJointly
         dm.enableSpouse = true
-        #expect(dm.hsaCombinedLimit() == 8_550)
+        // Updated 2026-05-03 (constants refresh): old expected 8_550; new expected 8_750 reflects IRS Rev. Proc. 2025-19.
+        #expect(dm.hsaCombinedLimit() == 8_750)
     }
 
     @Test("HSA combined limit for MFJ both 55+ = family + 2× catchup")
@@ -156,7 +168,8 @@ struct HSACombinedLimitTests {
         dm.profile.spouseBirthDate = dateForYear(1970)
         dm.profile.filingStatus = .marriedFilingJointly
         dm.enableSpouse = true
-        #expect(dm.hsaCombinedLimit() == 10_550)  // 8550 + 1000 + 1000
+        // Updated 2026-05-03 (constants refresh): old expected 10_550 (8_550 + 1_000 + 1_000); new expected 10_750 (8_750 + 1_000 + 1_000).
+        #expect(dm.hsaCombinedLimit() == 10_750)  // 8_750 + 1_000 + 1_000
     }
 
     @Test("HSA combined limit for MFJ one over 55 = family + 1× catchup")
@@ -166,7 +179,8 @@ struct HSACombinedLimitTests {
         dm.profile.spouseBirthDate = dateForYear(1980)  // age 46
         dm.profile.filingStatus = .marriedFilingJointly
         dm.enableSpouse = true
-        #expect(dm.hsaCombinedLimit() == 9_550)  // 8550 + 1000
+        // Updated 2026-05-03 (constants refresh): old expected 9_550 (8_550 + 1_000); new expected 9_750 (8_750 + 1_000).
+        #expect(dm.hsaCombinedLimit() == 9_750)  // 8_750 + 1_000
     }
 }
 

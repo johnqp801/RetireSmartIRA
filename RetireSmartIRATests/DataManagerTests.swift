@@ -77,7 +77,8 @@ import Foundation
         
         #expect(result.tier == 5)
         #expect(result.distanceToNextTier == nil)
-        #expect(result.monthlyPartB == 689.90)
+        // Updated 2026-05-03 (constants refresh): old expected 689.90 derived from old constant; new expected 689.80 reflects updated 2026 CMS value (10-cent correction).
+        #expect(result.monthlyPartB == 689.80)
     }
 }
 
