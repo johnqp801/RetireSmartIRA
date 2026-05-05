@@ -14,8 +14,8 @@
 //    primaryTraditional = iraAccounts filtered by .accountType.isTraditionalType && .owner == .primary
 //    spouseTraditional  = iraAccounts filtered by .accountType.isTraditionalType && .owner == .spouse
 //    roth               = iraAccounts filtered by .accountType.isRothType (both spouses combined)
-//    taxable            = caller-supplied (no AccountType for taxable in 1.9)
-//    hsa                = caller-supplied (no AccountType for HSA in 1.9)
+//    taxable            = assumptions.currentTaxableBalance (no AccountType for taxable in 1.9)
+//    hsa                = assumptions.currentHSABalance (no AccountType for HSA in 1.9)
 //
 //  Demographics:
 //    primaryCurrentAge   = dataManager.currentAge        (currentYear - birthYear)
@@ -46,9 +46,9 @@
 //    spouseMedicareEnrollmentAge  = 65 when enableSpouse, else nil
 //
 //  Expenses:
-//    baselineAnnualExpenses  = caller-supplied (no annualExpenses field exists in 1.9;
-//                              expenses are modeled implicitly via income-vs-withdrawal
-//                              planning rather than as an explicit budget line)
+//    baselineAnnualExpenses  = assumptions.baselineAnnualExpenses (migrated from caller-supplied
+//                              in Plan B; no annualExpenses field exists in 1.9; expenses are
+//                              modeled implicitly via income-vs-withdrawal planning)
 //
 
 import Foundation
@@ -62,18 +62,32 @@ enum MultiYearInputAdapter {
     ///   - dataManager: The live DataManager instance.
     ///   - scenarioState: The live ScenarioStateManager instance (also reachable as
     ///     `dataManager.scenario`, but passed separately to keep the signature testable).
-    ///   - currentTaxableBalance: Non-IRA taxable account balance. No AccountType for
-    ///     this in 1.9; caller supplies it (e.g., from a user-input field or MultiYearAssumptions).
-    ///   - currentHSABalance: HSA balance. Same rationale as taxable.
-    ///   - baselineAnnualExpenses: Annual household spending baseline in today's dollars.
-    ///     No single expense field exists in 1.9; caller supplies it.
+    ///   - assumptions: Per-scenario assumptions. `currentTaxableBalance`,
+    ///     `currentHSABalance`, and `baselineAnnualExpenses` are read from here.
+    ///   - excludeYear1Overrides: When `true`, zeroes all Year 1 lever values (Roth
+    ///     conversion, extra withdrawal, QCD for both spouses) before they flow into
+    ///     `MultiYearStaticInputs`. Used by `MultiYearStrategyManager` when building
+    ///     inputs for the engine-optimal baseline cache, so the optimizer chooses Year 1
+    ///     levers freely rather than being constrained to the user's slider values.
+    ///     Default `false` preserves existing call-site behaviour.
     static func build(
         from dataManager: DataManager,
         scenarioState: ScenarioStateManager,
-        currentTaxableBalance: Double,
-        currentHSABalance: Double,
-        baselineAnnualExpenses: Double
+        assumptions: MultiYearAssumptions,
+        excludeYear1Overrides: Bool = false
     ) -> MultiYearStaticInputs {
+
+        // Year 1 lever values — optionally zeroed for the optimal-baseline cache.
+        let primaryRoth      = excludeYear1Overrides ? 0 : dataManager.yourRothConversion
+        let spouseRoth       = excludeYear1Overrides ? 0 : dataManager.spouseRothConversion
+        let primaryWithdrawal = excludeYear1Overrides ? 0 : dataManager.yourExtraWithdrawal
+        let spouseWithdrawal = excludeYear1Overrides ? 0 : dataManager.spouseExtraWithdrawal
+        let primaryQCD       = excludeYear1Overrides ? 0 : dataManager.yourQCDAmount
+        let spouseQCD        = excludeYear1Overrides ? 0 : dataManager.spouseQCDAmount
+
+        let currentTaxableBalance = assumptions.currentTaxableBalance
+        let currentHSABalance = assumptions.currentHSABalance
+        let baselineAnnualExpenses = assumptions.baselineAnnualExpenses
 
         // MARK: Account Buckets
         // Roll up the 6 1.9 AccountType cases. Traditional buckets are split by owner so the
@@ -162,7 +176,13 @@ enum MultiYearInputAdapter {
             acaHouseholdSize: acaSize,
             primaryMedicareEnrollmentAge: primaryMedAge,
             spouseMedicareEnrollmentAge: spouseMedAge,
-            baselineAnnualExpenses: baselineAnnualExpenses
+            baselineAnnualExpenses: baselineAnnualExpenses,
+            year1PrimaryRothConversion: primaryRoth,
+            year1SpouseRothConversion: spouseRoth,
+            year1PrimaryWithdrawal: primaryWithdrawal,
+            year1SpouseWithdrawal: spouseWithdrawal,
+            year1PrimaryQCD: primaryQCD,
+            year1SpouseQCD: spouseQCD
         )
     }
 

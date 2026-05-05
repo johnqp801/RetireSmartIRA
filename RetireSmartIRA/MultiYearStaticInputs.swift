@@ -56,6 +56,19 @@ struct MultiYearStaticInputs: Equatable {
     // Living-expense baseline (annual, in today's dollars)
     let baselineAnnualExpenses: Double
 
+    // Year 1 lever values from DataManager slider state.
+    // These capture the user's current-year overrides (Roth conversion,
+    // extra withdrawal, QCD) so the engine can honor them in Year 1 of the
+    // projection. When `excludeYear1Overrides: true` is passed to
+    // MultiYearInputAdapter.build(), all six fields are zeroed so the engine
+    // computes the unconstrained optimal baseline path.
+    let year1PrimaryRothConversion: Double    // default 0
+    let year1SpouseRothConversion: Double     // default 0
+    let year1PrimaryWithdrawal: Double        // extra withdrawal, default 0
+    let year1SpouseWithdrawal: Double         // default 0
+    let year1PrimaryQCD: Double               // qualified charitable distribution, default 0
+    let year1SpouseQCD: Double                // default 0
+
     init(
         startingBalances: AccountSnapshot,
         primaryCurrentAge: Int,
@@ -78,7 +91,13 @@ struct MultiYearStaticInputs: Equatable {
         acaHouseholdSize: Int,
         primaryMedicareEnrollmentAge: Int,
         spouseMedicareEnrollmentAge: Int?,
-        baselineAnnualExpenses: Double
+        baselineAnnualExpenses: Double,
+        year1PrimaryRothConversion: Double = 0,
+        year1SpouseRothConversion: Double = 0,
+        year1PrimaryWithdrawal: Double = 0,
+        year1SpouseWithdrawal: Double = 0,
+        year1PrimaryQCD: Double = 0,
+        year1SpouseQCD: Double = 0
     ) {
         self.startingBalances = startingBalances
         self.primaryCurrentAge = primaryCurrentAge
@@ -102,6 +121,12 @@ struct MultiYearStaticInputs: Equatable {
         self.primaryMedicareEnrollmentAge = primaryMedicareEnrollmentAge
         self.spouseMedicareEnrollmentAge = spouseMedicareEnrollmentAge
         self.baselineAnnualExpenses = baselineAnnualExpenses
+        self.year1PrimaryRothConversion = year1PrimaryRothConversion
+        self.year1SpouseRothConversion = year1SpouseRothConversion
+        self.year1PrimaryWithdrawal = year1PrimaryWithdrawal
+        self.year1SpouseWithdrawal = year1SpouseWithdrawal
+        self.year1PrimaryQCD = year1PrimaryQCD
+        self.year1SpouseQCD = year1SpouseQCD
     }
 
     /// Returns a copy with the named spouse's claim age replaced (used by SSClaimNudge).
@@ -128,7 +153,13 @@ struct MultiYearStaticInputs: Equatable {
             acaHouseholdSize: acaHouseholdSize,
             primaryMedicareEnrollmentAge: primaryMedicareEnrollmentAge,
             spouseMedicareEnrollmentAge: spouseMedicareEnrollmentAge,
-            baselineAnnualExpenses: baselineAnnualExpenses
+            baselineAnnualExpenses: baselineAnnualExpenses,
+            year1PrimaryRothConversion: year1PrimaryRothConversion,
+            year1SpouseRothConversion: year1SpouseRothConversion,
+            year1PrimaryWithdrawal: year1PrimaryWithdrawal,
+            year1SpouseWithdrawal: year1SpouseWithdrawal,
+            year1PrimaryQCD: year1PrimaryQCD,
+            year1SpouseQCD: year1SpouseQCD
         )
     }
 }

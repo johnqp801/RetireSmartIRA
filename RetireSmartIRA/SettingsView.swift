@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var dataManager: DataManager
+    @Binding var selectedTab: Int
     @State private var stateSearchText = ""
     @State private var showTermsOfUse = false
     @State private var showPrivacyPolicy = false
@@ -23,7 +24,10 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-        Form {
+        VStack(spacing: 0) {
+            GetStartedBanner(selectedTab: $selectedTab)
+                .environmentObject(dataManager)
+            Form {
             Section("Personal Information") {
                 LabeledContent("Your Name") {
                     TextField("Name", text: $dataManager.userName)
@@ -332,6 +336,7 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
         }
         }
     }
@@ -691,7 +696,7 @@ private struct ACASettingsSection: View {
 
 #Preview {
     NavigationStack {
-        SettingsView()
+        SettingsView(selectedTab: .constant(1))
             .environmentObject(DataManager())
     }
 }

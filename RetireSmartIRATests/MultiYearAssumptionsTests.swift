@@ -66,6 +66,70 @@ final class MultiYearAssumptionsTests: XCTestCase {
         XCTAssertEqual(assumptions.horizonEndAge(for: .primary), 95)
         XCTAssertEqual(assumptions.horizonEndAge(for: .spouse), 95)
     }
+
+    func testMultiYearAssumptions_BackwardCompatible_Decoding() throws {
+        // JSON without baselineAnnualExpenses or dismissedInsightKeys —
+        // simulates a 1.9-internal save before Plan B added these fields.
+        let oldJSON = """
+        {
+            "horizonEndAge": 95,
+            "cpiRate": 0.025,
+            "investmentGrowthRate": 0.06,
+            "withdrawalOrderingRule": "tax_efficient",
+            "stressTestEnabled": true,
+            "perYearExpenseOverrides": {},
+            "currentTaxableBalance": 250000,
+            "currentHSABalance": 30000,
+            "terminalLiquidationTaxRate": 0.22,
+            "cliffBuffer": 5000
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(MultiYearAssumptions.self, from: oldJSON)
+
+        XCTAssertEqual(decoded.baselineAnnualExpenses, 60_000, "Should default to 60K when missing from old saves")
+        XCTAssertEqual(decoded.dismissedInsightKeys, [], "Should default to empty set when missing from old saves")
+        XCTAssertEqual(decoded.horizonEndAge, 95)
+        XCTAssertEqual(decoded.cpiRate, 0.025)
+    }
+
+    func testMultiYearAssumptions_RoundTrip_NewFields() throws {
+        var original = MultiYearAssumptions()
+        original.baselineAnnualExpenses = 75_000
+        original.dismissedInsightKeys = ["ss-nudge-67-23k", "widow-stress-major"]
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(MultiYearAssumptions.self, from: data)
+
+        XCTAssertEqual(decoded.baselineAnnualExpenses, 75_000)
+        XCTAssertEqual(decoded.dismissedInsightKeys, ["ss-nudge-67-23k", "widow-stress-major"])
+    }
+
+    func testMultiYearAssumptions_CorruptType_Throws() throws {
+        // JSON with a non-Double value for baselineAnnualExpenses — the decoder
+        // MUST throw rather than silently fall back to the default. This locks in
+        // the contract the dirty-flag pattern in Bundle C will depend on.
+        let badJSON = """
+        {
+            "horizonEndAge": 95,
+            "cpiRate": 0.025,
+            "investmentGrowthRate": 0.06,
+            "withdrawalOrderingRule": "tax_efficient",
+            "stressTestEnabled": true,
+            "perYearExpenseOverrides": {},
+            "currentTaxableBalance": 0,
+            "currentHSABalance": 0,
+            "terminalLiquidationTaxRate": 0.22,
+            "cliffBuffer": 5000,
+            "baselineAnnualExpenses": "not-a-number"
+        }
+        """.data(using: .utf8)!
+
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(MultiYearAssumptions.self, from: badJSON),
+            "Decoder must throw on type-mismatched baselineAnnualExpenses"
+        )
+    }
 }
 
 @Suite("MultiYearAssumptions — new fields", .serialized)

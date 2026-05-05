@@ -36,11 +36,25 @@ struct WidthAwareContainer<Content: View>: View {
 
 struct ContentView: View {
     @EnvironmentObject var dataManager: DataManager
-    @State private var selectedTab = 0
-    @State private var sidebarSelection: Int? = 0
+    @State private var selectedTab: Int
+    @State private var sidebarSelection: Int?
     #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
+
+    init() {
+        let tab = ContentView.detectSetupComplete() ? 5 : 1
+        _selectedTab = State(initialValue: tab)
+        _sidebarSelection = State(initialValue: tab)
+    }
+
+    static func detectSetupComplete() -> Bool {
+        let defaults = UserDefaults.standard
+        let hasFiling = defaults.string(forKey: "filingStatus") != nil
+        let hasAccounts = defaults.data(forKey: "iraAccounts") != nil
+        let hasSS = defaults.data(forKey: "primarySSBenefit") != nil
+        return hasFiling && hasAccounts && hasSS
+    }
 
     var body: some View {
         #if os(macOS)
@@ -61,8 +75,6 @@ struct ContentView: View {
         NavigationSplitView {
             List(selection: $selectedTab) {
                 Section("Setup") {
-                    Label("Get Started", systemImage: "sparkles")
-                        .tag(0)
                     Label("My Profile", systemImage: "person.crop.circle.fill")
                         .tag(1)
                     Label("Social Security", systemImage: "person.text.rectangle.fill")
@@ -76,10 +88,8 @@ struct ContentView: View {
                 Section("Analysis") {
                     Label("RMD Calculator", systemImage: "calendar.badge.clock")
                         .tag(4)
-                    Label("Scenarios", systemImage: "slider.horizontal.3")
+                    Label("Tax Planning", systemImage: "chart.bar.doc.horizontal.fill")
                         .tag(5)
-                    Label("Tax Summary", systemImage: "chart.bar.fill")
-                        .tag(6)
                 }
 
                 Section("More") {
@@ -100,17 +110,15 @@ struct ContentView: View {
     @ViewBuilder
     private var macDetailView: some View {
         switch selectedTab {
-        case 0: GuideView(selectedTab: $selectedTab)
-        case 1: SettingsView()
+        case 1: SettingsView(selectedTab: $selectedTab)
         case 2: IncomeSourcesView()
         case 3: AccountsView()
         case 4: RMDCalculatorView()
         case 5: TaxPlanningView()
-        case 6: DashboardView()
         case 7: QuarterlyTaxView()
         case 8: StateComparisonView()
         case 9: SocialSecurityPlannerView()
-        default: GuideView(selectedTab: $selectedTab)
+        default: SettingsView(selectedTab: $selectedTab)
         }
     }
     #endif
@@ -122,8 +130,6 @@ struct ContentView: View {
         NavigationSplitView {
             List(selection: $sidebarSelection) {
                 Section("Setup") {
-                    Label("Get Started", systemImage: "sparkles")
-                        .tag(0)
                     Label("My Profile", systemImage: "person.crop.circle.fill")
                         .tag(1)
                     Label("Social Security", systemImage: "person.text.rectangle.fill")
@@ -137,10 +143,8 @@ struct ContentView: View {
                 Section("Analysis") {
                     Label("RMD Calculator", systemImage: "calendar.badge.clock")
                         .tag(4)
-                    Label("Scenarios", systemImage: "slider.horizontal.3")
+                    Label("Tax Planning", systemImage: "chart.bar.doc.horizontal.fill")
                         .tag(5)
-                    Label("Tax Summary", systemImage: "chart.bar.fill")
-                        .tag(6)
                 }
 
                 Section("More") {
@@ -168,17 +172,15 @@ struct ContentView: View {
     @ViewBuilder
     private var ipadDetailView: some View {
         switch sidebarSelection {
-        case 0: GuideView(selectedTab: $selectedTab)
-        case 1: SettingsView()
+        case 1: SettingsView(selectedTab: $selectedTab)
         case 2: IncomeSourcesView()
         case 3: AccountsView()
         case 4: RMDCalculatorView()
         case 5: TaxPlanningView()
-        case 6: DashboardView()
         case 7: QuarterlyTaxView()
         case 8: StateComparisonView()
         case 9: SocialSecurityPlannerView()
-        default: GuideView(selectedTab: $selectedTab)
+        default: SettingsView(selectedTab: $selectedTab)
         }
     }
     #endif
@@ -187,64 +189,37 @@ struct ContentView: View {
 
     private var tabBody: some View {
         TabView(selection: $selectedTab) {
-            GuideView(selectedTab: $selectedTab)
-                .tabItem {
-                    Label("Get Started", systemImage: "sparkles")
-                }
-                .tag(0)
-
-            SettingsView()
-                .tabItem {
-                    Label("My Profile", systemImage: "person.crop.circle.fill")
-                }
+            SettingsView(selectedTab: $selectedTab)
+                .tabItem { Label("My Profile", systemImage: "person.crop.circle.fill") }
                 .tag(1)
 
-            SocialSecurityPlannerView()
-                .tabItem {
-                    Label("Social Security", systemImage: "person.text.rectangle.fill")
-                }
-                .tag(9)
-
             IncomeSourcesView()
-                .tabItem {
-                    Label("Income & Deductions", systemImage: "banknote.fill")
-                }
+                .tabItem { Label("Income", systemImage: "banknote.fill") }
                 .tag(2)
 
             AccountsView()
-                .tabItem {
-                    Label("Accounts", systemImage: "building.columns.fill")
-                }
+                .tabItem { Label("Accounts", systemImage: "building.columns.fill") }
                 .tag(3)
 
-            RMDCalculatorView()
-                .tabItem {
-                    Label("RMD Calculator", systemImage: "calendar.badge.clock")
-                }
-                .tag(4)
+            SocialSecurityPlannerView()
+                .tabItem { Label("Social Security", systemImage: "person.text.rectangle.fill") }
+                .tag(9)
 
             TaxPlanningView()
-                .tabItem {
-                    Label("Scenarios", systemImage: "slider.horizontal.3")
-                }
+                .tabItem { Label("Tax Planning", systemImage: "chart.bar.doc.horizontal.fill") }
                 .tag(5)
 
-            DashboardView()
-                .tabItem {
-                    Label("Tax Summary", systemImage: "chart.bar.fill")
-                }
-                .tag(6)
+            // Items below appear in the More menu automatically (iOS auto-overflow past 5):
+            RMDCalculatorView()
+                .tabItem { Label("RMD Calculator", systemImage: "calendar.badge.clock") }
+                .tag(4)
 
             QuarterlyTaxView()
-                .tabItem {
-                    Label("Quarterly Tax", systemImage: "dollarsign.circle.fill")
-                }
+                .tabItem { Label("Quarterly Tax", systemImage: "dollarsign.circle.fill") }
                 .tag(7)
 
             StateComparisonView()
-                .tabItem {
-                    Label("State Comparison", systemImage: "map.fill")
-                }
+                .tabItem { Label("State Comparison", systemImage: "map.fill") }
                 .tag(8)
         }
     }

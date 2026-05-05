@@ -9,7 +9,7 @@ import AppKit
 typealias LegacyPlatformColor = NSColor
 #endif
 
-/// Extracted from TaxPlanningView to reduce view hierarchy depth and prevent
+/// Extracted from ScenarioBuilderView to reduce view hierarchy depth and prevent
 /// EXC_BAD_ACCESS stack overflow on physical devices (iPad).
 struct LegacyImpactView: View {
     @EnvironmentObject var dataManager: DataManager
