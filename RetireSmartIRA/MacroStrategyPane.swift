@@ -8,7 +8,6 @@ import SwiftUI
 struct MacroStrategyPane: View {
     @ObservedObject var manager: MultiYearStrategyManager
     @Binding var selectedYear: Int?
-    @State private var computeError: Error? = nil
     @AppStorage("lockedOverlayDismissed") private var overlayDismissed = false
     @State private var showOnboardingSheet = false
 
@@ -62,7 +61,7 @@ struct MacroStrategyPane: View {
                     )
                 } else if !manager.hasEverComputed {
                     MacroPaneSkeleton()
-                } else if computeError != nil {
+                } else if manager.computeFailed {
                     errorView
                 } else {
                     MacroPaneSkeleton()

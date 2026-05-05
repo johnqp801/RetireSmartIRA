@@ -22,6 +22,7 @@ final class MultiYearStrategyManager: ObservableObject {
     @Published private(set) var isComputing: Bool = false
     @Published private(set) var hasEverComputed: Bool = false
     @Published private(set) var firstOffPlanShown: Bool = false
+    @Published private(set) var computeFailed: Bool = false
 
     // MARK: - Internal state
 
@@ -151,9 +152,11 @@ final class MultiYearStrategyManager: ObservableObject {
     // MARK: - Internal compute
 
     private func performCompute() async {
+        self.computeFailed = false
         guard let dataManager = self.dataManager,
               let scenarioStateManager = self.scenarioStateManager else {
             // Manager not attached — clear computing flag and bail.
+            self.computeFailed = true
             self.isComputing = false
             return
         }
