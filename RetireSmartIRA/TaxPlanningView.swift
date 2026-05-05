@@ -11,7 +11,6 @@ import SwiftUI
 
 struct TaxPlanningView: View {
     @EnvironmentObject var dataManager: DataManager
-    @EnvironmentObject var scenarioStateManager: ScenarioStateManager
     @StateObject private var manager = MultiYearStrategyManager()
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -33,7 +32,7 @@ struct TaxPlanningView: View {
             }
         }
         .onAppear {
-            manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+            manager.attach(dataManager: dataManager, scenarioStateManager: dataManager.scenario)
             if let saved = dataManager.multiYearAssumptions {
                 manager.assumptions = saved
             }
