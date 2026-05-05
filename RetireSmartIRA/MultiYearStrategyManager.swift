@@ -92,6 +92,7 @@ final class MultiYearStrategyManager: ObservableObject {
 
         debounceTask?.cancel()
         isComputing = true
+        computeFailed = false
 
         debounceTask = Task { [weak self] in
             // Debounce window — 500ms after last call.

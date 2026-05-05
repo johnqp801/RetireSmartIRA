@@ -59,8 +59,6 @@ struct MacroStrategyPane: View {
                         tradeOffs: result.tradeOffsAccepted,
                         selectedYear: $selectedYear
                     )
-                } else if !manager.hasEverComputed {
-                    MacroPaneSkeleton()
                 } else if manager.computeFailed {
                     errorView
                 } else {
