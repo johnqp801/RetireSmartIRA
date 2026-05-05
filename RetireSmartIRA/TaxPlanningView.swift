@@ -60,6 +60,24 @@ struct TaxPlanningView: View {
 
     private var compactLayout: some View {
         MacroStrategyPane(manager: manager, selectedYear: $selectedYear)
+            .sheet(isPresented: .constant(true)) {
+                TaxPlanningBottomSheet(
+                    manager: manager,
+                    selectedYear: selectedYear,
+                    detent: $sheetDetent
+                )
+                .environmentObject(dataManager)
+                .presentationDetents(
+                    [.fraction(0.15), .medium, .large],
+                    selection: $sheetDetent
+                )
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .interactiveDismissDisabled(true)
+            }
+            .onChange(of: selectedYear) { _, newYear in
+                guard let newYear else { return }
+                sheetDetent = (newYear == dataManager.currentYear) ? .medium : .fraction(0.15)
+            }
     }
 
     @ViewBuilder
