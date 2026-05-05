@@ -21,9 +21,11 @@ struct OffPlanIndicator: View {
         HStack(spacing: 8) {
             Image(systemName: iconName)
                 .foregroundColor(iconColor)
+                .accessibilityHidden(true)
             Text(label)
                 .font(.caption.weight(.semibold))
                 .foregroundColor(textColor)
+                .accessibilityLabel(accessibilityLabel)
 
             if showsResetLink {
                 Button("Reset", action: onReset)
@@ -40,9 +42,7 @@ struct OffPlanIndicator: View {
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
         .background(backgroundColor)
-        .cornerRadius(6)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var accessibilityLabel: String {
