@@ -28,7 +28,7 @@ struct MacroPaneSkeleton: View {
     private func shimmerBlock(height: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 8)
             .fill(LinearGradient(
-                colors: [Color(.tertiarySystemFill), Color(.secondarySystemFill), Color(.tertiarySystemFill)],
+                colors: [Color(PlatformColor.tertiarySystemFill), Color(PlatformColor.secondarySystemFill), Color(PlatformColor.tertiarySystemFill)],
                 startPoint: UnitPoint(x: phase - 0.3, y: 0.5),
                 endPoint: UnitPoint(x: phase + 0.3, y: 0.5)
             ))

@@ -20,9 +20,9 @@ struct YearListView: View {
                 Divider()
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.separator), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 0.5))
     }
 
     private var header: some View {
@@ -37,7 +37,7 @@ struct YearListView: View {
         .tracking(0.5)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
     }
 
     private func row(for y: YearRecommendation) -> some View {

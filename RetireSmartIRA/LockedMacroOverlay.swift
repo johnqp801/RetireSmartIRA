@@ -29,7 +29,7 @@ struct LockedMacroOverlay: View {
                 .font(.caption)
         }
         .padding(28)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .cornerRadius(14)
         .shadow(radius: 8)
         .padding()

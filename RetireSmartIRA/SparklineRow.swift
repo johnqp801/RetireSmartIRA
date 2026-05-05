@@ -31,7 +31,7 @@ struct SparklineRow: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .cornerRadius(6)
     }
 }

@@ -21,9 +21,9 @@ struct Year1QuickEditor: View {
             resetButton
         }
         .padding(14)
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .cornerRadius(10)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.separator), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.3), lineWidth: 0.5))
     }
 
     private var header: some View {
@@ -137,7 +137,7 @@ struct Year1QuickEditor: View {
             }
         }
         .padding(10)
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .cornerRadius(6)
     }
 

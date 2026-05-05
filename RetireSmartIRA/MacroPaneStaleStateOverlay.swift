@@ -18,7 +18,7 @@ struct StaleStateOverlay: ViewModifier {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(.systemBackground))
+                    .background(Color(PlatformColor.systemBackground))
                     .cornerRadius(6)
                     .shadow(radius: 2)
                     .padding(8)

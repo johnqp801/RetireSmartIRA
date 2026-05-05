@@ -16,8 +16,11 @@ import AppKit
 extension NSColor {
     static let systemBackground = NSColor.windowBackgroundColor
     static let systemGroupedBackground = NSColor.controlBackgroundColor
+    static let secondarySystemGroupedBackground = NSColor.controlBackgroundColor
     static let systemGray5 = NSColor.separatorColor
     static let secondarySystemBackground = NSColor.controlBackgroundColor
+    static let secondarySystemFill = NSColor.labelColor.withAlphaComponent(0.12)
+    static let tertiarySystemFill = NSColor.labelColor.withAlphaComponent(0.06)
 }
 typealias PlatformColor = NSColor
 #endif

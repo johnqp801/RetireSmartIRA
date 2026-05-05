@@ -42,7 +42,7 @@ struct SetupGapEmptyState: View {
                 }
             }
             .padding()
-            .background(Color(.secondarySystemBackground))
+            .background(Color(PlatformColor.secondarySystemBackground))
             .cornerRadius(8)
         }
         .padding()

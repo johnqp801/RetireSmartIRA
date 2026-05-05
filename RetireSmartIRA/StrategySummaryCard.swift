@@ -16,7 +16,7 @@ struct StrategySummaryCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
+        .background(Color(PlatformColor.secondarySystemBackground))
         .cornerRadius(8)
     }
 }

@@ -34,7 +34,7 @@ struct YearProjectionCard: View {
             }
             .padding(14)
         }
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
     }
 
     private var header: some View {
@@ -47,7 +47,7 @@ struct YearProjectionCard: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Color(.secondarySystemBackground))
+                .background(Color(PlatformColor.secondarySystemBackground))
                 .cornerRadius(4)
         }
     }
@@ -67,7 +67,7 @@ struct YearProjectionCard: View {
                 }
             }
             .padding(8)
-            .background(Color(.secondarySystemBackground))
+            .background(Color(PlatformColor.secondarySystemBackground))
             .cornerRadius(6)
         }
     }

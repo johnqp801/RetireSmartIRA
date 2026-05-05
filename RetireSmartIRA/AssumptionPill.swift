@@ -32,7 +32,7 @@ struct AssumptionPill: View {
 
     private var backgroundColor: Color {
         switch style {
-        case .standard, .toggleOff: return Color(.tertiarySystemFill)
+        case .standard, .toggleOff: return Color(PlatformColor.tertiarySystemFill)
         case .featured: return .blue.opacity(0.15)
         case .toggleOn: return .green
         case .overflow: return .clear

@@ -27,7 +27,7 @@ struct AssumptionsPillBar: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
         }
-        .background(Color(.systemBackground))
+        .background(Color(PlatformColor.systemBackground))
         .overlay(Divider(), alignment: .bottom)
     }
 

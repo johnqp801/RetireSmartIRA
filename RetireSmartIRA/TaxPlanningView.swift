@@ -103,7 +103,7 @@ struct TaxPlanningView: View {
                     }
                     .padding(14)
                 }
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(Color(PlatformColor.secondarySystemGroupedBackground))
             } else {
                 let priorIdx = result.recommendedPath.firstIndex(where: { $0.year == year }) ?? 0
                 let priorRec: YearRecommendation? = priorIdx > 0 ? result.recommendedPath[priorIdx - 1] : nil
@@ -118,7 +118,7 @@ struct TaxPlanningView: View {
         } else {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(Color(PlatformColor.secondarySystemGroupedBackground))
         }
     }
 }
