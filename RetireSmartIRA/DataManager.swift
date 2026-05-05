@@ -226,6 +226,10 @@ class DataManager: ObservableObject {
     /// User's chosen safe harbor method for estimated tax calculations.
     @Published var safeHarborMethod: SafeHarborMethod = .currentYear90
 
+    /// V2.0 multi-year assumptions. nil for users coming from 1.x;
+    /// populated on first Tax Planning visit via the onboarding sheet.
+    @Published var multiYearAssumptions: MultiYearAssumptions? = nil
+
     // Social Security Planner (forwarding to SocialSecurityManager)
     var primarySSBenefit: SSBenefitEstimate? {
         get { socialSecurity.primarySSBenefit }

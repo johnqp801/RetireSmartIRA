@@ -78,6 +78,9 @@ struct PersistenceManager {
         static let enableACAModeling = "enableACAModeling"
         static let acaHouseholdSize = "acaHouseholdSize"
         static let acaBenchmarkSilverPlanMonthlyOverride = "acaBenchmarkSilverPlanMonthlyOverride"
+
+        // V2.0 Plan B
+        static let multiYearAssumptions = "multiYearAssumptions"
     }
 
     // MARK: - Load All
@@ -335,6 +338,11 @@ struct PersistenceManager {
             dm.scenario.acaBenchmarkSilverPlanMonthlyOverride = defaults.double(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
         }
 
+        // V2.0 Plan B: multiYearAssumptions stored as JSON Data
+        if let data = defaults.data(forKey: StorageKey.multiYearAssumptions) {
+            dm.multiYearAssumptions = try? JSONDecoder().decode(MultiYearAssumptions.self, from: data)
+        }
+
         // Social Security Planner data
         dm.loadSSData()
     }
@@ -522,6 +530,14 @@ struct PersistenceManager {
             defaults.set(v, forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
         } else {
             defaults.removeObject(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        }
+
+        // V2.0 Plan B: multiYearAssumptions persisted as JSON Data; nil means clear
+        if let assumptions = dm.multiYearAssumptions,
+           let data = try? JSONEncoder().encode(assumptions) {
+            defaults.set(data, forKey: StorageKey.multiYearAssumptions)
+        } else {
+            defaults.removeObject(forKey: StorageKey.multiYearAssumptions)
         }
 
         // Social Security Planner data
