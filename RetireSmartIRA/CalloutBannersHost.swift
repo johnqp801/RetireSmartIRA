@@ -27,10 +27,8 @@ struct CalloutBannersHost: View {
         return InsightCalloutBanner(
             title: "Delay SS could save ~$\(Int(savings / 1000))K",
             message: "Engine suggests claiming at age \(nudge.suggestedClaimAge) instead of \(nudge.currentClaimAge) for the \(nudge.spouse == .primary ? "primary" : "spouse").",
-            primaryActionLabel: "Re-run with \(nudge.suggestedClaimAge)",
-            onPrimaryAction: {
-                // V2.0: no-op — applying SS age suggestion requires DataManager API not yet available in this context
-            },
+            primaryActionLabel: nil,
+            onPrimaryAction: nil,
             onDismiss: {
                 manager.dismissInsight(ssNudgeKey(nudge))
             },
