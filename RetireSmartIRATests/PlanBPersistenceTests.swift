@@ -10,18 +10,19 @@ import XCTest
 final class PlanBPersistenceTests: XCTestCase {
 
     private let testKey = "multiYearAssumptions"
+    private var suiteName: String!
     private var testDefaults: UserDefaults!
 
     override func setUp() {
         super.setUp()
-        testDefaults = UserDefaults(suiteName: "PlanBPersistenceTests-\(UUID().uuidString)")!
+        suiteName = "PlanBPersistenceTests-\(UUID().uuidString)"
+        testDefaults = UserDefaults(suiteName: suiteName)!
     }
 
     override func tearDown() {
-        if let suiteName = testDefaults.dictionaryRepresentation().keys.first {
-            testDefaults.removePersistentDomain(forName: suiteName)
-        }
+        testDefaults.removePersistentDomain(forName: suiteName)
         testDefaults = nil
+        suiteName = nil
         super.tearDown()
     }
 
@@ -42,6 +43,8 @@ final class PlanBPersistenceTests: XCTestCase {
         XCTAssertNotNil(dm2.multiYearAssumptions)
         XCTAssertEqual(dm2.multiYearAssumptions?.baselineAnnualExpenses, 72_000)
         XCTAssertEqual(dm2.multiYearAssumptions?.dismissedInsightKeys, ["test-insight-key"])
+        XCTAssertEqual(dm2.multiYearAssumptions, assumptions,
+            "Full struct equality — catches future field additions that bypass round-trip")
     }
 
     func testMultiYearAssumptions_NilOnFreshDataManager() {

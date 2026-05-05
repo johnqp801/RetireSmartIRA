@@ -36,8 +36,10 @@ struct Year1Overrides: Hashable {
 }
 
 extension Year1Overrides {
-    /// Construct from a DataManager snapshot. Reads the same bindings
-    /// the Year1QuickEditor sliders write to.
+    /// Construct from a DataManager snapshot. Reads @Published bindings
+    /// the Year1QuickEditor sliders write to, so this MUST be called from
+    /// the main actor.
+    @MainActor
     static func from(dataManager: DataManager) -> Year1Overrides {
         Year1Overrides(
             primaryRothConversion: dataManager.yourRothConversion,
