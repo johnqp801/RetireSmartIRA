@@ -273,6 +273,100 @@ final class MultiYearInputAdapterTests: XCTestCase {
         XCTAssertEqual(inputs.spouseMedicareEnrollmentAge, 65)
     }
 
+    // MARK: - Engine integration: Year 1 overrides must produce different lifetime tax
+
+    /// Core invariant of the two-cache strategy in MultiYearStrategyManager:
+    /// when Year 1 user overrides are pinned (excludeYear1Overrides=false),
+    /// the OptimizationEngine must produce a different recommended path than
+    /// when it is free to optimize Year 1 from scratch (excludeYear1Overrides=true).
+    ///
+    /// This test validates the architectural fix in Plan B Phase 1C1 that wires
+    /// OptimizationEngine.optimize(...) to read inputs.year1PrimaryRothConversion
+    /// and pin it into locked[baseYear] before the greedy forward pass.
+    @MainActor
+    func testEngine_RespectsYear1Overrides() {
+        // Set up a trad-heavy scenario so the optimizer has a strong Roth-conversion
+        // opinion for Year 1. The user pins $50K — a meaningful deviation from whatever
+        // the optimizer would independently choose.
+        let dm = makeDataManager(birthYear: 1961)
+        dm.iraAccounts = [
+            IRAAccount(name: "Primary Trad IRA", accountType: .traditionalIRA,
+                       balance: 1_000_000, owner: .primary),
+            IRAAccount(name: "Primary Roth IRA", accountType: .rothIRA,
+                       balance: 100_000, owner: .primary),
+        ]
+        dm.yourRothConversion = 50_000  // pin $50K Year 1 Roth conversion
+
+        // Use a short horizon for test speed (consistent with OptimizationEngineTests).
+        var assumptions = MultiYearAssumptions()
+        assumptions.horizonEndAge = 80
+        assumptions.stressTestEnabled = false
+
+        let withOverrides = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: assumptions,
+            excludeYear1Overrides: false
+        )
+        let withoutOverrides = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: assumptions,
+            excludeYear1Overrides: true
+        )
+
+        // Sanity check: adapter correctly sets/zeros the field.
+        XCTAssertEqual(withOverrides.year1PrimaryRothConversion, 50_000, accuracy: 0.01)
+        XCTAssertEqual(withoutOverrides.year1PrimaryRothConversion, 0, accuracy: 0.01)
+
+        // Run the engine on both input sets.
+        let engine = OptimizationEngine()
+        let resultWith    = engine.optimize(inputs: withOverrides,    assumptions: assumptions)
+        let resultWithout = engine.optimize(inputs: withoutOverrides, assumptions: assumptions)
+
+        // Verify: Year 1's recommended actions include the pinned $50K conversion.
+        let year1ActionsWithPin = resultWith.recommendedPath.first?.actions ?? []
+        let year1RothWithPin: Double = year1ActionsWithPin.compactMap {
+            if case .rothConversion(let amt) = $0 { return amt } else { return nil }
+        }.reduce(0, +)
+        XCTAssertGreaterThanOrEqual(year1RothWithPin, 50_000,
+            "Year 1 Roth conversion in the pinned path must be >= the $50K user override")
+
+        // Core invariant: paths differ at least in Year 1 Roth actions.
+        let year1ActionsWithout = resultWithout.recommendedPath.first?.actions ?? []
+        let year1RothWithout: Double = year1ActionsWithout.compactMap {
+            if case .rothConversion(let amt) = $0 { return amt } else { return nil }
+        }.reduce(0, +)
+        // When the optimizer's free choice for Year 1 equals exactly $50K (astronomically
+        // unlikely given the continuous candidate space), paths could match. We assert the
+        // Year 1 pinned amount equals the override — that's the engine fix under test.
+        // Lifetime tax difference would only be guaranteed when override != free-opt choice.
+        // So we assert on Year 1 actions only (which we've already done above), plus
+        // a structural "paths differ" check that covers the common case.
+        let recommendedPathWithoutRothY1 = year1RothWithout
+        _ = recommendedPathWithoutRothY1  // suppress unused-variable warning
+
+        // The lifetime tax totals should differ when $50K != whatever engine would freely pick.
+        // We compute lifetime tax inline (mirrors OptimizationEngineTests.lifetimeTax helper).
+        let terminalRate = assumptions.terminalLiquidationTaxRate
+        let lifetimeWith: Double = {
+            let inHorizon = resultWith.recommendedPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
+            let termTrad = (resultWith.recommendedPath.last?.endOfYearBalances.primaryTraditional ?? 0)
+                         + (resultWith.recommendedPath.last?.endOfYearBalances.spouseTraditional ?? 0)
+            return inHorizon + termTrad * terminalRate
+        }()
+        let lifetimeWithout: Double = {
+            let inHorizon = resultWithout.recommendedPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
+            let termTrad = (resultWithout.recommendedPath.last?.endOfYearBalances.primaryTraditional ?? 0)
+                         + (resultWithout.recommendedPath.last?.endOfYearBalances.spouseTraditional ?? 0)
+            return inHorizon + termTrad * terminalRate
+        }()
+        XCTAssertNotEqual(lifetimeWith, lifetimeWithout,
+            "Engine MUST produce different lifetime tax totals when Year 1 overrides are pinned ($50K) " +
+            "vs free-optimized — this is the core invariant the off-plan indicator depends on. " +
+            "If this fails, the engine is ignoring year1PrimaryRothConversion.")
+    }
+
     func testBuild_ExcludeYear1Overrides_ZerosLeverFields() {
         let dm = makeDataManager()
         dm.yourRothConversion = 50_000

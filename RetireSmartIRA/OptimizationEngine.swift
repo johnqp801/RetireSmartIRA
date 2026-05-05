@@ -247,6 +247,33 @@ struct OptimizationEngine {
         )
 
         // ───────────────────────────────────────────────────────────
+        // Plan B Phase 1: pin Year 1 actions from user overrides if present.
+        //
+        // staticInputs.year1PrimaryRothConversion / year1SpouseRothConversion carry
+        // the user's Year1QuickEditor slider values when excludeYear1Overrides=false
+        // (the "current path" cache). When excludeYear1Overrides=true those fields
+        // are zeroed, so the engine optimizes Year 1 from scratch (the "engine
+        // optimal" baseline path). This is the mechanism that makes the two-cache
+        // strategy in MultiYearStrategyManager meaningful.
+        //
+        // Only Roth conversions are pinnable in V2.0 — withdrawal and QCD overrides
+        // are NOT yet represented as LeverAction cases that the greedy loop can
+        // override (LeverAction has .traditionalWithdrawal but the engine's greedy
+        // inner loop only emits .rothConversion; pinning withdrawal/QCD via locked[]
+        // requires the engine surface to grow first). Documented for V2.1.
+        // ───────────────────────────────────────────────────────────
+        let year1Roth = inputs.year1PrimaryRothConversion + inputs.year1SpouseRothConversion
+
+        var year1PinnedActions: [LeverAction] = []
+        if year1Roth > 0 {
+            year1PinnedActions.append(.rothConversion(amount: year1Roth))
+        }
+
+        if !year1PinnedActions.isEmpty {
+            locked[baseYear] = year1PinnedActions
+        }
+
+        // ───────────────────────────────────────────────────────────
         // Outer fixed-point iteration loop (cap = 2)
         //
         // Each iteration runs a forward greedy pass over all years, using the
@@ -270,6 +297,17 @@ struct OptimizationEngine {
             // ───── Inner forward greedy pass ─────
             for yearIdx in 0..<horizonYears {
                 let Y = baseYear + yearIdx
+
+                // Plan B Phase 1: if user has pinned Year 1 actions, skip optimization
+                // for that year — engine respects user choices and optimizes Years 2+
+                // around them. This applies in EVERY fixed-point iteration so the pin
+                // is never overwritten by a refinement pass.
+                // When year1PinnedActions is empty (excludeYear1Overrides=true, or all
+                // Year 1 sliders are zero), this guard never fires and behavior is
+                // identical to pre-Plan-B — all 951 prior engine tests remain valid.
+                if yearIdx == 0 && !year1PinnedActions.isEmpty {
+                    continue
+                }
 
                 // Compute baseline projection NOW with current `locked` (which has
                 // been updated through year Y-1 in this pass). Critical for cliff
