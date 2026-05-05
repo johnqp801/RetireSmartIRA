@@ -66,7 +66,7 @@ struct TaxPlanningView: View {
             AssumptionsPillBar(manager: manager)
             MacroStrategyPane(manager: manager, selectedYear: $selectedYear)
         }
-        .sheet(isPresented: .constant(true)) {
+        .sheet(isPresented: .constant(manager.assumptions.assumptionsConfirmed)) {
             TaxPlanningBottomSheet(
                 manager: manager,
                 selectedYear: selectedYear,
