@@ -101,11 +101,8 @@ struct AssumptionsPillBar: View {
     }
 
     private var ssPill: some View {
-        AssumptionPill(
-            label: "SS 67/67",
-            style: .standard
-        ) { activePopover = .ssAge }
-        // Full SS popover deferred to v2.1 — for V2.0 tapping does nothing meaningful
+        // Full SS popover deferred to v2.1 — pill is display-only in V2.0.
+        AssumptionPill(label: "SS 67/67", style: .standard) { }
     }
 
     private var withdrawalRulePill: some View {
