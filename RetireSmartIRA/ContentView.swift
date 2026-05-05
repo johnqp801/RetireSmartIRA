@@ -36,11 +36,25 @@ struct WidthAwareContainer<Content: View>: View {
 
 struct ContentView: View {
     @EnvironmentObject var dataManager: DataManager
-    @State private var selectedTab: Int = 1
-    @State private var sidebarSelection: Int? = 1
+    @State private var selectedTab: Int
+    @State private var sidebarSelection: Int?
     #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
+
+    init() {
+        let tab = ContentView.detectSetupComplete() ? 5 : 1
+        _selectedTab = State(initialValue: tab)
+        _sidebarSelection = State(initialValue: tab)
+    }
+
+    static func detectSetupComplete() -> Bool {
+        let defaults = UserDefaults.standard
+        let hasFiling = defaults.string(forKey: "filingStatus") != nil
+        let hasAccounts = defaults.data(forKey: "iraAccounts") != nil
+        let hasSS = defaults.data(forKey: "primarySSBenefit") != nil
+        return hasFiling && hasAccounts && hasSS
+    }
 
     var body: some View {
         #if os(macOS)
