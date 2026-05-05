@@ -47,37 +47,43 @@ struct TaxPlanningView: View {
     }
 
     private var wideLayout: some View {
-        HStack(spacing: 0) {
-            MacroStrategyPane(manager: manager, selectedYear: $selectedYear)
-                .frame(maxWidth: .infinity)
+        VStack(spacing: 0) {
+            AssumptionsPillBar(manager: manager)
+            HStack(spacing: 0) {
+                MacroStrategyPane(manager: manager, selectedYear: $selectedYear)
+                    .frame(maxWidth: .infinity)
 
-            Divider()
+                Divider()
 
-            yearDetailContent
-                .frame(maxWidth: .infinity)
+                yearDetailContent
+                    .frame(maxWidth: .infinity)
+            }
         }
     }
 
     private var compactLayout: some View {
-        MacroStrategyPane(manager: manager, selectedYear: $selectedYear)
-            .sheet(isPresented: .constant(true)) {
-                TaxPlanningBottomSheet(
-                    manager: manager,
-                    selectedYear: selectedYear,
-                    detent: $sheetDetent
-                )
-                .environmentObject(dataManager)
-                .presentationDetents(
-                    [.fraction(0.15), .medium, .large],
-                    selection: $sheetDetent
-                )
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .interactiveDismissDisabled(true)
-            }
-            .onChange(of: selectedYear) { _, newYear in
-                guard let newYear else { return }
-                sheetDetent = (newYear == dataManager.currentYear) ? .medium : .fraction(0.15)
-            }
+        VStack(spacing: 0) {
+            AssumptionsPillBar(manager: manager)
+            MacroStrategyPane(manager: manager, selectedYear: $selectedYear)
+        }
+        .sheet(isPresented: .constant(true)) {
+            TaxPlanningBottomSheet(
+                manager: manager,
+                selectedYear: selectedYear,
+                detent: $sheetDetent
+            )
+            .environmentObject(dataManager)
+            .presentationDetents(
+                [.fraction(0.15), .medium, .large],
+                selection: $sheetDetent
+            )
+            .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+            .interactiveDismissDisabled(true)
+        }
+        .onChange(of: selectedYear) { _, newYear in
+            guard let newYear else { return }
+            sheetDetent = (newYear == dataManager.currentYear) ? .medium : .fraction(0.15)
+        }
     }
 
     @ViewBuilder
