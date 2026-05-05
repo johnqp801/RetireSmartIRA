@@ -114,10 +114,25 @@ struct TaxPlanningView: View {
                     priorBalances: priorRec?.endOfYearBalances
                 )
             }
-        } else {
-            ProgressView()
+        } else if manager.isComputing {
+            ProgressView("Computing strategy…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(PlatformColor.secondarySystemGroupedBackground))
+        } else {
+            VStack(spacing: 8) {
+                Image(systemName: "chart.bar.doc.horizontal")
+                    .font(.system(size: 36))
+                    .foregroundColor(.secondary)
+                Text("Select a year")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                Text("Tap any bar in the waterfall chart\nto see that year's detail.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(PlatformColor.secondarySystemGroupedBackground))
         }
     }
 }
