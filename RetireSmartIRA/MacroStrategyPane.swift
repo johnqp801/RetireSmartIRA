@@ -12,6 +12,8 @@ struct MacroStrategyPane: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
+                CalloutBannersHost(manager: manager)
+
                 if let result = manager.currentResult,
                    let optimal = manager.engineOptimalResult {
                     HeroStatView(
