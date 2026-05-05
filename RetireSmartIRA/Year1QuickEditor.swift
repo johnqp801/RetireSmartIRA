@@ -110,6 +110,8 @@ struct Year1QuickEditor: View {
                 .foregroundColor(.secondary)
                 .frame(width: 100, alignment: .leading)
             Slider(value: value, in: 0...safeMax, step: 1_000)
+                .accessibilityLabel(label)
+                .accessibilityValue(Text("$\(Int(value.wrappedValue / 1_000))K"))
             Text("$\(Int(value.wrappedValue / 1000))K")
                 .font(.caption.weight(.semibold))
                 .frame(width: 60, alignment: .trailing)

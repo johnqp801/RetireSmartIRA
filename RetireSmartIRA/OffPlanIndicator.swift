@@ -41,6 +41,21 @@ struct OffPlanIndicator: View {
         .padding(.horizontal, 8)
         .background(backgroundColor)
         .cornerRadius(6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        switch state {
+        case .onPlan:
+            return "On plan"
+        case .nearOptimal(let delta):
+            return "Near optimal, \(formatDelta(delta))"
+        case .offPlan(let delta):
+            return useNeutralFraming ? "Different from engine, \(formatDelta(delta))" : "Off plan, \(formatDelta(delta))"
+        case .significantlyOffPlan(let delta):
+            return useNeutralFraming ? "Different from engine, \(formatDelta(delta))" : "Significantly off plan, \(formatDelta(delta))"
+        }
     }
 
     private var iconName: String {
