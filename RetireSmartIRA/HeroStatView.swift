@@ -42,7 +42,7 @@ struct HeroStatView: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         ))
-        .cornerRadius(10)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var objectiveCaption: String {
@@ -50,7 +50,11 @@ struct HeroStatView: View {
     }
 
     private func formatDollars(_ value: Double) -> String {
-        let k = Int(value.rounded() / 1000)
+        let k = Int((value / 1000).rounded())
+        if k >= 1_000 {
+            let m = Int((value / 1_000_000).rounded())
+            return "$\(m)M"
+        }
         return "$\(k)K"
     }
 }
