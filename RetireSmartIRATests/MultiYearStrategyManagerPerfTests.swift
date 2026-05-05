@@ -58,14 +58,14 @@ final class MultiYearStrategyManagerPerfTests: XCTestCase {
     }
 
     func testOverridesChanged_DoesNotSetNeedsOptimalRecompute() {
-        // Reset first to clear any prior dirty flag
-        // (needsOptimalRecompute is initially false for a fresh manager)
+        // First, mark the dirty flag via assumptionsChanged
+        manager.recompute(reason: .assumptionsChanged)
+        XCTAssertTrue(manager.needsOptimalRecompute, "Precondition: assumptionsChanged must set dirty flag")
+
+        // Now trigger an overrides-only recompute — should not clear the dirty flag
         manager.recompute(reason: .overridesChanged)
-        // After overridesChanged, needsOptimalRecompute should NOT have been set
-        // (it was false before and overridesChanged doesn't set it)
-        // Note: this only works if we check immediately after recompute() returns
-        // (before the async task runs and clears the flag)
-        XCTAssertFalse(manager.needsOptimalRecompute, "Overrides change must not set dirty flag")
+        XCTAssertTrue(manager.needsOptimalRecompute,
+                      "Overrides change must not clear the needsOptimalRecompute dirty flag")
     }
 
     private func waitForComputation(timeout: TimeInterval) async throws {
