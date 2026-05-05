@@ -8,6 +8,7 @@ import SwiftUI
 struct MacroStrategyPane: View {
     @ObservedObject var manager: MultiYearStrategyManager
     @Binding var selectedYear: Int?
+    @State private var computeError: Error? = nil
 
     var body: some View {
         ScrollView {
@@ -53,13 +54,36 @@ struct MacroStrategyPane: View {
                         tradeOffs: result.tradeOffsAccepted,
                         selectedYear: $selectedYear
                     )
+                } else if !manager.hasEverComputed {
+                    MacroPaneSkeleton()
+                } else if computeError != nil {
+                    errorView
                 } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 400)
+                    MacroPaneSkeleton()
                 }
             }
             .padding(14)
+            .macroStaleStateOverlay(isComputing: manager.isComputing)
         }
+    }
+
+    private var errorView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.largeTitle)
+                .foregroundColor(.orange)
+            Text("Strategy couldn't be computed")
+                .font(.headline)
+            Text("Some inputs may be missing or invalid.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Button("Retry") {
+                manager.recompute(reason: .appLaunch)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, minHeight: 400)
     }
 
     private func baselineLifetimeTax(optimal: MultiYearStrategyResult) -> Double {
