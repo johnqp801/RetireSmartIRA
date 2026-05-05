@@ -272,4 +272,47 @@ final class MultiYearInputAdapterTests: XCTestCase {
         XCTAssertNotNil(inputs.spouseMedicareEnrollmentAge)
         XCTAssertEqual(inputs.spouseMedicareEnrollmentAge, 65)
     }
+
+    func testBuild_ExcludeYear1Overrides_ZerosLeverFields() {
+        let dm = makeDataManager()
+        dm.yourRothConversion = 50_000
+        dm.spouseRothConversion = 30_000
+        dm.yourExtraWithdrawal = 10_000
+        dm.spouseExtraWithdrawal = 5_000
+        dm.yourQCDAmount = 2_000
+        dm.spouseQCDAmount = 1_000
+
+        let withOverrides = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions(),
+            excludeYear1Overrides: false
+        )
+        let withoutOverrides = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions(),
+            excludeYear1Overrides: true
+        )
+
+        // The two builds must differ because Year 1 lever fields are non-zero in DataManager.
+        XCTAssertNotEqual(withOverrides, withoutOverrides,
+            "excludeYear1Overrides=true must produce different inputs when DataManager has non-zero levers")
+
+        // Specific field assertions: withOverrides preserves the user's values.
+        XCTAssertEqual(withOverrides.year1PrimaryRothConversion, 50_000, accuracy: 0.01)
+        XCTAssertEqual(withOverrides.year1SpouseRothConversion, 30_000, accuracy: 0.01)
+        XCTAssertEqual(withOverrides.year1PrimaryWithdrawal, 10_000, accuracy: 0.01)
+        XCTAssertEqual(withOverrides.year1SpouseWithdrawal, 5_000, accuracy: 0.01)
+        XCTAssertEqual(withOverrides.year1PrimaryQCD, 2_000, accuracy: 0.01)
+        XCTAssertEqual(withOverrides.year1SpouseQCD, 1_000, accuracy: 0.01)
+
+        // withoutOverrides zeroes all lever fields.
+        XCTAssertEqual(withoutOverrides.year1PrimaryRothConversion, 0, accuracy: 0.01)
+        XCTAssertEqual(withoutOverrides.year1SpouseRothConversion, 0, accuracy: 0.01)
+        XCTAssertEqual(withoutOverrides.year1PrimaryWithdrawal, 0, accuracy: 0.01)
+        XCTAssertEqual(withoutOverrides.year1SpouseWithdrawal, 0, accuracy: 0.01)
+        XCTAssertEqual(withoutOverrides.year1PrimaryQCD, 0, accuracy: 0.01)
+        XCTAssertEqual(withoutOverrides.year1SpouseQCD, 0, accuracy: 0.01)
+    }
 }

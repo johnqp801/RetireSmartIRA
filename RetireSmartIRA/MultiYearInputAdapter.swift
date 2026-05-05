@@ -64,11 +64,26 @@ enum MultiYearInputAdapter {
     ///     `dataManager.scenario`, but passed separately to keep the signature testable).
     ///   - assumptions: Per-scenario assumptions. `currentTaxableBalance`,
     ///     `currentHSABalance`, and `baselineAnnualExpenses` are read from here.
+    ///   - excludeYear1Overrides: When `true`, zeroes all Year 1 lever values (Roth
+    ///     conversion, extra withdrawal, QCD for both spouses) before they flow into
+    ///     `MultiYearStaticInputs`. Used by `MultiYearStrategyManager` when building
+    ///     inputs for the engine-optimal baseline cache, so the optimizer chooses Year 1
+    ///     levers freely rather than being constrained to the user's slider values.
+    ///     Default `false` preserves existing call-site behaviour.
     static func build(
         from dataManager: DataManager,
         scenarioState: ScenarioStateManager,
-        assumptions: MultiYearAssumptions
+        assumptions: MultiYearAssumptions,
+        excludeYear1Overrides: Bool = false
     ) -> MultiYearStaticInputs {
+
+        // Year 1 lever values — optionally zeroed for the optimal-baseline cache.
+        let primaryRoth      = excludeYear1Overrides ? 0 : dataManager.yourRothConversion
+        let spouseRoth       = excludeYear1Overrides ? 0 : dataManager.spouseRothConversion
+        let primaryWithdrawal = excludeYear1Overrides ? 0 : dataManager.yourExtraWithdrawal
+        let spouseWithdrawal = excludeYear1Overrides ? 0 : dataManager.spouseExtraWithdrawal
+        let primaryQCD       = excludeYear1Overrides ? 0 : dataManager.yourQCDAmount
+        let spouseQCD        = excludeYear1Overrides ? 0 : dataManager.spouseQCDAmount
 
         let currentTaxableBalance = assumptions.currentTaxableBalance
         let currentHSABalance = assumptions.currentHSABalance
@@ -161,7 +176,13 @@ enum MultiYearInputAdapter {
             acaHouseholdSize: acaSize,
             primaryMedicareEnrollmentAge: primaryMedAge,
             spouseMedicareEnrollmentAge: spouseMedAge,
-            baselineAnnualExpenses: baselineAnnualExpenses
+            baselineAnnualExpenses: baselineAnnualExpenses,
+            year1PrimaryRothConversion: primaryRoth,
+            year1SpouseRothConversion: spouseRoth,
+            year1PrimaryWithdrawal: primaryWithdrawal,
+            year1SpouseWithdrawal: spouseWithdrawal,
+            year1PrimaryQCD: primaryQCD,
+            year1SpouseQCD: spouseQCD
         )
     }
 
