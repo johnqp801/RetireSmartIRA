@@ -4,12 +4,22 @@ struct OnboardingAssumptionsSheet: View {
     @ObservedObject var manager: MultiYearStrategyManager
     @Environment(\.dismiss) private var dismiss
 
-    @State private var taxableBalance: Double = 0
-    @State private var hsaBalance: Double = 0
-    @State private var annualExpenses: Double = 60_000
-    @State private var horizonEndAge: Int = 95
-    @State private var withdrawalRule: WithdrawalOrderingRule = .taxEfficient
-    @State private var heirTaxRatePercent: Int = 22
+    @State private var taxableBalance: Double
+    @State private var hsaBalance: Double
+    @State private var annualExpenses: Double
+    @State private var horizonEndAge: Int
+    @State private var withdrawalRule: WithdrawalOrderingRule
+    @State private var heirTaxRatePercent: Int
+
+    init(manager: MultiYearStrategyManager) {
+        self.manager = manager
+        _taxableBalance = State(initialValue: manager.assumptions.currentTaxableBalance)
+        _hsaBalance = State(initialValue: manager.assumptions.currentHSABalance)
+        _annualExpenses = State(initialValue: manager.assumptions.baselineAnnualExpenses)
+        _horizonEndAge = State(initialValue: manager.assumptions.horizonEndAge)
+        _withdrawalRule = State(initialValue: manager.assumptions.withdrawalOrderingRule)
+        _heirTaxRatePercent = State(initialValue: Int(manager.assumptions.terminalLiquidationTaxRate * 100))
+    }
 
     var body: some View {
         NavigationStack {
@@ -20,7 +30,9 @@ struct OnboardingAssumptionsSheet: View {
                         Spacer()
                         TextField("0", value: $taxableBalance, format: .currency(code: "USD"))
                             .multilineTextAlignment(.trailing)
+#if os(iOS)
                             .keyboardType(.decimalPad)
+#endif
                     }
                 } footer: {
                     Text("Total in non-retirement brokerage accounts.")
@@ -32,7 +44,9 @@ struct OnboardingAssumptionsSheet: View {
                         Spacer()
                         TextField("0", value: $hsaBalance, format: .currency(code: "USD"))
                             .multilineTextAlignment(.trailing)
+#if os(iOS)
                             .keyboardType(.decimalPad)
+#endif
                     }
                 } footer: {
                     Text("Skip if you don't have an HSA.")
@@ -44,7 +58,9 @@ struct OnboardingAssumptionsSheet: View {
                         Spacer()
                         TextField("60,000", value: $annualExpenses, format: .currency(code: "USD"))
                             .multilineTextAlignment(.trailing)
+#if os(iOS)
                             .keyboardType(.decimalPad)
+#endif
                     }
                 } footer: {
                     Text("Approximate annual spending in retirement (today's dollars).")
@@ -74,7 +90,9 @@ struct OnboardingAssumptionsSheet: View {
                 }
             }
             .navigationTitle("Set up your strategy")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Build my strategy") {
