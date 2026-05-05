@@ -6,14 +6,11 @@
 import SwiftUI
 
 struct HeroStatView: View {
-    let baselineLifetimeTax: Double
     let recommendedLifetimeTax: Double
     let heirTaxRatePercent: Int
     let offPlanState: OffPlanIndicator.PlanState
     let useNeutralOffPlanFraming: Bool
     let onReset: () -> Void
-
-    private var savings: Double { baselineLifetimeTax - recommendedLifetimeTax }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -30,23 +27,9 @@ struct HeroStatView: View {
                 )
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(formatDollars(baselineLifetimeTax))
-                    .font(.title3)
-                    .strikethrough()
-                    .foregroundColor(.secondary)
-                Image(systemName: "arrow.right")
-                    .foregroundColor(.secondary)
-                Text(formatDollars(recommendedLifetimeTax))
-                    .font(.system(size: 30, weight: .heavy))
-                    .foregroundColor(primaryColor)
-            }
-
-            if savings > 0 {
-                Text("Saves \(formatDollars(savings)) over 30 years")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.green)
-            }
+            Text(formatDollars(recommendedLifetimeTax))
+                .font(.system(size: 34, weight: .heavy))
+                .foregroundColor(.blue)
 
             Text(objectiveCaption)
                 .font(.caption2)
@@ -61,8 +44,6 @@ struct HeroStatView: View {
         ))
         .cornerRadius(10)
     }
-
-    private var primaryColor: Color { .blue }
 
     private var objectiveCaption: String {
         "Seeks to minimize lifetime tax including a \(heirTaxRatePercent)% tax on assets left to heirs. Accepts IRMAA or ACA cliffs only when they save more than they cost."

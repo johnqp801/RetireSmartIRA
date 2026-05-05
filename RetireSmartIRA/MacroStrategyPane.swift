@@ -25,7 +25,6 @@ struct MacroStrategyPane: View {
                 if let result = manager.currentResult,
                    let optimal = manager.engineOptimalResult {
                     HeroStatView(
-                        baselineLifetimeTax: baselineLifetimeTax(optimal: optimal),
                         recommendedLifetimeTax: optimal.lifetimeTaxFromRecommendedPath,
                         heirTaxRatePercent: Int(manager.assumptions.terminalLiquidationTaxRate * 100),
                         offPlanState: OffPlanIndicator.PlanState.fromDelta(
@@ -113,9 +112,4 @@ struct MacroStrategyPane: View {
         .frame(maxWidth: .infinity, minHeight: 400)
     }
 
-    private func baselineLifetimeTax(optimal: MultiYearStrategyResult) -> Double {
-        // Placeholder: 1.5x optimal as stand-in for a "do-nothing" baseline.
-        // Replace with real do-nothing baseline computation in Phase 11.
-        optimal.lifetimeTaxFromRecommendedPath * 1.5
-    }
 }
