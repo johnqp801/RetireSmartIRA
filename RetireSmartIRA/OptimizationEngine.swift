@@ -256,11 +256,13 @@ struct OptimizationEngine {
         // optimal" baseline path). This is the mechanism that makes the two-cache
         // strategy in MultiYearStrategyManager meaningful.
         //
-        // Only Roth conversions are pinnable in V2.0 — withdrawal and QCD overrides
-        // are NOT yet represented as LeverAction cases that the greedy loop can
-        // override (LeverAction has .traditionalWithdrawal but the engine's greedy
-        // inner loop only emits .rothConversion; pinning withdrawal/QCD via locked[]
-        // requires the engine surface to grow first). Documented for V2.1.
+        // Only Roth conversions are pinnable in V2.0:
+        // - LeverAction has .traditionalWithdrawal/.rothWithdrawal but the greedy
+        //   candidate sweep doesn't emit them; pinning would be ineffective.
+        // - LeverAction has NO .qcd case at all — adding QCD pinning requires an
+        //   engine surface change.
+        // V2.1 candidate: extend LeverAction with .qcd case + teach greedy to emit
+        // withdrawal/QCD candidates so user-set sliders affect engine output.
         // ───────────────────────────────────────────────────────────
         let year1Roth = inputs.year1PrimaryRothConversion + inputs.year1SpouseRothConversion
 

@@ -283,11 +283,15 @@ final class MultiYearInputAdapterTests: XCTestCase {
     /// This test validates the architectural fix in Plan B Phase 1C1 that wires
     /// OptimizationEngine.optimize(...) to read inputs.year1PrimaryRothConversion
     /// and pin it into locked[baseYear] before the greedy forward pass.
+    ///
+    /// The test exercises ONLY Roth conversion pinning in V2.0; withdrawal and QCD
+    /// pinning are deferred to v2.1 (engine doesn't emit those candidates yet).
     @MainActor
-    func testEngine_RespectsYear1Overrides() {
+    func testEngine_RespectsYear1RothConversionOverride() {
         // Set up a trad-heavy scenario so the optimizer has a strong Roth-conversion
-        // opinion for Year 1. The user pins $50K — a meaningful deviation from whatever
-        // the optimizer would independently choose.
+        // opinion for Year 1. The user pins $47.5K — a meaningful deviation from whatever
+        // the optimizer would independently choose, and off-grid to avoid collision
+        // with OptimizationEngine.candidateAmounts (which includes $50K).
         let dm = makeDataManager(birthYear: 1961)
         dm.iraAccounts = [
             IRAAccount(name: "Primary Trad IRA", accountType: .traditionalIRA,
@@ -295,7 +299,8 @@ final class MultiYearInputAdapterTests: XCTestCase {
             IRAAccount(name: "Primary Roth IRA", accountType: .rothIRA,
                        balance: 100_000, owner: .primary),
         ]
-        dm.yourRothConversion = 50_000  // pin $50K Year 1 Roth conversion
+        dm.yourRothConversion = 47_500  // Off-grid: not in OptimizationEngine.candidateAmounts,
+                                         // guarantees engine free-choice cannot match the pin.
 
         // Use a short horizon for test speed (consistent with OptimizationEngineTests).
         var assumptions = MultiYearAssumptions()
@@ -316,7 +321,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
         )
 
         // Sanity check: adapter correctly sets/zeros the field.
-        XCTAssertEqual(withOverrides.year1PrimaryRothConversion, 50_000, accuracy: 0.01)
+        XCTAssertEqual(withOverrides.year1PrimaryRothConversion, 47_500, accuracy: 0.01)
         XCTAssertEqual(withoutOverrides.year1PrimaryRothConversion, 0, accuracy: 0.01)
 
         // Run the engine on both input sets.
@@ -324,13 +329,13 @@ final class MultiYearInputAdapterTests: XCTestCase {
         let resultWith    = engine.optimize(inputs: withOverrides,    assumptions: assumptions)
         let resultWithout = engine.optimize(inputs: withoutOverrides, assumptions: assumptions)
 
-        // Verify: Year 1's recommended actions include the pinned $50K conversion.
+        // Verify: Year 1's recommended actions include the pinned $47.5K conversion.
         let year1ActionsWithPin = resultWith.recommendedPath.first?.actions ?? []
         let year1RothWithPin: Double = year1ActionsWithPin.compactMap {
             if case .rothConversion(let amt) = $0 { return amt } else { return nil }
         }.reduce(0, +)
-        XCTAssertGreaterThanOrEqual(year1RothWithPin, 50_000,
-            "Year 1 Roth conversion in the pinned path must be >= the $50K user override")
+        XCTAssertGreaterThanOrEqual(year1RothWithPin, 47_500,
+            "Year 1 Roth conversion in the pinned path must be >= the $47.5K user override")
 
         // Core invariant: paths differ at least in Year 1 Roth actions.
         let year1ActionsWithout = resultWithout.recommendedPath.first?.actions ?? []
@@ -362,7 +367,7 @@ final class MultiYearInputAdapterTests: XCTestCase {
             return inHorizon + termTrad * terminalRate
         }()
         XCTAssertNotEqual(lifetimeWith, lifetimeWithout,
-            "Engine MUST produce different lifetime tax totals when Year 1 overrides are pinned ($50K) " +
+            "Engine MUST produce different lifetime tax totals when Year 1 overrides are pinned ($47.5K) " +
             "vs free-optimized — this is the core invariant the off-plan indicator depends on. " +
             "If this fails, the engine is ignoring year1PrimaryRothConversion.")
     }
