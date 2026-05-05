@@ -128,6 +128,11 @@ final class MultiYearStrategyManager: ObservableObject {
         dataManager.yourQCDAmount = 0
         dataManager.spouseQCDAmount = 0
 
+        // Explicit recompute ensures isComputing flips synchronously for instant
+        // UX feedback when the user taps Reset. The Combine pipeline will fire a
+        // redundant recompute ~50ms later from the DataManager mutations above;
+        // the cancel-restart pattern in recompute() coalesces them into a single
+        // engine compute.
         recompute(reason: .overridesChanged)
     }
 

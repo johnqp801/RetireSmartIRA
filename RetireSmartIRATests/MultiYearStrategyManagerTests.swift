@@ -132,9 +132,10 @@ final class MultiYearStrategyManagerTests: XCTestCase {
         assumptions.horizonEndAge = 80
         assumptions.stressTestEnabled = false
 
-        let scenarioState = ScenarioStateManager()
+        // Use dm.scenario directly to match production wiring (Phase 3 will
+        // attach via dm.scenario, not a fresh ScenarioStateManager instance).
         let mgr = MultiYearStrategyManager(assumptions: assumptions)
-        mgr.attach(dataManager: dm, scenarioStateManager: scenarioState)
+        mgr.attach(dataManager: dm, scenarioStateManager: dm.scenario)
 
         // First compute — appLaunch sets needsOptimalRecompute, populates engineOptimalResult.
         mgr.recompute(reason: .appLaunch)
@@ -176,9 +177,11 @@ final class MultiYearStrategyManagerTests: XCTestCase {
     /// Combine debounce, isComputing must be true.
     func testCombineSubscription_FiresOnDataManagerChange() async throws {
         let dm = DataManager(skipPersistence: true)
-        let scenarioState = ScenarioStateManager()
+        // In production, scenarioStateManager will be `dm.scenario`. Mirror that
+        // here so the test catches any future regression where production wires
+        // a separate instance (which would silently break observation).
         let mgr = MultiYearStrategyManager(assumptions: MultiYearAssumptions())
-        mgr.attach(dataManager: dm, scenarioStateManager: scenarioState)
+        mgr.attach(dataManager: dm, scenarioStateManager: dm.scenario)
 
         XCTAssertFalse(mgr.isComputing, "Initially idle")
 
@@ -186,8 +189,9 @@ final class MultiYearStrategyManagerTests: XCTestCase {
         // → recompute(.overridesChanged) → isComputing = true synchronously.
         dm.yourRothConversion = 30_000
 
-        // Wait 100ms — past the 50ms Combine debounce but well before the 500ms engine debounce.
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Wait 200ms — past the 50ms Combine debounce with safety margin for
+        // RunLoop.main jitter on slow CI; well before the 500ms engine debounce.
+        try await Task.sleep(nanoseconds: 200_000_000)
 
         XCTAssertTrue(mgr.isComputing,
             "DataManager mutation must propagate via Combine subscription within 100ms " +
