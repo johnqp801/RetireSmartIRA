@@ -33,6 +33,7 @@ final class MultiYearStrategyManager: ObservableObject {
     private weak var dataManager: DataManager?
     private weak var scenarioStateManager: ScenarioStateManager?
     private var debounceTask: Task<Void, Never>?
+    private var dataCancellable: AnyCancellable?
 
     // MARK: - Recompute reasons
 
@@ -50,10 +51,33 @@ final class MultiYearStrategyManager: ObservableObject {
 
     /// Wire upstream dependencies post-init. StateObject construction can't
     /// access EnvironmentObjects, so SwiftUI views call attach(...) in onAppear.
+    ///
+    /// Subscribes to DataManager and ScenarioStateManager objectWillChange so
+    /// that slider tweaks and state changes trigger a debounced recompute.
+    /// SwiftUI fires objectWillChange BEFORE mutations land, so the 50ms Combine
+    /// debounce coalesces the notification storm into a single recompute trigger.
+    /// The 500ms inner debounce in recompute() then handles engine throttling —
+    /// two-stage debouncing.
+    ///
+    /// Note: objectWillChange fires for any mutation (including PDF-export flags, etc.).
+    /// For V2.0 we treat all upstream changes as .overridesChanged; assumption changes
+    /// still go through explicit recompute(.assumptionsChanged) calls from the pill bar.
     func attach(dataManager: DataManager, scenarioStateManager: ScenarioStateManager) {
         self.dataManager = dataManager
         self.scenarioStateManager = scenarioStateManager
-        // Combine subscription added in Task 1.12 (Bundle C2). Skipped here.
+
+        // Subscribe to upstream changes. SwiftUI fires objectWillChange BEFORE
+        // mutations land, so a 50ms debounce on this pipeline coalesces the
+        // notification storm into a single recompute trigger.
+        let merged = Publishers.Merge(
+            dataManager.objectWillChange.eraseToAnyPublisher(),
+            scenarioStateManager.objectWillChange.eraseToAnyPublisher()
+        )
+        dataCancellable = merged
+            .debounce(for: .milliseconds(50), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.recompute(reason: .overridesChanged)
+            }
     }
 
     // MARK: - Public API
@@ -77,9 +101,34 @@ final class MultiYearStrategyManager: ObservableObject {
         }
     }
 
+    /// Resets all Year 1 lever overrides to match the engine-optimal recommendation.
+    ///
+    /// The engine returns a combined Roth conversion amount (not per-spouse) for V2.0.
+    /// We assign the full combined amount to the primary spouse and zero the secondary.
+    /// Per-spouse Roth conversion split is deferred to v2.1.
+    ///
+    /// Withdrawal and QCD overrides are zeroed because the V2.0 engine does not emit
+    /// withdrawal or QCD candidates; pinning them would incorrectly constrain the engine.
     func resetYear1ToEngineOptimal() {
-        // Implemented in Bundle C2 (Task 1.11). For now, no-op; the test
-        // for it is also Bundle C2.
+        guard let dataManager = dataManager,
+              let optimal = engineOptimalResult,
+              let firstYear = optimal.recommendedPath.first else { return }
+
+        // Sum any .rothConversion actions in Year 1.
+        let totalRoth: Double = firstYear.actions.compactMap { action -> Double? in
+            if case .rothConversion(let amount) = action { return amount } else { return nil }
+        }.reduce(0, +)
+
+        // Reset all six lever fields to engine optimal.
+        // Engine returns combined Roth — assign to primary; spouse split is V2.1.
+        dataManager.yourRothConversion = totalRoth
+        dataManager.spouseRothConversion = 0
+        dataManager.yourExtraWithdrawal = 0
+        dataManager.spouseExtraWithdrawal = 0
+        dataManager.yourQCDAmount = 0
+        dataManager.spouseQCDAmount = 0
+
+        recompute(reason: .overridesChanged)
     }
 
     func dismissInsight(_ key: String) {

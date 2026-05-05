@@ -103,4 +103,110 @@ final class MultiYearStrategyManagerTests: XCTestCase {
         mgr.markFirstOffPlanShown()
         XCTAssertTrue(mgr.firstOffPlanShown)
     }
+
+    // MARK: - Cache invariant test (spec §5.2)
+
+    /// Property test asserting engineOptimalResult.lifetimeTaxFromRecommendedPath
+    /// stays constant under a sequence of Year 1 override changes when assumptions
+    /// and static inputs are held constant. This is the foundational invariant the
+    /// off-plan indicator depends on (per spec §5.2): engineOptimalResult must reflect
+    /// the unconstrained engine choice, never the user's Year 1 override.
+    ///
+    /// This test became meaningful in Bundle C1 — the engine fix that wires
+    /// year1PrimaryRothConversion as a pin in OptimizationEngine.optimize().
+    func testCacheInvariant_OptimalUnaffectedByYear1Overrides() async throws {
+        // Set up a trad-heavy scenario so the optimizer has significant Roth-conversion
+        // work to do, mirroring testEngine_RespectsYear1RothConversionOverride in
+        // MultiYearInputAdapterTests.swift. $1M trad balance guarantees the engine
+        // produces non-trivial lifetime tax totals.
+        let dm = DataManager(skipPersistence: true)
+        dm.iraAccounts = [
+            IRAAccount(name: "Primary Trad IRA", accountType: .traditionalIRA,
+                       balance: 1_000_000, owner: .primary),
+            IRAAccount(name: "Primary Roth IRA", accountType: .rothIRA,
+                       balance: 100_000, owner: .primary),
+        ]
+
+        // Short horizon for test speed; consistent with OptimizationEngineTests conventions.
+        var assumptions = MultiYearAssumptions()
+        assumptions.horizonEndAge = 80
+        assumptions.stressTestEnabled = false
+
+        let scenarioState = ScenarioStateManager()
+        let mgr = MultiYearStrategyManager(assumptions: assumptions)
+        mgr.attach(dataManager: dm, scenarioStateManager: scenarioState)
+
+        // First compute — appLaunch sets needsOptimalRecompute, populates engineOptimalResult.
+        mgr.recompute(reason: .appLaunch)
+        try await waitUntilNotComputing(mgr, timeout: 5.0)
+        XCTAssertNotNil(mgr.engineOptimalResult,
+            "engineOptimalResult must populate after initial appLaunch compute")
+
+        let initialOptimal = mgr.engineOptimalResult!.lifetimeTaxFromRecommendedPath
+        XCTAssertGreaterThan(initialOptimal, 0,
+            "Scenario with $1M trad balance must produce non-trivial lifetime tax — " +
+            "if zero, the DataManager fixture is not configured correctly")
+
+        // Property: under 5 different Year 1 Roth override values, engineOptimalResult
+        // MUST remain unchanged. Only currentResult changes.
+        let overrideSequence: [Double] = [10_000, 25_000, 47_500, 75_000, 0]
+        for override in overrideSequence {
+            dm.yourRothConversion = override
+            mgr.recompute(reason: .overridesChanged)
+            try await waitUntilNotComputing(mgr, timeout: 5.0)
+
+            let currentOptimal = try XCTUnwrap(
+                mgr.engineOptimalResult?.lifetimeTaxFromRecommendedPath,
+                "engineOptimalResult must still be set after override change. Override = \(override)"
+            )
+            XCTAssertEqual(
+                currentOptimal,
+                initialOptimal,
+                accuracy: 0.01,
+                "engineOptimalResult MUST NOT change when only Year 1 overrides change. " +
+                "Override = \(override). This is spec §5.2 invariant."
+            )
+        }
+    }
+
+    // MARK: - Combine subscription test (Task 1.12)
+
+    /// Sanity-check that the Combine subscription wired in attach() propagates
+    /// DataManager mutations to recompute(.overridesChanged). After the 50ms
+    /// Combine debounce, isComputing must be true.
+    func testCombineSubscription_FiresOnDataManagerChange() async throws {
+        let dm = DataManager(skipPersistence: true)
+        let scenarioState = ScenarioStateManager()
+        let mgr = MultiYearStrategyManager(assumptions: MultiYearAssumptions())
+        mgr.attach(dataManager: dm, scenarioStateManager: scenarioState)
+
+        XCTAssertFalse(mgr.isComputing, "Initially idle")
+
+        // Mutate DataManager — triggers objectWillChange → 50ms Combine debounce
+        // → recompute(.overridesChanged) → isComputing = true synchronously.
+        dm.yourRothConversion = 30_000
+
+        // Wait 100ms — past the 50ms Combine debounce but well before the 500ms engine debounce.
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertTrue(mgr.isComputing,
+            "DataManager mutation must propagate via Combine subscription within 100ms " +
+            "to trigger recompute (which sets isComputing = true synchronously)")
+    }
+
+    // MARK: - Test helpers
+
+    private func waitUntilNotComputing(
+        _ mgr: MultiYearStrategyManager,
+        timeout: TimeInterval
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while mgr.isComputing && Date() < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)  // 10ms poll
+        }
+        if mgr.isComputing {
+            XCTFail("Manager still computing after \(timeout)s — " +
+                    "debounce / engine compute did not complete")
+        }
+    }
 }
