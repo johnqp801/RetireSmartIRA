@@ -96,6 +96,7 @@ struct OnboardingAssumptionsSheet: View {
         manager.assumptions.horizonEndAge = horizonEndAge
         manager.assumptions.withdrawalOrderingRule = withdrawalRule
         manager.assumptions.terminalLiquidationTaxRate = Double(heirTaxRatePercent) / 100.0
+        manager.assumptions.assumptionsConfirmed = true  // unlock the pane
         manager.recompute(reason: .assumptionsChanged)
         dismiss()
     }

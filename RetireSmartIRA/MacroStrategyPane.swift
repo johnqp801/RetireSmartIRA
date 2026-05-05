@@ -9,9 +9,16 @@ struct MacroStrategyPane: View {
     @ObservedObject var manager: MultiYearStrategyManager
     @Binding var selectedYear: Int?
     @State private var computeError: Error? = nil
+    @AppStorage("lockedOverlayDismissed") private var overlayDismissed = false
+    @State private var showOnboardingSheet = false
+
+    private var isLocked: Bool {
+        !manager.assumptions.assumptionsConfirmed
+    }
 
     var body: some View {
-        ScrollView {
+        ZStack {
+            ScrollView {
             VStack(spacing: 12) {
                 CalloutBannersHost(manager: manager)
 
@@ -64,6 +71,26 @@ struct MacroStrategyPane: View {
             }
             .padding(14)
             .macroStaleStateOverlay(isComputing: manager.isComputing)
+            }
+            .blur(radius: isLocked ? 12 : 0)
+            .allowsHitTesting(!isLocked)
+
+            if isLocked {
+                if !overlayDismissed {
+                    LockedMacroOverlay(
+                        onSetUp: { showOnboardingSheet = true },
+                        onDismiss: { overlayDismissed = true }
+                    )
+                } else {
+                    VStack {
+                        LockedMacroSlimBanner(onSetUp: { showOnboardingSheet = true })
+                        Spacer()
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showOnboardingSheet) {
+            OnboardingAssumptionsSheet(manager: manager)
         }
     }
 

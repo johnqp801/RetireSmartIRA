@@ -26,6 +26,9 @@ struct MultiYearAssumptions: Codable, Equatable {
     /// Hashes of dismissed insight callouts (SS nudge, widow stress).
     /// UI state; engine ignores during optimization. Persisted with assumptions.
     var dismissedInsightKeys: Set<String> = []
+    /// Whether the user has confirmed assumptions via the onboarding sheet.
+    /// Gates the macro pane: false = locked overlay/banner; true = pane unlocked.
+    var assumptionsConfirmed: Bool = false
 
     init(
         horizonEndAge: Int = 95,
@@ -40,7 +43,8 @@ struct MultiYearAssumptions: Codable, Equatable {
         baselineAnnualExpenses: Double = 60_000,
         terminalLiquidationTaxRate: Double = 0.22,
         cliffBuffer: Double = 5_000,
-        dismissedInsightKeys: Set<String> = []
+        dismissedInsightKeys: Set<String> = [],
+        assumptionsConfirmed: Bool = false
     ) {
         self.horizonEndAge = horizonEndAge
         self.horizonEndAgeSpouse = horizonEndAgeSpouse
@@ -55,6 +59,7 @@ struct MultiYearAssumptions: Codable, Equatable {
         self.terminalLiquidationTaxRate = terminalLiquidationTaxRate
         self.cliffBuffer = cliffBuffer
         self.dismissedInsightKeys = dismissedInsightKeys
+        self.assumptionsConfirmed = assumptionsConfirmed
     }
 
     // Explicit init(from:) for backward compatibility — older saves that lack
@@ -74,6 +79,7 @@ struct MultiYearAssumptions: Codable, Equatable {
         self.terminalLiquidationTaxRate = try c.decode(Double.self, forKey: .terminalLiquidationTaxRate)
         self.cliffBuffer = try c.decode(Double.self, forKey: .cliffBuffer)
         self.dismissedInsightKeys = try c.decodeIfPresent(Set<String>.self, forKey: .dismissedInsightKeys) ?? []
+        self.assumptionsConfirmed = try c.decodeIfPresent(Bool.self, forKey: .assumptionsConfirmed) ?? false
     }
 
     static let `default` = MultiYearAssumptions()
