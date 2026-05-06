@@ -24,7 +24,8 @@ struct MacroStrategyPane: View {
                 if let result = manager.currentResult,
                    let optimal = manager.engineOptimalResult {
                     HeroStatView(
-                        recommendedLifetimeTax: optimal.lifetimeTaxFromRecommendedPath,
+                        baselineLifetimeTax: (manager.baselineProjection ?? []).lifetimeTax,
+                        yourPlanLifetimeTax: result.recommendedPath.lifetimeTax,
                         heirTaxRatePercent: Int(manager.assumptions.terminalLiquidationTaxRate * 100),
                         offPlanState: OffPlanIndicator.PlanState.fromDelta(
                             result.lifetimeTaxFromRecommendedPath - optimal.lifetimeTaxFromRecommendedPath
