@@ -48,7 +48,7 @@ struct OffPlanIndicator: View {
     private var accessibilityLabel: String {
         switch state {
         case .onPlan:
-            return "On plan"
+            return "Matches engine plan"
         case .nearOptimal(let delta):
             return "Near optimal, \(formatDelta(delta))"
         case .offPlan(let delta):
@@ -92,7 +92,7 @@ struct OffPlanIndicator: View {
             }
         }
         switch state {
-        case .onPlan: return "On plan"
+        case .onPlan: return "Matches engine plan"
         case .nearOptimal(let delta): return "Near optimal (\(formatDelta(delta)))"
         case .offPlan(let delta): return "Off plan: \(formatDelta(delta))"
         case .significantlyOffPlan(let delta): return "Significantly off plan: \(formatDelta(delta))"
