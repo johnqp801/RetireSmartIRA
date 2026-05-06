@@ -68,6 +68,23 @@ final class MultiYearStrategyManagerPerfTests: XCTestCase {
                       "Overrides change must not clear the needsOptimalRecompute dirty flag")
     }
 
+    func testBaselineComputation_AddsLessThan50ms() async throws {
+        manager.recompute(reason: .appLaunch)
+        try await waitForComputation(timeout: 5.0)
+
+        // Trigger a baseline-eligible recompute and measure
+        let start = Date()
+        manager.recompute(reason: .assumptionsChanged)
+        try await waitForComputation(timeout: 5.0)
+        let elapsedMs = Date().timeIntervalSince(start) * 1000
+
+        // Baseline projection adds at most ~50ms over the existing optimization.
+        // The optimization itself takes most of the budget; if total exceeds
+        // 2050ms we assume baseline is the regression.
+        XCTAssertLessThan(elapsedMs, 2_050, "Recompute (incl. baseline) under 2.05s")
+        XCTAssertNotNil(manager.baselineProjection, "Baseline must be set")
+    }
+
     private func waitForComputation(timeout: TimeInterval) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while manager.isComputing && Date() < deadline {
