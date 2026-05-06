@@ -69,8 +69,8 @@ struct MacroStrategyPane: View {
             .padding(14)
             .macroStaleStateOverlay(isComputing: manager.isComputing)
             }
-            .blur(radius: isLocked ? 12 : 0)
-            .allowsHitTesting(!isLocked)
+            .blur(radius: (isLocked && !overlayDismissed) ? 12 : 0)
+            .allowsHitTesting(!isLocked || overlayDismissed)
 
             if isLocked {
                 if !overlayDismissed {

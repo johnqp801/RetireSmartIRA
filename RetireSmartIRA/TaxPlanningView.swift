@@ -17,6 +17,7 @@ struct TaxPlanningView: View {
     @Environment(\.availableWidth) private var availableWidth
 
     @State private var selectedYear: Int? = nil
+    @AppStorage("lockedOverlayDismissed") private var overlayDismissed = false
     @State private var sheetDetent: PresentationDetent = .medium
     @State private var showStrategyGuide = false
     @State private var showExportSheet = false
@@ -88,6 +89,16 @@ struct TaxPlanningView: View {
             if !manager.hasEverComputed {
                 manager.recompute(reason: .appLaunch)
             }
+
+            // Auto-select current year for dismissed-but-not-confirmed users
+            if overlayDismissed && !manager.assumptions.assumptionsConfirmed {
+                selectedYear = Calendar.current.component(.year, from: Date())
+            }
+        }
+        .onChange(of: overlayDismissed) { _, dismissed in
+            if dismissed && !manager.assumptions.assumptionsConfirmed {
+                selectedYear = Calendar.current.component(.year, from: Date())
+            }
         }
     }
 
@@ -111,7 +122,7 @@ struct TaxPlanningView: View {
             AssumptionsPillBar(manager: manager)
             MacroStrategyPane(manager: manager, selectedYear: $selectedYear)
         }
-        .sheet(isPresented: .constant(manager.assumptions.assumptionsConfirmed)) {
+        .sheet(isPresented: .constant(manager.assumptions.assumptionsConfirmed || overlayDismissed)) {
             TaxPlanningBottomSheet(
                 manager: manager,
                 selectedYear: selectedYear,
