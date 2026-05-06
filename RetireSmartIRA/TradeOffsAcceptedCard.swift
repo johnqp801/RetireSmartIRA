@@ -14,8 +14,8 @@ struct TradeOffsAcceptedCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("Trade-offs accepted", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.orange)
-                ForEach(Array(summarized.enumerated()), id: \.offset) { _, item in
+                    .foregroundStyle(.orange)
+                ForEach(summarized, id: \.self) { item in
                     row(for: item)
                 }
             }
@@ -32,14 +32,16 @@ struct TradeOffsAcceptedCard: View {
                 Text("\(item.year) — \(item.title)")
                     .font(.caption.weight(.semibold))
                 Spacer()
-                Text("$\(Int(item.costDollars / 1000))K")
+                Text(item.costDollars < 1_000
+                     ? "$\(Int(item.costDollars))"
+                     : "$\(Int((item.costDollars / 1_000).rounded()))K")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.orange)
+                    .foregroundStyle(.orange)
                     .monospacedDigit()
             }
             Text(item.whyText)
                 .font(.caption2.italic())
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
                 .padding(.leading, 4)
         }
         .padding(.vertical, 4)

@@ -9,7 +9,7 @@
 import Foundation
 
 /// One row in the "Trade-offs accepted" card, after dedup + plain-English templating.
-struct SummarizedTradeOff: Equatable {
+struct SummarizedTradeOff: Equatable, Hashable {
     let year: Int
     /// Plain-English WHAT: e.g. "IRMAA Tier 4 premium", "Bracket bump: 12% → 22%".
     let title: String

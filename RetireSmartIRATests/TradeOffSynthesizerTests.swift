@@ -120,4 +120,9 @@ final class TradeOffSynthesizerTests: XCTestCase {
         XCTAssertEqual(out.count, 1)
         XCTAssertTrue(out[0].title.localizedCaseInsensitiveContains("ACA"))
     }
+
+    func testEmptyInput_ReturnsEmpty() {
+        let result = TradeOffSynthesizer.summarize(hits: [])
+        XCTAssertTrue(result.isEmpty)
+    }
 }
