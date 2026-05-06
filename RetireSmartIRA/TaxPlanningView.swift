@@ -28,6 +28,17 @@ struct TaxPlanningView: View {
     }
 
     var body: some View {
+        #if os(iOS)
+        NavigationStack {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+
+    @ViewBuilder
+    private var content: some View {
         Group {
             if isWideLayout {
                 wideLayout
@@ -35,6 +46,36 @@ struct TaxPlanningView: View {
                 compactLayout
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button {
+                        triggerExport()
+                    } label: {
+                        Label("Export CPA Briefing", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(isGeneratingPDF)
+                    Button {
+                        showStrategyGuide = true
+                    } label: {
+                        Label("Tax Strategy Guide", systemImage: "graduationcap")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showStrategyGuide) {
+            TaxStrategyGuideSheet()
+        }
+        #if canImport(UIKit)
+        .sheet(isPresented: $showExportSheet) {
+            if let pdfData = exportPDFData {
+                let name = dataManager.userName.isEmpty ? "" : "_\(dataManager.userName)"
+                ShareSheet(pdfData: pdfData, fileName: "TaxSummary\(name)_\(dataManager.currentYear).pdf")
+            }
+        }
+        #endif
         .onAppear {
             manager.attach(dataManager: dataManager, scenarioStateManager: dataManager.scenario)
             if let saved = dataManager.multiYearAssumptions {
@@ -134,6 +175,27 @@ struct TaxPlanningView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(PlatformColor.secondarySystemGroupedBackground))
+        }
+    }
+
+    // MARK: - Export
+
+    private func triggerExport() {
+        guard !isGeneratingPDF else { return }
+        isGeneratingPDF = true
+        let snapshot = PDFExportData(from: dataManager)
+        Task {
+            let data = await PDFExportService.generatePDF(from: snapshot)
+            await MainActor.run {
+                exportPDFData = data
+                isGeneratingPDF = false
+                #if canImport(UIKit)
+                showExportSheet = true
+                #elseif canImport(AppKit)
+                let name = dataManager.userName.isEmpty ? "" : "_\(dataManager.userName)"
+                MacPDFExporter.save(pdfData: data, fileName: "TaxSummary\(name)_\(dataManager.currentYear).pdf")
+                #endif
+            }
         }
     }
 
