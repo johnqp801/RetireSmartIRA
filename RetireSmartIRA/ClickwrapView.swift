@@ -218,7 +218,10 @@ struct ClickwrapView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showFullTerms = false }
+                    Button("Done") {
+                        showFullTerms = false
+                        hasScrolledToBottom = true
+                    }
                 }
             }
         }
