@@ -54,7 +54,9 @@ class ProfileManager: ObservableObject {
     }
 
     var currentAge: Int {
-        currentYear - birthYear
+        let today = Date()
+        let components = Calendar.current.dateComponents([.year], from: birthDate, to: today)
+        return components.year ?? (currentYear - birthYear)
     }
 
     var rmdAge: Int {
@@ -101,7 +103,9 @@ class ProfileManager: ObservableObject {
 
     var spouseCurrentAge: Int {
         guard enableSpouse else { return 0 }
-        return currentYear - spouseBirthYear
+        let today = Date()
+        let components = Calendar.current.dateComponents([.year], from: spouseBirthDate, to: today)
+        return components.year ?? (currentYear - spouseBirthYear)
     }
 
     var spouseRmdAge: Int {

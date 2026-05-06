@@ -145,8 +145,11 @@ final class MultiYearStrategyManager: ObservableObject {
     var yearsBeforeFirstRMD: Int? {
         guard let dataManager = dataManager else { return nil }
         let primaryRMDStartAge = dataManager.rmdAge
-        let primaryAge = dataManager.currentAge
-        let yearsTo = max(0, primaryRMDStartAge - primaryAge)
+        // Use planning-year age (currentYear - birthYear) so that this planning
+        // metric responds correctly when the user sets a future planning year,
+        // independent of today's calendar date.
+        let planningAge = dataManager.currentYear - dataManager.birthYear
+        let yearsTo = max(0, primaryRMDStartAge - planningAge)
         return yearsTo > 0 ? yearsTo : nil
     }
 

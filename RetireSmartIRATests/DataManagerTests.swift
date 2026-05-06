@@ -178,6 +178,71 @@ import Foundation
     }
 }
 
+@Suite("Age Calculation", .serialized)
+@MainActor struct AgeCalculationTests {
+
+    @Test("currentAge returns floor age based on last birthday, not year subtraction")
+    func currentAge_BeforeBirthday_ReturnsCorrectAge() {
+        let dm = DataManager(skipPersistence: true)
+
+        // Born September 2, 1955. Today is May 5, 2026 — birthday hasn't occurred yet
+        // this year, so the correct age is 70, not 71 (2026 - 1955).
+        var components = DateComponents()
+        components.year = 1955
+        components.month = 9
+        components.day = 2
+        dm.birthDate = Calendar.current.date(from: components)!
+
+        let today = Date()
+        let todayComponents = Calendar.current.dateComponents([.year, .month, .day], from: today)
+
+        // Only assert the expected age when the test is running before September 2 of the
+        // birth-year-offset year (i.e., before the 71st birthday in 2026). This keeps the
+        // test correct regardless of when in the future it's run.
+        let expectedAge = Calendar.current.dateComponents([.year], from: dm.birthDate, to: today).year!
+        #expect(dm.currentAge == expectedAge)
+
+        // Guard: on May 5, 2026 (the authoring date) the birthday has NOT passed, so
+        // the Calendar-based age must be strictly less than (2026 - 1955 = 71).
+        if todayComponents.year == 2026 && todayComponents.month! < 9 {
+            #expect(dm.currentAge == 70) // not 71
+        }
+    }
+
+    @Test("currentAge returns correct age after birthday has passed this year")
+    func currentAge_AfterBirthday_ReturnsCorrectAge() {
+        let dm = DataManager(skipPersistence: true)
+
+        // Born January 1, 1960 — birthday has passed by any date in May or later.
+        var components = DateComponents()
+        components.year = 1960
+        components.month = 1
+        components.day = 1
+        dm.birthDate = Calendar.current.date(from: components)!
+
+        let today = Date()
+        let expected = Calendar.current.dateComponents([.year], from: dm.birthDate, to: today).year!
+        #expect(dm.currentAge == expected)
+    }
+
+    @Test("spouseCurrentAge is birthday-aware when spouse is enabled")
+    func spouseCurrentAge_BeforeBirthday_ReturnsCorrectAge() {
+        let dm = DataManager(skipPersistence: true)
+        dm.enableSpouse = true
+
+        // Spouse born September 2, 1955 — same scenario as primary test.
+        var components = DateComponents()
+        components.year = 1955
+        components.month = 9
+        components.day = 2
+        dm.spouseBirthDate = Calendar.current.date(from: components)!
+
+        let today = Date()
+        let expected = Calendar.current.dateComponents([.year], from: dm.spouseBirthDate, to: today).year!
+        #expect(dm.spouseCurrentAge == expected)
+    }
+}
+
 @Suite("QCD Logic", .serialized)
 @MainActor struct QCDTests {
     
