@@ -182,6 +182,15 @@ final class MultiYearStrategyManager: ObservableObject {
               )
             : nil
 
+        // Build baseline action map (one entry per horizon year, each with []).
+        // ProjectionEngine.project() iterates actionsPerYear.keys, so an empty dict
+        // returns no projection — we must seed every horizon year. Only computed when
+        // the optimal-path also recomputes (same cadence; baseline is static against
+        // assumption / static-input changes, not slider-only tweaks).
+        let baselineActions: [Int: [LeverAction]] = needsOptimal
+            ? Self.buildEmptyActionsMap(for: currentInputs, assumptions: assumptions)
+            : [:]
+
         // Run engine off-main.
         let result = await Task.detached(priority: .userInitiated) {
             let engine = MultiYearTaxStrategyEngine()
@@ -189,7 +198,14 @@ final class MultiYearStrategyManager: ObservableObject {
             let optimal: MultiYearStrategyResult? = optimalInputs.map {
                 engine.compute(inputs: $0, assumptions: assumptions)
             }
-            return (optimal: optimal, current: current)
+            let baseline: [YearRecommendation]? = baselineActions.isEmpty
+                ? nil
+                : ProjectionEngine().project(
+                    inputs: currentInputs,
+                    assumptions: assumptions,
+                    actionsPerYear: baselineActions
+                )
+            return (optimal: optimal, current: current, baseline: baseline)
         }.value
 
         // Final cancellation check before mutating @Published state.
@@ -200,8 +216,27 @@ final class MultiYearStrategyManager: ObservableObject {
             self.engineOptimalResult = optimal
             self.needsOptimalRecompute = false  // clear ONLY on success
         }
+        if let baseline = result.baseline {
+            self.baselineProjection = baseline
+        }
         self.currentResult = result.current
         self.hasEverComputed = true
         self.isComputing = false
+    }
+
+    /// Builds a map of `year: []` for every projected year in the inputs.
+    /// Required because `ProjectionEngine.project()` iterates `actionsPerYear.keys` —
+    /// an empty dict returns no projection. The horizon length is derived from
+    /// `assumptions.horizonEndAge - inputs.primaryCurrentAge + 1`, mirroring
+    /// OptimizationEngine's convention.
+    private static func buildEmptyActionsMap(
+        for inputs: MultiYearStaticInputs,
+        assumptions: MultiYearAssumptions
+    ) -> [Int: [LeverAction]] {
+        let horizonYears = max(0, assumptions.horizonEndAge - inputs.primaryCurrentAge + 1)
+        guard horizonYears > 0 else { return [:] }
+        let baseYear = Calendar.current.component(.year, from: Date())
+        let endYear = baseYear + horizonYears
+        return Dictionary(uniqueKeysWithValues: (baseYear..<endYear).map { ($0, []) })
     }
 }
