@@ -19,7 +19,7 @@
 
 import Foundation
 
-struct AccountSnapshot: Codable, Equatable {
+struct AccountSnapshot: Codable, Equatable, Sendable {
     let primaryTraditional: Double  // trad IRA + 401k + inherited trad (primary's accounts)
     let spouseTraditional: Double   // trad IRA + 401k + inherited trad (spouse's accounts)
     let roth: Double                // sum of roth IRA + roth 401k + inherited roth IRA (both spouses)

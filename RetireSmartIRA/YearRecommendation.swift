@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct YearRecommendation: Codable, Equatable {
+struct YearRecommendation: Codable, Equatable, Sendable {
     let year: Int
     let agi: Double
     let acaMagi: Double?      // nil when ACA-irrelevant (post-65)

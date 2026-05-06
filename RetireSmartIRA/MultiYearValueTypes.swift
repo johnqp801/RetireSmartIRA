@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - TaxBreakdown
 
-struct TaxBreakdown: Codable, Equatable {
+struct TaxBreakdown: Codable, Equatable, Sendable {
     let federal: Double
     let state: Double
     let irmaa: Double
@@ -29,7 +29,7 @@ struct TaxBreakdown: Codable, Equatable {
 
 // MARK: - ConstraintHit
 
-struct ConstraintHit: Codable, Equatable {
+struct ConstraintHit: Codable, Equatable, Sendable {
     let year: Int
     let type: ConstraintType
     let cost: Double
@@ -45,7 +45,7 @@ struct ConstraintHit: Codable, Equatable {
 
 // MARK: - TaxImpact
 
-struct TaxImpact: Codable, Equatable {
+struct TaxImpact: Codable, Equatable, Sendable {
     let baselineLifetimeTax: Double
     let scenarioLifetimeTax: Double
 
@@ -61,7 +61,7 @@ struct TaxImpact: Codable, Equatable {
 
 // MARK: - ClaimAgeFlag
 
-struct ClaimAgeFlag: Codable, Equatable {
+struct ClaimAgeFlag: Codable, Equatable, Sendable {
     let spouse: SpouseID
     let currentClaimAge: Int
     let suggestedClaimAge: Int
@@ -77,7 +77,7 @@ struct ClaimAgeFlag: Codable, Equatable {
 
 // MARK: - SensitivityBands
 
-struct SensitivityBands: Codable, Equatable {
+struct SensitivityBands: Codable, Equatable, Sendable {
     let optimistic: [YearRecommendation]
     let average: [YearRecommendation]
     let pessimistic: [YearRecommendation]

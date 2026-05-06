@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct MultiYearAssumptions: Codable, Equatable {
+struct MultiYearAssumptions: Codable, Equatable, Sendable {
     var horizonEndAge: Int                       // primary spouse / single, default 95
     var horizonEndAgeSpouse: Int?                // override for second spouse, optional
     var cpiRate: Double                          // e.g., 0.025 = 2.5%

@@ -10,7 +10,7 @@ import Foundation
 
 // MARK: - Withdrawal ordering rule (user-facing preset, per Q8 brainstorm decision)
 
-enum WithdrawalOrderingRule: String, Codable, CaseIterable, Equatable {
+enum WithdrawalOrderingRule: String, Codable, CaseIterable, Equatable, Sendable {
     case taxEfficient = "tax_efficient"
     case depleteTradFirst = "deplete_trad_first"
     case preserveRoth = "preserve_roth"
@@ -21,7 +21,7 @@ enum WithdrawalOrderingRule: String, Codable, CaseIterable, Equatable {
 
 // MARK: - Lever actions (per-year recommended moves the engine emits)
 
-enum LeverAction: Codable, Equatable {
+enum LeverAction: Codable, Equatable, Sendable {
     case rothConversion(amount: Double)
     case traditionalWithdrawal(amount: Double)
     case taxableWithdrawal(amount: Double)
@@ -34,7 +34,7 @@ enum LeverAction: Codable, Equatable {
 
 // MARK: - Constraint types (soft-constraint hits the engine accepted)
 
-enum ConstraintType: Codable, Equatable {
+enum ConstraintType: Codable, Equatable, Sendable {
     case irmaaTier(level: Int)
     case acaCliff
     case bracketOverrun(fromBracket: Int, toBracket: Int)

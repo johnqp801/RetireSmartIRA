@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct MultiYearStrategyResult: Codable, Equatable {
+struct MultiYearStrategyResult: Codable, Equatable, Sendable {
     let recommendedPath: [YearRecommendation]
     let tradeOffsAccepted: [ConstraintHit]
     let sensitivityBands: SensitivityBands

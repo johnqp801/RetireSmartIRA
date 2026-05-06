@@ -12,7 +12,7 @@
 
 import Foundation
 
-struct MultiYearStaticInputs: Equatable {
+struct MultiYearStaticInputs: Equatable, Sendable {
     // Account starting balances (rolled up from 1.9 AccountType + user inputs for taxable/HSA)
     let startingBalances: AccountSnapshot
 

@@ -132,7 +132,7 @@ enum IncomeType: String, Codable, CaseIterable {
     static let legacyRothConversionRawValue = "Roth Conversion"
 }
 
-enum FilingStatus: String, Codable, CaseIterable {
+enum FilingStatus: String, Codable, CaseIterable, Sendable {
     case single = "Single"
     case marriedFilingJointly = "Married Filing Jointly"
 }

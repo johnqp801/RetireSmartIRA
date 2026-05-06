@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum SpouseID: String, Codable, CaseIterable, Equatable {
+enum SpouseID: String, Codable, CaseIterable, Equatable, Sendable {
     case primary
     case spouse
 }
