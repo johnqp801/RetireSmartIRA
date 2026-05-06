@@ -23,6 +23,7 @@ final class MultiYearStrategyManager: ObservableObject {
     @Published private(set) var hasEverComputed: Bool = false
     @Published private(set) var firstOffPlanShown: Bool = false
     @Published private(set) var computeFailed: Bool = false
+    @Published private(set) var baselineProjection: [YearRecommendation]?
 
     // MARK: - Internal state
 
