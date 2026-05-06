@@ -18,6 +18,10 @@ struct TaxPlanningView: View {
 
     @State private var selectedYear: Int? = nil
     @State private var sheetDetent: PresentationDetent = .medium
+    @State private var showStrategyGuide = false
+    @State private var showExportSheet = false
+    @State private var exportPDFData: Data? = nil
+    @State private var isGeneratingPDF = false
 
     private var isWideLayout: Bool {
         horizontalSizeClass == .regular && availableWidth > 900
@@ -95,10 +99,7 @@ struct TaxPlanningView: View {
                     VStack(spacing: 12) {
                         Year1QuickEditor(manager: manager)
                             .environmentObject(dataManager)
-                        ScenarioBuilderView()
-                            .environmentObject(dataManager)
-                        DashboardView()
-                            .environmentObject(dataManager)
+                        taxPositionPanel
                     }
                     .padding(14)
                 }
@@ -134,5 +135,38 @@ struct TaxPlanningView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(PlatformColor.secondarySystemGroupedBackground))
         }
+    }
+
+    // MARK: - Tax Position Panel (Year 1 right pane)
+
+    private var taxPositionPanel: some View {
+        let fs = dataManager.filingStatus
+        let income = dataManager.scenarioTaxableIncome
+        let fedBracket = dataManager.federalBracketInfo(income: income, filingStatus: fs)
+        let fedBracketTuples: [(rate: Double, threshold: Double)] = {
+            let brackets = fs == .single
+                ? dataManager.currentTaxBrackets.federalSingle
+                : dataManager.currentTaxBrackets.federalMarried
+            return brackets.map { (rate: $0.rate, threshold: $0.threshold) }
+        }()
+        let irmaa = dataManager.scenarioIRMAA
+        let cushionToNextK: Int? = {
+            guard let dist = irmaa.distanceToNextTier, dist > 0 else { return nil }
+            return Int(dist / 1000)
+        }()
+        let stateRate = dataManager.stateMarginalRate(income: income, filingStatus: fs)
+        let niit = dataManager.scenarioNIITAmount
+
+        return TaxPositionPanel(
+            federalRate: fedBracket.currentRate,
+            federalIncome: income,
+            federalBrackets: fedBracketTuples,
+            federalRoomToNext: fedBracket.roomRemaining,
+            irmaaTier: irmaa.tier,
+            irmaaCushionToNextK: cushionToNextK,
+            stateRatePercent: stateRate * 100,
+            stateLabel: dataManager.selectedState.abbreviation,
+            niitAnnualDollars: niit
+        )
     }
 }
