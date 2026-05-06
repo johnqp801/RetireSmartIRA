@@ -34,13 +34,21 @@ enum YearListGrouping {
         var prevTier: Int? = nil
 
         func flushGroup(endYear: Int) {
-            if let start = groupStart, start < endYear {
+            guard let start = groupStart else { return }
+            let groupEndYear = endYear - 1
+            if groupEndYear > start {
+                // 2+ years — emit a collapsed group row
                 rows.append(.group(
                     startYear: start,
-                    endYear: endYear - 1,
+                    endYear: groupEndYear,
                     tier: groupTier,
                     taxRange: groupMinTax...groupMaxTax
                 ))
+            } else if groupEndYear == start {
+                // Single year — emit as a full row with .noChange
+                if let singleRec = path.first(where: { $0.year == start }) {
+                    rows.append(.full(singleRec, .noChange))
+                }
             }
             groupStart = nil
             groupMinTax = .infinity

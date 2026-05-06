@@ -13,6 +13,7 @@ struct TaxPositionPanel: View {
     let irmaaTier: Int
     let irmaaCushionToNextK: Int?
     let stateRatePercent: Double
+    let stateLabel: String       // e.g. "CA", "NY", "TX" — caller provides
     let niitAnnualDollars: Double
 
     var body: some View {
@@ -37,7 +38,7 @@ struct TaxPositionPanel: View {
             Divider()
 
             HStack {
-                Text("State (CA): ")
+                Text("State (\(stateLabel)): ")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Text("\(stateRatePercent, specifier: "%.1f")%")

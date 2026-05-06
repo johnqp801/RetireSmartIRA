@@ -104,4 +104,22 @@ final class YearListGroupingTests: XCTestCase {
     func testGrouping_EmptyPath_ReturnsEmpty() {
         XCTAssertTrue(YearListGrouping.group(path: [], currentYear: 2026, tierFor: { _ in 0 }).isEmpty)
     }
+
+    func testGrouping_SingleYearSameTierAtEnd_IsFullRow() {
+        // 2026 T4 (current), 2027 T5 (transition, full), 2028 T5 (single-year tail, should be full or group-of-1)
+        let path = [rec(2026, tier: 4), rec(2027, tier: 5), rec(2028, tier: 5)]
+        let groups = YearListGrouping.group(
+            path: path,
+            currentYear: 2026,
+            tierFor: { $0.taxBreakdown.irmaa > 0 ? Int($0.taxBreakdown.irmaa / 1000) : 0 }
+        )
+        // 2028 is a single same-tier year after the transition — must appear as a row (not dropped)
+        XCTAssertEqual(groups.count, 3, "All 3 years must produce a row (no year dropped)")
+        // Verify no single-year group is emitted (should be a .full row instead)
+        for g in groups {
+            if case .group(let s, let e, _, _) = g {
+                XCTAssertNotEqual(s, e, "Single-year group detected — should be a .full row")
+            }
+        }
+    }
 }

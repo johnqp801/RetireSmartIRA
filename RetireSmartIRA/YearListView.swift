@@ -153,7 +153,7 @@ struct YearListView: View {
     private func warningText(for rec: YearRecommendation, badge: TransitionBadge) -> WarnText? {
         switch badge {
         case .currentYear:
-            return nil
+            return WarnText(text: "This year", color: .blue)
         case .entersTier(let tier):
             return WarnText(text: "⚠ Enters IRMAA T\(tier)", color: .orange)
         case .dropsToTier(let tier):

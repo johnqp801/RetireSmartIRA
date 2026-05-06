@@ -15,6 +15,7 @@ final class TaxPositionPanelTests: XCTestCase {
             irmaaTier: 4,
             irmaaCushionToNextK: 113,
             stateRatePercent: 9.3,
+            stateLabel: "CA",
             niitAnnualDollars: 5_900
         )
         XCTAssertNotNil(panel.body)
