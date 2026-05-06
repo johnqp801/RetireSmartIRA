@@ -144,7 +144,7 @@ final class MultiYearStrategyManager: ObservableObject {
     /// Used by the Conversion Opportunity Window callout banner.
     var yearsBeforeFirstRMD: Int? {
         guard let dataManager = dataManager else { return nil }
-        let primaryRMDStartAge = 73  // SECURE 2.0 default
+        let primaryRMDStartAge = dataManager.rmdAge
         let primaryAge = dataManager.currentAge
         let yearsTo = max(0, primaryRMDStartAge - primaryAge)
         return yearsTo > 0 ? yearsTo : nil

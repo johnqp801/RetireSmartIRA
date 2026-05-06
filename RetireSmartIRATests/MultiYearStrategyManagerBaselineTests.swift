@@ -76,21 +76,93 @@ final class MultiYearStrategyManagerBaselineTests: XCTestCase {
                      "yearsBeforeFirstRMD must return nil when dataManager is not set")
     }
 
-    func testYearsBeforeFirstRMD_ReturnsCorrectCount_WhenAge65() {
-        // currentAge = currentYear - birthYear, so set birthYear = currentYear - 65
+    func testYearsBeforeFirstRMD_ReturnsCorrectCount_WhenAge65_BornPre1960() {
+        // Use a birth year firmly in the 1951–1959 cohort (RMD age = 73).
+        // birthYear = 1955 → age = currentYear - 1955 (varies), but we pin currentYear
+        // so the test is stable: use birthYear = currentYear - 65 only when that lands
+        // in [1951,1959]. Since currentYear ≥ 2026, currentYear - 65 ≥ 1961, which is
+        // NOT in that cohort — so we hard-code a 1951–1959 year instead.
         let dataManager = DataManager(skipPersistence: true)
         let currentYear = Calendar.current.component(.year, from: Date())
+        // birthYear 1955 → age = currentYear - 1955 (e.g. 71 in 2026), RMD age 73
+        let birthYear = 1955
         dataManager.birthDate = Calendar.current.date(
-            from: DateComponents(year: currentYear - 65, month: 1, day: 1)
+            from: DateComponents(year: birthYear, month: 1, day: 1)
         )!
         dataManager.currentYear = currentYear
         let scenarioStateManager = ScenarioStateManager()
         let manager = MultiYearStrategyManager()
         manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
 
-        // At age 65, RMD age 73: expect 8 years remaining
-        XCTAssertEqual(manager.yearsBeforeFirstRMD, 8,
-                       "yearsBeforeFirstRMD should be 8 when primary is age 65 (73 - 65)")
+        let expectedAge = currentYear - birthYear
+        let expectedYears = max(0, 73 - expectedAge)
+        if expectedYears > 0 {
+            XCTAssertEqual(manager.yearsBeforeFirstRMD, expectedYears,
+                           "yearsBeforeFirstRMD should be \(expectedYears) for 1951–1959 cohort (RMD age 73) at age \(expectedAge)")
+        } else {
+            XCTAssertNil(manager.yearsBeforeFirstRMD,
+                         "yearsBeforeFirstRMD should be nil when already at or past RMD age 73")
+        }
+    }
+
+    func testYearsBeforeFirstRMD_ReturnsCorrectCount_WhenAge60_Born1964() {
+        // Born 1960+ → RMD age 75. At age 60, expect yearsBeforeFirstRMD = 15.
+        let dataManager = DataManager(skipPersistence: true)
+        let currentYear = Calendar.current.component(.year, from: Date())
+        // birthYear = currentYear - 60 ensures currentAge == 60.
+        // In 2026, that gives birthYear 1966, which is ≥ 1960 → RMD age 75. ✓
+        let birthYear = currentYear - 60
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: birthYear, month: 1, day: 1)
+        )!
+        dataManager.currentYear = currentYear
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = MultiYearStrategyManager()
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+
+        // birthYear >= 1960 → RMD age 75; age 60 → 15 years to go
+        XCTAssertEqual(manager.yearsBeforeFirstRMD, 15,
+                       "yearsBeforeFirstRMD should be 15 for 1960+ cohort (RMD age 75) at age 60")
+    }
+
+    func testYearsBeforeFirstRMD_ReturnsOne_WhenAge74_Born1960Cohort() {
+        // Born 1960+ → RMD age 75. At age 74, expect yearsBeforeFirstRMD = 1.
+        let dataManager = DataManager(skipPersistence: true)
+        let currentYear = Calendar.current.component(.year, from: Date())
+        // birthYear = currentYear - 74 ensures currentAge == 74.
+        // In 2026, that gives birthYear 1952, which is in [1951,1959] → RMD age 73, not 75.
+        // So we must hard-code a 1960+ birth year and pin currentYear such that age = 74,
+        // i.e., birthYear = 1960, currentYear = 2034 is in the future.
+        // Instead, use the real current year and set birthYear so it's ≥ 1960 and age = 74:
+        // that requires currentYear - birthYear = 74 with birthYear ≥ 1960 → currentYear ≥ 2034.
+        // Since we can't guarantee that, we test age 74 with a 1960 birth year by overriding
+        // dataManager.currentYear to a future year where 1960 + 74 = 2034.
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: 1960, month: 1, day: 1)
+        )!
+        dataManager.currentYear = 2034  // 2034 - 1960 = 74 → age 74, RMD age 75 → 1 year remaining
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = MultiYearStrategyManager()
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+
+        XCTAssertEqual(manager.yearsBeforeFirstRMD, 1,
+                       "yearsBeforeFirstRMD should be 1 for 1960+ cohort (RMD age 75) at age 74")
+    }
+
+    func testYearsBeforeFirstRMD_ReturnsNil_WhenAtRMDAge75_Born1960Cohort() {
+        // Born 1960+ → RMD age 75. At age 75, expect yearsBeforeFirstRMD = nil.
+        let dataManager = DataManager(skipPersistence: true)
+        // birthYear 1960, currentYear 2035 → age 75, RMD age 75 → nil
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: 1960, month: 1, day: 1)
+        )!
+        dataManager.currentYear = 2035
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = MultiYearStrategyManager()
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+
+        XCTAssertNil(manager.yearsBeforeFirstRMD,
+                     "yearsBeforeFirstRMD must return nil when 1960+ cohort user is exactly at RMD age (75)")
     }
 
     func testYearsBeforeFirstRMD_ReturnsNil_WhenAtRMDAge73() {

@@ -374,7 +374,7 @@ struct ScenarioBuilderView: View {
         }
     }
 
-    /// Whether the user is RMD-age (73+) — reorder sections to prioritize QCDs/charitable
+    /// Whether the user is RMD-age (73+ or 75+ depending on birth year) — reorder sections to prioritize QCDs/charitable
     private var isRMDAge: Bool { dataManager.isRMDRequired }
 
     private var compactInputsGroup: some View {
@@ -1718,7 +1718,7 @@ struct ScenarioBuilderView: View {
                         icon: "calendar.badge.clock",
                         color: Color.Chart.tealRamp1,
                         title: "Convert During Low-Tax Years",
-                        body: "Many retirees have a window between retirement and the start of RMDs (age 73) when taxable income is lower. Converting during these years lets you pay tax at moderate rates \u{2014} often the 22% or 24% brackets \u{2014} rather than higher rates that may apply later when RMDs stack on top of Social Security, dividends, and other income."
+                        body: "Many retirees have a window between retirement and the start of RMDs (your RMD age — 73 or 75 depending on birth year) when taxable income is lower. Converting during these years lets you pay tax at moderate rates \u{2014} often the 22% or 24% brackets \u{2014} rather than higher rates that may apply later when RMDs stack on top of Social Security, dividends, and other income."
                     )
 
                     // Section 2: Fill Up Bracket

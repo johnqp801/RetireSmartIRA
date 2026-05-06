@@ -101,6 +101,7 @@ struct LegacyPlanningEngine {
         // Phase 2: Spouse rollover period — spouse takes RMDs based on their age
         var balance = balanceAtOwnerDeath
         let spouseAgeAtInheritance = (params.currentYear - params.spouseBirthYear) + params.yearsUntilDeath
+        // SECURE 2.0 birth-year cohort table: ≥1960 → 75, 1951–1959 → 73, else 72
         let spouseRmdStartAge: Int = params.spouseBirthYear >= 1960 ? 75 : (params.spouseBirthYear >= 1951 ? 73 : 72)
 
         for yearOffset in 0..<params.spouseSurvivorYears {
