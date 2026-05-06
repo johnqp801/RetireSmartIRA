@@ -103,7 +103,7 @@ struct Year1QuickEditor: View {
     }
 
     private func leverSlider(label: String, value: Binding<Double>, maxValue: Double) -> some View {
-        let safeMax = max(maxValue, 1)
+        let safeMax = max(maxValue, 1_000)   // range must be ≥ step size
         return HStack(spacing: 8) {
             Text(label)
                 .font(.caption)
