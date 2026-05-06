@@ -139,8 +139,8 @@ struct HeroStatView: View {
         let absK = Int((abs(value) / 1000).rounded())
         let sign = value < 0 ? "−" : ""
         if absK >= 1_000 {
-            let m = (abs(value) / 1_000_000).rounded() / 1
-            return "\(sign)$\(Int(m))M"
+            let m = (abs(value) / 1_000_000 * 10).rounded() / 10
+            return String(format: "\(sign)$%.1fM", m)
         }
         return "\(sign)$\(absK)K"
     }
