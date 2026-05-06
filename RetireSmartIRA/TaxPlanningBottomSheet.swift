@@ -9,6 +9,7 @@ struct TaxPlanningBottomSheet: View {
     @ObservedObject var manager: MultiYearStrategyManager
     let selectedYear: Int?
     @Binding var detent: PresentationDetent
+    @State private var showActionItemsSheet = false
 
     var body: some View {
         Group {
@@ -56,6 +57,14 @@ struct TaxPlanningBottomSheet: View {
     private var year1Content: some View {
         ScrollView {
             VStack(spacing: 12) {
+                ActionItemsBanner(
+                    year: dataManager.currentYear,
+                    rothAmount: dataManager.scenarioTotalRothConversion,
+                    qcdAmount: dataManager.scenarioTotalQCD,
+                    stockDonationAmount: dataManager.stockDonationEnabled ? dataManager.stockCurrentValue : 0,
+                    requiredRMDAmount: dataManager.scenarioCombinedRMD,
+                    onViewAll: { showActionItemsSheet = true }
+                )
                 Year1QuickEditor(manager: manager)
                     .environmentObject(dataManager)
                 if detent == .large {
@@ -66,6 +75,15 @@ struct TaxPlanningBottomSheet: View {
                 }
             }
             .padding(14)
+        }
+        .sheet(isPresented: $showActionItemsSheet) {
+            ActionItemsSheet(
+                year: dataManager.currentYear,
+                rothAmount: dataManager.scenarioTotalRothConversion,
+                qcdAmount: dataManager.scenarioTotalQCD,
+                stockDonationAmount: dataManager.stockDonationEnabled ? dataManager.stockCurrentValue : 0,
+                requiredRMDAmount: dataManager.scenarioCombinedRMD
+            )
         }
     }
 

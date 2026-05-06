@@ -67,6 +67,70 @@ final class MultiYearStrategyManagerBaselineTests: XCTestCase {
         }
     }
 
+    // MARK: - yearsBeforeFirstRMD tests
+
+    func testYearsBeforeFirstRMD_ReturnsNil_WhenNotAttached() {
+        let manager = MultiYearStrategyManager()
+        // Not attached to a DataManager
+        XCTAssertNil(manager.yearsBeforeFirstRMD,
+                     "yearsBeforeFirstRMD must return nil when dataManager is not set")
+    }
+
+    func testYearsBeforeFirstRMD_ReturnsCorrectCount_WhenAge65() {
+        // currentAge = currentYear - birthYear, so set birthYear = currentYear - 65
+        let dataManager = DataManager(skipPersistence: true)
+        let currentYear = Calendar.current.component(.year, from: Date())
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: currentYear - 65, month: 1, day: 1)
+        )!
+        dataManager.currentYear = currentYear
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = MultiYearStrategyManager()
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+
+        // At age 65, RMD age 73: expect 8 years remaining
+        XCTAssertEqual(manager.yearsBeforeFirstRMD, 8,
+                       "yearsBeforeFirstRMD should be 8 when primary is age 65 (73 - 65)")
+    }
+
+    func testYearsBeforeFirstRMD_ReturnsNil_WhenAtRMDAge73() {
+        // A user born in 1951–1959 reaches RMD at 73.
+        // Use birthYear = currentYear - 73 to land squarely in that cohort.
+        let dataManager = DataManager(skipPersistence: true)
+        let currentYear = Calendar.current.component(.year, from: Date())
+        // Birth year that gives age 73 and falls in the 1951–1959 cohort (RMD=73):
+        // currentYear - 73 → e.g. 2026 - 73 = 1953, which is in [1951,1959] ✓
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: currentYear - 73, month: 1, day: 1)
+        )!
+        dataManager.currentYear = currentYear
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = MultiYearStrategyManager()
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+
+        // At RMD age, yearsBeforeFirstRMD should be nil (0 years remaining → nil)
+        XCTAssertNil(manager.yearsBeforeFirstRMD,
+                     "yearsBeforeFirstRMD must return nil when user is exactly at RMD age (73)")
+    }
+
+    func testYearsBeforeFirstRMD_ReturnsNil_WhenPastRMDAge() {
+        let dataManager = DataManager(skipPersistence: true)
+        let currentYear = Calendar.current.component(.year, from: Date())
+        // Age 74: birthYear = currentYear - 74 → e.g. 2026 - 74 = 1952, cohort RMD=73 ✓
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: currentYear - 74, month: 1, day: 1)
+        )!
+        dataManager.currentYear = currentYear
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = MultiYearStrategyManager()
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+
+        XCTAssertNil(manager.yearsBeforeFirstRMD,
+                     "yearsBeforeFirstRMD must return nil when user is past RMD age (74)")
+    }
+
+    // MARK: - Helpers
+
     private func waitForComputation(manager: MultiYearStrategyManager, timeout: TimeInterval) async throws {
         // Wait for computing to start (handles cases where isComputing hasn't been set yet)
         let startDeadline = Date().addingTimeInterval(1.0)
