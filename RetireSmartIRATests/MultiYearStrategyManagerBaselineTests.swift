@@ -46,13 +46,15 @@ final class MultiYearStrategyManagerBaselineTests: XCTestCase {
             owner: .primary, benefitAt62: 2660, benefitAtFRA: 3800, benefitAt70: 4712,
             plannedClaimingAge: 70, plannedClaimingMonth: 0, isAlreadyClaiming: false, currentBenefit: 0
         )
+        let scenarioStateManager = ScenarioStateManager()
         let manager = MultiYearStrategyManager()
-        manager.attach(dataManager: dataManager, scenarioStateManager: ScenarioStateManager())
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
 
         manager.recompute(reason: .appLaunch)
         try await waitForComputation(manager: manager, timeout: 10.0)
 
         let baseline = manager.baselineProjection ?? []
+        XCTAssertFalse(baseline.isEmpty, "Baseline must contain years before checking for forbidden actions")
         for year in baseline {
             for action in year.actions {
                 if case .rothConversion = action {
@@ -66,9 +68,18 @@ final class MultiYearStrategyManagerBaselineTests: XCTestCase {
     }
 
     private func waitForComputation(manager: MultiYearStrategyManager, timeout: TimeInterval) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while manager.isComputing && Date() < deadline {
+        // Wait for computing to start (handles cases where isComputing hasn't been set yet)
+        let startDeadline = Date().addingTimeInterval(1.0)
+        while !manager.isComputing && Date() < startDeadline {
             try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        // Wait for computing to finish
+        let endDeadline = Date().addingTimeInterval(timeout)
+        while manager.isComputing && Date() < endDeadline {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        if manager.isComputing {
+            XCTFail("waitForComputation timed out after \(timeout)s")
         }
     }
 }
