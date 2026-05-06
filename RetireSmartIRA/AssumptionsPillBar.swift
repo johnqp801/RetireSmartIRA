@@ -7,9 +7,10 @@ import SwiftUI
 struct AssumptionsPillBar: View {
     @ObservedObject var manager: MultiYearStrategyManager
     @State private var activePopover: PopoverID?
+    @State private var showHeirTaxSheet = false
 
     enum PopoverID: Hashable {
-        case cpi, growth, endAge, ssAge, withdrawalRule, heirTax, advanced
+        case cpi, growth, endAge, ssAge, withdrawalRule, advanced
     }
 
     var body: some View {
@@ -141,30 +142,9 @@ struct AssumptionsPillBar: View {
         AssumptionPill(
             label: "Heir Tax Rate: \(Int(manager.assumptions.terminalLiquidationTaxRate * 100))%",
             style: .featured
-        ) { activePopover = .heirTax }
-        .popover(isPresented: bindingFor(.heirTax)) {
-            VStack(spacing: 12) {
-                Text("Heir Tax Rate").font(.headline)
-                Text("The tax rate we model your heirs (or you, at end of plan) paying on remaining traditional IRA balances. Higher rate → engine recommends more aggressive Roth conversions now.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: 300)
-                NumericStepperPopover(
-                    title: "",
-                    value: Binding(
-                        get: { manager.assumptions.terminalLiquidationTaxRate * 100 },
-                        set: { manager.assumptions.terminalLiquidationTaxRate = $0 / 100 }
-                    ),
-                    range: 0...37,
-                    step: 1,
-                    format: { String(format: "%.0f%%", $0) },
-                    onCommit: {
-                        activePopover = nil
-                        manager.recompute(reason: .assumptionsChanged)
-                    }
-                )
-            }
-            .padding()
+        ) { showHeirTaxSheet = true }
+        .sheet(isPresented: $showHeirTaxSheet) {
+            HeirTaxImpactSheet(manager: manager)
         }
     }
 
