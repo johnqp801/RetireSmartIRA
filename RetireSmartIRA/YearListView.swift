@@ -9,27 +9,66 @@ struct YearListView: View {
     let tradeOffs: [ConstraintHit]
     @Binding var selectedYear: Int?
 
+    @State private var expandedGroups: Set<Int> = []
+
+    private var rows: [YearListRow] {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        return YearListGrouping.group(
+            path: path,
+            currentYear: currentYear,
+            tierFor: { rec in
+                rec.taxBreakdown.irmaa > 0 ? max(1, Int(rec.taxBreakdown.irmaa / 1000)) : 0
+            }
+        )
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(spacing: 0) {
             header
-            ForEach(path, id: \.year) { y in
-                row(for: y)
-                    .background(y.year == selectedYear ? Color.blue.opacity(0.08) : Color.clear)
-                    .contentShape(Rectangle())
-                    .onTapGesture { selectedYear = y.year }
-                Divider()
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    rowView(for: row)
+                    Divider()
+                }
             }
         }
         .background(Color(PlatformColor.systemBackground))
-        .cornerRadius(8)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 0.5))
+    }
+
+    @ViewBuilder
+    private func rowView(for row: YearListRow) -> some View {
+        switch row {
+        case .full(let rec, let badge):
+            fullRow(rec: rec, badge: badge)
+        case .group(let startYear, let endYear, let tier, let taxRange):
+            let isExpanded = expandedGroups.contains(startYear)
+            groupRow(
+                startYear: startYear,
+                endYear: endYear,
+                tier: tier,
+                taxRange: taxRange,
+                isExpanded: isExpanded,
+                onToggle: {
+                    if isExpanded { expandedGroups.remove(startYear) } else { expandedGroups.insert(startYear) }
+                }
+            )
+            if isExpanded {
+                ForEach(path.filter { $0.year >= startYear && $0.year <= endYear }, id: \.year) { rec in
+                    fullRow(rec: rec, badge: .noChange)
+                        .padding(.leading, 12)
+                        .background(Color.secondary.opacity(0.04))
+                }
+            }
+        }
     }
 
     private var header: some View {
         HStack {
-            Text("YEAR").frame(width: 50, alignment: .leading)
+            Text("YEAR").frame(width: 70, alignment: .leading)
             Text("STRATEGY").frame(maxWidth: .infinity, alignment: .leading)
-            Text("TAX").frame(width: 70, alignment: .trailing)
+            Text("TAX").frame(width: 80, alignment: .trailing)
             Image(systemName: "chevron.right").opacity(0).frame(width: 16)
         }
         .font(.caption2.weight(.semibold))
@@ -40,21 +79,24 @@ struct YearListView: View {
         .background(Color(PlatformColor.secondarySystemBackground))
     }
 
-    private func row(for y: YearRecommendation) -> some View {
-        HStack {
-            Text(String(y.year)).frame(width: 50, alignment: .leading)
+    private func fullRow(rec: YearRecommendation, badge: TransitionBadge) -> some View {
+        let isSelected = rec.year == selectedYear
+        let warning = warningText(for: rec, badge: badge)
+        return HStack {
+            Text(String(rec.year)).frame(width: 70, alignment: .leading)
                 .font(.caption.weight(.semibold))
             HStack(spacing: 4) {
-                if let warn = warningText(for: y) {
-                    Text(warn).font(.caption2).foregroundColor(.orange)
-                } else {
-                    Text(strategySummary(for: y)).font(.caption2).foregroundColor(.blue)
+                if let warn = warning {
+                    Text(warn.text)
+                        .font(.caption)
+                        .foregroundColor(warn.color)
                 }
-                Spacer()
             }
-            Text("$\(Int(y.taxBreakdown.total / 1000))K")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Text("$\(Int(rec.taxBreakdown.total / 1000))K")
+                .frame(width: 80, alignment: .trailing)
                 .font(.caption.weight(.semibold))
-                .frame(width: 70, alignment: .trailing)
+                .monospacedDigit()
             Image(systemName: "chevron.right")
                 .font(.caption2)
                 .foregroundColor(.secondary)
@@ -62,30 +104,62 @@ struct YearListView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(isSelected ? Color.blue.opacity(0.08) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture { selectedYear = rec.year }
     }
 
-    private func warningText(for y: YearRecommendation) -> String? {
-        guard let hit = tradeOffs.first(where: { $0.year == y.year }) else { return nil }
-        switch hit.type {
-        case .irmaaTier(let level): return "⚠ IRMAA T\(level)"
-        case .acaCliff: return "⚠ ACA cliff"
-        case .bracketOverrun: return "⚠ Bracket overrun"
+    private func groupRow(
+        startYear: Int,
+        endYear: Int,
+        tier: Int,
+        taxRange: ClosedRange<Double>,
+        isExpanded: Bool,
+        onToggle: @escaping () -> Void
+    ) -> some View {
+        let years = endYear - startYear + 1
+        let label = tier > 0 ? "stays in T\(tier) (\(years) years)" : "low IRMAA (\(years) years)"
+        return HStack {
+            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                .font(.caption2)
+                .foregroundColor(.blue)
+                .frame(width: 70, alignment: .leading)
+                .overlay(
+                    Text("\(startYear)–\(endYear % 100)").font(.caption2).foregroundColor(.secondary).padding(.leading, 16),
+                    alignment: .leading
+                )
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("$\(Int(taxRange.lowerBound / 1000))K–$\(Int(taxRange.upperBound / 1000))K")
+                .frame(width: 80, alignment: .trailing)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .monospacedDigit()
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(PlatformColor.secondarySystemBackground).opacity(0.5))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onToggle)
     }
 
-    private func strategySummary(for y: YearRecommendation) -> String {
-        var parts: [String] = []
-        for action in y.actions {
-            switch action {
-            case .rothConversion(let amount) where amount > 0:
-                parts.append("Roth $\(Int(amount / 1000))K")
-            case .traditionalWithdrawal(let amount) where amount > 0:
-                parts.append("WD $\(Int(amount / 1000))K")
-            case .claimSocialSecurity(let spouse):
-                parts.append(spouse == .primary ? "SS (you)" : "SS (sp)")
-            default: break
-            }
+    private struct WarnText {
+        let text: String
+        let color: Color
+    }
+
+    private func warningText(for rec: YearRecommendation, badge: TransitionBadge) -> WarnText? {
+        switch badge {
+        case .currentYear:
+            return nil
+        case .entersTier(let tier):
+            return WarnText(text: "⚠ Enters IRMAA T\(tier)", color: .orange)
+        case .dropsToTier(let tier):
+            return WarnText(text: "↓ Drops to IRMAA T\(tier)", color: .green)
+        case .noChange:
+            return nil
         }
-        return parts.isEmpty ? "Hold" : parts.joined(separator: " · ")
     }
 }
