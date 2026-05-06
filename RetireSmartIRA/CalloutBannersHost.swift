@@ -18,6 +18,10 @@ struct CalloutBannersHost: View {
                !manager.assumptions.dismissedInsightKeys.contains(widowKey(widow)) {
                 widowBanner(impact: widow)
             }
+            if let yearsBeforeRMD = manager.yearsBeforeFirstRMD,
+               !manager.assumptions.dismissedInsightKeys.contains(conversionWindowKey(yearsBeforeRMD)) {
+                conversionWindowBanner(yearsBeforeRMD: yearsBeforeRMD)
+            }
         }
     }
 
@@ -46,6 +50,21 @@ struct CalloutBannersHost: View {
             onDismiss: { manager.dismissInsight(widowKey(impact)) },
             impact: level
         )
+    }
+
+    private func conversionWindowBanner(yearsBeforeRMD: Int) -> some View {
+        InsightCalloutBanner(
+            title: "Conversion window: \(yearsBeforeRMD) year\(yearsBeforeRMD == 1 ? "" : "s") before RMDs start",
+            message: "Roth conversions today fill your low-bracket headroom before required distributions force a higher bracket. Best time to convert is now.",
+            primaryActionLabel: nil,
+            onPrimaryAction: nil,
+            onDismiss: { manager.dismissInsight(conversionWindowKey(yearsBeforeRMD)) },
+            impact: .moderate
+        )
+    }
+
+    private func conversionWindowKey(_ years: Int) -> String {
+        "conversion-window-\(years)"
     }
 
     private func ssNudgeKey(_ nudge: ClaimAgeFlag) -> String {

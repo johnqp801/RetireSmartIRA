@@ -139,6 +139,17 @@ final class MultiYearStrategyManager: ObservableObject {
         recompute(reason: .overridesChanged)
     }
 
+    /// Years before the first required minimum distribution kicks in.
+    /// Returns nil if the user is already at or past RMD age, or if data is unavailable.
+    /// Used by the Conversion Opportunity Window callout banner.
+    var yearsBeforeFirstRMD: Int? {
+        guard let dataManager = dataManager else { return nil }
+        let primaryRMDStartAge = 73  // SECURE 2.0 default
+        let primaryAge = dataManager.currentAge
+        let yearsTo = max(0, primaryRMDStartAge - primaryAge)
+        return yearsTo > 0 ? yearsTo : nil
+    }
+
     func dismissInsight(_ key: String) {
         assumptions.dismissedInsightKeys.insert(key)
     }
