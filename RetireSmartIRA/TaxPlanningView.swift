@@ -22,6 +22,7 @@ struct TaxPlanningView: View {
     @State private var showExportSheet = false
     @State private var exportPDFData: Data? = nil
     @State private var isGeneratingPDF = false
+    @State private var showActionItemsSheet = false
 
     private var isWideLayout: Bool {
         horizontalSizeClass == .regular && availableWidth > 900
@@ -138,6 +139,14 @@ struct TaxPlanningView: View {
             if yearRec.year == dataManager.currentYear {
                 ScrollView {
                     VStack(spacing: 12) {
+                        ActionItemsBanner(
+                            year: dataManager.currentYear,
+                            rothAmount: dataManager.scenarioTotalRothConversion,
+                            qcdAmount: dataManager.scenarioTotalQCD,
+                            stockDonationAmount: dataManager.stockDonationEnabled ? dataManager.stockCurrentValue : 0,
+                            requiredRMDAmount: dataManager.scenarioCombinedRMD,
+                            onViewAll: { showActionItemsSheet = true }
+                        )
                         Year1QuickEditor(manager: manager)
                             .environmentObject(dataManager)
                         taxPositionPanel
@@ -145,6 +154,15 @@ struct TaxPlanningView: View {
                     .padding(14)
                 }
                 .background(Color(PlatformColor.secondarySystemGroupedBackground))
+                .sheet(isPresented: $showActionItemsSheet) {
+                    ActionItemsSheet(
+                        year: dataManager.currentYear,
+                        rothAmount: dataManager.scenarioTotalRothConversion,
+                        qcdAmount: dataManager.scenarioTotalQCD,
+                        stockDonationAmount: dataManager.stockDonationEnabled ? dataManager.stockCurrentValue : 0,
+                        requiredRMDAmount: dataManager.scenarioCombinedRMD
+                    )
+                }
             } else {
                 let priorIdx = result.recommendedPath.firstIndex(where: { $0.year == year }) ?? 0
                 let priorRec: YearRecommendation? = priorIdx > 0 ? result.recommendedPath[priorIdx - 1] : nil
