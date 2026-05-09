@@ -672,6 +672,38 @@ struct IncomeSourcesView: View {
             _owner = State(initialValue: incomeToEdit?.owner ?? .primary)
         }
 
+        /// Dynamic state-treatment hint for Military Retirement, based on the user's
+        /// state of residence and the owner's current age. Returns a small Text view
+        /// indicating whether the selected state fully exempts, partially exempts, or
+        /// taxes military retirement pay.
+        @ViewBuilder
+        private var stateTreatmentHint: some View {
+            let stateCode = dataManager.selectedState.abbreviation
+            let ownerAge = (owner == .spouse) ? dataManager.spouseDisplayAge : dataManager.displayAge
+            let exemption = MilitaryRetirementExemption.exemption(for: stateCode, age: ownerAge)
+            let stateName = dataManager.selectedState.rawValue
+
+            switch exemption {
+            case .fullyExempt:
+                Label("Fully exempt from \(stateName) state tax", systemImage: "checkmark.seal.fill")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.green)
+            case .noStateIncomeTax:
+                Label("\(stateName) has no state income tax", systemImage: "checkmark.seal.fill")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.green)
+            case .partiallyExempt(let percentTaxable, _):
+                let percentExempt = Int((1.0 - percentTaxable) * 100)
+                Label("Partially exempt: ~\(percentExempt)% excluded from \(stateName) state tax", systemImage: "checkmark.seal")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.orange)
+            case .fullyTaxable:
+                Label("Subject to \(stateName) state tax (no military exemption)", systemImage: "info.circle")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+
         var body: some View {
             NavigationStack {
                 Form {
@@ -791,6 +823,7 @@ struct IncomeSourcesView: View {
                             Text("State tax: approximately 30 states fully or partially exempt military retirement from state income tax. The app uses your state of residence to apply the correct treatment.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            stateTreatmentHint
                             Text("Do not include VA disability compensation here — that is federally tax-exempt and modeled separately.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
