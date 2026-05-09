@@ -790,6 +790,15 @@ struct QuarterlyTaxView: View {
                 }
             }
 
+            // Q4 Roth / Form 2210 tooltip — Item #15 (Ron feedback)
+            DisclosureGroup("Q4 Roth conversion?") {
+                Text("Form 2210 lets you annualize income so a Q4 conversion doesn't trigger underpayment penalties. The IRS generally only requires it if they send you a notice — keep records of timing in case.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+            }
+            .font(.caption)
+
             Text("Consult your tax advisor to confirm which method applies to your situation.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
