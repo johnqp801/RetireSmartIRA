@@ -75,4 +75,79 @@ final class ACACliffIndicatorTests: XCTestCase {
             XCTAssertNotNil(view, "ACACliffIndicator failed to render for state: \(name)")
         }
     }
+
+    // MARK: - State property tests (visual chrome regression protection)
+
+    func testGreenState_ColorIsGreen() {
+        XCTAssertEqual(ACACliffHeadroomState.green.color, .green)
+    }
+
+    func testYellowState_ColorIsOrange() {
+        // Yellow state uses .orange (better contrast than yellow on most backgrounds)
+        XCTAssertEqual(ACACliffHeadroomState.yellow.color, .orange)
+    }
+
+    func testRedState_ColorIsRed() {
+        XCTAssertEqual(ACACliffHeadroomState.red.color, .red)
+    }
+
+    func testCrossedState_ColorIsRed() {
+        // crossed shares red with .red — extra emphasis comes from the banner
+        XCTAssertEqual(ACACliffHeadroomState.crossed.color, .red)
+    }
+
+    // MARK: - State label tests
+
+    func testGreenState_LabelIsClearOfCliff() {
+        XCTAssertEqual(ACACliffHeadroomState.green.label, "Clear of cliff")
+    }
+
+    func testYellowState_LabelIsApproachingCliff() {
+        XCTAssertEqual(ACACliffHeadroomState.yellow.label, "Approaching cliff")
+    }
+
+    func testRedState_LabelIsNearCliff() {
+        XCTAssertEqual(ACACliffHeadroomState.red.label, "Near cliff")
+    }
+
+    func testCrossedState_LabelIsCliffCrossed() {
+        XCTAssertEqual(ACACliffHeadroomState.crossed.label, "Cliff crossed")
+    }
+
+    // MARK: - All states distinct
+
+    func testAllStateLabels_AreUnique() {
+        let labels = [
+            ACACliffHeadroomState.green.label,
+            ACACliffHeadroomState.yellow.label,
+            ACACliffHeadroomState.red.label,
+            ACACliffHeadroomState.crossed.label
+        ]
+        XCTAssertEqual(Set(labels).count, 4, "Each state should have a unique label for accessibility")
+    }
+
+    // MARK: - Headroom-to-state at all key boundaries
+
+    func testStateClassification_IsCompleteAndOrdered() {
+        // Verify the threshold ordering is monotonic from crossed up to green
+        let testCases: [(headroom: Double, expected: ACACliffHeadroomState)] = [
+            (-100_000, .crossed),
+            (-1, .crossed),
+            (0, .red),
+            (5_000, .red),
+            (5_000.01, .yellow),
+            (10_000, .yellow),
+            (20_000, .yellow),
+            (20_000.01, .green),
+            (50_000, .green),
+            (.greatestFiniteMagnitude, .green)
+        ]
+        for (headroom, expected) in testCases {
+            XCTAssertEqual(
+                ACACliffIndicator.headroomState(headroom: headroom),
+                expected,
+                "Headroom \(headroom) should classify as \(expected)"
+            )
+        }
+    }
 }
