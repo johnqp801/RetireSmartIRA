@@ -154,10 +154,34 @@ struct ACASubsidyEngineCliffTests {
             regionalAdjustment: .mainland48,
             config: config
         )
-        // applicable_figure interpolated between 300%(0.08) and 400%(1.00):
-        // 360% is 60% of the way → 0.08 + 0.60 × 0.92 = 0.632
-        // expected = 54216 × 0.632 ≈ 34_265
-        // subsidy = max(0, 7800 - 34265) = 0
-        #expect(result.annualPremiumAssistance == 0)
+        // CORRECTED (backport from V2.0 commit f323da8): cliff sentinel row (400% → 1.00)
+        // is now excluded from interpolation. The last non-cliff row is 300% → 0.08.
+        // A household at 360% FPL stays at applicable_figure = 0.08; subsidy is positive.
+        // applicable_figure = 0.08
+        // expected contribution = 54216 × 0.08 ≈ 4337.28
+        // subsidy = max(0, 7800 - 4337.28) ≈ 3462.72
+        #expect(abs(result.applicableFigure - 0.08) < 0.001)
+        #expect(result.annualPremiumAssistance > 0)
+        #expect(abs(result.annualPremiumAssistance - (7_800 - 54_216 * 0.08)) < 1.0)
+    }
+
+    @Test("350% FPL does not interpolate through cliff sentinel")
+    func testApplicableFigure_300to400_DoesNotInterpolateThroughCliff() {
+        // 350% FPL should NOT interpolate between 300% (≈0.08) and 400% (1.0 cliff sentinel).
+        // Correct behavior: stay near the 300% applicable figure until cliff applies.
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+
+        // Size 1: 350% of 15060 = 52710
+        let result = ACASubsidyEngine.calculateSubsidy(
+            acaMAGI: ACAMAGI(value: 52_710),
+            householdSize: 1,
+            benchmarkSilverPlanAnnualPremium: 7_800,
+            regionalAdjustment: .mainland48,
+            config: config
+        )
+
+        // Expected: applicable figure stays near 0.08 (table cap), NOT ~0.54 interpolated junk
+        #expect(result.applicableFigure < 0.10,
+            "Applicable figure must not interpolate through cliff sentinel — got \(result.applicableFigure), expected ~0.08")
     }
 }
