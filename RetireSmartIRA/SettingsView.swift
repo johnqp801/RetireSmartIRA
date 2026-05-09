@@ -140,9 +140,11 @@ struct SettingsView: View {
                     if dataManager.legacyHeirType == "spouse" {
                         InlineHint("Your spouse's income, filing status, and age come from your household inputs — no additional heir details needed.")
                     } else {
-                        // Labels say "Primary Heir's" (not "Heir's") to make the
-                        // single-heir model unambiguous — Ron Park feedback: users
-                        // wondered whether they should aggregate multiple children.
+                        // Labels use "Primary Heir's" (singular) throughout — there is
+                        // no numberOfChildren field. This is a deliberate single-heir
+                        // model: users with multiple children enter the heir with the
+                        // highest salary (conservative Roth-savings estimate).
+                        // Verified grammatically correct per Item #12 (Ron Park review).
                         Picker("Primary Heir's Filing Status", selection: $dataManager.legacyHeirFilingStatus) {
                             Text("Single").tag(FilingStatus.single)
                             Text("Married Filing Jointly").tag(FilingStatus.marriedFilingJointly)
