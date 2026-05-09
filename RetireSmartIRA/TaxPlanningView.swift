@@ -1033,6 +1033,22 @@ struct TaxPlanningView: View {
         }
     }
 
+    /// Returns the household-level dollar amount of additional Roth conversion that
+    /// would cross the ACA premium-subsidy cliff, or nil when the cliff is irrelevant.
+    /// Used to position the red tick mark on the Roth conversion slider track.
+    private func cliffMarkForRoth(yours: Bool) -> Double? {
+        guard let acaResult = dataManager.acaSubsidyResult,
+              let dollarsToCliff = acaResult.dollarsToCliff,
+              dollarsToCliff > 0 else {
+            return nil  // ACA disabled, no cliff in config, or already over it
+        }
+        // dollarsToCliff is the additional MAGI the household can add before
+        // losing the subsidy. Roth conversion increases MAGI ~1:1, so this
+        // value maps directly to the slider position. Both per-spouse sliders
+        // show the household-level tick — an acceptable approximation.
+        return dollarsToCliff
+    }
+
     @ViewBuilder
     private var taxImpactWaterfallChart: some View {
         if dataManager.hasActiveScenario {
@@ -1225,7 +1241,8 @@ struct TaxPlanningView: View {
                     balance: dataManager.primaryTraditionalIRABalance,
                     amount: $dataManager.yourRothConversion,
                     sliderMax: yourSliderMax,
-                    tint: Color.UI.brandTeal
+                    tint: Color.UI.brandTeal,
+                    cliffMark: cliffMarkForRoth(yours: true)
                 )
 
                 if dataManager.yourRothConversion > 0 {
@@ -1241,7 +1258,8 @@ struct TaxPlanningView: View {
                     balance: dataManager.spouseTraditionalIRABalance,
                     amount: $dataManager.spouseRothConversion,
                     sliderMax: spouseSliderMax,
-                    tint: Color.Chart.callout
+                    tint: Color.Chart.callout,
+                    cliffMark: cliffMarkForRoth(yours: false)
                 )
 
                 if dataManager.spouseRothConversion > 0 {
@@ -3482,6 +3500,7 @@ struct ConversionSliderCard: View {
     @Binding var amount: Double
     let sliderMax: Double
     let tint: Color
+    var cliffMark: Double? = nil  // Optional ACA cliff tick mark position
 
     var body: some View {
         VStack(spacing: 10) {
@@ -3499,8 +3518,21 @@ struct ConversionSliderCard: View {
                 CurrencyField(value: $amount, range: 0...sliderMax, color: .primary)
             }
 
-            Slider(value: $amount, in: 0...sliderMax, step: 1_000)
-                .tint(tint)
+            ZStack(alignment: .leading) {
+                Slider(value: $amount, in: 0...sliderMax, step: 1_000)
+                    .tint(tint)
+
+                if let cliff = cliffMark, cliff > 0, cliff <= sliderMax {
+                    GeometryReader { geo in
+                        let x = (cliff / sliderMax) * geo.size.width
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: 2, height: 16)
+                            .position(x: x, y: geo.size.height / 2)
+                            .allowsHitTesting(false)
+                    }
+                }
+            }
 
             HStack {
                 Text("$0")
