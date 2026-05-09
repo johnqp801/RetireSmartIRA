@@ -6,6 +6,7 @@ import SwiftUI
 
 struct AssumptionsPillBar: View {
     @ObservedObject var manager: MultiYearStrategyManager
+    @EnvironmentObject var dataManager: DataManager
     @State private var activePopover: PopoverID?
     @State private var showHeirTaxSheet = false
 
@@ -103,7 +104,17 @@ struct AssumptionsPillBar: View {
 
     private var ssPill: some View {
         // Full SS popover deferred to v2.1 — pill is display-only in V2.0.
-        AssumptionPill(label: "SS 67/67", style: .standard) { }
+        AssumptionPill(label: ssAgeLabel, style: .standard) { }
+    }
+
+    private var ssAgeLabel: String {
+        guard let primary = dataManager.primarySSBenefit else { return "SS –" }
+        let primaryAge = primary.plannedClaimingAge
+        if let spouse = dataManager.spouseSSBenefit, dataManager.enableSpouse {
+            let spouseAge = spouse.plannedClaimingAge
+            return "SS \(primaryAge)/\(spouseAge)"
+        }
+        return "SS \(primaryAge)"
     }
 
     private var withdrawalRulePill: some View {
