@@ -107,7 +107,7 @@ struct MedicareCostEngineOriginalTests {
 @Suite("MedicareCostEngine — Medicare Advantage path")
 struct MedicareCostEngineAdvantageTests {
 
-    @Test("Advantage tier 0: Part B + Part D + Advantage premium, no Medigap")
+    @Test("Advantage tier 0: Part B + Advantage premium (no Part D base, no Medigap)")
     func advantageTier0() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
         let result = MedicareCostEngine.computeCostForSpouse(
@@ -120,8 +120,38 @@ struct MedicareCostEngineAdvantageTests {
         )
         #expect(result.medigap == nil)
         #expect(result.advantagePremium == 50.00)
-        // partB = 202.90, partD = 50, advantage = 50 → total = 302.90
-        #expect(abs(result.total - 302.90) < 0.01)
+        // CORRECTED (backport from V2.0 f323da8): MAPD plans include Part D coverage in
+        // the Advantage premium. partDBase is now 0 for .medicareAdvantage; Part D IRMAA
+        // surcharge still applies (CMS bills it separately) but tier 0 → no IRMAA.
+        // partB = 202.90, partD = 0 + 0 IRMAA = 0, advantage = 50 → total = 252.90
+        #expect(abs(result.partD - 0.0) < 0.01)
+        #expect(abs(result.total - 252.90) < 0.01)
+    }
+
+    @Test("MAPD must not double-count Part D base (Part D bundled in Advantage premium)")
+    func testMAPD_DoesNotDoubleCountPartDBase() {
+        // Medicare Advantage with drug coverage (MAPD) bundles Part D into the Advantage premium.
+        // Engine should NOT add partDBase (~$50/mo) on top — that's a ~$600/yr inflation.
+        // Part D IRMAA surcharge is still billed separately by CMS even with MAPD, but at
+        // tier 0 (MAGI $100k MFJ) there is no IRMAA surcharge, so total should be:
+        //   partB = 202.90, partD = 0 (base bundled) + 0 (no IRMAA), advantage = 50 → total = 252.90
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let result = MedicareCostEngine.computeCostForSpouse(
+            planType: .medicareAdvantage,
+            irmaaMAGI: IRMAAMAGI(value: 100_000),  // tier 0 MFJ — no IRMAA surcharges
+            partBOverride: nil,
+            partDOverride: nil,
+            medigapOverride: nil,
+            advantageOverride: nil,
+            filingStatus: .marriedFilingJointly,
+            config: config
+        )
+        let expectedMonthly = config.medicare2026.partBStandardMonthly + config.medicare2026.advantageAvgMonthly
+        // partD base must be 0 (bundled in Advantage premium, no double-count)
+        #expect(abs(result.partD - 0.0) < 0.01,
+            "MAPD must not include partDBase — Part D is bundled in the Advantage premium")
+        #expect(abs(result.total - expectedMonthly) < 0.01,
+            "MAPD total must be partB + advantage only, not partB + partD + advantage")
     }
 
     @Test("Advantage tier 2 MFJ: full MFJ threshold lookup")
@@ -136,16 +166,19 @@ struct MedicareCostEngineAdvantageTests {
             config: config
         )
         #expect(result.irmaaTier == 2)
+        // CORRECTED (backport from V2.0 f323da8): MAPD plans include Part D base in
+        // the Advantage premium. partDBase is now 0 for .medicareAdvantage; Part D IRMAA
+        // surcharge is still separately billed by CMS (37.40 at tier 2).
         // Tier 2: partB monthly 405.50 (surcharge = 405.50 - 202.90 = 202.60)
-        //         partD monthly 37.40 (full surcharge)
+        //         partD base = 0 (included in Advantage), IRMAA surcharge 37.40
         // partB = 202.90 + 202.60 = 405.50
-        // partD = 50 + 37.40 = 87.40
+        // partD = 0 + 37.40 = 37.40
         // advantage = 50
-        // total = 542.90
+        // total = 492.90
         #expect(abs(result.partB - 405.50) < 0.01)
-        #expect(abs(result.partD - 87.40) < 0.01)
+        #expect(abs(result.partD - 37.40) < 0.01)
         #expect(result.advantagePremium == 50.00)
-        #expect(abs(result.total - 542.90) < 0.01)
+        #expect(abs(result.total - 492.90) < 0.01)
     }
 }
 
