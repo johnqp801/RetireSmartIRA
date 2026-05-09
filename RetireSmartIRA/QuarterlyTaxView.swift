@@ -77,10 +77,13 @@ struct QuarterlyTaxView: View {
     // MARK: - Header
 
     private var header: some View {
-        Text("Quarterly Estimated Tax Payments")
-            .font(.title2)
-            .fontWeight(.bold)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(spacing: 8) {
+            Text("Quarterly Estimated Tax Payments")
+                .font(.title2)
+                .fontWeight(.bold)
+            TabPurposeChip(purpose: .analysis)
+            Spacer()
+        }
     }
 
     // MARK: - Scenario Banner

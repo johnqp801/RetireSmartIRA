@@ -53,9 +53,10 @@ struct AccountsView: View {
                     HStack {
                         Text("Accounts")
                             .font(.headline)
-                        
+                        TabPurposeChip(purpose: .inputs)
+
                         Spacer()
-                        
+
                         Button(action: { showingAddAccount = true }) {
                             Label("Add Account", systemImage: "plus.circle.fill")
                                 .font(.callout)

@@ -104,6 +104,7 @@ struct StateComparisonView: View {
                 Text("State Tax Comparison")
                     .font(.title2)
                     .fontWeight(.bold)
+                TabPurposeChip(purpose: .analysis)
                 Spacer()
             }
 

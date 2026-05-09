@@ -87,8 +87,11 @@ struct RMDCalculatorView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("RMD Status")
-                        .font(.headline)
+                    HStack(spacing: 8) {
+                        Text("RMD Status")
+                            .font(.headline)
+                        TabPurposeChip(purpose: .analysis)
+                    }
 
                     if dataManager.isRMDRequired {
                         HStack(spacing: 8) {

@@ -141,6 +141,7 @@ struct DashboardView: View {
                 Text("\(String(dataManager.currentYear)) Tax Year")
                     .font(.title2)
                     .fontWeight(.semibold)
+                TabPurposeChip(purpose: .analysis)
                 Spacer()
 
                 Text(dataManager.filingStatus.rawValue)

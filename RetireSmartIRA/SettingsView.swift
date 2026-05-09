@@ -274,6 +274,11 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("My Profile")
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                TabPurposeChip(purpose: .inputs)
+            }
+        }
         .onChange(of: dataManager.birthDate) { dataManager.saveAllData() }
         .onChange(of: dataManager.filingStatus) { dataManager.saveAllData() }
         .onChange(of: dataManager.selectedState) { dataManager.saveAllData() }

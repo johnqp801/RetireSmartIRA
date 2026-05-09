@@ -29,6 +29,7 @@ struct IncomeSourcesView: View {
                     HStack {
                         Text("Income Sources")
                             .font(.headline)
+                        TabPurposeChip(purpose: .inputs)
 
                         Spacer()
 

@@ -198,6 +198,7 @@ struct SocialSecurityPlannerView: View {
                     HStack(spacing: 6) {
                         Text("Social Security")
                             .font(.headline)
+                        TabPurposeChip(purpose: .inputs)
                         if hasBenefitData && bothPlanning {
                             InfoButton {
                                 showInfoPopover.toggle()

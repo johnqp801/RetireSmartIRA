@@ -570,9 +570,13 @@ struct TaxPlanningView: View {
 
     private var summaryCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Scenario Builder")
-                .font(.title2)
-                .fontWeight(.bold)
+            HStack(spacing: 8) {
+                Text("Scenario Builder")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                TabPurposeChip(purpose: .analysis)
+                Spacer()
+            }
 
             Text("Work through each step below to build your tax scenario. Adjust conversions, withdrawals, and charitable giving \u{2014} the tax impact updates in real time.")
                 .font(.callout)
