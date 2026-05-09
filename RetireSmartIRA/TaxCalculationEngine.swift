@@ -264,7 +264,17 @@ struct TaxCalculationEngine {
         currentYear: Int
     ) -> Double {
         let config = StateTaxData.config(for: state)
-        let adjustedIncome = applyRetirementExemptions(income: income, config: config, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources)
+        let spouseAge = currentYear - spouseBirthYear
+        let adjustedIncome = applyRetirementExemptions(
+            income: income,
+            config: config,
+            state: state,
+            taxableSocialSecurity: taxableSocialSecurity,
+            incomeSources: incomeSources,
+            primaryAge: currentAge,
+            spouseAge: spouseAge,
+            enableSpouse: enableSpouse
+        )
 
         var tax: Double
         switch config.taxSystem {
@@ -318,7 +328,16 @@ struct TaxCalculationEngine {
 
     // MARK: - Retirement Income Exemptions
 
-    static func applyRetirementExemptions(income: Double, config: StateTaxConfig, taxableSocialSecurity: Double, incomeSources: [IncomeSource]) -> Double {
+    static func applyRetirementExemptions(
+        income: Double,
+        config: StateTaxConfig,
+        state: USState,
+        taxableSocialSecurity: Double,
+        incomeSources: [IncomeSource],
+        primaryAge: Int,
+        spouseAge: Int,
+        enableSpouse: Bool
+    ) -> Double {
         var adjusted = income
         let exemptions = config.retirementExemptions
 
@@ -344,6 +363,27 @@ struct TaxCalculationEngine {
             adjusted -= min(iraIncome, maxExempt)
         case .none:
             break
+        }
+
+        // Military Retirement: per-state exemption applied per-source using the
+        // owner's age (Iowa is age-55-conditional; some states have age cliffs).
+        // Federal side is unchanged — military retirement remains fully taxable
+        // as ordinary income (treated like .pension in `ordinaryIncomeSubtotal`).
+        let stateCode = state.abbreviation
+        for source in incomeSources where source.type == .militaryRetirement {
+            let ownerAge: Int
+            switch source.owner {
+            case .primary: ownerAge = primaryAge
+            case .spouse:  ownerAge = enableSpouse ? spouseAge : primaryAge
+            case .joint:   ownerAge = enableSpouse ? max(primaryAge, spouseAge) : primaryAge
+            }
+            let stillTaxable = MilitaryRetirementExemption.stateTaxableAmount(
+                gross: source.annualAmount,
+                stateCode: stateCode,
+                age: ownerAge
+            )
+            let exemptPortion = source.annualAmount - stillTaxable
+            adjusted -= exemptPortion
         }
 
         return max(0, adjusted)

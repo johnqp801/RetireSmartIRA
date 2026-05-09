@@ -459,7 +459,16 @@ class DataManager: ObservableObject {
     /// `taxableSocialSecurity` is the amount of SS actually included in the income figure
     /// (the federally-taxable portion: 0/50/85%), NOT the full SS benefit.
     private func applyRetirementExemptions(income: Double, config: StateTaxConfig, taxableSocialSecurity: Double) -> Double {
-        TaxCalculationEngine.applyRetirementExemptions(income: income, config: config, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources)
+        TaxCalculationEngine.applyRetirementExemptions(
+            income: income,
+            config: config,
+            state: selectedState,
+            taxableSocialSecurity: taxableSocialSecurity,
+            incomeSources: incomeSources,
+            primaryAge: currentAge,
+            spouseAge: spouseCurrentAge,
+            enableSpouse: enableSpouse
+        )
     }
 
     /// Returns a detailed breakdown of how state tax is calculated for a specific state.
@@ -512,7 +521,27 @@ class DataManager: ObservableObject {
         case .none: iraExemptAmt = 0
         }
 
-        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt
+        // Military Retirement: per-source state exemption (Task 6.3).
+        // Mirrors TaxCalculationEngine.applyRetirementExemptions logic so the
+        // breakdown totals stay consistent with the actual computed tax.
+        var militaryExemptAmt: Double = 0
+        let stateCode = state.abbreviation
+        for source in incomeSources where source.type == .militaryRetirement {
+            let ownerAge: Int
+            switch source.owner {
+            case .primary: ownerAge = currentAge
+            case .spouse:  ownerAge = enableSpouse ? spouseCurrentAge : currentAge
+            case .joint:   ownerAge = enableSpouse ? max(currentAge, spouseCurrentAge) : currentAge
+            }
+            let stillTaxable = MilitaryRetirementExemption.stateTaxableAmount(
+                gross: source.annualAmount,
+                stateCode: stateCode,
+                age: ownerAge
+            )
+            militaryExemptAmt += (source.annualAmount - stillTaxable)
+        }
+
+        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt
         let adjustedIncome = max(0, income - totalExempted)
 
         // 3. Calculate tax with bracket-level detail
