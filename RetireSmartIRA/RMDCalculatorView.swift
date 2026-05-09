@@ -717,64 +717,84 @@ struct RMDCalculatorView: View {
         || dataManager.hasInheritedAccounts
     }
 
-    /// Combined stacked chart data for both IRA/401(k) and Inherited IRA RMDs
+    /// Combined stacked chart data for both IRA/401(k) and Inherited IRA RMDs.
+    ///
+    /// The chart window extends to cover any inherited-account deadline year that
+    /// falls beyond `projectionYears`.  Regular (non-inherited) RMD bars are only
+    /// plotted for years within `projectionYears`; years added solely to show an
+    /// inherited deadline get a zero regular-RMD bar so the x-axis stays consistent.
     private var rmdChartData: [RMDChartDataPoint] {
         var data: [RMDChartDataPoint] = []
 
-        for yearOffset in 0..<projectionYears {
-            let projectedYear = dataManager.currentYear + yearOffset
-            let label = "'\(String(projectedYear).suffix(2))"
-
-            // Regular IRA/401(k) RMDs
-            var regularRMD: Double = 0
-
-            if dataManager.primaryTraditionalIRABalance > 0 {
-                let pAge = dataManager.currentAge + yearOffset
-                if pAge >= dataManager.rmdAge {
-                    let balance = projectBalance(
-                        years: yearOffset,
-                        startingBalance: dataManager.primaryTraditionalIRABalance,
-                        startAge: dataManager.currentAge,
-                        rmdStartAge: dataManager.rmdAge,
-                        growthPercent: dataManager.primaryGrowthRate
-                    )
-                    regularRMD += dataManager.calculateRMD(for: pAge, balance: balance)
-                }
+        // --- Pre-compute each inherited account's full projection once ---
+        // projectInheritedIRA already extends its range to cover the deadline year,
+        // so we just need to union those projections and find the furthest year.
+        var inheritedProjections: [(account: IRAAccount, rows: [RMDCalculationEngine.InheritedProjectionRow])] = []
+        if dataManager.hasInheritedAccounts {
+            for account in dataManager.inheritedAccounts {
+                let growthRate = account.owner == .spouse
+                    ? dataManager.spouseGrowthRate
+                    : dataManager.primaryGrowthRate
+                let rows = RMDCalculationEngine.projectInheritedIRA(
+                    account: account,
+                    currentYear: dataManager.currentYear,
+                    projectionYears: projectionYears,
+                    growthPercent: growthRate
+                )
+                inheritedProjections.append((account: account, rows: rows))
             }
+        }
 
-            if dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0 {
-                let sAge = dataManager.spouseCurrentAge + yearOffset
-                if sAge >= dataManager.spouseRmdAge {
-                    let balance = projectBalance(
-                        years: yearOffset,
-                        startingBalance: dataManager.spouseTraditionalIRABalance,
-                        startAge: dataManager.spouseCurrentAge,
-                        rmdStartAge: dataManager.spouseRmdAge,
-                        growthPercent: dataManager.spouseGrowthRate
-                    )
-                    regularRMD += dataManager.calculateRMD(for: sAge, balance: balance)
+        // --- Determine the chart's last year ---
+        // Extend beyond projectionYears only when an inherited deadline falls later.
+        let regularLastYear = dataManager.currentYear + projectionYears - 1
+        let inheritedLastYear = inheritedProjections.compactMap { $0.rows.last?.year }.max() ?? regularLastYear
+        let lastYear = max(regularLastYear, inheritedLastYear)
+
+        // --- Build per-year data points ---
+        for projectedYear in dataManager.currentYear...lastYear {
+            let label = "'\(String(projectedYear).suffix(2))"
+            let yearOffset = projectedYear - dataManager.currentYear
+
+            // Regular IRA/401(k) RMDs — only within the original projectionYears window
+            var regularRMD: Double = 0
+            if yearOffset < projectionYears {
+                if dataManager.primaryTraditionalIRABalance > 0 {
+                    let pAge = dataManager.currentAge + yearOffset
+                    if pAge >= dataManager.rmdAge {
+                        let balance = projectBalance(
+                            years: yearOffset,
+                            startingBalance: dataManager.primaryTraditionalIRABalance,
+                            startAge: dataManager.currentAge,
+                            rmdStartAge: dataManager.rmdAge,
+                            growthPercent: dataManager.primaryGrowthRate
+                        )
+                        regularRMD += dataManager.calculateRMD(for: pAge, balance: balance)
+                    }
+                }
+
+                if dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0 {
+                    let sAge = dataManager.spouseCurrentAge + yearOffset
+                    if sAge >= dataManager.spouseRmdAge {
+                        let balance = projectBalance(
+                            years: yearOffset,
+                            startingBalance: dataManager.spouseTraditionalIRABalance,
+                            startAge: dataManager.spouseCurrentAge,
+                            rmdStartAge: dataManager.spouseRmdAge,
+                            growthPercent: dataManager.spouseGrowthRate
+                        )
+                        regularRMD += dataManager.calculateRMD(for: sAge, balance: balance)
+                    }
                 }
             }
 
             data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: regularRMD, category: "IRA / 401(k)"))
 
-            // Inherited IRA RMDs
+            // Inherited IRA RMDs — pull directly from the pre-computed projection rows
             var inheritedRMD: Double = 0
-
-            if dataManager.hasInheritedAccounts {
-                for account in dataManager.inheritedAccounts {
-                    let growthRate = account.owner == .spouse
-                        ? dataManager.spouseGrowthRate
-                        : dataManager.primaryGrowthRate
-                    let projections = RMDCalculationEngine.projectInheritedIRA(
-                        account: account,
-                        currentYear: dataManager.currentYear,
-                        projectionYears: projectionYears,
-                        growthPercent: growthRate
-                    )
-                    if let row = projections.first(where: { $0.year == projectedYear }) {
-                        inheritedRMD += row.rmd
-                    }
+            for projection in inheritedProjections {
+                if let row = projection.rows.first(where: { $0.year == projectedYear }) {
+                    inheritedRMD += row.rmd
                 }
             }
 
