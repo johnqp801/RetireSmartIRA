@@ -251,6 +251,16 @@ struct IncomeSourcesView: View {
                     .background(Color.UI.surfaceInset)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
+                    // SALT plain-English intro (Item #13 — Ron Park feedback)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("State And Local Tax (SALT) deduction")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Property tax + state income tax + local taxes are capped at \(dataManager.saltCap.formatted(.currency(code: "USD").precision(.fractionLength(0)))) in \(String(dataManager.currentYear)) under the OBBBA. If your total exceeds the cap, you lose the overage.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.bottom, 8)
+
                     // SALT cap note
                     if dataManager.totalSALTBeforeCap > 0 {
                         VStack(alignment: .leading, spacing: 8) {
