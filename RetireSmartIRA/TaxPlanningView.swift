@@ -255,7 +255,7 @@ struct TaxPlanningView: View {
             federalRoomToNext: fedBracket.roomRemaining,
             irmaaTier: irmaa.tier,
             irmaaCushionToNextK: cushionToNextK,
-            stateRatePercent: stateRate * 100,
+            stateRatePercent: stateRate,
             stateLabel: dataManager.selectedState.abbreviation,
             niitAnnualDollars: niit
         )
