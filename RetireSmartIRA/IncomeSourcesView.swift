@@ -706,6 +706,17 @@ struct IncomeSourcesView: View {
                         }
                     }
 
+                    // IRA/401(k) pointer — Item #14 (Ron feedback)
+                    Section {
+                        DisclosureGroup("Looking for IRA / 401(k) discretionary withdrawals?") {
+                            Text("Use the **Scenarios** tab (Tax Planning) to model discretionary withdrawals. The Income page handles required income — RMDs are auto-calculated based on age.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 4)
+                        }
+                        .font(.caption)
+                    }
+
                     if incomeType == .consulting {
                         Section("About Employment / W-2 Income") {
                             Text("Enter **W-2 Box 1** — Wages, tips, other compensation. This is the amount *after* any pre-tax 401(k), HSA, or FSA contributions.")
