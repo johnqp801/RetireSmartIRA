@@ -106,6 +106,7 @@ enum IncomeType: String, Codable, CaseIterable {
     case consulting = "Employment/Other Income"
     case stateTaxRefund = "State Tax Refund"
     case rmd = "RMD"
+    case militaryRetirement = "Military Retirement"
     case other = "Other"
 
     /// User-facing display name for the income-type picker. Defaults to the

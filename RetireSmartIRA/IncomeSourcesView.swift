@@ -783,6 +783,20 @@ struct IncomeSourcesView: View {
                         }
                     }
 
+                    if incomeType == .militaryRetirement {
+                        Section("About Military Retirement Pay") {
+                            Text("Enter the **gross distribution** from DFAS Form 1099-R Box 1 (taxable amount in Box 2a). Military retirement pay is federally taxable as ordinary income — it behaves like a pension at the federal level.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("State tax: approximately 30 states fully or partially exempt military retirement from state income tax. The app uses your state of residence to apply the correct treatment.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Do not include VA disability compensation here — that is federally tax-exempt and modeled separately.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     // Delete button — only visible when editing an existing income source
                     if incomeToEdit != nil {
                         Section {
