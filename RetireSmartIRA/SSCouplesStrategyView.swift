@@ -378,6 +378,17 @@ struct SSCouplesStrategyView: View {
                     }
                 }
 
+                // Enhancement 2: SSA operational tip
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text("When the higher earner files for Social Security, the lower earner should contact SSA to confirm spousal benefits are being applied. SSA does not always activate this automatically.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
+
                 // Apply button — only when not both already claimed
                 if !bothHaveClaimed {
                     applyStrategyButton(primaryAge: rec.primaryClaimingAge, spouseAge: rec.spouseClaimingAge)
@@ -572,6 +583,45 @@ struct SSCouplesStrategyView: View {
                 }
             }
 
+            // Enhancement 1: Per-cell spousal top-up disclosure
+            let primaryTopUp = cell.primaryMonthly - cell.primaryOwnMonthly
+            let spouseTopUp = cell.spouseMonthly - cell.spouseOwnMonthly
+            if primaryTopUp > 0.01 || spouseTopUp > 0.01 {
+                VStack(alignment: .leading, spacing: 4) {
+                    if primaryTopUp > 0.01 {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(primaryName): \(SSCalculationEngine.formatCurrency(cell.primaryOwnMonthly)) own + \(SSCalculationEngine.formatCurrency(primaryTopUp)) spousal top-up = \(SSCalculationEngine.formatCurrency(cell.primaryMonthly)) effective")
+                                .font(.caption)
+                                .foregroundStyle(Color.UI.brandTeal)
+                            Text("Spousal top-up activates when \(spouseName) files at age \(cell.spouseClaimingAge). Until then, \(primaryName) receives only their own benefit.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if spouseTopUp > 0.01 {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(spouseName): \(SSCalculationEngine.formatCurrency(cell.spouseOwnMonthly)) own + \(SSCalculationEngine.formatCurrency(spouseTopUp)) spousal top-up = \(SSCalculationEngine.formatCurrency(cell.spouseMonthly)) effective")
+                                .font(.caption)
+                                .foregroundStyle(Color.UI.brandTeal)
+                            Text("Spousal top-up activates when \(primaryName) files at age \(cell.primaryClaimingAge). Until then, \(spouseName) receives only their own benefit.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            } else {
+                // No spousal top-up applies — explain why
+                let primaryExceeds = cell.primaryOwnMonthly >= cell.primaryMonthly - 0.01
+                let spouseExceeds = cell.spouseOwnMonthly >= cell.spouseMonthly - 0.01
+                if primaryExceeds && spouseExceeds {
+                    Text("Each spouse's own benefit exceeds 50% of the other's PIA — no spousal top-up applies.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 2)
+                }
+            }
+
             Divider()
 
             HStack {
@@ -665,6 +715,21 @@ struct SSCouplesStrategyView: View {
             Text("Tap any cell to see details. \(primaryName)'s age across top, \(spouseName)'s down the side.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            // Enhancement 3: Deemed filing explainer (collapsed by default)
+            DisclosureGroup("Why these recommendations may differ from older guides") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("**Current law (post-2015):** When you file for Social Security, you automatically receive the higher of your own benefit or your spousal benefit. You cannot claim one early and switch to the other later (the \"restricted application\" strategy was eliminated for anyone born after 1954).")
+                        .font(.caption)
+                    Text("This is why this app may recommend the lower earner claim at FRA or later — claiming early permanently reduces both their own AND spousal benefits.")
+                        .font(.caption)
+                    Text("Older planning guides and some AI tools may suggest the lower earner claim at 62 to maximize the household. This was correct under pre-2016 rules but is no longer optimal under current law.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+            .font(.caption.weight(.semibold))
 
             matrixGrid
 
@@ -1012,6 +1077,17 @@ struct SSCouplesStrategyView: View {
                             .foregroundStyle(Color.UI.brandTeal)
                     }
                 }
+
+                // Enhancement 2: SSA operational tip (strip scenario)
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text("When the higher earner files for Social Security, the lower earner should contact SSA to confirm spousal benefits are being applied. SSA does not always activate this automatically.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
 
                 applyStrategyButton(primaryAge: best.primaryClaimingAge, spouseAge: best.spouseClaimingAge)
             }

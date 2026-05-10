@@ -829,3 +829,50 @@ final class SSFormattingTests: XCTestCase {
         XCTAssertEqual(SSCalculationEngine.formatLargeCurrency(350_000), "$350K")
     }
 }
+
+// MARK: - SSCouplesMatrixCell Spousal Top-Up (Enhancement 1)
+
+final class SSCouplesMatrixCellSpousalTopUpTests: XCTestCase {
+
+    func testCellShowsSpousalTopUpWhenSpouseEffectiveExceedsOwn() {
+        // Spouse's effective ($1785) > own ($1150) → spousal top-up = $635
+        let cell = SSCouplesMatrixCell(
+            primaryClaimingAge: 70, spouseClaimingAge: 67,
+            primaryMonthly: 4425, spouseMonthly: 1785,
+            primaryOwnMonthly: 4425, spouseOwnMonthly: 1150,
+            combinedLifetimeBenefit: 2_800_000,
+            survivorBenefitIfPrimaryDies: 4425, survivorBenefitIfSpouseDies: 4425,
+            isHighestLifetime: true
+        )
+        XCTAssertEqual(cell.spouseMonthly - cell.spouseOwnMonthly, 635, accuracy: 0.01)
+        XCTAssertTrue(cell.spouseMonthly > cell.spouseOwnMonthly)
+    }
+
+    func testCellNoSpousalTopUpWhenOwnExceedsSpousal() {
+        // Both have similar PIAs — own benefit is the max, no top-up
+        let cell = SSCouplesMatrixCell(
+            primaryClaimingAge: 70, spouseClaimingAge: 67,
+            primaryMonthly: 3500, spouseMonthly: 3000,
+            primaryOwnMonthly: 3500, spouseOwnMonthly: 3000,
+            combinedLifetimeBenefit: 2_500_000,
+            survivorBenefitIfPrimaryDies: 3500, survivorBenefitIfSpouseDies: 3500,
+            isHighestLifetime: false
+        )
+        XCTAssertEqual(cell.spouseMonthly, cell.spouseOwnMonthly, accuracy: 0.01)
+        XCTAssertEqual(cell.primaryMonthly, cell.primaryOwnMonthly, accuracy: 0.01)
+    }
+
+    func testCellSpousalTopUpAmountIsNonNegative() {
+        // Top-up can be zero but never negative
+        let cell = SSCouplesMatrixCell(
+            primaryClaimingAge: 62, spouseClaimingAge: 62,
+            primaryMonthly: 2000, spouseMonthly: 2000,
+            primaryOwnMonthly: 2000, spouseOwnMonthly: 2000,
+            combinedLifetimeBenefit: 1_200_000,
+            survivorBenefitIfPrimaryDies: 2000, survivorBenefitIfSpouseDies: 2000,
+            isHighestLifetime: false
+        )
+        XCTAssertGreaterThanOrEqual(cell.primaryMonthly - cell.primaryOwnMonthly, 0)
+        XCTAssertGreaterThanOrEqual(cell.spouseMonthly - cell.spouseOwnMonthly, 0)
+    }
+}
