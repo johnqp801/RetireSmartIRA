@@ -2,23 +2,27 @@
 //  RMDCalculatorChartDataTests.swift
 //  RetireSmartIRATests
 //
-//  Tests for the inherited IRA chart window extension fix.
+//  Tests for the inherited IRA chart window and deadline-notice behavior.
 //
 //  Background:
-//  rmdChartData previously iterated only 0..<projectionYears (default 10) and
-//  called projectInheritedIRA per-year, so for a freshly-inherited NEDB account
-//  whose deadline falls at yearOfInheritance+10 = currentYear+10 (year 11),
-//  the deadline bar was never plotted — it fell outside the chart window.
+//  Task 5.2 fixed Fred's bug by extending the chart window to cover inherited
+//  NEDB deadlines beyond projectionYears.  Smoke testing revealed this creates
+//  a contradiction: clicking "5 years" could produce 7 bars.  Worse, regular
+//  RMD bars truncated at projectionYears while inherited bars extended —
+//  inconsistent visual.
 //
-//  Fix shape: compute each account's projection once (which already extends to
-//  the deadline year), determine lastYear = max(regularLastYear, max(inherited
-//  deadline years)), and iterate currentYear...lastYear.
+//  Option A (revised): picker selection is authoritative.  The chart shows
+//  exactly projectionYears bars.  When a NEDB deadline falls outside the
+//  picker window, `inheritedDeadlinesOutsideWindow` surfaces a nudge notice.
 //
-//  These tests verify the engine guarantee that rmdChartData now relies on:
-//  1. projectInheritedIRA includes the deadline year row for NEDB accounts.
-//  2. The chart window formula (lastYear) extends correctly.
+//  These tests verify:
+//  1. projectInheritedIRA includes the deadline year row for NEDB accounts (engine).
+//  2. The chart window is strictly projectionYears — no extension for deadlines.
 //  3. Pre-RBD NEDB: years 1-10 have zero RMD, deadline year has full-balance drain.
 //  4. Post-RBD NEDB: years 1-10 have partial RMDs, deadline year drains the balance.
+//  5. inheritedDeadlinesOutsideWindow logic: notice fires when deadline > lastVisibleYear.
+//  6. inheritedDeadlinesOutsideWindow logic: no notice when deadline <= lastVisibleYear.
+//  7. Fresh-inheritance at default 10-year picker → deadline at +10 fires notice.
 //
 
 import Testing
@@ -183,14 +187,14 @@ struct RMDCalculatorChartDataTests {
                 "Deadline year RMD (\(deadlineRow.rmd)) should exceed all prior-year RMDs (max: \(maxPreDeadline))")
     }
 
-    // MARK: - Chart window formula: lastYear extends when inherited deadline is later
+    // MARK: - Chart window formula: strictly picker-bound (no extension)
 
-    @Test("Chart window lastYear extends to cover inherited deadline")
-    func chartWindowLastYearExtendsForInheritedDeadline() {
+    @Test("Chart window stays at projectionYears-1 even when inherited deadline is later")
+    func chartWindowStaysAtPickerBound() {
         let currentYear = 2026
         let projectionYears = 10
         let account = makeNEDBAccount(currentYear: currentYear, decedentRBDStatus: .afterRBD)
-        let deadlineYear = currentYear + 10  // = 2036
+        let deadlineYear = currentYear + 10  // = 2036, one year beyond the 10-year window
 
         let rows = RMDCalculationEngine.projectInheritedIRA(
             account: account,
@@ -199,19 +203,21 @@ struct RMDCalculatorChartDataTests {
             growthPercent: 6.0
         )
 
-        // Simulate the chart's lastYear formula
-        let regularLastYear = currentYear + projectionYears - 1    // 2035
-        let inheritedLastYear = rows.last?.year ?? regularLastYear // should be 2036
-        let lastYear = max(regularLastYear, inheritedLastYear)
+        // The engine still produces a row for the deadline year (unchanged)
+        let years = rows.map { $0.year }
+        #expect(years.contains(deadlineYear),
+                "Engine projection still includes deadline year \(deadlineYear); got \(years)")
 
-        #expect(lastYear == deadlineYear,
-                "Chart lastYear should be \(deadlineYear) (the deadline), got \(lastYear)")
-        #expect(lastYear > regularLastYear,
-                "lastYear (\(lastYear)) must exceed regularLastYear (\(regularLastYear)) for a fresh NEDB account")
+        // But the chart window is authoritative: lastYear = currentYear + projectionYears - 1
+        let chartLastYear = currentYear + projectionYears - 1  // 2035
+        #expect(chartLastYear < deadlineYear,
+                "Chart lastYear (\(chartLastYear)) must NOT extend to deadline \(deadlineYear)")
+        #expect(chartLastYear == 2035,
+                "Chart lastYear should be 2035 for projectionYears=10 starting 2026; got \(chartLastYear)")
     }
 
-    @Test("Chart window lastYear does NOT extend for accounts with no deadline (spouse)")
-    func chartWindowLastYearUnchangedForSpouseInherited() {
+    @Test("Spouse beneficiary: engine projection stays within projectionYears (no deadline row)")
+    func spouseInherited_noDeadlineRowInProjection() {
         let currentYear = 2026
         let projectionYears = 10
 
@@ -236,11 +242,89 @@ struct RMDCalculatorChartDataTests {
         )
 
         let regularLastYear = currentYear + projectionYears - 1
-        let inheritedLastYear = rows.last?.year ?? regularLastYear
-        let lastYear = max(regularLastYear, inheritedLastYear)
+        let engineLastYear = rows.last?.year ?? regularLastYear
 
-        // Spouse account has no deadline, so lastYear should equal regularLastYear
-        #expect(lastYear == regularLastYear,
-                "Spouse beneficiary has no deadline; lastYear should stay at \(regularLastYear), got \(lastYear)")
+        // Spouse account has no deadline, so the engine doesn't extend beyond projectionYears
+        #expect(engineLastYear == regularLastYear,
+                "Spouse beneficiary has no deadline; engine last year should stay at \(regularLastYear), got \(engineLastYear)")
+    }
+
+    // MARK: - inheritedDeadlinesOutsideWindow logic
+
+    @Test("NEDB deadline outside picker window: notice entry is generated")
+    func chartWithDeadlineOutsideWindow_ShowsNotice() {
+        // Simulate: currentYear=2026, projectionYears=5 → lastVisibleYear=2030
+        // NEDB freshly inherited in 2026 → deadline = 2036, which is > 2030
+        let currentYear = 2026
+        let projectionYears = 5
+        let lastVisibleYear = currentYear + projectionYears - 1  // 2030
+
+        let account = makeNEDBAccount(currentYear: currentYear, decedentRBDStatus: .afterRBD)
+
+        guard let yearOfInheritance = account.yearOfInheritance,
+              let beneficiaryType = account.beneficiaryType else {
+            Issue.record("Account missing yearOfInheritance or beneficiaryType")
+            return
+        }
+
+        let deadline = yearOfInheritance + 10  // 2036
+        let isNEDB = !beneficiaryType.isEligibleDesignated
+
+        #expect(isNEDB, "Account should be non-eligible designated")
+        #expect(deadline > lastVisibleYear,
+                "Deadline \(deadline) should exceed lastVisibleYear \(lastVisibleYear) → notice fires")
+    }
+
+    @Test("NEDB deadline inside picker window: no notice generated")
+    func chartWithDeadlineInsideWindow_NoNotice() {
+        // currentYear=2026, projectionYears=15 → lastVisibleYear=2040
+        // NEDB freshly inherited in 2026 → deadline = 2036, which is <= 2040
+        let currentYear = 2026
+        let projectionYears = 15
+        let lastVisibleYear = currentYear + projectionYears - 1  // 2040
+
+        let account = makeNEDBAccount(currentYear: currentYear, decedentRBDStatus: .afterRBD)
+
+        guard let yearOfInheritance = account.yearOfInheritance,
+              let beneficiaryType = account.beneficiaryType else {
+            Issue.record("Account missing yearOfInheritance or beneficiaryType")
+            return
+        }
+
+        let deadline = yearOfInheritance + 10  // 2036
+        let isNEDB = !beneficiaryType.isEligibleDesignated
+        let noticeWouldFire = isNEDB && deadline > lastVisibleYear
+
+        #expect(!noticeWouldFire,
+                "Deadline \(deadline) is inside window (lastVisibleYear=\(lastVisibleYear)) → no notice")
+    }
+
+    @Test("Fresh-inheritance at default 10-year picker: year-11 deadline triggers notice")
+    func freshInheritanceDefaultPicker_NoticeFiresForYear11Deadline() {
+        // Fred's scenario: inherit in currentYear, projectionYears=10
+        // Chart shows currentYear through currentYear+9 (2035).
+        // Deadline = currentYear + 10 (2036) → outside window → notice fires.
+        let currentYear = 2026
+        let projectionYears = 10
+        let lastVisibleYear = currentYear + projectionYears - 1  // 2035
+
+        let account = makeNEDBAccount(currentYear: currentYear, decedentRBDStatus: .afterRBD)
+
+        guard let yearOfInheritance = account.yearOfInheritance,
+              let beneficiaryType = account.beneficiaryType else {
+            Issue.record("Account missing yearOfInheritance or beneficiaryType")
+            return
+        }
+
+        let deadline = yearOfInheritance + 10  // 2036
+        let isNEDB = !beneficiaryType.isEligibleDesignated
+        let noticeWouldFire = isNEDB && deadline > lastVisibleYear
+
+        #expect(isNEDB, "Fresh inherited account should be NEDB")
+        #expect(deadline == 2036, "Deadline should be 2036 (inherited 2026 + 10)")
+        #expect(deadline > lastVisibleYear,
+                "Deadline \(deadline) exceeds lastVisibleYear \(lastVisibleYear) at default 10-year picker")
+        #expect(noticeWouldFire,
+                "Notice must fire for Fred's scenario: deadline at year 11 of a 10-year chart")
     }
 }

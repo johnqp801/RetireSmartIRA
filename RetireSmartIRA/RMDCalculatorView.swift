@@ -719,16 +719,13 @@ struct RMDCalculatorView: View {
 
     /// Combined stacked chart data for both IRA/401(k) and Inherited IRA RMDs.
     ///
-    /// The chart window extends to cover any inherited-account deadline year that
-    /// falls beyond `projectionYears`.  Regular (non-inherited) RMD bars are only
-    /// plotted for years within `projectionYears`; years added solely to show an
-    /// inherited deadline get a zero regular-RMD bar so the x-axis stays consistent.
+    /// The chart window is strictly authoritative: it shows exactly `projectionYears`
+    /// bars regardless of any inherited deadline.  When an NEDB deadline falls outside
+    /// the window, `inheritedDeadlinesOutsideWindow` surfaces a notice instead.
     private var rmdChartData: [RMDChartDataPoint] {
         var data: [RMDChartDataPoint] = []
 
         // --- Pre-compute each inherited account's full projection once ---
-        // projectInheritedIRA already extends its range to cover the deadline year,
-        // so we just need to union those projections and find the furthest year.
         var inheritedProjections: [(account: IRAAccount, rows: [RMDCalculationEngine.InheritedProjectionRow])] = []
         if dataManager.hasInheritedAccounts {
             for account in dataManager.inheritedAccounts {
@@ -745,52 +742,44 @@ struct RMDCalculatorView: View {
             }
         }
 
-        // --- Determine the chart's last year ---
-        // Extend beyond projectionYears only when an inherited deadline falls later.
-        let regularLastYear = dataManager.currentYear + projectionYears - 1
-        let inheritedLastYear = inheritedProjections.compactMap { $0.rows.last?.year }.max() ?? regularLastYear
-        let lastYear = max(regularLastYear, inheritedLastYear)
-
-        // --- Build per-year data points ---
-        for projectedYear in dataManager.currentYear...lastYear {
+        // --- Build per-year data points — strictly within the picker window ---
+        for yearOffset in 0..<projectionYears {
+            let projectedYear = dataManager.currentYear + yearOffset
             let label = "'\(String(projectedYear).suffix(2))"
-            let yearOffset = projectedYear - dataManager.currentYear
 
-            // Regular IRA/401(k) RMDs — only within the original projectionYears window
+            // Regular IRA/401(k) RMDs
             var regularRMD: Double = 0
-            if yearOffset < projectionYears {
-                if dataManager.primaryTraditionalIRABalance > 0 {
-                    let pAge = dataManager.currentAge + yearOffset
-                    if pAge >= dataManager.rmdAge {
-                        let balance = projectBalance(
-                            years: yearOffset,
-                            startingBalance: dataManager.primaryTraditionalIRABalance,
-                            startAge: dataManager.currentAge,
-                            rmdStartAge: dataManager.rmdAge,
-                            growthPercent: dataManager.primaryGrowthRate
-                        )
-                        regularRMD += dataManager.calculateRMD(for: pAge, balance: balance)
-                    }
+            if dataManager.primaryTraditionalIRABalance > 0 {
+                let pAge = dataManager.currentAge + yearOffset
+                if pAge >= dataManager.rmdAge {
+                    let balance = projectBalance(
+                        years: yearOffset,
+                        startingBalance: dataManager.primaryTraditionalIRABalance,
+                        startAge: dataManager.currentAge,
+                        rmdStartAge: dataManager.rmdAge,
+                        growthPercent: dataManager.primaryGrowthRate
+                    )
+                    regularRMD += dataManager.calculateRMD(for: pAge, balance: balance)
                 }
+            }
 
-                if dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0 {
-                    let sAge = dataManager.spouseCurrentAge + yearOffset
-                    if sAge >= dataManager.spouseRmdAge {
-                        let balance = projectBalance(
-                            years: yearOffset,
-                            startingBalance: dataManager.spouseTraditionalIRABalance,
-                            startAge: dataManager.spouseCurrentAge,
-                            rmdStartAge: dataManager.spouseRmdAge,
-                            growthPercent: dataManager.spouseGrowthRate
-                        )
-                        regularRMD += dataManager.calculateRMD(for: sAge, balance: balance)
-                    }
+            if dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0 {
+                let sAge = dataManager.spouseCurrentAge + yearOffset
+                if sAge >= dataManager.spouseRmdAge {
+                    let balance = projectBalance(
+                        years: yearOffset,
+                        startingBalance: dataManager.spouseTraditionalIRABalance,
+                        startAge: dataManager.spouseCurrentAge,
+                        rmdStartAge: dataManager.spouseRmdAge,
+                        growthPercent: dataManager.spouseGrowthRate
+                    )
+                    regularRMD += dataManager.calculateRMD(for: sAge, balance: balance)
                 }
             }
 
             data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: regularRMD, category: "IRA / 401(k)"))
 
-            // Inherited IRA RMDs — pull directly from the pre-computed projection rows
+            // Inherited IRA RMDs — pull from pre-computed projection rows within window
             var inheritedRMD: Double = 0
             for projection in inheritedProjections {
                 if let row = projection.rows.first(where: { $0.year == projectedYear }) {
@@ -801,6 +790,24 @@ struct RMDCalculatorView: View {
             data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: inheritedRMD, category: "Inherited IRA"))
         }
         return data
+    }
+
+    /// NEDB inherited accounts whose 10-year deadline falls outside the current picker window.
+    /// Used to render a nudge notice below the projection chart.
+    private var inheritedDeadlinesOutsideWindow: [(accountName: String, deadlineYear: Int, ownerLabel: String)] {
+        let lastVisibleYear = dataManager.currentYear + projectionYears - 1
+        return dataManager.inheritedAccounts.compactMap { account in
+            guard let yearOfInheritance = account.yearOfInheritance,
+                  let beneficiaryType = account.beneficiaryType else { return nil }
+            // Only non-eligible designated beneficiaries have a hard 10-year deadline
+            guard !beneficiaryType.isEligibleDesignated else { return nil }
+            let deadline = yearOfInheritance + 10
+            guard deadline > lastVisibleYear else { return nil }
+            let ownerLabel = account.owner == .spouse
+                ? (dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName)
+                : "You"
+            return (account.name, deadline, ownerLabel)
+        }
     }
 
     /// Formats Y-axis labels compactly ($5K, $150K, etc.)
@@ -1027,6 +1034,23 @@ struct RMDCalculatorView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 280)
+            }
+
+            // Nudge notice: inherited NEDB deadlines outside the picker window
+            let outsideDeadlines = inheritedDeadlinesOutsideWindow
+            if !outsideDeadlines.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(outsideDeadlines, id: \.deadlineYear) { entry in
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle")
+                                .font(.caption2)
+                            Text("\(entry.ownerLabel)'s \(entry.accountName) deadline: \(entry.deadlineYear). Pick a longer horizon to see it.")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 4)
             }
 
             // Growth rate controls
