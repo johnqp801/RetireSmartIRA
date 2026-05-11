@@ -1220,17 +1220,15 @@ struct TaxPlanningView: View {
             }
             .padding(.vertical, 8)
         } else {
-            // ACA cliff live indicator (V1.8.1 Task 4.2) — renders only when ACA modeling
-            // is enabled (acaSubsidyResult is nil otherwise) and a cliff exists in this
-            // year's config (dollarsToCliff != nil — i.e., enhanced subsidies not permanent).
+            // ACA Subsidy Bar (V1.8.1 incremental) — IRMAA-parity visualization.
+            // Replaces ACACliffIndicator. Renders only when ACA modeling is enabled
+            // (acaSubsidyResult is nil otherwise) and a cliff exists in this year's
+            // config (dollarsToCliff != nil — i.e., enhanced subsidies not permanent).
+            // beforeMAGI is nil for v1 — no clean baseline-MAGI accessor exists yet.
             if let acaResult = dataManager.acaSubsidyResult,
-               let dollarsToCliff = acaResult.dollarsToCliff {
-                ACACliffIndicator(
-                    cliffThreshold: acaResult.acaMAGI + dollarsToCliff,
-                    projectedMAGI: acaResult.acaMAGI,
-                    lostSubsidyEstimate: acaResult.annualPremiumAssistance
-                )
-                .padding(.bottom, 4)
+               acaResult.dollarsToCliff != nil {
+                ACASubsidyBar(acaResult: acaResult, beforeMAGI: nil)
+                    .padding(.bottom, 4)
             }
 
             // Your Roth conversion

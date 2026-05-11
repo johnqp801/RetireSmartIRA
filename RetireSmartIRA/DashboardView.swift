@@ -49,6 +49,7 @@ struct DashboardView: View {
                 taxBracketChart
                 stateBracketChart
                 irmaaTierChart
+                acaSubsidyChart
                 householdMedicareCostSection
                 niitPositionChart
                 accountBalances
@@ -81,6 +82,7 @@ struct DashboardView: View {
                     taxBracketChart
                     stateBracketChart
                     irmaaTierChart
+                    acaSubsidyChart
                     householdMedicareCostSection
                     niitPositionChart
                 }
@@ -1958,6 +1960,63 @@ struct DashboardView: View {
                     .stroke(
                         LinearGradient(
                             colors: [Color.Chart.tealRamp1.opacity(0.3), Color.Chart.tealRamp6.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+        }
+    }
+
+    // MARK: - ACA Subsidy Section (1.8.1 incremental)
+
+    @ViewBuilder
+    private var acaSubsidyChart: some View {
+        if dataManager.shouldDisplayACASection,
+           let acaResult = dataManager.acaSubsidyResult,
+           acaResult.dollarsToCliff != nil {
+
+            VStack(alignment: .leading, spacing: 12) {
+                // Header
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.green, .orange],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "cross.case.fill")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("ACA Marketplace Subsidy")
+                            .font(.headline)
+                        Text("Based on \(dataManager.filingStatus.rawValue) MAGI · Household of \(acaResult.householdSize)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
+
+                ACASubsidyBar(acaResult: acaResult, beforeMAGI: nil)
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.green.opacity(0.3), Color.orange.opacity(0.3)],
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
