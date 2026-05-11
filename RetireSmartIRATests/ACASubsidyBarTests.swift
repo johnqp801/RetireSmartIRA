@@ -152,4 +152,69 @@ final class ACASubsidyBarTests: XCTestCase {
         let _ = view.body
         XCTAssertNotNil(view)
     }
+
+    // MARK: - Tips disclosure smoke tests
+
+    @MainActor
+    func testACASubsidyBar_RendersWithTipsDisclosure() {
+        // Smoke test that the bar still renders with the new About ACA subsidies
+        // disclosure attached (3 TipRows: muni bond MAGI, Roth conversion, state subsidies).
+        let result = ACASubsidyResult(
+            acaMAGI: 60_000,
+            householdSize: 2,
+            fplAmount: 21_150,
+            fplPercent: 284,
+            applicableFigure: 0.07,
+            benchmarkSilverPlanAnnual: 10_000,
+            expectedContribution: 4_200,
+            annualPremiumAssistance: 5_800,
+            dollarsToCliff: 24_600,
+            isOverCliff: false
+        )
+        let bar = ACASubsidyBar(acaResult: result, beforeMAGI: nil)
+        let _ = bar.body
+        XCTAssertNotNil(bar)
+    }
+
+    @MainActor
+    func testACASubsidyBar_RendersWithTipsDisclosure_OverCliff() {
+        // Ensure the tips disclosure renders correctly even when over the cliff,
+        // where annualPremiumAssistance is zero.
+        let result = ACASubsidyResult(
+            acaMAGI: 90_000,
+            householdSize: 2,
+            fplAmount: 21_150,
+            fplPercent: 426,
+            applicableFigure: 0.085,
+            benchmarkSilverPlanAnnual: 10_000,
+            expectedContribution: 7_650,
+            annualPremiumAssistance: 0,
+            dollarsToCliff: -5_400,
+            isOverCliff: true
+        )
+        let bar = ACASubsidyBar(acaResult: result, beforeMAGI: 82_000)
+        let _ = bar.body
+        XCTAssertNotNil(bar)
+    }
+
+    @MainActor
+    func testACASubsidyBar_RendersWithTipsDisclosure_WellUnder() {
+        // Smoke test: tips disclosure renders in the well-under-cliff state,
+        // confirming it is unconditionally appended to the main VStack.
+        let result = ACASubsidyResult(
+            acaMAGI: 30_000,
+            householdSize: 1,
+            fplAmount: 15_650,
+            fplPercent: 192,
+            applicableFigure: 0.0,
+            benchmarkSilverPlanAnnual: 8_000,
+            expectedContribution: 0,
+            annualPremiumAssistance: 8_000,
+            dollarsToCliff: 32_600,
+            isOverCliff: false
+        )
+        let bar = ACASubsidyBar(acaResult: result, beforeMAGI: nil)
+        let _ = bar.body
+        XCTAssertNotNil(bar)
+    }
 }

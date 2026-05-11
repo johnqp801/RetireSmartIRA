@@ -159,6 +159,20 @@ struct SourcesReferencesView: View {
                 ]
             )
 
+            sourceSection(
+                title: "ACA Marketplace Subsidies",
+                icon: "cross.case.fill",
+                description: "Federal Premium Tax Credit (PTC) eligibility, applicable-figure schedule, 400% FPL cliff, and MAGI calculation rules for the ACA marketplace.",
+                sources: [
+                    ("healthcare.gov", "Official federal Health Insurance Marketplace. Subsidy estimator, Federal Poverty Level tables, plan finder, and open-enrollment information.", "https://www.healthcare.gov"),
+                    ("KFF Health Insurance Marketplace Calculator", "Independent ACA subsidy estimator from the Kaiser Family Foundation. Useful for cross-checking RetireSmart IRA's subsidy calculations.", "https://www.kff.org/interactive/subsidy-calculator/"),
+                    ("IRS Publication 974: Premium Tax Credit", "Authoritative federal source for the Premium Tax Credit (PTC) calculation rules. Defines the applicable-figure schedule, modified AGI rules, and reconciliation procedure.", "https://www.irs.gov/forms-pubs/about-publication-974"),
+                    ("IRS Form 8962: Premium Tax Credit (PTC)", "The form taxpayers file each year to reconcile advance Premium Tax Credit (APTC) against actual income. Year-end reconciliation determines whether you receive additional subsidy or owe back overpaid subsidy.", "https://www.irs.gov/forms-pubs/about-form-8962"),
+                    ("HHS Federal Poverty Guidelines", "Federal Poverty Level (FPL) guidelines published annually by the Department of Health and Human Services. Determines the household income thresholds for ACA subsidy eligibility (100%, 150%, 200%, 250%, 300%, 400% FPL).", "https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines"),
+                    ("Inflation Reduction Act (2022) — ACA Subsidy Provisions", "The IRA extended enhanced ACA subsidies (no cliff above 400% FPL) through 2025. Starting 2026, the 400% FPL cliff returns unless extended by future legislation. This app reflects the 2026 cliff.", "https://www.kff.org/policy-watch/inflation-reduction-act-health-insurance-subsidies/"),
+                ]
+            )
+
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Data is reviewed and updated annually when the IRS, SSA, and CMS publish new figures. State tax data is sourced from individual state tax authorities and cross-referenced with the Tax Foundation.")

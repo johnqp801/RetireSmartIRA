@@ -163,7 +163,40 @@ struct ACASubsidyBar: View {
             barWithMarkers
             bandLegend
             readoutSection
+            tipsDisclosure
         }
+    }
+
+    // MARK: - Tips disclosure
+
+    @ViewBuilder
+    private var tipsDisclosure: some View {
+        DisclosureGroup("About ACA subsidies") {
+            VStack(alignment: .leading, spacing: 8) {
+                TipRow(
+                    icon: "exclamationmark.circle",
+                    iconColor: .orange,
+                    title: "Tax-exempt interest counts in MAGI",
+                    bodyText: "Municipal bond interest is federally tax-free but IS counted toward the ACA cliff threshold. This is the most common cause of unexpected cliff crossings."
+                )
+
+                TipRow(
+                    icon: "arrow.triangle.swap",
+                    iconColor: .blue,
+                    title: "Roth conversions add to MAGI; Roth distributions don't",
+                    bodyText: "Each year's Roth conversion increases that year's MAGI. Once converted, future Roth withdrawals don't count toward ACA MAGI at all."
+                )
+
+                TipRow(
+                    icon: "map",
+                    iconColor: .purple,
+                    title: "State-extended subsidies vary",
+                    bodyText: "Some states (NY, CA, MA, VT, and others) offer additional state-funded subsidies that continue past the 400% FPL cliff. This app shows federal subsidies only — consult your state marketplace directly for state-specific assistance."
+                )
+            }
+            .padding(.vertical, 4)
+        }
+        .font(.caption.weight(.semibold))
     }
 
     // MARK: - Bar + markers
@@ -421,5 +454,31 @@ struct ACASubsidyBar: View {
 
     private func formatDollars(_ value: Double) -> String {
         formatMagi(value)
+    }
+}
+
+// MARK: - TipRow
+
+private struct TipRow: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let bodyText: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundStyle(iconColor)
+                .frame(width: 16, alignment: .top)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.medium))
+                Text(bodyText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
