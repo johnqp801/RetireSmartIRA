@@ -121,19 +121,21 @@ private var scenarioFederalBracketChart: some View {
                 let currentIdx = segments.firstIndex(where: { $0.isCurrent }) ?? 0
                 let showThrough = min(currentIdx + 1, segments.count - 1)
                 let visibleSegments = Array(segments.prefix(showThrough + 1))
-                let chartMax = visibleSegments.last?.rangeEnd ?? 1
                 let barHeight: CGFloat = 36
                 let topPad: CGFloat = 40
 
                 GeometryReader { geo in
                     let w = geo.size.width
+                    let segCount = Double(visibleSegments.count)
 
-                    // Bracket bars
+                    // Bracket bars — equal-width segments (each bracket gets same visual
+                    // real estate regardless of dollar range; prevents narrow lower brackets
+                    // being crushed by wide upper brackets like CA 9.3%).
                     ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
                         let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
                         let color = bracketColors[min(globalIdx, bracketColors.count - 1)]
-                        let x = w * segment.rangeStart / chartMax
-                        let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+                        let segW = w / segCount
+                        let x = segW * Double(index)
 
                         if globalIdx <= currentIdx {
                             Rectangle().fill(color)
@@ -146,16 +148,20 @@ private var scenarioFederalBracketChart: some View {
                         }
                     }
 
-                    // Separator lines
-                    ForEach(Array(visibleSegments.dropFirst().enumerated()), id: \.element.id) { _, segment in
-                        let bx = w * segment.rangeStart / chartMax
+                    // Separator lines (equal-width positions)
+                    ForEach(Array(visibleSegments.dropFirst().enumerated()), id: \.element.id) { index, _ in
+                        let bx = w * Double(index + 1) / segCount
                         Rectangle().fill(Color.primary.opacity(0.2))
                             .frame(width: 1, height: barHeight)
                             .offset(x: bx - 0.5, y: topPad)
                     }
 
-                    // Before marker (dashed gray)
-                    let beforeX = CGFloat(beforeIncome / chartMax) * w
+                    // Before marker (dashed gray) — positioned within its segment proportionally
+                    let beforeX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                        value: beforeIncome,
+                        segments: visibleSegments,
+                        barWidth: w
+                    )
                     Path { path in
                         path.move(to: CGPoint(x: beforeX, y: topPad - 5))
                         path.addLine(to: CGPoint(x: beforeX, y: topPad + barHeight + 5))
@@ -172,8 +178,12 @@ private var scenarioFederalBracketChart: some View {
                         .clipShape(Capsule())
                         .position(x: min(max(beforeX, 40), w - 40), y: 10)
 
-                    // After marker (solid)
-                    let afterX = CGFloat(afterIncome / chartMax) * w
+                    // After marker (solid) — positioned within its segment proportionally
+                    let afterX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                        value: afterIncome,
+                        segments: visibleSegments,
+                        barWidth: w
+                    )
                     Path { path in
                         path.move(to: CGPoint(x: afterX, y: topPad - 5))
                         path.addLine(to: CGPoint(x: afterX, y: topPad + barHeight + 5))
@@ -329,7 +339,6 @@ private var scenarioStateBracketChart: some View {
                 let currentIdx = segments.firstIndex(where: { $0.isCurrent }) ?? 0
                 let showThrough = min(currentIdx + 1, segments.count - 1)
                 let visibleSegments = Array(segments.prefix(showThrough + 1))
-                let chartMax = visibleSegments.last?.rangeEnd ?? 1
                 let barHeight: CGFloat = 36
                 let topPad: CGFloat = 40
 
@@ -356,13 +365,16 @@ private var scenarioStateBracketChart: some View {
 
                     GeometryReader { geo in
                         let w = geo.size.width
+                        let segCount = Double(visibleSegments.count)
 
-                        // Bracket bars
+                        // Bracket bars — equal-width segments (each bracket gets same visual
+                        // real estate regardless of dollar range; prevents narrow lower brackets
+                        // being crushed by wide upper brackets like CA 9.3%).
                         ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, segment in
                             let globalIdx = segments.firstIndex(where: { $0.id == segment.id }) ?? index
                             let color = stateColors[min(globalIdx, stateColors.count - 1)]
-                            let x = w * segment.rangeStart / chartMax
-                            let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+                            let segW = w / segCount
+                            let x = segW * Double(index)
 
                             if globalIdx <= currentIdx {
                                 Rectangle().fill(color)
@@ -375,16 +387,20 @@ private var scenarioStateBracketChart: some View {
                             }
                         }
 
-                        // Separator lines
-                        ForEach(Array(visibleSegments.dropFirst().enumerated()), id: \.element.id) { _, segment in
-                            let bx = w * segment.rangeStart / chartMax
+                        // Separator lines (equal-width positions)
+                        ForEach(Array(visibleSegments.dropFirst().enumerated()), id: \.element.id) { index, _ in
+                            let bx = w * Double(index + 1) / segCount
                             Rectangle().fill(Color.primary.opacity(0.2))
                                 .frame(width: 1, height: barHeight)
                                 .offset(x: bx - 0.5, y: topPad)
                         }
 
-                        // Before marker
-                        let beforeX = CGFloat(beforeIncome / chartMax) * w
+                        // Before marker — positioned within its segment proportionally
+                        let beforeX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                            value: beforeIncome,
+                            segments: visibleSegments,
+                            barWidth: w
+                        )
                         Path { path in
                             path.move(to: CGPoint(x: beforeX, y: topPad - 5))
                             path.addLine(to: CGPoint(x: beforeX, y: topPad + barHeight + 5))
@@ -401,8 +417,12 @@ private var scenarioStateBracketChart: some View {
                             .clipShape(Capsule())
                             .position(x: min(max(beforeX, 40), w - 40), y: 10)
 
-                        // After marker
-                        let afterX = CGFloat(afterIncome / chartMax) * w
+                        // After marker — positioned within its segment proportionally
+                        let afterX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                            value: afterIncome,
+                            segments: visibleSegments,
+                            barWidth: w
+                        )
                         Path { path in
                             path.move(to: CGPoint(x: afterX, y: topPad - 5))
                             path.addLine(to: CGPoint(x: afterX, y: topPad + barHeight + 5))
@@ -487,6 +507,24 @@ private var scenarioStateBracketChart: some View {
                             Text("**\(bracketInfo.roomRemaining, format: .currency(code: "USD").precision(.fractionLength(0)))** room before the next state bracket")
                                 .font(.caption)
                         }
+                    }
+
+                    // "About California tax brackets" disclosure (collapsed by default)
+                    if dataManager.selectedState == .california {
+                        DisclosureGroup("About California tax brackets") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("California has 9 income tax brackets ranging from 1.0% to 12.3%, plus a 1% Mental Health Services Tax (Prop 63) on income above $1 million. The effective top marginal rate is **13.3%**.")
+                                    .font(.caption)
+                                Text("This bar shows your current bracket position. All brackets — including the upper-income brackets and the Mental Health Services Tax — are applied correctly by the engine when your income reaches those levels.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("See **Sources & References** for the complete bracket schedule.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .font(.caption.weight(.semibold))
                     }
                 }
                 .padding()
@@ -927,5 +965,41 @@ private var scenarioNIITChart: some View {
     }
 }
 
+// MARK: - Bracket Marker Position Helper
+
+/// Computes the x-position (in points) of a dollar value marker on the equal-width
+/// bracket bar used in both the federal and state scenario charts.
+///
+/// Each segment occupies `barWidth / segments.count` of horizontal space. Within a
+/// segment the marker is placed proportionally between `rangeStart` and `rangeEnd`,
+/// so the visual position reflects both *which bracket* the value lands in and *how
+/// far into that bracket* it sits — without being distorted by the wide dollar ranges
+/// of upper brackets (e.g. CA's 9.3% bracket spans $561K).
+///
+/// - Parameters:
+///   - value: Dollar value to position (e.g. taxable income).
+///   - segments: Ordered bracket segments covering the visible bar range.
+///   - barWidth: Total rendered bar width in points.
+/// - Returns: X offset in points, clamped to [0, barWidth − 4].
+private static func scenarioBracketMarkerPosition(
+    value: Double,
+    segments: [ScenarioBracketSegment],
+    barWidth: CGFloat
+) -> CGFloat {
+    guard !segments.isEmpty else { return 0 }
+    let segmentWidth = barWidth / CGFloat(segments.count)
+
+    for (idx, segment) in segments.enumerated() {
+        if value >= segment.rangeStart && value < segment.rangeEnd {
+            let rangeDelta = segment.rangeEnd - segment.rangeStart
+            let intra: CGFloat = rangeDelta > 0
+                ? CGFloat((value - segment.rangeStart) / rangeDelta)
+                : 0
+            return CGFloat(idx) * segmentWidth + intra * segmentWidth
+        }
+    }
+    // Value is at or past the last segment's end — clamp to right edge
+    return barWidth - 4
+}
 
 }
