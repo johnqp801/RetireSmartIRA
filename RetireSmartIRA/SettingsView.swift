@@ -697,10 +697,28 @@ private struct ACASettingsSection: View {
                     .foregroundStyle(hasOverride ? .primary : .secondary)
                 }
             }
+
+
+                // U4: Silver plan caveat + KFF calculator link (Ron feedback)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Default $650/month is the national average benchmark Silver premium for a family of 2. Your actual premium depends on your state, household size, ages, and income.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Link(destination: URL(string: "https://www.kff.org/interactive/calculator-aca-enhanced-premium-tax-credit/")!) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "link")
+                                .font(.caption2)
+                            Text("Use the KFF calculator for a precise estimate (works for all 50 states)")
+                                .font(.caption)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
         } header: {
             Text("ACA Marketplace")
         } footer: {
-            Text("Single-year directional estimate. Default is the national average benchmark Silver plan. Enter your local monthly premium from healthcare.gov for a more accurate dollar figure.")
+            Text("Single-year directional estimate. Enter your local monthly premium from healthcare.gov for a more accurate dollar figure.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
