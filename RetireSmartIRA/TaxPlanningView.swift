@@ -2672,10 +2672,17 @@ struct TaxPlanningView: View {
 
     // MARK: - Pre-tax Contributions Card (401k)
 
+    /// Step number for pre-tax contributions: always one after charitable step.
+    /// When no inherited accounts: charitable=3, preTax=4.
+    /// When inherited accounts exist: charitable=4, preTax=5.
+    private var preTaxContributionsStepNumber: Int {
+        charitableStepNumber + 1
+    }
+
     private var preTaxContributionsCard: some View {
         AnyView(VStack(spacing: 0) {
             ScenarioStepCard(
-                stepNumber: 5,
+                stepNumber: preTaxContributionsStepNumber,
                 title: "Pre-tax Contributions",
                 description: "Reduce your adjusted gross income (AGI) through pre-tax 401(k), traditional IRA, and HSA contributions.",
                 stepColor: Color.UI.brandTeal,
