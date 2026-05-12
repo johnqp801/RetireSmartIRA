@@ -29,9 +29,20 @@ struct TaxYearConfigContributionLimitsTests {
     @Test("HSA limits load with self-only / family / over-55 catchup")
     func hsaLimits() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        #expect(config.contributionLimitsHSA.selfOnly == 4_300)
-        #expect(config.contributionLimitsHSA.family == 8_550)
+        // 2026 values per IRS Rev. Proc. 2025-19
+        #expect(config.contributionLimitsHSA.selfOnly == 4_400)
+        #expect(config.contributionLimitsHSA.family == 8_750)
         #expect(config.contributionLimitsHSA.catchupAge55Plus == 1_000)
+    }
+
+    @Test("2026 HSA family + both spouses 55+ catch-up = $10,750")
+    func testHSALimits_2026_FamilyBothCatchup_Equals10750() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let hsa = config.contributionLimitsHSA
+        // IRS Rev. Proc. 2025-19: family $8,750 + 2 × $1,000 catch-up = $10,750
+        let combined = hsa.family + (2 * hsa.catchupAge55Plus)
+        #expect(combined == 10_750,
+            "Family HDHP with both spouses 55+ should allow $10,750 combined HSA contribution")
     }
 }
 

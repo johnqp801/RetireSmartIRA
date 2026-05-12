@@ -254,7 +254,7 @@ struct TaxYearConfig: Codable {
             base: 7_000, catchupAge50Plus: 1_000
         ),
         contributionLimitsHSA: ContributionLimitsHSA(
-            selfOnly: 4_300, family: 8_550, catchupAge55Plus: 1_000
+            selfOnly: 4_400, family: 8_750, catchupAge55Plus: 1_000
         ),
         medicare2026: MedicarePremiumDefaults(
             partBStandardMonthly: 202.90,

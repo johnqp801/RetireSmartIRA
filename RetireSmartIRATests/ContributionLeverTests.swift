@@ -94,9 +94,9 @@ struct AboveTheLineDeductionTests {
         dm.scenario.spouseTraditional401kContribution = 10_000
         dm.scenario.yourTraditionalIRAContribution = 7_000
         dm.scenario.spouseTraditionalIRAContribution = 7_000
-        dm.scenario.yourHSAContribution = 4_300
+        dm.scenario.yourHSAContribution = 4_400
         dm.scenario.spouseHSAContribution = 0
-        #expect(dm.totalAboveTheLineDeductions == 48_300)
+        #expect(dm.totalAboveTheLineDeductions == 48_400)
     }
 
     @Test("federalAGI subtracts above-the-line deductions from gross")
@@ -128,7 +128,7 @@ struct HSACombinedLimitTests {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1980)  // age 46
         dm.profile.filingStatus = .single
-        #expect(dm.hsaCombinedLimit() == 4_300)
+        #expect(dm.hsaCombinedLimit() == 4_400)  // 2026: IRS Rev. Proc. 2025-19
     }
 
     @Test("HSA combined limit for single filer age 55+ = self-only + catchup")
@@ -136,7 +136,7 @@ struct HSACombinedLimitTests {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1970)  // age 56
         dm.profile.filingStatus = .single
-        #expect(dm.hsaCombinedLimit() == 5_300)
+        #expect(dm.hsaCombinedLimit() == 5_400)  // 2026: 4400 + 1000
     }
 
     @Test("HSA combined limit for MFJ under 55 = family")
@@ -146,7 +146,7 @@ struct HSACombinedLimitTests {
         dm.profile.spouseBirthDate = dateForYear(1980)
         dm.profile.filingStatus = .marriedFilingJointly
         dm.enableSpouse = true
-        #expect(dm.hsaCombinedLimit() == 8_550)
+        #expect(dm.hsaCombinedLimit() == 8_750)  // 2026: IRS Rev. Proc. 2025-19
     }
 
     @Test("HSA combined limit for MFJ both 55+ = family + 2× catchup")
@@ -156,7 +156,7 @@ struct HSACombinedLimitTests {
         dm.profile.spouseBirthDate = dateForYear(1970)
         dm.profile.filingStatus = .marriedFilingJointly
         dm.enableSpouse = true
-        #expect(dm.hsaCombinedLimit() == 10_550)  // 8550 + 1000 + 1000
+        #expect(dm.hsaCombinedLimit() == 10_750)  // 2026: 8750 + 1000 + 1000
     }
 
     @Test("HSA combined limit for MFJ one over 55 = family + 1× catchup")
@@ -166,7 +166,7 @@ struct HSACombinedLimitTests {
         dm.profile.spouseBirthDate = dateForYear(1980)  // age 46
         dm.profile.filingStatus = .marriedFilingJointly
         dm.enableSpouse = true
-        #expect(dm.hsaCombinedLimit() == 9_550)  // 8550 + 1000
+        #expect(dm.hsaCombinedLimit() == 9_750)  // 2026: 8750 + 1000
     }
 }
 
