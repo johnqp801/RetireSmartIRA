@@ -359,7 +359,7 @@ struct ACASubsidyBar: View {
                 iconColor: .orange,
                 primary: "Headroom: \(formatDollars(headroom))",
                 primaryColor: .orange,
-                secondary: "Crossing would cost ~\(formatDollars(acaResult.annualPremiumAssistance))/yr in lost subsidy",
+                secondary: "Crossing the cliff means repaying advance credits of ~\(formatDollars(acaResult.annualPremiumAssistance))/yr at tax time",
                 tip: nil
             )
 
@@ -369,18 +369,19 @@ struct ACASubsidyBar: View {
                 iconColor: .red,
                 primary: "\(formatDollars(headroom)) to cliff — careful",
                 primaryColor: .red,
-                secondary: "Crossing costs ~\(formatDollars(acaResult.annualPremiumAssistance))/yr in lost subsidy",
+                secondary: "Crossing means repaying advance credits of ~\(formatDollars(acaResult.annualPremiumAssistance))/yr at tax time",
                 tip: nil
             )
 
         case .justOver:
             let recoverNeeded = -headroom
+            let lostSubsidy = estimatedLostSubsidy()
             readoutRow(
                 icon: "exclamationmark.triangle.fill",
                 iconColor: .red,
-                primary: "Over by \(formatDollars(-headroom))",
+                primary: "Over by \(formatDollars(-headroom)) — cliff crossed",
                 primaryColor: .red,
-                secondary: "Lost subsidy: \(formatDollars(estimatedLostSubsidy()))/yr",
+                secondary: "Crossing the cliff at year-end means repaying all advance credits received. If you've taken ~\(formatDollars(lostSubsidy))/yr in advance credits, that full amount is owed back at tax time.",
                 tip: "Reduce MAGI by \(formatDollars(recoverNeeded)) to recover subsidy"
             )
 
@@ -388,9 +389,9 @@ struct ACASubsidyBar: View {
             readoutRow(
                 icon: "xmark.octagon.fill",
                 iconColor: .red,
-                primary: "Over by \(formatDollars(-headroom))",
+                primary: "Over by \(formatDollars(-headroom)) — no subsidy available",
                 primaryColor: .red,
-                secondary: "No subsidy available at this income level",
+                secondary: "If advance credits were taken earlier in the year, they must be fully repaid at tax time.",
                 tip: nil
             )
         }

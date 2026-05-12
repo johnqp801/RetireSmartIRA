@@ -54,7 +54,7 @@ enum ScenarioWarningEngine {
                         severity: .warning,
                         dollarImpactPerYear: aca.benchmarkSilverPlanAnnual,
                         messageHeadline: "Crosses ACA subsidy cliff",
-                        messageDetail: "MAGI is over the 400% FPL threshold; estimated subsidy lost this year."
+                        messageDetail: "MAGI is over the 400% FPL threshold. Crossing the cliff at year-end means repaying all advance premium credits received — if you've taken ~\(aca.benchmarkSilverPlanAnnual > 0 ? "$\(Int(aca.benchmarkSilverPlanAnnual / 1000))K" : "thousands")/yr in advance credits, that amount is owed back at tax time."
                     ))
                 } else if let toCliff = aca.dollarsToCliff, toCliff > 0 && toCliff < 5_000 {
                     warnings.append(ScenarioWarning(
