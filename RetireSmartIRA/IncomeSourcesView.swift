@@ -93,6 +93,19 @@ struct IncomeSourcesView: View {
 
                 // MARK: - Deductions Section
 
+                // U6: Forward-pointer to Scenarios for pre-tax contributions (Ron feedback)
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "arrow.up.right.circle.fill")
+                        .font(.body)
+                        .foregroundStyle(Color.accentColor)
+                    Text("**Tip:** Pre-tax contributions (401(k), Traditional IRA, HSA) are modeled in the **Scenarios** tab where you can see their effect on Total Taxable in real time.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(Color.accentColor.opacity(0.07))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
                 // Standard vs Itemized Comparison Card
                 deductionComparisonCard
 
