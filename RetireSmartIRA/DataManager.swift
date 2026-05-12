@@ -2070,7 +2070,7 @@ class DataManager: ObservableObject {
         if yourExtraWithdrawal > 0 {
             items.append(ActionItem(
                 id: "withdrawal-primary-\(year)",
-                title: "Extra Withdrawal: \(yourExtraWithdrawal.formatted(.currency(code: "USD")))",
+                title: "Additional Withdrawal: \(yourExtraWithdrawal.formatted(.currency(code: "USD")))",
                 detail: "Withdraw additional funds from traditional IRA/401(k)",
                 deadline: "Dec 31, \(year)",
                 category: .withdrawal
@@ -2079,7 +2079,7 @@ class DataManager: ObservableObject {
         if enableSpouse && spouseExtraWithdrawal > 0 {
             items.append(ActionItem(
                 id: "withdrawal-spouse-\(year)",
-                title: "\(spouseName.isEmpty ? "Spouse" : spouseName) Extra Withdrawal: \(spouseExtraWithdrawal.formatted(.currency(code: "USD")))",
+                title: "\(spouseName.isEmpty ? "Spouse" : spouseName) Additional Withdrawal: \(spouseExtraWithdrawal.formatted(.currency(code: "USD")))",
                 detail: "Withdraw additional funds from spouse's traditional IRA/401(k)",
                 deadline: "Dec 31, \(year)",
                 category: .withdrawal

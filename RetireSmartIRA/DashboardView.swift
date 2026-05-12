@@ -379,7 +379,7 @@ struct DashboardView: View {
                 if dataManager.scenarioTotalExtraWithdrawal > 0 {
                     decisionRow(
                         icon: "arrow.down.circle.fill",
-                        label: "Extra Withdrawals",
+                        label: "Additional Withdrawals",
                         amount: dataManager.scenarioTotalExtraWithdrawal,
                         color: Color.UI.brandTeal
                     )
@@ -576,7 +576,7 @@ struct DashboardView: View {
                         scenarioDecisionRow(label: "Roth Conversion", value: dataManager.scenarioTotalRothConversion)
                     }
                     if dataManager.scenarioTotalExtraWithdrawal > 0 {
-                        scenarioDecisionRow(label: "Extra Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal)
+                        scenarioDecisionRow(label: "Additional Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal)
                     }
                     if dataManager.scenarioTotalQCD > 0 {
                         scenarioDecisionRow(label: "QCD", value: -dataManager.scenarioTotalQCD)
@@ -956,7 +956,7 @@ struct DashboardView: View {
                     }
 
                     if dataManager.scenarioTotalExtraWithdrawal > 0 {
-                        breakdownRow("Extra Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal)
+                        breakdownRow("Additional Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal)
                     }
 
                     if dataManager.scenarioStockGainAvoided > 0 {

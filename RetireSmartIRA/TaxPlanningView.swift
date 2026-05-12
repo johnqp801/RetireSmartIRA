@@ -384,25 +384,14 @@ struct TaxPlanningView: View {
         AnyView(Group {
             summaryCard
             opportunityWindowSection
-            if isRMDAge {
-                // 73+: Charitable/QCDs first (most relevant), then withdrawals, then Roth
-                withdrawalCard
-                inheritedWithdrawalCard
-                charitableCard
-                charitableGuideCard
-                preTaxContributionsCard
-                rothConversionCard
-                rothConversionGuideCard
-            } else {
-                // Pre-RMD: Roth conversions first (opportunity window)
-                rothConversionCard
-                rothConversionGuideCard
-                withdrawalCard
-                inheritedWithdrawalCard
-                charitableCard
-                charitableGuideCard
-                preTaxContributionsCard
-            }
+            // AGI-reducers-first flow (Ron feedback): reduce AGI first, then add income strategically
+            preTaxContributionsCard
+            charitableCard
+            charitableGuideCard
+            withdrawalCard
+            inheritedWithdrawalCard
+            rothConversionCard
+            rothConversionGuideCard
         })
     }
 
@@ -482,8 +471,9 @@ struct TaxPlanningView: View {
         AnyView(Group {
             summaryCard
             opportunityWindowSection
-            rothConversionCard
-            rothConversionGuideCard
+            preTaxContributionsCard
+            charitableCard
+            charitableGuideCard
         })
     }
 
@@ -491,9 +481,8 @@ struct TaxPlanningView: View {
         AnyView(Group {
             withdrawalCard
             inheritedWithdrawalCard
-            charitableCard
-            charitableGuideCard
-            preTaxContributionsCard
+            rothConversionCard
+            rothConversionGuideCard
         })
     }
 
@@ -616,10 +605,13 @@ struct TaxPlanningView: View {
                 }
             }
 
-            Text("Before conversions, additional withdrawals, and charitable contributions")
+            Text("Includes all scenario decisions (conversions, withdrawals, charitable contributions)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .italic()
+
+            // Full accounting breakdown (U3: Ron feedback)
+            taxableAccountingDisclosure
 
             if spouseEnabled {
                 Text("Filing jointly \u{2013} all scenarios model joint tax impact")
@@ -650,6 +642,47 @@ struct TaxPlanningView: View {
         .background(Color(PlatformColor.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    // MARK: - Total Taxable Accounting Disclosure (U3)
+
+    /// Collapsible breakdown showing how Total Taxable is computed from gross income.
+    /// Formula: Gross Income − Pre-Tax Contributions − Deduction = Total Taxable.
+    private var taxableAccountingDisclosure: some View {
+        DisclosureGroup("How is Total Taxable computed?") {
+            let grossIncome = dataManager.scenarioGrossIncome
+            let preTaxContribs = dataManager.totalAboveTheLineDeductions
+            let deduction = dataManager.effectiveDeductionAmount
+            let deductionLabel = dataManager.scenarioEffectiveItemize ? "Itemized Deduction" : "Standard Deduction"
+            let taxable = taxableIncome
+
+            VStack(alignment: .leading, spacing: 6) {
+                accountingRow("Total Income", value: grossIncome, prefix: "", color: .primary)
+                accountingRow("Pre-Tax Contributions", value: preTaxContribs, prefix: "−", color: preTaxContribs > 0 ? .red : .secondary)
+                accountingRow(deductionLabel, value: deduction, prefix: "−", color: .red)
+                Divider()
+                accountingRow("Total Taxable", value: taxable, prefix: "=", color: .primary, bold: true)
+            }
+            .font(.caption.monospacedDigit())
+            .padding(.vertical, 4)
+        }
+        .font(.caption.weight(.semibold))
+    }
+
+    private func accountingRow(_ label: String, value: Double, prefix: String, color: Color, bold: Bool = false) -> some View {
+        HStack {
+            HStack(spacing: 4) {
+                Text(prefix)
+                    .frame(width: 10, alignment: .trailing)
+                    .foregroundStyle(color)
+                Text(label)
+                    .foregroundStyle(color)
+            }
+            Spacer()
+            Text(value, format: .currency(code: "USD"))
+                .fontWeight(bold ? .bold : .regular)
+                .foregroundStyle(color)
+        }
     }
 
     // MARK: - Deduction Comparison Card
@@ -781,7 +814,7 @@ struct TaxPlanningView: View {
                 if dataManager.scenarioTotalExtraWithdrawal > 0 {
                     let impact = dataManager.extraWithdrawalTaxImpact
                     let _ = netImpact += impact
-                    impactRow(label: "Extra Withdrawals", amount: impact, isPositive: false, color: Color.Chart.callout)
+                    impactRow(label: "Additional Withdrawals", amount: impact, isPositive: false, color: Color.Chart.callout)
 
                     let irmaaImpact = dataManager.extraWithdrawalIRMAAImpact
                     if irmaaImpact > 0 {
@@ -1383,7 +1416,7 @@ struct TaxPlanningView: View {
                 }
 
                 WithdrawalSliderCard(
-                    label: "Extra Withdrawal",
+                    label: "Additional Withdrawal",
                     amount: $dataManager.yourExtraWithdrawal,
                     sliderMax: yourSliderMax,
                     tint: Color.Chart.callout,
@@ -1427,7 +1460,7 @@ struct TaxPlanningView: View {
                 }
 
                 WithdrawalSliderCard(
-                    label: "Extra Withdrawal",
+                    label: "Additional Withdrawal",
                     amount: $dataManager.spouseExtraWithdrawal,
                     sliderMax: spouseSliderMax,
                     tint: Color.Chart.callout,
@@ -1578,7 +1611,7 @@ struct TaxPlanningView: View {
                 if extraMax > 0 {
                     Divider()
                     WithdrawalSliderCard(
-                        label: "Extra Withdrawal",
+                        label: "Additional Withdrawal",
                         amount: inheritedWithdrawalBinding(for: account.id),
                         sliderMax: extraMax,
                         tint: Color.Chart.gray2
@@ -1656,17 +1689,20 @@ struct TaxPlanningView: View {
         )
     }
 
-    /// Dynamic step number for charitable contributions (shifts when inherited accounts exist)
-    private var charitableStepNumber: Int {
-        dataManager.hasInheritedAccounts ? 4 : 3
-    }
+    // MARK: - Dynamic step numbers (AGI-reducers-first order: PreTax→Charitable→Withdrawals→Roth)
+    // When inherited accounts exist, Inherited IRA Withdrawals inserts between Charitable and Withdrawals.
+    private var preTaxContributionsStepNumberValue: Int { 1 }
+    private var charitableStepNumber: Int { 2 }
+    private var inheritedWithdrawalStepNumber: Int { 3 }  // only shown when hasInheritedAccounts
+    private var withdrawalStepNumber: Int { dataManager.hasInheritedAccounts ? 4 : 3 }
+    private var rothStepNumber: Int { dataManager.hasInheritedAccounts ? 5 : 4 }
 
     // MARK: - Collapsed Summary Cards (open sheets on tap)
 
     private var rothConversionCard: some View {
         AnyView(VStack(spacing: 0) {
             ScenarioStepCard(
-                stepNumber: 1,
+                stepNumber: rothStepNumber,
                 title: "Roth Conversions",
                 description: "Move funds from a Traditional IRA to a Roth IRA. You\u{2019}ll pay tax now, but future growth and withdrawals are tax-free.",
                 stepColor: Color.UI.brandTeal,
@@ -1943,7 +1979,7 @@ struct TaxPlanningView: View {
     private var withdrawalCard: some View {
         AnyView(VStack(spacing: 0) {
             ScenarioStepCard(
-                stepNumber: 2,
+                stepNumber: withdrawalStepNumber,
                 title: "IRA/401(k) Withdrawals",
                 description: "Withdraw cash from your retirement savings. RMDs are shown automatically. Extra withdrawals add to taxable income.",
                 stepColor: Color.Chart.callout,
@@ -1976,7 +2012,7 @@ struct TaxPlanningView: View {
                     summaryRow(label: "Required RMD", value: combinedRMD, color: Color.UI.textPrimary)
                 }
                 if totalExtraWithdrawal > 0 {
-                    summaryRow(label: "Extra Withdrawals", value: totalExtraWithdrawal, color: Color.Chart.callout)
+                    summaryRow(label: "Additional Withdrawals", value: totalExtraWithdrawal, color: Color.Chart.callout)
                 }
             }
         } else {
@@ -1996,7 +2032,7 @@ struct TaxPlanningView: View {
         if dataManager.hasInheritedAccounts {
             AnyView(VStack(spacing: 0) {
                 ScenarioStepCard(
-                    stepNumber: 3,
+                    stepNumber: inheritedWithdrawalStepNumber,
                     title: "Inherited IRA Withdrawals",
                     description: "Required distributions from inherited IRAs. You can take extra withdrawals beyond the required amount.",
                     stepColor: Color.Chart.gray2,
@@ -2032,7 +2068,7 @@ struct TaxPlanningView: View {
                     summaryRow(label: "Required Distribution", value: totalRequired, color: Color.UI.textPrimary)
                 }
                 if totalExtra > 0 {
-                    summaryRow(label: "Extra Withdrawals", value: totalExtra, color: Color.Chart.gray2)
+                    summaryRow(label: "Additional Withdrawals", value: totalExtra, color: Color.Chart.gray2)
                 }
                 HStack(spacing: 4) {
                     Text("\(dataManager.inheritedAccounts.count) account\(dataManager.inheritedAccounts.count == 1 ? "" : "s")")
@@ -2672,17 +2708,10 @@ struct TaxPlanningView: View {
 
     // MARK: - Pre-tax Contributions Card (401k)
 
-    /// Step number for pre-tax contributions: always one after charitable step.
-    /// When no inherited accounts: charitable=3, preTax=4.
-    /// When inherited accounts exist: charitable=4, preTax=5.
-    private var preTaxContributionsStepNumber: Int {
-        charitableStepNumber + 1
-    }
-
     private var preTaxContributionsCard: some View {
         AnyView(VStack(spacing: 0) {
             ScenarioStepCard(
-                stepNumber: preTaxContributionsStepNumber,
+                stepNumber: preTaxContributionsStepNumberValue,
                 title: "Pre-tax Contributions",
                 description: "Reduce your adjusted gross income (AGI) through pre-tax 401(k), traditional IRA, and HSA contributions.",
                 stepColor: Color.UI.brandTeal,

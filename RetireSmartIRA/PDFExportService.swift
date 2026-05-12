@@ -980,14 +980,14 @@ struct PDFExportService {
 
         // Extra withdrawals
         if d.scenarioTotalExtraWithdrawal > 0 {
-            addRow("Extra IRA Withdrawals", amount: d.scenarioTotalExtraWithdrawal,
+            addRow("Additional IRA Withdrawals", amount: d.scenarioTotalExtraWithdrawal,
                    tax: d.extraWithdrawalTaxImpact, irmaa: d.extraWithdrawalIRMAAImpact,
                    taxCls: "impact-pos", irmaaCls: "impact-pos")
         }
 
         // Inherited IRA extra withdrawals
         if d.inheritedExtraWithdrawalTotal > 0 {
-            addRow("Inherited IRA Extra Withdrawal", amount: d.inheritedExtraWithdrawalTotal,
+            addRow("Inherited IRA Additional Withdrawal", amount: d.inheritedExtraWithdrawalTotal,
                    tax: d.inheritedExtraWithdrawalTaxImpact, irmaa: d.inheritedExtraWithdrawalIRMAAImpact,
                    taxCls: "impact-pos", irmaaCls: "impact-pos")
         }
@@ -1120,7 +1120,7 @@ struct PDFExportService {
             }
         }
         if d.scenarioTotalExtraWithdrawal > 0 {
-            rows += kvRow("Extra Withdrawals", fmt(d.scenarioTotalExtraWithdrawal), cls: "blue")
+            rows += kvRow("Additional Withdrawals", fmt(d.scenarioTotalExtraWithdrawal), cls: "blue")
         }
         if d.scenarioTotalQCD > 0 {
             rows += kvRow("Qualified Charitable Distribution (QCD)", fmt(d.scenarioTotalQCD), cls: "green")
