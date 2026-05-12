@@ -109,6 +109,39 @@ struct AboveTheLineDeductionTests {
         let expected = dm.scenarioGrossIncome - 20_000
         #expect(dm.federalAGI.value == expected)
     }
+
+    @Test("scenarioTaxableIncome decreases when 401(k) pre-tax contribution added")
+    func testScenarioTaxableIncome_DecreasesWith401kContribution() {
+        let dm = DataManager(skipPersistence: true)
+        let baseline = dm.scenarioTaxableIncome
+        dm.scenario.yourTraditional401kContribution = 23_500
+        let withContribution = dm.scenarioTaxableIncome
+        // Pre-tax 401(k) must reduce taxable income by the contribution amount.
+        // (baseline - withContribution) equals 23_500 since it reduces AGI by that amount,
+        // which flows through to taxable income.
+        #expect(baseline - withContribution == 23_500,
+            "Total Taxable must decrease by $23,500 when pre-tax 401(k) contribution added")
+    }
+
+    @Test("scenarioTaxableIncome decreases when Traditional IRA contribution added")
+    func testScenarioTaxableIncome_DecreasesWithIRAContribution() {
+        let dm = DataManager(skipPersistence: true)
+        let baseline = dm.scenarioTaxableIncome
+        dm.scenario.yourTraditionalIRAContribution = 7_000
+        let withContribution = dm.scenarioTaxableIncome
+        #expect(baseline - withContribution == 7_000,
+            "Total Taxable must decrease by $7,000 when Traditional IRA contribution added")
+    }
+
+    @Test("scenarioTaxableIncome decreases when HSA contribution added")
+    func testScenarioTaxableIncome_DecreasesWithHSAContribution() {
+        let dm = DataManager(skipPersistence: true)
+        let baseline = dm.scenarioTaxableIncome
+        dm.scenario.yourHSAContribution = 4_400
+        let withContribution = dm.scenarioTaxableIncome
+        #expect(baseline - withContribution == 4_400,
+            "Total Taxable must decrease by $4,400 when HSA contribution added")
+    }
 }
 
 @Suite("HSA Combined Limit + Medicare gating")

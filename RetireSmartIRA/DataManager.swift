@@ -1423,9 +1423,11 @@ class DataManager: ObservableObject {
         return nonSALTNonMedical + fullPropertyTax + medical + charitable
     }
 
-    /// Taxable income after scenario decisions and deductions
+    /// Taxable income after scenario decisions, above-the-line deductions, and below-the-line deductions.
+    /// Pre-tax contributions (401k, Traditional IRA, HSA) reduce AGI and therefore taxable income,
+    /// consistent with how Roth conversions increase it via scenarioGrossIncome.
     var scenarioTaxableIncome: Double {
-        let income = scenarioGrossIncome - effectiveDeductionAmount
+        let income = scenarioGrossIncome - totalAboveTheLineDeductions - effectiveDeductionAmount
         return max(0, income)
     }
 
