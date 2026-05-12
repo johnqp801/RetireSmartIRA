@@ -56,12 +56,15 @@ struct TaxPlanningView: View {
 
     private var combinedRMD: Double { yourRMD + spouseRMD }
 
-    // Slider caps (based on each owner's traditional balance)
+    // Adaptive slider caps (based on each owner's traditional balance).
+    // Slider max = min(20% of balance, $500K), floored at min(balance, $50K).
+    // Text field continues to accept up to the full balance.
+    // See: adaptiveSliderCap(_:) in SliderHelpers.swift
     private var yourSliderMax: Double {
-        dataManager.primaryTraditionalIRABalance
+        adaptiveSliderCap(balance: dataManager.primaryTraditionalIRABalance)
     }
     private var spouseSliderMax: Double {
-        dataManager.spouseTraditionalIRABalance
+        adaptiveSliderCap(balance: dataManager.spouseTraditionalIRABalance)
     }
 
     // Total Roth conversions & extra withdrawals
@@ -1240,7 +1243,8 @@ struct TaxPlanningView: View {
                     amount: $dataManager.yourRothConversion,
                     sliderMax: yourSliderMax,
                     tint: Color.UI.brandTeal,
-                    cliffMark: cliffMarkForRoth(yours: true)
+                    cliffMark: cliffMarkForRoth(yours: true),
+                    textMax: dataManager.primaryTraditionalIRABalance
                 )
 
                 if dataManager.yourRothConversion > 0 {
@@ -1257,7 +1261,8 @@ struct TaxPlanningView: View {
                     amount: $dataManager.spouseRothConversion,
                     sliderMax: spouseSliderMax,
                     tint: Color.Chart.callout,
-                    cliffMark: cliffMarkForRoth(yours: false)
+                    cliffMark: cliffMarkForRoth(yours: false),
+                    textMax: dataManager.spouseTraditionalIRABalance
                 )
 
                 if dataManager.spouseRothConversion > 0 {
@@ -1380,8 +1385,9 @@ struct TaxPlanningView: View {
                 WithdrawalSliderCard(
                     label: "Extra Withdrawal",
                     amount: $dataManager.yourExtraWithdrawal,
-                    sliderMax: max(200_000, dataManager.primaryTraditionalIRABalance),
-                    tint: Color.Chart.callout
+                    sliderMax: yourSliderMax,
+                    tint: Color.Chart.callout,
+                    textMax: dataManager.primaryTraditionalIRABalance
                 )
 
                 if dataManager.isRMDRequired || dataManager.yourExtraWithdrawal > 0 {
@@ -1423,8 +1429,9 @@ struct TaxPlanningView: View {
                 WithdrawalSliderCard(
                     label: "Extra Withdrawal",
                     amount: $dataManager.spouseExtraWithdrawal,
-                    sliderMax: max(200_000, dataManager.spouseTraditionalIRABalance),
-                    tint: Color.Chart.callout
+                    sliderMax: spouseSliderMax,
+                    tint: Color.Chart.callout,
+                    textMax: dataManager.spouseTraditionalIRABalance
                 )
 
                 if dataManager.spouseIsRMDRequired || dataManager.spouseExtraWithdrawal > 0 {
@@ -3499,6 +3506,22 @@ struct ConversionSliderCard: View {
     let sliderMax: Double
     let tint: Color
     var cliffMark: Double? = nil  // Optional ACA cliff tick mark position
+    /// When provided, the text field accepts up to this value while the
+    /// slider is limited to `sliderMax`. Used for adaptive slider caps
+    /// where the slider is capped below the full balance.
+    var textMax: Double? = nil
+
+    private var effectiveTextMax: Double { textMax ?? sliderMax }
+
+    /// A binding that clamps reads to [0, sliderMax] so the Slider control
+    /// never receives an out-of-range value, while writes propagate unclamped
+    /// back to `amount` (the text field already validates via its own range).
+    private var sliderBinding: Binding<Double> {
+        Binding(
+            get: { min(amount, sliderMax) },
+            set: { amount = $0 }
+        )
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -3513,11 +3536,11 @@ struct ConversionSliderCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                CurrencyField(value: $amount, range: 0...sliderMax, color: .primary)
+                CurrencyField(value: $amount, range: 0...effectiveTextMax, color: .primary)
             }
 
             ZStack(alignment: .leading) {
-                Slider(value: $amount, in: 0...sliderMax, step: 1_000)
+                Slider(value: sliderBinding, in: 0...sliderMax, step: 1_000)
                     .tint(tint)
 
                 if let cliff = cliffMark, cliff > 0, cliff <= sliderMax {
@@ -3541,6 +3564,13 @@ struct ConversionSliderCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            if let textMax, sliderMax < textMax {
+                Text("Slider max: \(sliderMax, format: .currency(code: "USD").precision(.fractionLength(0))). Type larger amounts in the field (max \(textMax, format: .currency(code: "USD").precision(.fractionLength(0)))).")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 }
@@ -3552,6 +3582,22 @@ struct WithdrawalSliderCard: View {
     @Binding var amount: Double
     let sliderMax: Double
     let tint: Color
+    /// When provided, the text field accepts up to this value while the
+    /// slider is limited to `sliderMax`. Used for adaptive slider caps
+    /// where the slider is capped below the full balance.
+    var textMax: Double? = nil
+
+    private var effectiveTextMax: Double { textMax ?? sliderMax }
+
+    /// A binding that clamps reads to [0, sliderMax] so the Slider control
+    /// never receives an out-of-range value, while writes propagate unclamped
+    /// back to `amount` (the text field already validates via its own range).
+    private var sliderBinding: Binding<Double> {
+        Binding(
+            get: { min(amount, sliderMax) },
+            set: { amount = $0 }
+        )
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -3559,10 +3605,10 @@ struct WithdrawalSliderCard: View {
                 Text(label)
                     .foregroundStyle(.secondary)
                 Spacer()
-                CurrencyField(value: $amount, range: 0...sliderMax, color: .primary)
+                CurrencyField(value: $amount, range: 0...effectiveTextMax, color: .primary)
             }
 
-            Slider(value: $amount, in: 0...sliderMax, step: 1_000)
+            Slider(value: sliderBinding, in: 0...sliderMax, step: 1_000)
                 .tint(tint)
 
             HStack {
@@ -3573,6 +3619,13 @@ struct WithdrawalSliderCard: View {
                 Text(sliderMax, format: .currency(code: "USD"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if let textMax, sliderMax < textMax {
+                Text("Slider max: \(sliderMax, format: .currency(code: "USD").precision(.fractionLength(0))). Type larger amounts in the field (max \(textMax, format: .currency(code: "USD").precision(.fractionLength(0)))).")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
