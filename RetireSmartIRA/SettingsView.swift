@@ -663,16 +663,26 @@ private struct ACASettingsSection: View {
                 )
 
                 let defaultMonthly = aca.nationalAvgBenchmarkSilverPlanAnnual / 12
+                let hasOverride = dataManager.scenario.acaBenchmarkSilverPlanMonthlyOverride != nil
 
                 HStack {
-                    Text("Local benchmark Silver plan (monthly)")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Silver plan (monthly premium)")
+                        if !hasOverride {
+                            Text("National avg — override with your local plan")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Spacer()
+                    // Placeholder shows the default; field is empty until user provides a local override.
+                    // Once an override is set, the field shows and edits that value.
                     TextField(
-                        "$\(Int(defaultMonthly))",
-                        value: Binding(
+                        "\(defaultMonthly, format: .currency(code: "USD").precision(.fractionLength(0)))",
+                        value: Binding<Double>(
                             get: { dataManager.scenario.acaBenchmarkSilverPlanMonthlyOverride ?? defaultMonthly },
                             set: { newValue in
-                                if newValue == defaultMonthly {
+                                if abs(newValue - defaultMonthly) < 1 {
                                     dataManager.scenario.acaBenchmarkSilverPlanMonthlyOverride = nil
                                 } else {
                                     dataManager.scenario.acaBenchmarkSilverPlanMonthlyOverride = newValue
@@ -684,12 +694,13 @@ private struct ACASettingsSection: View {
                     )
                     .multilineTextAlignment(.trailing)
                     .frame(width: 100)
+                    .foregroundStyle(hasOverride ? .primary : .secondary)
                 }
             }
         } header: {
             Text("ACA Marketplace")
         } footer: {
-            Text("Single-year directional estimate. Default uses national average benchmark Silver plan; override with your local plan from healthcare.gov for a more accurate dollar figure.")
+            Text("Single-year directional estimate. Default is the national average benchmark Silver plan. Enter your local monthly premium from healthcare.gov for a more accurate dollar figure.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
