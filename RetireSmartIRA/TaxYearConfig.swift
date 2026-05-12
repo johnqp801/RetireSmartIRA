@@ -265,8 +265,8 @@ struct TaxYearConfig: Codable {
         acaSubsidy2026: ACASubsidyConfig(
             fpl2026: ACASubsidyConfig.FPL2026(
                 householdSizeToFPL: [
-                    "1": 15_060, "2": 20_440, "3": 25_820, "4": 31_200,
-                    "5": 36_580, "6": 41_960, "7": 47_340, "8": 52_720
+                    "1": 15_650, "2": 21_150, "3": 26_650, "4": 32_150,
+                    "5": 37_650, "6": 43_150, "7": 48_650, "8": 54_150
                 ],
                 alaskaMultiplier: 1.25, hawaiiMultiplier: 1.15
             ),

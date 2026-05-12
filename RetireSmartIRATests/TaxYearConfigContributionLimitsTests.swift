@@ -62,13 +62,25 @@ struct TaxYearConfigMedicareTests {
 @Suite("TaxYearConfig — ACA Subsidy 2026")
 struct TaxYearConfigACASubsidyTests {
 
-    @Test("ACA FPL table loads with all 8 household sizes")
+    @Test("ACA FPL table loads with all 8 household sizes — 2026 HHS values")
     func fplTableLoads() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["1"] == 15_060)
-        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["8"] == 52_720)
+        // 2026 HHS Federal Poverty Guidelines (released January 2026)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["1"] == 15_650)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["2"] == 21_150)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["8"] == 54_150)
         #expect(config.acaSubsidy2026.fpl2026.alaskaMultiplier == 1.25)
         #expect(config.acaSubsidy2026.fpl2026.hawaiiMultiplier == 1.15)
+    }
+
+    @Test("2026 ACA cliff HH=2 is $84,600 (400% × $21,150)")
+    func testACA_FPL_2026_HouseholdOf2() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let fpl = config.acaSubsidy2026.fpl2026.householdSizeToFPL["2"] ?? 0
+        #expect(fpl == 21_150, "2026 HHS FPL HH=2 should be $21,150")
+        // 400% cliff
+        let cliff = fpl * 4
+        #expect(cliff == 84_600, "400% FPL cliff HH=2 should be $84,600")
     }
 
     @Test("ACA applicable figures table loads in ascending fplPercent order")
