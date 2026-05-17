@@ -8,6 +8,29 @@
 import SwiftUI
 import Charts
 
+// MARK: - IRMAA tier bar layout (D3: equal-width segments)
+
+enum IRMAATierBarLayout {
+    /// Fraction (0...1) along the bar where the MAGI marker should be drawn.
+    /// Equal-width segments: each tier occupies 1/segmentCount of the bar.
+    /// The marker's position within its tier is the intra-tier linear fraction.
+    static func markerFraction(
+        magi: Double,
+        tierIndex: Int,
+        tierRangeStart: Double,
+        tierRangeEnd: Double,
+        segmentCount: Int
+    ) -> CGFloat {
+        guard segmentCount > 0 else { return 0 }
+        let span = tierRangeEnd - tierRangeStart
+        let intra: Double = span > 0
+            ? max(0, min(1, (magi - tierRangeStart) / span))
+            : 0
+        let combined = (Double(tierIndex) + intra) / Double(segmentCount)
+        return CGFloat(max(0, min(1, combined)))
+    }
+}
+
 struct DashboardView: View {
     @EnvironmentObject var dataManager: DataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -1817,19 +1840,20 @@ struct DashboardView: View {
                 }
 
                 // Pure SwiftUI bar + labels (single GeometryReader = perfect alignment)
-                let irmaaChartMax = segments.last?.rangeEnd ?? 1
+                // D3: equal-width tier segments (mirrors state bracket bar)
                 let irmaaBarHeight: CGFloat = 36
 
                 GeometryReader { geo in
                     let w = geo.size.width
+                    let segCount = segments.count
+                    let segW = segCount > 0 ? w / CGFloat(segCount) : 0
 
-                    // Colored tier bars
+                    // Colored tier bars (equal-width)
                     ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                         let color = tierColors[min(index, tierColors.count - 1)]
-                        let x = w * segment.rangeStart / irmaaChartMax
-                        let segW = w * (segment.rangeEnd - segment.rangeStart) / irmaaChartMax
+                        let x = CGFloat(index) * segW
                         let isFirst = index == 0
-                        let isLastSeg = index == segments.count - 1
+                        let isLastSeg = index == segCount - 1
 
                         if isFirst {
                             UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
@@ -1849,8 +1873,17 @@ struct DashboardView: View {
                         }
                     }
 
-                    // MAGI marker line (solid)
-                    let magiX = w * magi / irmaaChartMax
+                    // MAGI marker line (solid) — equal-width-aware positioning
+                    let currentIndex = segments.firstIndex(where: { $0.isCurrent }) ?? 0
+                    let currentSeg = segments[currentIndex]
+                    let magiFrac = IRMAATierBarLayout.markerFraction(
+                        magi: magi,
+                        tierIndex: currentIndex,
+                        tierRangeStart: currentSeg.rangeStart,
+                        tierRangeEnd: currentSeg.rangeEnd,
+                        segmentCount: segCount
+                    )
+                    let magiX = w * magiFrac
                     Rectangle()
                         .fill(.primary)
                         .frame(width: 2.5, height: irmaaBarHeight + 10)

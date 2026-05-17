@@ -626,20 +626,21 @@ private var scenarioIRMAAChart: some View {
                 Spacer()
             }
 
-            let chartMax = segments.last?.rangeEnd ?? 1
+            // D3: equal-width tier segments
             let barHeight: CGFloat = 36
             let topPad: CGFloat = 40
 
             GeometryReader { geo in
                 let w = geo.size.width
+                let segCount = segments.count
+                let segW = segCount > 0 ? w / CGFloat(segCount) : 0
 
-                // Tier bars
+                // Tier bars (equal-width)
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let color = tierColors[min(index, tierColors.count - 1)]
-                    let x = w * segment.rangeStart / chartMax
-                    let segW = w * (segment.rangeEnd - segment.rangeStart) / chartMax
+                    let x = CGFloat(index) * segW
                     let isFirst = index == 0
-                    let isLastSeg = index == segments.count - 1
+                    let isLastSeg = index == segCount - 1
 
                     if isFirst {
                         UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
@@ -659,8 +660,37 @@ private var scenarioIRMAAChart: some View {
                     }
                 }
 
-                // Before marker (dashed gray)
-                let beforeX = CGFloat(beforeMAGI / chartMax) * w
+                // Helper: find the tier index containing the given MAGI, then
+                // compute equal-width-aware bar fraction (0..1).
+                let frac: (Double) -> CGFloat = { magiValue in
+                    guard segCount > 0 else { return 0 }
+                    // Locate the tier whose [rangeStart, rangeEnd) contains magiValue.
+                    // If below first tier, use index 0; if above last, use last.
+                    var idx = 0
+                    if magiValue <= segments[0].rangeStart {
+                        idx = 0
+                    } else if magiValue >= segments[segCount - 1].rangeEnd {
+                        idx = segCount - 1
+                    } else {
+                        for i in 0..<segCount {
+                            if magiValue >= segments[i].rangeStart && magiValue < segments[i].rangeEnd {
+                                idx = i
+                                break
+                            }
+                        }
+                    }
+                    let seg = segments[idx]
+                    return IRMAATierBarLayout.markerFraction(
+                        magi: magiValue,
+                        tierIndex: idx,
+                        tierRangeStart: seg.rangeStart,
+                        tierRangeEnd: seg.rangeEnd,
+                        segmentCount: segCount
+                    )
+                }
+
+                // Before marker (dashed gray) — equal-width-aware
+                let beforeX = frac(beforeMAGI) * w
                 Path { path in
                     path.move(to: CGPoint(x: beforeX, y: topPad - 5))
                     path.addLine(to: CGPoint(x: beforeX, y: topPad + barHeight + 5))
@@ -677,8 +707,8 @@ private var scenarioIRMAAChart: some View {
                     .clipShape(Capsule())
                     .position(x: min(max(beforeX, 40), w - 40), y: 10)
 
-                // After marker (solid)
-                let afterX = CGFloat(afterMAGI / chartMax) * w
+                // After marker (solid) — equal-width-aware
+                let afterX = frac(afterMAGI) * w
                 Rectangle()
                     .fill(.primary)
                     .frame(width: 2.5, height: barHeight + 10)
