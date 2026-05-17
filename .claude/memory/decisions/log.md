@@ -73,3 +73,134 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 **Decision:** Phase 0+1 + 3 OptimizationEngine bug fixes (IRMAA Medicare count, RMD basis timing, ACA gating) locked. UI work (Plan B) is the next major chapter.
 
 **Rationale:** Engine math is correct and external-Gemini-reviewed. Building UI on top of an unstable engine is wasted work.
+
+---
+
+## 2026-05-14: V1.8.1 build 37 LIVE in App Store
+
+**Decision:** Released to both iOS and macOS App Store.
+
+**Status change:** Submitted (2026-05-12) → Approved → Released.
+
+**Outreach completed same day:**
+- Email sent to Tim (retired military beta tester) per draft at `drafts/texts/2026-05-13-tim-military-features.md`
+- Email sent to Fred (retired 3PL executive beta tester) per draft at `drafts/texts/2026-05-13-fred-executive-outreach.md`
+
+**Why this matters:**
+- 1.8.1 is the first release with the full 1.8.1 launch refresh (military features, ACA cliff repayment warnings, Scenario Builder reorder, 11 marketing screenshots, etc.)
+- Website at retiresmartira.com is already live with matching positioning
+- This is the moment promotion can begin — every paid click now lands on a working install button
+- Real-user feedback from this release will shape 1.8.2 scope decisions
+
+---
+
+## 2026-05-17: V1.8.2 phasing — Option A (strategic-bundle phases)
+
+**Decision:** Phase 1.8.2 work into 4 strategic bundles, each shippable independently:
+
+1. **Phase 1 — Ron-segment polish** (~7.75d): R1-R4 + D1-D3. Closes 1.8.1 smoke-test deferrals.
+2. **Phase 2 — Analyst critique** (~7.75d): L1-L4 + D4 + D5. Higher-earner credibility lift.
+3. **Phase 3 — Higher-earner additions + housekeeping** (~4.5d): H1, H2, H4 + C1-C3. Natural 1.8.2 release cut here (~20 days / ~4 weeks total).
+4. **Phase 4 — SEP IRA** (~6d): H6. Candidate for 1.8.3 if 1.8.2 needs to ship faster (purely additive, no migration risk).
+
+**Rationale:** Each phase tells a coherent story. Phase 1 first to close 1.8.1 commitments on low-risk surfaces. Phase 2 second when engine-touching modeling work is added (after Phase 1 testing rigor established). Phase 3 third because H1/H2/H4 are surface-level viz on existing engine math + C1-C3 are pure refactors. Phase 4 last/separable because SEP is the largest single-item scope with the most novel integration.
+
+**Status:** Spec is now complete (decisions resolved, SEP added, phasing approved). Next: generate implementation plan via writing-plans skill, then execute via subagent-driven development.
+
+---
+
+## 2026-05-17: V1.8.2 spec — four pending decisions resolved + SEP IRA folded in as H6
+
+**Decisions:**
+- **D4 — Default planning horizon 85 → 95:** ✅ Yes (change default). Rationale: audience self-selects for longevity-conscious planning; conservative default was silently penalizing SS-delay recommendation. Preserve existing user values on migration.
+- **D5 — Open Social Security cross-reference tooltip:** ✅ Yes (surface in close-call cells, within ~$50K). Rationale: reinforces integrative positioning; Open SS is a single-purpose calculator, not a competitor.
+- **H3 — State residency timing optimization:** ❌ Defer to V2.x. Rationale: multi-year sequencing problem; belongs alongside V2.0 SS↔Roth cross-decision UI. Optional lightweight 1.8.2 callout possible (not BLOCK).
+- **H5 — Withdrawal sequencing playbook:** ❌ Defer to V2.x. Rationale: multi-year problem already solved by V2.0 engine; 1.8.2 version would create user confusion at upgrade. Optional tooltip possible (not BLOCK).
+
+**SEP IRA folded in as H6:** Full 9-part scope (account model, contribution limits, contributions, distributions, RMDs, Roth conversion, inherited, UI, tests) added to spec at `.worktrees/1.8.1-incremental/docs/superpowers/specs/2026-05-12-1.8.2-incremental-design.md`. Effort: 6 days (range 4-8).
+
+**Net effect on 1.8.2 scope:**
+- 16 BLOCK items (was 17 ? )
+- ~25.75 days (~5 weeks) — was ~19 days (~4 weeks)
+- SEP IRA can split into 1.8.3 sub-release if needed
+
+**Status:** Spec is now decision-complete. Next: phasing the 16 items into 3-4 coherent shippable phases, then generating implementation plan via writing-plans skill.
+
+---
+
+## 2026-05-15: Add SEP IRA support to V1.8.2 scope
+
+**Decision:** SEP IRA (Simplified Employee Pension) accounts must be supported in V1.8.2 with full tax treatment, not just as a label.
+
+**Why now:** The current app supports Traditional IRA and Roth IRA, but a meaningful population of retirees/pre-retirees have SEP IRAs from prior self-employment or small-business ownership. Without SEP, the app forces these users to either misclassify their account as "Traditional IRA" (which works for withdrawal/RMD math but loses contribution-side semantics) or skip the app entirely. For 1.8.2's higher-earner / executive-segment focus (per existing 1.8.2 spec), SEP IRA is table stakes.
+
+**Adds to 1.8.2 spec:** Insert as a new BLOCK item alongside the existing 17 (L1-L4, R1-R4, D1-D6, H1-H5, C1-C3 framework). Could fold into the H-series (higher-earner additions) since SEP is most common in self-employed high earners.
+
+---
+
+## SEP IRA — full tax-treatment scope
+
+To say "SEP IRA is supported" with the right depth, V1.8.2 needs to address all of:
+
+### 1. Account model
+- Add `IRAAccount.type = .sepIRA` enum case alongside `.traditional`, `.roth`, `.inherited`
+- Most withdrawal/RMD logic mirrors Traditional IRA — could share code paths with a single `isTraditionalLike` predicate
+- Storage / persistence migration: existing users have `.traditional` and `.roth` — new `.sepIRA` is purely additive, no migration needed
+
+### 2. Contribution limits (2026)
+- SEP IRA limit: lesser of **$70,000** or **25% of compensation** (2026 figures, IRS Rev. Proc. 2025-19 and 2025-33)
+- For self-employed: 25% calculation uses NET earnings (after deducting half of SE tax + the SEP contribution itself, requiring iterative or closed-form calc)
+- For W-2 employees of own S-corp: 25% of W-2 wages
+- This is meaningfully more complex than Traditional IRA's flat $7K limit — need helper to compute max SEP contribution given user's self-employment income
+
+### 3. Tax treatment — contributions
+- Contributions are deducted from business income on Schedule C (sole prop) or as a business expense on the S-corp's books → reduces AGI
+- Treat same as Traditional IRA contributions in scenarioTaxableIncome calculation, but bucket separately in UI ("SEP Contribution" vs "Traditional IRA Contribution")
+- Above-the-line deduction status: yes, deducted from gross income to arrive at AGI
+
+### 4. Tax treatment — distributions
+- Withdrawals taxed as ordinary income, same as Traditional IRA
+- Subject to 10% early-withdrawal penalty before age 59½
+- State tax: same treatment as Traditional IRA distributions (most states tax identically; states with retirement-income exemptions usually apply them equally)
+- Verify MilitaryRetirementExemption table treats SEP IRA correctly (probably doesn't apply — military retirement exemption is for military pensions specifically, not all retirement income)
+
+### 5. RMDs
+- RMDs required starting at age 73 (or 75 under SECURE 2.0 depending on birth year)
+- Use Uniform Lifetime Table (same as Traditional IRA)
+- Combine with Traditional IRA RMD calculations for the household total — SEP IRA balance is added to Traditional IRA aggregate for RMD calculation purposes (this is IRS rule, not optional)
+- Verify `RMDCalculationEngine` treats SEP as Traditional-equivalent
+
+### 6. Roth conversion eligibility
+- SEP IRA can be converted to Roth IRA — same rules as Traditional → Roth
+- Pro-rata rule applies if user has any after-tax basis in Traditional or SEP IRAs
+- Scenarios builder slider for Roth conversion should accept SEP IRA as a source account
+
+### 7. Inherited SEP IRA
+- Same beneficiary rules as Traditional IRA: SECURE Act 10-year drain for non-eligible designated beneficiaries, spousal continuation options, etc.
+- Pre-RBD vs post-RBD decedent treatment same as Traditional IRA
+- Verify `RMDCalculationEngine.calculateInheritedIRARMD` accepts SEP IRA accounts (probably already does if it's account-type-agnostic for traditional-like types)
+
+### 8. UI changes
+- Account creation form: add "SEP IRA" as a selectable account type
+- Account display: show as "SEP IRA" with traditional-like styling (orange/yellow rather than green for Roth)
+- Scenario Builder contributions section: add "SEP Contribution" row if user has self-employment income
+- IRMAA / ACA / QCD logic: same treatment as Traditional IRA throughout
+- Tax projection breakdown: show SEP contributions in the pre-tax deduction line
+- /features and App Store description: mention SEP IRA support in retirement-account coverage list
+
+### 9. Tests
+- `IRAAccount.sepIRA` round-trip persistence
+- Contribution limit calculation for various SE income levels
+- RMD aggregation: SEP + Traditional IRA combined balance feeds aggregate RMD
+- Roth conversion from SEP behaves identically to Roth conversion from Traditional
+- Inherited SEP IRA 10-year drain matches inherited Traditional behavior
+- State tax treatment for SEP distributions (verify CA, NY, TX, FL coverage at minimum)
+
+### 10. Plan/spec deliverable
+When implementation kicks off, generate `docs/superpowers/plans/2026-05-XX-sep-ira-support.md` with task breakdown. Could be 4-8 tasks depending on whether we share code paths with Traditional or duplicate.
+
+---
+
+**Status:** Logged for 1.8.2 implementation. Do NOT implement during this session (1.8.2 work hasn't started; user is on 48h pause; needs spec finalization first). Resume when full 1.8.2 planning session happens.
+
+**Suggested sequence:** add SEP IRA to the existing 1.8.2 spec at `docs/superpowers/specs/2026-05-12-1.8.2-incremental-design.md` as item H6 or a new SEP-series, before kicking off implementation.
