@@ -75,6 +75,17 @@ struct TaxPlanningView: View {
         dataManager.yourExtraWithdrawal + (spouseEnabled ? dataManager.spouseExtraWithdrawal : 0)
     }
 
+    /// ACA MAGI computed with all current pre-tax contributions applied but Roth conversions zeroed.
+    /// Used as the middle marker on ACASubsidyBar's three-marker cascade.
+    private var afterPretaxBeforeRothACAMAGI: Double? {
+        let pretax = dataManager.scenario.scenarioTotalAboveTheLineDeductions
+        guard pretax > 0 else { return nil }
+        let nonTaxableSS = max(0, dataManager.totalSocialSecurityBenefits - dataManager.scenarioTaxableSocialSecurity)
+        // current ACA MAGI already nets out pretax; baseline + (-pretax) = afterPretax
+        let baseline = dataManager.scenarioBaseIncome + dataManager.taxExemptInterestTotal + nonTaxableSS
+        return baseline - pretax
+    }
+
     // MARK: - Stock donation helpers
 
     private var stockPurchasePriceValue: Double { dataManager.stockPurchasePrice }
@@ -1263,8 +1274,16 @@ struct TaxPlanningView: View {
             // beforeMAGI is nil for v1 — no clean baseline-MAGI accessor exists yet.
             if let acaResult = dataManager.acaSubsidyResult,
                acaResult.dollarsToCliff != nil {
-                ACASubsidyBar(acaResult: acaResult, beforeMAGI: nil)
-                    .padding(.bottom, 4)
+                ACASubsidyBar(
+                    acaResult: acaResult,
+                    beforeMAGI: dataManager.scenario.scenarioTotalAboveTheLineDeductions > 0 ||
+                                dataManager.scenarioTotalRothConversion > 0
+                        ? (dataManager.scenarioBaseIncome + dataManager.taxExemptInterestTotal +
+                           max(0, dataManager.totalSocialSecurityBenefits - dataManager.scenarioTaxableSocialSecurity))
+                        : nil,
+                    afterPretaxMAGI: afterPretaxBeforeRothACAMAGI
+                )
+                .padding(.bottom, 4)
             }
 
             // Your Roth conversion

@@ -22,6 +22,18 @@ enum ACASubsidyBarReadoutState: Equatable {
     case farOver         // < -$20K (no recovery)
 }
 
+// MARK: - Marker cascade state
+
+/// Which set of markers the ACA Subsidy Bar should render.
+/// - one: just the current MAGI marker
+/// - twoBeforeAfter: dashed "Before" + solid "After"
+/// - threeCascade: baseline (A) + after-pretax (B) + after-Roth (C)
+enum ACASubsidyBarMarkerMode: Equatable {
+    case one
+    case twoBeforeAfter
+    case threeCascade
+}
+
 // MARK: - Band classification
 
 enum ACASubsidyBand: Equatable {
@@ -92,6 +104,9 @@ enum ACASubsidyBand: Equatable {
 struct ACASubsidyBar: View {
     let acaResult: ACASubsidyResult
     let beforeMAGI: Double?
+    /// Optional middle marker: MAGI after pre-tax contributions but before Roth conversion.
+    /// When provided AND different from both baseline and current, renders three-marker cascade.
+    var afterPretaxMAGI: Double? = nil
 
     // MARK: - Pure logic (exposed for testing)
 
@@ -109,6 +124,25 @@ struct ACASubsidyBar: View {
         if fplPercent <= 350 { return .moderate }
         if fplPercent <= 400 { return .thin }
         return .cliff
+    }
+
+    /// Decide marker rendering mode based on which adjustments are active.
+    /// Returns `.threeCascade` only when both pre-tax and Roth adjustments materially shift MAGI.
+    /// Uses the same $100 epsilon as `beforeIsDifferent`.
+    static func markerMode(
+        baselineMAGI: Double?,
+        afterPretaxMAGI: Double?,
+        currentMAGI: Double
+    ) -> ACASubsidyBarMarkerMode {
+        let eps: Double = 100
+        let hasBaseline = baselineMAGI.map { abs($0 - currentMAGI) > eps } ?? false
+        let hasPretaxStep: Bool = {
+            guard let baseline = baselineMAGI, let mid = afterPretaxMAGI else { return false }
+            return abs(baseline - mid) > eps && abs(mid - currentMAGI) > eps
+        }()
+        if hasPretaxStep { return .threeCascade }
+        if hasBaseline { return .twoBeforeAfter }
+        return .one
     }
 
     // MARK: - Computed
@@ -154,6 +188,14 @@ struct ACASubsidyBar: View {
     private var beforeIsDifferent: Bool {
         guard let b = beforeMAGI else { return false }
         return abs(b - acaResult.acaMAGI) > 100
+    }
+
+    private var markerMode: ACASubsidyBarMarkerMode {
+        Self.markerMode(
+            baselineMAGI: beforeMAGI,
+            afterPretaxMAGI: afterPretaxMAGI,
+            currentMAGI: acaResult.acaMAGI
+        )
     }
 
     // MARK: - Body
@@ -256,6 +298,30 @@ struct ACASubsidyBar: View {
                 .position(x: max(20, min(w - 20, bx)), y: 11)
             }
 
+            // Middle marker (after pre-tax contributions) — only in three-cascade mode
+            if markerMode == .threeCascade, let mid = afterPretaxMAGI {
+                let mx = w * position(forMAGI: mid)
+                Rectangle()
+                    .fill(Color.green.opacity(0.7))
+                    .frame(width: 1.5, height: barHeight + markerOverhang)
+                    .offset(x: mx - 0.75, y: labelHeight - 4)
+
+                VStack(spacing: 1) {
+                    Text("After pre-tax")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                    Text(formatMagi(mid))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(Color.green)
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+                .position(x: max(20, min(w - 20, mx)), y: 11)
+            }
+
             // Current MAGI marker (solid)
             let cx = w * position(forMAGI: acaResult.acaMAGI)
             Rectangle()
@@ -264,7 +330,8 @@ struct ACASubsidyBar: View {
                 .offset(x: cx - 1.25, y: labelHeight - 4)
 
             VStack(spacing: 1) {
-                Text(beforeIsDifferent ? "After" : "Your MAGI")
+                Text(markerMode == .threeCascade ? "After Roth" :
+                     (beforeIsDifferent ? "After" : "Your MAGI"))
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
                 Text(formatMagi(acaResult.acaMAGI))
