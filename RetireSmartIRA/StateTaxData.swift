@@ -220,12 +220,24 @@ struct StateTaxConfig {
     /// (federal AGI reduction still applies, but state AGI does not).
     /// Defaults to false for the other 48 states + DC.
     let hsaContributionsTaxableForState: Bool
+    /// Whether Traditional IRA contributions are taxable at the state level
+    /// (i.e., the state does NOT allow the federal IRA deduction). Defaults
+    /// to false (state-deductible, conforming) — no state currently flips this.
+    /// Structure exists so future state-specific divergences can be added.
+    let traditionalIRAContributionsTaxableForState: Bool
+    /// Whether R3 "Other" above-the-line AGI reducers (educator expenses,
+    /// student-loan interest, SE health-insurance premiums, alimony pre-2019,
+    /// military moving, etc.) are taxable at the state level. Defaults to
+    /// false (state-deductible, conforming). Non-conforming states can opt in.
+    let otherPreTaxDeductionsTaxableForState: Bool
 
     init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
          stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
          safeHarborRule: StateSafeHarborRule = .mirrorsFederal,
          currentYearSafeHarborRate: Double = 0.90,
-         hsaContributionsTaxableForState: Bool = false) {
+         hsaContributionsTaxableForState: Bool = false,
+         traditionalIRAContributionsTaxableForState: Bool = false,
+         otherPreTaxDeductionsTaxableForState: Bool = false) {
         self.state = state
         self.taxSystem = taxSystem
         self.retirementExemptions = retirementExemptions
@@ -234,6 +246,8 @@ struct StateTaxConfig {
         self.safeHarborRule = safeHarborRule
         self.currentYearSafeHarborRate = currentYearSafeHarborRate
         self.hsaContributionsTaxableForState = hsaContributionsTaxableForState
+        self.traditionalIRAContributionsTaxableForState = traditionalIRAContributionsTaxableForState
+        self.otherPreTaxDeductionsTaxableForState = otherPreTaxDeductionsTaxableForState
     }
 }
 

@@ -145,10 +145,14 @@ class ScenarioStateManager: ObservableObject {
         yourHSAContribution + spouseHSAContribution
     }
 
-    // TODO(R3-state-conformity): Some "Other" categories have state-specific
-    // conformity rules (e.g., CA on SE health insurance and educator expenses).
-    // For 1.8.2 we treat Other as fully state-deductible like 401k/IRA. Refine
-    // in a future release if state-divergence becomes a planning concern.
+    // R3: Other above-the-line AGI reducers (educator expenses, student-loan
+    // interest, self-employed health-insurance premiums, alimony pre-2019,
+    // military moving, etc.). Single number per spouse.
+    //
+    // State-tax treatment: subtracted from state taxable income by default
+    // (conforming states). Non-conforming states can opt in via
+    // StateTaxConfig.otherPreTaxDeductionsTaxableForState. Same pattern
+    // applies to Traditional IRA via traditionalIRAContributionsTaxableForState.
     var scenarioTotalOtherPreTaxDeductions: Double {
         yourOtherPreTaxDeductions + spouseOtherPreTaxDeductions
     }

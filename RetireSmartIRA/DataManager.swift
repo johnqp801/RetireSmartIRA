@@ -421,12 +421,15 @@ class DataManager: ObservableObject {
         forState state: USState,
         filingStatus: FilingStatus,
         taxableSocialSecurity: Double,
-        hsaContributionsAddedBack: Double = 0
+        hsaContributionsAddedBack: Double = 0,
+        traditionalIRAContributionsSubtracted: Double = 0,
+        otherPreTaxDeductionsSubtracted: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
-        let adjustedGross = config.hsaContributionsTaxableForState
-            ? grossIncome + hsaContributionsAddedBack
-            : grossIncome
+        let hsaAddback = config.hsaContributionsTaxableForState ? hsaContributionsAddedBack : 0
+        let iraSubtract = config.traditionalIRAContributionsTaxableForState ? 0 : traditionalIRAContributionsSubtracted
+        let otherSubtract = config.otherPreTaxDeductionsTaxableForState ? 0 : otherPreTaxDeductionsSubtracted
+        let adjustedGross = max(0, grossIncome + hsaAddback - iraSubtract - otherSubtract)
 
         // Determine state standard deduction
         let stateStandardDeduction: Double
@@ -1454,7 +1457,9 @@ class DataManager: ObservableObject {
             forState: selectedState,
             filingStatus: filingStatus,
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
-            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA,
+            traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
+            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions
         )
     }
 
@@ -1651,7 +1656,9 @@ class DataManager: ObservableObject {
             forState: profile.selectedState,
             filingStatus: filingStatus,
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
-            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA,
+            traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
+            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions
         )
 
         // ACA premium impact: lost subsidy if over cliff.
@@ -2177,7 +2184,9 @@ class DataManager: ObservableObject {
             forState: selectedState,
             filingStatus: filingStatus,
             taxableSocialSecurity: taxableSocialSecurity,
-            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA,
+            traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
+            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions
         )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt
