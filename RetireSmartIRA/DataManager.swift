@@ -58,6 +58,14 @@ class DataManager: ObservableObject {
         get { profile.enableSpouse }
         set { profile.enableSpouse = newValue }
     }
+    var plannedMedicareStartAge: Int {
+        get { profile.plannedMedicareStartAge }
+        set { profile.plannedMedicareStartAge = newValue }
+    }
+    var hasQualifiedEmployerCoverageForMedicare: Bool {
+        get { profile.hasQualifiedEmployerCoverageForMedicare }
+        set { profile.hasQualifiedEmployerCoverageForMedicare = newValue }
+    }
     
     // IRA Accounts (forwarding to AccountsManager)
     var iraAccounts: [IRAAccount] {
@@ -1594,7 +1602,9 @@ class DataManager: ObservableObject {
             medigapOverride: scenario.yourMedigapOverride,
             advantageOverride: scenario.yourAdvantageOverride,
             filingStatus: filingStatus,
-            config: TaxCalculationEngine.config
+            config: TaxCalculationEngine.config,
+            plannedMedicareStartAge: profile.plannedMedicareStartAge,
+            hasQualifiedEmployerCoverage: profile.hasQualifiedEmployerCoverageForMedicare
         )
     }
 
@@ -1616,7 +1626,9 @@ class DataManager: ObservableObject {
             medigapOverride: scenario.spouseMedigapOverride,
             advantageOverride: scenario.spouseAdvantageOverride,
             filingStatus: filingStatus,
-            config: TaxCalculationEngine.config
+            config: TaxCalculationEngine.config,
+            plannedMedicareStartAge: profile.plannedMedicareStartAge,
+            hasQualifiedEmployerCoverage: profile.hasQualifiedEmployerCoverageForMedicare
         )
     }
 

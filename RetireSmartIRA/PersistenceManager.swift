@@ -74,6 +74,10 @@ struct PersistenceManager {
         static let yourAdvantageOverride = "yourAdvantageOverride"
         static let spouseAdvantageOverride = "spouseAdvantageOverride"
 
+        // 1.8.2 D2 — Medicare planned start age + late-enrollment penalty
+        static let plannedMedicareStartAge = "plannedMedicareStartAge"
+        static let hasQualifiedEmployerCoverageForMedicare = "hasQualifiedEmployerCoverageForMedicare"
+
         // 1.9 ACA Marketplace Modeling
         static let enableACAModeling = "enableACAModeling"
         static let acaHouseholdSize = "acaHouseholdSize"
@@ -323,6 +327,17 @@ struct PersistenceManager {
             dm.scenario.spouseAdvantageOverride = defaults.double(forKey: StorageKey.spouseAdvantageOverride)
         }
 
+        // 1.8.2 D2 — Medicare planned start age + late-enrollment penalty
+        if defaults.object(forKey: StorageKey.plannedMedicareStartAge) != nil {
+            let age = defaults.integer(forKey: StorageKey.plannedMedicareStartAge)
+            if age >= 65 && age <= 70 {
+                dm.profile.plannedMedicareStartAge = age
+            }
+        }
+        if defaults.object(forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare) != nil {
+            dm.profile.hasQualifiedEmployerCoverageForMedicare = defaults.bool(forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare)
+        }
+
         // 1.9 ACA Marketplace Modeling
         if defaults.object(forKey: StorageKey.enableACAModeling) != nil {
             dm.scenario.enableACAModeling = defaults.bool(forKey: StorageKey.enableACAModeling)
@@ -514,6 +529,10 @@ struct PersistenceManager {
         } else {
             defaults.removeObject(forKey: StorageKey.spouseAdvantageOverride)
         }
+
+        // 1.8.2 D2 — Medicare planned start age + late-enrollment penalty
+        defaults.set(dm.profile.plannedMedicareStartAge, forKey: StorageKey.plannedMedicareStartAge)
+        defaults.set(dm.profile.hasQualifiedEmployerCoverageForMedicare, forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare)
 
         // 1.9 ACA Marketplace Modeling
         defaults.set(dm.scenario.enableACAModeling, forKey: StorageKey.enableACAModeling)

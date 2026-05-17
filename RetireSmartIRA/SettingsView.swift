@@ -440,6 +440,28 @@ private struct MedicareYouSection: View {
                 }
             }
 
+            // D2: Planned Medicare start age + qualified-coverage toggle
+            Picker("Planned Medicare start age", selection: Binding(
+                get: { dataManager.profile.plannedMedicareStartAge },
+                set: { dataManager.profile.plannedMedicareStartAge = $0 }
+            )) {
+                ForEach(65...70, id: \.self) { age in
+                    Text("\(age)").tag(age)
+                }
+            }
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                Text("Most people enroll at 65. Delay only if you'll have other qualified coverage (employer, FEHB, etc.) — late enrollment penalties apply otherwise.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Toggle("I have qualified employer/FEHB coverage past 65", isOn: Binding(
+                get: { dataManager.profile.hasQualifiedEmployerCoverageForMedicare },
+                set: { dataManager.profile.hasQualifiedEmployerCoverageForMedicare = $0 }
+            ))
+            .font(.caption)
+
             if dataManager.scenario.yourMedicarePlanType != .preMedicare {
                 HStack {
                     Text("Your Part B premium override (monthly)")
@@ -521,6 +543,8 @@ private struct MedicareYouSection: View {
         .onChange(of: dataManager.scenario.yourMedicarePartDOverride) { dataManager.saveAllData() }
         .onChange(of: dataManager.scenario.yourMedigapOverride) { dataManager.saveAllData() }
         .onChange(of: dataManager.scenario.yourAdvantageOverride) { dataManager.saveAllData() }
+        .onChange(of: dataManager.profile.plannedMedicareStartAge) { dataManager.saveAllData() }
+        .onChange(of: dataManager.profile.hasQualifiedEmployerCoverageForMedicare) { dataManager.saveAllData() }
     }
 }
 

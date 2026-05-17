@@ -43,6 +43,19 @@ class ProfileManager: ObservableObject {
     }()
     @Published var enableSpouse: Bool = false
 
+    // MARK: - Medicare Enrollment (1.8.2 D2)
+
+    /// Age at which the user plans to enroll in Medicare Part B. Default 65
+    /// (the standard eligibility age). Allowed range 65-70. Values > 65 trigger
+    /// the Part B late-enrollment penalty unless `hasQualifiedEmployerCoverageForMedicare`
+    /// is true.
+    @Published var plannedMedicareStartAge: Int = 65
+
+    /// Whether the user has qualified employer (or FEHB / TRICARE) health
+    /// coverage past 65 that exempts them from the Part B late-enrollment
+    /// penalty when they delay enrollment.
+    @Published var hasQualifiedEmployerCoverageForMedicare: Bool = false
+
     // MARK: - Computed Properties
 
     var birthYear: Int {

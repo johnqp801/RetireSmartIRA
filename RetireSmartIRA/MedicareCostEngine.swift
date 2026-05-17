@@ -9,6 +9,18 @@ import Foundation
 
 enum MedicareCostEngine {
 
+    /// Part B late-enrollment penalty multiplier for users who delay Medicare past 65
+    /// without qualified employer coverage. 10% per 12 months delayed, lifelong.
+    /// Returns 0 if start age <= 65 or qualified employer coverage applies.
+    static func latePartBPenaltyMultiplier(
+        plannedStartAge: Int,
+        hasQualifiedEmployerCoverage: Bool
+    ) -> Double {
+        guard !hasQualifiedEmployerCoverage else { return 0 }
+        let delayYears = max(0, plannedStartAge - 65)
+        return Double(delayYears) * 0.10
+    }
+
     /// Compute per-spouse Medicare cost for a single individual.
     ///
     /// Mixed-household: call this once per spouse with the SAME `irmaaMAGI` (joint MAGI for MFJ),
@@ -21,7 +33,9 @@ enum MedicareCostEngine {
         medigapOverride: Double?,
         advantageOverride: Double?,
         filingStatus: FilingStatus,
-        config: TaxYearConfig
+        config: TaxYearConfig,
+        plannedMedicareStartAge: Int = 65,
+        hasQualifiedEmployerCoverage: Bool = false
     ) -> MedicareCostBreakdown {
 
         // Pre-Medicare spouse → no Medicare cost.
@@ -40,7 +54,12 @@ enum MedicareCostEngine {
         // Part B: base (override or config default) + IRMAA Part B surcharge.
         let partBBase = partBOverride ?? config.medicare2026.partBStandardMonthly
         let partBSurcharge = irmaa.monthlyPartB - config.irmaaStandardPartB
-        let partB = partBBase + max(0, partBSurcharge)
+        let penaltyMultiplier = latePartBPenaltyMultiplier(
+            plannedStartAge: plannedMedicareStartAge,
+            hasQualifiedEmployerCoverage: hasQualifiedEmployerCoverage
+        )
+        let partBLatePenalty = partBBase * penaltyMultiplier
+        let partB = partBBase + max(0, partBSurcharge) + partBLatePenalty
 
         // Part D: base (override or config default) + IRMAA Part D surcharge.
         //
