@@ -302,7 +302,7 @@ struct ACASubsidyBar: View {
             if markerMode == .threeCascade, let mid = afterPretaxMAGI {
                 let mx = w * position(forMAGI: mid)
                 Rectangle()
-                    .fill(Color.green.opacity(0.7))
+                    .fill(Color.teal.opacity(0.7))
                     .frame(width: 1.5, height: barHeight + markerOverhang)
                     .offset(x: mx - 0.75, y: labelHeight - 4)
 
@@ -312,7 +312,7 @@ struct ACASubsidyBar: View {
                         .foregroundStyle(.secondary)
                     Text(formatMagi(mid))
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(Color.teal)
                         .monospacedDigit()
                 }
                 .padding(.horizontal, 4)

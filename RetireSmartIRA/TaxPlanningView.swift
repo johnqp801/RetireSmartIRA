@@ -75,15 +75,19 @@ struct TaxPlanningView: View {
         dataManager.yourExtraWithdrawal + (spouseEnabled ? dataManager.spouseExtraWithdrawal : 0)
     }
 
+    /// ACA MAGI as if no pretax contributions and no Roth conversions were applied this year.
+    /// Single source of truth for the cascade markers and the "Before" baseline.
+    private var baselineACAMAGI: Double {
+        let nonTaxableSS = max(0, dataManager.totalSocialSecurityBenefits - dataManager.scenarioTaxableSocialSecurity)
+        return dataManager.scenarioBaseIncome + dataManager.taxExemptInterestTotal + nonTaxableSS
+    }
+
     /// ACA MAGI computed with all current pre-tax contributions applied but Roth conversions zeroed.
     /// Used as the middle marker on ACASubsidyBar's three-marker cascade.
     private var afterPretaxBeforeRothACAMAGI: Double? {
         let pretax = dataManager.scenario.scenarioTotalAboveTheLineDeductions
         guard pretax > 0 else { return nil }
-        let nonTaxableSS = max(0, dataManager.totalSocialSecurityBenefits - dataManager.scenarioTaxableSocialSecurity)
-        // current ACA MAGI already nets out pretax; baseline + (-pretax) = afterPretax
-        let baseline = dataManager.scenarioBaseIncome + dataManager.taxExemptInterestTotal + nonTaxableSS
-        return baseline - pretax
+        return baselineACAMAGI - pretax
     }
 
     // MARK: - Stock donation helpers
@@ -1276,11 +1280,8 @@ struct TaxPlanningView: View {
                acaResult.dollarsToCliff != nil {
                 ACASubsidyBar(
                     acaResult: acaResult,
-                    beforeMAGI: dataManager.scenario.scenarioTotalAboveTheLineDeductions > 0 ||
-                                dataManager.scenarioTotalRothConversion > 0
-                        ? (dataManager.scenarioBaseIncome + dataManager.taxExemptInterestTotal +
-                           max(0, dataManager.totalSocialSecurityBenefits - dataManager.scenarioTaxableSocialSecurity))
-                        : nil,
+                    beforeMAGI: (dataManager.scenario.scenarioTotalAboveTheLineDeductions > 0 ||
+                                 dataManager.scenarioTotalRothConversion > 0) ? baselineACAMAGI : nil,
                     afterPretaxMAGI: afterPretaxBeforeRothACAMAGI
                 )
                 .padding(.bottom, 4)
