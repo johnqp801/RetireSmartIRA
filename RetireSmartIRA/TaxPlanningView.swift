@@ -1349,6 +1349,25 @@ struct TaxPlanningView: View {
                 }
             }
 
+            // Clarification: Roth IRA contributions vs. Roth conversions (R2)
+            DisclosureGroup("What about Roth IRA contributions?") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Roth IRA contributions (made with post-tax money) are **different** from Roth conversions (which add to AGI in the conversion year).")
+                        .font(.caption)
+                    Text("• Contributions don't affect AGI or this app's tax modeling")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("• 2026 contribution limit: $7,000 (+$1,000 catch-up age 50+)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("• Income limits apply — see Sources & References")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+            .font(.caption.weight(.semibold))
+
             // Inline IRMAA cliff warning
             if totalRothConversion > 0 || totalExtraWithdrawal > 0 {
                 irmaaInlineWarning
