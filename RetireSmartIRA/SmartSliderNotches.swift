@@ -78,7 +78,8 @@ public enum SmartSliderNotches {
     }
 
     private static func formatK(_ v: Double) -> String {
-        if v >= 1_000 { return String(format: "$%.0fK", v / 1_000) }
+        if v >= 10_000 { return String(format: "$%.0fK", v / 1_000) }
+        if v >= 1_000 { return String(format: "$%.1fK", v / 1_000) }
         return String(format: "$%.0f", v)
     }
 }

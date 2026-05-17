@@ -74,6 +74,22 @@ final class SmartSliderNotchesTests: XCTestCase {
         XCTAssertEqual(SmartSliderNotches.position(value: 10, sliderMax: 0), 0, accuracy: 1e-9)
     }
 
+    func testNotches_AreSortedAscendingByValue_AcrossKinds() {
+        let notches = SmartSliderNotches.compute(
+            sliderMax: 200_000,
+            bracketFillAmounts: [80_000, 25_000],
+            cliffAmounts: [60_000],
+            irmaaTierCrossings: [
+                .init(value: 100_000, tier: 1),
+                .init(value: 40_000, tier: 0),
+            ]
+        )
+        let values = notches.map(\.value)
+        XCTAssertEqual(values, values.sorted())
+        // Tier-0 crossings passed directly to `compute` are included (gating happens at call site).
+        XCTAssertEqual(values, [25_000, 40_000, 60_000, 80_000, 100_000])
+    }
+
     func testDeduplication_PreservesFirstWinForSameValue() {
         let notches = SmartSliderNotches.compute(
             sliderMax: 100_000,

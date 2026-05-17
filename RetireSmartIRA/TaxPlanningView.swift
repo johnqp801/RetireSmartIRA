@@ -86,13 +86,17 @@ struct TaxPlanningView: View {
         let irmaaCrossings: [IRMAATierCrossing] = {
             let isMFJ = dataManager.filingStatus == .marriedFilingJointly
             let magi = dataManager.scenarioIRMAA.magi
-            return DataManager.irmaa2026Tiers.enumerated().compactMap { (i, t) in
+            // Only surface the single closest (smallest positive delta) tier crossing
+            // to avoid crowding the slider for users whose MAGI is far below tier 1.
+            let candidates: [IRMAATierCrossing] = DataManager.irmaa2026Tiers.enumerated().compactMap { (i, t) in
                 guard i > 0 else { return nil }
                 let threshold = isMFJ ? t.mfjThreshold : t.singleThreshold
                 let delta = threshold - magi
                 guard delta > 0 else { return nil }
                 return IRMAATierCrossing(value: delta, tier: i)
             }
+            guard let nearest = candidates.min(by: { $0.value < $1.value }) else { return [] }
+            return [nearest]
         }()
         return SmartSliderNotches.compute(
             sliderMax: sliderMax,
@@ -3743,14 +3747,25 @@ struct ConversionSliderCard: View {
                                 case .irmaaTier: return .orange
                                 }
                             }()
-                            Rectangle()
-                                .fill(color.opacity(0.85))
-                                .frame(width: 2, height: 10)
-                                .position(x: x, y: geo.size.height / 2)
-                                .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
-                                .onTapGesture {
-                                    amount = notch.value
+                            let tickHeight: CGFloat = {
+                                switch notch.kind {
+                                case .bracketFill: return 10
+                                case .acaCliff: return 14
+                                case .irmaaTier: return 8
                                 }
+                            }()
+                            ZStack {
+                                Rectangle()
+                                    .fill(color.opacity(0.85))
+                                    .frame(width: 2, height: tickHeight)
+                            }
+                            .frame(width: 44, height: 30)
+                            .contentShape(Rectangle())
+                            .position(x: x, y: geo.size.height / 2)
+                            .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
+                            .onTapGesture {
+                                amount = notch.value
+                            }
                         }
                     }
                 }
@@ -3827,14 +3842,25 @@ struct WithdrawalSliderCard: View {
                                 case .irmaaTier: return .orange
                                 }
                             }()
-                            Rectangle()
-                                .fill(color.opacity(0.85))
-                                .frame(width: 2, height: 10)
-                                .position(x: x, y: geo.size.height / 2)
-                                .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
-                                .onTapGesture {
-                                    amount = notch.value
+                            let tickHeight: CGFloat = {
+                                switch notch.kind {
+                                case .bracketFill: return 10
+                                case .acaCliff: return 14
+                                case .irmaaTier: return 8
                                 }
+                            }()
+                            ZStack {
+                                Rectangle()
+                                    .fill(color.opacity(0.85))
+                                    .frame(width: 2, height: tickHeight)
+                            }
+                            .frame(width: 44, height: 30)
+                            .contentShape(Rectangle())
+                            .position(x: x, y: geo.size.height / 2)
+                            .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
+                            .onTapGesture {
+                                amount = notch.value
+                            }
                         }
                     }
                 }
