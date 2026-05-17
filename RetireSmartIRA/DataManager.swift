@@ -414,7 +414,7 @@ class DataManager: ObservableObject {
     }
 
     /// Computes state tax from scenario gross income BEFORE above-the-line deductions.
-    /// HSA/IRA/Other are reapplied here per the state's conformity flags.
+    /// HSA/IRA/Other/401(k) are reapplied here per the state's conformity flags.
     ///
     /// Applies the state's own standard deduction, then retirement exemptions, then tax.
     /// Used by state comparison and scenarioStateTax to ensure correct state-specific deductions.
@@ -425,13 +425,15 @@ class DataManager: ObservableObject {
         taxableSocialSecurity: Double,
         hsaContributionsAddedBack: Double = 0,
         traditionalIRAContributionsSubtracted: Double = 0,
-        otherPreTaxDeductionsSubtracted: Double = 0
+        otherPreTaxDeductionsSubtracted: Double = 0,
+        pretax401kContributionsAddedBack: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let hsaAddback = config.hsaContributionsTaxableForState ? hsaContributionsAddedBack : 0
         let iraSubtract = config.traditionalIRAContributionsTaxableForState ? 0 : traditionalIRAContributionsSubtracted
         let otherSubtract = config.otherPreTaxDeductionsTaxableForState ? 0 : otherPreTaxDeductionsSubtracted
-        let adjustedGross = max(0, grossIncome + hsaAddback - iraSubtract - otherSubtract)
+        let pretax401kAddback = config.pretax401kContributionsTaxableForState ? pretax401kContributionsAddedBack : 0
+        let adjustedGross = max(0, grossIncome + hsaAddback + pretax401kAddback - iraSubtract - otherSubtract)
 
         // Determine state standard deduction
         let stateStandardDeduction: Double
@@ -483,13 +485,14 @@ class DataManager: ObservableObject {
         let config = StateTaxData.config(for: state)
         let exemptions = config.retirementExemptions
 
-        // Apply HSA addback + IRA/Other subtractions per state conformity flags,
-        // mirroring calculateStateTaxFromGross so this breakdown stays consistent
-        // with scenarioStateTax when IRA/Other contributions are non-zero.
+        // Apply HSA/401(k) addbacks + IRA/Other subtractions per state conformity
+        // flags, mirroring calculateStateTaxFromGross so this breakdown stays
+        // consistent with scenarioStateTax when contributions are non-zero.
         let hsaAddback = config.hsaContributionsTaxableForState ? scenario.scenarioTotalHSA : 0
+        let pretax401kAddback = config.pretax401kContributionsTaxableForState ? scenario.scenarioTotalTraditional401k : 0
         let iraSubtract = config.traditionalIRAContributionsTaxableForState ? 0 : scenario.scenarioTotalTraditionalIRA
         let otherSubtract = config.otherPreTaxDeductionsTaxableForState ? 0 : scenario.scenarioTotalOtherPreTaxDeductions
-        let grossIncome = max(0, scenarioGrossIncome + hsaAddback - iraSubtract - otherSubtract)
+        let grossIncome = max(0, scenarioGrossIncome + hsaAddback + pretax401kAddback - iraSubtract - otherSubtract)
 
         // 0. Apply state-specific deduction (itemized or standard, whichever is larger)
         let stateStandardDeduction: Double
@@ -1468,7 +1471,8 @@ class DataManager: ObservableObject {
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
             hsaContributionsAddedBack: scenario.scenarioTotalHSA,
             traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
-            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions
+            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
+            pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k
         )
     }
 
@@ -1665,6 +1669,9 @@ class DataManager: ObservableObject {
         // conformity flags. Our caller passes AGI (post-deduction), so restore gross
         // by adding totalAboveTheLineDeductions back before invoking the helper.
         // Without this, IRA + Other get subtracted twice on the state side.
+        // Note: 401(k) is NOT in totalAboveTheLineDeductions because W-2 Box 1
+        // already nets it out, so no double-subtract risk when adding it back
+        // as a state addback for PA.
         let grossEquivalent = hypotheticalAGI + totalAboveTheLineDeductions
         let stateTax = calculateStateTaxFromGross(
             grossIncome: grossEquivalent,
@@ -1673,7 +1680,8 @@ class DataManager: ObservableObject {
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
             hsaContributionsAddedBack: scenario.scenarioTotalHSA,
             traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
-            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions
+            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
+            pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k
         )
 
         // ACA premium impact: lost subsidy if over cliff.
@@ -2201,7 +2209,8 @@ class DataManager: ObservableObject {
             taxableSocialSecurity: taxableSocialSecurity,
             hsaContributionsAddedBack: scenario.scenarioTotalHSA,
             traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
-            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions
+            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
+            pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k
         )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt

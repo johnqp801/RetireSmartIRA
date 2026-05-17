@@ -230,6 +230,21 @@ struct StateTaxConfig {
     /// military moving, etc.) are taxable at the state level. Defaults to
     /// false (state-deductible, conforming). Non-conforming states can opt in.
     let otherPreTaxDeductionsTaxableForState: Bool
+    /// Whether employee 401(k) elective deferrals are taxable at the state
+    /// level at contribution time. Pennsylvania is the only state that does
+    /// this (distributions later are state-tax-free — inverse of federal).
+    /// Defaults to false; only PA opts in.
+    ///
+    /// EDGE CASES NOT COVERED BY THIS FLAG:
+    /// - PA local EIT (Philadelphia wage tax, Act 32) also taxes 401(k);
+    ///   we only model state, not local.
+    /// - NJ does NOT conform for 403(b)/457/IRA contributions, but the app
+    ///   only models 401(k) so no NJ flag needed today.
+    /// - MA disallows solo-401(k) deduction for sole proprietors
+    ///   (Schedule C); app is W-2-only so no MA flag needed.
+    /// - Employer match is excluded from Box 1 federally AND from PA wages,
+    ///   so no addback needed for match — only employee elective deferrals.
+    let pretax401kContributionsTaxableForState: Bool
 
     init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
          stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
@@ -237,7 +252,8 @@ struct StateTaxConfig {
          currentYearSafeHarborRate: Double = 0.90,
          hsaContributionsTaxableForState: Bool = false,
          traditionalIRAContributionsTaxableForState: Bool = false,
-         otherPreTaxDeductionsTaxableForState: Bool = false) {
+         otherPreTaxDeductionsTaxableForState: Bool = false,
+         pretax401kContributionsTaxableForState: Bool = false) {
         self.state = state
         self.taxSystem = taxSystem
         self.retirementExemptions = retirementExemptions
@@ -248,6 +264,7 @@ struct StateTaxConfig {
         self.hsaContributionsTaxableForState = hsaContributionsTaxableForState
         self.traditionalIRAContributionsTaxableForState = traditionalIRAContributionsTaxableForState
         self.otherPreTaxDeductionsTaxableForState = otherPreTaxDeductionsTaxableForState
+        self.pretax401kContributionsTaxableForState = pretax401kContributionsTaxableForState
     }
 }
 
@@ -503,6 +520,9 @@ struct StateTaxData {
         )
 
         // Pennsylvania — 3.07% flat rate
+        // PA taxes employee 401(k) elective deferrals at contribution time
+        // (distributions later are tax-free at state level — opposite of federal).
+        // Source: PA DOR Gross Compensation guide. NJ/MA/AL/HI/MS all conform.
         configs[.pennsylvania] = StateTaxConfig(
             state: .pennsylvania,
             taxSystem: .flat(rate: 0.0307),
@@ -513,7 +533,8 @@ struct StateTaxData {
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none,
-            safeHarborRule: .flatRate(1.00)
+            safeHarborRule: .flatRate(1.00),
+            pretax401kContributionsTaxableForState: true
         )
 
         // Utah — 4.55% flat rate (2026)

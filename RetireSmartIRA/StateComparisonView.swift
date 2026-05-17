@@ -50,7 +50,8 @@ struct StateComparisonView: View {
                 forState: state,
                 filingStatus: fs,
                 taxableSocialSecurity: taxableSS,
-                hsaContributionsAddedBack: dataManager.scenario.scenarioTotalHSA
+                hsaContributionsAddedBack: dataManager.scenario.scenarioTotalHSA,
+                pretax401kContributionsAddedBack: dataManager.scenario.scenarioTotalTraditional401k
             )
             let effectiveRate = grossIncome > 0 ? (tax / grossIncome) * 100 : 0
             let config = StateTaxData.config(for: state)
