@@ -2734,6 +2734,8 @@ struct TaxPlanningView: View {
 
         Divider()
 
+        // MARK: - R3 Other Pre-Tax Deductions
+        // R3: $25k covers worst-case SE health insurance + alimony / student-loan / educator combined.
         ConversionSliderCard(
             label: spouseEnabled ? "Your Other Pre-Tax Deductions" : "Other Pre-Tax Deductions",
             icon: spouseEnabled ? "person.fill" : nil,
@@ -2751,6 +2753,7 @@ struct TaxPlanningView: View {
             Text("Educator expenses (≤$300), student-loan interest, self-employed health insurance, military moving, alimony pre-2019, etc.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
 
         if spouseEnabled {
@@ -2790,7 +2793,7 @@ struct TaxPlanningView: View {
             ScenarioStepCard(
                 stepNumber: preTaxContributionsStepNumberValue,
                 title: "Pre-tax Contributions",
-                description: "Reduce your adjusted gross income (AGI) through pre-tax 401(k), traditional IRA, and HSA contributions.",
+                description: "Reduce your adjusted gross income (AGI) through pre-tax 401(k), traditional IRA, and HSA contributions and other above-the-line deductions.",
                 stepColor: Color.UI.brandTeal,
                 icon: "arrow.down.doc",
                 isExpanded: showPreTaxContributionsSheet,
@@ -2820,7 +2823,9 @@ struct TaxPlanningView: View {
         let spouseIRA = spouseEnabled ? dataManager.scenario.spouseTraditionalIRAContribution : 0
         let yourHSA = dataManager.scenario.yourHSAContribution
         let spouseHSA = spouseEnabled ? dataManager.scenario.spouseHSAContribution : 0
-        let totalContribution = your401k + spouse401k + yourIRA + spouseIRA + yourHSA + spouseHSA
+        let yourOther = dataManager.scenario.yourOtherPreTaxDeductions
+        let spouseOther = spouseEnabled ? dataManager.scenario.spouseOtherPreTaxDeductions : 0
+        let totalContribution = your401k + spouse401k + yourIRA + spouseIRA + yourHSA + spouseHSA + yourOther + spouseOther
 
         if totalContribution > 0 {
             Divider()
@@ -2834,6 +2839,9 @@ struct TaxPlanningView: View {
                 if yourHSA > 0 {
                     summaryRow(label: "Your HSA", value: yourHSA, color: Color.UI.brandTeal)
                 }
+                if yourOther > 0 {
+                    summaryRow(label: spouseEnabled ? "Your Other Pre-Tax" : "Other Pre-Tax", value: yourOther, color: Color.UI.brandTeal)
+                }
                 if spouseEnabled && spouse401k > 0 {
                     summaryRow(label: "Spouse 401(k)", value: spouse401k, color: Color.Chart.callout)
                 }
@@ -2842,6 +2850,9 @@ struct TaxPlanningView: View {
                 }
                 if spouseEnabled && spouseHSA > 0 {
                     summaryRow(label: "Spouse HSA", value: spouseHSA, color: Color.Chart.callout)
+                }
+                if spouseEnabled && spouseOther > 0 {
+                    summaryRow(label: "Spouse Other Pre-Tax", value: spouseOther, color: Color.Chart.callout)
                 }
                 if spouseEnabled && totalContribution > 0 {
                     Divider()

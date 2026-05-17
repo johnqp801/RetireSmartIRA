@@ -145,6 +145,10 @@ class ScenarioStateManager: ObservableObject {
         yourHSAContribution + spouseHSAContribution
     }
 
+    // TODO(R3-state-conformity): Some "Other" categories have state-specific
+    // conformity rules (e.g., CA on SE health insurance and educator expenses).
+    // For 1.8.2 we treat Other as fully state-deductible like 401k/IRA. Refine
+    // in a future release if state-divergence becomes a planning concern.
     var scenarioTotalOtherPreTaxDeductions: Double {
         yourOtherPreTaxDeductions + spouseOtherPreTaxDeductions
     }
