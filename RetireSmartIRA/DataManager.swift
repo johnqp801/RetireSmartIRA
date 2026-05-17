@@ -2307,21 +2307,27 @@ class DataManager: ObservableObject {
     // MARK: - Per-Decision IRMAA Impact
 
     /// IRMAA surcharge increase caused by Roth conversions (cliff-based).
+    /// Uses `projectedMedicareMemberCountForIRMAALookback` so the 63-64yo pre-Medicare
+    /// cohort — whose current-year MAGI determines their 2-year-out IRMAA tier —
+    /// sees real leverage estimates instead of $0. (D1)
     var rothConversionIRMAAImpact: Double {
-        guard scenarioTotalRothConversion > 0, medicareMemberCount > 0 else { return 0 }
+        let count = projectedMedicareMemberCountForIRMAALookback
+        guard scenarioTotalRothConversion > 0, count > 0 else { return 0 }
         let magiWithout = estimatedAGI - scenarioTotalRothConversion
         let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
         let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
-        return delta * Double(medicareMemberCount)
+        return delta * Double(count)
     }
 
     /// IRMAA surcharge increase caused by extra withdrawals (cliff-based).
+    /// See `rothConversionIRMAAImpact` for the projected-count rationale. (D1)
     var extraWithdrawalIRMAAImpact: Double {
-        guard scenarioTotalExtraWithdrawal > 0, medicareMemberCount > 0 else { return 0 }
+        let count = projectedMedicareMemberCountForIRMAALookback
+        guard scenarioTotalExtraWithdrawal > 0, count > 0 else { return 0 }
         let magiWithout = estimatedAGI - scenarioTotalExtraWithdrawal
         let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
         let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
-        return delta * Double(medicareMemberCount)
+        return delta * Double(count)
     }
 
     /// Tax impact of inherited IRA extra withdrawals (Traditional only — Roth is tax-free).
@@ -2344,34 +2350,40 @@ class DataManager: ObservableObject {
     }
 
     /// IRMAA surcharge increase caused by inherited IRA extra withdrawals (cliff-based).
+    /// See `rothConversionIRMAAImpact` for the projected-count rationale. (D1)
     var inheritedExtraWithdrawalIRMAAImpact: Double {
-        guard inheritedTraditionalExtraTotal > 0, medicareMemberCount > 0 else { return 0 }
+        let count = projectedMedicareMemberCountForIRMAALookback
+        guard inheritedTraditionalExtraTotal > 0, count > 0 else { return 0 }
         let magiWithout = estimatedAGI - inheritedTraditionalExtraTotal
         let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
         let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
-        return delta * Double(medicareMemberCount)
+        return delta * Double(count)
     }
 
     /// IRMAA surcharge savings from QCD (only the RMD-offsetting portion reduces MAGI).
+    /// See `rothConversionIRMAAImpact` for the projected-count rationale. (D1)
     var qcdIRMAASavings: Double {
-        guard scenarioTotalQCD > 0, medicareMemberCount > 0 else { return 0 }
+        let count = projectedMedicareMemberCountForIRMAALookback
+        guard scenarioTotalQCD > 0, count > 0 else { return 0 }
         let regularRMD = calculateCombinedRMD()
         let taxableQCDOffset = min(scenarioTotalQCD, regularRMD)
         guard taxableQCDOffset > 0 else { return 0 }
         let magiWithoutQCD = estimatedAGI + taxableQCDOffset
         let irmaaWithoutQCD = calculateIRMAA(magi: magiWithoutQCD, filingStatus: filingStatus)
         let delta = irmaaWithoutQCD.annualSurchargePerPerson - scenarioIRMAA.annualSurchargePerPerson
-        return delta * Double(medicareMemberCount)
+        return delta * Double(count)
     }
 
     /// Annual IRMAA surcharge increase caused by tax-exempt interest being included in IRMAA MAGI.
     /// Shows users how their "tax-free" muni/money market income affects Medicare premiums.
+    /// See `rothConversionIRMAAImpact` for the projected-count rationale. (D1)
     var taxExemptInterestIRMAAImpact: Double {
-        guard taxExemptInterestTotal > 0, medicareMemberCount > 0 else { return 0 }
+        let count = projectedMedicareMemberCountForIRMAALookback
+        guard taxExemptInterestTotal > 0, count > 0 else { return 0 }
         let magiWithout = irmaaMagi - taxExemptInterestTotal
         let irmaaWithout = calculateIRMAA(magi: magiWithout, filingStatus: filingStatus)
         let delta = scenarioIRMAA.annualSurchargePerPerson - irmaaWithout.annualSurchargePerPerson
-        return delta * Double(medicareMemberCount)
+        return delta * Double(count)
     }
 
     // MARK: - Per-Decision NIIT Impact

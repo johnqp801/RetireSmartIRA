@@ -79,4 +79,13 @@ struct IRMAAInlineWarningPreMedicareTests {
         setAges(dm, your: 63, spouse: 55)
         #expect(dm.projectedMedicareMemberCountForIRMAALookback == 1)
     }
+
+    @Test("Mixed couple — you 65, spouse 63 — projected count is 2 while medicare count is 1")
+    func projectedCount_Mixed65And63_CountsBothButMedicareCountIsOne() {
+        let dm = DataManager(skipPersistence: true)
+        dm.enableSpouse = true
+        setAges(dm, your: 65, spouse: 63)
+        #expect(dm.projectedMedicareMemberCountForIRMAALookback == 2)
+        #expect(dm.medicareMemberCount == 1)
+    }
 }

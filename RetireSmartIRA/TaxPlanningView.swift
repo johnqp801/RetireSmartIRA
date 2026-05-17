@@ -277,20 +277,34 @@ struct TaxPlanningView: View {
         if projectedCount > 0 {
             let irmaa = dataManager.scenarioIRMAA
             let baseline = dataManager.baselineIRMAA
-            let medicareNow = dataManager.medicareMemberCount > 0
+            let currentCount = dataManager.medicareMemberCount
+            let medicareNow = currentCount > 0
             let projectionYear = dataManager.currentYear + 2
 
             if irmaa.tier > baseline.tier {
                 // Crossed a cliff — red warning
                 let perPerson = irmaa.annualSurchargePerPerson - baseline.annualSurchargePerPerson
-                let additionalCost = perPerson * Double(projectedCount)
+                let currentCost = perPerson * Double(currentCount)
+                let projectedCost = perPerson * Double(projectedCount)
+                let mixedAge = medicareNow && currentCount != projectedCount
                 let leading = medicareNow
                     ? "\u{26A0}\u{FE0F} Pushes you into IRMAA Tier \(irmaa.tier)"
                     : "\u{26A0}\u{FE0F} Projected IRMAA Tier \(irmaa.tier) in \(projectionYear) (2-year lookback)"
+                let body: String = {
+                    if mixedAge {
+                        // 65/63 mixed couple: surcharge applies to the on-Medicare spouse now,
+                        // will apply to both once the pre-Medicare spouse hits 65 in projectionYear.
+                        return "adds \(currentCost.formatted(.currency(code: "USD")))/year now, rising to \(projectedCost.formatted(.currency(code: "USD")))/year by \(projectionYear) in Medicare surcharges"
+                    } else if medicareNow {
+                        return "adds \(projectedCost.formatted(.currency(code: "USD")))/year in Medicare surcharges"
+                    } else {
+                        return "would add \(projectedCost.formatted(.currency(code: "USD")))/year in Medicare surcharges"
+                    }
+                }()
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.Semantic.red)
-                    Text("\(leading) \u{2014} \(medicareNow ? "adds" : "would add") \(additionalCost, format: .currency(code: "USD"))/year in Medicare surcharges")
+                    Text("\(leading) \u{2014} \(body)")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundStyle(Color.Semantic.red)
