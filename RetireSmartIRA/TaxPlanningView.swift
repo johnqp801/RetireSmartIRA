@@ -1357,12 +1357,15 @@ struct TaxPlanningView: View {
                     Text("• Contributions don't affect AGI or this app's tax modeling")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel("Contributions don't affect AGI or this app's tax modeling")
                     Text("• 2026 contribution limit: $7,000 (+$1,000 catch-up age 50+)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel("2026 contribution limit: $7,000 (+$1,000 catch-up age 50+)")
                     Text("• Income limits apply — see Sources & References")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel("Income limits apply — see Sources & References")
                 }
                 .padding(.vertical, 4)
             }
