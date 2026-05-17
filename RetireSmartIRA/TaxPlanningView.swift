@@ -2732,6 +2732,41 @@ struct TaxPlanningView: View {
             }
         }
 
+        Divider()
+
+        ConversionSliderCard(
+            label: spouseEnabled ? "Your Other Pre-Tax Deductions" : "Other Pre-Tax Deductions",
+            icon: spouseEnabled ? "person.fill" : nil,
+            balance: 0,
+            amount: scenarioBinding(
+                { $0.yourOtherPreTaxDeductions },
+                setter: { $0.yourOtherPreTaxDeductions = $1 }
+            ),
+            sliderMax: 25_000,
+            tint: Color.UI.brandTeal
+        )
+        HStack(spacing: 6) {
+            Image(systemName: "info.circle")
+                .foregroundStyle(.secondary)
+            Text("Educator expenses (≤$300), student-loan interest, self-employed health insurance, military moving, alimony pre-2019, etc.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+
+        if spouseEnabled {
+            ConversionSliderCard(
+                label: "Spouse's Other Pre-Tax Deductions",
+                icon: "person.fill",
+                balance: 0,
+                amount: scenarioBinding(
+                    { $0.spouseOtherPreTaxDeductions },
+                    setter: { $0.spouseOtherPreTaxDeductions = $1 }
+                ),
+                sliderMax: 25_000,
+                tint: Color.Chart.callout
+            )
+        }
+
         topWarningsBand()
     }
 

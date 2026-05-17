@@ -43,6 +43,12 @@ class ScenarioStateManager: ObservableObject {
     @Published var yourHSAContribution: Double = 0
     @Published var spouseHSAContribution: Double = 0
 
+    // R3: Other above-the-line AGI reducers (educator expenses, student-loan interest,
+    // self-employed health-insurance premiums, alimony pre-2019, military moving, etc.).
+    // Single number per spouse — user enters total of their niche deductions.
+    @Published var yourOtherPreTaxDeductions: Double = 0
+    @Published var spouseOtherPreTaxDeductions: Double = 0
+
     // MARK: - 1.9 Medicare Plan Type (per spouse)
 
     @Published var yourMedicarePlanType: MedicarePlanType = .preMedicare
@@ -94,6 +100,8 @@ class ScenarioStateManager: ObservableObject {
         spouseTraditionalIRAContribution = 0
         yourHSAContribution = 0
         spouseHSAContribution = 0
+        yourOtherPreTaxDeductions = 0
+        spouseOtherPreTaxDeductions = 0
         yourMedicarePlanType = .preMedicare
         spouseMedicarePlanType = .preMedicare
         yourMedicarePartBOverride = nil
@@ -137,8 +145,12 @@ class ScenarioStateManager: ObservableObject {
         yourHSAContribution + spouseHSAContribution
     }
 
-    /// All 1.9 above-the-line deductions: 401(k) + IRA + HSA combined for both spouses.
+    var scenarioTotalOtherPreTaxDeductions: Double {
+        yourOtherPreTaxDeductions + spouseOtherPreTaxDeductions
+    }
+
+    /// All 1.9 above-the-line deductions: 401(k) + IRA + HSA + Other combined for both spouses.
     var scenarioTotalAboveTheLineDeductions: Double {
-        scenarioTotalTraditional401k + scenarioTotalTraditionalIRA + scenarioTotalHSA
+        scenarioTotalTraditional401k + scenarioTotalTraditionalIRA + scenarioTotalHSA + scenarioTotalOtherPreTaxDeductions
     }
 }
