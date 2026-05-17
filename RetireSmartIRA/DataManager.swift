@@ -413,7 +413,9 @@ class DataManager: ObservableObject {
         TaxCalculationEngine.californiaExemptionCredits(filingStatus: filingStatus, agi: agi, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear)
     }
 
-    /// Calculates state tax starting from gross income (pre-deduction).
+    /// Computes state tax from scenario gross income BEFORE above-the-line deductions.
+    /// HSA/IRA/Other are reapplied here per the state's conformity flags.
+    ///
     /// Applies the state's own standard deduction, then retirement exemptions, then tax.
     /// Used by state comparison and scenarioStateTax to ensure correct state-specific deductions.
     func calculateStateTaxFromGross(
@@ -478,9 +480,16 @@ class DataManager: ObservableObject {
     /// Mirrors the logic of `calculateStateTaxFromGross` but captures
     /// every intermediate value for the State Comparison detail sheet.
     func stateTaxBreakdown(forState state: USState, filingStatus: FilingStatus) -> StateTaxBreakdown {
-        let grossIncome = scenarioGrossIncome
         let config = StateTaxData.config(for: state)
         let exemptions = config.retirementExemptions
+
+        // Apply HSA addback + IRA/Other subtractions per state conformity flags,
+        // mirroring calculateStateTaxFromGross so this breakdown stays consistent
+        // with scenarioStateTax when IRA/Other contributions are non-zero.
+        let hsaAddback = config.hsaContributionsTaxableForState ? scenario.scenarioTotalHSA : 0
+        let iraSubtract = config.traditionalIRAContributionsTaxableForState ? 0 : scenario.scenarioTotalTraditionalIRA
+        let otherSubtract = config.otherPreTaxDeductionsTaxableForState ? 0 : scenario.scenarioTotalOtherPreTaxDeductions
+        let grossIncome = max(0, scenarioGrossIncome + hsaAddback - iraSubtract - otherSubtract)
 
         // 0. Apply state-specific deduction (itemized or standard, whichever is larger)
         let stateStandardDeduction: Double
@@ -1651,8 +1660,14 @@ class DataManager: ObservableObject {
         }
 
         // State tax via existing helper.
+        // calculateStateTaxFromGross expects scenario GROSS income (pre above-the-line
+        // deductions) — it re-applies HSA/IRA/Other subtractions per the state's
+        // conformity flags. Our caller passes AGI (post-deduction), so restore gross
+        // by adding totalAboveTheLineDeductions back before invoking the helper.
+        // Without this, IRA + Other get subtracted twice on the state side.
+        let grossEquivalent = hypotheticalAGI + totalAboveTheLineDeductions
         let stateTax = calculateStateTaxFromGross(
-            grossIncome: hypotheticalAGI,
+            grossIncome: grossEquivalent,
             forState: profile.selectedState,
             filingStatus: filingStatus,
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
