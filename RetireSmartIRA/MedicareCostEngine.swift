@@ -58,6 +58,8 @@ enum MedicareCostEngine {
             plannedStartAge: plannedMedicareStartAge,
             hasQualifiedEmployerCoverage: hasQualifiedEmployerCoverage
         )
+        // SSA POMS HI 01001.010: penalty is 10%/year applied to the *standard*
+        // Part B premium, not to IRMAA surcharges. Both are added on top of base.
         let partBLatePenalty = partBBase * penaltyMultiplier
         let partB = partBBase + max(0, partBSurcharge) + partBLatePenalty
 

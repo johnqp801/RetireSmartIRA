@@ -118,6 +118,30 @@ struct LatePartBPenaltyTests {
         )
         #expect(abs(withoutCoverage.partB - withCoverage.partB) < 1e-9)
     }
+
+    @Test("partB combines IRMAA surcharge and late penalty correctly: 67yo single at MAGI 250k")
+    func partB_WithBothIRMAASurchargeAndLatePenalty_AppliesPenaltyToStandardOnly() {
+        let config = TaxYearConfig.loadOrFallback(forYear: 2026)
+        let breakdown = MedicareCostEngine.computeCostForSpouse(
+            planType: .originalMedicare,
+            irmaaMAGI: IRMAAMAGI(value: 250_000),
+            partBOverride: nil,
+            partDOverride: nil,
+            medigapOverride: nil,
+            advantageOverride: nil,
+            filingStatus: .single,
+            config: config,
+            plannedMedicareStartAge: 67,
+            hasQualifiedEmployerCoverage: false
+        )
+        let partBBase = config.medicare2026.partBStandardMonthly
+        // Expected: standard + IRMAA surcharge for 250k single + 20% penalty on standard only
+        let expectedPenalty = partBBase * 0.20
+        let irmaa = TaxCalculationEngine.calculateIRMAA(magi: IRMAAMAGI(value: 250_000), filingStatus: .single)
+        let expectedSurcharge = max(0, irmaa.monthlyPartB - config.irmaaStandardPartB)
+        let expected = partBBase + expectedSurcharge + expectedPenalty
+        #expect(abs(breakdown.partB - expected) < 0.01)
+    }
 }
 
 @Suite("ProfileManager planned Medicare start age default")

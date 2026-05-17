@@ -56,6 +56,10 @@ class ProfileManager: ObservableObject {
     /// penalty when they delay enrollment.
     @Published var hasQualifiedEmployerCoverageForMedicare: Bool = false
 
+    // TODO(v2.1): Split into per-spouse fields. Real-world case: older spouse
+    // keeps employer coverage to maintain younger spouse on plan, then enrolls
+    // at retirement. Current shared-household model can't represent this.
+
     // MARK: - Computed Properties
 
     var birthYear: Int {
