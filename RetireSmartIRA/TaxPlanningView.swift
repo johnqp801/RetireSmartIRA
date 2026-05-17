@@ -273,17 +273,24 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var irmaaInlineWarning: some View {
-        if dataManager.medicareMemberCount > 0 {
+        let projectedCount = dataManager.projectedMedicareMemberCountForIRMAALookback
+        if projectedCount > 0 {
             let irmaa = dataManager.scenarioIRMAA
             let baseline = dataManager.baselineIRMAA
+            let medicareNow = dataManager.medicareMemberCount > 0
+            let projectionYear = dataManager.currentYear + 2
 
             if irmaa.tier > baseline.tier {
                 // Crossed a cliff — red warning
-                let additionalCost = (irmaa.annualSurchargePerPerson - baseline.annualSurchargePerPerson) * Double(dataManager.medicareMemberCount)
+                let perPerson = irmaa.annualSurchargePerPerson - baseline.annualSurchargePerPerson
+                let additionalCost = perPerson * Double(projectedCount)
+                let leading = medicareNow
+                    ? "\u{26A0}\u{FE0F} Pushes you into IRMAA Tier \(irmaa.tier)"
+                    : "\u{26A0}\u{FE0F} Projected IRMAA Tier \(irmaa.tier) in \(projectionYear) (2-year lookback)"
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.Semantic.red)
-                    Text("\u{26A0}\u{FE0F} Pushes you into IRMAA Tier \(irmaa.tier) \u{2014} adds \(additionalCost, format: .currency(code: "USD"))/year in Medicare surcharges")
+                    Text("\(leading) \u{2014} \(medicareNow ? "adds" : "would add") \(additionalCost, format: .currency(code: "USD"))/year in Medicare surcharges")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundStyle(Color.Semantic.red)
@@ -296,7 +303,9 @@ struct TaxPlanningView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.Semantic.amber)
-                    Text("\(distanceToNext, format: .currency(code: "USD")) until IRMAA Tier \(irmaa.tier + 1) cliff")
+                    Text(medicareNow
+                         ? "\(distanceToNext, format: .currency(code: "USD")) until IRMAA Tier \(irmaa.tier + 1) cliff"
+                         : "\(distanceToNext, format: .currency(code: "USD")) until projected IRMAA Tier \(irmaa.tier + 1) cliff in \(projectionYear)")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundStyle(Color.Semantic.amber)

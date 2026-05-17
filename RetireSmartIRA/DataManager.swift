@@ -1490,6 +1490,18 @@ class DataManager: ObservableObject {
         return count
     }
 
+    /// Like `medicareMemberCount`, but also counts pre-Medicare adults aged 63-64
+    /// whose current-year MAGI will determine their IRMAA tier 2 years out (the
+    /// 2-year IRMAA lookback). Used by inline warnings to fire for the most-
+    /// leveraged users instead of being silenced. (D1)
+    var projectedMedicareMemberCountForIRMAALookback: Int {
+        var count = 0
+        let lookbackStartAge = 63  // 65 - 2 (IRMAA lookback)
+        if currentAge >= lookbackStartAge { count += 1 }
+        if enableSpouse && spouseCurrentAge >= lookbackStartAge { count += 1 }
+        return count
+    }
+
     // MARK: - Above-the-Line Deductions (1.9)
 
     /// Sum of all 1.9 contribution levers that reduce federal AGI.
