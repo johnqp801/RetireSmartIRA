@@ -94,6 +94,24 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-17: V1.8.2 Phase 2 plan-review design calls
+
+Plans for Phases 1-3 written by parallel writing-plans agents. Phase 2 agent surfaced four design questions; all resolved post-review:
+
+- **A — L3 spouse-heir gating:** Gate heir-bracket card on non-spouse heir (return EmptyView for spouse). Rationale: 10-year drain assumption is wrong for spouses, who can roll over and use their own RMD timeline.
+- **B — L3 "per $X" display:** Hybrid — live amount when `scenarioTotalRothConversion >= $10K`, illustrative `$100K` constant otherwise. Rationale: most useful when user has a real plan, still informative when they haven't set one.
+- **C — L4 widow lifetime tax delta:** Ship coarse 0.85 single-filer approximation with tooltip noting "V2.0 will model year-by-year through multi-year engine." Rationale: avoids over-engineering 1.8.2; sets up V2.0 anticipation; multi-year engine already solves this properly.
+- **D — L2 taxable-brokerage gate:** Add `hasTaxableBrokerage: Bool` toggle to user profile (default false); gate L2 0% LTCG card on it. Adds ~0.25d to Phase 2 (revised to ~8d). Rationale: clean signal, unlocks future surfaces, removes "card always visible" awkwardness.
+
+**Phase plans status:**
+- Phase 1 (`2026-05-17-1.8.2-phase-1-ron-segment-polish.md`): 9 tasks, ~57 steps, ~5-6d actual (vs 7.75d estimate)
+- Phase 2 (`2026-05-17-1.8.2-phase-2-analyst-critique.md`): 8 tasks, ~53 steps, ~8d with decisions A-D
+- Phase 3 (`2026-05-17-1.8.2-phase-3-higher-earner-and-housekeeping.md`): 8 tasks, ~70 steps, lighter than spec implied (most items are surfacing existing engine math)
+
+**Build number verified:** Currently at 38; Phase 3 release task bumps 38→39 and marketing version 1.8.1→1.8.2.
+
+---
+
 ## 2026-05-17: V1.8.2 phasing — Option A (strategic-bundle phases)
 
 **Decision:** Phase 1.8.2 work into 4 strategic bundles, each shippable independently:
