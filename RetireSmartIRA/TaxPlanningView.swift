@@ -67,6 +67,41 @@ struct TaxPlanningView: View {
         adaptiveSliderCap(balance: dataManager.spouseTraditionalIRABalance)
     }
 
+    /// Compute smart notches (bracket fills, ACA cliff, IRMAA tier crossings) for a
+    /// Roth-conversion or extra-withdrawal slider. `currentBaseTaxable` is the scenario's
+    /// taxable income excluding the lever this slider controls, so that bracket-fill deltas
+    /// are measured against the income absent that lever.
+    private func notches(forSliderMax sliderMax: Double, currentBaseTaxable: Double) -> [SmartSliderNotch] {
+        let brackets = dataManager.filingStatus == .single
+            ? dataManager.currentTaxBrackets.federalSingle
+            : dataManager.currentTaxBrackets.federalMarried
+        let bracketFills: [Double] = brackets.compactMap { b in
+            let delta = b.threshold - currentBaseTaxable
+            return delta > 0 ? delta : nil
+        }
+        let cliff: [Double] = {
+            if let dc = dataManager.acaSubsidyResult?.dollarsToCliff, dc > 0 { return [dc] }
+            return []
+        }()
+        let irmaaCrossings: [IRMAATierCrossing] = {
+            let isMFJ = dataManager.filingStatus == .marriedFilingJointly
+            let magi = dataManager.scenarioIRMAA.magi
+            return DataManager.irmaa2026Tiers.enumerated().compactMap { (i, t) in
+                guard i > 0 else { return nil }
+                let threshold = isMFJ ? t.mfjThreshold : t.singleThreshold
+                let delta = threshold - magi
+                guard delta > 0 else { return nil }
+                return IRMAATierCrossing(value: delta, tier: i)
+            }
+        }()
+        return SmartSliderNotches.compute(
+            sliderMax: sliderMax,
+            bracketFillAmounts: bracketFills,
+            cliffAmounts: cliff,
+            irmaaTierCrossings: irmaaCrossings
+        )
+    }
+
     // Total Roth conversions & extra withdrawals
     private var totalRothConversion: Double {
         dataManager.yourRothConversion + (spouseEnabled ? dataManager.spouseRothConversion : 0)
@@ -1297,7 +1332,11 @@ struct TaxPlanningView: View {
                     sliderMax: yourSliderMax,
                     tint: Color.UI.brandTeal,
                     cliffMark: cliffMarkForRoth(yours: true),
-                    textMax: dataManager.primaryTraditionalIRABalance
+                    textMax: dataManager.primaryTraditionalIRABalance,
+                    notches: notches(
+                        forSliderMax: yourSliderMax,
+                        currentBaseTaxable: dataManager.scenarioTaxableIncome - dataManager.yourRothConversion
+                    )
                 )
 
                 if dataManager.yourRothConversion > 0 {
@@ -1315,7 +1354,11 @@ struct TaxPlanningView: View {
                     sliderMax: spouseSliderMax,
                     tint: Color.Chart.callout,
                     cliffMark: cliffMarkForRoth(yours: false),
-                    textMax: dataManager.spouseTraditionalIRABalance
+                    textMax: dataManager.spouseTraditionalIRABalance,
+                    notches: notches(
+                        forSliderMax: spouseSliderMax,
+                        currentBaseTaxable: dataManager.scenarioTaxableIncome - dataManager.spouseRothConversion
+                    )
                 )
 
                 if dataManager.spouseRothConversion > 0 {
@@ -1462,7 +1505,11 @@ struct TaxPlanningView: View {
                     amount: $dataManager.yourExtraWithdrawal,
                     sliderMax: yourSliderMax,
                     tint: Color.Chart.callout,
-                    textMax: dataManager.primaryTraditionalIRABalance
+                    textMax: dataManager.primaryTraditionalIRABalance,
+                    notches: notches(
+                        forSliderMax: yourSliderMax,
+                        currentBaseTaxable: dataManager.scenarioTaxableIncome - dataManager.yourExtraWithdrawal
+                    )
                 )
 
                 if dataManager.isRMDRequired || dataManager.yourExtraWithdrawal > 0 {
@@ -1506,7 +1553,11 @@ struct TaxPlanningView: View {
                     amount: $dataManager.spouseExtraWithdrawal,
                     sliderMax: spouseSliderMax,
                     tint: Color.Chart.callout,
-                    textMax: dataManager.spouseTraditionalIRABalance
+                    textMax: dataManager.spouseTraditionalIRABalance,
+                    notches: notches(
+                        forSliderMax: spouseSliderMax,
+                        currentBaseTaxable: dataManager.scenarioTaxableIncome - dataManager.spouseExtraWithdrawal
+                    )
                 )
 
                 if dataManager.spouseIsRMDRequired || dataManager.spouseExtraWithdrawal > 0 {
@@ -3634,6 +3685,9 @@ struct ConversionSliderCard: View {
     /// slider is limited to `sliderMax`. Used for adaptive slider caps
     /// where the slider is capped below the full balance.
     var textMax: Double? = nil
+    /// Smart notches (bracket fills, ACA cliff, IRMAA tier crossings) rendered
+    /// as tick marks over the slider. Tap-to-snap sets `amount` to the notch value.
+    var notches: [SmartSliderNotch] = []
 
     private var effectiveTextMax: Double { textMax ?? sliderMax }
 
@@ -3677,6 +3731,29 @@ struct ConversionSliderCard: View {
                             .allowsHitTesting(false)
                     }
                 }
+
+                if !notches.isEmpty {
+                    GeometryReader { geo in
+                        ForEach(notches) { notch in
+                            let x = SmartSliderNotches.position(value: notch.value, sliderMax: sliderMax) * geo.size.width
+                            let color: Color = {
+                                switch notch.kind {
+                                case .bracketFill: return Color.UI.brandTeal
+                                case .acaCliff: return .red
+                                case .irmaaTier: return .orange
+                                }
+                            }()
+                            Rectangle()
+                                .fill(color.opacity(0.85))
+                                .frame(width: 2, height: 10)
+                                .position(x: x, y: geo.size.height / 2)
+                                .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
+                                .onTapGesture {
+                                    amount = notch.value
+                                }
+                        }
+                    }
+                }
             }
 
             HStack {
@@ -3710,6 +3787,9 @@ struct WithdrawalSliderCard: View {
     /// slider is limited to `sliderMax`. Used for adaptive slider caps
     /// where the slider is capped below the full balance.
     var textMax: Double? = nil
+    /// Smart notches (bracket fills, ACA cliff, IRMAA tier crossings) rendered
+    /// as tick marks over the slider. Tap-to-snap sets `amount` to the notch value.
+    var notches: [SmartSliderNotch] = []
 
     private var effectiveTextMax: Double { textMax ?? sliderMax }
 
@@ -3732,8 +3812,33 @@ struct WithdrawalSliderCard: View {
                 CurrencyField(value: $amount, range: 0...effectiveTextMax, color: .primary)
             }
 
-            Slider(value: sliderBinding, in: 0...sliderMax, step: 1_000)
-                .tint(tint)
+            ZStack(alignment: .leading) {
+                Slider(value: sliderBinding, in: 0...sliderMax, step: 1_000)
+                    .tint(tint)
+
+                if !notches.isEmpty {
+                    GeometryReader { geo in
+                        ForEach(notches) { notch in
+                            let x = SmartSliderNotches.position(value: notch.value, sliderMax: sliderMax) * geo.size.width
+                            let color: Color = {
+                                switch notch.kind {
+                                case .bracketFill: return Color.UI.brandTeal
+                                case .acaCliff: return .red
+                                case .irmaaTier: return .orange
+                                }
+                            }()
+                            Rectangle()
+                                .fill(color.opacity(0.85))
+                                .frame(width: 2, height: 10)
+                                .position(x: x, y: geo.size.height / 2)
+                                .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
+                                .onTapGesture {
+                                    amount = notch.value
+                                }
+                        }
+                    }
+                }
+            }
 
             HStack {
                 Text("$0")
