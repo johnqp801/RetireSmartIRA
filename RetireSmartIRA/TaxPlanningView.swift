@@ -36,6 +36,9 @@ struct TaxPlanningView: View {
     @State private var showCharitableGuide: Bool = false
     @State private var showLegacyDetails: Bool = false
 
+    // MARK: - Banner dismissal state
+    @State private var irmaaRunwayDismissed: Bool = false
+
     // MARK: - Computed helpers
 
     private var spouseEnabled: Bool { dataManager.enableSpouse }
@@ -457,9 +460,21 @@ struct TaxPlanningView: View {
     /// Whether the user is RMD-age (73+) — reorder sections to prioritize QCDs/charitable
     private var isRMDAge: Bool { dataManager.isRMDRequired }
 
+    // MARK: - IRMAA Runway Banner
+
+    private var irmaaRunwayBanner: some View {
+        IRMAARunwayBanner(
+            primaryAge: dataManager.currentAge,
+            spouseAge: spouseEnabled ? dataManager.spouseCurrentAge : nil,
+            spouseEnabled: spouseEnabled,
+            dismissed: $irmaaRunwayDismissed
+        )
+    }
+
     private var compactInputsGroup: some View {
         AnyView(Group {
             summaryCard
+            irmaaRunwayBanner
             opportunityWindowSection
             // AGI-reducers-first flow (Ron feedback): reduce AGI first, then add income strategically
             preTaxContributionsCard
@@ -547,6 +562,7 @@ struct TaxPlanningView: View {
     private var wideLeftGroupA: some View {
         AnyView(Group {
             summaryCard
+            irmaaRunwayBanner
             opportunityWindowSection
             preTaxContributionsCard
             charitableCard
