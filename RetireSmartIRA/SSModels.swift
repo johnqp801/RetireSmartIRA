@@ -103,11 +103,15 @@ struct SSEarningsHistory: Codable {
 struct SSWhatIfParameters: Codable, Equatable {
     var primaryLifeExpectancy: Int
     var spouseLifeExpectancy: Int
-    var colaRate: Double            // Annual COLA percentage (e.g. 2.5)
+    var colaRate: Double            // Annual COLA percentage (e.g. 2.8)
     var discountRate: Double        // For present-value analysis (e.g. 0 for nominal)
 
+    // Default colaRate updated 2026-05-17 from 2.5 → 2.8 per SSA's Oct 24, 2025
+    // announcement (CPI-W Q3-2024 → Q3-2025 basis). Codable self-migration:
+    // existing persisted scenarios keep their saved colaRate; the new default
+    // applies only to fresh constructions / new users.
     init(primaryLifeExpectancy: Int = 95, spouseLifeExpectancy: Int = 97,
-         colaRate: Double = 2.5, discountRate: Double = 0) {
+         colaRate: Double = 2.8, discountRate: Double = 0) {
         self.primaryLifeExpectancy = primaryLifeExpectancy
         self.spouseLifeExpectancy = spouseLifeExpectancy
         self.colaRate = colaRate

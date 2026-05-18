@@ -62,25 +62,27 @@ struct TaxYearConfigMedicareTests {
 @Suite("TaxYearConfig — ACA Subsidy 2026")
 struct TaxYearConfigACASubsidyTests {
 
-    @Test("ACA FPL table loads with all 8 household sizes — 2026 HHS values")
+    @Test("ACA FPL table loads with all 8 household sizes — 2025 HHS values (prior-year-FPL rule for 2026 PTC)")
     func fplTableLoads() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        // 2026 HHS Federal Poverty Guidelines (released January 2026)
-        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["1"] == 15_650)
-        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["2"] == 21_150)
-        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["8"] == 54_150)
+        // Per 26 CFR 1.36B, 2026 PTC uses 2025 HHS Federal Poverty Guidelines.
+        // HH=1 $15,060; +$5,380 per additional member (48 states + DC).
+        // Updated 2026-05-17 per 1.8.2 C2 audit.
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["1"] == 15_060)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["2"] == 20_440)
+        #expect(config.acaSubsidy2026.fpl2026.householdSizeToFPL["8"] == 52_720)
         #expect(config.acaSubsidy2026.fpl2026.alaskaMultiplier == 1.25)
         #expect(config.acaSubsidy2026.fpl2026.hawaiiMultiplier == 1.15)
     }
 
-    @Test("2026 ACA cliff HH=2 is $84,600 (400% × $21,150)")
+    @Test("2026 ACA cliff HH=2 is $81,760 (400% × $20,440, 2025 HHS, per prior-year-FPL rule)")
     func testACA_FPL_2026_HouseholdOf2() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
         let fpl = config.acaSubsidy2026.fpl2026.householdSizeToFPL["2"] ?? 0
-        #expect(fpl == 21_150, "2026 HHS FPL HH=2 should be $21,150")
+        #expect(fpl == 20_440, "2025 HHS FPL HH=2 should be $20,440 (used for 2026 PTC)")
         // 400% cliff
         let cliff = fpl * 4
-        #expect(cliff == 84_600, "400% FPL cliff HH=2 should be $84,600")
+        #expect(cliff == 81_760, "400% FPL cliff HH=2 should be $81,760")
     }
 
     @Test("ACA applicable figures table loads in ascending fplPercent order")

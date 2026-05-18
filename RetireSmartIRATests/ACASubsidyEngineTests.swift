@@ -2,6 +2,10 @@
 //  ACASubsidyEngineTests.swift
 //  RetireSmartIRATests
 //
+//  Note: 2026 ACA Premium Tax Credit uses 2025 HHS Federal Poverty Level
+//  per 26 CFR 1.36B (prior-year FPL rule). HH=1 = $15,060; +$5,380 per
+//  additional member. Expected values updated 2026-05-17 per 1.8.2 C2 audit.
+//
 
 import Testing
 import Foundation
@@ -10,7 +14,7 @@ import Foundation
 @Suite("ACASubsidyEngine — FPL lookup")
 struct ACASubsidyEngineFPLTests {
 
-    @Test("Household size 1 mainland: fplAmount = 15650 (2026 HHS), fplPercent at MAGI 30k ≈ 191.7%")
+    @Test("Household size 1 mainland: fplAmount = 15060 (2025 HHS, per prior-year-FPL rule), fplPercent at MAGI 30k ≈ 199.2%")
     func size1Mainland() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
         let result = ACASubsidyEngine.calculateSubsidy(
@@ -20,10 +24,10 @@ struct ACASubsidyEngineFPLTests {
             regionalAdjustment: .mainland48,
             config: config
         )
-        // 2026 HHS FPL HH=1: $15,650
-        #expect(result.fplAmount == 15_650)
-        // 30,000 / 15,650 × 100 ≈ 191.7%
-        #expect(abs(result.fplPercent - 191.7) < 0.5)
+        // 2025 HHS FPL HH=1: $15,060 (used for 2026 PTC per prior-year rule)
+        #expect(result.fplAmount == 15_060)
+        // 30,000 / 15,060 × 100 ≈ 199.2%
+        #expect(abs(result.fplPercent - 199.2) < 0.5)
     }
 
     @Test("Alaska multiplier applies")
@@ -36,7 +40,7 @@ struct ACASubsidyEngineFPLTests {
             regionalAdjustment: .alaska,
             config: config
         )
-        #expect(result.fplAmount == 15_650 * 1.25)  // 2026 HH=1: $15,650
+        #expect(result.fplAmount == 15_060 * 1.25)  // 2025 HH=1: $15,060
     }
 
     @Test("Hawaii multiplier applies")
@@ -49,7 +53,7 @@ struct ACASubsidyEngineFPLTests {
             regionalAdjustment: .hawaii,
             config: config
         )
-        #expect(result.fplAmount == 21_150 * 1.15)  // 2026 HH=2: $21,150
+        #expect(result.fplAmount == 20_440 * 1.15)  // 2025 HH=2: $20,440
     }
 
     @Test("Household size 9+ caps at size 8 lookup")
@@ -62,7 +66,7 @@ struct ACASubsidyEngineFPLTests {
             regionalAdjustment: .mainland48,
             config: config
         )
-        #expect(result.fplAmount == 54_150)  // 2026 size 8 value: $54,150
+        #expect(result.fplAmount == 52_720)  // 2025 size 8 value: $52,720
     }
 }
 
@@ -72,9 +76,9 @@ struct ACASubsidyEngineApplicableFigureTests {
     @Test("MAGI = 200% FPL: applicableFigure = 0.04")
     func at200Percent() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        // Size 1, MAGI = 200% of 15650 (2026) = 31300
+        // Size 1, MAGI = 200% of 15060 (2025 HHS) = 30120
         let result = ACASubsidyEngine.calculateSubsidy(
-            acaMAGI: ACAMAGI(value: 31_300),
+            acaMAGI: ACAMAGI(value: 30_120),
             householdSize: 1,
             benchmarkSilverPlanAnnualPremium: 7_800,
             regionalAdjustment: .mainland48,
@@ -86,9 +90,9 @@ struct ACASubsidyEngineApplicableFigureTests {
     @Test("MAGI = 250% FPL: applicableFigure = 0.06")
     func at250Percent() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        // 250% of 15650 (2026) = 39125
+        // 250% of 15060 (2025 HHS) = 37650
         let result = ACASubsidyEngine.calculateSubsidy(
-            acaMAGI: ACAMAGI(value: 39_125),
+            acaMAGI: ACAMAGI(value: 37_650),
             householdSize: 1,
             benchmarkSilverPlanAnnualPremium: 7_800,
             regionalAdjustment: .mainland48,
@@ -100,9 +104,9 @@ struct ACASubsidyEngineApplicableFigureTests {
     @Test("MAGI = 225% FPL: linearly interpolated 0.05")
     func at225PercentInterpolated() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        // 225% of 15650 (2026) = 35212.50
+        // 225% of 15060 (2025 HHS) = 33885
         let result = ACASubsidyEngine.calculateSubsidy(
-            acaMAGI: ACAMAGI(value: 35_213),
+            acaMAGI: ACAMAGI(value: 33_885),
             householdSize: 1,
             benchmarkSilverPlanAnnualPremium: 7_800,
             regionalAdjustment: .mainland48,
@@ -119,9 +123,9 @@ struct ACASubsidyEngineCliffTests {
     @Test("MAGI just under 400% FPL: subsidy positive, isOverCliff false, dollarsToCliff > 0")
     func justUnderCliff() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        // Size 1, 2026 FPL = $15,650 → 400% cliff = $62,600. MAGI $62,500 → just under.
+        // Size 1, 2025 HHS FPL = $15,060 → 400% cliff = $60,240. MAGI $60,100 → just under.
         let result = ACASubsidyEngine.calculateSubsidy(
-            acaMAGI: ACAMAGI(value: 62_500),
+            acaMAGI: ACAMAGI(value: 60_100),
             householdSize: 1,
             benchmarkSilverPlanAnnualPremium: 7_800,
             regionalAdjustment: .mainland48,
@@ -135,9 +139,9 @@ struct ACASubsidyEngineCliffTests {
     @Test("MAGI ≥ 400% FPL: subsidy = 0, isOverCliff = true")
     func atOrAboveCliff() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        // Size 1, 2026 FPL = $15,650 → 400% cliff = $62,600. MAGI $62,700 → over cliff.
+        // Size 1, 2025 HHS FPL = $15,060 → 400% cliff = $60,240. MAGI $60,300 → over cliff.
         let result = ACASubsidyEngine.calculateSubsidy(
-            acaMAGI: ACAMAGI(value: 62_700),
+            acaMAGI: ACAMAGI(value: 60_300),
             householdSize: 1,
             benchmarkSilverPlanAnnualPremium: 7_800,
             regionalAdjustment: .mainland48,
@@ -150,9 +154,9 @@ struct ACASubsidyEngineCliffTests {
     @Test("Subsidy = benchmark - expectedContribution at 360% FPL")
     func subsidyComputation() {
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
-        // Size 1, 360% of 15650 (2026) = 56340
+        // Size 1, 360% of 15060 (2025 HHS) = 54216
         let result = ACASubsidyEngine.calculateSubsidy(
-            acaMAGI: ACAMAGI(value: 56_340),
+            acaMAGI: ACAMAGI(value: 54_216),
             householdSize: 1,
             benchmarkSilverPlanAnnualPremium: 7_800,
             regionalAdjustment: .mainland48,
@@ -162,11 +166,11 @@ struct ACASubsidyEngineCliffTests {
         // is now excluded from interpolation. The last non-cliff row is 300% → 0.08.
         // A household at 360% FPL stays at applicable_figure = 0.08; subsidy is positive.
         // applicable_figure = 0.08
-        // expected contribution = 56340 × 0.08 = 4507.20
-        // subsidy = max(0, 7800 - 4507.20) = 3292.80
+        // expected contribution = 54216 × 0.08 = 4337.28
+        // subsidy = max(0, 7800 - 4337.28) = 3462.72
         #expect(abs(result.applicableFigure - 0.08) < 0.001)
         #expect(result.annualPremiumAssistance > 0)
-        #expect(abs(result.annualPremiumAssistance - (7_800 - 56_340 * 0.08)) < 1.0)
+        #expect(abs(result.annualPremiumAssistance - (7_800 - 54_216 * 0.08)) < 1.0)
     }
 
     @Test("350% FPL does not interpolate through cliff sentinel")
@@ -175,9 +179,9 @@ struct ACASubsidyEngineCliffTests {
         // Correct behavior: stay near the 300% applicable figure until cliff applies.
         let config = TaxYearConfig.loadOrFallback(forYear: 2026)
 
-        // Size 1: 350% of 15650 (2026) = 54775
+        // Size 1: 350% of 15060 (2025 HHS) = 52710
         let result = ACASubsidyEngine.calculateSubsidy(
-            acaMAGI: ACAMAGI(value: 54_775),
+            acaMAGI: ACAMAGI(value: 52_710),
             householdSize: 1,
             benchmarkSilverPlanAnnualPremium: 7_800,
             regionalAdjustment: .mainland48,

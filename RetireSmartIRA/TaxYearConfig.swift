@@ -263,10 +263,14 @@ struct TaxYearConfig: Codable {
             advantageAvgMonthly: 50.00
         ),
         acaSubsidy2026: ACASubsidyConfig(
+            // Per 26 CFR 1.36B, Premium Tax Credit calculations for tax year 2026
+            // use the prior year's (2025) Federal Poverty Level. Values below are
+            // HHS ASPE 2025 Poverty Guidelines (48 contiguous states + DC):
+            // HH=1 $15,060; increment $5,380 per additional member.
             fpl2026: ACASubsidyConfig.FPL2026(
                 householdSizeToFPL: [
-                    "1": 15_650, "2": 21_150, "3": 26_650, "4": 32_150,
-                    "5": 37_650, "6": 43_150, "7": 48_650, "8": 54_150
+                    "1": 15_060, "2": 20_440, "3": 25_820, "4": 31_200,
+                    "5": 36_580, "6": 41_960, "7": 47_340, "8": 52_720
                 ],
                 alaskaMultiplier: 1.25, hawaiiMultiplier: 1.15
             ),
