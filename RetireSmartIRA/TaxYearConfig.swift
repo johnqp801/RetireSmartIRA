@@ -200,16 +200,16 @@ struct TaxYearConfig: Codable {
     private static let hardcoded2026 = TaxYearConfig(
         taxYear: 2026,
         federalBracketsSingle: [
-            BracketEntry(threshold: 0, rate: 0.10), BracketEntry(threshold: 48475, rate: 0.12),
-            BracketEntry(threshold: 103350, rate: 0.22), BracketEntry(threshold: 197300, rate: 0.24),
-            BracketEntry(threshold: 403400, rate: 0.32), BracketEntry(threshold: 512100, rate: 0.35),
-            BracketEntry(threshold: 768700, rate: 0.37)
+            BracketEntry(threshold: 0, rate: 0.10), BracketEntry(threshold: 12400, rate: 0.12),
+            BracketEntry(threshold: 50400, rate: 0.22), BracketEntry(threshold: 105700, rate: 0.24),
+            BracketEntry(threshold: 201775, rate: 0.32), BracketEntry(threshold: 256225, rate: 0.35),
+            BracketEntry(threshold: 640600, rate: 0.37)
         ],
         federalBracketsMFJ: [
-            BracketEntry(threshold: 0, rate: 0.10), BracketEntry(threshold: 96950, rate: 0.12),
-            BracketEntry(threshold: 206700, rate: 0.22), BracketEntry(threshold: 394600, rate: 0.24),
-            BracketEntry(threshold: 806800, rate: 0.32), BracketEntry(threshold: 1024200, rate: 0.35),
-            BracketEntry(threshold: 1537400, rate: 0.37)
+            BracketEntry(threshold: 0, rate: 0.10), BracketEntry(threshold: 24800, rate: 0.12),
+            BracketEntry(threshold: 100800, rate: 0.22), BracketEntry(threshold: 211400, rate: 0.24),
+            BracketEntry(threshold: 403550, rate: 0.32), BracketEntry(threshold: 512450, rate: 0.35),
+            BracketEntry(threshold: 768700, rate: 0.37)
         ],
         federalCapGainsBracketsSingle: [
             BracketEntry(threshold: 0, rate: 0.0), BracketEntry(threshold: 49450, rate: 0.15),
