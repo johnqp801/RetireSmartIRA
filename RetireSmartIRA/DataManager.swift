@@ -20,6 +20,14 @@ class DataManager: ObservableObject {
     let socialSecurity = SocialSecurityManager()
     private var managerCancellables = Set<AnyCancellable>()
 
+    /// Memoization cache for hot computed properties whose re-evaluation cost
+    /// accumulates across SwiftUI's multi-pass layout cycles (see
+    /// DataManager+Memo.swift). Held as a `let` of a non-@Published class so
+    /// internal slot mutations are invisible to SwiftUI observation — writes
+    /// don't trigger `objectWillChange`, which would otherwise cause infinite
+    /// re-render loops.
+    let memoCache = EngineMemoCache()
+
     // User Profile (forwarding to ProfileManager)
     var birthDate: Date {
         get { profile.birthDate }
@@ -432,7 +440,9 @@ class DataManager: ObservableObject {
     /// `.militaryRetirement` IncomeSource rows — those are already handled per-row
     /// inside `applyRetirementExemptions`. Mirror of `scenarioTotalWithdrawals`.
     var scenarioRetirementDistributionIncome: Double {
-        scenarioTotalWithdrawals
+        memoizedScenarioRetirementDistributionIncome {
+            scenarioTotalWithdrawals
+        }
     }
 
     private func californiaExemptionCredits(filingStatus: FilingStatus, agi: Double) -> Double {
@@ -1225,24 +1235,26 @@ class DataManager: ObservableObject {
     /// the phaseout reduction operates on the $6,000 amount PER qualifying
     /// individual, then sums across qualifying individuals on the return.
     var seniorBonusDeductionAmount: Double {
-        let cfg = TaxCalculationEngine.config
-        let year = currentYear
-        guard year >= cfg.seniorBonusFirstYear, year <= cfg.seniorBonusLastYear else { return 0 }
-        let magi = scenarioGrossIncome
-        switch filingStatus {
-        case .single:
-            guard currentAge >= 65 else { return 0 }
-            let reduction = max(0, (magi - cfg.seniorBonusPhaseoutSingle) * cfg.seniorBonusPhaseoutRate)
-            return max(0, cfg.seniorBonusPerPerson - reduction)
-        case .marriedFilingJointly:
-            var qualifyingSeniors = 0
-            if currentAge >= 65 { qualifyingSeniors += 1 }
-            if enableSpouse && spouseCurrentAge >= 65 { qualifyingSeniors += 1 }
-            guard qualifyingSeniors > 0 else { return 0 }
-            // Per-individual phaseout (NOT applied to combined base).
-            let perPersonReduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
-            let perPersonBonus = max(0, cfg.seniorBonusPerPerson - perPersonReduction)
-            return perPersonBonus * Double(qualifyingSeniors)
+        memoizedSeniorBonusDeductionAmount {
+            let cfg = TaxCalculationEngine.config
+            let year = currentYear
+            guard year >= cfg.seniorBonusFirstYear, year <= cfg.seniorBonusLastYear else { return 0 }
+            let magi = scenarioGrossIncome
+            switch filingStatus {
+            case .single:
+                guard currentAge >= 65 else { return 0 }
+                let reduction = max(0, (magi - cfg.seniorBonusPhaseoutSingle) * cfg.seniorBonusPhaseoutRate)
+                return max(0, cfg.seniorBonusPerPerson - reduction)
+            case .marriedFilingJointly:
+                var qualifyingSeniors = 0
+                if currentAge >= 65 { qualifyingSeniors += 1 }
+                if enableSpouse && spouseCurrentAge >= 65 { qualifyingSeniors += 1 }
+                guard qualifyingSeniors > 0 else { return 0 }
+                // Per-individual phaseout (NOT applied to combined base).
+                let perPersonReduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
+                let perPersonBonus = max(0, cfg.seniorBonusPerPerson - perPersonReduction)
+                return perPersonBonus * Double(qualifyingSeniors)
+            }
         }
     }
 
@@ -1515,7 +1527,9 @@ class DataManager: ObservableObject {
     }
 
     var scenarioFederalTax: Double {
-        calculateFederalTax(income: scenarioTaxableIncome, filingStatus: filingStatus)
+        memoizedScenarioFederalTax {
+            calculateFederalTax(income: scenarioTaxableIncome, filingStatus: filingStatus)
+        }
     }
 
     // MARK: - 0% LTCG Bracket (1.8.2 L2)
@@ -1527,7 +1541,9 @@ class DataManager: ObservableObject {
 
     /// Remaining headroom under the 0% LTCG bracket given current scenario taxable income.
     var ltcg0PercentHeadroom: Double {
-        TaxCalculationEngine.ltcg0PercentHeadroom(taxableIncome: scenarioTaxableIncome, filingStatus: filingStatus)
+        memoizedLTCG0PercentHeadroom {
+            TaxCalculationEngine.ltcg0PercentHeadroom(taxableIncome: scenarioTaxableIncome, filingStatus: filingStatus)
+        }
     }
 
     var scenarioFederalTaxBreakdown: FederalTaxBreakdown {
@@ -1544,17 +1560,19 @@ class DataManager: ObservableObject {
     }
 
     var scenarioStateTax: Double {
-        calculateStateTaxFromGross(
-            grossIncome: scenarioGrossIncome,
-            forState: selectedState,
-            filingStatus: filingStatus,
-            taxableSocialSecurity: scenarioTaxableSocialSecurity,
-            hsaContributionsAddedBack: scenario.scenarioTotalHSA,
-            traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
-            otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
-            pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
-            scenarioRetirementDistributions: scenarioRetirementDistributionIncome
-        )
+        memoizedScenarioStateTax {
+            calculateStateTaxFromGross(
+                grossIncome: scenarioGrossIncome,
+                forState: selectedState,
+                filingStatus: filingStatus,
+                taxableSocialSecurity: scenarioTaxableSocialSecurity,
+                hsaContributionsAddedBack: scenario.scenarioTotalHSA,
+                traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
+                otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
+                pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
+                scenarioRetirementDistributions: scenarioRetirementDistributionIncome
+            )
+        }
     }
 
     var scenarioTotalTax: Double {
@@ -1608,9 +1626,11 @@ class DataManager: ObservableObject {
     /// zeroed out. Represents the "no scenario decisions" baseline used to render the dashed
     /// before-marker on the ACA Subsidy Bar inside the Scenarios view. (C3 from 1.8.2 Phase 3)
     var baselineACAMagi: ACAMAGI {
-        let baselineAGI = scenarioBaseIncome - totalAboveTheLineDeductions
-        let nonTaxableSS = max(0, totalSocialSecurityBenefits - scenarioTaxableSocialSecurity)
-        return ACAMAGI(value: baselineAGI + taxExemptInterestTotal + nonTaxableSS)
+        memoizedBaselineACAMagi {
+            let baselineAGI = scenarioBaseIncome - totalAboveTheLineDeductions
+            let nonTaxableSS = max(0, totalSocialSecurityBenefits - scenarioTaxableSocialSecurity)
+            return ACAMAGI(value: baselineAGI + taxExemptInterestTotal + nonTaxableSS)
+        }
     }
 
     /// MAGI for Medicare IRMAA: FederalAGI + tax-exempt interest. Replaces the
@@ -2659,11 +2679,13 @@ class DataManager: ObservableObject {
 
     /// Progressive tax estimate for the heir's inherited distributions (with-scenario).
     var legacyHeirTaxEstimate: TaxCalculationEngine.HeirTaxEstimate {
-        TaxCalculationEngine.heirTaxEstimate(
-            annualDistribution: legacyWithScenarioAnnualDistribution,
-            heirSalary: legacyHeirEstimatedSalary,
-            filingStatus: legacyHeirFilingStatus,
-            drawdownYears: legacyDrawdownYears)
+        memoizedLegacyHeirTaxEstimate {
+            TaxCalculationEngine.heirTaxEstimate(
+                annualDistribution: legacyWithScenarioAnnualDistribution,
+                heirSalary: legacyHeirEstimatedSalary,
+                filingStatus: legacyHeirFilingStatus,
+                drawdownYears: legacyDrawdownYears)
+        }
     }
 
     /// Progressive tax estimate for the no-action scenario.
@@ -2701,14 +2723,16 @@ class DataManager: ObservableObject {
     /// it later at their marginal rate under SECURE 10-year drain. Uses the live
     /// scenario conversion amount when >= $10K, otherwise an illustrative $100K.
     var convertNowVsHeirComparison: TaxCalculationEngine.HeirBracketComparison {
-        let conversion = heirComparisonUsesLiveAmount ? scenarioTotalRothConversion : 100_000
-        let userMarginal = federalBracketInfo(income: scenarioTaxableIncome, filingStatus: filingStatus).currentRate
-        let heirMarginal = legacyHeirTaxEstimate.marginalRate
-        return TaxCalculationEngine.convertNowVsHeirComparison(
-            conversionAmount: conversion,
-            userMarginalRate: userMarginal,
-            heirMarginalRate: heirMarginal
-        )
+        memoizedConvertNowVsHeirComparison {
+            let conversion = heirComparisonUsesLiveAmount ? scenarioTotalRothConversion : 100_000
+            let userMarginal = federalBracketInfo(income: scenarioTaxableIncome, filingStatus: filingStatus).currentRate
+            let heirMarginal = legacyHeirTaxEstimate.marginalRate
+            return TaxCalculationEngine.convertNowVsHeirComparison(
+                conversionAmount: conversion,
+                userMarginalRate: userMarginal,
+                heirMarginalRate: heirMarginal
+            )
+        }
     }
 
     /// Heir's projected age at the user's projected year of death.
