@@ -2347,6 +2347,9 @@ struct TaxPlanningView: View {
         // Deduction comparison card
         deductionComparisonCard
 
+        // OBBBA Senior Bonus prominence (self-hides when not applicable) — H4
+        SeniorBonusDeductionCard()
+
         Divider()
 
         // MARK: QCD Sub-section
