@@ -405,8 +405,22 @@ class DataManager: ObservableObject {
     /// Calculates state tax for a specific state (used for cross-state comparison).
     /// `income` is post-state-deduction income (state taxable income before retirement exemptions).
     /// `taxableSocialSecurity` is the SS amount included in income (to correctly subtract for SS-exempt states).
-    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0) -> Double {
-        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear)
+    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0) -> Double {
+        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions)
+    }
+
+    /// Sum of scenario-level retirement-distribution income subject to state-level
+    /// IRA-withdrawal exemptions. Includes:
+    ///   - regular RMDs computed from traditional IRA balances (after QCD offset)
+    ///   - inherited-IRA RMDs
+    ///   - user-entered extra withdrawals (your + spouse + inherited extras)
+    /// Does NOT include Roth conversions (PA exempts them per PA DOR Ans 274, but
+    /// state-by-state nuance is broad enough that conversion exemption is filed
+    /// separately as a post-1.8.1.1 task). Does NOT include `.pension` / `.rmd` /
+    /// `.militaryRetirement` IncomeSource rows — those are already handled per-row
+    /// inside `applyRetirementExemptions`. Mirror of `scenarioTotalWithdrawals`.
+    var scenarioRetirementDistributionIncome: Double {
+        scenarioTotalWithdrawals
     }
 
     private func californiaExemptionCredits(filingStatus: FilingStatus, agi: Double) -> Double {
@@ -421,7 +435,8 @@ class DataManager: ObservableObject {
         forState state: USState,
         filingStatus: FilingStatus,
         taxableSocialSecurity: Double,
-        hsaContributionsAddedBack: Double = 0
+        hsaContributionsAddedBack: Double = 0,
+        scenarioRetirementDistributions: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let adjustedGross = config.hsaContributionsTaxableForState
@@ -451,7 +466,7 @@ class DataManager: ObservableObject {
         }
 
         let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
-        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity)
+        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions)
     }
 
     /// Applies state-specific retirement income exemptions to reduce state taxable income.
@@ -497,10 +512,19 @@ class DataManager: ObservableObject {
         }
         let income = max(0, grossIncome - stateDeduction)
 
-        // 1. Gather income by category from income sources
+        // 1. Gather income by category from income sources.
+        // IRA income includes both `.rmd` IncomeSource rows AND scenario-level
+        // retirement distributions (computed RMDs from balances, inherited-IRA
+        // RMDs, and extra withdrawals) — gated at age 59½ so early-withdrawal
+        // amounts remain taxable. Mirrors the wiring inside
+        // TaxCalculationEngine.applyRetirementExemptions so this breakdown
+        // stays consistent with scenarioStateTax.
         let taxableSS = scenarioTaxableSocialSecurity
         let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
-        let iraIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
+        let rmdSourceIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
+        let retirementAge = currentAge >= 59 || (enableSpouse && spouseCurrentAge >= 59)
+        let scenarioDistroExemptable = retirementAge ? scenarioRetirementDistributionIncome : 0
+        let iraIncome = rmdSourceIncome + scenarioDistroExemptable
         let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
 
         // 2. Calculate each exemption amount (mirrors applyRetirementExemptions logic)
@@ -1454,7 +1478,8 @@ class DataManager: ObservableObject {
             forState: selectedState,
             filingStatus: filingStatus,
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
-            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA,
+            scenarioRetirementDistributions: scenarioRetirementDistributionIncome
         )
     }
 
@@ -1651,7 +1676,8 @@ class DataManager: ObservableObject {
             forState: profile.selectedState,
             filingStatus: filingStatus,
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
-            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA,
+            scenarioRetirementDistributions: scenarioRetirementDistributionIncome
         )
 
         // ACA premium impact: lost subsidy if over cliff.
@@ -2168,7 +2194,8 @@ class DataManager: ObservableObject {
         grossIncome: Double,
         taxableSocialSecurity: Double,
         deduction: Double,
-        nii: Double? = nil
+        nii: Double? = nil,
+        scenarioRetirementDistributions: Double? = nil
     ) -> Double {
         let taxable = max(0, grossIncome - deduction)
         let fed = calculateFederalTax(income: taxable, filingStatus: filingStatus)
@@ -2177,7 +2204,8 @@ class DataManager: ObservableObject {
             forState: selectedState,
             filingStatus: filingStatus,
             taxableSocialSecurity: taxableSocialSecurity,
-            hsaContributionsAddedBack: scenario.scenarioTotalHSA
+            hsaContributionsAddedBack: scenario.scenarioTotalHSA,
+            scenarioRetirementDistributions: scenarioRetirementDistributions ?? scenarioRetirementDistributionIncome
         )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt
@@ -2217,7 +2245,8 @@ class DataManager: ObservableObject {
         let withoutWithdrawals = totalTaxFor(
             grossIncome: grossWithout,
             taxableSocialSecurity: ssWithout,
-            deduction: effectiveDeductionAmount
+            deduction: effectiveDeductionAmount,
+            scenarioRetirementDistributions: rmdsOnly
         )
         return scenarioTotalTax - withoutWithdrawals
     }
@@ -2242,7 +2271,8 @@ class DataManager: ObservableObject {
         let withoutQCD = totalTaxFor(
             grossIncome: grossWithoutQCD,
             taxableSocialSecurity: ssWithoutQCD,
-            deduction: effectiveDeductionAmount
+            deduction: effectiveDeductionAmount,
+            scenarioRetirementDistributions: scenarioRetirementDistributionIncome + taxableQCDOffset
         )
         return withoutQCD - scenarioTotalTax
     }
@@ -2293,7 +2323,8 @@ class DataManager: ObservableObject {
         let withoutInherited = totalTaxFor(
             grossIncome: grossWithout,
             taxableSocialSecurity: ssWithout,
-            deduction: effectiveDeductionAmount
+            deduction: effectiveDeductionAmount,
+            scenarioRetirementDistributions: scenarioRetirementDistributionIncome - inheritedTraditionalExtraTotal
         )
         return scenarioTotalTax - withoutInherited
     }
