@@ -128,7 +128,16 @@ struct ACASubsidyBar: View {
 
     /// Decide marker rendering mode based on which adjustments are active.
     /// Returns `.threeCascade` only when both pre-tax and Roth adjustments materially shift MAGI.
-    /// Uses the same $100 epsilon as `beforeIsDifferent`.
+    /// Uses the same $100 epsilon as `beforeIsDifferent` (boundary is inclusive of $100 — i.e.,
+    /// a delta of exactly $100 is treated as "no movement"; $101 is the first delta that counts).
+    ///
+    /// M4 — Condition asymmetry note (callers vs. this function):
+    /// In `TaxPlanningView`, `beforeMAGI` is supplied when `pretax > 0 || roth > 0` (either lever
+    /// moves the bar away from baseline), but `afterPretaxBeforeRothACAMAGI` is supplied only when
+    /// `pretax > 0` (only pretax populates the baseline→middle leg; Roth populates middle→current).
+    /// Each leg's gating condition reflects which lever populates that leg, so the asymmetry is
+    /// intentional. This function then independently checks both legs are > epsilon before
+    /// committing to `.threeCascade`, so callers can pass `afterPretaxMAGI` optimistically.
     static func markerMode(
         baselineMAGI: Double?,
         afterPretaxMAGI: Double?,
@@ -143,6 +152,26 @@ struct ACASubsidyBar: View {
         if hasPretaxStep { return .threeCascade }
         if hasBaseline { return .twoBeforeAfter }
         return .one
+    }
+
+    /// Minimum pixel distance between the middle marker and the current marker. Below this,
+    /// the middle marker is suppressed to avoid visual overlap on narrow widths (e.g. iPhone SE).
+    static let markerCollisionThreshold: CGFloat = 8
+
+    /// I3 — Pixel-collision guard. Returns true when the middle marker's rendered x-position
+    /// would be within `markerCollisionThreshold` pt of the current marker's x-position.
+    /// Pure function so tests can exercise it without a SwiftUI host.
+    static func middleMarkerCollidesWithCurrent(
+        midMAGI: Double,
+        currentMAGI: Double,
+        barMaxMAGI: Double,
+        barWidth: CGFloat
+    ) -> Bool {
+        guard barMaxMAGI > 0, barWidth > 0 else { return false }
+        let clamp: (Double) -> Double = { max(0, min(1, $0 / barMaxMAGI)) }
+        let midX = barWidth * CGFloat(clamp(midMAGI))
+        let curX = barWidth * CGFloat(clamp(currentMAGI))
+        return abs(midX - curX) < markerCollisionThreshold
     }
 
     // MARK: - Computed
@@ -265,7 +294,9 @@ struct ACASubsidyBar: View {
                     .offset(x: w * startFraction, y: labelHeight)
             }
 
-            // Before MAGI marker (dashed gray) — drawn first so current overlays it
+            // Baseline MAGI marker (dashed gray) — drawn first so current overlays it.
+            // In three-cascade mode this is the user's pre-scenario starting point ("Baseline");
+            // in two-marker mode it's still the pre-scenario "Before" reference.
             if beforeIsDifferent, let b = beforeMAGI {
                 let bx = w * position(forMAGI: b)
                 Rectangle()
@@ -283,7 +314,7 @@ struct ACASubsidyBar: View {
                     .offset(x: bx - 0.75, y: labelHeight - 4)
 
                 VStack(spacing: 1) {
-                    Text("Before")
+                    Text(markerMode == .threeCascade ? "Baseline" : "Before")
                         .font(.system(size: 8))
                         .foregroundStyle(.secondary)
                     Text(formatMagi(b))
@@ -298,11 +329,23 @@ struct ACASubsidyBar: View {
                 .position(x: max(20, min(w - 20, bx)), y: 11)
             }
 
-            // Middle marker (after pre-tax contributions) — only in three-cascade mode
-            if markerMode == .threeCascade, let mid = afterPretaxMAGI {
+            // Middle marker (after pre-tax contributions) — only in three-cascade mode.
+            // Visual hierarchy: thinner stroke (1.5pt) + 70% teal opacity so this reads as
+            // an in-between checkpoint without competing with the solid primary "current"
+            // marker (M3). I3 collision guard: when the middle marker would render within
+            // `Self.markerCollisionThreshold` pt of the current marker, suppress it so the
+            // two markers don't visually overlap on narrow widths (iPhone SE etc.).
+            if markerMode == .threeCascade,
+               let mid = afterPretaxMAGI,
+               !Self.middleMarkerCollidesWithCurrent(
+                    midMAGI: mid,
+                    currentMAGI: acaResult.acaMAGI,
+                    barMaxMAGI: barMaxMAGI,
+                    barWidth: w
+               ) {
                 let mx = w * position(forMAGI: mid)
                 Rectangle()
-                    .fill(Color.teal.opacity(0.7))
+                    .fill(Color.UI.brandTeal.opacity(0.7))
                     .frame(width: 1.5, height: barHeight + markerOverhang)
                     .offset(x: mx - 0.75, y: labelHeight - 4)
 
@@ -312,7 +355,7 @@ struct ACASubsidyBar: View {
                         .foregroundStyle(.secondary)
                     Text(formatMagi(mid))
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(Color.teal)
+                        .foregroundStyle(Color.UI.brandTeal.opacity(0.7))
                         .monospacedDigit()
                 }
                 .padding(.horizontal, 4)
