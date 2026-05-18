@@ -945,6 +945,17 @@ private var scenarioNIITChart: some View {
             }
             .frame(height: topPad + barHeight + 36)
 
+            // H1: Cliff awareness band — surfaces approaching/triggered warnings.
+            let cliffState = NIITCliffIndicator.state(magi: afterMAGI, threshold: threshold, nii: dataManager.scenarioNetInvestmentIncome)
+            let cliffMessage = NIITCliffIndicator.message(state: cliffState, magi: afterMAGI, threshold: threshold, nii: dataManager.scenarioNetInvestmentIncome)
+            if cliffState == .approaching || cliffState == .triggered {
+                Text(cliffMessage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(cliffState == .triggered ? Color.red : Color.orange)
+                    .padding(.top, 4)
+                    .accessibilityIdentifier("scenario.niit.cliffMessage")
+            }
+
             // Callouts
             VStack(alignment: .leading, spacing: 6) {
                 if niit.annualNIITax > 0 {

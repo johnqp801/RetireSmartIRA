@@ -2512,6 +2512,17 @@ struct DashboardView: View {
                 }
                 .padding(.horizontal, 4)
 
+                // H1: Cliff awareness band — surfaces approaching/triggered warnings.
+                let cliffState = NIITCliffIndicator.state(magi: magi, threshold: threshold, nii: nii)
+                let cliffMessage = NIITCliffIndicator.message(state: cliffState, magi: magi, threshold: threshold, nii: nii)
+                if cliffState == .approaching || cliffState == .triggered {
+                    Text(cliffMessage)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(cliffState == .triggered ? Color.red : Color.orange)
+                        .padding(.top, 4)
+                        .accessibilityIdentifier("dashboard.niit.cliffMessage")
+                }
+
                 // Callouts
                 VStack(alignment: .leading, spacing: 6) {
                     if isAbove {
