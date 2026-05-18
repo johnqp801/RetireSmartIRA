@@ -3329,6 +3329,26 @@ struct TaxPlanningView: View {
                     highlight: analysis.crossesFederalBracket || analysis.crossesStateBracket
                 )
 
+                // H2: SS Tax Torpedo warning — surfaces when next-dollar effective marginal
+                // is inflated by SS taxability phase-in.
+                let totalSS = dataManager.totalSocialSecurityBenefits
+                let provisional = dataManager.scenarioGrossIncome - totalSS + totalSS * 0.5
+                let thresholds: SSTorpedoWarning.Thresholds = dataManager.filingStatus == .single
+                    ? .single : .mfj
+                let torpedo = SSTorpedoWarning.detect(
+                    provisionalIncome: provisional,
+                    totalSS: totalSS,
+                    thresholds: thresholds
+                )
+                let msg = SSTorpedoWarning.message(result: torpedo, ordinaryBracketRate: analysis.federalMarginalAfter)
+                if !msg.isEmpty {
+                    Text(msg)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.orange)
+                        .padding(.vertical, 4)
+                        .accessibilityIdentifier("taxPlanning.ssTorpedoWarning")
+                }
+
                 Divider()
 
                 RateRow(
