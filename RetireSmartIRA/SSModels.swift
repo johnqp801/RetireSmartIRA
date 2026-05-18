@@ -106,7 +106,7 @@ struct SSWhatIfParameters: Codable, Equatable {
     var colaRate: Double            // Annual COLA percentage (e.g. 2.5)
     var discountRate: Double        // For present-value analysis (e.g. 0 for nominal)
 
-    init(primaryLifeExpectancy: Int = 85, spouseLifeExpectancy: Int = 87,
+    init(primaryLifeExpectancy: Int = 95, spouseLifeExpectancy: Int = 97,
          colaRate: Double = 2.5, discountRate: Double = 0) {
         self.primaryLifeExpectancy = primaryLifeExpectancy
         self.spouseLifeExpectancy = spouseLifeExpectancy
