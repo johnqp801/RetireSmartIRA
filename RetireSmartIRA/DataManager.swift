@@ -3072,6 +3072,18 @@ class DataManager: ObservableObject {
         return scenarioTotalRothConversion * widowSavingsPerDollarConverted
     }
 
+    /// Estimated lifetime tax delta a survivor would pay above MFJ rates, summed over the
+    /// remaining single-filer years. Coarse approximation using 0.85 single-filer income
+    /// adjustment — V2.0 will model this year-by-year through the multi-year engine.
+    func widowLifetimeTaxDelta(conversionAmount: Double, survivorYears: Int) -> Double {
+        guard widowBracketApplies else { return 0 }
+        let baseIncome = widowComparisonIncome
+        let adjusted = max(0, baseIncome - conversionAmount)
+        let mfjAnnual = TaxCalculationEngine.widowMFJAnnualTax(rmdIncome: adjusted)
+        let singleAnnual = TaxCalculationEngine.widowSurvivorAnnualTax(rmdIncome: adjusted * 0.85)
+        return (singleAnnual - mfjAnnual) * Double(max(0, survivorYears))
+    }
+
     // MARK: - Setup Progress
 
     var setupProgress: SetupProgress {

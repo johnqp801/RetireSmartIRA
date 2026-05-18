@@ -229,6 +229,21 @@ struct TaxCalculationEngine {
         return est.effectiveRateOnDistribution
     }
 
+    // MARK: - Widow Planning Helpers
+
+    /// Approximate single-filer tax that the survivor would pay annually on the given
+    /// pre-tax IRA RMD/distribution income, using progressive single-filer brackets.
+    static func widowSurvivorAnnualTax(rmdIncome: Double) -> Double {
+        let brackets = default2026Brackets
+        return calculateFederalTax(income: rmdIncome, filingStatus: .single, brackets: brackets, preferentialIncome: 0)
+    }
+
+    /// Approximate MFJ tax on the given pre-tax IRA RMD/distribution income.
+    static func widowMFJAnnualTax(rmdIncome: Double) -> Double {
+        let brackets = default2026Brackets
+        return calculateFederalTax(income: rmdIncome, filingStatus: .marriedFilingJointly, brackets: brackets, preferentialIncome: 0)
+    }
+
     // MARK: - Federal Tax Breakdown (bracket-by-bracket)
 
     static func federalTaxBreakdown(income: Double, filingStatus: FilingStatus, brackets: TaxBrackets, preferentialIncome: Double) -> FederalTaxBreakdown {

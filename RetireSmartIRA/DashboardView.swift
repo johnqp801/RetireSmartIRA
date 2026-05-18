@@ -555,14 +555,20 @@ struct DashboardView: View {
                     }
 
                     if dataManager.widowHasBracketJump {
-                        HStack(spacing: 4) {
-                            Image(systemName: "shield.fill")
-                                .font(.caption2)
-                                .foregroundStyle(Color.UI.brandTeal)
-                            Text("Also avoids a surviving spouse bracket jump from MFJ to Single filing")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        NavigationLink(destination: WidowPlanningView().environmentObject(dataManager)) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "shield.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.UI.brandTeal)
+                                Text("Also avoids a surviving spouse bracket jump from MFJ to Single filing")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
 
                     Text("Based on projected compounding through life expectancy. Heir type: \(dataManager.legacyHeirTypeDescription)")
