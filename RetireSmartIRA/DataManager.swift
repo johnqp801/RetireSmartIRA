@@ -66,6 +66,10 @@ class DataManager: ObservableObject {
         get { profile.hasQualifiedEmployerCoverageForMedicare }
         set { profile.hasQualifiedEmployerCoverageForMedicare = newValue }
     }
+    var hasTaxableBrokerage: Bool {
+        get { profile.hasTaxableBrokerage }
+        set { profile.hasTaxableBrokerage = newValue }
+    }
     
     // IRA Accounts (forwarding to AccountsManager)
     var iraAccounts: [IRAAccount] {
@@ -1456,6 +1460,18 @@ class DataManager: ObservableObject {
 
     var scenarioFederalTax: Double {
         calculateFederalTax(income: scenarioTaxableIncome, filingStatus: filingStatus)
+    }
+
+    // MARK: - 0% LTCG Bracket (1.8.2 L2)
+
+    /// Top of the 0% LTCG bracket for the current filing status.
+    var ltcg0PercentTop: Double {
+        TaxCalculationEngine.ltcg0PercentTop(filingStatus: filingStatus)
+    }
+
+    /// Remaining headroom under the 0% LTCG bracket given current scenario taxable income.
+    var ltcg0PercentHeadroom: Double {
+        TaxCalculationEngine.ltcg0PercentHeadroom(taxableIncome: scenarioTaxableIncome, filingStatus: filingStatus)
     }
 
     var scenarioFederalTaxBreakdown: FederalTaxBreakdown {

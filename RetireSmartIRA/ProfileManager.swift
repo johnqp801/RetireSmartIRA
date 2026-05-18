@@ -56,6 +56,12 @@ class ProfileManager: ObservableObject {
     /// penalty when they delay enrollment.
     @Published var hasQualifiedEmployerCoverageForMedicare: Bool = false
 
+    // MARK: - Taxable Brokerage Account (1.8.2 L2)
+
+    /// User-attested presence of a taxable brokerage account. Unlocks LTCG-harvesting
+    /// awareness surfaces and any future taxable-account-specific modeling. (L2)
+    @Published var hasTaxableBrokerage: Bool = false
+
     // TODO(v2.1): Split into per-spouse fields. Real-world case: older spouse
     // keeps employer coverage to maintain younger spouse on plan, then enrolls
     // at retirement. Current shared-household model can't represent this.

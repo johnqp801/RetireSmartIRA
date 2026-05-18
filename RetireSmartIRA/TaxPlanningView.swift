@@ -487,11 +487,22 @@ struct TaxPlanningView: View {
         })
     }
 
+    // MARK: - 0% LTCG Harvesting Card (1.8.2 L2)
+
+    @ViewBuilder
+    private var ltcgHarvestingCard: some View {
+        if dataManager.profile.hasTaxableBrokerage {
+            LTCGHarvestingCard()
+                .environmentObject(dataManager)
+        }
+    }
+
     private var compactResultsGroup: some View {
         AnyView(Group {
             scenarioSummaryCard
             taxImpactWaterfallChart
             scenarioCharts
+            ltcgHarvestingCard
             legacyImpactCard
             perDecisionImpact
             strategyTipsSection
@@ -584,6 +595,7 @@ struct TaxPlanningView: View {
             scenarioSummaryCard
             taxImpactWaterfallChart
             scenarioCharts
+            ltcgHarvestingCard
         })
     }
 

@@ -101,6 +101,21 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Accounts") {
+                Toggle("I have a taxable brokerage account", isOn: Binding(
+                    get: { dataManager.profile.hasTaxableBrokerage },
+                    set: { dataManager.profile.hasTaxableBrokerage = $0 }
+                ))
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                    Text("Unlocks 0% LTCG harvesting awareness and other taxable-account surfaces.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onChange(of: dataManager.profile.hasTaxableBrokerage) { dataManager.saveAllData() }
+
             MedicareSettingsSection()
 
             ACASettingsSection()

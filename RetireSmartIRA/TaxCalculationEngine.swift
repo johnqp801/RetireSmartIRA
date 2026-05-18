@@ -27,6 +27,25 @@ struct TaxCalculationEngine {
 
     static var default2026Brackets: TaxBrackets { config.toTaxBrackets() }
 
+    // MARK: - 0% LTCG Bracket (1.8.2 L2)
+
+    /// Top of the 0% long-term capital gains bracket for the given filing status, using the current TaxYearConfig.
+    /// In 2026: $98,900 MFJ, $49,450 single.
+    static func ltcg0PercentTop(filingStatus: FilingStatus) -> Double {
+        let brackets = default2026Brackets
+        let capGains = filingStatus == .single ? brackets.federalCapGainsSingle : brackets.federalCapGainsMarried
+        if let firstNonZero = capGains.first(where: { $0.rate > 0 }) {
+            return firstNonZero.threshold
+        }
+        return 0
+    }
+
+    /// Remaining headroom inside the 0% LTCG bracket, given current taxable income.
+    static func ltcg0PercentHeadroom(taxableIncome: Double, filingStatus: FilingStatus) -> Double {
+        let top = ltcg0PercentTop(filingStatus: filingStatus)
+        return max(0, top - taxableIncome)
+    }
+
     // MARK: - IRMAA Constants (from config)
 
     static var irmaaStandardPartB: Double { config.irmaaStandardPartB }
