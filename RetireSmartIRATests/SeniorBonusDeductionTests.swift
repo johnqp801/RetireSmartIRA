@@ -56,10 +56,29 @@ struct SeniorBonusDeductionTests {
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 170_000)
         ]
-        // Engine math: reduction = max(0, (170K - 150K) * 0.06) = 1,200
-        // bonus = max(0, 12_000 - 1_200) = 10_800
-        // (Engine applies reduction once to combined base, not per-person.)
-        #expect(abs(dm.seniorBonusDeductionAmount - 10_800) < 1)
+        // Per IRC § 151(d)(5)(B), phaseout is per qualifying individual:
+        // MFJ both 65+, MAGI $170K
+        // Per-person reduction = (170K - 150K) × 0.06 = $1,200
+        // Per-person bonus = max(0, 6_000 - 1_200) = $4,800
+        // Total = $4,800 × 2 = $9,600
+        #expect(abs(dm.seniorBonusDeductionAmount - 9_600) < 1)
+    }
+
+    @Test("MFJ both 65+ MAGI $220K → per-person discriminator ($3,600 not $7,800)")
+    func mfjDeepPhaseoutDiscriminatesPerPersonVsCombined() {
+        let dm = DataManager(skipPersistence: true)
+        setAges(dm, your: 67, spouse: 66)
+        dm.filingStatus = .marriedFilingJointly
+        dm.enableSpouse = true
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 220_000)
+        ]
+        // MFJ both 65+, MAGI $220K (deep in phaseout)
+        // Per-person reduction = (220K - 150K) × 0.06 = $4,200
+        // Per-person bonus = max(0, 6_000 - 4_200) = $1,800
+        // Total = $1,800 × 2 = $3,600
+        // (Combined-base Option A would give $7,800 — this test discriminates.)
+        #expect(abs(dm.seniorBonusDeductionAmount - 3_600) < 1)
     }
 
     @Test("Single under 65 → zero")

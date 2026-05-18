@@ -5290,29 +5290,33 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioGrossIncome, 187_883.02, tolerance: 1.0))
     }
 
-    @Test("B: Standard deduction ≈ $45,227 (base $32,200 + 2×$1,650 + Senior Bonus $9,727)")
+    @Test("B: Standard deduction ≈ $42,954 (base $32,200 + 2×$1,650 + Senior Bonus $7,454)")
     func b_deduction() {
         let dm = makeScenarioB()
-        // Senior Bonus = 2 × $6K − ($187,883 − $150K) × 6%
-        //              = $12,000 − $2,273 = $9,727
-        #expect(isClose(dm.effectiveDeductionAmount, 45_227.02, tolerance: 1.0))
+        // Updated 2026-05-17 per IRC § 151(d)(5) — OBBBA phaseout is per-individual,
+        // not combined-base. Per-person reduction = ($187,883 − $150K) × 6% = $2,273
+        // Per-person bonus = max(0, $6,000 − $2,273) = $3,727
+        // Total bonus = $3,727 × 2 = $7,454
+        #expect(isClose(dm.effectiveDeductionAmount, 42_954.04, tolerance: 1.0))
     }
 
-    @Test("B: Federal taxable income = $142,656")
+    @Test("B: Federal taxable income = $144,929")
     func b_taxableIncome() {
         let dm = makeScenarioB()
-        // $187,883 − $45,227 = $142,656 (exact due to Senior Bonus arithmetic)
-        #expect(isClose(dm.scenarioTaxableIncome, 142_656.0, tolerance: 1.0))
+        // Updated 2026-05-17 per IRC § 151(d)(5) per-individual phaseout fix.
+        // $187,883.02 − $42,954.04 = $144,928.98
+        #expect(isClose(dm.scenarioTaxableIncome, 144_928.98, tolerance: 1.0))
     }
 
-    @Test("B: Federal tax ≈ $20,808 (10%/12%/22% MFJ brackets)")
+    @Test("B: Federal tax ≈ $21,308 (10%/12%/22% MFJ brackets)")
     func b_federalTax() {
         let dm = makeScenarioB()
+        // Updated 2026-05-17 per IRC § 151(d)(5) per-individual phaseout fix.
         // 10% × $24,800 = $2,480
         // 12% × $76,000 = $9,120
-        // 22% × $41,856 = $9,208.32
-        // Total: $20,808.32
-        #expect(isClose(dm.scenarioFederalTax, 20_808.32, tolerance: 1.0))
+        // 22% × $44,128.98 = $9,708.38
+        // Total: $21,308.38
+        #expect(isClose(dm.scenarioFederalTax, 21_308.38, tolerance: 1.0))
     }
 
     @Test("B: NY state tax ≈ $5,667")
@@ -5338,10 +5342,12 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioAMTAmount, 0))
     }
 
-    @Test("B: Total tax ≈ $26,476")
+    @Test("B: Total tax ≈ $26,976")
     func b_totalTax() {
         let dm = makeScenarioB()
-        #expect(isClose(dm.scenarioTotalTax, 26_475.80, tolerance: 2.0))
+        // Updated 2026-05-17 per IRC § 151(d)(5) per-individual phaseout fix.
+        // Federal $21,308.38 + NY state $5,667.48 + NIIT $0 + AMT $0 = $26,975.86
+        #expect(isClose(dm.scenarioTotalTax, 26_975.86, tolerance: 2.0))
     }
 }
 

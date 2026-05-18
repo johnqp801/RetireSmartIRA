@@ -1180,9 +1180,12 @@ class DataManager: ObservableObject {
                 if currentAge >= 65 { qualifyingSeniors += 1 }
                 if enableSpouse && spouseCurrentAge >= 65 { qualifyingSeniors += 1 }
                 if qualifyingSeniors > 0 {
-                    let totalBonusBase = cfg.seniorBonusPerPerson * Double(qualifyingSeniors)
-                    let reduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
-                    let bonus = max(0, totalBonusBase - reduction)
+                    // Per IRC § 151(d)(5)(B): the $6,000 amount is reduced by 6%
+                    // of MAGI over the threshold for EACH qualified individual,
+                    // then summed across qualifying individuals on the return.
+                    let perPersonReduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
+                    let perPersonBonus = max(0, cfg.seniorBonusPerPerson - perPersonReduction)
+                    let bonus = perPersonBonus * Double(qualifyingSeniors)
                     amount += bonus
                 }
             }
@@ -1194,9 +1197,9 @@ class DataManager: ObservableObject {
     /// Mirrors the math embedded inside `standardDeductionAmount` so the UI
     /// can surface this as a named line (H4 — 1.8.2 Phase 3). Returns 0 when
     /// no one in the household is 65+, when outside the 2025-2028 effective
-    /// window, or when MAGI has fully phased out the bonus. The MFJ path
-    /// applies the phaseout reduction once to the combined base (matching
-    /// the engine math in `standardDeductionAmount`).
+    /// window, or when MAGI has fully phased out the bonus. Per IRC § 151(d)(5)(B),
+    /// the phaseout reduction operates on the $6,000 amount PER qualifying
+    /// individual, then sums across qualifying individuals on the return.
     var seniorBonusDeductionAmount: Double {
         let cfg = TaxCalculationEngine.config
         let year = currentYear
@@ -1212,9 +1215,10 @@ class DataManager: ObservableObject {
             if currentAge >= 65 { qualifyingSeniors += 1 }
             if enableSpouse && spouseCurrentAge >= 65 { qualifyingSeniors += 1 }
             guard qualifyingSeniors > 0 else { return 0 }
-            let totalBonusBase = cfg.seniorBonusPerPerson * Double(qualifyingSeniors)
-            let reduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
-            return max(0, totalBonusBase - reduction)
+            // Per-individual phaseout (NOT applied to combined base).
+            let perPersonReduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
+            let perPersonBonus = max(0, cfg.seniorBonusPerPerson - perPersonReduction)
+            return perPersonBonus * Double(qualifyingSeniors)
         }
     }
 
