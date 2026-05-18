@@ -16,6 +16,16 @@ struct SSCouplesStrategyView: View {
     @State private var selectedCell: SSCouplesMatrixCell?
     @State private var showAppliedConfirmation = false
 
+    // MARK: - Close-Call Detection
+
+    /// Detects whether the top two strategies in the matrix are within a threshold
+    /// of each other (default: $50K lifetime benefit). Useful for recommending second opinions.
+    static func isCloseCall(matrix: [SSCouplesMatrixCell], thresholdDollars: Double = 50_000) -> Bool {
+        let sorted = matrix.map(\.combinedLifetimeBenefit).sorted(by: >)
+        guard sorted.count >= 2 else { return false }
+        return (sorted[0] - sorted[1]) <= thresholdDollars
+    }
+
     private var matrix: [SSCouplesMatrixCell] {
         dataManager.ssCouplesMatrix()
     }
@@ -388,6 +398,25 @@ struct SSCouplesStrategyView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 4)
+
+                // Close-call validation tooltip
+                if Self.isCloseCall(matrix: matrix) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(Color.UI.brandTeal)
+                            Text("Close call — consider a second opinion")
+                                .font(.caption.weight(.semibold))
+                        }
+                        Text("The top two strategies are within $50K of each other over your lifetime. For a second opinion, run your numbers through [Open Social Security](https://opensocialsecurity.com) — it uses similar deemed-filing assumptions and may help validate this recommendation.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(8)
+                    .background(Color.UI.brandTeal.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.top, 4)
+                }
 
                 // Apply button — only when not both already claimed
                 if !bothHaveClaimed {
