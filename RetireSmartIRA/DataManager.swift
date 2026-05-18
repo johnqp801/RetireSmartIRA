@@ -2608,6 +2608,37 @@ class DataManager: ObservableObject {
         legacyHeirTaxEstimate.effectiveRateOnDistribution
     }
 
+    // MARK: - Heir-Bracket Comparison (Phase 2 L3)
+
+    /// Whether the heir-bracket comparison card should be shown. Hidden when the
+    /// designated heir is a spouse (Decision A from Phase 2 plan-review) because
+    /// spouse heirs can roll the inherited IRA into their own and use their own
+    /// RMD timeline — the SECURE 10-year drain assumption doesn't apply.
+    var shouldShowHeirComparison: Bool {
+        legacyHeirType.lowercased() != "spouse"
+    }
+
+    /// Whether the heir comparison should use the live conversion amount (true)
+    /// or the $100K illustrative constant (false). Threshold per Decision B from
+    /// Phase 2 plan-review: $10,000.
+    var heirComparisonUsesLiveAmount: Bool {
+        scenarioTotalRothConversion >= 10_000
+    }
+
+    /// Side-by-side comparison: pay tax now at user's marginal rate vs heir pays
+    /// it later at their marginal rate under SECURE 10-year drain. Uses the live
+    /// scenario conversion amount when >= $10K, otherwise an illustrative $100K.
+    var convertNowVsHeirComparison: TaxCalculationEngine.HeirBracketComparison {
+        let conversion = heirComparisonUsesLiveAmount ? scenarioTotalRothConversion : 100_000
+        let userMarginal = federalBracketInfo(income: scenarioTaxableIncome, filingStatus: filingStatus).currentRate
+        let heirMarginal = legacyHeirTaxEstimate.marginalRate
+        return TaxCalculationEngine.convertNowVsHeirComparison(
+            conversionAmount: conversion,
+            userMarginalRate: userMarginal,
+            heirMarginalRate: heirMarginal
+        )
+    }
+
     /// Heir's projected age at the user's projected year of death.
     /// Nil when the user hasn't supplied `legacyHeirBirthYear`.
     var legacyHeirAgeAtInheritance: Int? {

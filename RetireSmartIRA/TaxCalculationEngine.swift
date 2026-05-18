@@ -183,6 +183,40 @@ struct TaxCalculationEngine {
         )
     }
 
+    // MARK: - Heir-Bracket Comparison (Phase 2 L3)
+
+    /// Side-by-side comparison: pay tax now at the user's marginal rate vs heir pays
+    /// it later at their marginal rate under a SECURE-Act 10-year drain. Positive
+    /// `netFamilyBenefit` means converting now is cheaper for the family.
+    struct HeirBracketComparison {
+        let conversionAmount: Double
+        let userMarginalRate: Double
+        let heirMarginalRate: Double
+        let userTaxIfConvertedNow: Double
+        let heirTaxIfInheritedLater: Double
+        let netFamilyBenefit: Double
+    }
+
+    /// Compare paying tax at the user's current marginal rate vs an heir paying tax
+    /// at their marginal rate after a SECURE-Act 10-year drain. Positive
+    /// `netFamilyBenefit` means converting now is cheaper for the family.
+    static func convertNowVsHeirComparison(
+        conversionAmount: Double,
+        userMarginalRate: Double,
+        heirMarginalRate: Double
+    ) -> HeirBracketComparison {
+        let userTax = conversionAmount * userMarginalRate
+        let heirTax = conversionAmount * heirMarginalRate
+        return HeirBracketComparison(
+            conversionAmount: conversionAmount,
+            userMarginalRate: userMarginalRate,
+            heirMarginalRate: heirMarginalRate,
+            userTaxIfConvertedNow: userTax,
+            heirTaxIfInheritedLater: heirTax,
+            netFamilyBenefit: heirTax - userTax
+        )
+    }
+
     /// Computes the effective tax rate on a given annual distribution amount using progressive brackets.
     /// Used by LegacyPlanningEngine as a replacement for flat-rate multiplication.
     static func heirEffectiveTaxRate(

@@ -497,12 +497,25 @@ struct TaxPlanningView: View {
         }
     }
 
+    // MARK: - Heir-Bracket Comparison Card (1.8.2 L3)
+
+    @ViewBuilder
+    private var heirTaxComparisonCard: some View {
+        if dataManager.shouldShowHeirComparison
+            && (dataManager.primaryTraditionalIRABalance > 0
+                || (spouseEnabled && dataManager.spouseTraditionalIRABalance > 0)) {
+            HeirTaxComparisonCard()
+                .environmentObject(dataManager)
+        }
+    }
+
     private var compactResultsGroup: some View {
         AnyView(Group {
             scenarioSummaryCard
             taxImpactWaterfallChart
             scenarioCharts
             ltcgHarvestingCard
+            heirTaxComparisonCard
             legacyImpactCard
             perDecisionImpact
             strategyTipsSection
@@ -596,6 +609,7 @@ struct TaxPlanningView: View {
             taxImpactWaterfallChart
             scenarioCharts
             ltcgHarvestingCard
+            heirTaxComparisonCard
         })
     }
 
