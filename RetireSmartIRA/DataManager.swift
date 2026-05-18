@@ -1547,6 +1547,15 @@ class DataManager: ObservableObject {
         return ACAMAGI(value: federalAGI.value + taxExemptInterestTotal + nonTaxableSS)
     }
 
+    /// ACA MAGI computed with all scenario adjustments (Roth conversions, extra withdrawals, etc.)
+    /// zeroed out. Represents the "no scenario decisions" baseline used to render the dashed
+    /// before-marker on the ACA Subsidy Bar inside the Scenarios view. (C3 from 1.8.2 Phase 3)
+    var baselineACAMagi: ACAMAGI {
+        let baselineAGI = scenarioBaseIncome - totalAboveTheLineDeductions
+        let nonTaxableSS = max(0, totalSocialSecurityBenefits - scenarioTaxableSocialSecurity)
+        return ACAMAGI(value: baselineAGI + taxExemptInterestTotal + nonTaxableSS)
+    }
+
     /// MAGI for Medicare IRMAA: FederalAGI + tax-exempt interest. Replaces the
     /// untyped `irmaaMagi` over Task 1.4. Kept side-by-side for migration.
     var irmaaMAGIWrapped: IRMAAMAGI {

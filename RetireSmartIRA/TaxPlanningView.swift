@@ -1385,7 +1385,7 @@ struct TaxPlanningView: View {
                 ACASubsidyBar(
                     acaResult: acaResult,
                     beforeMAGI: (dataManager.scenario.scenarioTotalAboveTheLineDeductions > 0 ||
-                                 dataManager.scenarioTotalRothConversion > 0) ? baselineACAMAGI : nil,
+                                 dataManager.scenarioTotalRothConversion > 0) ? dataManager.baselineACAMagi.value : nil,
                     afterPretaxMAGI: afterPretaxBeforeRothACAMAGI
                 )
                 .padding(.bottom, 4)
