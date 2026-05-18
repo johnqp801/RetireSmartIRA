@@ -2,7 +2,7 @@
 //  StateBracketBarMarkerTests.swift
 //  RetireSmartIRATests
 //
-//  Tests for DashboardView.stateBracketMarkerPosition — the pure-logic helper that
+//  Tests for BracketChartHelpers.bracketMarkerPosition — the pure-logic helper that
 //  converts a dollar value into an x-offset on the equal-width state bracket bar.
 //
 
@@ -42,7 +42,7 @@ final class StateBracketBarMarkerTests: XCTestCase {
     func testMarkerPosition_AtStart_IsZero() {
         // $0 is the very start of the first bracket → x = 0
         let barWidth: CGFloat = 600
-        let x = DashboardView.stateBracketMarkerPosition(
+        let x = BracketChartHelpers.bracketMarkerPosition(
             value: 0,
             segments: caMFJ6,
             barWidth: barWidth
@@ -56,7 +56,7 @@ final class StateBracketBarMarkerTests: XCTestCase {
         let barWidth: CGFloat = 600
         let segW = barWidth / 6
         let expected = segW * 0.5  // idx 0, intra = 0.5
-        let x = DashboardView.stateBracketMarkerPosition(
+        let x = BracketChartHelpers.bracketMarkerPosition(
             value: 10_412,
             segments: caMFJ6,
             barWidth: barWidth
@@ -73,7 +73,7 @@ final class StateBracketBarMarkerTests: XCTestCase {
         let segW = barWidth / 6
         let intra = (124_000.0 - 108_162.0) / (136_700.0 - 108_162.0)
         let expected = 4 * segW + CGFloat(intra) * segW
-        let x = DashboardView.stateBracketMarkerPosition(
+        let x = BracketChartHelpers.bracketMarkerPosition(
             value: 124_000,
             segments: caMFJ6,
             barWidth: barWidth
@@ -89,7 +89,7 @@ final class StateBracketBarMarkerTests: XCTestCase {
         let barWidth: CGFloat = 600
         let segW = barWidth / 6
         let expected = 4 * segW
-        let x = DashboardView.stateBracketMarkerPosition(
+        let x = BracketChartHelpers.bracketMarkerPosition(
             value: 108_162,
             segments: caMFJ6,
             barWidth: barWidth
@@ -102,7 +102,7 @@ final class StateBracketBarMarkerTests: XCTestCase {
     func testMarkerPosition_AboveAllBrackets_ClampsToRightEdge() {
         // $5M is far past the last visible segment
         let barWidth: CGFloat = 600
-        let x = DashboardView.stateBracketMarkerPosition(
+        let x = BracketChartHelpers.bracketMarkerPosition(
             value: 5_000_000,
             segments: caMFJ6,
             barWidth: barWidth
@@ -114,9 +114,10 @@ final class StateBracketBarMarkerTests: XCTestCase {
     // MARK: - Edge cases
 
     func testMarkerPosition_EmptySegments_ReturnsZero() {
-        let x = DashboardView.stateBracketMarkerPosition(
+        let empty: [DashboardView.BracketSegment] = []
+        let x = BracketChartHelpers.bracketMarkerPosition(
             value: 100_000,
-            segments: [],
+            segments: empty,
             barWidth: 300
         )
         XCTAssertEqual(x, 0)
@@ -126,7 +127,7 @@ final class StateBracketBarMarkerTests: XCTestCase {
         // Single-segment bar: value at midpoint → half of barWidth
         let segments = [seg(0, 100_000)]
         let barWidth: CGFloat = 300
-        let x = DashboardView.stateBracketMarkerPosition(
+        let x = BracketChartHelpers.bracketMarkerPosition(
             value: 50_000,
             segments: segments,
             barWidth: barWidth

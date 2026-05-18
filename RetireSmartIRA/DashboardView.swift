@@ -1515,7 +1515,7 @@ struct DashboardView: View {
 
     // MARK: - Chart 2: Federal Tax Bracket Position
 
-    struct BracketSegment: Identifiable {
+    struct BracketSegment: Identifiable, BracketSegmentLike {
         let id = UUID()
         let rate: Double
         let label: String
@@ -2273,7 +2273,7 @@ struct DashboardView: View {
                         }
 
                         // Income marker (dashed) — positioned within its segment proportionally
-                        let incomeX = DashboardView.stateBracketMarkerPosition(
+                        let incomeX = BracketChartHelpers.bracketMarkerPosition(
                             value: income,
                             segments: visibleSegments,
                             barWidth: w
@@ -2385,41 +2385,6 @@ struct DashboardView: View {
             }
         }
         return currentRate * 100
-    }
-
-    /// Computes the x-position (in points) of a dollar value marker on the equal-width
-    /// state bracket bar.
-    ///
-    /// Each segment occupies `barWidth / segments.count` of horizontal space. Within a
-    /// segment the marker is placed proportionally between `rangeStart` and `rangeEnd`,
-    /// so the visual position reflects both *which bracket* the value lands in and *how
-    /// far into that bracket* it sits — without being distorted by the wide dollar ranges
-    /// of upper brackets (e.g. CA's 9.3% bracket spans $561K).
-    ///
-    /// - Parameters:
-    ///   - value: Dollar value to position (e.g. taxable income).
-    ///   - segments: Ordered bracket segments covering the visible bar range.
-    ///   - barWidth: Total rendered bar width in points.
-    /// - Returns: X offset in points, clamped to [0, barWidth − 4].
-    static func stateBracketMarkerPosition(
-        value: Double,
-        segments: [BracketSegment],
-        barWidth: CGFloat
-    ) -> CGFloat {
-        guard !segments.isEmpty else { return 0 }
-        let segmentWidth = barWidth / CGFloat(segments.count)
-
-        for (idx, segment) in segments.enumerated() {
-            if value >= segment.rangeStart && value < segment.rangeEnd {
-                let rangeDelta = segment.rangeEnd - segment.rangeStart
-                let intra: CGFloat = rangeDelta > 0
-                    ? CGFloat((value - segment.rangeStart) / rangeDelta)
-                    : 0
-                return CGFloat(idx) * segmentWidth + intra * segmentWidth
-            }
-        }
-        // Value is at or past the last segment's end — clamp to right edge
-        return barWidth - 4
     }
 
     // MARK: - Chart 5: NIIT Position

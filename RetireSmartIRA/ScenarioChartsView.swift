@@ -43,7 +43,7 @@ private func scenarioNextBracketRate(after currentRate: Double) -> Int {
 
 // MARK: Federal Bracket Chart (Scenario)
 
-private struct ScenarioBracketSegment: Identifiable {
+private struct ScenarioBracketSegment: Identifiable, BracketSegmentLike {
     let id = UUID()
     let rate: Double
     let label: String
@@ -157,7 +157,7 @@ private var scenarioFederalBracketChart: some View {
                     }
 
                     // Before marker (dashed gray) — positioned within its segment proportionally
-                    let beforeX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                    let beforeX = BracketChartHelpers.bracketMarkerPosition(
                         value: beforeIncome,
                         segments: visibleSegments,
                         barWidth: w
@@ -179,7 +179,7 @@ private var scenarioFederalBracketChart: some View {
                         .position(x: min(max(beforeX, 40), w - 40), y: 10)
 
                     // After marker (solid) — positioned within its segment proportionally
-                    let afterX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                    let afterX = BracketChartHelpers.bracketMarkerPosition(
                         value: afterIncome,
                         segments: visibleSegments,
                         barWidth: w
@@ -396,7 +396,7 @@ private var scenarioStateBracketChart: some View {
                         }
 
                         // Before marker — positioned within its segment proportionally
-                        let beforeX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                        let beforeX = BracketChartHelpers.bracketMarkerPosition(
                             value: beforeIncome,
                             segments: visibleSegments,
                             barWidth: w
@@ -418,7 +418,7 @@ private var scenarioStateBracketChart: some View {
                             .position(x: min(max(beforeX, 40), w - 40), y: 10)
 
                         // After marker — positioned within its segment proportionally
-                        let afterX = ScenarioChartsView.scenarioBracketMarkerPosition(
+                        let afterX = BracketChartHelpers.bracketMarkerPosition(
                             value: afterIncome,
                             segments: visibleSegments,
                             barWidth: w
@@ -996,40 +996,5 @@ private var scenarioNIITChart: some View {
 }
 
 // MARK: - Bracket Marker Position Helper
-
-/// Computes the x-position (in points) of a dollar value marker on the equal-width
-/// bracket bar used in both the federal and state scenario charts.
-///
-/// Each segment occupies `barWidth / segments.count` of horizontal space. Within a
-/// segment the marker is placed proportionally between `rangeStart` and `rangeEnd`,
-/// so the visual position reflects both *which bracket* the value lands in and *how
-/// far into that bracket* it sits — without being distorted by the wide dollar ranges
-/// of upper brackets (e.g. CA's 9.3% bracket spans $561K).
-///
-/// - Parameters:
-///   - value: Dollar value to position (e.g. taxable income).
-///   - segments: Ordered bracket segments covering the visible bar range.
-///   - barWidth: Total rendered bar width in points.
-/// - Returns: X offset in points, clamped to [0, barWidth − 4].
-private static func scenarioBracketMarkerPosition(
-    value: Double,
-    segments: [ScenarioBracketSegment],
-    barWidth: CGFloat
-) -> CGFloat {
-    guard !segments.isEmpty else { return 0 }
-    let segmentWidth = barWidth / CGFloat(segments.count)
-
-    for (idx, segment) in segments.enumerated() {
-        if value >= segment.rangeStart && value < segment.rangeEnd {
-            let rangeDelta = segment.rangeEnd - segment.rangeStart
-            let intra: CGFloat = rangeDelta > 0
-                ? CGFloat((value - segment.rangeStart) / rangeDelta)
-                : 0
-            return CGFloat(idx) * segmentWidth + intra * segmentWidth
-        }
-    }
-    // Value is at or past the last segment's end — clamp to right edge
-    return barWidth - 4
-}
 
 }
