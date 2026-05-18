@@ -329,7 +329,8 @@ struct TaxCalculationEngine {
         currentAge: Int,
         enableSpouse: Bool,
         spouseBirthYear: Int,
-        currentYear: Int
+        currentYear: Int,
+        scenarioRetirementDistributions: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let spouseAge = currentYear - spouseBirthYear
@@ -341,7 +342,8 @@ struct TaxCalculationEngine {
             incomeSources: incomeSources,
             primaryAge: currentAge,
             spouseAge: spouseAge,
-            enableSpouse: enableSpouse
+            enableSpouse: enableSpouse,
+            scenarioRetirementDistributions: scenarioRetirementDistributions
         )
 
         var tax: Double
@@ -404,8 +406,23 @@ struct TaxCalculationEngine {
         incomeSources: [IncomeSource],
         primaryAge: Int,
         spouseAge: Int,
-        enableSpouse: Bool
+        enableSpouse: Bool,
+        scenarioRetirementDistributions: Double = 0
     ) -> Double {
+        // TODO(post-1.8.2): Several refinements outside this initial wiring:
+        // - Verified-2026 exemption value updates: CO unlimited (SB25-136, currently
+        //   $24K), AL $12K age 65+ (HB388, currently $2,500), MD $40,600 age 65+
+        //   (employer pensions only, not IRA), MI $67,610/$135,220 final phase-in
+        //   (currently `.full` overstates), KY HB146 status, GA's $35K 62-64 tier.
+        // - Per-state age thresholds (NJ 62, CO pre-SB25-136 was 65) — we use a
+        //   flat 59½ baseline here for `scenarioRetirementDistributions`.
+        // - Roth conversion exemption for PA per PA DOR Ans 274 (conversions
+        //   NOT taxable in conversion year) — affects heir-comparison math
+        //   substantially for PA users.
+        // - When the engine can distinguish pension vs IRA portions of
+        //   `scenarioRetirementDistributions` separately, apply pensionExemption
+        //   and iraWithdrawalExemption independently rather than reusing the
+        //   IRA-withdrawal exemption level alone.
         var adjusted = income
         let exemptions = config.retirementExemptions
 
@@ -423,7 +440,19 @@ struct TaxCalculationEngine {
             break
         }
 
-        let iraIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
+        // Sum of state-recognized IRA-withdrawal income:
+        //   1) `.rmd`-typed IncomeSource rows (demo profile / explicit entries), plus
+        //   2) `scenarioRetirementDistributions` — RMDs computed from IRA balances,
+        //      inherited-IRA RMDs, and extra withdrawals. These don't appear as
+        //      IncomeSource rows but flow into scenarioGrossIncome via
+        //      scenarioTotalWithdrawals. Age-gate the scenario portion at 59½
+        //      (early-withdrawal IRA distributions are taxable in PA and most
+        //      states); user-entered `.rmd` rows are not gated because they
+        //      implicitly represent retirement-age income.
+        let rmdSourceIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
+        let retirementAge = primaryAge >= 59 || (enableSpouse && spouseAge >= 59)
+        let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
+        let iraIncome = rmdSourceIncome + scenarioExemptable
         switch exemptions.iraWithdrawalExemption {
         case .full:
             adjusted -= iraIncome

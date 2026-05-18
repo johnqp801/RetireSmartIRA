@@ -5319,15 +5319,19 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 21_308.38, tolerance: 1.0))
     }
 
-    @Test("B: NY state tax ≈ $5,667")
+    @Test("B: NY state tax ≈ $4,497")
     func b_stateTax() {
         let dm = makeScenarioB()
+        // Updated 2026-05-17 — NY $20K IRA-withdrawal exemption now applied to
+        // scenario-level retirement distributions (computed RMDs) per the
+        // build-41 engine-wiring fix. Previously the exemption only matched
+        // `.rmd`-typed IncomeSource rows, missing $35,283 of auto-calc RMD.
         // NY deduction $16,050 → state taxable $171,833
         // SS exempt −$47,600 → $124,233
         // Pension exempt −$20K (NY cap) → $104,233
-        // IRA exempt $0 (auto-calc RMDs not in incomeSources)
-        // NY MFJ brackets: 4%→4.5%→5.25%→5.85% = $5,667.48
-        #expect(isClose(dm.scenarioStateTax, 5_667.48, tolerance: 1.0))
+        // IRA exempt −$20K (NY cap on $35,283 of withdrawals) → $84,233
+        // NY MFJ brackets: 4%→4.5%→5.25%→5.85% = $4,497.48
+        #expect(isClose(dm.scenarioStateTax, 4_497.48, tolerance: 1.0))
     }
 
     @Test("B: NIIT = $0 (no investment income, MAGI below $250K)")
@@ -5342,12 +5346,13 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioAMTAmount, 0))
     }
 
-    @Test("B: Total tax ≈ $26,976")
+    @Test("B: Total tax ≈ $25,806")
     func b_totalTax() {
         let dm = makeScenarioB()
-        // Updated 2026-05-17 per IRC § 151(d)(5) per-individual phaseout fix.
-        // Federal $21,308.38 + NY state $5,667.48 + NIIT $0 + AMT $0 = $26,975.86
-        #expect(isClose(dm.scenarioTotalTax, 26_975.86, tolerance: 2.0))
+        // Updated 2026-05-17 — NY $20K IRA-exemption now applied to auto-calc
+        // RMDs per the build-41 engine-wiring fix (see b_stateTax).
+        // Federal $21,308.38 + NY state $4,497.48 + NIIT $0 + AMT $0 = $25,805.86
+        #expect(isClose(dm.scenarioTotalTax, 25_805.86, tolerance: 2.0))
     }
 }
 
@@ -5689,14 +5694,17 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 184_870.48, tolerance: 2.0))
     }
 
-    @Test("D: NY state tax ≈ $49,780 (6.85% bracket, $20K pension exemption)")
+    @Test("D: NY state tax ≈ $48,410 (6.85% bracket, $20K pension + $20K IRA exemption)")
     func d_stateTax() {
         let dm = makeScenarioD()
+        // Updated 2026-05-17 — NY $20K IRA-withdrawal exemption now applied to
+        // scenario-level $86,792 auto-calc RMD per the build-41 engine-wiring fix.
         // NY taxable: $870,542 − $16,050 = $854,492
         // − SS $63,750 = $790,742
         // − pension $20K (NY cap) = $770,742
+        // − IRA $20K (NY cap on $86,792 of withdrawals) = $750,742
         // Through NY MFJ brackets up to 6.85% ($323,200-$2,155,350)
-        #expect(isClose(dm.scenarioStateTax, 49_780.31, tolerance: 2.0))
+        #expect(isClose(dm.scenarioStateTax, 48_410.31, tolerance: 2.0))
     }
 
     @Test("D: NIIT = $12,160 (full $320K NII taxed)")
@@ -5718,11 +5726,13 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(result.amt, 0, tolerance: 1.0))
     }
 
-    @Test("D: Total tax ≈ $246,811")
+    @Test("D: Total tax ≈ $245,441")
     func d_totalTax() {
         let dm = makeScenarioD()
-        // Federal $184,870 + NY $49,780 + NIIT $12,160 + AMT $0 = $246,811
-        #expect(isClose(dm.scenarioTotalTax, 246_810.79, tolerance: 5.0))
+        // Updated 2026-05-17 — NY $20K IRA-exemption now applied to auto-calc
+        // RMDs per the build-41 engine-wiring fix (see d_stateTax).
+        // Federal $184,870 + NY $48,410 + NIIT $12,160 + AMT $0 = $245,440.79
+        #expect(isClose(dm.scenarioTotalTax, 245_440.79, tolerance: 5.0))
     }
 }
 
