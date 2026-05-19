@@ -893,202 +893,8 @@ struct TaxPlanningView: View {
 
     // MARK: - Per-Decision Tax Impact
 
-    @ViewBuilder
     private var perDecisionImpact: some View {
-        if dataManager.hasActiveScenario {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Per-Decision Tax Impact")
-                    .font(.headline)
-
-                var netImpact: Double = 0
-
-                if dataManager.scenarioTotalRothConversion > 0 {
-                    let impact = dataManager.rothConversionTaxImpact
-                    let _ = netImpact += impact
-                    impactRow(label: "Roth Conversions", amount: impact, isPositive: false, color: Color.UI.brandTeal)
-
-                    let irmaaImpact = dataManager.rothConversionIRMAAImpact
-                    if irmaaImpact > 0 {
-                        let _ = netImpact += irmaaImpact
-                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
-                    }
-
-                    // NIIT breakdown (informational — already included in tax impact above)
-                    let rothNIIT = dataManager.rothConversionNIITImpact
-                    if rothNIIT > 0 {
-                        Text("    incl. \(rothNIIT, format: .currency(code: "USD")) NIIT")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .italic()
-                            .padding(.leading, 28)
-                            .padding(.top, -4)
-                    }
-                }
-
-                if dataManager.scenarioTotalExtraWithdrawal > 0 {
-                    let impact = dataManager.extraWithdrawalTaxImpact
-                    let _ = netImpact += impact
-                    impactRow(label: "Additional Withdrawals", amount: impact, isPositive: false, color: Color.Chart.callout)
-
-                    let irmaaImpact = dataManager.extraWithdrawalIRMAAImpact
-                    if irmaaImpact > 0 {
-                        let _ = netImpact += irmaaImpact
-                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
-                    }
-
-                    let wdlNIIT = dataManager.extraWithdrawalNIITImpact
-                    if wdlNIIT > 0 {
-                        Text("    incl. \(wdlNIIT, format: .currency(code: "USD")) NIIT")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .italic()
-                            .padding(.leading, 28)
-                            .padding(.top, -4)
-                    }
-                }
-
-                if dataManager.inheritedTraditionalExtraTotal > 0 {
-                    let impact = dataManager.inheritedExtraWithdrawalTaxImpact
-                    let _ = netImpact += impact
-                    impactRow(label: "Inherited IRA Withdrawals", amount: impact, isPositive: false, color: Color.Chart.gray2)
-
-                    let irmaaImpact = dataManager.inheritedExtraWithdrawalIRMAAImpact
-                    if irmaaImpact > 0 {
-                        let _ = netImpact += irmaaImpact
-                        impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
-                    }
-
-                    let inhNIIT = dataManager.inheritedExtraWithdrawalNIITImpact
-                    if inhNIIT > 0 {
-                        Text("    incl. \(inhNIIT, format: .currency(code: "USD")) NIIT")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .italic()
-                            .padding(.leading, 28)
-                            .padding(.top, -4)
-                    }
-                }
-
-                if totalQCD > 0 {
-                    let savings = dataManager.qcdTaxSavings
-                    let _ = netImpact -= savings
-                    impactRow(label: "QCD", amount: savings, isPositive: true, color: Color.Semantic.green)
-
-                    let irmaaSavings = dataManager.qcdIRMAASavings
-                    if irmaaSavings > 0 {
-                        let _ = netImpact -= irmaaSavings
-                        impactRow(label: "  IRMAA Savings", amount: irmaaSavings, isPositive: true, color: Color.Chart.gray3)
-                    }
-
-                    let qcdNIIT = dataManager.qcdNIITSavings
-                    if qcdNIIT > 0 {
-                        Text("    incl. \(qcdNIIT, format: .currency(code: "USD")) NIIT savings")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .italic()
-                            .padding(.leading, 28)
-                            .padding(.top, -4)
-                    }
-
-                    if dataManager.isPreRMDQCDEligible {
-                        // Pre-RMD: no forced distribution to offset, so show AGI advantage context
-                        let agiAdv = dataManager.qcdAGIAdvantage
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("QCD keeps \(agiAdv, format: .currency(code: "USD")) out of your AGI compared to a taxable IRA withdrawal + cash donation.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text("Pre-RMD, current-year savings depend on your alternative (cash or stock donation vs. IRA withdrawal). Tax savings shown here reflect only the RMD-offset portion.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .italic()
-                        }
-                        .padding(.leading, 28)
-                        .padding(.top, -2)
-                    } else if irmaaSavings == 0 && qcdNIIT == 0 {
-                        Text("QCD also lowers your AGI, which may reduce Social Security taxation.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 28)
-                            .padding(.top, -4)
-                    }
-                }
-
-                if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
-                    // Itemized deduction benefit (reduces cash taxes owed)
-                    let deductionSavings = dataManager.stockDeductionTaxSavings
-                    if deductionSavings > 0 {
-                        let _ = netImpact -= deductionSavings
-                        impactRow(label: "Stock Donation Tax Reduction", amount: deductionSavings, isPositive: true, color: Color.Chart.gray4)
-                    }
-
-                    // Tax on gain avoided (by donating instead of selling)
-                    let gainsAvoided = dataManager.stockCapGainsTaxAvoided
-                    if gainsAvoided > 0 {
-                        let _ = netImpact -= gainsAvoided
-                        impactRow(label: dataManager.scenarioStockIsLongTerm ? "Cap Gains Avoided" : "Gain Tax Avoided", amount: gainsAvoided, isPositive: true, color: Color.Chart.gray4)
-                    }
-
-                    // Note if not itemizing (deduction provides no benefit)
-                    if deductionSavings == 0 && !dataManager.scenarioEffectiveItemize {
-                        Text("Taking standard deduction \u{2014} stock donation deduction not applied")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 28)
-                            .padding(.top, -4)
-                    }
-                }
-
-                if dataManager.cashDonationAmount > 0 {
-                    let savings = dataManager.cashDonationTaxSavings
-                    let _ = netImpact -= savings
-                    impactRow(label: "Cash Donation", amount: savings, isPositive: true, color: Color.Chart.gray1)
-                }
-
-                Divider()
-
-                // Net impact (including IRMAA surcharge changes)
-                let displayNet = dataManager.rothConversionTaxImpact + dataManager.extraWithdrawalTaxImpact
-                    + dataManager.inheritedExtraWithdrawalTaxImpact
-                    - dataManager.qcdTaxSavings - dataManager.stockDeductionTaxSavings - dataManager.stockCapGainsTaxAvoided - dataManager.cashDonationTaxSavings
-                    + dataManager.rothConversionIRMAAImpact + dataManager.extraWithdrawalIRMAAImpact
-                    + dataManager.inheritedExtraWithdrawalIRMAAImpact - dataManager.qcdIRMAASavings
-
-                HStack {
-                    Text("Net Tax Impact")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text("\(displayNet >= 0 ? "+" : "")\(displayNet.formatted(.currency(code: "USD")))")
-                        .font(.subheadline)
-                        .fontWeight(.bold)
-                        .foregroundStyle(displayNet < 0 ? Color.Semantic.green : Color.UI.textPrimary)
-                }
-
-                Text("Approximate \u{2014} individual impacts may not sum exactly to net due to progressive tax interaction")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .italic()
-            }
-            .padding()
-            .background(Color(PlatformColor.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
-        }
-    }
-
-    private func impactRow(label: String, amount: Double, isPositive: Bool, color: Color) -> some View {
-        HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
-            Text(label)
-                .font(.subheadline)
-            Spacer()
-            Text("\(isPositive ? "saves" : "adds") ~\(amount.formatted(.currency(code: "USD")))")
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(Color.UI.textPrimary)
-        }
+        PerDecisionImpactSection()
     }
 
     // MARK: - Chart 4: Tax Impact Waterfall (extracted to TaxImpactWaterfallChart struct)
@@ -3374,6 +3180,218 @@ struct TaxImpactWaterfallChart: View {
                 )
         )
         .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+    }
+}
+
+// MARK: - Per-Decision Impact Section (extracted)
+
+struct PerDecisionImpactSection: View {
+    @Environment(DataManager.self) var dataManager
+
+    private var totalQCD: Double {
+        dataManager.yourQCDAmount + (dataManager.enableSpouse ? dataManager.spouseQCDAmount : 0)
+    }
+
+    var body: some View {
+        if dataManager.hasActiveScenario {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Per-Decision Tax Impact")
+                .font(.headline)
+
+            rothRows
+            withdrawalRows
+            inheritedRows
+            qcdRows
+            stockRows
+            cashRow
+
+            Divider()
+
+            let displayNet = dataManager.rothConversionTaxImpact + dataManager.extraWithdrawalTaxImpact
+                + dataManager.inheritedExtraWithdrawalTaxImpact
+                - dataManager.qcdTaxSavings - dataManager.stockDeductionTaxSavings - dataManager.stockCapGainsTaxAvoided - dataManager.cashDonationTaxSavings
+                + dataManager.rothConversionIRMAAImpact + dataManager.extraWithdrawalIRMAAImpact
+                + dataManager.inheritedExtraWithdrawalIRMAAImpact - dataManager.qcdIRMAASavings
+
+            HStack {
+                Text("Net Tax Impact")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text("\(displayNet >= 0 ? "+" : "")\(displayNet.formatted(.currency(code: "USD")))")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(displayNet < 0 ? Color.Semantic.green : Color.UI.textPrimary)
+            }
+
+            Text("Approximate \u{2014} individual impacts may not sum exactly to net due to progressive tax interaction")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .italic()
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+
+    @ViewBuilder
+    private var rothRows: some View {
+        if dataManager.scenarioTotalRothConversion > 0 {
+            let impact = dataManager.rothConversionTaxImpact
+            impactRow(label: "Roth Conversions", amount: impact, isPositive: false, color: Color.UI.brandTeal)
+
+            let irmaaImpact = dataManager.rothConversionIRMAAImpact
+            if irmaaImpact > 0 {
+                impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
+            }
+
+            let rothNIIT = dataManager.rothConversionNIITImpact
+            if rothNIIT > 0 {
+                niitNote("incl. \(rothNIIT.formatted(.currency(code: "USD"))) NIIT")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var withdrawalRows: some View {
+        if dataManager.scenarioTotalExtraWithdrawal > 0 {
+            let impact = dataManager.extraWithdrawalTaxImpact
+            impactRow(label: "Additional Withdrawals", amount: impact, isPositive: false, color: Color.Chart.callout)
+
+            let irmaaImpact = dataManager.extraWithdrawalIRMAAImpact
+            if irmaaImpact > 0 {
+                impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
+            }
+
+            let wdlNIIT = dataManager.extraWithdrawalNIITImpact
+            if wdlNIIT > 0 {
+                niitNote("incl. \(wdlNIIT.formatted(.currency(code: "USD"))) NIIT")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inheritedRows: some View {
+        if dataManager.inheritedTraditionalExtraTotal > 0 {
+            let impact = dataManager.inheritedExtraWithdrawalTaxImpact
+            impactRow(label: "Inherited IRA Withdrawals", amount: impact, isPositive: false, color: Color.Chart.gray2)
+
+            let irmaaImpact = dataManager.inheritedExtraWithdrawalIRMAAImpact
+            if irmaaImpact > 0 {
+                impactRow(label: "  IRMAA Surcharge", amount: irmaaImpact, isPositive: false, color: Color.Chart.gray3)
+            }
+
+            let inhNIIT = dataManager.inheritedExtraWithdrawalNIITImpact
+            if inhNIIT > 0 {
+                niitNote("incl. \(inhNIIT.formatted(.currency(code: "USD"))) NIIT")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var qcdRows: some View {
+        if totalQCD > 0 {
+            let savings = dataManager.qcdTaxSavings
+            impactRow(label: "QCD", amount: savings, isPositive: true, color: Color.Semantic.green)
+
+            let irmaaSavings = dataManager.qcdIRMAASavings
+            if irmaaSavings > 0 {
+                impactRow(label: "  IRMAA Savings", amount: irmaaSavings, isPositive: true, color: Color.Chart.gray3)
+            }
+
+            let qcdNIIT = dataManager.qcdNIITSavings
+            if qcdNIIT > 0 {
+                niitNote("incl. \(qcdNIIT.formatted(.currency(code: "USD"))) NIIT savings")
+            }
+
+            if dataManager.isPreRMDQCDEligible {
+                let agiAdv = dataManager.qcdAGIAdvantage
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("QCD keeps \(agiAdv, format: .currency(code: "USD")) out of your AGI compared to a taxable IRA withdrawal + cash donation.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("Pre-RMD, current-year savings depend on your alternative (cash or stock donation vs. IRA withdrawal). Tax savings shown here reflect only the RMD-offset portion.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                }
+                .padding(.leading, 28)
+                .padding(.top, -2)
+            } else if irmaaSavings == 0 && qcdNIIT == 0 {
+                Text("QCD also lowers your AGI, which may reduce Social Security taxation.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 28)
+                    .padding(.top, -4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var stockRows: some View {
+        if dataManager.stockDonationEnabled && dataManager.stockCurrentValue > 0 {
+            let deductionSavings = dataManager.stockDeductionTaxSavings
+            if deductionSavings > 0 {
+                impactRow(label: "Stock Donation Tax Reduction", amount: deductionSavings, isPositive: true, color: Color.Chart.gray4)
+            }
+
+            let gainsAvoided = dataManager.stockCapGainsTaxAvoided
+            if gainsAvoided > 0 {
+                impactRow(
+                    label: dataManager.scenarioStockIsLongTerm ? "Cap Gains Avoided" : "Gain Tax Avoided",
+                    amount: gainsAvoided,
+                    isPositive: true,
+                    color: Color.Chart.gray4
+                )
+            }
+
+            if deductionSavings == 0 && !dataManager.scenarioEffectiveItemize {
+                Text("Taking standard deduction \u{2014} stock donation deduction not applied")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 28)
+                    .padding(.top, -4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cashRow: some View {
+        if dataManager.cashDonationAmount > 0 {
+            let savings = dataManager.cashDonationTaxSavings
+            impactRow(label: "Cash Donation", amount: savings, isPositive: true, color: Color.Chart.gray1)
+        }
+    }
+
+    private func niitNote(_ text: String) -> some View {
+        Text("    \(text)")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .italic()
+            .padding(.leading, 28)
+            .padding(.top, -4)
+    }
+
+    private func impactRow(label: String, amount: Double, isPositive: Bool, color: Color) -> some View {
+        HStack {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(.subheadline)
+            Spacer()
+            Text("\(isPositive ? "saves" : "adds") ~\(amount.formatted(.currency(code: "USD")))")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.UI.textPrimary)
+        }
     }
 }
 
