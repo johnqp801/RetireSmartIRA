@@ -3126,6 +3126,34 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var strategyTipsSection: some View {
+        StrategyTipsSection()
+    }
+}
+
+// MARK: - Strategy Tips Section (extracted)
+
+struct StrategyTipsSection: View {
+    @Environment(DataManager.self) var dataManager
+
+    private var federalBracketRoom: BracketInfo {
+        dataManager.federalBracketInfo(income: dataManager.scenarioTaxableIncome, filingStatus: dataManager.filingStatus)
+    }
+
+    private var bracketStrategyTitle: String {
+        federalBracketRoom.roomRemaining > 0 ? "Stay in Current Bracket" : "Top Federal Bracket"
+    }
+
+    private var bracketStrategyDescription: String {
+        let room = federalBracketRoom
+        let bracketPct = String(format: "%.0f", room.currentRate * 100)
+        if room.roomRemaining > 0 {
+            return "You can add up to \(room.roomRemaining.formatted(.currency(code: "USD"))) more and stay in the \(bracketPct)% federal bracket"
+        } else {
+            return "Already in the \(bracketPct)% federal bracket \u{2014} no ceiling on distributions within this rate"
+        }
+    }
+
+    var body: some View {
         if dataManager.totalTraditionalIRABalance > 0 {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Conversion Strategies")
