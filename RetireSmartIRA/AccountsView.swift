@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct AccountsView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @State private var showingAddAccount = false
     @State private var selectedAccount: IRAAccount?
     
@@ -208,7 +208,7 @@ struct AccountRow: View {
 }
 
 struct AddAccountView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.dismiss) var dismiss
     
     var accountToEdit: IRAAccount?

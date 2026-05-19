@@ -12,11 +12,12 @@ import Foundation
 import Combine
 
 @MainActor
-class SocialSecurityManager: ObservableObject {
-    @Published var primarySSBenefit: SSBenefitEstimate?
-    @Published var spouseSSBenefit: SSBenefitEstimate?
-    @Published var primaryEarningsHistory: SSEarningsHistory?
-    @Published var spouseEarningsHistory: SSEarningsHistory?
-    @Published var ssWhatIfParams = SSWhatIfParameters()
-    @Published var ssAutoSync: Bool = true
+@Observable
+class SocialSecurityManager {
+    var primarySSBenefit: SSBenefitEstimate?
+    var spouseSSBenefit: SSBenefitEstimate?
+    var primaryEarningsHistory: SSEarningsHistory?
+    var spouseEarningsHistory: SSEarningsHistory?
+    var ssWhatIfParams = SSWhatIfParameters()
+    var ssAutoSync: Bool = true
 }

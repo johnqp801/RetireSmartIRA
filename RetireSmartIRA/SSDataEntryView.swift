@@ -10,7 +10,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SSDataEntryView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.dismiss) private var dismiss
     @State private var selectedOwner: Owner = .primary
     @State private var entryMode: EntryMode

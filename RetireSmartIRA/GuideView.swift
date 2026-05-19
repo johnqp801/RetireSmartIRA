@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct GuideView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Binding var selectedTab: Int
 
@@ -775,5 +775,5 @@ struct GuideView: View {
 
 #Preview {
     GuideView(selectedTab: .constant(0))
-        .environmentObject(DataManager())
+        .environment(DataManager())
 }

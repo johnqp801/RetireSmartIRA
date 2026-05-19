@@ -10,7 +10,7 @@
 import SwiftUI
 
 struct WidowPlanningView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @State private var conversionAmount: Double = 0
     @State private var survivorYears: Double = 10
 

@@ -6,16 +6,26 @@
 //  re-evaluated dozens of times per Scenarios-tab render. SwiftUI runs many
 //  layout passes during tab transitions; each pass re-invokes view bodies,
 //  which re-read these properties. Caching the result against a hash of the
-//  source-of-truth @Published state turns repeat reads into O(1) lookups.
+//  source-of-truth Observable state turns repeat reads into O(1) lookups.
+//
+//  Post-1.8.3 note: with all managers migrated to @Observable, fine-grained
+//  tracking eliminates much of the "fan-in" multiplication that originally
+//  motivated this cache (build 42). Multi-pass layout still re-invokes the
+//  same body 2-3x per gesture frame though, and the underlying engine
+//  pipelines (e.g. legacyForwardProjection's 10-year drain simulation) remain
+//  expensive per-call. We keep all 8 cached properties as a defensive
+//  measure — the hash check is microseconds, the protected computations are
+//  milliseconds-to-tens-of-milliseconds. Per the migration plan: "when in
+//  doubt, KEEP the memoization."
 //
 //  Design notes
 //  ------------
 //  • The cache lives in a `final class` instance held by DataManager as a `let`.
 //    Mutating internal slots is invisible to SwiftUI's observation machinery
-//    (no @Published, no objectWillChange), so the cache writes themselves
-//    never trigger another body invocation — important to avoid infinite loops.
+//    (the EngineMemoCache class is not @Observable), so the cache writes
+//    themselves never re-trigger body invalidation — important to avoid loops.
 //  • All 8 memoized properties depend transitively on essentially the same
-//    set of @Published state (profile, accounts, income/deductions, scenario
+//    set of Observable state (profile, accounts, income/deductions, scenario
 //    state, growth rates, legacy planning). Rather than enumerate per-property
 //    dependency lists — fragile and bug-prone given how deep
 //    `scenarioGrossIncome` reaches — we hash one comprehensive snapshot
@@ -61,7 +71,7 @@ extension DataManager {
 
     // MARK: - Comprehensive Inputs Hash
     //
-    // Hashes a snapshot of every @Published source-of-truth that any of the 8
+    // Hashes a snapshot of every Observable source-of-truth that any of the 8
     // memoized properties could possibly depend on, transitively. Anything not
     // hashed here MUST be a derived/computed value (i.e. itself a pure function
     // of state already hashed), otherwise the cache will return stale results
@@ -181,7 +191,7 @@ extension DataManager {
         h.combine(legacy.legacySpouseSurvivorYears)
         h.combine(legacy.legacyGrowthRate)
 
-        // DataManager-owned @Published
+        // DataManager-owned Observable state
         h.combine(safeHarborMethod)
 
         return h.finalize()

@@ -24,7 +24,7 @@ typealias PlatformColor = NSColor
 
 @main
 struct RetireSmartIRAApp: App {
-    @StateObject private var dataManager: DataManager = {
+    @State private var dataManager: DataManager = {
         #if DEBUG
         if DemoProfile.isActive {
             let dm = DataManager(skipPersistence: true)
@@ -40,7 +40,7 @@ struct RetireSmartIRAApp: App {
         WindowGroup {
             if termsManager.hasAcceptedCurrentTerms {
                 ContentView()
-                    .environmentObject(dataManager)
+                    .environment(dataManager)
                     .environmentObject(termsManager)
             } else {
                 ClickwrapView(manager: termsManager)

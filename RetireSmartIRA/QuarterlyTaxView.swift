@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct QuarterlyTaxView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var timingGuideExpanded = false
     @State private var safeHarborExpanded = false
@@ -20,6 +20,7 @@ struct QuarterlyTaxView: View {
     private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         Group {
             if isWideLayout {
                 wideBody
@@ -611,7 +612,8 @@ struct QuarterlyTaxView: View {
     // explanation table. Control card, not metric card.
     // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
     private var safeHarborCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        @Bindable var dataManager = dataManager
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.shield.fill")
                     .foregroundStyle(Color.UI.brandTeal)
@@ -1175,5 +1177,5 @@ struct NoteRow: View {
 
 #Preview {
     QuarterlyTaxView()
-        .environmentObject(DataManager())
+        .environment(DataManager())
 }

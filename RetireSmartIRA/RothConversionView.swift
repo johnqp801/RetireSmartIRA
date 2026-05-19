@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct RothConversionView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @State private var conversionAmount: String = ""
     @State private var selectedOwner: Owner = .primary
     @State private var enhancedAnalysis: EnhancedRothConversionAnalysis?
@@ -607,5 +607,5 @@ struct StrategyTip: View {
 
 #Preview {
     RothConversionView()
-        .environmentObject(DataManager())
+        .environment(DataManager())
 }

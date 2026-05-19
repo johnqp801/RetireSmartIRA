@@ -8,13 +8,14 @@
 import SwiftUI
 
 struct IncomeSourcesView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @State private var showingAddIncome = false
     @State private var selectedIncomeSource: IncomeSource?
     @State private var showingAddDeduction = false
     @State private var selectedDeduction: DeductionItem?
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         ScrollView {
             VStack(spacing: 24) {
                 // Total Income Card — uses canonical MetricCard
@@ -663,7 +664,7 @@ struct IncomeSourcesView: View {
     // MARK: - Add/Edit Income
 
     struct AddIncomeView: View {
-        @EnvironmentObject var dataManager: DataManager
+        @Environment(DataManager.self) var dataManager
         @Environment(\.dismiss) var dismiss
         var incomeToEdit: IncomeSource?
 
@@ -929,7 +930,7 @@ struct IncomeSourcesView: View {
     // MARK: - Add/Edit Deduction
 
     struct AddDeductionView: View {
-        @EnvironmentObject var dataManager: DataManager
+        @Environment(DataManager.self) var dataManager
         @Environment(\.dismiss) var dismiss
         var deductionToEdit: DeductionItem?
 

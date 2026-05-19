@@ -11,19 +11,20 @@ import Foundation
 import Combine
 
 @MainActor
-class IncomeDeductionsManager: ObservableObject {
-    // MARK: - Published Properties
+@Observable
+class IncomeDeductionsManager {
+    // MARK: - Observable Properties
 
-    @Published var incomeSources: [IncomeSource] = []
-    @Published var deductionItems: [DeductionItem] = []
-    @Published var priorYearStateBalance: Double = 0
+    var incomeSources: [IncomeSource] = []
+    var deductionItems: [DeductionItem] = []
+    var priorYearStateBalance: Double = 0
 
     /// Prior year federal tax liability (Line 24, Form 1040). Used for 100%/110% safe harbor.
-    @Published var priorYearFederalTax: Double = 0
+    var priorYearFederalTax: Double = 0
     /// Prior year state tax liability (from state return). Used for state safe harbor.
-    @Published var priorYearStateTax: Double = 0
+    var priorYearStateTax: Double = 0
     /// Prior year AGI (Line 11, Form 1040). Determines 100% vs 110% safe harbor rate.
-    @Published var priorYearAGI: Double = 0
+    var priorYearAGI: Double = 0
 
     // MARK: - Income Aggregations
 

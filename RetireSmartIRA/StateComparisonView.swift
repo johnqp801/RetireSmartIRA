@@ -10,7 +10,7 @@ import SwiftUI
 import Charts
 
 struct StateComparisonView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @State private var searchText = ""
     @State private var selectedStateForDetail: StateComparisonItem? = nil
 
@@ -1261,5 +1261,5 @@ private struct StateTaxDetailSheet: View {
 
 #Preview {
     StateComparisonView()
-        .environmentObject(DataManager())
+        .environment(DataManager())
 }

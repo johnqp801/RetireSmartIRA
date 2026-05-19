@@ -11,9 +11,10 @@ import Foundation
 import Combine
 
 @MainActor
-class GrowthRatesManager: ObservableObject {
-    @Published var primaryGrowthRate: Double = 8.0
-    @Published var spouseGrowthRate: Double = 8.0
+@Observable
+class GrowthRatesManager {
+    var primaryGrowthRate: Double = 8.0
+    var spouseGrowthRate: Double = 8.0
 
     /// After-tax return on money kept in a taxable account (opportunity cost of conversion).
     /// Derived as 5/8 of the pretax investment return to reflect tax drag.

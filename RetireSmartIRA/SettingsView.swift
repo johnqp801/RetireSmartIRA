@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @State private var stateSearchText = ""
     @State private var showTermsOfUse = false
     @State private var showPrivacyPolicy = false
@@ -22,6 +22,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         NavigationStack {
         Form {
             Section("Personal Information") {
@@ -429,7 +430,7 @@ struct SettingsView: View {
 // when building the parent SettingsView body.
 
 private struct MedicareSettingsSection: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     var body: some View {
         MedicareYouSection()
@@ -440,7 +441,7 @@ private struct MedicareSettingsSection: View {
 // MARK: - Medicare — You
 
 private struct MedicareYouSection: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     private var mc: TaxYearConfig.MedicarePremiumDefaults { TaxCalculationEngine.config.medicare2026 }
 
@@ -566,7 +567,7 @@ private struct MedicareYouSection: View {
 // MARK: - Medicare — Spouse
 
 private struct MedicareSpouseSection: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     private var mc: TaxYearConfig.MedicarePremiumDefaults { TaxCalculationEngine.config.medicare2026 }
 
@@ -670,7 +671,7 @@ private struct MedicareSpouseSection: View {
 // MARK: - ACA Marketplace
 
 private struct ACASettingsSection: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     private var aca: TaxYearConfig.ACASubsidyConfig { TaxCalculationEngine.config.acaSubsidy2026 }
 
@@ -767,6 +768,6 @@ private struct ACASettingsSection: View {
 #Preview {
     NavigationStack {
         SettingsView()
-            .environmentObject(DataManager())
+            .environment(DataManager())
     }
 }

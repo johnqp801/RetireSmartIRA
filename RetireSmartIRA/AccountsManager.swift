@@ -11,10 +11,11 @@ import Foundation
 import Combine
 
 @MainActor
-class AccountsManager: ObservableObject {
-    // MARK: - Published Properties
+@Observable
+class AccountsManager {
+    // MARK: - Observable Properties
 
-    @Published var iraAccounts: [IRAAccount] = []
+    var iraAccounts: [IRAAccount] = []
 
     // MARK: - Balance Aggregations (all accounts)
 

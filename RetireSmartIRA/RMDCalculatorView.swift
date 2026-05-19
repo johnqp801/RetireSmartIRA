@@ -9,7 +9,7 @@ import SwiftUI
 import Charts
 
 struct RMDCalculatorView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var projectionYears = 10
     @State private var showGuide: Bool = false
@@ -19,6 +19,7 @@ struct RMDCalculatorView: View {
     private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         Group {
             if isWideLayout {
                 wideBody
@@ -1019,7 +1020,8 @@ struct RMDCalculatorView: View {
     // MARK: - Projections Section
 
     private var projectionsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        @Bindable var dataManager = dataManager
+        return VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("RMD Projections")
                     .font(.headline)
@@ -1680,5 +1682,5 @@ struct InfoRow: View {
 
 #Preview {
     RMDCalculatorView()
-        .environmentObject(DataManager())
+        .environment(DataManager())
 }

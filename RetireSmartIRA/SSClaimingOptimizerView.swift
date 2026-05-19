@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SSClaimingOptimizerView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.dismiss) private var dismiss
     let owner: Owner
 

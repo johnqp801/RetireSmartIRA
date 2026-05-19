@@ -9,7 +9,7 @@ import SwiftUI
 import Charts
 
 struct TaxPlanningView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @Environment(\.availableWidth) private var availableWidth
@@ -395,6 +395,7 @@ struct TaxPlanningView: View {
     // MARK: - Body
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         Group {
             if isWideLayout {
                 wideBody
@@ -493,7 +494,7 @@ struct TaxPlanningView: View {
     private var ltcgHarvestingCard: some View {
         if dataManager.profile.hasTaxableBrokerage {
             LTCGHarvestingCard()
-                .environmentObject(dataManager)
+                .environment(dataManager)
         }
     }
 
@@ -505,7 +506,7 @@ struct TaxPlanningView: View {
             && (dataManager.primaryTraditionalIRABalance > 0
                 || (spouseEnabled && dataManager.spouseTraditionalIRABalance > 0)) {
             HeirTaxComparisonCard()
-                .environmentObject(dataManager)
+                .environment(dataManager)
         }
     }
 
@@ -1358,6 +1359,7 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var rothConversionContent: some View {
+        @Bindable var dataManager = dataManager
         if dataManager.primaryTraditionalIRABalance <= 0 && (!spouseEnabled || dataManager.spouseTraditionalIRABalance <= 0) {
             // Empty state: no Traditional balances to convert
             HStack(spacing: 10) {
@@ -1540,6 +1542,7 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var withdrawalContent: some View {
+        @Bindable var dataManager = dataManager
         // Your RMD & extra withdrawal
         if dataManager.primaryTraditionalIRABalance > 0 {
             VStack(alignment: .leading, spacing: 12) {
@@ -1686,6 +1689,7 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var inheritedWithdrawalContent: some View {
+        @Bindable var dataManager = dataManager
         ForEach(dataManager.inheritedAccounts) { account in
             let result = dataManager.calculateInheritedIRARMD(account: account, forYear: dataManager.currentYear)
             let extraMax = max(0, account.balance - result.annualRMD)
@@ -2334,6 +2338,7 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var charitableContent: some View {
+        @Bindable var dataManager = dataManager
         if hasAnyCharitable {
             HStack {
                 Spacer()
@@ -3992,7 +3997,7 @@ struct TaxImpactView: View {
     let baseIncome: Double
     let spouseEnabled: Bool
     let spouseLabel: String
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     private var totalDistribution: Double {
         totalRothConversion + totalWithdrawals
@@ -4464,6 +4469,6 @@ struct ScenarioStepSection<Content: View>: View {
 struct TaxPlanningView_Previews: PreviewProvider {
     static var previews: some View {
         TaxPlanningView()
-            .environmentObject(DataManager())
+            .environment(DataManager())
     }
 }

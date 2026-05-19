@@ -12,7 +12,7 @@
 import SwiftUI
 
 struct SeniorBonusDeductionCard: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     private var isApplicable: Bool {
         let primary65 = dataManager.currentAge >= 65

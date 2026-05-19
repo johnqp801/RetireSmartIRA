@@ -6,7 +6,7 @@ import SwiftUI
 /// remaining headroom against current scenario taxable income. Mounted in
 /// `TaxPlanningView` only when `profile.hasTaxableBrokerage` is true.
 struct LTCGHarvestingCard: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

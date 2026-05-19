@@ -17,7 +17,7 @@
 import SwiftUI
 
 struct HeirTaxComparisonCard: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     var body: some View {
         let c = dataManager.convertNowVsHeirComparison

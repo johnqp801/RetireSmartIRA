@@ -9,7 +9,8 @@ import SwiftUI
 import Foundation
 import Combine
 
-class DataManager: ObservableObject {
+@Observable
+class DataManager {
     // MARK: - Domain Managers
     let profile = ProfileManager()
     let accounts = AccountsManager()
@@ -18,14 +19,13 @@ class DataManager: ObservableObject {
     let growthRates = GrowthRatesManager()
     let legacy = LegacyPlanningManager()
     let socialSecurity = SocialSecurityManager()
-    private var managerCancellables = Set<AnyCancellable>()
 
     /// Memoization cache for hot computed properties whose re-evaluation cost
     /// accumulates across SwiftUI's multi-pass layout cycles (see
-    /// DataManager+Memo.swift). Held as a `let` of a non-@Published class so
+    /// DataManager+Memo.swift). Held as a `let` of a non-Observable class so
     /// internal slot mutations are invisible to SwiftUI observation — writes
-    /// don't trigger `objectWillChange`, which would otherwise cause infinite
-    /// re-render loops.
+    /// don't register as tracked-property mutations, which would otherwise
+    /// cause infinite re-render loops.
     let memoCache = EngineMemoCache()
 
     // User Profile (forwarding to ProfileManager)
@@ -244,7 +244,7 @@ class DataManager: ObservableObject {
         set { incomeDeductions.priorYearAGI = newValue }
     }
     /// User's chosen safe harbor method for estimated tax calculations.
-    @Published var safeHarborMethod: SafeHarborMethod = .currentYear90
+    var safeHarborMethod: SafeHarborMethod = .currentYear90
 
     // Social Security Planner (forwarding to SocialSecurityManager)
     var primarySSBenefit: SSBenefitEstimate? {
@@ -280,7 +280,7 @@ class DataManager: ObservableObject {
 
     // MARK: - Tax Bracket Models
     // MARK: - Tax Bracket Storage
-    @Published var currentTaxBrackets: TaxBrackets
+    var currentTaxBrackets: TaxBrackets
     
     // Tax constants delegated to TaxCalculationEngine
     static let default2026Brackets = TaxCalculationEngine.default2026Brackets
@@ -880,31 +880,6 @@ class DataManager: ObservableObject {
     init(skipPersistence: Bool = false) {
         // Initialize with defaults first
         self.currentTaxBrackets = DataManager.default2026Brackets
-
-        // Forward child manager objectWillChange to DataManager
-        // SPIKE-DISABLE: profile is now @Observable — no objectWillChange publisher.
-        // profile.objectWillChange.sink { [weak self] _ in
-        //     self?.objectWillChange.send()
-        // }.store(in: &managerCancellables)
-        accounts.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &managerCancellables)
-        incomeDeductions.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &managerCancellables)
-        // SPIKE-DISABLE: scenario is now @Observable — no objectWillChange publisher.
-        // scenario.objectWillChange.sink { [weak self] _ in
-        //     self?.objectWillChange.send()
-        // }.store(in: &managerCancellables)
-        growthRates.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &managerCancellables)
-        legacy.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &managerCancellables)
-        socialSecurity.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &managerCancellables)
 
         // Re-sync SS income sources when birth dates change (affects age-gating, FRA, spousal top-up).
         // SPIKE: profile is @Observable now — Combine `$birthDate` publishers no longer exist.

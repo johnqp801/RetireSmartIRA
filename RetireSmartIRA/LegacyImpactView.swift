@@ -12,7 +12,7 @@ typealias LegacyPlatformColor = NSColor
 /// Extracted from TaxPlanningView to reduce view hierarchy depth and prevent
 /// EXC_BAD_ACCESS stack overflow on physical devices (iPad).
 struct LegacyImpactView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Binding var showLegacyDetails: Bool
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -27,6 +27,7 @@ struct LegacyImpactView: View {
     private var metricFont: Font { isWideLayout ? .title : .title3 }
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         let hasRothConversion = dataManager.scenarioTotalRothConversion > 0
         let hasQCD = dataManager.scenarioTotalQCD > 0
         let hasLegacyContent = hasRothConversion || hasQCD
@@ -207,7 +208,8 @@ struct LegacyImpactView: View {
     // MARK: - Legacy Growth Rate Slider
 
     private var legacyGrowthRateSlider: some View {
-        VStack(spacing: 6) {
+        @Bindable var dataManager = dataManager
+        return VStack(spacing: 6) {
             HStack {
                 Text("Projected Growth Rate")
                     .font(bodyFont)

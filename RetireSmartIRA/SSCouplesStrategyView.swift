@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct SSCouplesStrategyView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.dismiss) private var dismiss
     @State private var showGuide = false
     @State private var showValuationNote = false
@@ -104,6 +104,7 @@ struct SSCouplesStrategyView: View {
     }
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
@@ -779,7 +780,8 @@ struct SSCouplesStrategyView: View {
     // MARK: - Valuation Mode
 
     private var valuationToggle: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        @Bindable var dataManager = dataManager
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Values shown as")
                     .font(.subheadline)

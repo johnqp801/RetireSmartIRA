@@ -10,7 +10,7 @@ import SwiftUI
 import Charts
 
 struct SocialSecurityPlannerView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showDataEntry = false
     @State private var dataEntryInitialMode: SSDataEntryView.EntryMode = .quickEntry
@@ -26,6 +26,7 @@ struct SocialSecurityPlannerView: View {
     private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
 
     var body: some View {
+        @Bindable var dataManager = dataManager
         Group {
             if isWideLayout {
                 wideBody
@@ -36,19 +37,19 @@ struct SocialSecurityPlannerView: View {
         .background(Color(PlatformColor.systemGroupedBackground))
         .sheet(isPresented: $showDataEntry) {
             SSDataEntryView(initialMode: dataEntryInitialMode, presetAlreadyClaiming: dataEntryPresetClaiming)
-                .environmentObject(dataManager)
+                .environment(dataManager)
         }
         .sheet(isPresented: $showClaimingDetail) {
             SSClaimingOptimizerView(owner: claimingDetailOwner)
-                .environmentObject(dataManager)
+                .environment(dataManager)
         }
         .sheet(isPresented: $showCouplesStrategy) {
             SSCouplesStrategyView()
-                .environmentObject(dataManager)
+                .environment(dataManager)
         }
         .sheet(isPresented: $showSurvivorAnalysis) {
             SSSurvivorAnalysisView()
-                .environmentObject(dataManager)
+                .environment(dataManager)
         }
     }
 
@@ -665,7 +666,8 @@ struct SocialSecurityPlannerView: View {
     // MARK: - Assumptions Card
 
     private var assumptionsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        @Bindable var dataManager = dataManager
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: "slider.horizontal.3")
                     .foregroundStyle(.secondary)
@@ -702,6 +704,7 @@ struct SocialSecurityPlannerView: View {
 
     @ViewBuilder
     private var assumptionSliders: some View {
+        @Bindable var dataManager = dataManager
         // Re-labeled from "Life Expectancy" — Ron Park feedback: users
         // misread that as "predict when I'll die." The right framing
         // (per Boldin and other planners): "How long do you want your
@@ -744,7 +747,8 @@ struct SocialSecurityPlannerView: View {
     }
 
     private var valuationModeToggle: some View {
-        VStack(spacing: 4) {
+        @Bindable var dataManager = dataManager
+        return VStack(spacing: 4) {
             HStack {
                 Text("Compare values as")
                     .font(.subheadline)
@@ -811,7 +815,8 @@ struct SocialSecurityPlannerView: View {
     // MARK: - Tax Sync Card
 
     private var taxSyncCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        @Bindable var dataManager = dataManager
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Tax Integration")
                     .font(.headline)

@@ -4,7 +4,7 @@ import Charts
 /// Scenario bracket, IRMAA, and NIIT charts extracted from TaxPlanningView
 /// to reduce view hierarchy depth and prevent stack overflow on physical devices.
 struct ScenarioChartsView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     var body: some View {
         Group {

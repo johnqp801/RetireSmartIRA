@@ -35,7 +35,7 @@ struct WidthAwareContainer<Content: View>: View {
 }
 
 struct ContentView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @State private var selectedTab = 0
     @State private var sidebarSelection: Int? = 0
     #if !os(macOS)
@@ -252,5 +252,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .environmentObject(DataManager())
+        .environment(DataManager())
 }

@@ -32,7 +32,7 @@ enum IRMAATierBarLayout {
 }
 
 struct DashboardView: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showShareSheet = false
     @State private var pdfData: Data?
@@ -555,7 +555,7 @@ struct DashboardView: View {
                     }
 
                     if dataManager.widowHasBracketJump {
-                        NavigationLink(destination: WidowPlanningView().environmentObject(dataManager)) {
+                        NavigationLink(destination: WidowPlanningView().environment(dataManager)) {
                             HStack(spacing: 4) {
                                 Image(systemName: "shield.fill")
                                     .font(.caption2)
@@ -2865,7 +2865,7 @@ struct OwnerIncomeRow: View {
 // MARK: - 1.9 Reduce AGI Section
 
 private struct ReduceAGISection: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -3066,7 +3066,7 @@ private struct ReduceAGISection: View {
 // MARK: - 1.9 Cost-Spike Chart (Top Panel)
 
 private struct CostSpikeThisYearChart: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -3109,7 +3109,7 @@ private struct CostSpikeThisYearChart: View {
 // MARK: - 1.9 Cost-Spike Chart (Bottom Panel — IRMAA)
 
 private struct CostSpikeIrmaaChart: View {
-    @EnvironmentObject var dataManager: DataManager
+    @Environment(DataManager.self) var dataManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -3158,5 +3158,5 @@ private struct CostSpikeIrmaaChart: View {
 
 #Preview {
     DashboardView()
-        .environmentObject(DataManager())
+        .environment(DataManager())
 }
