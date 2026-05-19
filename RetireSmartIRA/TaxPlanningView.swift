@@ -3403,7 +3403,7 @@ struct ConversionSliderCard: View {
     /// where the slider is capped below the full balance.
     var textMax: Double? = nil
     /// Smart notches (bracket fills, ACA cliff, IRMAA tier crossings) rendered
-    /// as tick marks over the slider. Tap-to-snap sets `amount` to the notch value.
+    /// as visual tick marks over the slider (purely decorative).
     var notches: [SmartSliderNotch] = []
 
     private var effectiveTextMax: Double { textMax ?? sliderMax }
@@ -3467,18 +3467,12 @@ struct ConversionSliderCard: View {
                                 case .irmaaTier: return 8
                                 }
                             }()
-                            ZStack {
-                                Rectangle()
-                                    .fill(color.opacity(0.85))
-                                    .frame(width: 2, height: tickHeight)
-                            }
-                            .frame(width: 44, height: 30)
-                            .contentShape(Rectangle())
-                            .position(x: x, y: geo.size.height / 2)
-                            .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
-                            .onTapGesture {
-                                amount = notch.value
-                            }
+                            Rectangle()
+                                .fill(color.opacity(0.85))
+                                .frame(width: 2, height: tickHeight)
+                                .position(x: x, y: geo.size.height / 2)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
                         }
                     }
                 }
@@ -3516,7 +3510,7 @@ struct WithdrawalSliderCard: View {
     /// where the slider is capped below the full balance.
     var textMax: Double? = nil
     /// Smart notches (bracket fills, ACA cliff, IRMAA tier crossings) rendered
-    /// as tick marks over the slider. Tap-to-snap sets `amount` to the notch value.
+    /// as visual tick marks over the slider (purely decorative).
     var notches: [SmartSliderNotch] = []
 
     private var effectiveTextMax: Double { textMax ?? sliderMax }
@@ -3562,18 +3556,12 @@ struct WithdrawalSliderCard: View {
                                 case .irmaaTier: return 8
                                 }
                             }()
-                            ZStack {
-                                Rectangle()
-                                    .fill(color.opacity(0.85))
-                                    .frame(width: 2, height: tickHeight)
-                            }
-                            .frame(width: 44, height: 30)
-                            .contentShape(Rectangle())
-                            .position(x: x, y: geo.size.height / 2)
-                            .accessibilityLabel(Text("\(notch.label) at \(Int(notch.value)) dollars"))
-                            .onTapGesture {
-                                amount = notch.value
-                            }
+                            Rectangle()
+                                .fill(color.opacity(0.85))
+                                .frame(width: 2, height: tickHeight)
+                                .position(x: x, y: geo.size.height / 2)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
                         }
                     }
                 }
