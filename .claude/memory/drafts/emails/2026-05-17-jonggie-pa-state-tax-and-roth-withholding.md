@@ -38,6 +38,25 @@ Issue 1 was a real correctness bug; the `RetirementIncomeExemptions` data was de
 > Best,
 > John
 
+## Jonggie's reply (2026-05-18, 4:45 PM)
+
+> I am looking forward to your updates, thank yoy!!
+> Your app is going to help a lot of people facing the issues of RMD and Roth conversion. Keep up the excellent work.
+>
+> Best regards,
+> Jonggie
+
+## John's submission-status notification (2026-05-18, 5:37 PM)
+
+> Hi Jonggie,
+>
+> V1.8.2 was submitted to the App Store for approval today. It normally takes about a day for approval by Apple. I'll let you know as soon as it's available to download.
+>
+> Best,
+> John
+
+(Note: this submission was the narrow 1.8.2 PA-fix patch, build 38 — not the full Phase 1-3 release. From Jonggie's perspective there's no need to distinguish; he gets his bug fixed. The full Phase 1-3 work is parked on `1.8.2/incremental` branch for a future release that will likely be 1.8.3 or higher.)
+
 ## Resulting work
 
 ### Issue 1 — PA state tax on retirement distributions (FIXED in build 41)
