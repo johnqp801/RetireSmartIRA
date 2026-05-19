@@ -11,14 +11,16 @@ import Foundation
 import Combine
 
 @MainActor
-class ProfileManager: ObservableObject {
-    // MARK: - Published Properties
+@Observable
+class ProfileManager {
+    // MARK: - Observable Properties
+    // SPIKE(observable): migrated from ObservableObject + @Published to @Observable macro.
 
-    @Published var birthDate: Date = {
+    var birthDate: Date = {
         var c = DateComponents(); c.year = 1953; c.month = 1; c.day = 1
         return Calendar.current.date(from: c)!
     }()
-    @Published var currentYear: Int = Calendar.current.component(.year, from: Date()) {
+    var currentYear: Int = Calendar.current.component(.year, from: Date()) {
         didSet { TaxCalculationEngine.loadConfig(forYear: currentYear) }
     }
 
@@ -29,19 +31,19 @@ class ProfileManager: ObservableObject {
     /// Drives year-specific UI labels ("2025 State Tax Balance", "auto-calculated
     /// for 2026") so labels don't go stale when the calendar ticks forward
     /// without the user actually starting a new plan.
-    @Published var planYear: Int = Calendar.current.component(.year, from: Date())
+    var planYear: Int = Calendar.current.component(.year, from: Date())
 
     /// The tax year one before `planYear`. Convenience for "prior year" UI labels.
     var priorPlanYear: Int { planYear - 1 }
-    @Published var filingStatus: FilingStatus = .single
-    @Published var selectedState: USState = .california
-    @Published var userName: String = ""
-    @Published var spouseName: String = ""
-    @Published var spouseBirthDate: Date = {
+    var filingStatus: FilingStatus = .single
+    var selectedState: USState = .california
+    var userName: String = ""
+    var spouseName: String = ""
+    var spouseBirthDate: Date = {
         var c = DateComponents(); c.year = 1955; c.month = 1; c.day = 1
         return Calendar.current.date(from: c)!
     }()
-    @Published var enableSpouse: Bool = false
+    var enableSpouse: Bool = false
 
     // MARK: - Medicare Enrollment (1.8.2 D2)
 
@@ -49,18 +51,18 @@ class ProfileManager: ObservableObject {
     /// (the standard eligibility age). Allowed range 65-70. Values > 65 trigger
     /// the Part B late-enrollment penalty unless `hasQualifiedEmployerCoverageForMedicare`
     /// is true.
-    @Published var plannedMedicareStartAge: Int = 65
+    var plannedMedicareStartAge: Int = 65
 
     /// Whether the user has qualified employer (or FEHB / TRICARE) health
     /// coverage past 65 that exempts them from the Part B late-enrollment
     /// penalty when they delay enrollment.
-    @Published var hasQualifiedEmployerCoverageForMedicare: Bool = false
+    var hasQualifiedEmployerCoverageForMedicare: Bool = false
 
     // MARK: - Taxable Brokerage Account (1.8.2 L2)
 
     /// User-attested presence of a taxable brokerage account. Unlocks LTCG-harvesting
     /// awareness surfaces and any future taxable-account-specific modeling. (L2)
-    @Published var hasTaxableBrokerage: Bool = false
+    var hasTaxableBrokerage: Bool = false
 
     // TODO(v2.1): Split into per-spouse fields. Real-world case: older spouse
     // keeps employer coverage to maintain younger spouse on plan, then enrolls

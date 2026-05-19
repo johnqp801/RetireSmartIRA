@@ -11,67 +11,69 @@ import Foundation
 import Combine
 
 @MainActor
-class ScenarioStateManager: ObservableObject {
-    // MARK: - Published Properties
+@Observable
+class ScenarioStateManager {
+    // MARK: - Observable Properties
+    // SPIKE(observable): migrated from ObservableObject + @Published to @Observable macro.
 
-    @Published var yourRothConversion: Double = 0
-    @Published var spouseRothConversion: Double = 0
-    @Published var yourExtraWithdrawal: Double = 0
-    @Published var spouseExtraWithdrawal: Double = 0
-    @Published var yourQCDAmount: Double = 0
-    @Published var spouseQCDAmount: Double = 0
-    @Published var yourWithdrawalQuarter: Int = 4
-    @Published var spouseWithdrawalQuarter: Int = 4
-    @Published var yourRothConversionQuarter: Int = 4
-    @Published var spouseRothConversionQuarter: Int = 4
-    @Published var stockDonationEnabled: Bool = false
-    @Published var stockPurchasePrice: Double = 0
-    @Published var stockCurrentValue: Double = 0
-    @Published var stockPurchaseDate: Date = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
-    @Published var cashDonationAmount: Double = 0
-    @Published var inheritedExtraWithdrawals: [UUID: Double] = [:]
-    @Published var deductionOverride: DeductionChoice? = nil
-    @Published var completedActionKeys: Set<String> = []
-    @Published var quarterlyPayments: [QuarterlyPayment] = []
+    var yourRothConversion: Double = 0
+    var spouseRothConversion: Double = 0
+    var yourExtraWithdrawal: Double = 0
+    var spouseExtraWithdrawal: Double = 0
+    var yourQCDAmount: Double = 0
+    var spouseQCDAmount: Double = 0
+    var yourWithdrawalQuarter: Int = 4
+    var spouseWithdrawalQuarter: Int = 4
+    var yourRothConversionQuarter: Int = 4
+    var spouseRothConversionQuarter: Int = 4
+    var stockDonationEnabled: Bool = false
+    var stockPurchasePrice: Double = 0
+    var stockCurrentValue: Double = 0
+    var stockPurchaseDate: Date = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
+    var cashDonationAmount: Double = 0
+    var inheritedExtraWithdrawals: [UUID: Double] = [:]
+    var deductionOverride: DeductionChoice? = nil
+    var completedActionKeys: Set<String> = []
+    var quarterlyPayments: [QuarterlyPayment] = []
 
     // MARK: - 1.9 Contribution Levers
 
-    @Published var yourTraditional401kContribution: Double = 0
-    @Published var spouseTraditional401kContribution: Double = 0
-    @Published var yourTraditionalIRAContribution: Double = 0
-    @Published var spouseTraditionalIRAContribution: Double = 0
-    @Published var yourHSAContribution: Double = 0
-    @Published var spouseHSAContribution: Double = 0
+    var yourTraditional401kContribution: Double = 0
+    var spouseTraditional401kContribution: Double = 0
+    var yourTraditionalIRAContribution: Double = 0
+    var spouseTraditionalIRAContribution: Double = 0
+    var yourHSAContribution: Double = 0
+    var spouseHSAContribution: Double = 0
 
     // R3: Other above-the-line AGI reducers (educator expenses, student-loan interest,
     // self-employed health-insurance premiums, alimony pre-2019, military moving, etc.).
     // Single number per spouse — user enters total of their niche deductions.
-    @Published var yourOtherPreTaxDeductions: Double = 0
-    @Published var spouseOtherPreTaxDeductions: Double = 0
+    var yourOtherPreTaxDeductions: Double = 0
+    var spouseOtherPreTaxDeductions: Double = 0
 
     // MARK: - 1.9 Medicare Plan Type (per spouse)
 
-    @Published var yourMedicarePlanType: MedicarePlanType = .preMedicare
-    @Published var spouseMedicarePlanType: MedicarePlanType = .preMedicare
+    var yourMedicarePlanType: MedicarePlanType = .preMedicare
+    var spouseMedicarePlanType: MedicarePlanType = .preMedicare
 
     // MARK: - 1.9 Medicare Premium Overrides (per spouse, optional)
     //
     // Nil = use config default. Non-nil = user-corrected value.
 
-    @Published var yourMedicarePartBOverride: Double? = nil
-    @Published var spouseMedicarePartBOverride: Double? = nil
-    @Published var yourMedicarePartDOverride: Double? = nil
-    @Published var spouseMedicarePartDOverride: Double? = nil
-    @Published var yourMedigapOverride: Double? = nil
-    @Published var spouseMedigapOverride: Double? = nil
-    @Published var yourAdvantageOverride: Double? = nil
-    @Published var spouseAdvantageOverride: Double? = nil
+    var yourMedicarePartBOverride: Double? = nil
+    var spouseMedicarePartBOverride: Double? = nil
+    var yourMedicarePartDOverride: Double? = nil
+    var spouseMedicarePartDOverride: Double? = nil
+    var yourMedigapOverride: Double? = nil
+    var spouseMedigapOverride: Double? = nil
+    var yourAdvantageOverride: Double? = nil
+    var spouseAdvantageOverride: Double? = nil
 
     // MARK: - 1.9 ACA Marketplace Modeling
 
-    @Published var enableACAModeling: Bool = false
-    @Published var acaHouseholdSize: Int = 1
-    @Published var acaBenchmarkSilverPlanMonthlyOverride: Double? = nil
+    var enableACAModeling: Bool = false
+    var acaHouseholdSize: Int = 1
+    var acaBenchmarkSilverPlanMonthlyOverride: Double? = nil
 
     // MARK: - Reset
 

@@ -882,18 +882,20 @@ class DataManager: ObservableObject {
         self.currentTaxBrackets = DataManager.default2026Brackets
 
         // Forward child manager objectWillChange to DataManager
-        profile.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &managerCancellables)
+        // SPIKE-DISABLE: profile is now @Observable — no objectWillChange publisher.
+        // profile.objectWillChange.sink { [weak self] _ in
+        //     self?.objectWillChange.send()
+        // }.store(in: &managerCancellables)
         accounts.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &managerCancellables)
         incomeDeductions.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &managerCancellables)
-        scenario.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &managerCancellables)
+        // SPIKE-DISABLE: scenario is now @Observable — no objectWillChange publisher.
+        // scenario.objectWillChange.sink { [weak self] _ in
+        //     self?.objectWillChange.send()
+        // }.store(in: &managerCancellables)
         growthRates.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &managerCancellables)
@@ -905,30 +907,34 @@ class DataManager: ObservableObject {
         }.store(in: &managerCancellables)
 
         // Re-sync SS income sources when birth dates change (affects age-gating, FRA, spousal top-up).
-        // Uses receive(on:) to defer to next run loop — @Published fires on willSet, so the new
-        // value isn't yet stored when the sink fires. Deferring ensures syncSSToIncomeSources()
-        // reads the updated birthDate.
-        profile.$birthDate
-            .dropFirst() // Skip initial value during init
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.syncSSToIncomeSources() }
-            .store(in: &managerCancellables)
-        profile.$spouseBirthDate
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.syncSSToIncomeSources() }
-            .store(in: &managerCancellables)
-        profile.$enableSpouse
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.syncSSToIncomeSources() }
-            .store(in: &managerCancellables)
+        // SPIKE: profile is @Observable now — Combine `$birthDate` publishers no longer exist.
+        // Use withObservationTracking which fires once per change; re-arm after each fire.
+        // Deferred via Task { @MainActor in } so the new value is committed before sync runs.
+        observeProfileBirthFields()
 
         guard !skipPersistence else { return }
         PersistenceManager.loadAll(into: self)
 
         // Re-sync SS income sources on startup so spousal top-up and age gating are current
         syncSSToIncomeSources()
+    }
+
+    // SPIKE(observable): replaces profile.$birthDate / $spouseBirthDate / $enableSpouse Combine
+    // sinks. withObservationTracking fires once when any tracked read changes, so we re-arm
+    // after each fire to maintain the equivalent of a "publisher". Deferred via Task so the
+    // new value is committed before syncSSToIncomeSources() reads it.
+    private func observeProfileBirthFields() {
+        withObservationTracking {
+            _ = profile.birthDate
+            _ = profile.spouseBirthDate
+            _ = profile.enableSpouse
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.syncSSToIncomeSources()
+                self.observeProfileBirthFields()
+            }
+        }
     }
 
     func saveTaxBrackets() {
