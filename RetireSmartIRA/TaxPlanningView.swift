@@ -3133,163 +3133,8 @@ struct TaxPlanningView: View {
     // Intentionally ad-hoc: MetricCard doesn't fit — multi-row tax breakdown with conditional sections
     // (deduction status, before/after columns, tax impact). Detailed analysis card, not a metric.
     // See docs/superpowers/specs/2026-04-30-metriccard-sweep-design.md §3.
-    @ViewBuilder
     private var scenarioSummaryCard: some View {
-        if dataManager.hasActiveScenario {
-            let beforeTaxable = max(0, dataManager.scenarioBaseIncome - dataManager.effectiveDeductionAmount)
-            let afterTaxable = dataManager.scenarioTaxableIncome
-            let beforeFedTax = dataManager.calculateFederalTax(income: beforeTaxable, filingStatus: dataManager.filingStatus)
-            let beforeStateTax = dataManager.calculateStateTax(income: beforeTaxable, filingStatus: dataManager.filingStatus)
-            let beforeTotalTax = beforeFedTax + beforeStateTax
-            let afterTotalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
-            let additionalTax = afterTotalTax - beforeTotalTax
-            let additionalIncome = afterTaxable - beforeTaxable
-            let isItemizing = dataManager.scenarioEffectiveItemize
-            let switchedToItemized = isItemizing && dataManager.baseItemizedDeductions < dataManager.standardDeductionAmount
-
-            VStack(alignment: .leading, spacing: 14) {
-                // Header
-                HStack(spacing: 10) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.UI.brandTeal.opacity(0.85), Color.Chart.heroTeal.opacity(0.85)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 40, height: 40)
-                        Image(systemName: "doc.text.magnifyingglass")
-                            .font(.title3)
-                            .foregroundStyle(.white)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Scenario Summary")
-                            .font(.headline)
-                        Text("Impact of your scenario decisions")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-
-                // Taxable Income Before → After
-                HStack {
-                    Text("Taxable Income")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(beforeTaxable, format: .currency(code: "USD").precision(.fractionLength(0)))
-                        .font(.subheadline)
-                    Image(systemName: "arrow.right")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text(afterTaxable, format: .currency(code: "USD").precision(.fractionLength(0)))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(afterTaxable > beforeTaxable ? Color.UI.textPrimary : Color.Semantic.green)
-                }
-
-                // Deduction Status
-                VStack(alignment: .leading, spacing: 4) {
-                    if switchedToItemized {
-                        // Show before → after with explanation
-                        HStack {
-                            Text("Deduction")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text("Standard \(dataManager.standardDeductionAmount, format: .currency(code: "USD").precision(.fractionLength(0)))")
-                                .font(.subheadline)
-                            Image(systemName: "arrow.right")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text("Itemized \(dataManager.totalItemizedDeductions, format: .currency(code: "USD").precision(.fractionLength(0)))")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(Color.UI.brandTeal)
-                        }
-                        let extraDeduction = dataManager.totalItemizedDeductions - dataManager.standardDeductionAmount
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.UI.brandTeal)
-                                .font(.caption2)
-                            Text("Charitable giving triggers itemizing — \(extraDeduction, format: .currency(code: "USD").precision(.fractionLength(0))) more in deductions")
-                                .font(.caption)
-                                .foregroundStyle(Color.UI.brandTeal)
-                        }
-                    } else {
-                        HStack {
-                            Text("Deduction")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(isItemizing ? "Itemized" : "Standard")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            Text(dataManager.effectiveDeductionAmount, format: .currency(code: "USD").precision(.fractionLength(0)))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                Divider()
-
-                // Total Additional Tax
-                HStack {
-                    Text("Additional Tax from Scenario")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text(additionalTax, format: .currency(code: "USD").precision(.fractionLength(0)))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(additionalTax > 0 ? Color.UI.textPrimary : Color.Semantic.green)
-                }
-
-                // Effective Rate on Scenario Income
-                if additionalIncome > 0, let analysis = scenarioAnalysis {
-                    HStack {
-                        Text("Effective Rate on Scenario")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        let combinedRate = analysis.federalEffectiveRate + analysis.stateEffectiveRate
-                        Text(String(format: "%.1f%%", combinedRate * 100))
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        Text(String(format: "(Fed %.1f%% + %@ %.1f%%)", analysis.federalEffectiveRate * 100, dataManager.selectedState.abbreviation, analysis.stateEffectiveRate * 100))
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if dataManager.medicareMemberCount > 0 {
-                        Text("Effective rate reflects federal + state income tax. IRMAA surcharges are shown separately \u{2014} they apply to Medicare premiums 2 years from now.")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .italic()
-                    }
-                }
-            }
-            .padding()
-            .background(Color(PlatformColor.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.UI.brandTeal.opacity(0.3), Color.Chart.heroTeal.opacity(0.3)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
-        }
+        ScenarioSummaryCard()
     }
 
     // MARK: - Rate Breakdown Section
@@ -3758,6 +3603,209 @@ struct TaxPlanningView: View {
             .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
+    }
+}
+
+// MARK: - Scenario Summary Card (extracted to break parent body type-check load)
+
+struct ScenarioSummaryCard: View {
+    @Environment(DataManager.self) var dataManager
+
+    private var scenarioAnalysis: ScenarioTaxAnalysis? {
+        let totalRothConversion = dataManager.yourRothConversion + (dataManager.enableSpouse ? dataManager.spouseRothConversion : 0)
+        let totalExtraWithdrawal = dataManager.yourExtraWithdrawal + (dataManager.enableSpouse ? dataManager.spouseExtraWithdrawal : 0)
+        let combinedRMD: Double = {
+            var rmd = 0.0
+            if dataManager.isRMDRequired { rmd += dataManager.calculatePrimaryRMD() }
+            if dataManager.enableSpouse && dataManager.spouseIsRMDRequired { rmd += dataManager.calculateSpouseRMD() }
+            return rmd
+        }()
+        let qcdEligible = dataManager.isQCDEligible || (dataManager.enableSpouse && dataManager.spouseIsQCDEligible)
+        let totalQCD = dataManager.yourQCDAmount + (dataManager.enableSpouse ? dataManager.spouseQCDAmount : 0)
+        let stockCV = dataManager.stockCurrentValue
+        let hasAnyCharitable = totalQCD > 0 || (dataManager.stockDonationEnabled && stockCV > 0) || dataManager.cashDonationAmount > 0
+        let rmdTaxableAfterQCD = max(0, combinedRMD - (qcdEligible ? totalQCD : 0))
+        let totalWithdrawals = rmdTaxableAfterQCD + totalExtraWithdrawal
+        let totalDistribution = totalRothConversion + totalWithdrawals
+        guard totalDistribution > 0 || hasAnyCharitable else { return nil }
+        return dataManager.analyzeScenario(
+            baseIncome: dataManager.taxableIncome(filingStatus: dataManager.filingStatus),
+            scenarioIncome: dataManager.scenarioTaxableIncome
+        )
+    }
+
+    var body: some View {
+        if dataManager.hasActiveScenario {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        let beforeTaxable = max(0, dataManager.scenarioBaseIncome - dataManager.effectiveDeductionAmount)
+        let afterTaxable = dataManager.scenarioTaxableIncome
+        let beforeFedTax = dataManager.calculateFederalTax(income: beforeTaxable, filingStatus: dataManager.filingStatus)
+        let beforeStateTax = dataManager.calculateStateTax(income: beforeTaxable, filingStatus: dataManager.filingStatus)
+        let beforeTotalTax = beforeFedTax + beforeStateTax
+        let afterTotalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
+        let additionalTax = afterTotalTax - beforeTotalTax
+        let additionalIncome = afterTaxable - beforeTaxable
+        let isItemizing = dataManager.scenarioEffectiveItemize
+        let switchedToItemized = isItemizing && dataManager.baseItemizedDeductions < dataManager.standardDeductionAmount
+
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            taxableIncomeRow(before: beforeTaxable, after: afterTaxable)
+            deductionStatus(isItemizing: isItemizing, switchedToItemized: switchedToItemized)
+            Divider()
+            additionalTaxRow(additionalTax: additionalTax)
+            effectiveRateRow(additionalIncome: additionalIncome)
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.UI.brandTeal.opacity(0.3), Color.Chart.heroTeal.opacity(0.3)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.UI.brandTeal.opacity(0.85), Color.Chart.heroTeal.opacity(0.85)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.title3)
+                    .foregroundStyle(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Scenario Summary")
+                    .font(.headline)
+                Text("Impact of your scenario decisions")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+    }
+
+    private func taxableIncomeRow(before beforeTaxable: Double, after afterTaxable: Double) -> some View {
+        HStack {
+            Text("Taxable Income")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(beforeTaxable, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.subheadline)
+            Image(systemName: "arrow.right")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(afterTaxable, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(afterTaxable > beforeTaxable ? Color.UI.textPrimary : Color.Semantic.green)
+        }
+    }
+
+    @ViewBuilder
+    private func deductionStatus(isItemizing: Bool, switchedToItemized: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if switchedToItemized {
+                HStack {
+                    Text("Deduction")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("Standard \(dataManager.standardDeductionAmount, format: .currency(code: "USD").precision(.fractionLength(0)))")
+                        .font(.subheadline)
+                    Image(systemName: "arrow.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("Itemized \(dataManager.totalItemizedDeductions, format: .currency(code: "USD").precision(.fractionLength(0)))")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.UI.brandTeal)
+                }
+                let extraDeduction = dataManager.totalItemizedDeductions - dataManager.standardDeductionAmount
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.UI.brandTeal)
+                        .font(.caption2)
+                    Text("Charitable giving triggers itemizing — \(extraDeduction, format: .currency(code: "USD").precision(.fractionLength(0))) more in deductions")
+                        .font(.caption)
+                        .foregroundStyle(Color.UI.brandTeal)
+                }
+            } else {
+                HStack {
+                    Text("Deduction")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(isItemizing ? "Itemized" : "Standard")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(dataManager.effectiveDeductionAmount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func additionalTaxRow(additionalTax: Double) -> some View {
+        HStack {
+            Text("Additional Tax from Scenario")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            Spacer()
+            Text(additionalTax, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundStyle(additionalTax > 0 ? Color.UI.textPrimary : Color.Semantic.green)
+        }
+    }
+
+    @ViewBuilder
+    private func effectiveRateRow(additionalIncome: Double) -> some View {
+        if additionalIncome > 0, let analysis = scenarioAnalysis {
+            HStack {
+                Text("Effective Rate on Scenario")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                let combinedRate = analysis.federalEffectiveRate + analysis.stateEffectiveRate
+                Text(String(format: "%.1f%%", combinedRate * 100))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text(String(format: "(Fed %.1f%% + %@ %.1f%%)", analysis.federalEffectiveRate * 100, dataManager.selectedState.abbreviation, analysis.stateEffectiveRate * 100))
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+
+            if dataManager.medicareMemberCount > 0 {
+                Text("Effective rate reflects federal + state income tax. IRMAA surcharges are shown separately \u{2014} they apply to Medicare premiums 2 years from now.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .italic()
+            }
         }
     }
 }
