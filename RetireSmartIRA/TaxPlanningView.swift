@@ -1091,97 +1091,7 @@ struct TaxPlanningView: View {
         }
     }
 
-    // MARK: - Chart 4: Tax Impact Waterfall
-
-    private struct WaterfallBar: Identifiable {
-        let id = UUID()
-        let label: String
-        let yStart: Double
-        let yEnd: Double
-        let color: Color
-        let isTotal: Bool
-    }
-
-    private var waterfallBars: [WaterfallBar] {
-        var bars: [WaterfallBar] = []
-
-        // Compute base tax (tax before any scenario decisions)
-        let rothImpact = dataManager.rothConversionTaxImpact
-        let rothIRMAA = dataManager.rothConversionIRMAAImpact
-        let wdlImpact = dataManager.extraWithdrawalTaxImpact
-        let wdlIRMAA = dataManager.extraWithdrawalIRMAAImpact
-        let inhImpact = dataManager.inheritedExtraWithdrawalTaxImpact
-        let inhIRMAA = dataManager.inheritedExtraWithdrawalIRMAAImpact
-        let qcdSavings = dataManager.qcdTaxSavings
-        let qcdIRMAA = dataManager.qcdIRMAASavings
-        let stockSavings = dataManager.stockDeductionTaxSavings
-        let cashSavings = dataManager.cashDonationTaxSavings
-
-        let finalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
-        let baseTax = finalTax
-            - (rothImpact + rothIRMAA)
-            - (wdlImpact + wdlIRMAA)
-            - (inhImpact + inhIRMAA)
-            + (qcdSavings + qcdIRMAA)
-            + stockSavings
-            + cashSavings
-
-        // Base bar
-        bars.append(WaterfallBar(label: "Base Tax", yStart: 0, yEnd: baseTax, color: Color.Chart.heroTeal, isTotal: true))
-
-        var runningTotal = baseTax
-
-        // Costs (go UP)
-        let rothTotal = rothImpact + rothIRMAA
-        if rothTotal > 0 {
-            bars.append(WaterfallBar(label: "Roth", yStart: runningTotal, yEnd: runningTotal + rothTotal, color: Color.UI.brandTeal, isTotal: false))
-            runningTotal += rothTotal
-        }
-
-        let wdlTotal = wdlImpact + wdlIRMAA
-        if wdlTotal > 0 {
-            bars.append(WaterfallBar(label: "Withdrawals", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: Color.Chart.callout, isTotal: false))
-            runningTotal += wdlTotal
-        }
-
-        let inhTotal = inhImpact + inhIRMAA
-        if inhTotal > 0 {
-            bars.append(WaterfallBar(label: "Inherited", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: Color.Chart.gray2, isTotal: false))
-            runningTotal += inhTotal
-        }
-
-        // Savings (go DOWN)
-        let qcdTotal = qcdSavings + qcdIRMAA
-        if qcdTotal > 0 {
-            bars.append(WaterfallBar(label: "QCD", yStart: runningTotal, yEnd: runningTotal - qcdTotal, color: Color.Semantic.green, isTotal: false))
-            runningTotal -= qcdTotal
-        }
-
-        if stockSavings > 0 {
-            bars.append(WaterfallBar(label: "Stock", yStart: runningTotal, yEnd: runningTotal - stockSavings, color: Color.Chart.gray4, isTotal: false))
-            runningTotal -= stockSavings
-        }
-
-        if cashSavings > 0 {
-            bars.append(WaterfallBar(label: "Cash", yStart: runningTotal, yEnd: runningTotal - cashSavings, color: Color.Chart.gray1, isTotal: false))
-            runningTotal -= cashSavings
-        }
-
-        // Final bar
-        bars.append(WaterfallBar(label: "Final Tax", yStart: 0, yEnd: finalTax, color: Color.Chart.heroTeal.opacity(0.8), isTotal: true))
-
-        return bars
-    }
-
-    private func waterfallYAxisLabel(_ amount: Double) -> String {
-        if amount >= 1_000_000 {
-            return "$\(String(format: "%.1f", amount / 1_000_000))M"
-        } else if amount >= 1000 {
-            return "$\(Int(amount / 1000))K"
-        } else {
-            return "$\(Int(amount))"
-        }
-    }
+    // MARK: - Chart 4: Tax Impact Waterfall (extracted to TaxImpactWaterfallChart struct)
 
     /// Returns the household-level dollar amount of additional Roth conversion that
     /// would cross the ACA premium-subsidy cliff, or nil when the cliff is irrelevant.
@@ -1199,104 +1109,8 @@ struct TaxPlanningView: View {
         return dollarsToCliff
     }
 
-    @ViewBuilder
     private var taxImpactWaterfallChart: some View {
-        if dataManager.hasActiveScenario {
-            let bars = waterfallBars
-            // Only show if there are decision bars (more than just base + final)
-            if bars.count > 2 {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Header
-                    HStack(spacing: 10) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.UI.brandTeal.opacity(0.85), Color.Chart.heroTeal.opacity(0.85)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 40, height: 40)
-                            Image(systemName: "arrow.up.arrow.down")
-                                .font(.title3)
-                                .foregroundStyle(.white)
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Tax Impact Waterfall")
-                                .font(.headline)
-                            Text("How each decision affects your total tax")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-                    }
-
-                    // Waterfall chart
-                    Chart(bars) { bar in
-                        BarMark(
-                            x: .value("Decision", bar.label),
-                            yStart: .value("Start", bar.yStart),
-                            yEnd: .value("End", bar.yEnd)
-                        )
-                        .foregroundStyle(bar.color)
-                        .cornerRadius(3)
-                        .annotation(position: .overlay) {
-                            let amount = abs(bar.yEnd - bar.yStart)
-                            if amount > 0 {
-                                let isSavings = bar.yEnd < bar.yStart && !bar.isTotal
-                                Text("\(isSavings ? "-" : "")\(waterfallYAxisLabel(amount))")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .minimumScaleFactor(0.5)
-                                    .lineLimit(1)
-                                    .shadow(color: .black.opacity(0.5), radius: 1)
-                            }
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks(position: .leading) { value in
-                            AxisValueLabel {
-                                if let amount = value.as(Double.self) {
-                                    Text(waterfallYAxisLabel(amount))
-                                        .font(.caption2)
-                                }
-                            }
-                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
-                        }
-                    }
-                    .chartXAxis {
-                        AxisMarks { value in
-                            AxisValueLabel {
-                                if let label = value.as(String.self) {
-                                    Text(label)
-                                        .font(.caption2)
-                                }
-                            }
-                        }
-                    }
-                    .frame(height: 260)
-
-                }
-                .padding()
-                .background(Color(PlatformColor.systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.UI.brandTeal.opacity(0.3), Color.Chart.heroTeal.opacity(0.3)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
-            }
-        }
+        TaxImpactWaterfallChart()
     }
 
 
@@ -3604,6 +3418,196 @@ struct TaxPlanningView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
+    }
+}
+
+// MARK: - Tax Impact Waterfall Chart (extracted)
+
+struct TaxImpactWaterfallChart: View {
+    @Environment(DataManager.self) var dataManager
+
+    private struct WaterfallBar: Identifiable {
+        let id = UUID()
+        let label: String
+        let yStart: Double
+        let yEnd: Double
+        let color: Color
+        let isTotal: Bool
+    }
+
+    private var waterfallBars: [WaterfallBar] {
+        var bars: [WaterfallBar] = []
+
+        let rothImpact = dataManager.rothConversionTaxImpact
+        let rothIRMAA = dataManager.rothConversionIRMAAImpact
+        let wdlImpact = dataManager.extraWithdrawalTaxImpact
+        let wdlIRMAA = dataManager.extraWithdrawalIRMAAImpact
+        let inhImpact = dataManager.inheritedExtraWithdrawalTaxImpact
+        let inhIRMAA = dataManager.inheritedExtraWithdrawalIRMAAImpact
+        let qcdSavings = dataManager.qcdTaxSavings
+        let qcdIRMAA = dataManager.qcdIRMAASavings
+        let stockSavings = dataManager.stockDeductionTaxSavings
+        let cashSavings = dataManager.cashDonationTaxSavings
+
+        let finalTax = dataManager.scenarioTotalTax + dataManager.scenarioIRMAATotalSurcharge
+        let baseTax = finalTax
+            - (rothImpact + rothIRMAA)
+            - (wdlImpact + wdlIRMAA)
+            - (inhImpact + inhIRMAA)
+            + (qcdSavings + qcdIRMAA)
+            + stockSavings
+            + cashSavings
+
+        bars.append(WaterfallBar(label: "Base Tax", yStart: 0, yEnd: baseTax, color: Color.Chart.heroTeal, isTotal: true))
+
+        var runningTotal = baseTax
+
+        let rothTotal = rothImpact + rothIRMAA
+        if rothTotal > 0 {
+            bars.append(WaterfallBar(label: "Roth", yStart: runningTotal, yEnd: runningTotal + rothTotal, color: Color.UI.brandTeal, isTotal: false))
+            runningTotal += rothTotal
+        }
+
+        let wdlTotal = wdlImpact + wdlIRMAA
+        if wdlTotal > 0 {
+            bars.append(WaterfallBar(label: "Withdrawals", yStart: runningTotal, yEnd: runningTotal + wdlTotal, color: Color.Chart.callout, isTotal: false))
+            runningTotal += wdlTotal
+        }
+
+        let inhTotal = inhImpact + inhIRMAA
+        if inhTotal > 0 {
+            bars.append(WaterfallBar(label: "Inherited", yStart: runningTotal, yEnd: runningTotal + inhTotal, color: Color.Chart.gray2, isTotal: false))
+            runningTotal += inhTotal
+        }
+
+        let qcdTotal = qcdSavings + qcdIRMAA
+        if qcdTotal > 0 {
+            bars.append(WaterfallBar(label: "QCD", yStart: runningTotal, yEnd: runningTotal - qcdTotal, color: Color.Semantic.green, isTotal: false))
+            runningTotal -= qcdTotal
+        }
+
+        if stockSavings > 0 {
+            bars.append(WaterfallBar(label: "Stock", yStart: runningTotal, yEnd: runningTotal - stockSavings, color: Color.Chart.gray4, isTotal: false))
+            runningTotal -= stockSavings
+        }
+
+        if cashSavings > 0 {
+            bars.append(WaterfallBar(label: "Cash", yStart: runningTotal, yEnd: runningTotal - cashSavings, color: Color.Chart.gray1, isTotal: false))
+            runningTotal -= cashSavings
+        }
+
+        bars.append(WaterfallBar(label: "Final Tax", yStart: 0, yEnd: finalTax, color: Color.Chart.heroTeal.opacity(0.8), isTotal: true))
+
+        return bars
+    }
+
+    private func yAxisLabel(_ amount: Double) -> String {
+        if amount >= 1_000_000 {
+            return "$\(String(format: "%.1f", amount / 1_000_000))M"
+        } else if amount >= 1000 {
+            return "$\(Int(amount / 1000))K"
+        } else {
+            return "$\(Int(amount))"
+        }
+    }
+
+    var body: some View {
+        if dataManager.hasActiveScenario {
+            let bars = waterfallBars
+            if bars.count > 2 {
+                content(bars: bars)
+            }
+        }
+    }
+
+    private func content(bars: [WaterfallBar]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.UI.brandTeal.opacity(0.85), Color.Chart.heroTeal.opacity(0.85)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Tax Impact Waterfall")
+                        .font(.headline)
+                    Text("How each decision affects your total tax")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+
+            Chart(bars) { bar in
+                BarMark(
+                    x: .value("Decision", bar.label),
+                    yStart: .value("Start", bar.yStart),
+                    yEnd: .value("End", bar.yEnd)
+                )
+                .foregroundStyle(bar.color)
+                .cornerRadius(3)
+                .annotation(position: .overlay) {
+                    let amount = abs(bar.yEnd - bar.yStart)
+                    if amount > 0 {
+                        let isSavings = bar.yEnd < bar.yStart && !bar.isTotal
+                        Text("\(isSavings ? "-" : "")\(yAxisLabel(amount))")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                            .shadow(color: .black.opacity(0.5), radius: 1)
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisValueLabel {
+                        if let amount = value.as(Double.self) {
+                            Text(yAxisLabel(amount))
+                                .font(.caption2)
+                        }
+                    }
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                }
+            }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let label = value.as(String.self) {
+                            Text(label)
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 260)
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.UI.brandTeal.opacity(0.3), Color.Chart.heroTeal.opacity(0.3)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
     }
 }
 
