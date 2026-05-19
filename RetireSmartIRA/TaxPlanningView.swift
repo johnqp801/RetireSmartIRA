@@ -472,20 +472,19 @@ struct TaxPlanningView: View {
         )
     }
 
+    @ViewBuilder
     private var compactInputsGroup: some View {
-        AnyView(Group {
-            summaryCard
-            irmaaRunwayBanner
-            opportunityWindowSection
-            // AGI-reducers-first flow (Ron feedback): reduce AGI first, then add income strategically
-            preTaxContributionsCard
-            charitableCard
-            charitableGuideCard
-            withdrawalCard
-            inheritedWithdrawalCard
-            rothConversionCard
-            rothConversionGuideCard
-        })
+        summaryCard
+        irmaaRunwayBanner
+        opportunityWindowSection
+        // AGI-reducers-first flow (Ron feedback): reduce AGI first, then add income strategically
+        preTaxContributionsCard
+        charitableCard
+        charitableGuideCard
+        withdrawalCard
+        inheritedWithdrawalCard
+        rothConversionCard
+        rothConversionGuideCard
     }
 
     // MARK: - 0% LTCG Harvesting Card (1.8.2 L2)
@@ -510,20 +509,19 @@ struct TaxPlanningView: View {
         }
     }
 
+    @ViewBuilder
     private var compactResultsGroup: some View {
-        AnyView(Group {
-            scenarioSummaryCard
-            taxImpactWaterfallChart
-            scenarioCharts
-            ltcgHarvestingCard
-            heirTaxComparisonCard
-            legacyImpactCard
-            perDecisionImpact
-            strategyTipsSection
-            if dataManager.hasActiveScenario {
-                viewTaxSummaryCTA
-            }
-        })
+        scenarioSummaryCard
+        taxImpactWaterfallChart
+        scenarioCharts
+        ltcgHarvestingCard
+        heirTaxComparisonCard
+        legacyImpactCard
+        perDecisionImpact
+        strategyTipsSection
+        if dataManager.hasActiveScenario {
+            viewTaxSummaryCTA
+        }
     }
 
     // MARK: - View Tax Summary CTA
@@ -584,43 +582,39 @@ struct TaxPlanningView: View {
 
     // MARK: - Wide Body Sub-Groups (reduce SwiftUI view nesting depth)
 
+    @ViewBuilder
     private var wideLeftGroupA: some View {
-        AnyView(Group {
-            summaryCard
-            irmaaRunwayBanner
-            opportunityWindowSection
-            preTaxContributionsCard
-            charitableCard
-            charitableGuideCard
-        })
+        summaryCard
+        irmaaRunwayBanner
+        opportunityWindowSection
+        preTaxContributionsCard
+        charitableCard
+        charitableGuideCard
     }
 
+    @ViewBuilder
     private var wideLeftGroupB: some View {
-        AnyView(Group {
-            withdrawalCard
-            inheritedWithdrawalCard
-            rothConversionCard
-            rothConversionGuideCard
-        })
+        withdrawalCard
+        inheritedWithdrawalCard
+        rothConversionCard
+        rothConversionGuideCard
     }
 
+    @ViewBuilder
     private var wideRightGroupA: some View {
-        AnyView(Group {
-            scenarioSummaryCard
-            taxImpactWaterfallChart
-            scenarioCharts
-            ltcgHarvestingCard
-            heirTaxComparisonCard
-        })
+        scenarioSummaryCard
+        taxImpactWaterfallChart
+        scenarioCharts
+        ltcgHarvestingCard
+        heirTaxComparisonCard
     }
 
+    @ViewBuilder
     private var wideRightGroupB: some View {
-        AnyView(Group {
-            legacyImpactCard
-            perDecisionImpact
-            strategyTipsSection
-            emptyAnalysisPlaceholder
-        })
+        legacyImpactCard
+        perDecisionImpact
+        strategyTipsSection
+        emptyAnalysisPlaceholder
     }
 
     /// Reusable sheet wrapper with NavigationStack, title, and Done button
@@ -1866,7 +1860,7 @@ struct TaxPlanningView: View {
     // MARK: - Collapsed Summary Cards (open sheets on tap)
 
     private var rothConversionCard: some View {
-        AnyView(VStack(spacing: 0) {
+        VStack(spacing: 0) {
             ScenarioStepCard(
                 stepNumber: rothStepNumber,
                 title: "Roth Conversions",
@@ -1889,7 +1883,7 @@ struct TaxPlanningView: View {
                 .padding(.top, -8)
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
-        })
+        }
     }
 
     // MARK: - Why Consider Roth Conversions Guide
@@ -2143,7 +2137,7 @@ struct TaxPlanningView: View {
     }
 
     private var withdrawalCard: some View {
-        AnyView(VStack(spacing: 0) {
+        VStack(spacing: 0) {
             ScenarioStepCard(
                 stepNumber: withdrawalStepNumber,
                 title: "IRA/401(k) Withdrawals",
@@ -2166,7 +2160,7 @@ struct TaxPlanningView: View {
                 .padding(.top, -8)
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
-        })
+        }
     }
 
     @ViewBuilder
@@ -2196,7 +2190,7 @@ struct TaxPlanningView: View {
     @ViewBuilder
     private var inheritedWithdrawalCard: some View {
         if dataManager.hasInheritedAccounts {
-            AnyView(VStack(spacing: 0) {
+            VStack(spacing: 0) {
                 ScenarioStepCard(
                     stepNumber: inheritedWithdrawalStepNumber,
                     title: "Inherited IRA Withdrawals",
@@ -2219,7 +2213,7 @@ struct TaxPlanningView: View {
                     .padding(.top, -8)
                     .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                 }
-            })
+            }
         }
     }
 
@@ -2255,7 +2249,7 @@ struct TaxPlanningView: View {
     }
 
     private var charitableCard: some View {
-        AnyView(VStack(spacing: 0) {
+        VStack(spacing: 0) {
             ScenarioStepCard(
                 stepNumber: charitableStepNumber,
                 title: "Charitable Contributions",
@@ -2278,7 +2272,7 @@ struct TaxPlanningView: View {
                 .padding(.top, -8)
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
-        })
+        }
     }
 
     @ViewBuilder
@@ -2917,7 +2911,7 @@ struct TaxPlanningView: View {
     // MARK: - Pre-tax Contributions Card (401k)
 
     private var preTaxContributionsCard: some View {
-        AnyView(VStack(spacing: 0) {
+        VStack(spacing: 0) {
             ScenarioStepCard(
                 stepNumber: preTaxContributionsStepNumberValue,
                 title: "Pre-tax Contributions",
@@ -2940,7 +2934,7 @@ struct TaxPlanningView: View {
                 .padding(.top, -8)
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
-        })
+        }
     }
 
     @ViewBuilder
