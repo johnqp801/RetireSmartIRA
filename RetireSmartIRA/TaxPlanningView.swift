@@ -2677,92 +2677,7 @@ struct TaxPlanningView: View {
     }
 
     private var charitableGuideSheet: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Section 1: Traditional Deductions & Roth Strategy
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Traditional Charitable Deductions", systemImage: "gift.fill")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.Semantic.green)
-
-                        Text("Charitable giving can play a useful role in managing taxes and smoothing income over time, especially for retirees who are trying to stay within a specific tax bracket while doing Roth conversions. Traditional charitable contributions\u{2014}whether made in cash or appreciated stock\u{2014}generally reduce taxable income if you itemize deductions. By lowering taxable income, these deductions can create additional \u{201C}room\u{201D} within a tax bracket, which can allow you to convert more money from a traditional IRA to a Roth IRA without moving into a higher marginal tax rate.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding()
-                    .background(Color(PlatformColor.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
-
-                    // Section 2: Appreciated Stock
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Donating Appreciated Stock", systemImage: "chart.line.uptrend.xyaxis.circle.fill")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.UI.brandTeal)
-
-                        Text("Donating appreciated stock can be particularly efficient because you typically receive a charitable deduction equal to the market value of the shares while avoiding the capital gains tax that would have been owed if the stock were sold. This makes stock donations a powerful way to support charities while simultaneously reducing the taxable income reported on your return. Cash donations work similarly from a deduction standpoint, though they do not provide the added benefit of eliminating embedded capital gains.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding()
-                    .background(Color(PlatformColor.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
-
-                    // Section 3: QCDs
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Qualified Charitable Distributions (QCDs)", systemImage: "heart.circle.fill")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.Semantic.green)
-
-                        Text("For retirees over age 70\u{00BD}, Qualified Charitable Distributions (QCDs) from an IRA offer an even more powerful planning tool. A QCD sends funds directly from the IRA to a charity and the distribution is excluded from taxable income, even though it can count toward satisfying required minimum distributions (RMDs). Because the distribution never appears in adjusted gross income (AGI), QCDs can reduce both taxable income and modified AGI, which may help manage tax brackets and potentially reduce exposure to IRMAA Medicare surcharges.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding()
-                    .background(Color(PlatformColor.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
-
-                    // Section 4: Combined Strategy
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Combining Strategies", systemImage: "arrow.triangle.merge")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.UI.brandTeal)
-
-                        Text("Used strategically, a combination of charitable deductions, appreciated stock donations, and QCDs can help manage income levels while creating more flexibility to perform Roth conversions within a targeted tax bracket.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding()
-                    .background(Color(PlatformColor.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
-                }
-                .padding()
-            }
-            .background(Color(PlatformColor.systemGroupedBackground))
-            .navigationTitle("Contribution Tax Impact")
-            #if os(iOS)
-            #if !os(macOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showCharitableGuide = false }
-                }
-            }
-        }
+        CharitableGuideSheet(isPresented: $showCharitableGuide)
     }
 
     // MARK: - Tax Impact Section
@@ -3431,6 +3346,79 @@ struct TaxImpactWaterfallChart: View {
                 )
         )
         .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+    }
+}
+
+// MARK: - Charitable Guide Sheet (extracted — static content + dismiss binding)
+
+struct CharitableGuideSheet: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    section(
+                        title: "Traditional Charitable Deductions",
+                        icon: "gift.fill",
+                        tint: Color.Semantic.green,
+                        body: "Charitable giving can play a useful role in managing taxes and smoothing income over time, especially for retirees who are trying to stay within a specific tax bracket while doing Roth conversions. Traditional charitable contributions\u{2014}whether made in cash or appreciated stock\u{2014}generally reduce taxable income if you itemize deductions. By lowering taxable income, these deductions can create additional \u{201C}room\u{201D} within a tax bracket, which can allow you to convert more money from a traditional IRA to a Roth IRA without moving into a higher marginal tax rate."
+                    )
+
+                    section(
+                        title: "Donating Appreciated Stock",
+                        icon: "chart.line.uptrend.xyaxis.circle.fill",
+                        tint: Color.UI.brandTeal,
+                        body: "Donating appreciated stock can be particularly efficient because you typically receive a charitable deduction equal to the market value of the shares while avoiding the capital gains tax that would have been owed if the stock were sold. This makes stock donations a powerful way to support charities while simultaneously reducing the taxable income reported on your return. Cash donations work similarly from a deduction standpoint, though they do not provide the added benefit of eliminating embedded capital gains."
+                    )
+
+                    section(
+                        title: "Qualified Charitable Distributions (QCDs)",
+                        icon: "heart.circle.fill",
+                        tint: Color.Semantic.green,
+                        body: "For retirees over age 70\u{00BD}, Qualified Charitable Distributions (QCDs) from an IRA offer an even more powerful planning tool. A QCD sends funds directly from the IRA to a charity and the distribution is excluded from taxable income, even though it can count toward satisfying required minimum distributions (RMDs). Because the distribution never appears in adjusted gross income (AGI), QCDs can reduce both taxable income and modified AGI, which may help manage tax brackets and potentially reduce exposure to IRMAA Medicare surcharges."
+                    )
+
+                    section(
+                        title: "Combining Strategies",
+                        icon: "arrow.triangle.merge",
+                        tint: Color.UI.brandTeal,
+                        body: "Used strategically, a combination of charitable deductions, appreciated stock donations, and QCDs can help manage income levels while creating more flexibility to perform Roth conversions within a targeted tax bracket."
+                    )
+                }
+                .padding()
+            }
+            .background(Color(PlatformColor.systemGroupedBackground))
+            .navigationTitle("Contribution Tax Impact")
+            #if os(iOS)
+            #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { isPresented = false }
+                }
+            }
+        }
+    }
+
+    private func section(title: String, icon: String, tint: Color, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: icon)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(tint)
+
+            Text(body)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
     }
 }
 
