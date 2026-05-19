@@ -1745,186 +1745,9 @@ struct TaxPlanningView: View {
     }
 
     private var rothConversionGuideSheet: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-
-                    // Intro
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("For households with large Traditional IRAs, the strategy is less about minimizing this year\u{2019}s tax bill and more about managing taxes across your entire retirement.")
-                            .font(.callout)
-
-                        Text("The goal: shift money from tax-deferred accounts into tax-free accounts at favorable rates, before RMDs begin.")
-                            .font(.callout)
-                            .fontWeight(.medium)
-                            .foregroundStyle(Color.UI.textPrimary)
-                    }
-
-                    Divider()
-
-                    // Section 1: Low Tax Years
-                    rothGuideSection(
-                        number: 1,
-                        icon: "calendar.badge.clock",
-                        color: Color.Chart.tealRamp1,
-                        title: "Convert During Low-Tax Years",
-                        body: "Many retirees have a window between retirement and the start of RMDs (age 73) when taxable income is lower. Converting during these years lets you pay tax at moderate rates \u{2014} often the 22% or 24% brackets \u{2014} rather than higher rates that may apply later when RMDs stack on top of Social Security, dividends, and other income."
-                    )
-
-                    // Section 2: Fill Up Bracket
-                    rothGuideSection(
-                        number: 2,
-                        icon: "chart.bar.fill",
-                        color: Color.Chart.tealRamp2,
-                        title: "Fill Up the Current Tax Bracket",
-                        body: "Many planners recommend converting just enough each year to stay within a desired bracket \u{2014} often the top of the 24% bracket. The logic: if RMDs later push income into the 32% bracket or higher, paying 24% today is advantageous."
-                    )
-
-                    // Section 3: Surviving Spouse
-                    rothGuideSection(
-                        number: 3,
-                        icon: "person.fill.xmark",
-                        color: Color.Chart.tealRamp3,
-                        title: "Protect the Surviving Spouse",
-                        body: "When one spouse dies, the survivor files as Single, and tax brackets compress dramatically. The same income that was comfortably in the 24% bracket when filing jointly can quickly fall into the 32% bracket for a single filer. Converting while both spouses are alive lets you pay tax at joint rates and reduces future RMDs that could push the surviving spouse into higher brackets."
-                    )
-
-                    // Section 4: Better for Heirs
-                    rothGuideSection(
-                        number: 4,
-                        icon: "gift.fill",
-                        color: Color.Chart.tealRamp4,
-                        title: "Roth Assets Are Better for Heirs",
-                        body: "Under current law, most non-spouse heirs must withdraw inherited retirement accounts within 10 years. If they inherit a Traditional IRA, every dollar is taxable \u{2014} often at their own high marginal rates during peak earning years. If they inherit a Roth IRA, withdrawals are generally tax-free. Many families prefer leaving heirs larger Roth balances and smaller Traditional IRAs."
-                    )
-
-                    // Section 5: Reduce Future RMDs
-                    rothGuideSection(
-                        number: 5,
-                        icon: "arrow.down.right",
-                        color: Color.Chart.tealRamp5,
-                        title: "Reduce Future RMDs",
-                        body: "Every dollar moved into a Roth reduces the Traditional IRA balance that generates RMDs. This can lower lifetime taxable income, reduce the chance of hitting higher tax brackets, and potentially avoid Medicare premium surcharges (IRMAA)."
-                    )
-
-                    // Section 6: Gradual Approach
-                    rothGuideSection(
-                        number: 6,
-                        icon: "stairs",
-                        color: Color.Chart.tealRamp6,
-                        title: "Convert Gradually, Not All at Once",
-                        body: "Rather than converting everything at once, most strategies involve annual conversions over many years, carefully balancing tax brackets, Medicare premium thresholds (IRMAA), and cash available to pay the conversion tax."
-                    )
-
-                    Divider()
-
-                    // Summary callout
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("The Three Phases", systemImage: "arrow.triangle.branch")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            rothGuidePhaseRow(
-                                phase: "1",
-                                title: "Joint Lifetime",
-                                detail: "Convert at favorable joint tax rates",
-                                color: Color.Chart.tealRamp2
-                            )
-                            rothGuidePhaseRow(
-                                phase: "2",
-                                title: "Surviving Spouse",
-                                detail: "Smaller RMDs mean lower single-filer taxes",
-                                color: Color.Chart.tealRamp4
-                            )
-                            rothGuidePhaseRow(
-                                phase: "3",
-                                title: "Inheritance",
-                                detail: "Heirs receive tax-free Roth withdrawals",
-                                color: Color.Chart.tealRamp6
-                            )
-                        }
-
-                        Text("Converting portions of Traditional IRA assets to Roth before RMDs begin can smooth taxes across all three phases and shift more wealth into accounts that grow and pass to heirs tax-free.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 4)
-                    }
-                    .padding()
-                    .background(Color.UI.surfaceInset)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                    // CTA
-                    HStack(spacing: 8) {
-                        Image(systemName: "hand.point.up.left.fill")
-                            .foregroundStyle(Color.UI.brandTeal)
-                        Text("Use Step 1 above to model different Roth conversion amounts and see the tax impact in real time.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.bottom, 8)
-                }
-                .padding()
-            }
-            .background(Color(PlatformColor.systemGroupedBackground))
-            .navigationTitle("Why Consider Roth Conversions?")
-            #if os(iOS)
-            #if !os(macOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showRothGuide = false }
-                }
-            }
-        }
+        RothConversionGuideSheet(isPresented: $showRothGuide)
     }
 
-    private func rothGuideSection(number: Int, icon: String, color: Color, title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: icon)
-                        .font(.subheadline)
-                        .foregroundStyle(color)
-                }
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-            }
-            Text(body)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding()
-        .background(Color(PlatformColor.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-
-    private func rothGuidePhaseRow(phase: String, title: String, detail: String, color: Color) -> some View {
-        HStack(spacing: 12) {
-            Text(phase)
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(color)
-                .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                Text(detail)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
 
     @ViewBuilder
     private var rothSummary: some View {
@@ -3608,6 +3431,155 @@ struct TaxImpactWaterfallChart: View {
                 )
         )
         .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+    }
+}
+
+// MARK: - Roth Conversion Guide Sheet (extracted — static content + dismiss binding)
+
+struct RothConversionGuideSheet: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("For households with large Traditional IRAs, the strategy is less about minimizing this year\u{2019}s tax bill and more about managing taxes across your entire retirement.")
+                            .font(.callout)
+
+                        Text("The goal: shift money from tax-deferred accounts into tax-free accounts at favorable rates, before RMDs begin.")
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .foregroundStyle(Color.UI.textPrimary)
+                    }
+
+                    Divider()
+
+                    guideSection(number: 1, icon: "calendar.badge.clock", color: Color.Chart.tealRamp1,
+                                 title: "Convert During Low-Tax Years",
+                                 body: "Many retirees have a window between retirement and the start of RMDs (age 73) when taxable income is lower. Converting during these years lets you pay tax at moderate rates \u{2014} often the 22% or 24% brackets \u{2014} rather than higher rates that may apply later when RMDs stack on top of Social Security, dividends, and other income.")
+
+                    guideSection(number: 2, icon: "chart.bar.fill", color: Color.Chart.tealRamp2,
+                                 title: "Fill Up the Current Tax Bracket",
+                                 body: "Many planners recommend converting just enough each year to stay within a desired bracket \u{2014} often the top of the 24% bracket. The logic: if RMDs later push income into the 32% bracket or higher, paying 24% today is advantageous.")
+
+                    guideSection(number: 3, icon: "person.fill.xmark", color: Color.Chart.tealRamp3,
+                                 title: "Protect the Surviving Spouse",
+                                 body: "When one spouse dies, the survivor files as Single, and tax brackets compress dramatically. The same income that was comfortably in the 24% bracket when filing jointly can quickly fall into the 32% bracket for a single filer. Converting while both spouses are alive lets you pay tax at joint rates and reduces future RMDs that could push the surviving spouse into higher brackets.")
+
+                    guideSection(number: 4, icon: "gift.fill", color: Color.Chart.tealRamp4,
+                                 title: "Roth Assets Are Better for Heirs",
+                                 body: "Under current law, most non-spouse heirs must withdraw inherited retirement accounts within 10 years. If they inherit a Traditional IRA, every dollar is taxable \u{2014} often at their own high marginal rates during peak earning years. If they inherit a Roth IRA, withdrawals are generally tax-free. Many families prefer leaving heirs larger Roth balances and smaller Traditional IRAs.")
+
+                    guideSection(number: 5, icon: "arrow.down.right", color: Color.Chart.tealRamp5,
+                                 title: "Reduce Future RMDs",
+                                 body: "Every dollar moved into a Roth reduces the Traditional IRA balance that generates RMDs. This can lower lifetime taxable income, reduce the chance of hitting higher tax brackets, and potentially avoid Medicare premium surcharges (IRMAA).")
+
+                    guideSection(number: 6, icon: "stairs", color: Color.Chart.tealRamp6,
+                                 title: "Convert Gradually, Not All at Once",
+                                 body: "Rather than converting everything at once, most strategies involve annual conversions over many years, carefully balancing tax brackets, Medicare premium thresholds (IRMAA), and cash available to pay the conversion tax.")
+
+                    Divider()
+
+                    summaryCallout
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "hand.point.up.left.fill")
+                            .foregroundStyle(Color.UI.brandTeal)
+                        Text("Use Step 1 above to model different Roth conversion amounts and see the tax impact in real time.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.bottom, 8)
+                }
+                .padding()
+            }
+            .background(Color(PlatformColor.systemGroupedBackground))
+            .navigationTitle("Why Consider Roth Conversions?")
+            #if os(iOS)
+            #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { isPresented = false }
+                }
+            }
+        }
+    }
+
+    private var summaryCallout: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("The Three Phases", systemImage: "arrow.triangle.branch")
+                .font(.subheadline)
+                .fontWeight(.bold)
+
+            VStack(alignment: .leading, spacing: 10) {
+                phaseRow(phase: "1", title: "Joint Lifetime",
+                         detail: "Convert at favorable joint tax rates",
+                         color: Color.Chart.tealRamp2)
+                phaseRow(phase: "2", title: "Surviving Spouse",
+                         detail: "Smaller RMDs mean lower single-filer taxes",
+                         color: Color.Chart.tealRamp4)
+                phaseRow(phase: "3", title: "Inheritance",
+                         detail: "Heirs receive tax-free Roth withdrawals",
+                         color: Color.Chart.tealRamp6)
+            }
+
+            Text("Converting portions of Traditional IRA assets to Roth before RMDs begin can smooth taxes across all three phases and shift more wealth into accounts that grow and pass to heirs tax-free.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+        }
+        .padding()
+        .background(Color.UI.surfaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func guideSection(number: Int, icon: String, color: Color, title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.subheadline)
+                        .foregroundStyle(color)
+                }
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+            Text(body)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .background(Color(PlatformColor.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func phaseRow(phase: String, title: String, detail: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            Text(phase)
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(color)
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
