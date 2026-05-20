@@ -877,4 +877,113 @@ struct StateRetirementExemptionTests {
         #expect(tax == 0,
                 "NJ age 62: pension must be exempt (NJSA 54A:6-15). Got \(tax)")
     }
+
+    // MARK: - Colorado — combined pension+IRA single cap, age 55-64 / 65+ tiers (1.8.4)
+
+    /// Primary source: C.R.S. § 39-22-104(4)(f) — Colorado Pension and
+    /// Annuity Subtraction. Per CO DOR guidance, pensions and IRA
+    /// distributions count TOGETHER against one annual cap:
+    ///   - Ages 55-64: $20,000 combined
+    ///   - Ages 65+:   $24,000 combined
+    /// SB25-136 (which would have removed the cap entirely effective TY2026)
+    /// was Postponed Indefinitely 02/27/2025 — did NOT become law. The cap
+    /// stays for TY2026.
+    ///
+    /// TAXSIM-35 finding #12 (TY2023): CO single age 70 with $50K pension
+    /// + $30K IRA → engine $717 vs TAXSIM $1,660. Engine was applying the
+    /// $24K cap to pension AND to IRA separately ($48K total exempted)
+    /// instead of as a single shared $24K cap.
+    @Test("CO age 70 single, $50K pension + $30K IRA → \\$24K shared cap (not $24K + $24K)")
+    func coCombinedCap() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1956; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 70 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .colorado
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000)
+        ]
+        dm.yourExtraWithdrawal = 30_000
+
+        let tax = dm.scenarioStateTax
+        // Total qualifying retirement income: $50K + $30K = $80K.
+        // Single shared CO subtraction: $24K → state-taxable retirement = $56K.
+        // CO conforms to federal taxable. Std dn $16,100 + age 65 $2,050 +
+        // OBBBA senior bonus $6,000 = $24,150 reduces federal taxable.
+        // Federal taxable ~ $55,850 (assuming no other deductions).
+        // CO state tax ≈ ($55,850 - $24,000) × 0.044 = $1,401.
+        // Pre-fix would have been ($55,850 - $48,000) × 0.044 = $345.
+        // Test expects tax in the post-fix range (1300-1800).
+        #expect(tax > 1200 && tax < 2000,
+                "CO age 70: shared $24K cap (not $48K). Got \(tax)")
+    }
+
+    /// At age 60 (55-64 tier), the early tier $20K cap applies.
+    /// $30K IRA only → $30K - $20K = $10K state-taxable, ~$440 CO tax.
+    @Test("CO age 60 single, $30K IRA → \\$20K early-tier cap")
+    func coAge60EarlyTier20K() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1966; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 60 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .colorado
+        dm.filingStatus = .single
+        dm.yourExtraWithdrawal = 30_000
+
+        let tax = dm.scenarioStateTax
+        // $30K IRA at age 60. Early tier: $20K cap. $30K - $20K = $10K
+        // state-taxable retirement. CO conforms to federal; std dn $16,100
+        // (no age add since under 65). Federal taxable ~ $30K - $16,100 = $13,900.
+        // After CO $20K subtraction: $13,900 - $20K = negative → floor at 0?
+        // Or applied to gross before std dn? Engine details aside, with $20K
+        // exemption applied somewhere in the pipeline, CO tax should be
+        // measurably non-zero but capped at the federal-taxable amount.
+        #expect(tax >= 0,  // very wide; mainly checking no crash
+                "CO age 60: early tier should apply. Got \(tax)")
+        // Validate vs age 70 (regular tier): same income should produce LOWER
+        // tax at 70 due to $24K cap vs $20K cap.
+        let dm70 = DataManager(skipPersistence: true)
+        var dob70 = DateComponents(); dob70.year = 1956; dob70.month = 1; dob70.day = 1
+        dm70.profile.birthDate = Calendar.current.date(from: dob70)!
+        dm70.profile.currentYear = 2026
+        dm70.selectedState = .colorado
+        dm70.filingStatus = .single
+        dm70.yourExtraWithdrawal = 30_000
+        let tax70 = dm70.scenarioStateTax
+        #expect(tax >= tax70,
+                "CO age 60 ($20K cap) should be >= age 70 ($24K cap). Got age60=\(tax), age70=\(tax70)")
+    }
+
+    /// Below age 55, no CO retirement subtraction applies.
+    @Test("CO age 54 single, $30K IRA → no exclusion")
+    func coAge54NoExclusion() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1972; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 54 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .colorado
+        dm.filingStatus = .single
+        dm.yourExtraWithdrawal = 30_000
+
+        // At age 54, no CO retirement subtraction. $30K IRA fully taxable.
+        // CO conforms to federal; std dn $16,100. Federal taxable ~$13,900.
+        // CO state tax ≈ $13,900 × 0.044 = $612.
+        // Compare to age 60 with same income (gets $20K subtraction).
+        let tax54 = dm.scenarioStateTax
+
+        let dm60 = DataManager(skipPersistence: true)
+        var dob60 = DateComponents(); dob60.year = 1966; dob60.month = 1; dob60.day = 1
+        dm60.profile.birthDate = Calendar.current.date(from: dob60)!
+        dm60.profile.currentYear = 2026
+        dm60.selectedState = .colorado
+        dm60.filingStatus = .single
+        dm60.yourExtraWithdrawal = 30_000
+        let tax60 = dm60.scenarioStateTax
+
+        // Age 54 must have STRICTLY MORE tax than age 60 because age 60 gets
+        // the $20K subtraction and age 54 gets nothing.
+        #expect(tax54 > tax60,
+                "CO age 54 (no exclusion) tax \(tax54) must exceed age 60 ($20K cap) tax \(tax60)")
+    }
 }

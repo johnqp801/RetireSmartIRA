@@ -491,14 +491,6 @@ struct TaxCalculationEngine {
         let effectiveIRAExemption = resolveLevel(regular: exemptions.iraWithdrawalExemption)
 
         let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
-        switch effectivePensionExemption {
-        case .full:
-            adjusted -= pensionIncome
-        case .partial(let maxExempt):
-            adjusted -= min(pensionIncome, maxExempt * perIndividualMultiplier)
-        case .none:
-            break
-        }
 
         // Sum of state-recognized IRA-withdrawal income:
         //   1) `.rmd`-typed IncomeSource rows (demo profile / explicit entries), plus
@@ -513,13 +505,41 @@ struct TaxCalculationEngine {
         let retirementAge = primaryAge >= 59 || (enableSpouse && spouseAge >= 59)
         let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
         let iraIncome = rmdSourceIncome + scenarioExemptable
-        switch effectiveIRAExemption {
-        case .full:
-            adjusted -= iraIncome
-        case .partial(let maxExempt):
-            adjusted -= min(iraIncome, maxExempt * perIndividualMultiplier)
-        case .none:
-            break
+
+        if exemptions.pensionAndIRAShareSingleCap {
+            // Shared-cap state (e.g., CO C.R.S. § 39-22-104(4)(f)): pension
+            // and IRA distributions are combined and subjected to ONE annual
+            // subtraction cap. Use the effective pension exemption level (the
+            // pension and IRA fields should be set to the same value when
+            // this flag is true; we ignore the IRA-side level here to avoid
+            // double-counting).
+            let combinedIncome = pensionIncome + iraIncome
+            switch effectivePensionExemption {
+            case .full:
+                adjusted -= combinedIncome
+            case .partial(let maxExempt):
+                adjusted -= min(combinedIncome, maxExempt * perIndividualMultiplier)
+            case .none:
+                break
+            }
+        } else {
+            // Standard per-type application: each type's cap applied independently.
+            switch effectivePensionExemption {
+            case .full:
+                adjusted -= pensionIncome
+            case .partial(let maxExempt):
+                adjusted -= min(pensionIncome, maxExempt * perIndividualMultiplier)
+            case .none:
+                break
+            }
+            switch effectiveIRAExemption {
+            case .full:
+                adjusted -= iraIncome
+            case .partial(let maxExempt):
+                adjusted -= min(iraIncome, maxExempt * perIndividualMultiplier)
+            case .none:
+                break
+            }
         }
 
         // Military Retirement: per-state exemption applied per-source using the

@@ -198,6 +198,23 @@ struct RetirementIncomeExemptions {
     /// § 48-7-27(a)(5): $35K for ages 62-64, $65K for ages 65+.
     var earlyAgeTier: AgeTier? = nil
 
+    /// When `true`, the `.partial(maxExempt:)` caps for `pensionExemption`
+    /// and `iraWithdrawalExemption` are treated as a SINGLE SHARED cap
+    /// across both income types — total exempt = min(pension + IRA, cap).
+    /// When `false` (default), each type's cap is applied independently.
+    ///
+    /// Used by states whose statutes count pensions and IRA distributions
+    /// together against one annual subtraction, e.g., Colorado C.R.S.
+    /// § 39-22-104(4)(f) ("amounts received as pensions and annuities,"
+    /// which by Colorado DOR guidance includes IRA distributions counting
+    /// against the same annual cap).
+    ///
+    /// When `true`, the engine uses the `pensionExemption.partial.maxExempt`
+    /// value as the shared cap. `iraWithdrawalExemption` should be set to
+    /// the same `.partial` value for documentation clarity; the engine will
+    /// ignore the second one to avoid double-counting.
+    var pensionAndIRAShareSingleCap: Bool = false
+
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
 
@@ -407,9 +424,23 @@ struct StateTaxData {
             state: .colorado,
             taxSystem: .flat(rate: 0.044),
             retirementExemptions: RetirementIncomeExemptions(
-                socialSecurityExempt: true,  // CO exempts SS for age 65+ (fully exempt 2026)
-                pensionExemption: .partial(maxExempt: 24_000),  // age 65+ exclusion
-                iraWithdrawalExemption: .partial(maxExempt: 24_000),  // combined with pension
+                socialSecurityExempt: true,  // CO exempts SS for age 65+ (and 55-64 with AGI limits per SB24-228)
+                // C.R.S. § 39-22-104(4)(f) — Colorado Pension and Annuity
+                // Subtraction. Per CO DOR guidance, pensions AND IRA
+                // distributions count together against ONE annual cap:
+                //   Age 55-64: $20,000 combined (encoded in earlyAgeTier)
+                //   Age 65+:   $24,000 combined
+                // SB25-136 (which would have removed the cap entirely starting
+                // TY2026) was Postponed Indefinitely 02/27/2025 — DID NOT pass.
+                // So TY2026 stays at the $20K / $24K caps.
+                pensionExemption: .partial(maxExempt: 24_000),
+                iraWithdrawalExemption: .partial(maxExempt: 24_000),
+                regularExemptionMinAge: 65,
+                earlyAgeTier: RetirementIncomeExemptions.AgeTier(
+                    ageRange: 55...64,
+                    level: .partial(maxExempt: 20_000)
+                ),
+                pensionAndIRAShareSingleCap: true,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .conformsToFederal,

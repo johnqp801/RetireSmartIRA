@@ -630,22 +630,63 @@ class DataManager {
         let iraIncome = rmdSourceIncome + scenarioDistroExemptable
         let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
 
-        // 2. Calculate each exemption amount (mirrors applyRetirementExemptions logic)
-        // SS exemption uses the taxable portion (what was included), not the full benefit
+        // 2. Calculate each exemption amount. MUST mirror
+        // TaxCalculationEngine.applyRetirementExemptions exactly — including
+        // regularExemptionMinAge, earlyAgeTier, exemptionAppliesPerIndividual,
+        // and pensionAndIRAShareSingleCap. (Drift here causes breakdown
+        // totals to disagree with scenarioStateTax — caught by
+        // StateTaxBreakdownTests.breakdownMatchesCalculation.)
         let ssExemptAmt = exemptions.socialSecurityExempt ? taxableSS : 0
 
-        let pensionExemptAmt: Double
-        switch exemptions.pensionExemption {
-        case .full: pensionExemptAmt = pensionIncome
-        case .partial(let maxExempt): pensionExemptAmt = min(pensionIncome, maxExempt)
-        case .none: pensionExemptAmt = 0
-        }
+        // Per-individual multiplier (NY $20K, GA $35K/$65K when both 65+).
+        let bothSpouses59Plus = enableSpouse && currentAge >= 59 && spouseCurrentAge >= 59
+        let perIndividualMultiplier: Double =
+            (exemptions.exemptionAppliesPerIndividual && bothSpouses59Plus) ? 2.0 : 1.0
 
+        // Effective exemption level given age (resolves GA tiers, CO tiers, etc.)
+        let effectiveAge = enableSpouse ? max(currentAge, spouseCurrentAge) : currentAge
+        let minAge = exemptions.regularExemptionMinAge
+        func resolveLevel(regular: RetirementIncomeExemptions.ExemptionLevel) -> RetirementIncomeExemptions.ExemptionLevel {
+            if minAge > 0 {
+                if effectiveAge >= minAge { return regular }
+                if let tier = exemptions.earlyAgeTier, tier.ageRange.contains(effectiveAge) {
+                    return tier.level
+                }
+                return .none
+            }
+            return regular
+        }
+        let effectivePensionExemption = resolveLevel(regular: exemptions.pensionExemption)
+        let effectiveIRAExemption = resolveLevel(regular: exemptions.iraWithdrawalExemption)
+
+        let pensionExemptAmt: Double
         let iraExemptAmt: Double
-        switch exemptions.iraWithdrawalExemption {
-        case .full: iraExemptAmt = iraIncome
-        case .partial(let maxExempt): iraExemptAmt = min(iraIncome, maxExempt)
-        case .none: iraExemptAmt = 0
+
+        if exemptions.pensionAndIRAShareSingleCap {
+            // Shared cap (CO): pension + IRA share one annual subtraction.
+            let combinedIncome = pensionIncome + iraIncome
+            let combinedExempt: Double
+            switch effectivePensionExemption {
+            case .full: combinedExempt = combinedIncome
+            case .partial(let maxExempt): combinedExempt = min(combinedIncome, maxExempt * perIndividualMultiplier)
+            case .none: combinedExempt = 0
+            }
+            // Attribute the combined exemption to pension first, then IRA
+            // (purely for display purposes — the totalExempted is what matters
+            // for the tax calculation).
+            pensionExemptAmt = min(pensionIncome, combinedExempt)
+            iraExemptAmt = combinedExempt - pensionExemptAmt
+        } else {
+            switch effectivePensionExemption {
+            case .full: pensionExemptAmt = pensionIncome
+            case .partial(let maxExempt): pensionExemptAmt = min(pensionIncome, maxExempt * perIndividualMultiplier)
+            case .none: pensionExemptAmt = 0
+            }
+            switch effectiveIRAExemption {
+            case .full: iraExemptAmt = iraIncome
+            case .partial(let maxExempt): iraExemptAmt = min(iraIncome, maxExempt * perIndividualMultiplier)
+            case .none: iraExemptAmt = 0
+            }
         }
 
         // Military Retirement: per-source state exemption (Task 6.3).
