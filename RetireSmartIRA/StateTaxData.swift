@@ -903,8 +903,23 @@ struct StateTaxData {
             ),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
-                pensionExemption: .partial(maxExempt: 39_500),  // MD pension exclusion (age 65+)
-                iraWithdrawalExemption: .partial(maxExempt: 39_500),
+                // MD pension exclusion: up to $39,500 (TY2024 per Comptroller's
+                // Technical Bulletin No. 51, effective April 10, 2025; Md
+                // Tax-General § 10-209). Applies to taxpayers age 65+ or
+                // totally disabled. Qualifying income: employer pensions /
+                // 401(a) / 403 / 457(b) annuities only.
+                pensionExemption: .partial(maxExempt: 39_500),
+                // IRA distributions DO NOT qualify for the MD pension exclusion
+                // (per TB-51 §II.F): "A traditional IRA, a Roth IRA, a rollover
+                // IRA, a simplified employee plan (SEP), a Keogh plan, an
+                // ineligible deferred compensation plan, or foreign retirement
+                // income does not qualify."
+                // (Note: a 2025 legislative proposal would extend the exclusion
+                //  to include IRA withdrawals starting TY2025. Until enactment
+                //  is confirmed against primary source, keep .none — conservative
+                //  under-exemption is acceptable for a planning tool; over-
+                //  exemption silently understates state tax liability.)
+                iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 4_100, married: 8_200),

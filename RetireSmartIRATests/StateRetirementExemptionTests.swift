@@ -595,4 +595,84 @@ struct StateRetirementExemptionTests {
         // gross would be $1K interest only (well under any deductions, still
         // $0). So this is mostly a smoke check that we didn't break CA.
     }
+
+    // MARK: - Maryland — IRA does NOT qualify for pension exclusion (1.8.4)
+
+    /// Primary source: MD Comptroller Technical Bulletin No. 51 (effective
+    /// April 10, 2025), Section II.F "Pension exclusion":
+    /// > "A traditional IRA, a Roth IRA, a rollover IRA, a simplified
+    /// >  employee plan (SEP), a Keogh plan, an ineligible deferred
+    /// >  compensation plan, or foreign retirement income does not qualify."
+    /// Statute: Md Tax-General § 10-209.
+    ///
+    /// TAXSIM-35 finding (#17) at TY2023 for the scenario below:
+    /// engine = $0, TAXSIM = $887. Engine was over-exempting because
+    /// `iraWithdrawalExemption` was misconfigured as `.partial(maxExempt: 39_500)`
+    /// — applying the pension cap to IRAs. Correct: IRAs do NOT qualify.
+    @Test("MD age 66 single, $30K IRA only → IRA fully taxable (no pension exclusion for IRA)")
+    func mdIraDistributionDoesNotQualifyForPensionExclusion() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1960; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 66 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .maryland
+        dm.filingStatus = .single
+        dm.yourExtraWithdrawal = 30_000
+
+        let tax = dm.scenarioStateTax
+        // $30K IRA distribution. MD std deduction (single): $4,100. MD has no
+        // age-based addition to standard deduction (TB-51 gives a separate
+        // $1,000 personal exemption for age 65+ but the engine has stateDeduction
+        // .fixed; tested implementation only). Conservatively expect SOME tax,
+        // since IRA is fully taxable in MD at retirement age.
+        #expect(tax > 500,
+                "MD must tax IRA distributions at age 66 (no MD pension exclusion for IRA per TB-51). Got \(tax)")
+    }
+
+    /// Pensions DO qualify, IRAs do NOT, so a pension-only scenario under
+    /// the cap should fully exempt. Negative control proving the pension
+    /// path still works.
+    @Test("MD age 66 single, $35K pension only → fully exempt (under $39,500 cap)")
+    func mdPensionUnderCapFullyExempt() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1960; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 66
+        dm.profile.currentYear = 2026
+        dm.selectedState = .maryland
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 35_000)
+        ]
+
+        let tax = dm.scenarioStateTax
+        // $35K pension under the $39,500 MD cap → fully excluded.
+        // MD has no other income → state tax = $0.
+        #expect(tax == 0,
+                "MD: $35K pension under $39,500 cap should be fully exempt. Got \(tax)")
+    }
+
+    /// Mixed pension + IRA: pension exempts up to the cap, IRA is fully
+    /// taxable. Matches TAXSIM-35 scenario #17. The IRA portion remains
+    /// taxable and must produce non-zero MD state tax.
+    @Test("MD age 66 single, $35K pension + $30K IRA → only pension exempted, IRA taxable")
+    func mdMixedPensionAndIRAOnlyPensionExempt() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1960; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 66
+        dm.profile.currentYear = 2026
+        dm.selectedState = .maryland
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 35_000)
+        ]
+        dm.yourExtraWithdrawal = 30_000
+
+        let tax = dm.scenarioStateTax
+        // $35K pension fully excluded. $30K IRA fully taxable.
+        // Engine pre-fix: returned $0 (over-exempting). Post-fix: should
+        // produce ~$887 (the TAXSIM TY2023 reference) — engine is at TY2026
+        // so dollar value may differ but must be clearly > $0.
+        #expect(tax > 500,
+                "MD: IRA must be taxable even when pension exhausts the cap. Got \(tax)")
+    }
 }
