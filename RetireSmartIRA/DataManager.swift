@@ -638,14 +638,31 @@ class DataManager {
         // StateTaxBreakdownTests.breakdownMatchesCalculation.)
         let ssExemptAmt = exemptions.socialSecurityExempt ? taxableSS : 0
 
-        // Per-individual multiplier (NY $20K, GA $35K/$65K when both 65+).
-        let bothSpouses59Plus = enableSpouse && currentAge >= 59 && spouseCurrentAge >= 59
-        let perIndividualMultiplier: Double =
-            (exemptions.exemptionAppliesPerIndividual && bothSpouses59Plus) ? 2.0 : 1.0
-
         // Effective exemption level given age (resolves GA tiers, CO tiers, etc.)
         let effectiveAge = enableSpouse ? max(currentAge, spouseCurrentAge) : currentAge
         let minAge = exemptions.regularExemptionMinAge
+
+        // Whether a given age qualifies for ANY level of the state's exemption
+        // (regular OR earlyAgeTier). Mirror of TaxCalculationEngine helper.
+        func ageQualifiesForExemption(_ age: Int) -> Bool {
+            if minAge > 0 {
+                if age >= minAge { return true }
+                if let tier = exemptions.earlyAgeTier, tier.ageRange.contains(age) { return true }
+                return false
+            }
+            return age >= 59
+        }
+
+        // Per-individual multiplier: when MFJ AND BOTH spouses individually
+        // qualify (NY $20K, GA $35K/$65K), the cap doubles. State-aware
+        // threshold (59 for NY, 62 for GA early tier, etc.) rather than
+        // hardcoded 59. Mirror of TaxCalculationEngine logic.
+        let bothSpousesQualify = enableSpouse
+            && ageQualifiesForExemption(currentAge)
+            && ageQualifiesForExemption(spouseCurrentAge)
+        let perIndividualMultiplier: Double =
+            (exemptions.exemptionAppliesPerIndividual && bothSpousesQualify) ? 2.0 : 1.0
+
         func resolveLevel(regular: RetirementIncomeExemptions.ExemptionLevel) -> RetirementIncomeExemptions.ExemptionLevel {
             if minAge > 0 {
                 if effectiveAge >= minAge { return regular }

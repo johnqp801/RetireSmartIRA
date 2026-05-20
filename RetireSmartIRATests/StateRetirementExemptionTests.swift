@@ -986,4 +986,117 @@ struct StateRetirementExemptionTests {
         #expect(tax54 > tax60,
                 "CO age 54 (no exclusion) tax \(tax54) must exceed age 60 ($20K cap) tax \(tax60)")
     }
+
+    // MARK: - LLM-audit follow-up fixes (1.8.4 final pass)
+
+    // ChatGPT + Gemini independent review flagged 3 issues post primary-state
+    // fixes. These tests pin each remediation.
+
+    /// NY § 612(c)(3-a) requires the taxpayer to have "attained the age of
+    /// fifty-nine and one-half." The engine pre-LLM-audit had no age gate
+    /// on NY's $20K exclusion. Adding `regularExemptionMinAge: 59`.
+    @Test("NY age 55 single $40K pension → NOT exempt (must be 59½+)")
+    func nyAge55NoExclusion() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1971; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 55 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .newYork
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000)
+        ]
+        let tax = dm.scenarioStateTax
+        // Without the exclusion, $40K is fully taxable. NY no std dn but has
+        // $8,000 fixed state deduction. NY single brackets ascend slowly.
+        // Tax > $1000 minimum. Pre-fix would have been ~$880 lower (~$20K × 4.5%).
+        #expect(tax > 1100,
+                "NY age 55: must NOT exempt pension (statute requires 59½+). Got \(tax)")
+    }
+
+    /// Negative control — age 60 (above 59½) qualifies. Pension fully exempt.
+    @Test("NY age 60 single $15K pension → fully exempt (under $20K cap)")
+    func nyAge60SinglePensionExempt() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1966; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 60
+        dm.profile.currentYear = 2026
+        dm.selectedState = .newYork
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 15_000)
+        ]
+        let tax = dm.scenarioStateTax
+        // $15K pension fully exempt at age 60 (under $20K cap). $0 other income.
+        // NY $8K state deduction applies; no income left after exclusion.
+        #expect(tax == 0,
+                "NY age 60: $15K pension must be fully exempt. Got \(tax)")
+    }
+
+    /// O.C.G.A. § 48-7-27(a)(5) is a SINGLE retirement-income exclusion
+    /// (not separate caps for pension and IRA). At age 65+ with $40K
+    /// pension + $40K IRA, only $65K combined should exempt.
+    @Test("GA single age 65, \\$40K pension + \\$40K IRA → \\$65K shared cap (not \\$65K + \\$65K)")
+    func gaSharedCapBothIncomeTypes() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1961; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 65 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .georgia
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000)
+        ]
+        dm.yourExtraWithdrawal = 40_000
+
+        let tax = dm.scenarioStateTax
+        // Total retirement income: $40K + $40K = $80K.
+        // Single GA exclusion: $65K → $15K state-taxable retirement.
+        // GA $12K state deduction → $3K taxable at 5.39% ≈ $162.
+        // Pre-fix engine would have given separate $65K caps = $130K cap →
+        // $0 taxable retirement → $0 tax. Post-fix must show non-zero tax.
+        #expect(tax > 100,
+                "GA: shared $65K cap (not two $65K caps). Got \(tax)")
+    }
+
+    /// The per-individual cap-doubling check used a hardcoded `>= 59`
+    /// regardless of state. For GA where the qualifying age is 62, an
+    /// under-62 spouse incorrectly enabled cap doubling. Fix: each spouse
+    /// must independently qualify for AT LEAST one exemption tier.
+    @Test("GA MFJ primary 60 + spouse 65 → NO doubling (primary below GA 62 minimum)")
+    func gaUnderageSpouseNoDoubling() {
+        let dm = DataManager(skipPersistence: true)
+        var pDob = DateComponents(); pDob.year = 1966; pDob.month = 1; pDob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: pDob)!  // primary 60
+        var sDob = DateComponents(); sDob.year = 1961; sDob.month = 1; sDob.day = 1
+        dm.profile.spouseBirthDate = Calendar.current.date(from: sDob)!  // spouse 65
+        dm.profile.currentYear = 2026
+        dm.enableSpouse = true
+        dm.selectedState = .georgia
+        dm.filingStatus = .marriedFilingJointly
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)
+        ]
+
+        let tax = dm.scenarioStateTax
+
+        // Compare to MFJ where BOTH qualify at the same regular tier.
+        let dm2 = DataManager(skipPersistence: true)
+        var p2Dob = DateComponents(); p2Dob.year = 1961; p2Dob.month = 1; p2Dob.day = 1
+        dm2.profile.birthDate = Calendar.current.date(from: p2Dob)!  // primary 65
+        dm2.profile.spouseBirthDate = Calendar.current.date(from: sDob)!  // spouse 65
+        dm2.profile.currentYear = 2026
+        dm2.enableSpouse = true
+        dm2.selectedState = .georgia
+        dm2.filingStatus = .marriedFilingJointly
+        dm2.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)
+        ]
+        let bothQualifyTax = dm2.scenarioStateTax
+
+        // primary-60 case (only spouse qualifies for GA) must have HIGHER tax
+        // than primary-65 case (both qualify → 2× cap doubling).
+        #expect(tax > bothQualifyTax,
+                "GA per-individual: primary-60 (one qualifies) tax \(tax) must exceed both-65 tax \(bothQualifyTax)")
+    }
 }

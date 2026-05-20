@@ -460,6 +460,12 @@ struct StateTaxData {
                 // The exclusion is per qualifying individual on the return —
                 // each spouse who separately meets the age and qualifying-
                 // income tests gets a separate exclusion amount.
+                //
+                // GA's exclusion is a SINGLE retirement-income cap covering
+                // ALL qualifying retirement income (pensions, IRAs, annuities,
+                // interest, dividends, capital gains, etc. — though our engine
+                // only handles pension and IRA here). It is NOT a separate cap
+                // per income type. Set `pensionAndIRAShareSingleCap: true`.
                 pensionExemption: .partial(maxExempt: 65_000),
                 iraWithdrawalExemption: .partial(maxExempt: 65_000),
                 exemptionAppliesPerIndividual: true,
@@ -468,6 +474,7 @@ struct StateTaxData {
                     ageRange: 62...64,
                     level: .partial(maxExempt: 35_000)
                 ),
+                pensionAndIRAShareSingleCap: true,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 12_000, married: 24_000),
@@ -1233,6 +1240,10 @@ struct StateTaxData {
                 iraWithdrawalExemption: .partial(maxExempt: 20_000),
                 // Per-individual: MFJ where both spouses are 59½+ gets 2 × $20K.
                 exemptionAppliesPerIndividual: true,
+                // Age 59½ statutory minimum. Engine uses integer ages; we use
+                // 59 as a slightly generous approximation matching the rest of
+                // the engine's `>= 59` convention for retirement-age gates.
+                regularExemptionMinAge: 59,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 8_000, married: 16_050)

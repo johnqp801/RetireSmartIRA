@@ -447,15 +447,6 @@ struct TaxCalculationEngine {
             adjusted -= taxableSocialSecurity
         }
 
-        // Per-individual cap multiplier: when MFJ AND both spouses are 59½+
-        // AND the state's exemption applies per-taxpayer rather than per-
-        // return, the partial cap is doubled. Used by NY ($20K per IT-201
-        // pension/annuity exclusion). For Single, MFS, or MFJ where only one
-        // spouse qualifies, the cap stays single-size.
-        let bothSpouses59Plus = enableSpouse && primaryAge >= 59 && spouseAge >= 59
-        let perIndividualMultiplier: Double =
-            (exemptions.exemptionAppliesPerIndividual && bothSpouses59Plus) ? 2.0 : 1.0
-
         // Effective pension/IRA exemption level given the taxpayer's age:
         //   1) If `regularExemptionMinAge` is set and the user is at/above it,
         //      use the regular pensionExemption/iraWithdrawalExemption field.
@@ -470,6 +461,33 @@ struct TaxCalculationEngine {
         // pension/IRA dollars per-spouse).
         let effectiveAge = enableSpouse ? max(primaryAge, spouseAge) : primaryAge
         let minAge = exemptions.regularExemptionMinAge
+
+        // Whether a given spouse's age qualifies them for ANY level of
+        // the state's retirement exemption (regular tier OR earlyAgeTier).
+        // Used for per-individual cap doubling — both spouses must
+        // independently qualify to merit doubling the cap. States with no
+        // explicit age gate fall back to the 59½ statutory baseline used
+        // by NY § 612(c)(3-a) and most similar per-individual states.
+        func ageQualifiesForExemption(_ age: Int) -> Bool {
+            if minAge > 0 {
+                if age >= minAge { return true }
+                if let tier = exemptions.earlyAgeTier, tier.ageRange.contains(age) {
+                    return true
+                }
+                return false
+            }
+            return age >= 59
+        }
+
+        // Per-individual cap multiplier: when MFJ AND BOTH spouses individually
+        // qualify for the state's exemption AND the state's exemption applies
+        // per-taxpayer rather than per-return, the partial cap is doubled.
+        // Used by NY ($20K per IT-201) and GA ($35K/$65K per O.C.G.A. § 48-7-27).
+        let bothSpousesQualify = enableSpouse
+            && ageQualifiesForExemption(primaryAge)
+            && ageQualifiesForExemption(spouseAge)
+        let perIndividualMultiplier: Double =
+            (exemptions.exemptionAppliesPerIndividual && bothSpousesQualify) ? 2.0 : 1.0
 
         func resolveLevel(regular: RetirementIncomeExemptions.ExemptionLevel) -> RetirementIncomeExemptions.ExemptionLevel {
             if minAge > 0 {
