@@ -456,8 +456,42 @@ struct TaxCalculationEngine {
         let perIndividualMultiplier: Double =
             (exemptions.exemptionAppliesPerIndividual && bothSpouses59Plus) ? 2.0 : 1.0
 
+        // Effective pension/IRA exemption level given the taxpayer's age:
+        //   1) If `regularExemptionMinAge` is set and the user is at/above it,
+        //      use the regular pensionExemption/iraWithdrawalExemption field.
+        //   2) Else if `earlyAgeTier` is set and the user falls in its range,
+        //      use the tier's `level` for both pension and IRA.
+        //   3) Otherwise the exemption is .none.
+        // Per-individual rule: for MFJ where each spouse may qualify at a
+        // different tier, take the most-generous tier that EITHER spouse
+        // qualifies for. This is a conservative planning-tool approximation
+        // (state law generally allows each spouse their own tier based on
+        // their own age and income, but our engine doesn't yet attribute
+        // pension/IRA dollars per-spouse).
+        let effectiveAge = enableSpouse ? max(primaryAge, spouseAge) : primaryAge
+        let minAge = exemptions.regularExemptionMinAge
+
+        func resolveLevel(regular: RetirementIncomeExemptions.ExemptionLevel) -> RetirementIncomeExemptions.ExemptionLevel {
+            if minAge > 0 {
+                if effectiveAge >= minAge {
+                    return regular
+                }
+                if let tier = exemptions.earlyAgeTier, tier.ageRange.contains(effectiveAge) {
+                    return tier.level
+                }
+                return .none
+            }
+            // No min-age gate: keep existing behavior (regular exemption applies
+            // regardless of age; scenario-distribution age gating still happens
+            // separately below).
+            return regular
+        }
+
+        let effectivePensionExemption = resolveLevel(regular: exemptions.pensionExemption)
+        let effectiveIRAExemption = resolveLevel(regular: exemptions.iraWithdrawalExemption)
+
         let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
-        switch exemptions.pensionExemption {
+        switch effectivePensionExemption {
         case .full:
             adjusted -= pensionIncome
         case .partial(let maxExempt):
@@ -479,7 +513,7 @@ struct TaxCalculationEngine {
         let retirementAge = primaryAge >= 59 || (enableSpouse && spouseAge >= 59)
         let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
         let iraIncome = rmdSourceIncome + scenarioExemptable
-        switch exemptions.iraWithdrawalExemption {
+        switch effectiveIRAExemption {
         case .full:
             adjusted -= iraIncome
         case .partial(let maxExempt):

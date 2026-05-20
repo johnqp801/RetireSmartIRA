@@ -130,18 +130,19 @@ struct StateRetirementExemptionTests {
 
     // MARK: - Age threshold edge cases
 
-    // TODO(post-1.8.2): GA-specific refinement — real rule is 62+ with a
-    // separate $35K cap for ages 62-64. Our flat 59½ gate is a known
-    // approximation; an under-62 GA retiree currently gets the full $65K cap
-    // they don't qualify for in reality. Filed as separate audit task.
-    @Test("GA at age 60 (flat 59½ gate): exempted per current approximation")
-    func gaAge60FlatGateApproximation() {
-        // Born 1966 → age 60 in 2026. Real GA rule denies exemption (needs 62+),
-        // but our flat 59½ gate allows it. This test pins current behavior so
-        // the GA-specific refinement task can knowingly flip the expectation.
+    // Fixed in 1.8.4 (commit landing this change). Previously this test
+    // pinned the known-buggy approximation that exempted GA retirees under
+    // age 62. The engine now honors GA's actual age requirements per
+    // O.C.G.A. § 48-7-27(a)(5): exemption requires age 62+ minimum.
+    @Test("GA at age 60: NOT exempted (under O.C.G.A. § 48-7-27 age-62 minimum)")
+    func gaAge60NoLongerExempted() {
+        // Born 1966 → age 60 in 2026. GA correctly denies exemption (needs 62+).
         let dm = makeDM(state: .georgia, birthYear: 1966, extraWithdrawal: 50_000)
         let tax = dm.scenarioStateTax
-        #expect(tax == 0, "Current flat 59½ gate exempts GA at age 60 (known approximation). Got \(tax)")
+        // $50K IRA fully taxable, less GA $12K single deduction → $38K taxable
+        // at 5.39% → ~$2,048 GA state tax.
+        #expect(tax > 1500,
+                "GA age 60: must NOT exempt IRA (requires age 62+ per O.C.G.A. § 48-7-27(a)(5)). Got \(tax)")
     }
 
     // MARK: - calculateStateTaxFromGross direct API
@@ -758,5 +759,71 @@ struct StateRetirementExemptionTests {
         // have HIGHER tax than the "both qualify" scenario.
         #expect(bothQualifyTax > bothQualifyHigherTax,
                 "NY: one-spouse-qualifies tax (\(bothQualifyTax)) must be > both-spouses-qualify tax (\(bothQualifyHigherTax))")
+    }
+
+    // MARK: - Georgia — age-tiered retirement income exclusion (1.8.4)
+
+    /// Primary source: O.C.G.A. § 48-7-27(a)(5) — Georgia Retirement Income
+    /// Exclusion. Effective for tax years beginning on or after Jan 1, 2012:
+    ///   - Ages 62-64: up to $35,000 per qualifying individual
+    ///   - Ages 65+:   up to $65,000 per qualifying individual
+    /// (Verified from GA Code 2024 + GA DOR Retirement Income Exclusion page.)
+    ///
+    /// TAXSIM-35 finding #11 (TY2023): GA single age 64 with $60K IRA →
+    /// engine $0 vs TAXSIM $2,796. Engine was applying the $65K cap to a
+    /// 64-year-old who is only entitled to $35K — over-exempting by $25K
+    /// × 5.39% flat rate ≈ $1,347 (TAXSIM's value at 2023 rates is higher
+    /// because GA's rate was 5.75% in TY2023).
+    @Test("GA age 64 single, $60K IRA → only $35K exempt under early-tier (62-64)")
+    func gaAge64UsesEarlyTier35K() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1962; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 64 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .georgia
+        dm.filingStatus = .single
+        dm.yourExtraWithdrawal = 60_000
+
+        let tax = dm.scenarioStateTax
+        // $60K IRA at age 64. Only $35K exempt. Remaining $25K subject to GA
+        // state deduction ($12K single) + 5.39% flat rate. After deductions:
+        // taxable ≈ $25K - $12K = $13K. Tax ≈ $13K × 0.0539 = $701. Allow
+        // wide margin since state deduction handling may vary.
+        #expect(tax > 500 && tax < 1500,
+                "GA age 64 should partially tax IRA. Got \(tax)")
+    }
+
+    /// At age 65+, the regular $65K cap applies → $60K IRA fully exempt.
+    @Test("GA age 65 single, $60K IRA → fully exempt under regular tier ($65K cap)")
+    func gaAge65UsesRegularTier65K() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1961; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 65 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .georgia
+        dm.filingStatus = .single
+        dm.yourExtraWithdrawal = 60_000
+
+        let tax = dm.scenarioStateTax
+        // $60K under $65K cap → fully exempt → $0 GA tax.
+        #expect(tax == 0,
+                "GA age 65 should fully exempt $60K under $65K cap. Got \(tax)")
+    }
+
+    /// Below age 62, no exclusion applies — full IRA is taxable.
+    @Test("GA age 60 single, $60K IRA → no exclusion (under 62)")
+    func gaAge60NoExclusion() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1966; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 60 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .georgia
+        dm.filingStatus = .single
+        dm.yourExtraWithdrawal = 60_000
+
+        let tax = dm.scenarioStateTax
+        // $60K IRA fully taxable. Tax ≈ ($60K - $12K dedn) × 0.0539 = $2,587.
+        #expect(tax > 2000,
+                "GA age 60: IRA not exempt at all. Got \(tax)")
     }
 }

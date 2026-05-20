@@ -5319,19 +5319,21 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 21_308.38, tolerance: 1.0))
     }
 
-    @Test("B: NY state tax ≈ $4,497")
+    @Test("B: NY state tax ≈ $2,433")
     func b_stateTax() {
         let dm = makeScenarioB()
-        // Updated 2026-05-17 — NY $20K IRA-withdrawal exemption now applied to
-        // scenario-level retirement distributions (computed RMDs) per the
-        // build-41 engine-wiring fix. Previously the exemption only matched
-        // `.rmd`-typed IncomeSource rows, missing $35,283 of auto-calc RMD.
-        // NY deduction $16,050 → state taxable $171,833
-        // SS exempt −$47,600 → $124,233
-        // Pension exempt −$20K (NY cap) → $104,233
-        // IRA exempt −$20K (NY cap on $35,283 of withdrawals) → $84,233
-        // NY MFJ brackets: 4%→4.5%→5.25%→5.85% = $4,497.48
-        #expect(isClose(dm.scenarioStateTax, 4_497.48, tolerance: 1.0))
+        // Updated 2026-05-20 (v1.8.4) — NY $20K pension/annuity exclusion is
+        // applied PER-INDIVIDUAL on a joint return (NY Tax Law § 612(c)(3-a),
+        // IT-201 instructions). Both spouses 59½+ now exempt up to $40K total.
+        // Previous v1.8.3 value $4,497.48 reflected the household-wide cap bug.
+        //
+        // Per-individual exemption stack:
+        //   Pension exempt −$40K (2 × $20K, both spouses 65+)
+        //   IRA exempt −$35,283 (cap of $40K, but only $35,283 of withdrawal
+        //                          income to apply against)
+        // Total NY exempted retirement income increased from $40K → $75,283.
+        // Net effect: state tax dropped by ~$2,064 ≈ $35K × NY marginal ~5.85%.
+        #expect(isClose(dm.scenarioStateTax, 2_433.42, tolerance: 1.0))
     }
 
     @Test("B: NIIT = $0 (no investment income, MAGI below $250K)")
@@ -5346,13 +5348,13 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioAMTAmount, 0))
     }
 
-    @Test("B: Total tax ≈ $25,806")
+    @Test("B: Total tax ≈ $23,742")
     func b_totalTax() {
         let dm = makeScenarioB()
-        // Updated 2026-05-17 — NY $20K IRA-exemption now applied to auto-calc
-        // RMDs per the build-41 engine-wiring fix (see b_stateTax).
-        // Federal $21,308.38 + NY state $4,497.48 + NIIT $0 + AMT $0 = $25,805.86
-        #expect(isClose(dm.scenarioTotalTax, 25_805.86, tolerance: 2.0))
+        // Updated 2026-05-20 (v1.8.4) — see b_stateTax for explanation.
+        // NY per-individual $20K exclusion fix dropped state tax by ~$2,064.
+        // Federal $21,308.38 + NY state $2,433.42 + NIIT $0 + AMT $0 = $23,741.80
+        #expect(isClose(dm.scenarioTotalTax, 23_741.80, tolerance: 2.0))
     }
 }
 
@@ -5694,17 +5696,19 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 184_870.48, tolerance: 2.0))
     }
 
-    @Test("D: NY state tax ≈ $48,410 (6.85% bracket, $20K pension + $20K IRA exemption)")
+    @Test("D: NY state tax ≈ $45,670 (6.85% bracket, $40K pension + $40K IRA per-individual)")
     func d_stateTax() {
         let dm = makeScenarioD()
-        // Updated 2026-05-17 — NY $20K IRA-withdrawal exemption now applied to
-        // scenario-level $86,792 auto-calc RMD per the build-41 engine-wiring fix.
+        // Updated 2026-05-20 (v1.8.4) — NY $20K pension/annuity exclusion now
+        // applied PER-INDIVIDUAL (NY Tax Law § 612(c)(3-a)). Both spouses 59½+
+        // each exempt up to $20K → $40K combined cap per category.
         // NY taxable: $870,542 − $16,050 = $854,492
         // − SS $63,750 = $790,742
-        // − pension $20K (NY cap) = $770,742
-        // − IRA $20K (NY cap on $86,792 of withdrawals) = $750,742
+        // − pension $40K (NY cap × 2, both spouses qualify) = $750,742
+        // − IRA $40K (NY cap × 2 on $86,792 of withdrawals) = $710,742
         // Through NY MFJ brackets up to 6.85% ($323,200-$2,155,350)
-        #expect(isClose(dm.scenarioStateTax, 48_410.31, tolerance: 2.0))
+        // Delta from prior $48,410.31 ≈ -$2,740 = $40K extra exemption × ~6.85%
+        #expect(isClose(dm.scenarioStateTax, 45_670.31, tolerance: 2.0))
     }
 
     @Test("D: NIIT = $12,160 (full $320K NII taxed)")
@@ -5726,13 +5730,13 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(result.amt, 0, tolerance: 1.0))
     }
 
-    @Test("D: Total tax ≈ $245,441")
+    @Test("D: Total tax ≈ $242,701")
     func d_totalTax() {
         let dm = makeScenarioD()
-        // Updated 2026-05-17 — NY $20K IRA-exemption now applied to auto-calc
-        // RMDs per the build-41 engine-wiring fix (see d_stateTax).
-        // Federal $184,870 + NY $48,410 + NIIT $12,160 + AMT $0 = $245,440.79
-        #expect(isClose(dm.scenarioTotalTax, 245_440.79, tolerance: 5.0))
+        // Updated 2026-05-20 (v1.8.4) — see d_stateTax for explanation.
+        // NY per-individual fix dropped state tax by ~$2,740.
+        // Federal $184,870 + NY $45,670 + NIIT $12,160 + AMT $0 = $242,700.79
+        #expect(isClose(dm.scenarioTotalTax, 242_700.79, tolerance: 5.0))
     }
 }
 

@@ -177,8 +177,38 @@ struct RetirementIncomeExemptions {
     /// flag in follow-up releases when their attribution rules are verified.
     var exemptionAppliesPerIndividual: Bool = false
 
+    /// Minimum age for the regular pension/IRA exemption to apply. When 0
+    /// (default), no age gate on pension income from explicit
+    /// `IncomeSource.pension` rows; scenario-distribution income (RMDs +
+    /// extra withdrawals) is still gated at 59½ by the engine.
+    ///
+    /// States that need a higher minimum: GA (62/65 tiered, set to 65 with
+    /// `earlyAgeTier` covering 62-64), MD (65, but pension subtraction has
+    /// its own DOR-tested age rule of 65 separately), NJ (62), CO (55/65).
+    var regularExemptionMinAge: Int = 0
+
+    /// Optional reduced exemption for an early-age tier. When the taxpayer
+    /// is in `tier.ageRange`, BOTH `pensionExemption` and
+    /// `iraWithdrawalExemption` are temporarily replaced with `tier.level`
+    /// for the calculation. At ages above the tier's upper bound, the
+    /// regular fields apply (subject to `regularExemptionMinAge`). Below
+    /// the tier's lower bound, no exemption applies.
+    ///
+    /// Used by states with age-tiered exclusions, e.g., Georgia O.C.G.A.
+    /// § 48-7-27(a)(5): $35K for ages 62-64, $65K for ages 65+.
+    var earlyAgeTier: AgeTier? = nil
+
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
+
+    /// Reduced exemption that applies only within a specific age band.
+    /// Below `ageRange.lowerBound`: no exemption. Within `ageRange`: `level`.
+    /// Above `ageRange.upperBound`: use the regular pension/IRA exemption
+    /// fields on the containing `RetirementIncomeExemptions`.
+    struct AgeTier {
+        let ageRange: ClosedRange<Int>
+        let level: ExemptionLevel
+    }
 
     enum ExemptionLevel {
         /// No exemption — fully taxed as ordinary income
@@ -392,8 +422,21 @@ struct StateTaxData {
             taxSystem: .flat(rate: 0.0539),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
-                pensionExemption: .partial(maxExempt: 65_000),  // age 62+ retirement income exclusion
-                iraWithdrawalExemption: .partial(maxExempt: 65_000),  // combined
+                // O.C.G.A. § 48-7-27(a)(5): Georgia Retirement Income Exclusion.
+                //   Ages 62-64: up to $35,000 (encoded in earlyAgeTier below)
+                //   Ages 65+:   up to $65,000 (this field)
+                // Effective for tax years beginning on or after Jan 1, 2012.
+                // The exclusion is per qualifying individual on the return —
+                // each spouse who separately meets the age and qualifying-
+                // income tests gets a separate exclusion amount.
+                pensionExemption: .partial(maxExempt: 65_000),
+                iraWithdrawalExemption: .partial(maxExempt: 65_000),
+                exemptionAppliesPerIndividual: true,
+                regularExemptionMinAge: 65,
+                earlyAgeTier: RetirementIncomeExemptions.AgeTier(
+                    ageRange: 62...64,
+                    level: .partial(maxExempt: 35_000)
+                ),
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 12_000, married: 24_000),
