@@ -891,7 +891,13 @@ struct DashboardView: View {
                                 Text("Average")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
-                                Text("\(dataManager.stateAverageRate(income: taxableIncome, filingStatus: fs), specifier: "%.1f")%")
+                                // Bug fix (v1.8.3 follow-up, 2026-05-19): use
+                                // scenarioStateTax (which applies the engine's
+                                // exemption pipeline) rather than the simple
+                                // stateAverageRate helper that zeroes out
+                                // scenario-level retirement-distribution + Roth-
+                                // conversion exemptions.
+                                Text("\(taxableIncome > 0 ? (dataManager.scenarioStateTax / taxableIncome) * 100 : 0, specifier: "%.1f")%")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                             }

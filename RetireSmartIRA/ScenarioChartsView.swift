@@ -475,8 +475,14 @@ private var scenarioStateBracketChart: some View {
                     .padding(.horizontal, 4)
 
                     // Average state tax rate before → after
+                    // Bug fix (v1.8.3 follow-up, 2026-05-19): use the engine's
+                    // scenarioStateTax for the "after" figure so the displayed
+                    // rate reflects scenario-level retirement-distribution and
+                    // Roth-conversion exemptions (PA/IL/MS). The simple
+                    // `calculateStateTax(income:)` form has scenario-args = 0
+                    // and therefore over-billed exemption-eligible states.
                     let beforeStateTax = dataManager.calculateStateTax(income: beforeIncome, filingStatus: dataManager.filingStatus)
-                    let afterStateTax = dataManager.calculateStateTax(income: afterIncome, filingStatus: dataManager.filingStatus)
+                    let afterStateTax = dataManager.scenarioStateTax
                     let beforeAvgState = beforeIncome > 0 ? (beforeStateTax / beforeIncome) * 100 : 0
                     let afterAvgState = afterIncome > 0 ? (afterStateTax / afterIncome) * 100 : 0
                     HStack(spacing: 6) {

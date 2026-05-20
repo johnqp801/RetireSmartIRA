@@ -249,7 +249,13 @@ struct PDFExportData {
         federalMarginalRate = dm.federalMarginalRate(income: dm.scenarioTaxableIncome, filingStatus: dm.filingStatus)
         federalAverageRate = dm.federalAverageRate(income: dm.scenarioTaxableIncome, filingStatus: dm.filingStatus)
         stateMarginalRate = dm.stateMarginalRate(income: dm.scenarioTaxableIncome, filingStatus: dm.filingStatus)
-        stateAverageRate = dm.stateAverageRate(income: dm.scenarioTaxableIncome, filingStatus: dm.filingStatus)
+        // Bug fix (v1.8.3 follow-up, 2026-05-19): scenarioStateTax already
+        // applies retirement-distribution + Roth-conversion exemptions.
+        // Using `stateAverageRate(income:)` here recomputes via the simple
+        // path with zeros and over-reports the rate for PA/IL/MS users.
+        stateAverageRate = dm.scenarioTaxableIncome > 0
+            ? (dm.scenarioStateTax / dm.scenarioTaxableIncome) * 100
+            : 0
 
         totalFederalWithholding = dm.totalFederalWithholding
         totalStateWithholding = dm.totalStateWithholding

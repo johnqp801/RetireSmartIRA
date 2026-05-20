@@ -44,6 +44,13 @@ struct StateComparisonView: View {
         let fs = dataManager.filingStatus
         let taxableSS = dataManager.scenarioTaxableSocialSecurity
 
+        // Bug fix (v1.8.3 follow-up, 2026-05-19): the per-state comparison must
+        // pass the SAME scenario context as `scenarioStateTax` so each state's
+        // figure reflects the SAME exemptions (Roth-conversion, retirement-age
+        // IRA distribution, IRA/Other above-the-line conformity). Without these
+        // args, PA/IL/MS rows over-billed by 3.07%/4.95%/5% × (conversion +
+        // distributions), and `.none`/conformity states drifted from
+        // `scenarioStateTax`. See Jonggie F. PA case + 2026-05-19 audit doc.
         let items = USState.allCases.map { state -> StateComparisonItem in
             let tax = dataManager.calculateStateTaxFromGross(
                 grossIncome: grossIncome,
@@ -51,7 +58,11 @@ struct StateComparisonView: View {
                 filingStatus: fs,
                 taxableSocialSecurity: taxableSS,
                 hsaContributionsAddedBack: dataManager.scenario.scenarioTotalHSA,
-                pretax401kContributionsAddedBack: dataManager.scenario.scenarioTotalTraditional401k
+                traditionalIRAContributionsSubtracted: dataManager.scenario.scenarioTotalTraditionalIRA,
+                otherPreTaxDeductionsSubtracted: dataManager.scenario.scenarioTotalOtherPreTaxDeductions,
+                pretax401kContributionsAddedBack: dataManager.scenario.scenarioTotalTraditional401k,
+                scenarioRetirementDistributions: dataManager.scenarioRetirementDistributionIncome,
+                scenarioRothConversionAmount: dataManager.scenarioTotalRothConversion
             )
             let effectiveRate = grossIncome > 0 ? (tax / grossIncome) * 100 : 0
             let config = StateTaxData.config(for: state)

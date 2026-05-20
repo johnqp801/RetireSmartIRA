@@ -800,8 +800,18 @@ class DataManager {
         let newFederalTax = calculateFederalTax(income: newIncome, filingStatus: filingStatus)
         let federalTaxOnConversion = newFederalTax - currentFederalTax
 
-        let currentCATax = calculateStateTax(income: currentIncome, filingStatus: filingStatus)
-        let newCATax = calculateStateTax(income: newIncome, filingStatus: filingStatus)
+        // Bug fix (v1.8.3 follow-up, 2026-05-19): the "after" call must pass
+        // the hypothetical `conversionAmount` as `scenarioRothConversionAmount`
+        // so PA/IL/MS correctly exempt the conversion (per PA DOR Ans 274 +
+        // IL Pub 120 + MS §27-7-15(4)(j)). Without it the engine taxes the
+        // delta and we show a phantom state tax on Roth conversions.
+        let currentCATax = calculateStateTax(income: currentIncome, forState: selectedState, filingStatus: filingStatus)
+        let newCATax = calculateStateTax(
+            income: newIncome,
+            forState: selectedState,
+            filingStatus: filingStatus,
+            scenarioRothConversionAmount: conversionAmount
+        )
         let caTaxOnConversion = newCATax - currentCATax
 
         let totalTaxOnConversion = federalTaxOnConversion + caTaxOnConversion
@@ -847,8 +857,16 @@ class DataManager {
         let fedTaxAfter = calculateFederalTax(income: newIncome, filingStatus: filingStatus)
         let federalTax = fedTaxAfter - fedTaxBefore
 
-        let stateTaxBefore = calculateStateTax(income: currentIncome, filingStatus: filingStatus)
-        let stateTaxAfter = calculateStateTax(income: newIncome, filingStatus: filingStatus)
+        // Bug fix (v1.8.3 follow-up, 2026-05-19): pass conversionAmount as
+        // scenarioRothConversionAmount so PA/IL/MS apply the conversion
+        // exemption on the "after" calculation.
+        let stateTaxBefore = calculateStateTax(income: currentIncome, forState: selectedState, filingStatus: filingStatus)
+        let stateTaxAfter = calculateStateTax(
+            income: newIncome,
+            forState: selectedState,
+            filingStatus: filingStatus,
+            scenarioRothConversionAmount: conversionAmount
+        )
         let stateTax = stateTaxAfter - stateTaxBefore
 
         let totalTax = federalTax + stateTax
@@ -898,8 +916,20 @@ class DataManager {
         let fedTaxAfter = calculateFederalTax(income: scenarioIncome, filingStatus: fs)
         let federalTax = fedTaxAfter - fedTaxBefore
 
-        let stateTaxBefore = calculateStateTax(income: baseIncome, filingStatus: fs)
-        let stateTaxAfter = calculateStateTax(income: scenarioIncome, filingStatus: fs)
+        // Bug fix (v1.8.3 follow-up, 2026-05-19): the "after" path must thread
+        // the scenario's Roth-conversion total + retirement-distribution
+        // total so PA/IL/MS apply the appropriate exemptions and the
+        // returned state-tax delta matches scenarioStateTax minus the
+        // baseline. Previously this used the simple form and showed a
+        // phantom 3.07%/4.95%/5% state tax on conversions + distributions.
+        let stateTaxBefore = calculateStateTax(income: baseIncome, forState: selectedState, filingStatus: fs)
+        let stateTaxAfter = calculateStateTax(
+            income: scenarioIncome,
+            forState: selectedState,
+            filingStatus: fs,
+            scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
+            scenarioRothConversionAmount: scenarioTotalRothConversion
+        )
         let stateTax = stateTaxAfter - stateTaxBefore
 
         let totalTax = federalTax + stateTax
@@ -1380,8 +1410,20 @@ class DataManager {
         }
 
         let stateTaxableIncome = max(0, grossIncome - stateStdDeduction)
-        // Apply retirement exemptions and compute state tax
-        let stateTax = calculateStateTax(income: stateTaxableIncome, filingStatus: filingStatus)
+        // Apply retirement exemptions and compute state tax.
+        // Bug fix (v1.8.3 follow-up, 2026-05-19): pass scenario context so the
+        // SALT estimate reflects Roth-conversion + retirement-distribution
+        // exemptions (PA/IL/MS). Without these args the SALT estimate is
+        // inflated for exemption-eligible users, leading to a slight
+        // over-deduction at the federal level.
+        let stateTax = calculateStateTax(
+            income: stateTaxableIncome,
+            forState: selectedState,
+            filingStatus: filingStatus,
+            taxableSocialSecurity: scenarioTaxableSocialSecurity,
+            scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
+            scenarioRothConversionAmount: scenarioTotalRothConversion
+        )
         return max(0, stateTax - totalStateWithholding)
     }
 
