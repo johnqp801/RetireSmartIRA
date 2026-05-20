@@ -1,0 +1,338 @@
+{
+  "_meta": {
+    "description": "Input scenarios for the TAXSIM-35 differential oracle harness. POSTed to https://taxsim.nber.org/taxsim35/redirect.cgi by tools/taxsim-refresh to populate taxsim-expected.json. The same scenarios are reconstructed inside DataManager by TaxsimOracleTests.swift for differential comparison.",
+    "year_note": "TAXSIM-35 federal logic is coded through tax year 2023 only (it 404s/errors on year>=2024). We send year=2023 to TAXSIM and ALSO configure DataManager.profile.currentYear=2023 so both sides use 2023 law where possible. The engine's own 2023 tables may not be authoritative for all states, but using a common year minimizes year-mismatch noise.",
+    "state_soi_codes": "https://taxsim.nber.org/statesoi.html",
+    "schema": {
+      "id": "TAXSIM taxsimid, 1-based",
+      "name": "human label",
+      "year": "tax year sent to both TAXSIM and engine",
+      "state_soi": "TAXSIM state code",
+      "state_enum": "RetireSmartIRA USState rawValue",
+      "filing_status": "single | marriedFilingJointly",
+      "mstat": "TAXSIM mstat (1=single, 2=joint)",
+      "primary_age": "page",
+      "spouse_age": "sage (0 if single)",
+      "wages_primary": "pwages",
+      "wages_spouse": "swages",
+      "pensions": "TAXSIM 'pensions' field — lumps IRA distributions + pensions",
+      "gssi": "gross SS benefits",
+      "intrec": "taxable interest",
+      "dividends": "ordinary dividends (TAXSIM treats as ordinary)",
+      "stcg": "net short-term cap gains",
+      "ltcg": "net long-term cap gains",
+      "engine_setup": "DataManager wiring: which slider/IncomeSource to use to materialize this scenario"
+    }
+  },
+  "scenarios": [
+    {
+      "id": 1,
+      "name": "PA single age 65, $50K IRA distribution only (Jonggie)",
+      "year": 2023, "state_soi": 39, "state_enum": "pennsylvania",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 65, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 50000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": { "yourExtraWithdrawal": 50000 }
+    },
+    {
+      "id": 2,
+      "name": "PA MFJ ages 66+68, $80K SS + $30K pension",
+      "year": 2023, "state_soi": 39, "state_enum": "pennsylvania",
+      "filing_status": "marriedFilingJointly", "mstat": 2,
+      "primary_age": 66, "spouse_age": 68,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 30000, "gssi": 80000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "incomeSources": [
+          { "name": "SS Primary", "type": "socialSecurity", "amount": 48000, "owner": "primary" },
+          { "name": "SS Spouse", "type": "socialSecurity", "amount": 32000, "owner": "spouse" },
+          { "name": "Pension", "type": "pension", "amount": 30000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "name": "CA single age 60, $40K IRA + $20K wages",
+      "year": 2023, "state_soi": 5, "state_enum": "california",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 60, "spouse_age": 0,
+      "wages_primary": 20000, "wages_spouse": 0,
+      "pensions": 40000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 40000,
+        "incomeSources": [
+          { "name": "Wages", "type": "consulting", "amount": 20000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "name": "NY MFJ ages 70/72, $90K RMD + $30K SS",
+      "year": 2023, "state_soi": 33, "state_enum": "newYork",
+      "filing_status": "marriedFilingJointly", "mstat": 2,
+      "primary_age": 70, "spouse_age": 72,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 90000, "gssi": 30000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 90000,
+        "incomeSources": [
+          { "name": "SS Primary", "type": "socialSecurity", "amount": 18000, "owner": "primary" },
+          { "name": "SS Spouse", "type": "socialSecurity", "amount": 12000, "owner": "spouse" }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "name": "TX single age 67, $100K RMD only (federal-only sanity check)",
+      "year": 2023, "state_soi": 44, "state_enum": "texas",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 67, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 100000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": { "yourExtraWithdrawal": 100000 }
+    },
+    {
+      "id": 6,
+      "name": "FL MFJ ages 75/73, $50K SS + $40K RMD + $10K dividends",
+      "year": 2023, "state_soi": 10, "state_enum": "florida",
+      "filing_status": "marriedFilingJointly", "mstat": 2,
+      "primary_age": 75, "spouse_age": 73,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 40000, "gssi": 50000,
+      "intrec": 0, "dividends": 10000, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 40000,
+        "incomeSources": [
+          { "name": "SS Primary", "type": "socialSecurity", "amount": 30000, "owner": "primary" },
+          { "name": "SS Spouse", "type": "socialSecurity", "amount": 20000, "owner": "spouse" },
+          { "name": "Dividends", "type": "dividends", "amount": 10000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "name": "CA single age 67, $100K IRA + $50K LTCG (cap gains stacking)",
+      "year": 2023, "state_soi": 5, "state_enum": "california",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 67, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 100000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 50000,
+      "engine_setup": {
+        "yourExtraWithdrawal": 100000,
+        "incomeSources": [
+          { "name": "LTCG", "type": "capitalGainsLong", "amount": 50000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "name": "NY single age 68, $165K IRA + $30K LTCG + $5K interest (NIIT territory)",
+      "year": 2023, "state_soi": 33, "state_enum": "newYork",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 68, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 165000, "gssi": 0,
+      "intrec": 5000, "dividends": 0, "stcg": 0, "ltcg": 30000,
+      "engine_setup": {
+        "yourExtraWithdrawal": 165000,
+        "incomeSources": [
+          { "name": "LTCG", "type": "capitalGainsLong", "amount": 30000, "owner": "primary" },
+          { "name": "Interest", "type": "interest", "amount": 5000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "name": "IL single age 70, $100K pension + $20K SS (IL full retirement exempt)",
+      "year": 2023, "state_soi": 14, "state_enum": "illinois",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 70, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 100000, "gssi": 20000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "incomeSources": [
+          { "name": "Pension", "type": "pension", "amount": 100000, "owner": "primary" },
+          { "name": "SS", "type": "socialSecurity", "amount": 20000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "name": "MS single age 65, $80K IRA + $25K SS (MS full retirement exempt)",
+      "year": 2023, "state_soi": 25, "state_enum": "mississippi",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 65, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 80000, "gssi": 25000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 80000,
+        "incomeSources": [
+          { "name": "SS", "type": "socialSecurity", "amount": 25000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "name": "GA single age 64, $60K IRA (GA partial retirement exemption tier)",
+      "year": 2023, "state_soi": 11, "state_enum": "georgia",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 64, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 60000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": { "yourExtraWithdrawal": 60000 }
+    },
+    {
+      "id": 12,
+      "name": "CO single age 70, $50K pension + $30K IRA (CO partial $24K)",
+      "year": 2023, "state_soi": 6, "state_enum": "colorado",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 70, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 80000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 30000,
+        "incomeSources": [
+          { "name": "Pension", "type": "pension", "amount": 50000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "name": "PA MFJ ages 65/63, $50K Roth conversion only (PA Ans 274 exempt)",
+      "year": 2023, "state_soi": 39, "state_enum": "pennsylvania",
+      "filing_status": "marriedFilingJointly", "mstat": 2,
+      "primary_age": 65, "spouse_age": 63,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 50000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": { "yourRothConversion": 50000 },
+      "divergence_expected": "PA exempts Roth conversions per DOR Ans 274 (engine: $0 state tax). TAXSIM's PA logic taxes the 'pensions' field, so TAXSIM will likely show >$0 PA. This divergence is EXPECTED — document, don't fail."
+    },
+    {
+      "id": 14,
+      "name": "NJ single age 63, $40K pension + $20K SS",
+      "year": 2023, "state_soi": 31, "state_enum": "newJersey",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 63, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 40000, "gssi": 20000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "incomeSources": [
+          { "name": "Pension", "type": "pension", "amount": 40000, "owner": "primary" },
+          { "name": "SS", "type": "socialSecurity", "amount": 20000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "name": "VA single age 66, $30K pension + $40K SS",
+      "year": 2023, "state_soi": 47, "state_enum": "virginia",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 66, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 30000, "gssi": 40000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "incomeSources": [
+          { "name": "Pension", "type": "pension", "amount": 30000, "owner": "primary" },
+          { "name": "SS", "type": "socialSecurity", "amount": 40000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 16,
+      "name": "AL single age 67, $40K pension + $20K IRA",
+      "year": 2023, "state_soi": 1, "state_enum": "alabama",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 67, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 60000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 20000,
+        "incomeSources": [
+          { "name": "Pension", "type": "pension", "amount": 40000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 17,
+      "name": "MD single age 66, $35K pension + $30K IRA",
+      "year": 2023, "state_soi": 21, "state_enum": "maryland",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 66, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 65000, "gssi": 0,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 30000,
+        "incomeSources": [
+          { "name": "Pension", "type": "pension", "amount": 35000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 18,
+      "name": "NC single age 65, $50K IRA + $30K SS",
+      "year": 2023, "state_soi": 34, "state_enum": "northCarolina",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 65, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 50000, "gssi": 30000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 50000,
+        "incomeSources": [
+          { "name": "SS", "type": "socialSecurity", "amount": 30000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 19,
+      "name": "SC single age 70, $60K IRA + $30K SS",
+      "year": 2023, "state_soi": 41, "state_enum": "southCarolina",
+      "filing_status": "single", "mstat": 1,
+      "primary_age": 70, "spouse_age": 0,
+      "wages_primary": 0, "wages_spouse": 0,
+      "pensions": 60000, "gssi": 30000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 0,
+      "engine_setup": {
+        "yourExtraWithdrawal": 60000,
+        "incomeSources": [
+          { "name": "SS", "type": "socialSecurity", "amount": 30000, "owner": "primary" }
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "name": "CA MFJ ages 65/67, $80K wages + $50K IRA + $40K SS + $30K LTCG",
+      "year": 2023, "state_soi": 5, "state_enum": "california",
+      "filing_status": "marriedFilingJointly", "mstat": 2,
+      "primary_age": 65, "spouse_age": 67,
+      "wages_primary": 80000, "wages_spouse": 0,
+      "pensions": 50000, "gssi": 40000,
+      "intrec": 0, "dividends": 0, "stcg": 0, "ltcg": 30000,
+      "engine_setup": {
+        "yourExtraWithdrawal": 50000,
+        "incomeSources": [
+          { "name": "Wages", "type": "consulting", "amount": 80000, "owner": "primary" },
+          { "name": "SS Primary", "type": "socialSecurity", "amount": 24000, "owner": "primary" },
+          { "name": "SS Spouse", "type": "socialSecurity", "amount": 16000, "owner": "spouse" },
+          { "name": "LTCG", "type": "capitalGainsLong", "amount": 30000, "owner": "primary" }
+        ]
+      }
+    }
+  ]
+}
