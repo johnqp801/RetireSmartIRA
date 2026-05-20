@@ -1,0 +1,139 @@
+{
+  "_comment": "TY2023 federal constants. All values verified from IRS Rev. Proc. 2022-38 (https://www.irs.gov/pub/irs-drop/rp-22-38.pdf). Used only by TaxsimOracleTests to validate the engine against NBER TAXSIM-35, which caps at year=2023. NOT loaded in production runs. seniorBonusFirstYear set high so OBBBA senior deduction does not activate. saltExpandedFirstYear set high so OBBBA expanded SALT does not activate. amtPhaseoutRate is 0.25 per IRC 55(d)(3) statute. SocialSecurity / NIIT thresholds match 2026 because they are statutory and never indexed.",
+
+  "taxYear": 2023,
+
+  "federalBracketsSingle": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 11000, "rate": 0.12 },
+    { "threshold": 44725, "rate": 0.22 },
+    { "threshold": 95375, "rate": 0.24 },
+    { "threshold": 182100, "rate": 0.32 },
+    { "threshold": 231250, "rate": 0.35 },
+    { "threshold": 578125, "rate": 0.37 }
+  ],
+  "federalBracketsMFJ": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 22000, "rate": 0.12 },
+    { "threshold": 89450, "rate": 0.22 },
+    { "threshold": 190750, "rate": 0.24 },
+    { "threshold": 364200, "rate": 0.32 },
+    { "threshold": 462500, "rate": 0.35 },
+    { "threshold": 693750, "rate": 0.37 }
+  ],
+  "federalCapGainsBracketsSingle": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 44625, "rate": 0.15 },
+    { "threshold": 492300, "rate": 0.20 }
+  ],
+  "federalCapGainsBracketsMFJ": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 89250, "rate": 0.15 },
+    { "threshold": 553850, "rate": 0.20 }
+  ],
+
+  "standardDeductionSingle": 13850,
+  "standardDeductionMFJ": 27700,
+  "additionalDeduction65Single": 1850,
+  "additionalDeduction65MFJ": 1500,
+
+  "seniorBonusPerPerson": 0,
+  "seniorBonusPhaseoutSingle": 0,
+  "seniorBonusPhaseoutMFJ": 0,
+  "seniorBonusPhaseoutRate": 0.0,
+  "seniorBonusFirstYear": 9999,
+  "seniorBonusLastYear": 9999,
+
+  "saltBaseCap": 10000,
+  "saltInflationRate": 0.0,
+  "saltBaseYear": 2017,
+  "saltPhaseoutBaseThreshold": 0,
+  "saltPhaseoutRate": 0.0,
+  "saltFloor": 10000,
+  "saltExpandedFirstYear": 9999,
+  "saltExpandedLastYear": 9999,
+  "saltDefaultCap": 10000,
+
+  "amtExemptionSingle": 81300,
+  "amtExemptionMFJ": 126500,
+  "amtPhaseoutThresholdSingle": 578150,
+  "amtPhaseoutThresholdMFJ": 1156300,
+  "amtPhaseoutRate": 0.25,
+  "amt26PercentLimit": 220700,
+  "amtRate26": 0.26,
+  "amtRate28": 0.28,
+
+  "irmaaStandardPartB": 164.90,
+  "irmaaTiers": [
+    { "tier": 0, "singleThreshold": 0, "mfjThreshold": 0, "partBMonthly": 164.90, "partDMonthly": 0 },
+    { "tier": 1, "singleThreshold": 97001, "mfjThreshold": 194001, "partBMonthly": 230.80, "partDMonthly": 12.20 },
+    { "tier": 2, "singleThreshold": 123001, "mfjThreshold": 246001, "partBMonthly": 329.70, "partDMonthly": 31.50 },
+    { "tier": 3, "singleThreshold": 153001, "mfjThreshold": 306001, "partBMonthly": 428.60, "partDMonthly": 50.70 },
+    { "tier": 4, "singleThreshold": 183001, "mfjThreshold": 366001, "partBMonthly": 527.50, "partDMonthly": 70.00 },
+    { "tier": 5, "singleThreshold": 500001, "mfjThreshold": 750001, "partBMonthly": 560.50, "partDMonthly": 76.40 }
+  ],
+
+  "niitRate": 0.038,
+  "niitThresholdSingle": 200000,
+  "niitThresholdMFJ": 250000,
+
+  "ssTaxationThreshold1Single": 25000,
+  "ssTaxationThreshold2Single": 34000,
+  "ssTaxationThreshold1MFJ": 32000,
+  "ssTaxationThreshold2MFJ": 44000,
+
+  "qcdAnnualLimit": 100000,
+
+  "caExemptionCreditPerPerson": 129,
+  "caExemptionPhaseoutSingle": 237035,
+  "caExemptionPhaseoutMFJ": 474075,
+  "caExemptionPhaseoutReductionPer2500": 6.0,
+
+  "medicalAGIFloorRate": 0.075,
+
+  "contributionLimits401k": {
+    "base": 22500,
+    "catchupAge50To59": 7500,
+    "catchupAge60To63": 7500,
+    "catchupAge64Plus": 7500
+  },
+
+  "contributionLimitsIRA": {
+    "base": 6500,
+    "catchupAge50Plus": 1000
+  },
+
+  "contributionLimitsHSA": {
+    "selfOnly": 3850,
+    "family": 7750,
+    "catchupAge55Plus": 1000
+  },
+
+  "medicare2026": {
+    "partBStandardMonthly": 164.90,
+    "partDAvgMonthly": 31.50,
+    "medigapAvgMonthly": 150.00,
+    "advantageAvgMonthly": 18.00
+  },
+
+  "acaSubsidy2026": {
+    "fpl2026": {
+      "householdSizeToFPL": {
+        "1": 13590, "2": 18310, "3": 23030, "4": 27750, "5": 32470,
+        "6": 37190, "7": 41910, "8": 46630
+      },
+      "alaskaMultiplier": 1.25,
+      "hawaiiMultiplier": 1.15
+    },
+    "applicableFigures": [
+      { "fplPercent": 100, "applicableFigure": 0.00 },
+      { "fplPercent": 150, "applicableFigure": 0.00 },
+      { "fplPercent": 200, "applicableFigure": 0.04 },
+      { "fplPercent": 250, "applicableFigure": 0.06 },
+      { "fplPercent": 300, "applicableFigure": 0.08 },
+      { "fplPercent": 400, "applicableFigure": 1.00 }
+    ],
+    "hasCliff": false,
+    "nationalAvgBenchmarkSilverPlanAnnual": 6300
+  }
+}

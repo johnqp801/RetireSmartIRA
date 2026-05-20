@@ -111,7 +111,7 @@
         "incomeSources": [
           { "name": "SS Primary", "type": "socialSecurity", "amount": 30000, "owner": "primary" },
           { "name": "SS Spouse", "type": "socialSecurity", "amount": 20000, "owner": "spouse" },
-          { "name": "Dividends", "type": "dividends", "amount": 10000, "owner": "primary" }
+          { "name": "Qualified Dividends", "type": "qualifiedDividends", "amount": 10000, "owner": "primary" }
         ]
       }
     },

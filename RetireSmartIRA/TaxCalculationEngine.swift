@@ -23,6 +23,23 @@ struct TaxCalculationEngine {
         config = TaxYearConfig.loadOrFallback(forYear: year)
     }
 
+    /// **TEST-ONLY.** Temporarily swap `config` to the bundled JSON for `year`,
+    /// run `body`, then restore the original. Used by `TaxsimOracleTests` to
+    /// validate the federal engine against NBER TAXSIM-35, which only codes
+    /// federal law through TY2023 (year>=2024 returns STOP 1).
+    ///
+    /// @MainActor so the body can construct a DataManager (also @MainActor).
+    /// Not thread-safe — only use from synchronous test code on the main actor.
+    /// Do not use in production: the production tax year is set once at app
+    /// startup via `loadConfig(forYear:)`.
+    @MainActor
+    static func withConfig<T>(forYear year: Int, _ body: () throws -> T) rethrows -> T {
+        let original = config
+        defer { config = original }
+        config = TaxYearConfig.loadOrFallback(forYear: year)
+        return try body()
+    }
+
     // MARK: - Tax Bracket Constants (from config)
 
     static var default2026Brackets: TaxBrackets { config.toTaxBrackets() }

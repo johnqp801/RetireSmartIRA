@@ -209,6 +209,12 @@ struct TaxsimOracleTests {
     /// Single aggregating test: iterates every scenario, accumulates findings,
     /// and emits a structured summary in the failure message. Run with
     /// `xcodebuild test -only-testing:RetireSmartIRATests/TaxsimOracleTests`.
+    ///
+    /// Each scenario is evaluated inside `TaxCalculationEngine.withConfig(forYear: 2023)`,
+    /// which swaps the global tax-year config to TY2023 (loaded from `tax-2023.json`)
+    /// for the duration of the closure. This matches the year used by TAXSIM-35
+    /// (which caps at 2023) so federal differences reflect engine bugs, not
+    /// year-shift artifacts.
     @Test("Engine vs. NBER TAXSIM-35 across 20 retirement scenarios")
     func differentialAgainstTaxsim() throws {
         let scenarios = try loadFixture(ScenarioFile.self, named: "taxsim-scenarios.json").scenarios
@@ -238,15 +244,26 @@ struct TaxsimOracleTests {
                                       detail: "no TAXSIM expected row for id=\(s.id) (refresh fixtures?)"))
                 continue
             }
-            guard let dm = buildEngine(for: s) else {
+
+            // Evaluate this scenario under TY2023 federal constants (matching
+            // TAXSIM-35's year cap). `withConfig` swaps `TaxCalculationEngine.config`
+            // for the duration of the closure so DataManager init + all scenario
+            // computed properties read TY2023 brackets, std deduction, AMT, etc.
+            let (engineFederal, engineState, setupOk): (Double, Double, Bool) =
+                TaxCalculationEngine.withConfig(forYear: 2023) {
+                guard let dm = buildEngine(for: s) else { return (0, 0, false) }
+                let fed = dm.scenarioFederalTax + dm.scenarioNIITAmount + dm.scenarioAMTAmount
+                let st = dm.scenarioStateTax
+                return (fed, st, true)
+            }
+
+            if !setupOk {
                 findings.append(.init(scenarioId: s.id, scenarioName: s.name, kind: .setupFail,
                                       engineFederal: 0, taxsimFederal: 0, engineState: 0, taxsimState: 0,
                                       detail: "could not build DataManager for state_enum=\(s.state_enum) filing=\(s.filing_status)"))
                 continue
             }
 
-            let engineFederal = dm.scenarioFederalTax + dm.scenarioNIITAmount + dm.scenarioAMTAmount
-            let engineState = dm.scenarioStateTax
             let federalDelta = engineFederal - exp.fiitax
             let stateDelta = engineState - exp.siitax
 

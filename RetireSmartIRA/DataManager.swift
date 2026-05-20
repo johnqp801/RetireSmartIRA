@@ -282,22 +282,28 @@ class DataManager {
     // MARK: - Tax Bracket Storage
     var currentTaxBrackets: TaxBrackets
     
-    // Tax constants delegated to TaxCalculationEngine
-    static let default2026Brackets = TaxCalculationEngine.default2026Brackets
-    static let irmaaStandardPartB = TaxCalculationEngine.irmaaStandardPartB
-    static let irmaa2026Tiers = TaxCalculationEngine.irmaa2026Tiers
-    static let niitRate = TaxCalculationEngine.niitRate
-    static let niitThresholdSingle = TaxCalculationEngine.niitThresholdSingle
-    static let niitThresholdMFJ = TaxCalculationEngine.niitThresholdMFJ
-    static let niitQualifyingTypes = TaxCalculationEngine.niitQualifyingTypes
-    static let amtExemptionSingle = TaxCalculationEngine.amtExemptionSingle
-    static let amtExemptionMFJ = TaxCalculationEngine.amtExemptionMFJ
-    static let amtPhaseoutThresholdSingle = TaxCalculationEngine.amtPhaseoutThresholdSingle
-    static let amtPhaseoutThresholdMFJ = TaxCalculationEngine.amtPhaseoutThresholdMFJ
-    static let amtPhaseoutRate = TaxCalculationEngine.amtPhaseoutRate
-    static let amt26PercentLimit = TaxCalculationEngine.amt26PercentLimit
-    static let amtRate26 = TaxCalculationEngine.amtRate26
-    static let amtRate28 = TaxCalculationEngine.amtRate28
+    // Tax constants delegated to TaxCalculationEngine.
+    // NOTE: These MUST be computed (`static var`), not stored (`static let`).
+    // Stored static-lets snapshot the value at class-load time, which breaks
+    // any code path that calls `TaxCalculationEngine.loadConfig(forYear:)` or
+    // `withConfig(forYear:)` to swap the active tax year (e.g. TaxsimOracleTests
+    // validating against NBER TAXSIM-35 at TY2023). Each access here re-reads
+    // from the live `TaxCalculationEngine.config`. Trivial perf cost.
+    static var default2026Brackets: TaxBrackets { TaxCalculationEngine.default2026Brackets }
+    static var irmaaStandardPartB: Double { TaxCalculationEngine.irmaaStandardPartB }
+    static var irmaa2026Tiers: [IRMAATier] { TaxCalculationEngine.irmaa2026Tiers }
+    static var niitRate: Double { TaxCalculationEngine.niitRate }
+    static var niitThresholdSingle: Double { TaxCalculationEngine.niitThresholdSingle }
+    static var niitThresholdMFJ: Double { TaxCalculationEngine.niitThresholdMFJ }
+    static var niitQualifyingTypes: Set<IncomeType> { TaxCalculationEngine.niitQualifyingTypes }
+    static var amtExemptionSingle: Double { TaxCalculationEngine.amtExemptionSingle }
+    static var amtExemptionMFJ: Double { TaxCalculationEngine.amtExemptionMFJ }
+    static var amtPhaseoutThresholdSingle: Double { TaxCalculationEngine.amtPhaseoutThresholdSingle }
+    static var amtPhaseoutThresholdMFJ: Double { TaxCalculationEngine.amtPhaseoutThresholdMFJ }
+    static var amtPhaseoutRate: Double { TaxCalculationEngine.amtPhaseoutRate }
+    static var amt26PercentLimit: Double { TaxCalculationEngine.amt26PercentLimit }
+    static var amtRate26: Double { TaxCalculationEngine.amtRate26 }
+    static var amtRate28: Double { TaxCalculationEngine.amtRate28 }
 
     // Computed Properties — derived from birthDate
 
