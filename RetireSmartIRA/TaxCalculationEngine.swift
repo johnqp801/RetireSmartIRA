@@ -330,7 +330,8 @@ struct TaxCalculationEngine {
         enableSpouse: Bool,
         spouseBirthYear: Int,
         currentYear: Int,
-        scenarioRetirementDistributions: Double = 0
+        scenarioRetirementDistributions: Double = 0,
+        scenarioRothConversionAmount: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let spouseAge = currentYear - spouseBirthYear
@@ -343,7 +344,8 @@ struct TaxCalculationEngine {
             primaryAge: currentAge,
             spouseAge: spouseAge,
             enableSpouse: enableSpouse,
-            scenarioRetirementDistributions: scenarioRetirementDistributions
+            scenarioRetirementDistributions: scenarioRetirementDistributions,
+            scenarioRothConversionAmount: scenarioRothConversionAmount
         )
 
         var tax: Double
@@ -407,18 +409,16 @@ struct TaxCalculationEngine {
         primaryAge: Int,
         spouseAge: Int,
         enableSpouse: Bool,
-        scenarioRetirementDistributions: Double = 0
+        scenarioRetirementDistributions: Double = 0,
+        scenarioRothConversionAmount: Double = 0
     ) -> Double {
-        // TODO(post-1.8.2): Several refinements outside this initial wiring:
+        // TODO(post-1.8.3): Several refinements outside this fix:
         // - Verified-2026 exemption value updates: CO unlimited (SB25-136, currently
         //   $24K), AL $12K age 65+ (HB388, currently $2,500), MD $40,600 age 65+
         //   (employer pensions only, not IRA), MI $67,610/$135,220 final phase-in
         //   (currently `.full` overstates), KY HB146 status, GA's $35K 62-64 tier.
         // - Per-state age thresholds (NJ 62, CO pre-SB25-136 was 65) — we use a
         //   flat 59½ baseline here for `scenarioRetirementDistributions`.
-        // - Roth conversion exemption for PA per PA DOR Ans 274 (conversions
-        //   NOT taxable in conversion year) — affects heir-comparison math
-        //   substantially for PA users.
         // - When the engine can distinguish pension vs IRA portions of
         //   `scenarioRetirementDistributions` separately, apply pensionExemption
         //   and iraWithdrawalExemption independently rather than reusing the
@@ -481,6 +481,21 @@ struct TaxCalculationEngine {
             )
             let exemptPortion = source.annualAmount - stillTaxable
             adjusted -= exemptPortion
+        }
+
+        // Roth conversion exemption (v1.8.3): PA per DOR Ans 274 holds that a
+        // trustee-to-trustee Roth conversion is NOT a taxable event in PA in
+        // the conversion year. Illinois (IL Pub 120) and Mississippi (MS Code
+        // §27-7-15(4)(j)) follow the same treatment per practitioner consensus.
+        // Critically this exemption is NOT age-gated — Ans 274 imposes no
+        // retirement-age condition on the conversion itself. We therefore apply
+        // it independently of `scenarioRetirementDistributions`, which retains
+        // its 59½ gate for distributions.
+        switch state {
+        case .pennsylvania, .illinois, .mississippi:
+            adjusted -= scenarioRothConversionAmount
+        default:
+            break
         }
 
         return max(0, adjusted)

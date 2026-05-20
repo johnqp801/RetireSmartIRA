@@ -425,8 +425,8 @@ class DataManager {
     /// Calculates state tax for a specific state (used for cross-state comparison).
     /// `income` is post-state-deduction income (state taxable income before retirement exemptions).
     /// `taxableSocialSecurity` is the SS amount included in income (to correctly subtract for SS-exempt states).
-    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0) -> Double {
-        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions)
+    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0) -> Double {
+        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount)
     }
 
     /// Sum of scenario-level retirement-distribution income subject to state-level
@@ -463,7 +463,8 @@ class DataManager {
         traditionalIRAContributionsSubtracted: Double = 0,
         otherPreTaxDeductionsSubtracted: Double = 0,
         pretax401kContributionsAddedBack: Double = 0,
-        scenarioRetirementDistributions: Double = 0
+        scenarioRetirementDistributions: Double = 0,
+        scenarioRothConversionAmount: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let hsaAddback = config.hsaContributionsTaxableForState ? hsaContributionsAddedBack : 0
@@ -495,7 +496,7 @@ class DataManager {
         }
 
         let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
-        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions)
+        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount)
     }
 
     /// Applies state-specific retirement income exemptions to reduce state taxable income.
@@ -602,7 +603,19 @@ class DataManager {
             militaryExemptAmt += (source.annualAmount - stillTaxable)
         }
 
-        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt
+        // Roth conversion exemption (v1.8.3): PA/IL/MS exempt conversions per
+        // PA DOR Ans 274 + IL Pub 120 + MS Code §27-7-15(4)(j). Not age-gated.
+        // Mirrors TaxCalculationEngine.applyRetirementExemptions logic.
+        let conversionExemptAmt: Double = {
+            switch state {
+            case .pennsylvania, .illinois, .mississippi:
+                return scenarioTotalRothConversion
+            default:
+                return 0
+            }
+        }()
+
+        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt + conversionExemptAmt
         let adjustedIncome = max(0, income - totalExempted)
 
         // 3. Calculate tax with bracket-level detail
@@ -1551,7 +1564,8 @@ class DataManager {
                 traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
                 otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
                 pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
-                scenarioRetirementDistributions: scenarioRetirementDistributionIncome
+                scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
+                scenarioRothConversionAmount: scenarioTotalRothConversion
             )
         }
     }
@@ -1789,7 +1803,8 @@ class DataManager {
             traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
             otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
             pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
-            scenarioRetirementDistributions: scenarioRetirementDistributionIncome
+            scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
+            scenarioRothConversionAmount: scenarioTotalRothConversion
         )
 
         // ACA premium impact: lost subsidy if over cliff.
@@ -2307,7 +2322,8 @@ class DataManager {
         taxableSocialSecurity: Double,
         deduction: Double,
         nii: Double? = nil,
-        scenarioRetirementDistributions: Double? = nil
+        scenarioRetirementDistributions: Double? = nil,
+        scenarioRothConversionAmount: Double? = nil
     ) -> Double {
         let taxable = max(0, grossIncome - deduction)
         let fed = calculateFederalTax(income: taxable, filingStatus: filingStatus)
@@ -2320,7 +2336,8 @@ class DataManager {
             traditionalIRAContributionsSubtracted: scenario.scenarioTotalTraditionalIRA,
             otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
             pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
-            scenarioRetirementDistributions: scenarioRetirementDistributions ?? scenarioRetirementDistributionIncome
+            scenarioRetirementDistributions: scenarioRetirementDistributions ?? scenarioRetirementDistributionIncome,
+            scenarioRothConversionAmount: scenarioRothConversionAmount ?? scenarioTotalRothConversion
         )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt
@@ -2342,7 +2359,8 @@ class DataManager {
         let withoutConversions = totalTaxFor(
             grossIncome: grossWithoutConv,
             taxableSocialSecurity: ssWithoutConv,
-            deduction: effectiveDeductionAmount
+            deduction: effectiveDeductionAmount,
+            scenarioRothConversionAmount: 0
         )
         return scenarioTotalTax - withoutConversions
     }

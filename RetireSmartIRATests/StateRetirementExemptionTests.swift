@@ -171,4 +171,165 @@ struct StateRetirementExemptionTests {
         )
         #expect(tax > 1_400 && tax < 1_700, "Expected ≈$1,535 PA tax. Got \(tax)")
     }
+
+    // MARK: - v1.8.3 PA Comprehensive Fix tests
+    //
+    // Coverage for PA DOR Ans 274 (Roth conversion exemption) and adjacent gaps.
+    // Source of truth: .claude/memory/decisions/2026-05-19-PA-comprehensive-tax-law-and-code-audit.md
+
+    /// Build a DataManager mirroring John's (Jonggie's) failing scenario.
+    /// PA MFJ, Bob age 60 (DOB 1966), Sue age 61 (DOB 1964), with the exact
+    /// income mix from the bug report. By default no scenario sliders are set.
+    private func makeJohnsScenario(
+        rothConversion: Double = 0,
+        extraWithdrawal: Double = 0
+    ) -> DataManager {
+        let dm = DataManager(skipPersistence: true)
+        var bob = DateComponents(); bob.year = 1966; bob.month = 2; bob.day = 2
+        dm.profile.birthDate = Calendar.current.date(from: bob)!
+        var sue = DateComponents(); sue.year = 1964; sue.month = 9; sue.day = 2
+        dm.profile.spouseBirthDate = Calendar.current.date(from: sue)!
+        dm.profile.enableSpouse = true
+        dm.profile.currentYear = 2026
+        dm.selectedState = .pennsylvania
+        dm.filingStatus = .marriedFilingJointly
+
+        dm.incomeSources = [
+            IncomeSource(name: "Ordinary Dividends", type: .qualifiedDividends, annualAmount: 36_523),
+            IncomeSource(name: "LTCG", type: .capitalGainsLong, annualAmount: 64_219),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 3_500),
+            IncomeSource(name: "SS Bob", type: .socialSecurity, annualAmount: 68_328, owner: .primary),
+            IncomeSource(name: "SS Sue", type: .socialSecurity, annualAmount: 24_000, owner: .spouse),
+            IncomeSource(name: "Muni Interest", type: .taxExemptInterest, annualAmount: 26_927),
+        ]
+
+        if rothConversion > 0 {
+            dm.yourRothConversion = rothConversion
+        }
+        if extraWithdrawal > 0 {
+            dm.yourExtraWithdrawal = extraWithdrawal
+        }
+
+        return dm
+    }
+
+    /// Test 1.1 — John's exact failing scenario (no scenario sliders).
+    ///
+    /// Per PA law: SS exempt, pension exempt, muni interest excluded from PA
+    /// gross compensation. Only qDiv ($36,523) + LTCG ($64,219) = $100,742 is
+    /// PA-taxable. Expected = $100,742 × 0.0307 ≈ $3,092.79.
+    @Test("PA v1.8.3 — Test 1.1: John's scenario, no sliders → ~$3,085 PA tax")
+    func paJohnsScenarioBaseline() {
+        let dm = makeJohnsScenario()
+        let tax = dm.scenarioStateTax
+        #expect(tax > 3_050 && tax < 3_120,
+                "Expected ≈$3,085 (qDiv+LTCG only at 3.07%); got \(tax). If ~$3,200+ then pension is being TAXED. If ~$3,650+ then SS or muni leakage.")
+    }
+
+    /// Test 1.2 — John's scenario + $50K Roth conversion.
+    /// PA DOR Ans 274: conversion is NOT taxable in PA. Expected = same as 1.1.
+    @Test("PA v1.8.3 — Test 1.2: + $50K Roth conversion → same tax (Ans 274)")
+    func paJohnsScenarioPlusRothConversion() {
+        let baseline = makeJohnsScenario().scenarioStateTax
+        let withConv = makeJohnsScenario(rothConversion: 50_000).scenarioStateTax
+        #expect(abs(withConv - baseline) < 1.0,
+                "PA Roth conversion must not change state tax. Baseline=\(baseline) withConv=\(withConv) delta=\(withConv - baseline)")
+    }
+
+    /// Test 1.3 — PA Roth conversion exemption is NOT age-gated.
+    /// Age 50 (single), $50K conversion + $0 other → PA state tax must be $0.
+    @Test("PA v1.8.3 — Test 1.3: age 50 + $50K conversion → $0 (no age gate per Ans 274)")
+    func paRothConversionNotAgeGated() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1976; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.selectedState = .pennsylvania
+        dm.filingStatus = .single
+        dm.yourRothConversion = 50_000
+        let tax = dm.scenarioStateTax
+        #expect(tax == 0,
+                "PA must exempt Roth conversion regardless of age (Ans 274). Got \(tax)")
+    }
+
+    /// Test 1.4 — Early withdrawal under 59½ is still PA-taxed.
+    /// Locks the age gate for *withdrawals* so we don't widen it accidentally.
+    @Test("PA v1.8.3 — Test 1.4: age 55 + $40K extra withdrawal → ≈$1,228 (age gate preserved)")
+    func paEarlyExtraWithdrawalStillTaxed() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1971; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.selectedState = .pennsylvania
+        dm.filingStatus = .single
+        dm.yourExtraWithdrawal = 40_000
+        let tax = dm.scenarioStateTax
+        #expect(tax > 1_150 && tax < 1_300,
+                "Expected ≈$1,228 PA tax on $40K early withdrawal. Got \(tax)")
+    }
+
+    /// Test 1.5 — IL Roth conversion exemption (no age gate).
+    @Test("IL v1.8.3 — Test 1.5: age 50 + $50K Roth conversion → $0 state tax")
+    func ilRothConversionExempt() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1976; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.selectedState = .illinois
+        dm.filingStatus = .single
+        dm.yourRothConversion = 50_000
+        let tax = dm.scenarioStateTax
+        #expect(tax == 0,
+                "IL must exempt Roth conversion regardless of age. Got \(tax)")
+    }
+
+    /// Test 1.6 — MS Roth conversion exemption (no age gate).
+    @Test("MS v1.8.3 — Test 1.6: age 50 + $50K Roth conversion → $0 state tax")
+    func msRothConversionExempt() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1976; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.selectedState = .mississippi
+        dm.filingStatus = .single
+        dm.yourRothConversion = 50_000
+        let tax = dm.scenarioStateTax
+        #expect(tax == 0,
+                "MS must exempt Roth conversion regardless of age. Got \(tax)")
+    }
+
+    /// Test 1.7 — CA taxes Roth conversion (control).
+    @Test("CA v1.8.3 — Test 1.7: age 60 + $50K Roth conversion → state tax > $0")
+    func caRothConversionStillTaxed() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1966; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.selectedState = .california
+        dm.filingStatus = .single
+        dm.yourRothConversion = 50_000
+        let tax = dm.scenarioStateTax
+        #expect(tax > 0,
+                "CA taxes Roth conversion. Got \(tax)")
+    }
+
+    /// Test 1.8 — PA inherited-IRA RMD for under-59½ beneficiary is exempt.
+    /// Modeled as a `.rmd` IncomeSource row (which is the user-entered way to
+    /// represent any RMD-type distribution, including inherited). PA exempts
+    /// `.rmd` rows unconditionally today, so this test should already pass.
+    @Test("PA v1.8.3 — Test 1.8: age 45 + $15K inherited RMD (.rmd row) → $0 PA tax")
+    func paInheritedRMDUnderAgeExempt() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1981; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.selectedState = .pennsylvania
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Inherited IRA RMD", type: .rmd, annualAmount: 15_000)
+        ]
+        let tax = dm.scenarioStateTax
+        #expect(tax == 0,
+                "PA must exempt inherited-IRA RMD regardless of beneficiary age. Got \(tax)")
+    }
 }
