@@ -447,12 +447,21 @@ struct TaxCalculationEngine {
             adjusted -= taxableSocialSecurity
         }
 
+        // Per-individual cap multiplier: when MFJ AND both spouses are 59½+
+        // AND the state's exemption applies per-taxpayer rather than per-
+        // return, the partial cap is doubled. Used by NY ($20K per IT-201
+        // pension/annuity exclusion). For Single, MFS, or MFJ where only one
+        // spouse qualifies, the cap stays single-size.
+        let bothSpouses59Plus = enableSpouse && primaryAge >= 59 && spouseAge >= 59
+        let perIndividualMultiplier: Double =
+            (exemptions.exemptionAppliesPerIndividual && bothSpouses59Plus) ? 2.0 : 1.0
+
         let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
         switch exemptions.pensionExemption {
         case .full:
             adjusted -= pensionIncome
         case .partial(let maxExempt):
-            adjusted -= min(pensionIncome, maxExempt)
+            adjusted -= min(pensionIncome, maxExempt * perIndividualMultiplier)
         case .none:
             break
         }
@@ -474,7 +483,7 @@ struct TaxCalculationEngine {
         case .full:
             adjusted -= iraIncome
         case .partial(let maxExempt):
-            adjusted -= min(iraIncome, maxExempt)
+            adjusted -= min(iraIncome, maxExempt * perIndividualMultiplier)
         case .none:
             break
         }

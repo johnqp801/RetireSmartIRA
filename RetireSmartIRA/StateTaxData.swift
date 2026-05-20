@@ -165,6 +165,18 @@ struct RetirementIncomeExemptions {
     /// Whether IRA/401(k) withdrawals are exempt from state income tax
     var iraWithdrawalExemption: ExemptionLevel = .none
 
+    /// Whether the `.partial(maxExempt:)` cap applies PER-INDIVIDUAL rather
+    /// than per-return. When `true` and filing status is MFJ AND both spouses
+    /// are 59½+, the engine doubles the cap (effectively granting each
+    /// spouse their own exclusion). When `false` (default) the cap is
+    /// household-wide.
+    ///
+    /// States where this matters: NY ($20K per IT-201 pension/annuity
+    /// exclusion under § 612(c)(3-a)). Other per-individual states (MD's
+    /// pension exclusion under § 10-209, GA, NJ, CT) will likely adopt this
+    /// flag in follow-up releases when their attribution rules are verified.
+    var exemptionAppliesPerIndividual: Bool = false
+
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
 
@@ -1118,8 +1130,16 @@ struct StateTaxData {
             ),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
-                pensionExemption: .partial(maxExempt: 20_000),  // NY pension/annuity exclusion
+                // NY Tax Law § 612(c)(3-a): "Pensions and annuities received by
+                // an individual who has attained the age of fifty-nine and
+                // one-half" — up to $20,000 per qualifying individual.
+                // Per IT-201 instructions, each spouse on a joint return who
+                // separately meets the age and qualifying-income tests gets
+                // their own $20,000 exclusion.
+                pensionExemption: .partial(maxExempt: 20_000),
                 iraWithdrawalExemption: .partial(maxExempt: 20_000),
+                // Per-individual: MFJ where both spouses are 59½+ gets 2 × $20K.
+                exemptionAppliesPerIndividual: true,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 8_000, married: 16_050)

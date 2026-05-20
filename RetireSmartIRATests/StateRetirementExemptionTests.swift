@@ -675,4 +675,88 @@ struct StateRetirementExemptionTests {
         #expect(tax > 500,
                 "MD: IRA must be taxable even when pension exhausts the cap. Got \(tax)")
     }
+
+    // MARK: - New York — $20K pension/annuity exclusion is PER-INDIVIDUAL (1.8.4)
+
+    /// Primary source: NY Tax Law § 612(c)(3-a):
+    /// > "Pensions and annuities received by an individual who has attained
+    /// >  the age of fifty-nine and one-half" — up to $20,000 per qualifying
+    /// >  individual. See also IT-201 instructions for the $20,000 pension
+    /// >  and annuity income exclusion.
+    ///
+    /// For MFJ where both spouses are 59½+, each spouse gets a separate
+    /// $20,000 exclusion. The engine pre-fix applied a single household-wide
+    /// $20,000 cap. TAXSIM-35 finding #4: NY MFJ ages 70/72 with $90K RMD
+    /// + $30K SS → engine $2,726 vs TAXSIM $1,186 (engine over-taxing by
+    /// ~$1,540 = roughly 9.65% NY marginal × the missing $20K of exclusion).
+    @Test("NY MFJ both 59½+: $20K pension exclusion per spouse → $40K combined cap")
+    func nyMfjPerIndividualPensionExclusion() {
+        let dm = DataManager(skipPersistence: true)
+        // Primary age 70, spouse age 72 — both qualify
+        var pDob = DateComponents(); pDob.year = 1956; pDob.month = 1; pDob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: pDob)!
+        var sDob = DateComponents(); sDob.year = 1954; sDob.month = 1; sDob.day = 1
+        dm.profile.spouseBirthDate = Calendar.current.date(from: sDob)!
+        dm.profile.currentYear = 2026
+        dm.enableSpouse = true
+        dm.selectedState = .newYork
+        dm.filingStatus = .marriedFilingJointly
+        dm.yourExtraWithdrawal = 90_000  // RMD income
+
+        let withFix = dm.scenarioStateTax
+
+        // Compare against a single filer with same income — single gets only $20K cap.
+        let dmSingle = DataManager(skipPersistence: true)
+        dmSingle.profile.birthDate = Calendar.current.date(from: pDob)!
+        dmSingle.profile.currentYear = 2026
+        dmSingle.selectedState = .newYork
+        dmSingle.filingStatus = .single
+        dmSingle.yourExtraWithdrawal = 90_000
+        let singleTax = dmSingle.scenarioStateTax
+
+        // The MFJ tax must be MEASURABLY LESS than single tax (after bracket
+        // differences are accounted for) due to the doubled $20K exclusion.
+        // We expect ~$1,200-1,500 difference at NY's ~5.85-6.85% bracket on
+        // the extra $20K of exclusion.
+        let exclusionBenefit = singleTax - withFix
+        #expect(exclusionBenefit > 800,
+                "NY MFJ both 59½+ should exempt 2 × \\$20K. Single tax=\(singleTax), MFJ tax=\(withFix), benefit=\(exclusionBenefit)")
+    }
+
+    /// Negative control — NY MFJ where ONLY primary is 59½+. Should get
+    /// only ONE $20K exclusion (per-individual is gated on individual age).
+    @Test("NY MFJ only primary 59½+: only $20K exclusion (per-individual gate)")
+    func nyMfjOneSpouseUnder59PerIndividual() {
+        let dm = DataManager(skipPersistence: true)
+        // Primary age 65; spouse age 55 (under 59½)
+        var pDob = DateComponents(); pDob.year = 1961; pDob.month = 1; pDob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: pDob)!
+        var sDob = DateComponents(); sDob.year = 1971; sDob.month = 1; sDob.day = 1
+        dm.profile.spouseBirthDate = Calendar.current.date(from: sDob)!
+        dm.profile.currentYear = 2026
+        dm.enableSpouse = true
+        dm.selectedState = .newYork
+        dm.filingStatus = .marriedFilingJointly
+        dm.yourExtraWithdrawal = 90_000
+
+        let bothQualifyTax = dm.scenarioStateTax  // only primary 59½+
+
+        // Compare to MFJ where both qualify (raise spouse age to 65+)
+        let dm2 = DataManager(skipPersistence: true)
+        dm2.profile.birthDate = Calendar.current.date(from: pDob)!
+        var s2Dob = DateComponents(); s2Dob.year = 1956; s2Dob.month = 1; s2Dob.day = 1
+        dm2.profile.spouseBirthDate = Calendar.current.date(from: s2Dob)!
+        dm2.profile.currentYear = 2026
+        dm2.enableSpouse = true
+        dm2.selectedState = .newYork
+        dm2.filingStatus = .marriedFilingJointly
+        dm2.yourExtraWithdrawal = 90_000
+        let bothQualifyHigherTax = dm2.scenarioStateTax  // both 59½+
+
+        // With only one spouse 59½+, only $20K exclusion. With both, $40K
+        // exclusion → less tax. The "only primary qualifies" scenario must
+        // have HIGHER tax than the "both qualify" scenario.
+        #expect(bothQualifyTax > bothQualifyHigherTax,
+                "NY: one-spouse-qualifies tax (\(bothQualifyTax)) must be > both-spouses-qualify tax (\(bothQualifyHigherTax))")
+    }
 }
