@@ -113,10 +113,14 @@ struct MetamorphicPropertyTests {
     }
 
     /// Property 3: Doubling income roughly doubles federal liability (above std deduction).
-    /// At $100K vs $200K, the ratio should be between 1.5× and 2.5× — wide
-    /// enough to accommodate bracket creep but narrow enough to catch
-    /// catastrophic mismatches.
-    @Test("P3: Doubling income roughly doubles federal tax (1.5x–2.5x)")
+    /// At $100K vs $200K, the ratio should be between 1.5× and 3.5× — wide
+    /// enough to accommodate bracket creep (the doubling crosses the
+    /// 22%→24% bracket boundary at $103,350 for Single 2026, which
+    /// pushes the ratio into the high 2.x / low 3.x range — confirmed
+    /// by hand-calc). The upper bound catches catastrophic mismatches
+    /// (e.g., flat-rate bugs, doubled-bracket bugs) without flagging
+    /// legitimate bracket creep.
+    @Test("P3: Doubling income roughly doubles federal tax (1.5x–3.5x)")
     func p3_doublingIncomeRoughlyDoublesFederal() {
         let dmLow = makeSingleAge65NoStateTax(extraWithdrawal: 100_000)
         let dmHigh = makeSingleAge65NoStateTax(extraWithdrawal: 200_000)
@@ -127,8 +131,8 @@ struct MetamorphicPropertyTests {
             return
         }
         let ratio = hi / lo
-        #expect(ratio >= 1.5 && ratio <= 2.5,
-                "Doubling income $100K→$200K: expected fed tax ratio in [1.5, 2.5]. Got \(ratio) (lo=\(lo) hi=\(hi))")
+        #expect(ratio >= 1.5 && ratio <= 3.5,
+                "Doubling income $100K→$200K: expected fed tax ratio in [1.5, 3.5]. Got \(ratio) (lo=\(lo) hi=\(hi))")
     }
 
     /// Property 4: Adding $1K never DECREASES federal tax (fine-grain monotonicity).
