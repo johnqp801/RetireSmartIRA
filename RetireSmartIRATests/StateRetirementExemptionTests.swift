@@ -826,4 +826,55 @@ struct StateRetirementExemptionTests {
         #expect(tax > 2000,
                 "GA age 60: IRA not exempt at all. Got \(tax)")
     }
+
+    // MARK: - New Jersey — age 62+ minimum for pension exclusion (1.8.4)
+
+    /// Primary source: NJSA 54A:6-15 — NJ Pension and Other Retirement
+    /// Income Exclusion. Eligibility requires the taxpayer to be 62 years
+    /// of age or older OR totally disabled. The exclusion amount and
+    /// AGI-based phaseout are tracked as separate TODOs (filing-status-
+    /// aware caps and AGI phaseout require schema work).
+    ///
+    /// At-age-61 NJ retirees were previously incorrectly granted the
+    /// full $100K pension exclusion. This test pins the age gate.
+    @Test("NJ age 61 single: pension NOT exempt (under 62 threshold)")
+    func njAge61NoExclusion() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1965; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 61 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .newJersey
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000)
+        ]
+
+        let tax = dm.scenarioStateTax
+        // $40K pension fully taxable under NJ 62-minimum rule. NJ no state
+        // deduction. NJ Single brackets: 1.4% × $20K + 1.75% × $15K + 3.5% × $5K
+        // ≈ $717. Allow wide range.
+        #expect(tax > 500,
+                "NJ age 61: pension must NOT be exempt (NJSA 54A:6-15 requires age 62+). Got \(tax)")
+    }
+
+    /// At age 62, the exclusion kicks in and $40K pension is exempted
+    /// (well under the $100K MFJ cap that's currently used as the global
+    /// fallback for all filing statuses — separate TODO for Single $75K).
+    @Test("NJ age 62 single, $40K pension → fully exempt")
+    func njAge62Excluded() {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 1964; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!  // age 62 in 2026
+        dm.profile.currentYear = 2026
+        dm.selectedState = .newJersey
+        dm.filingStatus = .single
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000)
+        ]
+
+        let tax = dm.scenarioStateTax
+        // $40K pension fully exempt at age 62, no other income → $0 NJ tax.
+        #expect(tax == 0,
+                "NJ age 62: pension must be exempt (NJSA 54A:6-15). Got \(tax)")
+    }
 }

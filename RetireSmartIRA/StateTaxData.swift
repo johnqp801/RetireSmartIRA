@@ -1105,8 +1105,27 @@ struct StateTaxData {
             ),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
-                pensionExemption: .partial(maxExempt: 100_000),  // NJ generous pension exclusion
+                // NJSA 54A:6-15: NJ Pension and Other Retirement Income
+                // Exclusion. Available to taxpayers age 62+ or totally
+                // disabled. For tax years beginning on or after Jan 1, 2020:
+                //   MFJ:    up to $100,000
+                //   Single: up to  $75,000
+                //   MFS:    up to  $50,000
+                // AGI phaseout (TY2021+): full exclusion below $100K AGI;
+                // reduced 50%/37.5%/25% in $100K–$125K tier; reduced
+                // 25%/18.75%/12.5% in $125K–$150K tier; zero above $150K.
+                //
+                // Current encoding uses the MFJ cap. Two known
+                // approximations remain (filed as TODOs for follow-up):
+                //   - Single filers currently get the MFJ $100K cap rather
+                //     than the correct $75K. Affects only single retirees
+                //     with $75K-$100K of pension/IRA income.
+                //   - AGI-based phaseout is not modeled. Affects retirees
+                //     with total income $100K-$150K. Engine over-exempts
+                //     in that window.
+                pensionExemption: .partial(maxExempt: 100_000),
                 iraWithdrawalExemption: .partial(maxExempt: 100_000),
+                regularExemptionMinAge: 62,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none,
