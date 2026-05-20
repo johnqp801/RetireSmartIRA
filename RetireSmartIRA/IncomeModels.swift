@@ -100,6 +100,20 @@ enum IncomeType: String, Codable, CaseIterable {
     case dividends = "Dividends"
     case qualifiedDividends = "Qualified Dividends"
     case interest = "Interest"
+    // TODO(v1.8.4) — In-state vs out-of-state muni interest:
+    // Currently `.taxExemptInterest` is treated as state-exempt for ALL states
+    // (excluded from `ordinaryIncomeSubtotal` and from `preferentialIncome`, so
+    // it never enters `scenarioGrossIncome`). This is correct for federal tax
+    // (IRC §103) and for in-state munis, but most states tax OUT-of-state muni
+    // interest (e.g. PA exempts only PA-issued; NY exempts only NY-issued).
+    // For a user holding non-resident-state munis, the engine currently
+    // under-bills state tax by `(out-of-state portion) × state marginal rate`.
+    //
+    // v1.8.4 plan: add a per-row issuer-state flag (e.g. `muniIssuerState:
+    // USState?`). When non-nil and != resident state, add the row back to
+    // state gross income. Until that ships, all muni interest is treated as
+    // resident-state exempt — documented limitation. See
+    // 2026-05-19-qualified-dividends-ltcg-state-tax-audit.md (Bug #3).
     case taxExemptInterest = "Tax-Exempt Interest"
     case capitalGainsShort = "Capital Gains (Short-term)"
     case capitalGainsLong = "Capital Gains (Long-term)"

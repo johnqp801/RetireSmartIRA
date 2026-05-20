@@ -245,6 +245,23 @@ struct StateTaxConfig {
     /// - Employer match is excluded from Box 1 federally AND from PA wages,
     ///   so no addback needed for match — only employee elective deferrals.
     let pretax401kContributionsTaxableForState: Bool
+    /// Whether capital losses are class-isolated at the state level.
+    ///
+    /// PA classifies income into 8 statutory classes. Class 3 (Net Gains or
+    /// Income From Disposition of Property) covers BOTH long-term and short-term
+    /// capital gains. Within Class 3, losses can offset gains, but a net Class 3
+    /// loss CANNOT offset Class 5 (dividends), Class 6 (interest), or any other
+    /// class. When the net of LTCG + STCG is negative for the year, PA floors
+    /// the Class 3 contribution at $0.
+    ///
+    /// Most states follow federal capital-loss rules (capital losses can offset
+    /// up to $3K of ordinary income annually with carryforward). PA's class
+    /// isolation is the exception. Source: PA DOR PIT Guide, Chapter on Net
+    /// Gains or Income From the Disposition of Property; PA-40 Schedule D.
+    ///
+    /// Defaults to false (federal-style: capital losses can offset other income
+    /// up to $3K/year via the federal computation that flows in here).
+    let capitalLossesClassIsolated: Bool
 
     init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
          stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
@@ -253,7 +270,8 @@ struct StateTaxConfig {
          hsaContributionsTaxableForState: Bool = false,
          traditionalIRAContributionsTaxableForState: Bool = false,
          otherPreTaxDeductionsTaxableForState: Bool = false,
-         pretax401kContributionsTaxableForState: Bool = false) {
+         pretax401kContributionsTaxableForState: Bool = false,
+         capitalLossesClassIsolated: Bool = false) {
         self.state = state
         self.taxSystem = taxSystem
         self.retirementExemptions = retirementExemptions
@@ -265,6 +283,7 @@ struct StateTaxConfig {
         self.traditionalIRAContributionsTaxableForState = traditionalIRAContributionsTaxableForState
         self.otherPreTaxDeductionsTaxableForState = otherPreTaxDeductionsTaxableForState
         self.pretax401kContributionsTaxableForState = pretax401kContributionsTaxableForState
+        self.capitalLossesClassIsolated = capitalLossesClassIsolated
     }
 }
 
@@ -534,7 +553,8 @@ struct StateTaxData {
             ),
             stateDeduction: .none,
             safeHarborRule: .flatRate(1.00),
-            pretax401kContributionsTaxableForState: true
+            pretax401kContributionsTaxableForState: true,
+            capitalLossesClassIsolated: true  // PA Class 3 isolation — see capitalLossesClassIsolated docs
         )
 
         // Utah — 4.55% flat rate (2026)

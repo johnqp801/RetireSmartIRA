@@ -454,6 +454,16 @@ class DataManager {
     ///
     /// Applies the state's own standard deduction, then retirement exemptions, then tax.
     /// Used by state comparison and scenarioStateTax to ensure correct state-specific deductions.
+    ///
+    /// TODO(v1.8.4) — Tax-exempt (muni) interest is currently treated as
+    /// state-exempt for ALL states because `.taxExemptInterest` rows are
+    /// excluded upstream from `scenarioGrossIncome`. Most states only exempt
+    /// THEIR OWN muni interest and tax out-of-state munis. A user holding
+    /// e.g. NY munis while residing in PA is under-billed by ~3.07% of that
+    /// interest. v1.8.4 will add a per-row issuer-state flag and add out-of-
+    /// state muni interest back to state gross here. See IncomeModels.swift
+    /// `taxExemptInterest` and 2026-05-19-qualified-dividends-ltcg-state-tax-
+    /// audit.md (Bug #3) for the full plan.
     func calculateStateTaxFromGross(
         grossIncome: Double,
         forState state: USState,
@@ -471,7 +481,27 @@ class DataManager {
         let iraSubtract = config.traditionalIRAContributionsTaxableForState ? 0 : traditionalIRAContributionsSubtracted
         let otherSubtract = config.otherPreTaxDeductionsTaxableForState ? 0 : otherPreTaxDeductionsSubtracted
         let pretax401kAddback = config.pretax401kContributionsTaxableForState ? pretax401kContributionsAddedBack : 0
-        let adjustedGross = max(0, grossIncome + hsaAddback + pretax401kAddback - iraSubtract - otherSubtract)
+        // Bug #2 (v1.8.3) — PA Class 3 capital-loss isolation:
+        // Federal cap-loss rules allow up to $3K of net capital losses (LTCG +
+        // STCG) to offset other ordinary income, and `scenarioGrossIncome`
+        // reflects that (STCG is summed into ordinaryIncomeSubtotal; LTCG flows
+        // through preferentialIncome). PA classifies cap gains as Class 3 and
+        // does NOT allow Class 3 losses to offset other classes — a net Class 3
+        // loss floors at $0 for PA. Add the negative-net portion back to gross.
+        // Source: PA DOR PIT Guide, Net Gains or Income From the Disposition of
+        // Property; PA-40 Schedule D. See `capitalLossesClassIsolated` flag.
+        let classIsolationAddback: Double = {
+            guard config.capitalLossesClassIsolated else { return 0 }
+            let stcg = incomeSources
+                .filter { $0.type == .capitalGainsShort }
+                .reduce(0) { $0 + $1.annualAmount }
+            let ltcg = incomeSources
+                .filter { $0.type == .capitalGainsLong }
+                .reduce(0) { $0 + $1.annualAmount }
+            let netClass3 = stcg + ltcg
+            return netClass3 < 0 ? -netClass3 : 0
+        }()
+        let adjustedGross = max(0, grossIncome + hsaAddback + pretax401kAddback + classIsolationAddback - iraSubtract - otherSubtract)
 
         // Determine state standard deduction
         let stateStandardDeduction: Double
@@ -484,15 +514,26 @@ class DataManager {
             stateStandardDeduction = filingStatus == .single ? single : married
         }
 
-        // If user is itemizing, compute state-specific itemized deductions.
-        // State itemized removes SALT (can't deduct state tax on state return)
-        // and uses full property tax without the federal $10K SALT cap.
-        // Use the larger of state standard or state itemized.
+        // Bug #1 (v1.8.3) — Respect `.none` strictly. Federal-style itemized
+        // deductions (mortgage interest, property tax, medical, charitable) are
+        // a federal-tax concept; states whose config is `.none` (PA, IL, IN,
+        // MA, MI, OH, UT, CT, NJ, WV — verified 2026-05-19) have NO state-
+        // level standard or itemized deduction. The prior code allowed
+        // `stateItemizedDeductions` to substitute when the user itemized
+        // federally, phantom-applying federal deductions to state taxable
+        // income. PA users were under-billed by ~3.07% × non-SALT itemized
+        // total. Fix: state deduction is $0 for `.none` states regardless of
+        // federal itemize status. For `.conformsToFederal` and `.fixed`,
+        // continue using the larger of state standard or state itemized when
+        // the user itemizes federally.
         let stateDeduction: Double
-        if scenarioEffectiveItemize {
-            stateDeduction = max(stateStandardDeduction, stateItemizedDeductions)
-        } else {
-            stateDeduction = stateStandardDeduction
+        switch config.stateDeduction {
+        case .none:
+            stateDeduction = 0
+        case .conformsToFederal, .fixed:
+            stateDeduction = scenarioEffectiveItemize
+                ? max(stateStandardDeduction, stateItemizedDeductions)
+                : stateStandardDeduction
         }
 
         let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
@@ -530,9 +571,24 @@ class DataManager {
         let pretax401kAddback = config.pretax401kContributionsTaxableForState ? scenario.scenarioTotalTraditional401k : 0
         let iraSubtract = config.traditionalIRAContributionsTaxableForState ? 0 : scenario.scenarioTotalTraditionalIRA
         let otherSubtract = config.otherPreTaxDeductionsTaxableForState ? 0 : scenario.scenarioTotalOtherPreTaxDeductions
-        let grossIncome = max(0, scenarioGrossIncome + hsaAddback + pretax401kAddback - iraSubtract - otherSubtract)
+        // Bug #2 (v1.8.3) — PA Class 3 capital-loss isolation. Mirrors
+        // calculateStateTaxFromGross. See that function for the rationale.
+        let classIsolationAddback: Double = {
+            guard config.capitalLossesClassIsolated else { return 0 }
+            let stcg = incomeSources
+                .filter { $0.type == .capitalGainsShort }
+                .reduce(0) { $0 + $1.annualAmount }
+            let ltcg = incomeSources
+                .filter { $0.type == .capitalGainsLong }
+                .reduce(0) { $0 + $1.annualAmount }
+            let netClass3 = stcg + ltcg
+            return netClass3 < 0 ? -netClass3 : 0
+        }()
+        let grossIncome = max(0, scenarioGrossIncome + hsaAddback + pretax401kAddback + classIsolationAddback - iraSubtract - otherSubtract)
 
-        // 0. Apply state-specific deduction (itemized or standard, whichever is larger)
+        // 0. Apply state-specific deduction. Bug #1 (v1.8.3): `.none` states
+        // have NO state-level standard or itemized deduction; do not allow
+        // federal itemized total to leak in. Mirrors calculateStateTaxFromGross.
         let stateStandardDeduction: Double
         switch config.stateDeduction {
         case .none:
@@ -543,10 +599,13 @@ class DataManager {
             stateStandardDeduction = filingStatus == .single ? single : married
         }
         let stateDeduction: Double
-        if scenarioEffectiveItemize {
-            stateDeduction = max(stateStandardDeduction, stateItemizedDeductions)
-        } else {
-            stateDeduction = stateStandardDeduction
+        switch config.stateDeduction {
+        case .none:
+            stateDeduction = 0
+        case .conformsToFederal, .fixed:
+            stateDeduction = scenarioEffectiveItemize
+                ? max(stateStandardDeduction, stateItemizedDeductions)
+                : stateStandardDeduction
         }
         let income = max(0, grossIncome - stateDeduction)
 
