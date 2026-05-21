@@ -22,6 +22,14 @@ struct HeirTaxComparisonCard: View {
     var body: some View {
         let c = dataManager.convertNowVsHeirComparison
         let useLive = dataManager.heirComparisonUsesLiveAmount
+        // 1.8.4: transparency note for withhold-mode users — the heir's
+        // actual Roth inheritance is the NET deposit, not the gross
+        // conversion. The family-tax-benefit math is unchanged (the user
+        // pays the same federal tax either way), but the heir gets less Roth.
+        let isWithheldMode = dataManager.rothConversionWithholdingMode == .withheldFromConversion
+        let showWithholdingNote = useLive
+            && isWithheldMode
+            && dataManager.scenarioRothConversionWithholdingAmount > 0
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "person.2.fill")
@@ -62,6 +70,29 @@ struct HeirTaxComparisonCard: View {
                     color: c.netFamilyBenefit >= 0 ? Color.Semantic.green : Color.Semantic.red,
                     bold: true
                 )
+            }
+            // 1.8.4: withhold-mode transparency. The family-tax-benefit math
+            // above is unchanged regardless of how the user pays the
+            // conversion tax — but the heir's actual Roth inheritance is
+            // the NET deposit, not the gross conversion. Surface that so
+            // the user understands what their heir actually receives.
+            if showWithholdingNote {
+                let netFmt = dataManager.scenarioRothConversionNetAmount
+                    .formatted(.currency(code: "USD").precision(.fractionLength(0)))
+                let withholdingFmt = dataManager.scenarioRothConversionWithholdingAmount
+                    .formatted(.currency(code: "USD").precision(.fractionLength(0)))
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(Color.Semantic.amber)
+                        .font(.caption)
+                    Text("With federal withholding of \(withholdingFmt) from the conversion, your heir actually inherits \(netFmt) in the Roth — the family-tax math above is unchanged (you pay the same federal tax either way), but the Roth balance is smaller.")
+                        .font(.caption2)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(8)
+                .background(Color.Semantic.amber.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
             Text("Heir bracket reflects your Heir Tax Rate setting in the assumptions bar.")
                 .font(.caption2)

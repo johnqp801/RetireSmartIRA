@@ -1077,6 +1077,11 @@ struct TaxPlanningView: View {
                 }
             }
 
+            // Withholding picker (1.8.4 — Jonggie Issue 2)
+            if totalRothConversion > 0 {
+                RothConversionWithholdingCard()
+            }
+
             // Clarification: Roth IRA contributions vs. Roth conversions (R2)
             DisclosureGroup("What about Roth IRA contributions?") {
                 VStack(alignment: .leading, spacing: 4) {
