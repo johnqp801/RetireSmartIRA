@@ -57,6 +57,27 @@ Issue 1 was a real correctness bug; the `RetirementIncomeExemptions` data was de
 
 (Note: this submission was the narrow 1.8.2 PA-fix patch, build 38 — not the full Phase 1-3 release. From Jonggie's perspective there's no need to distinguish; he gets his bug fixed. The full Phase 1-3 work is parked on `1.8.2/incremental` branch for a future release that will likely be 1.8.3 or higher.)
 
+## John's 1.8.3-approved notification (2026-05-20)
+
+Sent shortly after Apple approved 1.8.3 (iOS build 43 / Mac build 44). Honest about what shipped vs. what's still pending in 1.8.4, especially around the cross-view discrepancies Jonggie's screenshots surfaced.
+
+> Hi Jonggie,
+>
+> Sorry for not getting your full PA state tax picture resolved in yesterday's V1.8.2. Clearly I was pressing to get a hot release out for your IRA/401(k) issue, and while I fixed the withdrawal case, I missed the parallel case for Roth conversions.
+>
+> Version 1.8.3 was approved by Apple today and is in the App Store now. It's a large release I'd been working on for performance (scrolling, tab switches, slider smoothness), but I rolled the PA Roth conversion exemption (per PA DOR Answer 274) into it as well — so both your IRA distributions and your Roth conversions should now show $0 PA tax at retirement age.
+>
+> One thing I want to be upfront about: while tracing those fixes and reviewing the screen shots you sent, I found that the same correct PA number doesn't yet show up in every view of the app — the Tax Summary, State Comparison, and Quarterly Estimate views each compute state tax independently and were bypassing the engine fix.
+>
+> Those will be addressed in 1.8.4, which I'll turn around quickly. The Roth conversion withholding option (your second question — paying conversion tax from the conversion itself) is also in the 1.8.4 work.
+>
+> Thank you for hanging in there with me and especially for the screenshots — they clearly caught the cross-view issue.
+>
+> Best,
+> John
+
+(Notes: 1.8.3 contains the bulletproof PA fix `35bb0ff` + Roth conversion exemption `dac14db`. Commit `13eb6b5` — the cross-view consistency audit (5 sites that bypassed engine: StateComparisonView, analyzeScenario / Tax Summary, analyzeEnhancedRothConversion, autoEstimatedStatePayments / SALT, and 3 average-rate displays) — is on `1.8.4/incremental` not in shipped 1.8.3, so Jonggie will still see residual discrepancies in those views until 1.8.4 ships. Email is honest about that.)
+
 ## Resulting work
 
 ### Issue 1 — PA state tax on retirement distributions (FIXED in build 41)
