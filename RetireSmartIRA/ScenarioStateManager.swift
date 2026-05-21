@@ -26,6 +26,27 @@ class ScenarioStateManager {
     var spouseWithdrawalQuarter: Int = 4
     var yourRothConversionQuarter: Int = 4
     var spouseRothConversionQuarter: Int = 4
+
+    // MARK: - 1.8.4 Roth Conversion Withholding (Jonggie Issue 2)
+    //
+    // When a user does a Roth conversion without outside money to pay the
+    // federal tax, the brokerage withholds a portion of the conversion to
+    // cover that tax — reducing the amount that actually lands in the Roth.
+    //
+    // `paidFromOutside` (default): user pays conversion tax from non-
+    //   retirement assets; full gross amount lands in the Roth.
+    // `withheldFromConversion`: a portion equal to
+    //   `rothConversionFederalWithholdingRate × gross` is withheld and
+    //   remitted to the IRS, with only the net amount deposited.
+    //
+    // Household-level (applies to both spouse conversions when both are
+    // non-zero). Federal-only — most brokerages do not withhold state
+    // tax from Roth conversions, and PA / IL / MS exempt the conversion
+    // entirely anyway. PA's exemption per Ans 274 partially unwinds in
+    // withhold mode: the withheld portion becomes PA-taxable.
+    var rothConversionWithholdingMode: RothConversionWithholdingMode = .paidFromOutside
+    var rothConversionFederalWithholdingRate: Double = 0.24
+
     var stockDonationEnabled: Bool = false
     var stockPurchasePrice: Double = 0
     var stockCurrentValue: Double = 0
@@ -88,6 +109,8 @@ class ScenarioStateManager {
         spouseWithdrawalQuarter = 4
         yourRothConversionQuarter = 4
         spouseRothConversionQuarter = 4
+        rothConversionWithholdingMode = .paidFromOutside
+        rothConversionFederalWithholdingRate = 0.24
         stockDonationEnabled = false
         stockPurchasePrice = 0
         stockCurrentValue = 0
@@ -163,4 +186,31 @@ class ScenarioStateManager {
     var scenarioTotalAboveTheLineDeductions: Double {
         scenarioTotalTraditional401k + scenarioTotalTraditionalIRA + scenarioTotalHSA + scenarioTotalOtherPreTaxDeductions
     }
+}
+
+// MARK: - Roth Conversion Withholding (1.8.4)
+
+/// Whether the federal tax on a Roth conversion is paid from non-retirement
+/// assets (default) or withheld from the conversion itself.
+///
+/// Driven by tester report (Jonggie F., May 2026): users without outside
+/// cash to cover the federal tax need to see what actually lands in the
+/// Roth after withholding, especially for heir-comparison planning. Most
+/// custodians (Fidelity, Schwab, Vanguard) allow a federal withholding
+/// election (typically 10%-37%) on conversions; state withholding is rarely
+/// offered for Roth conversions. PA's Ans 274 retirement exemption
+/// partially unwinds in withhold mode — the withheld portion becomes
+/// PA-taxable as a distribution.
+enum RothConversionWithholdingMode: String, Codable {
+    /// User pays the federal conversion tax from non-retirement assets
+    /// (taxable brokerage, savings, etc.). Full gross conversion lands in
+    /// the Roth. Net Roth deposit = gross.
+    case paidFromOutside
+
+    /// Custodian withholds a portion of the gross conversion (per the
+    /// elected federal rate) and remits to the IRS. Only the net amount
+    /// reaches the Roth. Net Roth deposit = gross × (1 − withholdingRate).
+    /// For PA residents, the withheld portion becomes state-taxable as a
+    /// distribution per PA DOR Ans 274 ("full balance must be deposited").
+    case withheldFromConversion
 }

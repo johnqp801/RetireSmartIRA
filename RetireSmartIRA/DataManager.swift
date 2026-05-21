@@ -136,6 +136,15 @@ class DataManager {
         get { scenario.spouseRothConversionQuarter }
         set { scenario.spouseRothConversionQuarter = newValue }
     }
+    // 1.8.4: Roth conversion withholding (Jonggie Issue 2)
+    var rothConversionWithholdingMode: RothConversionWithholdingMode {
+        get { scenario.rothConversionWithholdingMode }
+        set { scenario.rothConversionWithholdingMode = newValue }
+    }
+    var rothConversionFederalWithholdingRate: Double {
+        get { scenario.rothConversionFederalWithholdingRate }
+        set { scenario.rothConversionFederalWithholdingRate = newValue }
+    }
     var stockDonationEnabled: Bool {
         get { scenario.stockDonationEnabled }
         set { scenario.stockDonationEnabled = newValue }
@@ -431,8 +440,8 @@ class DataManager {
     /// Calculates state tax for a specific state (used for cross-state comparison).
     /// `income` is post-state-deduction income (state taxable income before retirement exemptions).
     /// `taxableSocialSecurity` is the SS amount included in income (to correctly subtract for SS-exempt states).
-    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0) -> Double {
-        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount)
+    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0, scenarioRothConversionWithholdingAmount: Double = 0) -> Double {
+        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount)
     }
 
     /// Sum of scenario-level retirement-distribution income subject to state-level
@@ -480,7 +489,8 @@ class DataManager {
         otherPreTaxDeductionsSubtracted: Double = 0,
         pretax401kContributionsAddedBack: Double = 0,
         scenarioRetirementDistributions: Double = 0,
-        scenarioRothConversionAmount: Double = 0
+        scenarioRothConversionAmount: Double = 0,
+        scenarioRothConversionWithholdingAmount: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let hsaAddback = config.hsaContributionsTaxableForState ? hsaContributionsAddedBack : 0
@@ -543,7 +553,7 @@ class DataManager {
         }
 
         let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
-        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount)
+        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount)
     }
 
     /// Applies state-specific retirement income exemptions to reduce state taxable income.
@@ -729,9 +739,16 @@ class DataManager {
         // Roth conversion exemption (v1.8.3): PA/IL/MS exempt conversions per
         // PA DOR Ans 274 + IL Pub 120 + MS Code §27-7-15(4)(j). Not age-gated.
         // Mirrors TaxCalculationEngine.applyRetirementExemptions logic.
+        //
+        // 1.8.4 — PA Ans 274 withholding caveat: in withhold mode, the withheld
+        // portion is PA-taxable (statute requires "full balance" deposited).
+        // Only the net portion qualifies for PA's exemption. IL and MS keep
+        // full exemption regardless of withholding.
         let conversionExemptAmt: Double = {
             switch state {
-            case .pennsylvania, .illinois, .mississippi:
+            case .pennsylvania:
+                return max(0, scenarioTotalRothConversion - scenarioRothConversionWithholdingAmount)
+            case .illinois, .mississippi:
                 return scenarioTotalRothConversion
             default:
                 return 0
@@ -869,12 +886,22 @@ class DataManager {
         // so PA/IL/MS correctly exempt the conversion (per PA DOR Ans 274 +
         // IL Pub 120 + MS §27-7-15(4)(j)). Without it the engine taxes the
         // delta and we show a phantom state tax on Roth conversions.
+        // 1.8.4: respect the user's current withholding mode + rate when
+        // computing the hypothetical state tax for this conversion amount.
+        // In withhold mode, the withheld portion is PA-taxable per Ans 274.
+        let hypotheticalWithholding: Double = {
+            switch rothConversionWithholdingMode {
+            case .paidFromOutside: return 0
+            case .withheldFromConversion: return conversionAmount * rothConversionFederalWithholdingRate
+            }
+        }()
         let currentCATax = calculateStateTax(income: currentIncome, forState: selectedState, filingStatus: filingStatus)
         let newCATax = calculateStateTax(
             income: newIncome,
             forState: selectedState,
             filingStatus: filingStatus,
-            scenarioRothConversionAmount: conversionAmount
+            scenarioRothConversionAmount: conversionAmount,
+            scenarioRothConversionWithholdingAmount: hypotheticalWithholding
         )
         let caTaxOnConversion = newCATax - currentCATax
 
@@ -924,12 +951,21 @@ class DataManager {
         // Bug fix (v1.8.3 follow-up, 2026-05-19): pass conversionAmount as
         // scenarioRothConversionAmount so PA/IL/MS apply the conversion
         // exemption on the "after" calculation.
+        // 1.8.4: also pass hypothetical withholding so PA Ans 274 correctly
+        // unwinds the exemption on the withheld portion.
+        let hypotheticalWithholdingEnh: Double = {
+            switch rothConversionWithholdingMode {
+            case .paidFromOutside: return 0
+            case .withheldFromConversion: return conversionAmount * rothConversionFederalWithholdingRate
+            }
+        }()
         let stateTaxBefore = calculateStateTax(income: currentIncome, forState: selectedState, filingStatus: filingStatus)
         let stateTaxAfter = calculateStateTax(
             income: newIncome,
             forState: selectedState,
             filingStatus: filingStatus,
-            scenarioRothConversionAmount: conversionAmount
+            scenarioRothConversionAmount: conversionAmount,
+            scenarioRothConversionWithholdingAmount: hypotheticalWithholdingEnh
         )
         let stateTax = stateTaxAfter - stateTaxBefore
 
@@ -992,7 +1028,8 @@ class DataManager {
             forState: selectedState,
             filingStatus: fs,
             scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
-            scenarioRothConversionAmount: scenarioTotalRothConversion
+            scenarioRothConversionAmount: scenarioTotalRothConversion,
+            scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount
         )
         let stateTax = stateTaxAfter - stateTaxBefore
 
@@ -1222,6 +1259,34 @@ class DataManager {
 
     var scenarioTotalRothConversion: Double {
         yourRothConversion + (enableSpouse ? spouseRothConversion : 0)
+    }
+
+    // MARK: - Roth Conversion Withholding (1.8.4)
+
+    /// The dollar amount of federal tax withheld from the gross Roth
+    /// conversion when `rothConversionWithholdingMode == .withheldFromConversion`.
+    /// Zero in `.paidFromOutside` mode. Computed as
+    /// `scenarioTotalRothConversion × rothConversionFederalWithholdingRate`.
+    ///
+    /// This amount is remitted to the IRS directly by the custodian and
+    /// reduces the net Roth deposit. For PA residents, it also becomes
+    /// state-taxable as a distribution per PA DOR Ans 274 — the engine
+    /// honors that in `applyRetirementExemptions` for `.pennsylvania`.
+    var scenarioRothConversionWithholdingAmount: Double {
+        switch rothConversionWithholdingMode {
+        case .paidFromOutside:
+            return 0
+        case .withheldFromConversion:
+            return scenarioTotalRothConversion * rothConversionFederalWithholdingRate
+        }
+    }
+
+    /// The actual dollar amount that lands in the Roth after withholding
+    /// (if any). In `.paidFromOutside` mode this equals
+    /// `scenarioTotalRothConversion`. In `.withheldFromConversion` mode
+    /// this equals gross conversion minus the withheld amount.
+    var scenarioRothConversionNetAmount: Double {
+        scenarioTotalRothConversion - scenarioRothConversionWithholdingAmount
     }
 
     var scenarioTotalExtraWithdrawal: Double {
@@ -1486,7 +1551,8 @@ class DataManager {
             filingStatus: filingStatus,
             taxableSocialSecurity: scenarioTaxableSocialSecurity,
             scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
-            scenarioRothConversionAmount: scenarioTotalRothConversion
+            scenarioRothConversionAmount: scenarioTotalRothConversion,
+            scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount
         )
         return max(0, stateTax - totalStateWithholding)
     }
@@ -1730,7 +1796,8 @@ class DataManager {
                 otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
                 pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
                 scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
-                scenarioRothConversionAmount: scenarioTotalRothConversion
+                scenarioRothConversionAmount: scenarioTotalRothConversion,
+            scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount
             )
         }
     }
@@ -1969,7 +2036,8 @@ class DataManager {
             otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
             pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
             scenarioRetirementDistributions: scenarioRetirementDistributionIncome,
-            scenarioRothConversionAmount: scenarioTotalRothConversion
+            scenarioRothConversionAmount: scenarioTotalRothConversion,
+            scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount
         )
 
         // ACA premium impact: lost subsidy if over cliff.
@@ -2492,6 +2560,15 @@ class DataManager {
     ) -> Double {
         let taxable = max(0, grossIncome - deduction)
         let fed = calculateFederalTax(income: taxable, filingStatus: filingStatus)
+        // 1.8.4: scale withholding by the (possibly hypothetical) conversion
+        // amount so per-scenario sensitivity analyses stay internally consistent.
+        let convAmt = scenarioRothConversionAmount ?? scenarioTotalRothConversion
+        let withholdingAmt: Double = {
+            switch rothConversionWithholdingMode {
+            case .paidFromOutside: return 0
+            case .withheldFromConversion: return convAmt * rothConversionFederalWithholdingRate
+            }
+        }()
         let state = calculateStateTaxFromGross(
             grossIncome: grossIncome,
             forState: selectedState,
@@ -2502,7 +2579,8 @@ class DataManager {
             otherPreTaxDeductionsSubtracted: scenario.scenarioTotalOtherPreTaxDeductions,
             pretax401kContributionsAddedBack: scenario.scenarioTotalTraditional401k,
             scenarioRetirementDistributions: scenarioRetirementDistributions ?? scenarioRetirementDistributionIncome,
-            scenarioRothConversionAmount: scenarioRothConversionAmount ?? scenarioTotalRothConversion
+            scenarioRothConversionAmount: convAmt,
+            scenarioRothConversionWithholdingAmount: withholdingAmt
         )
         let niit = calculateNIIT(nii: nii ?? scenarioNetInvestmentIncome, magi: grossIncome, filingStatus: filingStatus).annualNIITax
         let amt = calculateAMT(taxableIncome: taxable, regularTax: fed, filingStatus: filingStatus).amt

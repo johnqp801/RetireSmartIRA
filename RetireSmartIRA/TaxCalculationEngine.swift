@@ -348,7 +348,8 @@ struct TaxCalculationEngine {
         spouseBirthYear: Int,
         currentYear: Int,
         scenarioRetirementDistributions: Double = 0,
-        scenarioRothConversionAmount: Double = 0
+        scenarioRothConversionAmount: Double = 0,
+        scenarioRothConversionWithholdingAmount: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let spouseAge = currentYear - spouseBirthYear
@@ -362,7 +363,8 @@ struct TaxCalculationEngine {
             spouseAge: spouseAge,
             enableSpouse: enableSpouse,
             scenarioRetirementDistributions: scenarioRetirementDistributions,
-            scenarioRothConversionAmount: scenarioRothConversionAmount
+            scenarioRothConversionAmount: scenarioRothConversionAmount,
+            scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount
         )
 
         var tax: Double
@@ -427,7 +429,8 @@ struct TaxCalculationEngine {
         spouseAge: Int,
         enableSpouse: Bool,
         scenarioRetirementDistributions: Double = 0,
-        scenarioRothConversionAmount: Double = 0
+        scenarioRothConversionAmount: Double = 0,
+        scenarioRothConversionWithholdingAmount: Double = 0
     ) -> Double {
         // TODO(post-1.8.3): Several refinements outside this fix:
         // - Verified-2026 exemption value updates: CO unlimited (SB25-136, currently
@@ -589,8 +592,23 @@ struct TaxCalculationEngine {
         // retirement-age condition on the conversion itself. We therefore apply
         // it independently of `scenarioRetirementDistributions`, which retains
         // its 59½ gate for distributions.
+        //
+        // 1.8.4 — PA Ans 274 withholding caveat: the PA exemption applies only
+        // if the FULL pre-tax balance is deposited into the Roth. If any
+        // amount is withheld for federal tax, that withheld amount IS PA-
+        // taxable as a distribution. So in withhold mode, only the NET portion
+        // (gross minus withholding) is PA-exempt; the withheld portion stays
+        // in the state-taxable income.
+        //
+        // For IL and MS, no equivalent "full balance" requirement is documented
+        // in their guidance — practitioner consensus treats the conversion as
+        // fully exempt regardless of withholding. Keep that for now; revisit if
+        // primary source emerges.
         switch state {
-        case .pennsylvania, .illinois, .mississippi:
+        case .pennsylvania:
+            let netExempt = max(0, scenarioRothConversionAmount - scenarioRothConversionWithholdingAmount)
+            adjusted -= netExempt
+        case .illinois, .mississippi:
             adjusted -= scenarioRothConversionAmount
         default:
             break
