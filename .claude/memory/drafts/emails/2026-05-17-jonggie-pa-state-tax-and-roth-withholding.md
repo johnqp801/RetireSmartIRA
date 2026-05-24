@@ -78,6 +78,27 @@ Sent shortly after Apple approved 1.8.3 (iOS build 43 / Mac build 44). Honest ab
 
 (Notes: 1.8.3 contains the bulletproof PA fix `35bb0ff` + Roth conversion exemption `dac14db`. Commit `13eb6b5` — the cross-view consistency audit (5 sites that bypassed engine: StateComparisonView, analyzeScenario / Tax Summary, analyzeEnhancedRothConversion, autoEstimatedStatePayments / SALT, and 3 average-rate displays) — is on `1.8.4/incremental` not in shipped 1.8.3, so Jonggie will still see residual discrepancies in those views until 1.8.4 ships. Email is honest about that.)
 
+## Jonggie's 1.8.4 confirmation (2026-05-23, 10:52 AM)
+
+> Hi John,
+>
+> I had downloaded the 1.8.4. It works! I especially appreciate your information in regarding to withholding tax from Roth rollover is taxable in my state. Great Job!!
+>
+> Best regards,
+> Jonggie
+
+## John's thank-you + review ask (2026-05-23, 3:20 PM)
+
+> Jonggie,
+>
+> Thanks so much — really glad 1.8.4 hit the mark and that the Roth withholding info was helpful. Your feedback throughout this has genuinely made the app better.
+>
+> If you're ever inclined to leave a quick App Store review, it would help more than you know. Either way, I really appreciate you sticking with me through this.
+>
+> John
+
+(First soft App Store review ask to a tester. Jonggie is the ideal candidate — multi-cycle engagement, specifically named the Roth withholding feature as the part he appreciated, PA retiree using the app for actual planning. Watch for whether a review appears; if it does, that validates the soft-ask-after-resolved-thread pattern for future testers.)
+
 ## Resulting work
 
 ### Issue 1 — PA state tax on retirement distributions (FIXED in build 41)
