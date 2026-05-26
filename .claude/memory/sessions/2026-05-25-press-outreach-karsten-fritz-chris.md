@@ -108,3 +108,31 @@ This press outreach used assets shipped during these Claude Code sessions:
   LinkedIn link + Story angles (5) + By-the-numbers stats strip + version bump
   to 1.8.4 on `/press` — directly enabled the credibility-laddering pitch
   approach described above.
+
+---
+
+## 2026-05-26 update — DMARC delivery confirmation for 2 of 3 pitches
+
+Google DMARC aggregate report for retiresmartira.com covering the
+2026-05-24 UTC window (`report_id: 8828400257156459342`) showed two records
+consistent with successful delivery to Karsten and Chris. Source file:
+`~/Downloads/google.com!retiresmartira.com!1779667200!1779753599.xml`.
+
+| Pitch | Recipient | DMARC evidence | Interpretation |
+|---|---|---|---|
+| Karsten Jeske | ernretirenow@gmail.com | Record 2: SPF pass for `gmail.com`, header_from `retiresmartira.com`, disposition `none` | Likely received at Gmail. Karsten's address is a Gmail. |
+| Chris Mamula | chris@caniretireyet.com | Record 1: DKIM pass for both `cloudflare-email.net` AND `caniretireyet.com` (selector `cf2024-1`), SPF pass for `caniretireyet.com`, disposition `none` | **Strong evidence of routing through Chris's mail infrastructure.** Chris uses Cloudflare Email Routing for `caniretireyet.com`; the `caniretireyet.com` DKIM pass only happens when CF re-signs forwarded mail with that domain's key. |
+| Fritz Gilbert | Fritz@TheRetirementManifesto.com | Not in this report window | Either Fritz's mail host doesn't report to Google, the message landed in a different report window, or processing was outside the 5/24 UTC window. Inconclusive — not evidence of failure. |
+
+**Important caveat:** DMARC reports confirm *delivery to the recipient's mail
+infrastructure*, not that the human read the message. Two-of-three reaching
+their inboxes is the floor of what we know, not the ceiling.
+
+**Alignment status unchanged:** Both records show SPF and DKIM alignment
+failing against `retiresmartira.com` (expected — no DKIM signing for the
+domain, Gmail Send-As sends envelope-from = gmail.com). Disposition `none`
+on both records because policy is `p=none`. No action needed.
+
+**Follow-up reminder still stands:** day-7 bumps on Tue 6/2 or Wed 6/3
+regardless of this delivery evidence. Delivery ≠ read; absence of reply
+by day 7 still warrants a polite bump.
