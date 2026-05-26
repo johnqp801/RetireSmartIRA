@@ -4,6 +4,38 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-25: First press outreach wave — credibility-ladder approach, three pitches in flight
+
+**Decision:** Launch first press outreach with Karsten Jeske (Early Retirement Now), Fritz Gilbert (Retirement Manifesto), and Chris Mamula (Can I Retire Yet?) as the opening wave. Deferred Christine Benz / WSJ / NYT-tier targets until coverage at Tier 1 (Substacks/FIRE blogs) and Tier 2 (niche podcasts) compounds first.
+
+**Rationale:** Each piece of coverage makes the next pitch easier — "as featured in" lines and lifted quotes ladder up. Direct pitch to summit targets without prior coverage is the harder ask. Three pitches per wave is the right pace; more in flight than that dilutes attention to each thread.
+
+**Follow-up schedule (hard dates):**
+- **Tue 6/2 or Wed 6/3** — day-7 bump to any non-responder
+- **Mon 6/8** — day-14 final email, then mark cold permanently (no third email)
+
+**Operating rule:** Three-touch maximum (send → bump → final → dead). The Bryan Jepson "warm-but-stalled" pattern is the trap — don't let said-yes-three-times-never-followed-through prospects occupy mental space that should go to new outreach.
+
+**Audience tailoring:** Pitches were not copy-paste. Karsten = analytical/edge-cases vocabulary, Fritz = warm-storyteller framing, Chris = ecosystem/tool vocabulary. Hooks dropped per audience (no "950+ tests" for Fritz; ACA-cliff-at-401%-FPL only for Karsten; 2027-subscription-pricing hook only for Chris). Don't carry template language across audiences in future waves.
+
+**Reference:** `sessions/2026-05-25-press-outreach-karsten-fritz-chris.md` (verbatim from parallel Claude chat session)
+
+---
+
+## 2026-05-21: iCloud cross-device sync via NSUbiquitousKeyValueStore, opt-in by default
+
+**Decision:** Add iCloud cross-device sync as a future feature (v1.9 or v2.x). Backend: `NSUbiquitousKeyValueStore` (iCloud Key-Value Store). Default state: **off** (device-only mode preserved as the default experience). Build behind a `PlanStorage` abstraction protocol so the backend can be swapped without touching app code.
+
+**Rationale:** App is already UserDefaults-shaped, so KVS is the natural drop-in (almost identical API). Worst-case data footprint over the next 5–10 years projects to ~550 KB — well inside the 1 MB / 1,024-key KVS budget — given the explicit fidelity assumption below. Opt-in default preserves the absolute "your data stays on this device" promise for users who want it; sync becomes an explicit, transparent choice. TriSTAR triangulation: Claude proposed the approach, ChatGPT and Gemini independently concurred, and ChatGPT caught an overclaim about Advanced Data Protection coverage of KVS that I retracted.
+
+**Fidelity assumption this depends on:** Position-level brokerage tracking only (no tax-lot history). If this changes — i.e., the app ever needs to handle tax-lot-aware cap gains projection on real portfolios — the brokerage data alone could approach 800 KB and KVS becomes the wrong long-term backend. At that point: revisit, migrate to CloudKit + Core Data/SwiftData. Roadmap currently does not include lot-level fidelity.
+
+**Privacy commitment change:** With sync off, the existing "your data never leaves your device" promise stands unchanged. With sync on, the promise becomes: *"Your data syncs privately through your own Apple iCloud account so you can use RetireSmartIRA across your Apple devices. It is never sent to us, never sold, never used for profiling, and never processed on our servers. RetireSmartIRA does not operate servers and cannot view your data. Sync is protected by Apple's iCloud security."* The phrase "end-to-end encrypted" is **not** to be used until Apple's docs are verified to confirm `NSUbiquitousKeyValueStore` falls under Advanced Data Protection's covered categories.
+
+**Spec:** `.claude/memory/roadmap/icloud-sync.md`
+
+---
+
 ## 2026-05-13: Adopt persistent project memory in `.claude/memory/`
 
 **Decision:** Create `.claude/memory/` with subfolders for decisions, drafts, sessions, and roadmap. Update CLAUDE.md to instruct Claude to read it at session start.
