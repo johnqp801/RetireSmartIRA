@@ -55,9 +55,10 @@ calculation, and Roth conversion impact on IRMAA tiers. Those modeling
 choices are documented in code and covered by automated tests.
 
 The federal engine is exercised by an automated test suite with more
-than 950 tests, including end-to-end stress scenarios that combine high
-income, multiple income sources, AMT triggers, and NIIT triggers, with
-expected values checked against independently reviewed calculations.
+than 1,100 tests, including end-to-end stress scenarios that combine
+high income, multiple income sources, AMT triggers, and NIIT triggers,
+with expected values checked against independently reviewed
+calculations.
 
 ---
 
