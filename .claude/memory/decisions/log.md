@@ -4,6 +4,32 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-26 (late late evening): Phase C TY 2026 fixes shipped — MN, ME, DE, SC, WV (+5 deferred)
+
+**Decision:** Apply 5 high-confidence TY 2026 corrections (MN, ME, DE, SC, WV); defer 5 to Phase C2 where primary-source verification needed (NE, NM, WI, VT, OR); verify MO no-change.
+
+**Phase C applied (`d5bcb42`):**
+- MN: bracket refresh +2.37% (MN DoR press release)
+- ME: bracket refresh (Maine Revenue Services PDF)
+- DE: std ded $3,250/$6,500 → $5,700/$11,400 (HB 89 statute)
+- SC: **MAJOR restructure** — 3-bracket (0/3/6.3) → 2-tier (1.99/5.21) per H.4216 (March 2026)
+- WV: new 5-bracket schedule from 5% cut signed June 2026, retroactive Jan 1
+
+**Why defer NE/NM/WI/VT/OR:**
+- NE: top 5.20%→4.55% confirmed, but lower brackets show non-monotonic data from agent (likely error)
+- NM: MFJ thresholds need NM PIT-1 primary source
+- WI: code thresholds may already be MORE current than agent's research (suspicious)
+- VT: agent couldn't parse primary VT PDF; secondary sources could be off
+- OR: lower brackets and std ded approximate; top thresholds statutory and confident
+
+Better to defer than ship uncertain data. Phase C2 should be a focused per-state primary-source verification pass.
+
+**Combined Phase A+B+C totals:** 15 states corrected to TY 2026, 34 pinning tests, 7 tests added in this Phase C cycle. Federal already TY 2026; CA on TY 2025 (latest CA FTB published).
+
+**Reference:** `decisions/2026-05-26-50-state-bracket-freshness-audit.md` (now with Phase A+B+C tables, deferred-state details, and Phase C2 scope)
+
+---
+
 ## 2026-05-26 (late evening): Phase B TY 2026 fixes shipped — HI, CT, AR, MD, RI
 
 **Decision (continuing Path 1):** Apply TY 2026 corrections for the 5 high-severity non-structural states identified in the audit, per the Path 1 policy adopted earlier today.

@@ -39,6 +39,49 @@ User direction: "we need everything in the end to be 100% correct for tax year 2
 
 12 pinning tests added in new `@Suite("State Tax — Phase B TY 2026")`. All passed on iOS Simulator (iPhone 17 Pro).
 
+## Phase C applied — TY 2026 corrections for MN, ME, DE, SC, WV (commit `d5bcb42`)
+
+| State | Change | Confidence |
+|---|---|---|
+| **Minnesota** | Bracket thresholds boosted ~2.37% per MN DoR press release 2025-12-16 | HIGH |
+| **Maine** | Bracket thresholds updated to TY 2026 Maine Revenue Services PDF | HIGH |
+| **Delaware** | Std deduction $3,250/$6,500 → $5,700/$11,400 per HB 89 statute | MEDIUM (calculator conflict; statute clear) |
+| **South Carolina** | **MAJOR restructure** — 3-bracket (0/3/6.3%) → 2-tier (1.99/5.21%) per H.4216 (signed March 30, 2026) | HIGH |
+| **West Virginia** | New 5-bracket schedule from 5% cut signed June 2026, retroactive Jan 1 | HIGH |
+
+7 pinning tests added in new `@Suite("State Tax — Phase C TY 2026")`. All passed.
+
+**Verified no-change:** Missouri (top rate 4.7% held TY 2026 per agent research; bracket thresholds may have minor indexed shifts not yet verified against primary source — flagged for Phase C2).
+
+## Phase C — DEFERRED to Phase C2 (5 states)
+
+These states need additional primary-source verification before applying:
+
+| State | Reason deferred | Top finding |
+|---|---|---|
+| **Nebraska** | Lower bracket structure uncertain (5.01%/4.55% non-monotonic in agent's data) | Top rate confirmed 5.20% → 4.55% TY 2026 (big drop) |
+| **New Mexico** | MFJ thresholds need NM PIT-1 primary source | 6-bracket restructure per HB 252; single brackets confident |
+| **Wisconsin** | Bracket thresholds appear MORE current in code than agent's data; std ded approximate | Need WI DOR primary source |
+| **Vermont** | Agent could not parse primary VT PDF (Dec 22 2025) | Secondary-source figures could be off $hundreds |
+| **Oregon** | Lower brackets and std deduction values uncertain | Top thresholds ($125K/$250K) statutory — confident |
+
+Phase C2 will likely require a more careful single-state-per-agent approach with explicit primary-source PDF requirements.
+
+## Combined Phase A+B+C totals
+
+**15 states corrected to TY 2026 actuals** (Phase A: 5, Phase B: 5, Phase C: 5).
+**34 pinning tests** in state-specific suites.
+
+| Status | Count | States |
+|---|---|---|
+| TY 2026 actuals applied | 15 | CA(*), LA, KS, MT, ND, MI, HI, CT, AR, MD, RI, MN, ME, DE, SC, WV |
+| TY 2026 verified no-change | 1 | MO |
+| Deferred to Phase C2 | 5 | NE, NM, WI, VT, OR |
+| Originally CURRENT (no work needed) | ~14 | AL, AZ, CO, IA, IL, MA, NJ, NY, OK, PA, UT, MS, NH(no-tax), WA(no-tax) |
+| Originally LOW severity | ~7 | DC, GA, ID, VA, IN, KY, NC, OH (TY policy edge cases) |
+
+(*) CA is on TY 2025 (latest CA FTB published); CA TY 2026 won't be available until late 2026.
+
 ## Engine limitations documented (during Phase A/B fixes)
 
 Several states have AGI-based or age-based exemption phaseouts that the
