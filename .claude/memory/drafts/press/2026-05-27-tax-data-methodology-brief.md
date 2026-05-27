@@ -102,10 +102,10 @@ mandatory:
    zero income, etc.).
 4. **Independent review of the diff against the cited primary source** —
    a structured checklist applied independently to each change.
-   Automated and LLM-assisted review tools may be used as an additional
-   error-detection layer in this step. Any disagreement between
-   reviewers is resolved by direct verification against the primary
-   source, never by reviewer majority.
+   Automated diff-checking tools may be used as an additional
+   error-detection layer in this step. Any disagreement is resolved by
+   direct verification against the primary source, never by reviewer
+   majority.
 5. **User-reported feedback** captured into the change log.
 
 ### 2.3 State inventory in v1.8.5
@@ -114,13 +114,13 @@ mandatory:
 |---|---|---|
 | Materially changed in v1.8.5 and verified against primary sources | 26 | Rate, threshold, structural, or retirement-treatment change applied this release |
 | No broad wage / retirement-income tax | 9 | AK, FL, NV, SD, TN, TX, WY + NH (interest/div only, phased out) + WA (capital gains only). No bracket schedule to update. |
-| Structurally current or no material 2026 change identified | 16 | Existing model remained directionally current after review; several were re-checked against current official sources in this release with no code change required. |
+| Re-checked in v1.8.5 against current official sources; no code change required | 4 | Verified TY 2026-current; carried forward unchanged |
+| Carried forward from prior verified release; no published TY 2026 change identified | 12 | Existing model remained directionally current; no rate-structure change observed in primary sources |
 | **Total jurisdictions modeled** | **51** | |
 
-As of v1.8.5, after the verification work described above, we are not
-aware of any materially wrong state rate structure for the app's
-supported filing-status scope (Single and MFJ) and retirement-planning
-use case. Some state-specific details — local taxes, certain surtaxes,
+After this verification pass, we have no known errors in supported
+state rate structures within scope (Single, MFJ, retirement-planning
+use). Some state-specific details — local taxes, certain surtaxes,
 filing-status variants beyond Single and MFJ, and exact phaseout
 mechanics — are intentionally outside scope and disclosed below.
 
