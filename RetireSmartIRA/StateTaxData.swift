@@ -734,28 +734,56 @@ struct StateTaxData {
             stateDeduction: .fixed(single: 3_000, married: 8_500)
         )
 
-        // Arkansas — 2%, 4%, 4.4% (2026, reduced top rate)
+        // Arkansas — 0%, 2%, 3%, 3.4%, 3.7% graduated (TY 2026 per HB 1001 / Act 1 of 2026 1st Ex. Sess.)
+        //
+        // Primary source: AR DFA Fiscal Impact Statement on HB 1001 (5/1/2026)
+        //   https://www.arkleg.state.ar.us/Home/FTPDocument?path=%2FAssembly%2F2025%2F2026S1%2FFiscal+Impacts%2FHB1001-DFA1.pdf
+        // Also: AR DFA 2026 Low-Income Withholding Tables
+        //   https://www.dfa.arkansas.gov/wp-content/uploads/withholdTaxTablesLowIncome_2026_1.pdf
+        // Enacted legislation: HB 1001 of the 2026 First Extraordinary Session,
+        //   Act 1 of 2026 (1st Ex. Sess.), signed by Gov. Sanders 2026-05-06.
+        //   Amends Ark. Code Ann. § 26-51-201 reducing top rate 3.9% → 3.7% TY 2026.
+        //   Standard Income Table threshold ceiling moved $92,300 → $94,700 (indexed).
+        //
+        // Engine models the Standard Income Table (taxable income ≤ $94,700) which covers
+        // the entire retiree-planning demographic. AR also has an "Upper Income Table" for
+        // income > $94,700 (2% on first $4,700; 3.7% above) with a $94,701-$97,600 bracket
+        // smoothing band — not modeled here; high-income AR filers will see slight tax
+        // overstatement (acceptable planning-tool approximation).
+        //
+        // AR uses one schedule for single + MFJ (no doubling). Std deduction $2,470/$4,940
+        // (TY 2025 indexed value; TY 2026 indexed value pending AR1000F instructions —
+        // using TY 2025 as conservative floor; AR DFA indexes annually).
+        //
+        // TriSTAR coverage: source #1 (.gov AR DFA + AR Legislature dual verification),
+        // source #4 (multi-LLM pending re-review after 3.7% disambiguation),
+        // sources #2/#3 (TAXSIM + metamorphic via test suite).
+        // Verified 2026-05-27 (initial 3.9% expectation disambiguated to 3.7% per HB 1001).
         configs[.arkansas] = StateTaxConfig(
             state: .arkansas,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.02),
-                    B(threshold: 4_400, rate: 0.04),
-                    B(threshold: 8_800, rate: 0.044)
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 5_600, rate: 0.02),
+                    B(threshold: 11_200, rate: 0.03),
+                    B(threshold: 16_000, rate: 0.034),
+                    B(threshold: 26_400, rate: 0.037)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.02),
-                    B(threshold: 4_400, rate: 0.04),
-                    B(threshold: 8_800, rate: 0.044)
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 5_600, rate: 0.02),
+                    B(threshold: 11_200, rate: 0.03),
+                    B(threshold: 16_000, rate: 0.034),
+                    B(threshold: 26_400, rate: 0.037)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
-                pensionExemption: .partial(maxExempt: 6_000),
+                pensionExemption: .partial(maxExempt: 6_000),  // $6K per taxpayer at 59½+
                 iraWithdrawalExemption: .partial(maxExempt: 6_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 2_200, married: 4_400),
+            stateDeduction: .fixed(single: 2_470, married: 4_940),  // TY 2025; TY 2026 indexed value pending AR1000F instructions
             safeHarborRule: .flatRate(1.00)
         )
 
@@ -807,13 +835,35 @@ struct StateTaxData {
             hsaContributionsTaxableForState: true
         )
 
-        // Connecticut — 3% to 6.99% (7 brackets)
+        // Connecticut — 2% to 6.99% (7 brackets, TY 2026)
+        //
+        // Primary source: CT DRS — Informational Publication 2026(1), 2026 Circular CT
+        //   Employer's Tax Guide (with TY 2026 bracket schedule)
+        //   https://portal.ct.gov/-/media/drs/publications/pubsip/2026/ip-2026-1.pdf
+        // Also: CGA Office of Legislative Research 2025-R-0080 (historical schedule)
+        //   https://cga.ct.gov/2025/rpt/pdf/2025-R-0080.pdf
+        // Enacted legislation: Public Act 23-204 §§ 374-376 cut the bottom two rates
+        //   from 3%/5% to 2%/4.5% effective TY 2024+ (continues for TY 2026 unchanged).
+        //
+        // CT has no statutory inflation indexing; bracket thresholds remain stable across
+        // years. The 3%/5% rates in pre-fix code were CT's pre-TY-2024 rates that were
+        // permanently reduced by PA 23-204.
+        //
+        // IRA exclusion: TY 2026 = 100% (final phase-in of 50%/75%/100% across TY24/25/26).
+        // SS exempt under $75K single / $100K MFJ federal AGI (75% above); pension/annuity
+        // 100% deduction under $75K/$100K AGI, phasing to 0% at $100K/$150K — phaseouts NOT
+        // modeled here (engine lacks AGI-based exemption support; pensionExemption stays
+        // .none conservatively). Personal exemption (credit-style, AGI-phased) not modeled.
+        //
+        // TriSTAR coverage: source #1 (CT DRS IP-2026-1 primary), source #4 (multi-LLM
+        // pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.connecticut] = StateTaxConfig(
             state: .connecticut,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.03),
-                    B(threshold: 10_000, rate: 0.05),
+                    B(threshold: 0, rate: 0.02),
+                    B(threshold: 10_000, rate: 0.045),
                     B(threshold: 50_000, rate: 0.055),
                     B(threshold: 100_000, rate: 0.06),
                     B(threshold: 200_000, rate: 0.065),
@@ -821,8 +871,8 @@ struct StateTaxData {
                     B(threshold: 500_000, rate: 0.0699)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.03),
-                    B(threshold: 20_000, rate: 0.05),
+                    B(threshold: 0, rate: 0.02),
+                    B(threshold: 20_000, rate: 0.045),
                     B(threshold: 100_000, rate: 0.055),
                     B(threshold: 200_000, rate: 0.06),
                     B(threshold: 400_000, rate: 0.065),
@@ -902,37 +952,64 @@ struct StateTaxData {
             stateDeduction: .fixed(single: 14_600, married: 25_900)
         )
 
-        // Hawaii — 1.4% to 11% (12 brackets)
+        // Hawaii — 1.4% to 11% (12 brackets, TY 2026 per Act 46 SLH 2024)
+        //
+        // Primary source: HI DOTAX tax tables (effective after 2024-12-31)
+        //   https://tax.hawaii.gov/forms/d_25table-on/
+        // Also: HI DOTAX 2026 Payroll Updates
+        //   https://tax.hawaii.gov/payrollupdate/
+        // Enacted legislation: Act 46, SLH 2024 (HB 2404)
+        //   https://data.capitol.hawaii.gov/sessions/sessionlaws/Years/SLH2024/SLH2024_Act46.pdf
+        //
+        // Act 46 (2024) phases in bracket widening + std deduction increases through 2031.
+        // Bracket schedule changes only in TY 2025, 2027, and 2029; TY 2026 brackets =
+        // TY 2025 brackets. Standard deduction DOES increase TY 2025 → TY 2026 (from
+        // $4,400/$8,800 to $8,000/$16,000) — already correctly set below.
+        //
+        // The pre-fix brackets ($2,400 / $4,800 / $9,600... for single) were the pre-Act-46
+        // schedule from before TY 2025. Replaced with TY 2025/2026 widened brackets per
+        // DOTAX official tax tables.
+        //
+        // MFJ thresholds doubled (per Act 46): $19,200 / $28,800 / ... / $650,000.
+        // Retirement income: HI continues to fully exclude employer pensions (already .none
+        // in code — engine convention is .none means "no special exemption beyond what's
+        // in the bracket structure"; the HRS § 235-7(a)(2)/(3) full exemption for pensions
+        // is a known engine limitation not affecting tax computation when pension income
+        // is not separately broken out in incomeSources).
+        //
+        // TriSTAR coverage: source #1 (HI DOTAX primary + Act 46 enacted text),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.hawaii] = StateTaxConfig(
             state: .hawaii,
             taxSystem: .progressive(
                 single: [
                     B(threshold: 0, rate: 0.014),
-                    B(threshold: 2_400, rate: 0.032),
-                    B(threshold: 4_800, rate: 0.055),
-                    B(threshold: 9_600, rate: 0.064),
-                    B(threshold: 14_400, rate: 0.068),
-                    B(threshold: 19_200, rate: 0.072),
-                    B(threshold: 24_000, rate: 0.076),
-                    B(threshold: 36_000, rate: 0.079),
-                    B(threshold: 48_000, rate: 0.0825),
-                    B(threshold: 150_000, rate: 0.09),
-                    B(threshold: 175_000, rate: 0.10),
-                    B(threshold: 200_000, rate: 0.11)
+                    B(threshold: 9_600, rate: 0.032),
+                    B(threshold: 14_400, rate: 0.055),
+                    B(threshold: 19_200, rate: 0.064),
+                    B(threshold: 24_000, rate: 0.068),
+                    B(threshold: 36_000, rate: 0.072),
+                    B(threshold: 48_000, rate: 0.076),
+                    B(threshold: 125_000, rate: 0.079),
+                    B(threshold: 175_000, rate: 0.0825),
+                    B(threshold: 225_000, rate: 0.09),
+                    B(threshold: 275_000, rate: 0.10),
+                    B(threshold: 325_000, rate: 0.11)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.014),
-                    B(threshold: 4_800, rate: 0.032),
-                    B(threshold: 9_600, rate: 0.055),
-                    B(threshold: 19_200, rate: 0.064),
-                    B(threshold: 28_800, rate: 0.068),
-                    B(threshold: 38_400, rate: 0.072),
-                    B(threshold: 48_000, rate: 0.076),
-                    B(threshold: 72_000, rate: 0.079),
-                    B(threshold: 96_000, rate: 0.0825),
-                    B(threshold: 300_000, rate: 0.09),
-                    B(threshold: 350_000, rate: 0.10),
-                    B(threshold: 400_000, rate: 0.11)
+                    B(threshold: 19_200, rate: 0.032),
+                    B(threshold: 28_800, rate: 0.055),
+                    B(threshold: 38_400, rate: 0.064),
+                    B(threshold: 48_000, rate: 0.068),
+                    B(threshold: 72_000, rate: 0.072),
+                    B(threshold: 96_000, rate: 0.076),
+                    B(threshold: 250_000, rate: 0.079),
+                    B(threshold: 350_000, rate: 0.0825),
+                    B(threshold: 450_000, rate: 0.09),
+                    B(threshold: 550_000, rate: 0.10),
+                    B(threshold: 650_000, rate: 0.11)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1021,7 +1098,35 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // Maryland — 2% to 5.75% (8 brackets)
+        // Maryland — 2% to 6.50% (10 brackets, TY 2026 per HB 352 / 2025 Md. Laws Ch. 604)
+        //
+        // Primary source: MD Comptroller — 2025 Session Tax Alert (revised 2025-12-22)
+        //   https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/legal-publications/alerts/tax-alert-changes-to-standard-and-itemized-deductions-and-to-state-and-local-income-tax-rates-from-the-2025-legislative-session.pdf
+        // Also: MD Pension Exclusion Guidance
+        //   https://www.marylandtaxes.gov/individual/income/filing/pension-exclusion.php
+        // Enacted legislation: HB 352 (2025 Regular Session) = Budget Reconciliation and
+        //   Financing Act of 2025 = 2025 Md. Laws Ch. 604
+        //   Fiscal note: https://mgaleg.maryland.gov/2025RS/fnotes/bil_0002/hb0352.pdf
+        //
+        // HB 352 added TWO new top brackets effective TY 2025+:
+        //   Single: 6.25% on $500K-$1M, 6.50% over $1M
+        //   MFJ:    6.25% on $600K-$1.2M, 6.50% over $1.2M
+        // The 5.75% bracket is now capped instead of open-ended.
+        //
+        // Standard deduction rule also changed via HB 352: previously a 15%-of-AGI formula
+        // with min/max caps; now a FLAT $3,350/$6,700 (no AGI formula). Indexed thereafter
+        // under Md. Tax-General § 10-217.
+        //
+        // Pension exclusion: $39,500 (TY 2024) → $41,200 (TY 2025) → likely ~$42,500 (TY 2026
+        // indexed; awaiting publication of Withholding Tax Facts 2026 to confirm exact value;
+        // using $41,200 as TY 2025-verified floor — conservative under-exemption acceptable).
+        //
+        // County local income tax (2.25%-3.30% per county) NOT modeled. 2% surtax on net
+        // capital gains for FAGI > $350K also NOT modeled (rare for typical retiree).
+        //
+        // TriSTAR coverage: source #1 (MD Comptroller primary + HB 352 fiscal note),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.maryland] = StateTaxConfig(
             state: .maryland,
             taxSystem: .progressive(
@@ -1033,7 +1138,9 @@ struct StateTaxData {
                     B(threshold: 100_000, rate: 0.05),
                     B(threshold: 125_000, rate: 0.0525),
                     B(threshold: 150_000, rate: 0.055),
-                    B(threshold: 250_000, rate: 0.0575)
+                    B(threshold: 250_000, rate: 0.0575),
+                    B(threshold: 500_000, rate: 0.0625),
+                    B(threshold: 1_000_000, rate: 0.065)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.02),
@@ -1043,7 +1150,9 @@ struct StateTaxData {
                     B(threshold: 150_000, rate: 0.05),
                     B(threshold: 175_000, rate: 0.0525),
                     B(threshold: 225_000, rate: 0.055),
-                    B(threshold: 300_000, rate: 0.0575)
+                    B(threshold: 300_000, rate: 0.0575),
+                    B(threshold: 600_000, rate: 0.0625),
+                    B(threshold: 1_200_000, rate: 0.065)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1053,21 +1162,22 @@ struct StateTaxData {
                 // Tax-General § 10-209). Applies to taxpayers age 65+ or
                 // totally disabled. Qualifying income: employer pensions /
                 // 401(a) / 403 / 457(b) annuities only.
-                pensionExemption: .partial(maxExempt: 39_500),
+                // MD pension exclusion: TY 2025 = $41,200 indexed. TY 2026 value
+                // likely ~$42,500 (awaiting publication of MD Withholding Tax Facts 2026);
+                // using TY 2025-verified $41,200 as conservative floor.
+                pensionExemption: .partial(maxExempt: 41_200),
                 // IRA distributions DO NOT qualify for the MD pension exclusion
                 // (per TB-51 §II.F): "A traditional IRA, a Roth IRA, a rollover
                 // IRA, a simplified employee plan (SEP), a Keogh plan, an
                 // ineligible deferred compensation plan, or foreign retirement
                 // income does not qualify."
-                // (Note: a 2025 legislative proposal would extend the exclusion
-                //  to include IRA withdrawals starting TY2025. Until enactment
-                //  is confirmed against primary source, keep .none — conservative
-                //  under-exemption is acceptable for a planning tool; over-
-                //  exemption silently understates state tax liability.)
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 4_100, married: 8_200),
+            // TY 2025+ flat std deduction per HB 352 (2025 Md. Laws Ch. 604) — replaces
+            // prior 15%-of-AGI formula with $1,800-$2,700/$3,600-$5,450 caps. Now flat
+            // $3,350/$6,700 (indexed thereafter under Md Tax-General § 10-217).
+            stateDeduction: .fixed(single: 3_350, married: 6_700),
             safeHarborRule: .flatRate(1.10)
         )
 
@@ -1463,27 +1573,44 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // West Virginia — 2.36% to 5.12% (2026, 5 brackets, reduced)
+        // West Virginia — 2.11% to 4.58% (TY 2026, 5 brackets per SB 392 5% cut)
+        //
+        // Primary source: WV Tax Division — Personal Income Tax Reduction Bill page
+        //   https://tax.wv.gov/Individuals/Pages/PersonalIncomeTaxReductionBill.aspx
+        // Enacted legislation: SB 392 (2026 Regular Session), signed 2026-03-31;
+        //   codified at W. Va. Code § 11-21-4j; effective 2026-06-12 retroactive to 2026-01-01.
+        //   Trigger conditions for the 5% across-the-board cut WERE MET.
+        //
+        // Note: WV does not double brackets for MFJ — same single schedule applies to
+        //   single, MFJ, HoH, and estates/trusts. MFS uses half-thresholds at same rates
+        //   (not modeled here; engine only distinguishes single vs married, and MFS is
+        //   not a supported filing status).
+        // SS exemption: TY 2026 = 100% (phase-in complete per WV Tax Division).
+        // WV uses $2,000/person personal exemption (no standard deduction).
+        //
+        // TriSTAR coverage: source #1 (WV Tax Division primary), source #4 (multi-LLM
+        // pending), source #2 (TAXSIM via test suite), source #3 (metamorphic tests).
+        // Verified 2026-05-27.
         configs[.westVirginia] = StateTaxConfig(
             state: .westVirginia,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.0236),
-                    B(threshold: 10_000, rate: 0.0315),
-                    B(threshold: 25_000, rate: 0.0354),
-                    B(threshold: 40_000, rate: 0.0472),
-                    B(threshold: 60_000, rate: 0.0512)
+                    B(threshold: 0, rate: 0.0211),
+                    B(threshold: 10_000, rate: 0.0281),
+                    B(threshold: 25_000, rate: 0.0316),
+                    B(threshold: 40_000, rate: 0.0422),
+                    B(threshold: 60_000, rate: 0.0458)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.0236),
-                    B(threshold: 10_000, rate: 0.0315),
-                    B(threshold: 25_000, rate: 0.0354),
-                    B(threshold: 40_000, rate: 0.0472),
-                    B(threshold: 60_000, rate: 0.0512)
+                    B(threshold: 0, rate: 0.0211),
+                    B(threshold: 10_000, rate: 0.0281),
+                    B(threshold: 25_000, rate: 0.0316),
+                    B(threshold: 40_000, rate: 0.0422),
+                    B(threshold: 60_000, rate: 0.0458)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
-                socialSecurityExempt: false,  // WV taxes SS (phasing out by 2026)
+                socialSecurityExempt: true,  // WV TY 2026: SS 100% exempt (phase-in complete)
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
