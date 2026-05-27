@@ -4,6 +4,32 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-26 (very late evening): Phase E TY 2026 — MA $1M surtax + CT/RI AGI phaseouts
+
+**Decision:** Complete Phase E by addressing the two non-moot items from the original audit. (HoH brackets and MFS routing were moot — the app's FilingStatus enum only has Single + MFJ.)
+
+**Phase E Step 1 (`ea407a0`):** Convert MA from flat 5% to 2-bracket progressive 5%/9% modeling the constitutional 4% Millionaire's Tax surtax on income >$1M. Same $1M threshold for single + MFJ (constitutional amendment specifies no doubling).
+
+**Phase E Step 2 (`0d9057f`):** Engine API change — added `.partialWithAGIPhaseout(maxExempt, singleStart, singleEnd, mfjStart, mfjEnd)` case to `ExemptionLevel` enum. Threaded `filingStatus` through `applyRetirementExemptions`. Phaseout ratio applies to the exemption FRACTION (not just cap) to correctly model CT's "100% below threshold, ramping to 0%" rule. Setting `start == end` produces cliff behavior (RI).
+
+**Per-state config updates:**
+- CT pension exemption: `.none` → `.partialWithAGIPhaseout` (75K-100K single linear, 100K-150K MFJ linear)
+- RI pension + IRA exemptions: unconditional `.partial(50K)` → cliff at $107K/$133.75K AGI
+
+**Initial test failure caught a logic bug:** original implementation applied phaseout to the $ cap only, not to the exemption fraction. Re-implemented to apply ratio to `min(incomeAmount, maxExempt)`. CT linear midpoint test then passed correctly.
+
+**Engineering rigor:** Required updating 2 switch statements in `StateComparisonView.swift` (UI badge color + human-readable status text) for exhaustiveness. Both updated.
+
+**Limitations still documented:**
+- CT SS exemption phaseout — not modeled (`socialSecurityExempt: Bool` lacks AGI awareness)
+- RI SS exemption FRA+AGI — not modeled
+- Age-based conditions (RI requires FRA) — engine doesn't check age
+- Other states with similar phaseouts not yet identified
+
+**Reference:** `decisions/2026-05-26-50-state-bracket-freshness-audit.md`
+
+---
+
 ## 2026-05-26 (late late late evening): Phase D TY 2026 fixes shipped — MS, OH, IN, KY, NC
 
 **Decision:** Apply Phase D corrections for the 5 "ahead-of-schedule" flat-rate states. Under Path 1, most were already on TY 2026 statutory rates — but MS needed the actual rate cut, OH needed a structural change (new zero-bracket), and KY/NC needed std deduction refresh.

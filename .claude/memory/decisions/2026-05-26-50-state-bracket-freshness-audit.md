@@ -111,12 +111,44 @@ Under Path 1 policy, the "ahead-of-schedule" flat-rate states needed minimal wor
 
 (Note: GA and ID were marked "🟢 LOW — slight rate drift" in original discovery but the "ahead of schedule" framing doesn't apply since they're not phasing down via trigger; they're just slightly stale. Could go in Phase C2 batch.)
 
-## Remaining open phases
+## Phase E applied — MA $1M surtax + CT/RI AGI phaseouts (commits `ea407a0` + `0d9057f`)
+
+Original Phase E scoped 4 items; 2 turned out to be moot:
+- ❌ HoH brackets — app's FilingStatus enum only has Single + MFJ (no HoH)
+- ❌ MFS routing — same reason (no MFS)
+- ✅ MA $1M surtax — converted from flat 5% to 2-bracket 5%/9%
+- ✅ AGI-based exemption phaseouts — engine API extended; CT pension + RI pension/IRA configured
+
+**Engine API change:** New `partialWithAGIPhaseout(maxExempt, singleStart, singleEnd, mfjStart, mfjEnd)` case on `ExemptionLevel`. Phaseout RATIO applies to exemption fraction, not just $ cap.
+
+**Bug caught during test cycle:** Initial implementation only ramped the $ cap, which is wrong for CT (which exempts a PERCENTAGE of pension below threshold). Re-implemented to apply ratio × min(incomeAmount, maxExempt). Linear midpoint test then passed.
+
+**9 pinning tests in PhaseETY2026StateTests:** 3 MA + 3 CT (below/midpoint/above) + 3 RI (single below/single above/MFJ below). All passing.
+
+**Remaining engine limitations (Phase F or similar):**
+- CT SS exemption AGI phaseout (needs `socialSecurityExempt: Bool` → enum)
+- RI SS exemption (FRA + AGI conditions)
+- Age-based conditions generally (engine doesn't model age for state exemptions)
+
+## FINAL Combined Phase A+B+C+D+E totals
+
+**20 states corrected to TY 2026 actuals + engine extended for AGI phaseouts.**
+**50 pinning tests** in state-specific suites (CA: 5, A: 10, B: 12, C: 7, D: 7, E: 9).
+
+| Status | Count | States |
+|---|---|---|
+| TY 2026 actuals applied | 20 | LA, KS, MT, ND, MI, HI, CT, AR, MD, RI, MN, ME, DE, SC, WV, MS, OH, IN, KY, NC + MA (surtax) |
+| TY 2025 latest published | 1 | CA |
+| TY 2026 verified no-change | 1 | MO |
+| Deferred to Phase C2 | 5 | NE, NM, WI, VT, OR |
+
+## Remaining open work
 
 - **Phase C2** — Primary-source verification for NE, NM, WI, VT, OR (the 5 truly deferred) + possibly DC/GA/ID/VA std deduction refreshes
-- **Phase E** — Engine API changes for HoH brackets, MFS routing, MA $1M surtax, AGI-based exemption phaseouts
+- **Phase F** (potential) — SS exemption AGI awareness for CT, RI (would require changing `socialSecurityExempt: Bool` to an enum)
+- **Cherry-pick to release branch** — All this work on `feature/multi-year-planning`. Shipped 1.8.4 users still on pre-fix data.
 
-The bracket-freshness work is essentially DONE for the highest-impact states. Phase C2 and E are smaller scopes.
+The bracket-freshness + AGI-phaseout work is essentially DONE for the highest-impact states.
 
 ## Engine limitations documented (during Phase A/B fixes)
 
