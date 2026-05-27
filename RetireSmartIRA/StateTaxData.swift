@@ -560,15 +560,46 @@ struct StateTaxData {
             safeHarborRule: .agiThreshold(threshold: 250_000, lowRate: 1.00, highRate: 1.10)
         )
 
-        // Massachusetts — 5.0% flat rate
+        // Massachusetts — 5% base + 4% Fair Share surtax (TY 2026 per Article CXII)
+        //
+        // Primary source: MA DOR 4% Surtax page (DOR-certified TY 2026 threshold)
+        //   https://www.mass.gov/info-details/massachusetts-4-surtax-on-taxable-income
+        // Enacted legislation: Massachusetts Constitution Article CXII (Question 1
+        //   ballot initiative, Nov 2022), implemented via M.G.L. c. 62 §§ 4(d), 5A.
+        //
+        // Threshold inflation-indexed annually from $1,000,000 anchor (TY 2023):
+        //   TY 2023: $1,000,000; TY 2024: $1,053,750; TY 2025: $1,083,150;
+        //   TY 2026: $1,107,750 (DOR-certified).
+        //
+        // Same threshold for Single and MFJ (constitutional — no MFJ doubling).
+        // MA uses personal exemptions ($4,400 single / $8,800 MFJ); no separate
+        // standard deduction.
+        //
+        // Pre-fix code modeled MA as pure flat 5% — missed the Fair Share surtax
+        // entirely for >$1.1M income filers (high-net-worth retirees in MA).
+        //
+        // Note: MA also has a 9% surtax on short-term capital gains (>1yr held)
+        // not modeled in capitalGainsTreatment (simplified to .followsFederal).
+        //
+        // TriSTAR coverage: source #1 (DOR-certified primary), source #4 (multi-LLM
+        // pending), sources #2/#3 (test suite). Verified 2026-05-27.
         configs[.massachusetts] = StateTaxConfig(
             state: .massachusetts,
-            taxSystem: .flat(rate: 0.05),
+            taxSystem: .progressive(
+                single: [
+                    B(threshold: 0, rate: 0.05),
+                    B(threshold: 1_107_750, rate: 0.09)  // 5% base + 4% Fair Share surtax
+                ],
+                married: [
+                    B(threshold: 0, rate: 0.05),
+                    B(threshold: 1_107_750, rate: 0.09)  // Same threshold; constitutional no-doubling
+                ]
+            ),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
                 pensionExemption: .none,  // MA taxes pension income
                 iraWithdrawalExemption: .none,
-                capitalGainsTreatment: .followsFederal  // MA has 9% surtax on short-term gains, simplified here
+                capitalGainsTreatment: .followsFederal  // MA 9% surtax on short-term gains simplified here
             ),
             stateDeduction: .none,
             safeHarborRule: .flatRate(1.00),
@@ -649,12 +680,49 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // North Dakota — 1.95% flat rate (2026, simplified to flat)
+        // North Dakota — 3-bracket progressive 0% / 1.95% / 2.50% (TY 2023+ per SB 2293)
+        //
+        // Primary source: ND Tax Commissioner Individual Income Tax page
+        //   https://www.tax.nd.gov/individual-income-tax
+        // Enacted legislation: SB 2293, 67th Legislative Assembly (2023 Session),
+        //   replacing the prior 5-bracket schedule with the current 3-bracket structure.
+        //
+        // FIX OF LONG-STANDING MODELING ERROR: Pre-fix code modeled ND as flat 1.95%.
+        // This was wrong for TY 2023+ — ND has had a 3-bracket structure (0% / 1.95% /
+        // 2.50%) including a zero-rate first bracket that shelters most modest-income
+        // retirees from ND state tax entirely.
+        //
+        // TY 2026 thresholds (using TY 2025 indexed values as best-available proxy
+        // until ND Tax Commissioner publishes TY 2026 indexed thresholds in late
+        // 2026 / early 2027):
+        //   Single: 0% on $0–$48,475; 1.95% on $48,475–$244,825; 2.50% over $244,825
+        //   MFJ:    0% on $0–$80,975; 1.95% on $80,975–$298,075; 2.50% over $298,075
+        //
+        // ND uses federal taxable income as starting point (conformsToFederal); no
+        // separate state std deduction. Federal std deduction (post-OBBBA TY 2026)
+        // flows through.
+        //
+        // Social Security: 100% exempt since TY 2021 (no change).
+        //
+        // TriSTAR coverage: source #1 (ND Tax Commissioner primary),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.northDakota] = StateTaxConfig(
             state: .northDakota,
-            taxSystem: .flat(rate: 0.0195),
+            taxSystem: .progressive(
+                single: [
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 48_475, rate: 0.0195),
+                    B(threshold: 244_825, rate: 0.025)
+                ],
+                married: [
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 80_975, rate: 0.0195),
+                    B(threshold: 298_075, rate: 0.025)
+                ]
+            ),
             retirementExemptions: RetirementIncomeExemptions(
-                socialSecurityExempt: true,
+                socialSecurityExempt: true,  // ND fully exempts SS since TY 2021
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
@@ -662,17 +730,49 @@ struct StateTaxData {
             stateDeduction: .conformsToFederal
         )
 
-        // Ohio — 2.75% flat rate (2026, simplified from progressive)
+        // Ohio — 2-bracket 0% / 2.75% with $26,050 zero-bracket floor (TY 2026 per HB 96)
+        //
+        // Primary source: Ohio Department of Taxation 2026 IT 1040 instructions / rate page
+        //   https://tax.ohio.gov/
+        // Enacted legislation: HB 96, 136th Ohio General Assembly (FY26-27 biennial budget,
+        //   signed by Gov. DeWine 2025-06-30), effective for TY 2026.
+        //
+        // HB 96 collapsed prior 2-bracket schedule (2.75% / 3.5%) into a single 2.75%
+        // flat rate above the $26,050 zero-bracket. Pre-fix code modeled OH as PURE flat
+        // 2.75% with NO zero-bracket — materially overstated tax for low-income OH
+        // retirees (e.g., a retiree with $20K taxable income should pay $0 OH tax under
+        // the actual schedule, but pre-fix code charged 2.75% × $20K = $550).
+        //
+        // OH uses identical schedule for Single and MFJ (no doubling).
+        //
+        // Existing OH retirement income credit, lump-sum credits, and SS exclusion
+        // continue under HB 96 (already represented by socialSecurityExempt: true).
+        //
+        // Note: OH business income remains a separate 3% flat above $250K deduction
+        // (NOT modeled here; out of scope for retirement-tax-planning).
+        //
+        // TriSTAR coverage: source #1 (Ohio Tax + HB 96 enacted text),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.ohio] = StateTaxConfig(
             state: .ohio,
-            taxSystem: .flat(rate: 0.0275),
+            taxSystem: .progressive(
+                single: [
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 26_050, rate: 0.0275)
+                ],
+                married: [
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 26_050, rate: 0.0275)
+                ]
+            ),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .none,
+            stateDeduction: .none,  // OH uses the $26,050 zero-bracket as effective deduction
             safeHarborRule: .flatRate(1.00)
         )
 
@@ -1023,23 +1123,51 @@ struct StateTaxData {
             currentYearSafeHarborRate: 0.60
         )
 
-        // Kansas — 3.1%, 5.25%, 5.7% (3 brackets)
+        // Kansas — 2-bracket 5.20% / 5.58% (TY 2026 per SB 1 of 2024 Special Session)
+        //
+        // Primary source: KS Department of Revenue Income Tax Booklet 2025 / 2026 Tax Rates
+        //   https://www.ksrevenue.gov/
+        // Enacted legislation: SB 1, 2024 Special Session (signed June 2024).
+        //
+        // Major reform: collapsed 3-bracket schedule (3.1%/5.25%/5.7%) into 2 brackets
+        // (5.20%/5.58%). Bracket boundaries: $23,000 single / $46,000 MFJ.
+        // KS doubles thresholds for MFJ at same rates.
+        //
+        // Social Security: 100% exempt for ALL filers at ALL AGI levels (prior $75K AGI
+        // cliff removed by SB 1 starting TY 2024). Engine comment updated accordingly.
+        //
+        // Standard deduction TY 2026: $3,605 single / $8,240 MFJ (indexed from base
+        // $3,500/$8,000). Already correct in production code.
+        //
+        // TriSTAR coverage: source #1 (KDOR primary + SB 1 enacted text),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.kansas] = StateTaxConfig(
             state: .kansas,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.031),
-                    B(threshold: 15_000, rate: 0.0525),
-                    B(threshold: 30_000, rate: 0.057)
+                    B(threshold: 0, rate: 0.052),
+                    B(threshold: 23_000, rate: 0.0558)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.031),
-                    B(threshold: 30_000, rate: 0.0525),
-                    B(threshold: 60_000, rate: 0.057)
+                    B(threshold: 0, rate: 0.052),
+                    B(threshold: 46_000, rate: 0.0558)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
-                socialSecurityExempt: true,  // KS exempts SS for AGI under $75K
+                // KS SS exemption: 100% at all AGI levels (TY 2024+, SB 1 § 18).
+                // SB 1 fully REMOVED the prior $75K federal AGI cap — not raised, not
+                // phased; eliminated outright. Per KS DOR Notice 24-08:
+                //   "The amended language removes the income limitation and allows
+                //    all taxpayers receiving social security benefits... to claim
+                //    the subtraction modification, regardless of the amount of their
+                //    federal adjusted gross income."
+                // https://www.ksrevenue.gov/taxnotices/notice24-08.pdf
+                // K.S.A. 79-32,117 as amended by SB 1 § 18.
+                // Engine: `socialSecurityExempt: true` unconditionally exempts. No
+                // AGI-aware modeling needed for KS (unlike CT pension where AGI
+                // phaseout requires .partialWithAGIPhaseout).
+                socialSecurityExempt: true,
                 pensionExemption: .none,
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
@@ -1048,28 +1176,42 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // Louisiana — 1.85%, 3.5%, 4.25% (3 brackets, 2026)
+        // Louisiana — flat 3% (TY 2025+ per HB 10 of 2024 Third Extraordinary Session)
+        //
+        // Primary source: LA DOR Income Tax Rates FAQ
+        //   https://revenue.louisiana.gov/tax-education-and-faqs/faqs/income-tax-reform/what-are-the-individual-income-tax-rates-and-brackets/
+        // Enacted legislation: HB 10 of 2024 3rd Ex. Sess. (Build Louisiana Forward Act),
+        //   signed by Gov. Landry 2024-12-04, effective 2025-01-01.
+        //
+        // Major reform: replaced 3-bracket progressive (1.85%/3.5%/4.25%) with FLAT 3.0%.
+        // Single = MFJ flat rate (same 3% applies; no brackets to double).
+        //
+        // Retirement income exemption (age 65+) doubled from $6,000 to $12,000 per HB 10,
+        // with annual CPI indexing starting TY 2026 (LDR has not yet published 2026
+        // indexed value — using base $12,000 as conservative floor).
+        //
+        // Standard deduction: $12,500 single / $25,000 MFJ statutory base (HB 10),
+        // inflation-indexed starting TY 2026. LDR has not yet published 2026 indexed
+        // value — using base as conservative floor. (Agent research estimates TY 2026
+        // indexed ~$12,875/$25,750.)
+        //
+        // Note: LA public pensions / federal civil service / military retirement remain
+        // fully exempt — not modeled separately by source (engine treats all pension/IRA
+        // identically with the $12K partial cap). Acceptable planning-tool approximation.
+        //
+        // TriSTAR coverage: source #1 (LDR primary + HB 10 enacted text),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.louisiana] = StateTaxConfig(
             state: .louisiana,
-            taxSystem: .progressive(
-                single: [
-                    B(threshold: 0, rate: 0.0185),
-                    B(threshold: 12_500, rate: 0.035),
-                    B(threshold: 50_000, rate: 0.0425)
-                ],
-                married: [
-                    B(threshold: 0, rate: 0.0185),
-                    B(threshold: 25_000, rate: 0.035),
-                    B(threshold: 100_000, rate: 0.0425)
-                ]
-            ),
+            taxSystem: .flat(rate: 0.03),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
-                pensionExemption: .partial(maxExempt: 6_000),
-                iraWithdrawalExemption: .partial(maxExempt: 6_000),
+                pensionExemption: .partial(maxExempt: 12_000),  // HB 10: doubled $6K → $12K (age 65+), indexed
+                iraWithdrawalExemption: .partial(maxExempt: 12_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .fixed(single: 12_500, married: 25_000),
+            stateDeduction: .fixed(single: 12_500, married: 25_000),  // HB 10 statutory base; TY 2026 indexed value pending LDR publication
             safeHarborRule: .flatRate(1.00)
         )
 
@@ -1239,13 +1381,46 @@ struct StateTaxData {
             stateDeduction: .conformsToFederal
         )
 
-        // Montana — 4.7% flat rate (2026, reduced and simplified)
+        // Montana — 2-bracket 4.70% / 5.65% (TY 2026 per HB 337)
+        //
+        // Primary source: MT DOR HB 337 page (publishes bracket schedule directly)
+        //   https://revenue.mt.gov/news/recent-news/HB-337
+        // Enacted legislation: HB 337, 69th Montana Legislature (2025 Regular Session).
+        //
+        // Pre-fix code modeled MT as flat 4.7% — WRONG. MT has been 2-bracket progressive
+        // since TY 2024. HB 337 effective 1/1/2026 reduced top rate 5.9% → 5.65% and
+        // widened lower bracket.
+        //
+        // New thresholds (per HB 337):
+        //   Single: 4.70% on $0-$47,500; 5.65% over $47,500
+        //   MFJ:    4.70% on $0-$95,000; 5.65% over $95,000
+        //
+        // MT uses .conformsToFederal for std deduction (federal $15,750/$31,500 projected
+        // TY 2026 post-OBBBA flows through).
+        //
+        // Pension subtraction ($4,640) is inflation-indexed — current value may be stale;
+        // verify exact TY 2026 amount before next release.
+        //
+        // Note: top rate drops further to 5.40% in TY 2027 per HB 337 phased schedule.
+        //
+        // TriSTAR coverage: source #1 (MT DOR HB 337 page primary),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.montana] = StateTaxConfig(
             state: .montana,
-            taxSystem: .flat(rate: 0.047),
+            taxSystem: .progressive(
+                single: [
+                    B(threshold: 0, rate: 0.047),
+                    B(threshold: 47_500, rate: 0.0565)
+                ],
+                married: [
+                    B(threshold: 0, rate: 0.047),
+                    B(threshold: 95_000, rate: 0.0565)
+                ]
+            ),
             retirementExemptions: RetirementIncomeExemptions(
-                socialSecurityExempt: false,  // MT taxes SS (with partial deduction)
-                pensionExemption: .partial(maxExempt: 4_640),
+                socialSecurityExempt: false,  // MT taxes SS (with partial deduction not modeled here)
+                pensionExemption: .partial(maxExempt: 4_640),  // TODO: verify exact TY 2026 indexed value
                 iraWithdrawalExemption: .none,
                 capitalGainsTreatment: .followsFederal
             ),
@@ -1495,28 +1670,60 @@ struct StateTaxData {
             currentYearSafeHarborRate: 0.80
         )
 
-        // South Carolina — 0% to 6.3% (2026, 3 brackets simplified)
+        // South Carolina — 2-tier 1.99% / 5.21% (TY 2026 per H.4216, signed March 30, 2026)
+        //
+        // Primary source: SC DOR H.4216 information page
+        //   https://dor.sc.gov/news/information-about-h-4216
+        // Enacted legislation: H.4216, 126th General Assembly, signed by Gov. McMaster
+        //   2026-03-30 (ceremonially re-signed April 15, 2026).
+        //
+        // MAJOR RESTRUCTURE: H.4216 replaced prior 3-bracket schedule (0% / 3% / 6.3%)
+        // with 2-tier 1.99% / 5.21%. The $966 credit-equivalent adjustment in H.4216
+        // ensures continuity at the $30,000 boundary; mathematically equivalent to
+        // standard progressive bracket math (1.99% × min(income, 30K) + 5.21% ×
+        // max(0, income - 30K)).
+        //
+        // SC uses same schedule for Single and MFJ (no doubling).
+        //
+        // SCIAD NOTE: H.4216 also decoupled SC from federal standard/itemized deductions,
+        // replacing federal std deduction with a new "SC Income Adjusted Deduction" (SCIAD).
+        // Starting point is now Federal AGI (was federal taxable income). Exact SCIAD value
+        // pending SCDOR's 2026 SC1040 instructions. Until then, keep .conformsToFederal as
+        // a conservative-floor approximation; engine should refresh once SCDOR publishes
+        // the 2026 SC1040 booklet. (Acceptable planning-tool approximation pending
+        // primary-source SCIAD specifics.)
+        //
+        // Existing retirement deductions continue per H.4216:
+        //   $10,000 retirement income deduction (under 65)
+        //   $15,000 retirement income deduction (age 65+) — additional, not modeled
+        //   SS remains fully exempt
+        //
+        // Future further rate reductions are trigger-based (≥5% BEA revenue growth,
+        // ≤$200M revenue impact, certified by Feb 15 annually). TY 2026 base schedule
+        // (1.99% / 5.21%) is NOT trigger-dependent — it is the statutory schedule.
+        //
+        // TriSTAR coverage: source #1 (SCDOR primary + H.4216 enacted text),
+        // source #4 (multi-LLM pending), sources #2/#3 (test suite).
+        // Verified 2026-05-27.
         configs[.southCarolina] = StateTaxConfig(
             state: .southCarolina,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.00),
-                    B(threshold: 3_460, rate: 0.03),
-                    B(threshold: 17_330, rate: 0.063)
+                    B(threshold: 0, rate: 0.0199),
+                    B(threshold: 30_000, rate: 0.0521)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.00),
-                    B(threshold: 3_460, rate: 0.03),
-                    B(threshold: 17_330, rate: 0.063)
+                    B(threshold: 0, rate: 0.0199),
+                    B(threshold: 30_000, rate: 0.0521)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
-                pensionExemption: .partial(maxExempt: 10_000),  // SC retirement deduction
+                pensionExemption: .partial(maxExempt: 10_000),  // SC retirement deduction (unchanged by H.4216)
                 iraWithdrawalExemption: .partial(maxExempt: 10_000),
                 capitalGainsTreatment: .followsFederal
             ),
-            stateDeduction: .conformsToFederal
+            stateDeduction: .conformsToFederal  // TODO: SCIAD per H.4216 decoupling pending SCDOR 2026 SC1040 publication
         )
 
         // Vermont — 3.35% to 8.75% (4 brackets)
