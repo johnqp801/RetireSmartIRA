@@ -991,10 +991,17 @@ struct StateTaxData {
         )
 
         // Delaware — 2.2% to 6.6% (6 brackets)
+        // Delaware — 0% to 6.6% (7 brackets incl. $0-$2,000 zero bracket; same schedule all filers)
+        // Primary source: DE Division of Revenue Tax Rate Changes
+        //   https://revenue.delaware.gov/software-developer/tax-rate-changes/
+        // Structurally unchanged for TY 2026 (HB 13 did not pass 2025 session).
+        // Pension exclusion: age 60+ = $12,500/person; under 60 = $2,000/person (not modeled here).
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.delaware] = StateTaxConfig(
             state: .delaware,
             taxSystem: .progressive(
                 single: [
+                    B(threshold: 0, rate: 0.0),
                     B(threshold: 2_000, rate: 0.022),
                     B(threshold: 5_000, rate: 0.039),
                     B(threshold: 10_000, rate: 0.048),
@@ -1003,6 +1010,7 @@ struct StateTaxData {
                     B(threshold: 60_000, rate: 0.066)
                 ],
                 married: [
+                    B(threshold: 0, rate: 0.0),
                     B(threshold: 2_000, rate: 0.022),
                     B(threshold: 5_000, rate: 0.039),
                     B(threshold: 10_000, rate: 0.048),
@@ -1216,18 +1224,26 @@ struct StateTaxData {
         )
 
         // Maine — 5.8%, 6.75%, 7.15% (3 brackets)
+        // Maine — 5.8% / 6.75% / 7.15% + NEW 2% millionaire surcharge for TY 2026
+        // Primary source: Maine Revenue Services 2026 Individual Tax Rate Schedules
+        //   https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/ind_tax_rate_sched_2026.pdf
+        // Brackets inflation-adjusted vs TY 2025. NEW 2% surcharge on income above
+        //   $1,000,000 (Single) / $1,500,000 (MFJ/HoH) — added top 9.15% bracket.
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.maine] = StateTaxConfig(
             state: .maine,
             taxSystem: .progressive(
                 single: [
                     B(threshold: 0, rate: 0.058),
-                    B(threshold: 26_050, rate: 0.0675),
-                    B(threshold: 61_600, rate: 0.0715)
+                    B(threshold: 27_400, rate: 0.0675),
+                    B(threshold: 64_850, rate: 0.0715),
+                    B(threshold: 1_000_000, rate: 0.0915)  // 7.15% + 2% millionaire surcharge (TY 2026)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.058),
-                    B(threshold: 52_100, rate: 0.0675),
-                    B(threshold: 123_250, rate: 0.0715)
+                    B(threshold: 54_850, rate: 0.0675),
+                    B(threshold: 129_750, rate: 0.0715),
+                    B(threshold: 1_500_000, rate: 0.0915)  // 7.15% + 2% millionaire surcharge (TY 2026)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1324,20 +1340,24 @@ struct StateTaxData {
         )
 
         // Minnesota — 5.35% to 9.85% (4 brackets)
+        // Minnesota — 5.35% / 6.80% / 7.85% / 9.85% (TY 2026, brackets inflation-adjusted)
+        // Primary source: MN DOR 2025-12-16 press release (TY 2026 brackets +2.369%)
+        //   https://www.revenue.state.mn.us/press-release/2025-12-16/minnesota-income-tax-brackets-standard-deduction-and-dependent-exemption
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.minnesota] = StateTaxConfig(
             state: .minnesota,
             taxSystem: .progressive(
                 single: [
                     B(threshold: 0, rate: 0.0535),
-                    B(threshold: 31_690, rate: 0.068),
-                    B(threshold: 104_090, rate: 0.0785),
-                    B(threshold: 193_240, rate: 0.0985)
+                    B(threshold: 33_310, rate: 0.068),
+                    B(threshold: 109_430, rate: 0.0785),
+                    B(threshold: 203_150, rate: 0.0985)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.0535),
-                    B(threshold: 46_330, rate: 0.068),
-                    B(threshold: 184_040, rate: 0.0785),
-                    B(threshold: 321_450, rate: 0.0985)
+                    B(threshold: 48_700, rate: 0.068),
+                    B(threshold: 193_480, rate: 0.0785),
+                    B(threshold: 337_930, rate: 0.0985)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1349,33 +1369,43 @@ struct StateTaxData {
             stateDeduction: .fixed(single: 15_300, married: 30_600)
         )
 
-        // Missouri — 2% to 4.7% (graduated, 2026)
+        // Missouri — 0% / 2% / 2.5% / 3% / 3.5% / 4% / 4.5% / 4.7% (TY 2026, 8 brackets incl. zero)
+        // Primary source: MO DOR 2026 Withholding Formula + Year Changes
+        //   https://dor.mo.gov/forms/Withholding%20Formula_2026.pdf
+        //   https://dor.mo.gov/taxation/individual/tax-types/income/year-changes/
+        // Top rate 4.7% holds (trigger to 4.5% NOT met for 2026). Thresholds inflation-adjusted.
+        // HB 798: private pension full 100% exemption begins TY 2026 (was $6K capped). MO also
+        // fully exempts SS since TY 2024 and public pensions 100% since TY 2024.
+        // Same brackets across filing statuses (MO has no MFJ doubling).
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.missouri] = StateTaxConfig(
             state: .missouri,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.02),
-                    B(threshold: 1_207, rate: 0.025),
-                    B(threshold: 2_414, rate: 0.03),
-                    B(threshold: 3_621, rate: 0.035),
-                    B(threshold: 4_828, rate: 0.04),
-                    B(threshold: 6_035, rate: 0.045),
-                    B(threshold: 7_242, rate: 0.047)
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 1_313, rate: 0.02),
+                    B(threshold: 2_626, rate: 0.025),
+                    B(threshold: 3_939, rate: 0.03),
+                    B(threshold: 5_252, rate: 0.035),
+                    B(threshold: 6_565, rate: 0.04),
+                    B(threshold: 7_878, rate: 0.045),
+                    B(threshold: 9_191, rate: 0.047)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.02),
-                    B(threshold: 1_207, rate: 0.025),
-                    B(threshold: 2_414, rate: 0.03),
-                    B(threshold: 3_621, rate: 0.035),
-                    B(threshold: 4_828, rate: 0.04),
-                    B(threshold: 6_035, rate: 0.045),
-                    B(threshold: 7_242, rate: 0.047)
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 1_313, rate: 0.02),
+                    B(threshold: 2_626, rate: 0.025),
+                    B(threshold: 3_939, rate: 0.03),
+                    B(threshold: 5_252, rate: 0.035),
+                    B(threshold: 6_565, rate: 0.04),
+                    B(threshold: 7_878, rate: 0.045),
+                    B(threshold: 9_191, rate: 0.047)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
-                socialSecurityExempt: true,  // MO fully exempts SS (2026)
-                pensionExemption: .partial(maxExempt: 6_000),  // public pension deduction
-                iraWithdrawalExemption: .none,
+                socialSecurityExempt: true,  // MO fully exempts SS (TY 2024+)
+                pensionExemption: .full,     // HB 798: 100% private + public pension TY 2026
+                iraWithdrawalExemption: .full,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .conformsToFederal
@@ -1428,21 +1458,28 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // Nebraska — 3.99% to 5.2% (2026, 4 brackets, reduced rates)
+        // Nebraska — 2.46% / 3.51% / 4.55% (TY 2026, 3 brackets per LB 754)
+        // Primary source: Neb. Rev. Stat. § 77-2715.03 (statute)
+        //   https://nebraskalegislature.gov/laws/statutes.php?statute=77-2715.03
+        // Also: NE DOR Circular EN 2026 (rev 11-2025), supersedes 11-2024
+        //   https://revenue.nebraska.gov/sites/default/files/doc/business/Cir_En_2025/2026cir_en_whole.pdf
+        // LB 754 phase-down for TY 2026: top rate 5.20% → 4.55%; consolidated to 3 brackets
+        // by merging former brackets 3 and 4. Brackets are statutorily frozen (not inflation-
+        // indexed). Further drop to 3.99% effective TY 2027.
+        // SS 100% exempt since TY 2025 (also LB 754).
+        // Verified 2026-05-27 (Bucket 2 sweep — closes TriSTAR Nebraska gap).
         configs[.nebraska] = StateTaxConfig(
             state: .nebraska,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.0399),
-                    B(threshold: 3_700, rate: 0.0499),
-                    B(threshold: 22_170, rate: 0.0509),
-                    B(threshold: 35_730, rate: 0.052)
+                    B(threshold: 0, rate: 0.0246),
+                    B(threshold: 2_400, rate: 0.0351),
+                    B(threshold: 18_000, rate: 0.0455)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.0399),
-                    B(threshold: 7_390, rate: 0.0499),
-                    B(threshold: 44_350, rate: 0.0509),
-                    B(threshold: 71_460, rate: 0.052)
+                    B(threshold: 0, rate: 0.0246),
+                    B(threshold: 4_800, rate: 0.0351),
+                    B(threshold: 36_000, rate: 0.0455)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1538,27 +1575,35 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // New York — 4% to 10.9% (9 brackets)
+        // New York — 3.9% to 10.9% (9 brackets, bottom-5 rate cuts effective TY 2026)
+        // Primary source: NYS Pub NYS-50-T-NYS rev 1/26 (TY 2026 withholding tables)
+        //   https://www.tax.ny.gov/pdf/publications/withholding/nys50_t_nys.pdf
+        // Also: NYS DTF withholding rate change notice citing Chapter 59 of Laws of 2025, Part A
+        //   https://www.tax.ny.gov/bus/wt/rate.htm
+        // Chapter 59/2025 Part A cut the bottom 5 bracket rates effective 2026-01-01:
+        //   4.00% → 3.90%, 4.50% → 4.40%, 5.25% → 5.15%, 5.85% → 5.40%, 6.25% → 5.90%.
+        // High-income brackets ($1.077M+/$2.155M+) at 9.65%/10.30%/10.90% extended through 2032.
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.newYork] = StateTaxConfig(
             state: .newYork,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.04),
-                    B(threshold: 8_500, rate: 0.045),
-                    B(threshold: 11_700, rate: 0.0525),
-                    B(threshold: 13_900, rate: 0.0585),
-                    B(threshold: 80_650, rate: 0.0625),
+                    B(threshold: 0, rate: 0.039),
+                    B(threshold: 8_500, rate: 0.044),
+                    B(threshold: 11_700, rate: 0.0515),
+                    B(threshold: 13_900, rate: 0.054),
+                    B(threshold: 80_650, rate: 0.059),
                     B(threshold: 215_400, rate: 0.0685),
                     B(threshold: 1_077_550, rate: 0.0965),
                     B(threshold: 5_000_000, rate: 0.103),
                     B(threshold: 25_000_000, rate: 0.109)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.04),
-                    B(threshold: 17_150, rate: 0.045),
-                    B(threshold: 23_600, rate: 0.0525),
-                    B(threshold: 27_900, rate: 0.0585),
-                    B(threshold: 161_550, rate: 0.0625),
+                    B(threshold: 0, rate: 0.039),
+                    B(threshold: 17_150, rate: 0.044),
+                    B(threshold: 23_600, rate: 0.0515),
+                    B(threshold: 27_900, rate: 0.054),
+                    B(threshold: 161_550, rate: 0.059),
                     B(threshold: 323_200, rate: 0.0685),
                     B(threshold: 2_155_350, rate: 0.0965),
                     B(threshold: 5_000_000, rate: 0.103),
@@ -1586,25 +1631,29 @@ struct StateTaxData {
             stateDeduction: .fixed(single: 8_000, married: 16_050)
         )
 
-        // Oklahoma — 0.25% to 4.75% (6 brackets, 2026)
+        // Oklahoma — 0% / 2.5% / 3.5% / 4.5% (TY 2026, 4 brackets per HB 2764)
+        // Primary source: OK Tax Commission Packet OW-2 (rev 11-2025)
+        //   https://oklahoma.gov/content/dam/ok/en/tax/documents/resources/publications/businesses/withholding-tables/WHTables-2026.pdf
+        // Enacted: HB 2764 (signed May 2025)
+        //   https://www.oklegislature.gov/cf_pdf/2025-26%20ENR/hB/HB2764%20ENR.PDF
+        // MAJOR RESTRUCTURE: collapsed 6 brackets → 4 (incl. 0% zero bracket); top 4.75% → 4.50%.
+        // MFJ uses doubled thresholds. HB 2764 also adds 0.25-pp trigger reductions toward
+        // eventual elimination if revenue benchmarks are certified by the Board of Equalization.
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.oklahoma] = StateTaxConfig(
             state: .oklahoma,
             taxSystem: .progressive(
                 single: [
-                    B(threshold: 0, rate: 0.0025),
-                    B(threshold: 1_000, rate: 0.0075),
-                    B(threshold: 2_500, rate: 0.0175),
-                    B(threshold: 3_750, rate: 0.0275),
-                    B(threshold: 4_900, rate: 0.0375),
-                    B(threshold: 7_200, rate: 0.0475)
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 3_750, rate: 0.025),
+                    B(threshold: 4_900, rate: 0.035),
+                    B(threshold: 7_200, rate: 0.045)
                 ],
                 married: [
-                    B(threshold: 0, rate: 0.0025),
-                    B(threshold: 2_000, rate: 0.0075),
-                    B(threshold: 5_000, rate: 0.0175),
-                    B(threshold: 7_500, rate: 0.0275),
-                    B(threshold: 9_800, rate: 0.0375),
-                    B(threshold: 12_200, rate: 0.0475)
+                    B(threshold: 0, rate: 0.0),
+                    B(threshold: 7_500, rate: 0.025),
+                    B(threshold: 9_800, rate: 0.035),
+                    B(threshold: 14_400, rate: 0.045)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1645,19 +1694,23 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // Rhode Island — 3.75%, 4.75%, 5.99% (3 brackets)
+        // Rhode Island — 3.75% / 4.75% / 5.99% (TY 2026, brackets inflation-adjusted)
+        // Primary source: RI Division of Taxation Advisory 2025-22 (Inflation Adjustments TY 2026)
+        //   https://tax.ri.gov/sites/g/files/xkgbur541/files/2025-11/ADV_2025_22_Inflation_Adjustments.pdf
+        // Same brackets across all filing statuses (RI does not double for MFJ).
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.rhodeIsland] = StateTaxConfig(
             state: .rhodeIsland,
             taxSystem: .progressive(
                 single: [
                     B(threshold: 0, rate: 0.0375),
-                    B(threshold: 73_450, rate: 0.0475),
-                    B(threshold: 166_950, rate: 0.0599)
+                    B(threshold: 82_050, rate: 0.0475),
+                    B(threshold: 186_450, rate: 0.0599)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.0375),
-                    B(threshold: 73_450, rate: 0.0475),
-                    B(threshold: 166_950, rate: 0.0599)
+                    B(threshold: 82_050, rate: 0.0475),
+                    B(threshold: 186_450, rate: 0.0599)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1727,20 +1780,28 @@ struct StateTaxData {
         )
 
         // Vermont — 3.35% to 8.75% (4 brackets)
+        // Vermont — 3.35% / 6.6% / 7.6% / 8.75% (TY 2025 primary-source values used as TY 2026
+        // floor; VT DOT published TY 2026 schedule 2025-12-22 but PDF endpoints not machine-
+        // readable. TY 2026 thresholds are inflation-adjusted ~2-3% upward; using TY 2025 here
+        // is a conservative under-bracket position acceptable under Path 1.)
+        // Primary source: VT Department of Taxes 2026 / 2025 Rate Schedules
+        //   https://tax.vermont.gov/document/2026-vt-rate-schedules
+        //   https://tax.vermont.gov/individuals/personal-income-tax/rates
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.vermont] = StateTaxConfig(
             state: .vermont,
             taxSystem: .progressive(
                 single: [
                     B(threshold: 0, rate: 0.0335),
-                    B(threshold: 45_400, rate: 0.066),
-                    B(threshold: 110_050, rate: 0.076),
-                    B(threshold: 229_500, rate: 0.0875)
+                    B(threshold: 47_900, rate: 0.066),
+                    B(threshold: 116_000, rate: 0.076),
+                    B(threshold: 242_000, rate: 0.0875)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.0335),
-                    B(threshold: 75_850, rate: 0.066),
-                    B(threshold: 183_400, rate: 0.076),
-                    B(threshold: 279_450, rate: 0.0875)
+                    B(threshold: 80_200, rate: 0.066),
+                    B(threshold: 194_000, rate: 0.076),
+                    B(threshold: 294_600, rate: 0.0875)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
@@ -1826,21 +1887,26 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // Wisconsin — 3.5% to 7.65% (4 brackets)
+        // Wisconsin — 3.5% / 4.4% / 5.3% / 7.65% (TY 2026, brackets inflation-adjusted)
+        // Primary source: WI DOR Tax Rates FAQ
+        //   https://www.revenue.wi.gov/Pages/FAQS/pcs-taxrates.aspx
+        // Rates unchanged from 2023 Act 19 (which cut bottom two rates). MFJ uses ~1.33x
+        // single thresholds (statutory factor, not flat doubling).
+        // Verified 2026-05-27 (Bucket 2 sweep).
         configs[.wisconsin] = StateTaxConfig(
             state: .wisconsin,
             taxSystem: .progressive(
                 single: [
                     B(threshold: 0, rate: 0.035),
-                    B(threshold: 14_320, rate: 0.044),
-                    B(threshold: 28_640, rate: 0.053),
-                    B(threshold: 315_310, rate: 0.0765)
+                    B(threshold: 14_680, rate: 0.044),
+                    B(threshold: 50_480, rate: 0.053),
+                    B(threshold: 323_290, rate: 0.0765)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.035),
-                    B(threshold: 19_090, rate: 0.044),
-                    B(threshold: 38_190, rate: 0.053),
-                    B(threshold: 420_420, rate: 0.0765)
+                    B(threshold: 19_580, rate: 0.044),
+                    B(threshold: 67_300, rate: 0.053),
+                    B(threshold: 431_060, rate: 0.0765)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
