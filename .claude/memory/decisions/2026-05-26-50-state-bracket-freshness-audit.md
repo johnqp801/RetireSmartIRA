@@ -27,6 +27,34 @@ User direction: "we need everything in the end to be 100% correct for tax year 2
 
 10 pinning tests added in new `@Suite("State Tax — Phase A TY 2026")` covering both single + MFJ paths for each state, with pre-fix values deliberately producing different (failing) results.
 
+## Phase B applied — TY 2026 corrections for HI, CT, AR, MD, RI (commit `379aa99`)
+
+| State | Change | Severity addressed |
+|---|---|---|
+| **Hawaii** | Replaced all 12 bracket thresholds with Act 46 TY 2026 widened values | 🔴 HIGH |
+| **Connecticut** | Bottom 2 rates dropped 3%→2% / 5%→4.5% per 2024 reform | 🔴 HIGH |
+| **Arkansas** | Top rate 4.4% → 3.9%; new 0% first bracket ($0-$5,499); std ded $2,200/$4,400 → $2,470/$4,940 | 🔴 HIGH |
+| **Maryland** | Added new 6.25%/6.50% top brackets (TY 2025+); std ded changed to flat $3,350/$6,700; pension exclusion $39,500 → $41,200 | 🔴 HIGH |
+| **Rhode Island** | Bracket thresholds $73,450/$166,950 → $82,050/$186,450; pension exclusion $0 → $50,000 | 🔴 HIGH |
+
+12 pinning tests added in new `@Suite("State Tax — Phase B TY 2026")`. All passed on iOS Simulator (iPhone 17 Pro).
+
+## Engine limitations documented (during Phase A/B fixes)
+
+Several states have AGI-based or age-based exemption phaseouts that the
+current engine API cannot model granularly. Documented in per-state code
+comments and listed here for the future HoH/MFS engine-API work:
+
+- **CT pension exemption:** 100% under $75K single / $100K MFJ, phasing to 0% at $100K/$150K — currently `.none` (conservative)
+- **RI SS exemption:** Full exemption at FRA with AGI ≤ $107K/$133.75K — currently `false` (conservative)
+- **RI pension exemption:** $50K cap subject to FRA + AGI limit — currently `.partial(maxExempt: 50_000)` (best-case for users who qualify; overstates exemption for those who don't)
+- **MD county/local income tax** (2.25%-3.30%) not modeled; state-only
+- **MA $1M surtax** not modeled (flagged from prior audit)
+- **HoH separate brackets** missing across all states (engine API limitation)
+
+These should be addressed when Phase E (engine API change for granular filing
+statuses + AGI phaseouts) is scoped.
+
 ---
 
 ## Triage table (sorted by severity)

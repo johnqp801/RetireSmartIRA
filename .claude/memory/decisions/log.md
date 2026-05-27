@@ -4,6 +4,32 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-26 (late evening): Phase B TY 2026 fixes shipped — HI, CT, AR, MD, RI
+
+**Decision (continuing Path 1):** Apply TY 2026 corrections for the 5 high-severity non-structural states identified in the audit, per the Path 1 policy adopted earlier today.
+
+**Phase B applied (`379aa99`):** Five bracket/rate/exemption corrections from verified primary sources:
+- HI: Act 46 widened brackets (12 thresholds updated)
+- CT: bottom 2 rates 3%→2%, 5%→4.5% (missed 2024 reform)
+- AR: top rate 4.4%→3.9%, new 0% first bracket, std ded bump
+- MD: new 6.25%/6.50% top brackets, std ded rule changed to flat $3,350/$6,700
+- RI: bracket thresholds refreshed, pension exclusion $0→$50K
+
+12 new pinning tests added. Verified passing on iOS Simulator.
+
+**Phases A + B combined deliver:** 10 states corrected to TY 2026 with 22 pinning tests preventing silent regression. Federal already on TY 2026. CA on TY 2025 (most recently published).
+
+**Engine limitations now documented in code comments per-state** for future Phase E work (AGI phaseouts, HoH brackets, MA $1M surtax, MD county tax).
+
+**Remaining phases queued:**
+- Phase C: 11 MEDIUM 1-yr-stale states (WV, MO, MN, VT, OR, WI, ME, NE, DE, SC, NM)
+- Phase D: TY policy edge cases (IN/KY/NC/OH ahead-of-schedule)
+- Phase E: Engine API for granular filing statuses + AGI phaseouts (HoH, MFS, MA surtax)
+
+**Reference:** `decisions/2026-05-26-50-state-bracket-freshness-audit.md` (full triage + per-phase scope, now updated with both A and B sections)
+
+---
+
 ## 2026-05-26 (evening): State tax data — Path 1 policy adopted + Phase A TY 2026 fixes shipped
 
 **Decision (Path 1 policy):** Going forward, `StateTaxData.swift` aims for **TY 2026 actuals where published; latest published (TY 2025) elsewhere, with explicit per-state vintage** in code comments. Refresh quarterly as remaining states publish TY 2026 (most progressive states publish Sep/Oct of TY).
