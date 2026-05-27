@@ -482,10 +482,21 @@ struct StateTaxData {
             currentYearSafeHarborRate: 0.70
         )
 
-        // Idaho — 5.695% flat rate (2026)
+        // Idaho — 5.3% flat rate (TY 2026 per HB 40, retroactive to TY 2025)
+        // Primary source: ID State Tax Commission rate schedule page
+        //   https://tax.idaho.gov/taxes/income-tax/individual-income/individual-income-tax-rate-schedule/
+        // Enacted legislation: HB 40 (signed March 6, 2025 by Gov. Little) — made the 5.3% rate
+        // permanent (not a one-year cut). HB 559 (2026) conforms ID to federal OBBBA standard
+        // deduction for TY 2025+.
+        // Note: ID has a small zero-bracket (~$4,811 single / $9,622 MFJ TY 2025; TY 2026 indexed
+        // value pending DOR rate schedule update). For planning-tool accuracy, the federal-style
+        // standard deduction (much larger than $4,811) shields most retirees from the zero-bracket
+        // concern, so modeling as flat 5.3% with .conformsToFederal std deduction is acceptable.
+        // TriSTAR coverage: source #1 (ID Tax Commission primary), #4 (multi-LLM), #2 (TAXSIM via test suite).
+        // Verified 2026-05-27.
         configs[.idaho] = StateTaxConfig(
             state: .idaho,
-            taxSystem: .flat(rate: 0.05695),
+            taxSystem: .flat(rate: 0.053),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
                 pensionExemption: .none,
@@ -564,10 +575,19 @@ struct StateTaxData {
             currentYearSafeHarborRate: 0.80
         )
 
-        // Michigan — 4.05% flat rate
+        // Michigan — 4.25% flat rate (TY 2026 per MI Treasury official 2026 rate notice)
+        // Primary source: MI Department of Treasury notice (Apr 15, 2026)
+        //   https://www.michigan.gov/treasury/news/2026/04/15/state-individual-income-tax-rate-for-2026-tax-year-determined
+        // Also: Form 446 2026 Withholding Guide (Rev. 02-26) and RAB 2026-1.
+        // History: 4.05% was a one-year TY 2023 trigger reduction under MCL 206.51 that did NOT
+        // recur for TY 2024+. The rate has been 4.25% for TY 2024, 2025, and 2026.
+        // Note: Retirement income exemption is in TY 2026 final phase-in of Lowering MI Costs Plan
+        // (PA 4 of 2023) — 100% qualifying retirement income exempt. Already modeled as .full.
+        // TriSTAR coverage: source #1 (Treasury primary), #4 (multi-LLM), #2 (TAXSIM via test suite).
+        // Verified 2026-05-27.
         configs[.michigan] = StateTaxConfig(
             state: .michigan,
-            taxSystem: .flat(rate: 0.0405),
+            taxSystem: .flat(rate: 0.0425),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // MI phasing to full retirement income exemption by 2026
@@ -577,10 +597,35 @@ struct StateTaxData {
             stateDeduction: .none
         )
 
-        // Mississippi — 4.4% flat rate (2026, simplified from progressive)
+        // Mississippi — 4.0% flat rate (TY 2026 statutory; on taxable income > $10,000)
+        //
+        // Primary source: enacted bill text on MS Legislature .ms.gov domain
+        //   HB 531/2022 (Build Up Mississippi Act, original phase-down):
+        //     https://billstatus.ls.state.ms.us/documents/2022/html/HB/0500-0599/HB0531SG.htm
+        //     Schedule: TY 2024 = 4.7%, TY 2025 = 4.4%, TY 2026 = 4.0%
+        //   HB 1/2025 (Build Up Mississippi Act II, signed Gov. Reeves 2025-03-27):
+        //     https://billstatus.ls.state.ms.us/documents/2025/html/HB/0001-0099/HB0001SG.htm
+        //     Confirmed TY 2026 = 4.0% unchanged; added TY 2027+ cuts (3.75%, 3.5%, 3.25%, 3.0%)
+        //     toward full elimination of the individual income tax. The 0.25% TY 2027 step-down
+        //     from 4.0% mathematically confirms 4.0% as the TY 2026 base.
+        //
+        // Note: MS DOR FAQ page (https://www.dor.ms.gov/individual/individual-income-tax-frequently-asked-questions)
+        // may prominently display TY 2025 rate (4.4%) as "current" during early-2026 filing season.
+        // This is a stale-DOR-page artifact common to state tax authorities; the authoritative
+        // rate for TY 2026 per enacted statute is 4.0%. (Multi-LLM TriSTAR review surfaced this
+        // ambiguity 2026-05-27; resolved by direct legislative-record verification.)
+        //
+        // MS exempts first $10,000 of taxable income (effectively a zero-bracket); the engine
+        // captures this via the personal exemption + standard deduction stack rather than as
+        // a separate bracket boundary. Std deduction $2,300/$4,600 already correct.
+        //
+        // TriSTAR coverage: source #1 (.ms.gov legislative record, dual-bill verification),
+        // source #4 (multi-LLM with disambiguation), source #2 (TAXSIM via test suite),
+        // source #3 (MetamorphicPropertyTests P14 unaffected — MS retirement exemption is full).
+        // Verified 2026-05-27.
         configs[.mississippi] = StateTaxConfig(
             state: .mississippi,
-            taxSystem: .flat(rate: 0.044),
+            taxSystem: .flat(rate: 0.04),
             retirementExemptions: RetirementIncomeExemptions(
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // MS exempts all retirement income
