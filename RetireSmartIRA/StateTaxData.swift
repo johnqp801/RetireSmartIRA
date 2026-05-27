@@ -1370,10 +1370,10 @@ struct StateTaxData {
         )
 
         // Missouri — 0% / 2% / 2.5% / 3% / 3.5% / 4% / 4.5% / 4.7% (TY 2026, 8 brackets incl. zero)
-        // Primary source: MO DOR 2026 Withholding Formula + Year Changes
+        // Primary source: MO DOR 2026 Withholding Tax Formula (page 13, Annual Payroll column)
         //   https://dor.mo.gov/forms/Withholding%20Formula_2026.pdf
-        //   https://dor.mo.gov/taxation/individual/tax-types/income/year-changes/
-        // Top rate 4.7% holds (trigger to 4.5% NOT met for 2026). Thresholds inflation-adjusted.
+        // Thresholds inflation-bumped +2.67% from TY 2025 per MO § 143.011 CPI indexing.
+        // Top rate 4.7% holds (trigger to 4.5% NOT met for 2026).
         // HB 798: private pension full 100% exemption begins TY 2026 (was $6K capped). MO also
         // fully exempts SS since TY 2024 and public pensions 100% since TY 2024.
         // Same brackets across filing statuses (MO has no MFJ doubling).
@@ -1383,23 +1383,23 @@ struct StateTaxData {
             taxSystem: .progressive(
                 single: [
                     B(threshold: 0, rate: 0.0),
-                    B(threshold: 1_313, rate: 0.02),
-                    B(threshold: 2_626, rate: 0.025),
-                    B(threshold: 3_939, rate: 0.03),
-                    B(threshold: 5_252, rate: 0.035),
-                    B(threshold: 6_565, rate: 0.04),
-                    B(threshold: 7_878, rate: 0.045),
-                    B(threshold: 9_191, rate: 0.047)
+                    B(threshold: 1_348, rate: 0.02),
+                    B(threshold: 2_696, rate: 0.025),
+                    B(threshold: 4_044, rate: 0.03),
+                    B(threshold: 5_392, rate: 0.035),
+                    B(threshold: 6_740, rate: 0.04),
+                    B(threshold: 8_088, rate: 0.045),
+                    B(threshold: 9_436, rate: 0.047)
                 ],
                 married: [
                     B(threshold: 0, rate: 0.0),
-                    B(threshold: 1_313, rate: 0.02),
-                    B(threshold: 2_626, rate: 0.025),
-                    B(threshold: 3_939, rate: 0.03),
-                    B(threshold: 5_252, rate: 0.035),
-                    B(threshold: 6_565, rate: 0.04),
-                    B(threshold: 7_878, rate: 0.045),
-                    B(threshold: 9_191, rate: 0.047)
+                    B(threshold: 1_348, rate: 0.02),
+                    B(threshold: 2_696, rate: 0.025),
+                    B(threshold: 4_044, rate: 0.03),
+                    B(threshold: 5_392, rate: 0.035),
+                    B(threshold: 6_740, rate: 0.04),
+                    B(threshold: 8_088, rate: 0.045),
+                    B(threshold: 9_436, rate: 0.047)
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
