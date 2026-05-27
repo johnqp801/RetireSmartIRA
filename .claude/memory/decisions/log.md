@@ -4,6 +4,25 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-26: CA bracket data refresh (TY 2023 → TY 2025) + scoped 3 follow-up gaps
+
+**Decision:** Fix `RetireSmartIRA/StateTaxData.swift` California `single` and `married` bracket thresholds to TY 2025 (CA FTB Schedule X / Y). Patch shipped on `feature/multi-year-planning` as `b9d6413`. Update tests with new expected tax values, and add pinning tests for the MFJ case the user surfaced.
+
+**Rationale:** UI screenshot from John showed MFJ bracket boundaries at $21K/$49K/$78K/$108K/$137K/$698K — those are TY 2023 single brackets doubled. Code was three inflation cycles stale. CA users were seeing wrong "room before next bracket" and inaccurate Roth conversion sizing recommendations. Standard deduction was already at TY 2025 — only brackets had drifted.
+
+**Source verified:** 2025 Form 540 Tax Rate Schedules, CA FTB (`https://www.ftb.ca.gov/forms/2025/2025-540-tax-rate-schedules.pdf`) via independent research-agent triangulation against official FTB 2025 Form 540 instructions.
+
+**Three follow-up gaps logged for separate work** (see `decisions/2026-05-26-CA-bracket-freshness-audit.md` for full detail):
+1. **HoH brackets missing** — CA Schedule Z is meaningfully different from Single/MFJ; current `StateTaxConfig.progressive(single:, married:)` API doesn't model HoH at all. HoH filers map to married brackets (wrong).
+2. **MFS bracket mapping wrong** — CA Schedule X covers Single AND MFS, but engine maps MFS → married brackets. MFS filers see ~half the rate they should.
+3. **50-state bracket freshness audit needed** — If CA was 3 years stale, other states may be too. Press kit claims "All 50 states · 2026 IRS limits" — federal is true, state engine not uniformly current. Dispatch research-agent audit before next press push.
+
+**Process change scoped:** Annual January checklist task to audit state tax data against newly published TY brackets. No such cadence currently exists — that's why this drifted unnoticed.
+
+**Branch hygiene:** Fix lives on `feature/multi-year-planning`. **Must cherry-pick to `1.8.4/incremental` (or next release branch) before next App Store submission** — CA users on currently-shipped 1.8.4 still see TY 2023 brackets. Severity: moderate (off by ~10-12% in marginal-rate display at certain incomes; not illegal calculations). Suggest 1.8.5 patch release rather than waiting for 1.9.
+
+---
+
 ## 2026-05-25: First press outreach wave — credibility-ladder approach, three pitches in flight
 
 **Decision:** Launch first press outreach with Karsten Jeske (Early Retirement Now), Fritz Gilbert (Retirement Manifesto), and Chris Mamula (Can I Retire Yet?) as the opening wave. Deferred Christine Benz / WSJ / NYT-tier targets until coverage at Tier 1 (Substacks/FIRE blogs) and Tier 2 (niche podcasts) compounds first.
