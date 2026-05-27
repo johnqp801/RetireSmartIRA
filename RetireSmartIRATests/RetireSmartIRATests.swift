@@ -5719,19 +5719,19 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 184_870.48, tolerance: 2.0))
     }
 
-    @Test("D: NY state tax ≈ $45,670 (6.85% bracket, $40K pension + $40K IRA per-individual)")
+    @Test("D: NY state tax ≈ $44,475 (6.85% bracket, $40K pension + $40K IRA per-individual)")
     func d_stateTax() {
         let dm = makeScenarioD()
-        // Updated 2026-05-20 (v1.8.4) — NY $20K pension/annuity exclusion now
-        // applied PER-INDIVIDUAL (NY Tax Law § 612(c)(3-a)). Both spouses 59½+
-        // each exempt up to $20K → $40K combined cap per category.
-        // NY taxable: $870,542 − $16,050 = $854,492
-        // − SS $63,750 = $790,742
-        // − pension $40K (NY cap × 2, both spouses qualify) = $750,742
-        // − IRA $40K (NY cap × 2 on $86,792 of withdrawals) = $710,742
-        // Through NY MFJ brackets up to 6.85% ($323,200-$2,155,350)
-        // Delta from prior $48,410.31 ≈ -$2,740 = $40K extra exemption × ~6.85%
-        #expect(isClose(dm.scenarioStateTax, 45_670.31, tolerance: 2.0))
+        // Updated 2026-05-27 (v1.8.5) — NY Chapter 59/2025 Part A cut bottom-5
+        // bracket rates effective TY 2026: 4.00→3.90, 4.50→4.40, 5.25→5.15,
+        // 5.85→5.40, 6.25→5.90. Source: NYS Pub NYS-50-T-NYS rev 1/26.
+        // Same NY taxable income ($710,742) at new rates dropped state tax by
+        // ~$1,195 (mostly from the 5.85→5.40 cut in the $27.9K-$161.5K MFJ band
+        // and 6.25→5.90 cut in the $161.5K-$323.2K MFJ band).
+        //
+        // Previous v1.8.4 value $45,670.31 reflected old TY 2025 rates.
+        // Engine actual: $44,475.21
+        #expect(isClose(dm.scenarioStateTax, 44_475.21, tolerance: 2.0))
     }
 
     @Test("D: NIIT = $12,160 (full $320K NII taxed)")
@@ -5753,13 +5753,13 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(result.amt, 0, tolerance: 1.0))
     }
 
-    @Test("D: Total tax ≈ $242,701")
+    @Test("D: Total tax ≈ $241,506")
     func d_totalTax() {
         let dm = makeScenarioD()
-        // Updated 2026-05-20 (v1.8.4) — see d_stateTax for explanation.
-        // NY per-individual fix dropped state tax by ~$2,740.
-        // Federal $184,870 + NY $45,670 + NIIT $12,160 + AMT $0 = $242,700.79
-        #expect(isClose(dm.scenarioTotalTax, 242_700.79, tolerance: 5.0))
+        // Updated 2026-05-27 (v1.8.5) — see d_stateTax for explanation.
+        // NY Chapter 59/2025 Part A bottom-5 rate cuts dropped state tax by ~$1,195.
+        // Federal $184,870 + NY $44,475.21 + NIIT $12,160 + AMT $0 = $241,505.69
+        #expect(isClose(dm.scenarioTotalTax, 241_505.69, tolerance: 5.0))
     }
 }
 
