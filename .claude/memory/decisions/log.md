@@ -4,6 +4,35 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-26 (late late late evening): Phase D TY 2026 fixes shipped — MS, OH, IN, KY, NC
+
+**Decision:** Apply Phase D corrections for the 5 "ahead-of-schedule" flat-rate states. Under Path 1, most were already on TY 2026 statutory rates — but MS needed the actual rate cut, OH needed a structural change (new zero-bracket), and KY/NC needed std deduction refresh.
+
+**Phase D applied (`221235b`):**
+- MS: rate 4.4% → 4.0% (HB 531/2022 statutory)
+- OH: **STRUCTURAL** — flat 2.75% → 2-bracket (0% on $0-$26,050; 2.75% above) per HB 96. Materially fixes overstatement for low-income OH retirees.
+- IN: verified no-change at 2.95%
+- KY: std deduction MFJ bug fix ($3,360 → $6,540, 2× per-person); rate 3.5% verified. Pension exclusion $31,110 kept conservatively (TODO verify HB 146 $41,110 bump)
+- NC: std deduction $12,750/$25,500 → $13,000/$26,000
+
+7 pinning tests added. **All passed.**
+
+**FINAL Combined Phase A+B+C+D totals: 20 states corrected to TY 2026, 41 pinning tests.**
+
+| Status | Count |
+|---|---|
+| TY 2026 actuals applied | 20 |
+| TY 2025 latest (CA only) | 1 |
+| TY 2026 verified no-change | 1 (MO) |
+| Deferred to Phase C2 | 5 (NE, NM, WI, VT, OR) |
+| Originally CURRENT | ~14 |
+
+**Phase D unlocks an important fix:** Ohio's $26,050 zero-bracket means typical low-income OH retirees ($20K-$26K) now correctly pay $0 state tax instead of having every dollar taxed at 2.75%. That's a material accuracy improvement.
+
+**Reference:** `decisions/2026-05-26-50-state-bracket-freshness-audit.md`
+
+---
+
 ## 2026-05-26 (late late evening): Phase C TY 2026 fixes shipped — MN, ME, DE, SC, WV (+5 deferred)
 
 **Decision:** Apply 5 high-confidence TY 2026 corrections (MN, ME, DE, SC, WV); defer 5 to Phase C2 where primary-source verification needed (NE, NM, WI, VT, OR); verify MO no-change.

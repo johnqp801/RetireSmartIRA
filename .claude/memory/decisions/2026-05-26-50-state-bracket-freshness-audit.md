@@ -82,6 +82,42 @@ Phase C2 will likely require a more careful single-state-per-agent approach with
 
 (*) CA is on TY 2025 (latest CA FTB published); CA TY 2026 won't be available until late 2026.
 
+## Phase D applied — TY 2026 policy edge cases (commit `221235b`)
+
+Under Path 1 policy, the "ahead-of-schedule" flat-rate states needed minimal work since most were already using TY 2026 statutory rates. Verification confirmed:
+
+| State | Status | Notes |
+|---|---|---|
+| **Mississippi** | ✅ Rate cut applied 4.4% → 4.0% | HB 531/2022 statutory schedule, no trigger |
+| **Ohio** | ✅ **STRUCTURAL** — added $26,050 zero-bracket | HB 96 (2025); materially fixes overstatement for low-income OH retirees |
+| **Indiana** | ✅ Verified no-change | 2.95% confirmed actual TY 2026 per DOR Dept Notice 01 |
+| **Kentucky** | ✅ Std deduction bug fixed | Rate 3.5% verified; MFJ was incorrectly $3,360 (= single), fixed to $6,540 (= 2× per-person). Pension exclusion TODO. |
+| **North Carolina** | ✅ Std deduction refreshed | Rate 3.99% verified; std ded $12,750/$25,500 → $13,000/$26,000 |
+
+7 pinning tests added in new `@Suite("State Tax — Phase D TY 2026")`. All passed.
+
+## FINAL Combined Phase A+B+C+D totals
+
+**20 states corrected to TY 2026 actuals.** 41 pinning tests total in state-specific suites.
+
+| Status | Count | States |
+|---|---|---|
+| TY 2026 actuals applied | 20 | LA, KS, MT, ND, MI, HI, CT, AR, MD, RI, MN, ME, DE, SC, WV, MS, OH, IN, KY, NC |
+| TY 2025 latest published | 1 | CA |
+| TY 2026 verified no-change | 1 | MO |
+| Deferred to Phase C2 | 5 | NE, NM, WI, VT, OR |
+| Originally CURRENT | ~14 | AL, AZ, CO, IA, IL, MA, NJ, NY, OK, PA, UT, GA, ID, NH(no-tax), WA(no-tax) |
+| Other low-severity edge cases | ~3 | DC (std ded 1yr), VA (std ded slightly over) |
+
+(Note: GA and ID were marked "🟢 LOW — slight rate drift" in original discovery but the "ahead of schedule" framing doesn't apply since they're not phasing down via trigger; they're just slightly stale. Could go in Phase C2 batch.)
+
+## Remaining open phases
+
+- **Phase C2** — Primary-source verification for NE, NM, WI, VT, OR (the 5 truly deferred) + possibly DC/GA/ID/VA std deduction refreshes
+- **Phase E** — Engine API changes for HoH brackets, MFS routing, MA $1M surtax, AGI-based exemption phaseouts
+
+The bracket-freshness work is essentially DONE for the highest-impact states. Phase C2 and E are smaller scopes.
+
 ## Engine limitations documented (during Phase A/B fixes)
 
 Several states have AGI-based or age-based exemption phaseouts that the
