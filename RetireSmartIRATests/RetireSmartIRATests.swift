@@ -146,24 +146,35 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(tax, 0))
     }
 
-    @Test("$50,000 (6% bracket) → $1,335.02 (after $288 CA exemption credits)")
+    @Test("$50,000 (6% bracket) → $1,246.89 (CA TY 2025, after $288 exemption credits)")
     func mid6Percent() {
         let dm = makeDM()
-        // Raw brackets: 1%×10,412 + 2%×14,272 + 4%×14,275 + 6%×11,041 = $1,623.02
-        // CA exemption credits: 2 exemptions (taxpayer + age 65+) × $144 = $288
-        // Net: $1,623.02 − $288 = $1,335.02
+        // CA TY 2025 single brackets (CA FTB Schedule X):
+        //   1% × 11,079  =   110.79
+        //   2% × 15,185  =   303.70
+        //   4% × 15,188  =   607.52
+        //   6% ×  8,548  =   512.88   (50,000 − 41,452)
+        // Raw brackets total:     $1,534.89
+        // CA exemption credits: 2 (taxpayer + age 65+) × $144 = $288
+        // Net: $1,534.89 − $288 = $1,246.89
         let tax = dm.calculateStateTax(income: 50_000, filingStatus: .single)
-        #expect(isClose(tax, 1_335.02))
+        #expect(isClose(tax, 1_246.89))
     }
 
-    @Test("$100,000 (9.3% bracket) → $5,664.85 (after $288 CA exemption credits)")
+    @Test("$100,000 (9.3% bracket) → $5,450.64 (CA TY 2025, after $288 exemption credits)")
     func mid93Percent() {
         let dm = makeDM()
-        // Raw brackets: 1%→2%→4%→6%→8%→9.3% = $5,952.85
-        // CA exemption credits: 2 exemptions (taxpayer + age 65+) × $144 = $288
-        // Net: $5,952.85 − $288 = $5,664.85
+        // CA TY 2025 single brackets:
+        //   1% × 11,079  =   110.79
+        //   2% × 15,185  =   303.70
+        //   4% × 15,188  =   607.52
+        //   6% × 16,090  =   965.40
+        //   8% × 15,182  = 1,214.56
+        // 9.3% × 27,276  = 2,536.67   (100,000 − 72,724)
+        // Raw brackets total:     $5,738.64
+        // Less $288 exemption credits → $5,450.64
         let tax = dm.calculateStateTax(income: 100_000, filingStatus: .single)
-        #expect(isClose(tax, 5_664.85))
+        #expect(isClose(tax, 5_450.64))
     }
 }
 
@@ -1188,11 +1199,12 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
 @Suite("State Tax — Progressive States", .serialized)
 @MainActor struct ProgressiveTaxStateTests {
 
-    @Test("California $100K preserved (regression test, after $288 CA exemption credits)")
+    @Test("California $100K preserved (regression test — CA TY 2025, after $288 exemption credits)")
     func californiaRegression() {
         let dm = makeDM(state: .california)
         let tax = dm.calculateStateTax(income: 100_000, filingStatus: .single)
-        #expect(isClose(tax, 5_664.85))
+        // CA TY 2025 $100K single = $5,738.64 raw − $288 credits = $5,450.64
+        #expect(isClose(tax, 5_450.64))
     }
 
     @Test("New York: progressive brackets produce tax > 0")

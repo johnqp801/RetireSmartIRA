@@ -714,33 +714,40 @@ struct StateTaxData {
             safeHarborRule: .flatRate(1.00)
         )
 
-        // California — 1% to 13.3% (10 brackets; includes 1% Mental Health Services Tax over $1M)
+        // California — 1% to 13.3% (10 brackets; TY 2025 per CA FTB Schedule X / Y)
+        // Source: 2025 Form 540 Tax Rate Schedules (CA FTB)
+        // https://www.ftb.ca.gov/forms/2025/2025-540-tax-rate-schedules.pdf
+        // Verified 2026-05-26 against the official FTB 2025 Form 540 instructions.
+        // Previously held TY 2023 values (surfaced by tester screenshot showing $21K/$49K/$78K
+        // MFJ thresholds — those were TY 2023 single×2 doubled values). Updated to TY 2025
+        // actuals. TY 2026 thresholds will be published by CA FTB late 2026.
+        // Note: HoH has separate Schedule Z (not modeled — engine API only supports single/married).
         configs[.california] = StateTaxConfig(
             state: .california,
             taxSystem: .progressive(
-                single: [
+                single: [   // Schedule X — Single / Married Filing Separately
                     B(threshold: 0, rate: 0.01),
-                    B(threshold: 10_412, rate: 0.02),
-                    B(threshold: 24_684, rate: 0.04),
-                    B(threshold: 38_959, rate: 0.06),
-                    B(threshold: 54_081, rate: 0.08),
-                    B(threshold: 68_350, rate: 0.093),
-                    B(threshold: 349_137, rate: 0.103),
-                    B(threshold: 418_961, rate: 0.113),
-                    B(threshold: 698_271, rate: 0.123),
-                    B(threshold: 1_000_000, rate: 0.133)  // 12.3% + 1% Mental Health Services Tax
+                    B(threshold: 11_079, rate: 0.02),
+                    B(threshold: 26_264, rate: 0.04),
+                    B(threshold: 41_452, rate: 0.06),
+                    B(threshold: 57_542, rate: 0.08),
+                    B(threshold: 72_724, rate: 0.093),
+                    B(threshold: 371_479, rate: 0.103),
+                    B(threshold: 445_771, rate: 0.113),
+                    B(threshold: 742_953, rate: 0.123),
+                    B(threshold: 1_000_000, rate: 0.133)  // 12.3% + 1% MHST (statutory $1M floor, not indexed)
                 ],
-                married: [
+                married: [  // Schedule Y — Married Filing Jointly / Qualifying Surviving Spouse
                     B(threshold: 0, rate: 0.01),
-                    B(threshold: 20_824, rate: 0.02),
-                    B(threshold: 49_368, rate: 0.04),
-                    B(threshold: 77_918, rate: 0.06),
-                    B(threshold: 108_162, rate: 0.08),
-                    B(threshold: 136_700, rate: 0.093),
-                    B(threshold: 698_274, rate: 0.103),
-                    B(threshold: 837_922, rate: 0.113),
-                    B(threshold: 1_000_000, rate: 0.123),  // 11.3% + 1% Mental Health Services Tax
-                    B(threshold: 1_396_542, rate: 0.133)   // 12.3% + 1% Mental Health Services Tax
+                    B(threshold: 22_158, rate: 0.02),
+                    B(threshold: 52_528, rate: 0.04),
+                    B(threshold: 82_904, rate: 0.06),
+                    B(threshold: 115_084, rate: 0.08),
+                    B(threshold: 145_448, rate: 0.093),
+                    B(threshold: 742_958, rate: 0.103),
+                    B(threshold: 891_542, rate: 0.113),
+                    B(threshold: 1_000_000, rate: 0.123),  // 11.3% + 1% MHST kicks in at $1M before 12.3% bracket
+                    B(threshold: 1_485_906, rate: 0.133)   // 12.3% + 1% MHST
                 ]
             ),
             retirementExemptions: RetirementIncomeExemptions(
