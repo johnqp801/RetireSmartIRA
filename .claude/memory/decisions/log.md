@@ -4,6 +4,35 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-05-26 (evening): State tax data — Path 1 policy adopted + Phase A TY 2026 fixes shipped
+
+**Decision (Path 1 policy):** Going forward, `StateTaxData.swift` aims for **TY 2026 actuals where published; latest published (TY 2025) elsewhere, with explicit per-state vintage** in code comments. Refresh quarterly as remaining states publish TY 2026 (most progressive states publish Sep/Oct of TY).
+
+**Rationale:** User direction "100% correct for TY 2026." Federal already TY 2026; state engine needs to align. Path 1 is the only honest approach — projecting unpublished state brackets introduces estimation errors worse than admitting some states aren't out yet.
+
+**Phase A applied (`ac883ce`):** Five structural/rate corrections to LA, KS, MT, ND, MI from verified primary sources:
+- LA: progressive → flat 3% (HB 10)
+- KS: 3-bracket → 2-bracket (SB 1)
+- MT: was wrongly modeled as flat — actually 2-bracket; HB 337 reduced top to 5.65%
+- ND: was wrongly modeled as flat — actually 3-bracket with $0 first bracket
+- MI: rate corrected 4.05% → 4.25%
+
+10 new pinning tests added. Sources cited per-state in code comments.
+
+**Phases queued:**
+- Phase B (~2 hrs): HI, CT, AR, MD, RI — high-severity bracket/rate refresh
+- Phase C (~2 hrs): 11 medium 1-yr-stale states (WV, MO, MN, VT, OR, WI, ME, NE, DE, SC, NM)
+- Phase D: TY policy edge cases — IN/KY/NC/OH (using TY 2026 scheduled but officially TY 2025 actuals differ)
+- Phase E: MA $1M surtax + HoH brackets (engine API change required)
+
+**Recurring task:** Set up quarterly `/schedule` agent to re-run the audit (Jul/Oct 2026, Jan 2027).
+
+**Press claim impact:** "All 50 states · 2026 IRS limits" now defensible at federal level. State claim should soften to "TY 2026 where published, latest TY 2025 elsewhere" until most states publish in fall 2026.
+
+**Reference:** `decisions/2026-05-26-50-state-bracket-freshness-audit.md` (full triage + per-phase scope)
+
+---
+
 ## 2026-05-26: CA bracket data refresh (TY 2023 → TY 2025) + scoped 3 follow-up gaps
 
 **Decision:** Fix `RetireSmartIRA/StateTaxData.swift` California `single` and `married` bracket thresholds to TY 2025 (CA FTB Schedule X / Y). Patch shipped on `feature/multi-year-planning` as `b9d6413`. Update tests with new expected tax values, and add pinning tests for the MFJ case the user surfaced.

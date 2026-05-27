@@ -3,7 +3,29 @@
 **Date:** 2026-05-26
 **Trigger:** Gap 3 from CA bracket freshness audit (`decisions/2026-05-26-CA-bracket-freshness-audit.md`)
 **Scope:** All 43 configured states with income tax (CA excluded — fixed today)
-**Status:** Discovery complete. Fixes scoped but NOT yet applied — pending user decision on scope and TY policy.
+**Status:** Discovery complete. **Phase A applied 2026-05-26 evening (commit `ac883ce`).** Path 1 policy adopted (see below). Phases B-E queued.
+
+## Path 1 policy adopted — 2026-05-26
+
+User direction: "we need everything in the end to be 100% correct for tax year 2026."
+
+**Policy:** Use TY 2026 actuals where published; latest published (typically TY 2025) elsewhere, with explicit per-state vintage notes in `StateTaxData.swift` comments. Refresh quarterly as Bucket C states publish TY 2026 (most progressive states publish in fall — Sep/Oct).
+
+**Schedule:** Recurring quarterly audit via `/schedule` to be set up. Next manual sweeps: ~July 2026, ~October 2026, ~January 2027.
+
+**Implications for press claim:** "All 50 states · 2026 IRS limits" claim now defensible for federal (TY 2026 confirmed); state engine progressing toward full TY 2026 — soften claim to "all 50 states · 2026 tax year (TY 2026 where published, latest TY 2025 elsewhere)" until late 2026 when most states publish.
+
+## Phase A applied — TY 2026 corrections for LA, KS, MT, ND, MI (commit `ac883ce`)
+
+| State | Change | Severity addressed |
+|---|---|---|
+| **Louisiana** | Progressive 3-bracket → flat 3% (HB 10); retirement exemption $6K → $12K | 🔴 STRUCTURAL |
+| **Kansas** | 3-bracket → 2-bracket (SB 1, 5.2/5.58%); SS now 100% exempt at all AGI | 🔴 STRUCTURAL |
+| **Montana** | "Flat 4.7%" → 2-bracket progressive (HB 337: 4.70%/$47,500/5.65%) | 🔴 STRUCTURAL + RATE |
+| **North Dakota** | "Flat 1.95%" → 3-bracket progressive with $0-rate first bracket | 🔴 STRUCTURAL |
+| **Michigan** | Flat 4.05% (TY 2023 trigger) → flat 4.25% (TY 2024+) | 🔴 RATE |
+
+10 pinning tests added in new `@Suite("State Tax — Phase A TY 2026")` covering both single + MFJ paths for each state, with pre-fix values deliberately producing different (failing) results.
 
 ---
 
