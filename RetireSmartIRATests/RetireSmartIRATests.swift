@@ -5207,15 +5207,22 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 15_563.16, tolerance: 1.0))
     }
 
-    @Test("A: CA state tax ≈ $4,450")
+    @Test("A: CA state tax ≈ $4,236 (CA TY 2025)")
     func a_stateTax() {
         let dm = makeScenarioA()
         // CA deduction $5,706 → state taxable $110,736
         // SS exempt −$23,800 → adjusted $86,936
-        // CA brackets: 1%→2%→4%→6%→8%→9.3% = $4,737.85
+        // CA TY 2025 brackets (CA FTB Schedule X):
+        //   1% × 11,079 = 110.79
+        //   2% × 15,185 = 303.70
+        //   4% × 15,188 = 607.52
+        //   6% × 16,090 = 965.40
+        //   8% × 15,182 = 1,214.56
+        //   9.3% × 14,212 = 1,321.67
+        //   Subtotal: $4,523.64
         // CA exemption credits: 2 (taxpayer + age 65+) × $144 = $288
-        // Net: $4,737.85 − $288 = $4,449.85
-        #expect(isClose(dm.scenarioStateTax, 4_449.85, tolerance: 1.0))
+        // Net: $4,523.64 − $288 = $4,235.64
+        #expect(isClose(dm.scenarioStateTax, 4_235.64, tolerance: 1.0))
     }
 
     @Test("A: NIIT = $0 (no investment income, MAGI below $200K)")
@@ -5230,11 +5237,11 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioAMTAmount, 0))
     }
 
-    @Test("A: Total tax ≈ $20,013")
+    @Test("A: Total tax ≈ $19,799 (CA TY 2025)")
     func a_totalTax() {
         let dm = makeScenarioA()
-        // Federal $15,563 + CA $4,450 + NIIT $0 + AMT $0 = $20,013
-        #expect(isClose(dm.scenarioTotalTax, 20_013.01, tolerance: 2.0))
+        // Federal $15,563 + CA $4,236 + NIIT $0 + AMT $0 = $19,799
+        #expect(isClose(dm.scenarioTotalTax, 19_798.80, tolerance: 2.0))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -5590,12 +5597,14 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 246_399.91, tolerance: 2.0))
     }
 
-    @Test("C: CA state tax ≈ $90,061 (12.3% bracket)")
+    @Test("C: CA state tax ≈ $88,909 (12.3% bracket, CA TY 2025)")
     func c_stateTax() {
         let dm = makeScenarioC()
         // CA state taxable: $922,590 − $5,706 = $916,884 − SS $38,250 = $878,634
-        // Through CA brackets up to 12.3% (> $698,271)
-        #expect(isClose(dm.scenarioStateTax, 90_061.10, tolerance: 2.0))
+        // CA TY 2025 brackets reach 12.3% at $742,953 single (was $698,271 under TY 2023).
+        // Sum through 12.3% bracket: $88,908.59.
+        // Exemption credits phased out at this income level → no credit applied.
+        #expect(isClose(dm.scenarioStateTax, 88_908.54, tolerance: 2.0))
     }
 
     @Test("C: NIIT = $12,540 (full $330K NII taxed)")
@@ -5618,11 +5627,11 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(result.amt, 0, tolerance: 1.0))
     }
 
-    @Test("C: Total tax ≈ $349,001")
+    @Test("C: Total tax ≈ $347,848 (CA TY 2025)")
     func c_totalTax() {
         let dm = makeScenarioC()
-        // Federal $246,400 + CA $90,061 + NIIT $12,540 + AMT $0 = $349,001
-        #expect(isClose(dm.scenarioTotalTax, 349_001.01, tolerance: 5.0))
+        // Federal $246,400 + CA $88,909 + NIIT $12,540 + AMT $0 = $347,849
+        #expect(isClose(dm.scenarioTotalTax, 347_848.45, tolerance: 5.0))
     }
 }
 
@@ -5851,16 +5860,19 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(result.amt, 42_434, tolerance: 2.0))
     }
 
-    @Test("E: CA state tax ≈ $11,296 (state itemized deductions)")
+    @Test("E: CA state tax ≈ $11,082 (state itemized deductions, CA TY 2025)")
     func e_stateTax() {
         let dm = makeScenarioE()
         // State itemized: $200K property tax (no SALT cap at state level) + $161K medical
         //   (above 7.5% AGI floor) = $361K > CA standard $5,706
         // State taxable: $520K − $361K = $159K
-        // Through CA brackets up to 9.3%
+        // CA TY 2025 brackets through 9.3%:
+        //   1% × 11,079 + 2% × 15,185 + 4% × 15,188 + 6% × 16,090 + 8% × 15,182
+        //   + 9.3% × ($159,000 − $72,724) = 9.3% × $86,276 = $8,023.67
+        //   Subtotal: $11,225.64
         // CA exemption credit: $144 (age 56, single) − phaseout? $159K < $252K → no phaseout
-        // Net: brackets − $144 = $11,295.85
-        #expect(isClose(dm.scenarioStateTax, 11_295.85, tolerance: 2.0))
+        // Net: $11,225.64 − $144 = $11,081.64
+        #expect(isClose(dm.scenarioStateTax, 11_081.64, tolerance: 2.0))
     }
 
     @Test("E: NIIT = $4,560 (full $120K NII taxed)")
@@ -5872,12 +5884,12 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioNIITAmount, 4_560, tolerance: 1.0))
     }
 
-    @Test("E: Total tax ≈ $121,138 (AMT adds $42K to total)")
+    @Test("E: Total tax ≈ $120,924 (AMT adds $42K to total, CA TY 2025)")
     func e_totalTax() {
         let dm = makeScenarioE()
-        // Federal $62,848 + CA $11,296 + NIIT $4,560 + AMT $42,434 = $121,138
+        // Federal $62,848 + CA $11,082 + NIIT $4,560 + AMT $42,434 = $120,924
         // (CA state tax reduced by state-specific itemized deductions: $361K vs $5.7K standard)
-        #expect(isClose(dm.scenarioTotalTax, 121_137.85, tolerance: 5.0))
+        #expect(isClose(dm.scenarioTotalTax, 120_923.64, tolerance: 5.0))
         // AMT should still add significant tax
         let withoutAMT = dm.scenarioFederalTax + dm.scenarioStateTax + dm.scenarioNIITAmount
         #expect(dm.scenarioTotalTax > withoutAMT + 40_000, "AMT should add >$40K to total tax")
