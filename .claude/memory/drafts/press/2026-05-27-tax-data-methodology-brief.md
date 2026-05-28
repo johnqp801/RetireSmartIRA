@@ -125,12 +125,20 @@ use). Some state-specific details — local taxes, certain surtaxes,
 filing-status variants beyond Single and MFJ, and exact phaseout
 mechanics — are intentionally outside scope and disclosed below.
 
-Small one-year inflation adjustments to bracket thresholds generally
-have much less impact on long-range retirement projections than
-assumptions about investment returns, inflation, longevity, future law
-changes, and Roth conversion size. Structural errors, rate changes,
-and missing surtaxes are treated as material and prioritized for
-correction.
+For state tax purposes, RetireSmartIRA applies current-year or
+best-available official tax parameters to the active planning scenario.
+State tax-year publication timing varies: some states publish final
+TY 2026 schedules later than federal parameters, and some are derived
+from prior-year schedules through statutory inflation adjustments.
+Where a state has not yet published a final TY 2026 schedule, the app
+uses the most current official state guidance available; where a state
+has not changed its rate structure since the prior verified release,
+that schedule is retained after re-checking the state's primary sources.
+Small inflation-indexing differences between editions of a state's
+published schedule are treated as non-material for planning purposes.
+Structural changes, rate changes, new brackets, missing surtaxes, and
+changes in retirement-income treatment are treated as material and
+prioritized for correction.
 
 ### 2.4 Audit trail
 
