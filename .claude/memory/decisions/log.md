@@ -4,6 +4,58 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-04: Plan to reconcile `main` to shipped 1.8.5 (parked — not executed)
+
+**Decision:** Adopt a concrete plan to make `main` equal the shipped App Store code and
+retire the confusing branches — but **do NOT execute yet** (user wants to think first; this
+session changed nothing in git). When ready, the steps are: (1) rescue the newest
+`.claude/memory/` commits off `feature/multi-year-planning` — they exist nowhere else and
+are unpushed; (2) point `main` at the `v1.8.5-build50` tree + memory on top; (3) archive
+`main`'s 10 V2.0-planning-doc commits to an `archive/v2.0-planning` branch (roadmap links to
+those docs — preserve, don't delete); (4) force-push `main` (safe — solo dev), then delete
+`feature/multi-year-planning`.
+
+**Rationale:** Releases shipped from worktree branches/tags and were never merged back, so
+`main` (1f43de2, May 4, reports v1.8.0) is an orphaned V2.0-*planning* fork with no app
+release and no memory. The current branch `feature/multi-year-planning` is NOT release work —
+it's an ancient 1.1/build-14 experiment missing ~37k lines vs shipped; its only value is the
+newest memory. The App Store truth lives on the tag `v1.8.5-build50`. Full topology captured
+in `reference/git-topology.md`. ⚠️ Until reconciled: never build/tag/submit from
+`feature/multi-year-planning` — release only from worktree branches or the shipped tag.
+
+## 2026-06-04: macOS 1.8.5 build 48 approved & live
+
+**Decision (status, not a choice):** macOS 1.8.5 build 48 cleared App Review and is live in
+the App Store. Both platforms now on 1.8.5. Closes the lingering Mac-review-queue thread.
+
+## 2026-06-01: Always review the SHIPPED tree, never `main` (multi-model review hygiene)
+
+**Decision:** When running external/multi-model code reviews, feed every model the same
+*current shipped* tree — the release tag / active worktree (or a `git archive` of it),
+explicitly NOT `main`. Confirm the model can see release-only files (e.g.
+`ACASubsidyEngine.swift`) before trusting any "feature X is missing" finding.
+
+**Rationale:** This session, Perplexity/ChatGPT concluded "ACA cliff is not built" — they
+were correctly reading `main`, which is 204 commits / ~3 weeks stale and missing every
+release 1.8.1→1.8.5 (incl. ACA). The shipped `v1.8.5-build50` tag has ACA built + tested.
+The divergence was a stale-branch artifact, not analysis quality. Separately flagged:
+`main` should be reconciled to the shipped line so it stops misleading clones/tools.
+
+## 2026-06-01: In-app review prompts — value-event trigger, exploration-loop anchor (direction, not built)
+
+**Decision (directional):** Add native `requestReview` prompting (none exists today on any
+branch — all 5 ratings are organic). Trigger on a **value-event = the what-if exploration
+loop** (scenario recalcs + Scenario↔TaxPlanning round-trips), NOT raw session counting and
+NOT PDF export. Never fire mid-loop; defer to a calm moment (return to Dashboard / next
+launch). Add a manual "Rate us" Settings button deep-linking to `?action=write-review`.
+Version-gate; lean on iOS's built-in throttle.
+
+**Rationale:** PDF export is rare even for the power user; the app's actual delight is the
+iterative scenario↔tax-planning back-and-forth, so that's the satisfaction signal worth
+catching. Session counting is a weaker proxy and partly duplicates OS throttling — keep
+only a thin maturity floor. NOT finalized: release vehicle (leaning 1.8.6 off the shipped
+tag, not 1.9) and the exact "payoff micro-moment" to count are still open. No code written.
+
 ## 2026-05-26 (very late evening): Phase E TY 2026 — MA $1M surtax + CT/RI AGI phaseouts
 
 **Decision:** Complete Phase E by addressing the two non-moot items from the original audit. (HoH brackets and MFS routing were moot — the app's FilingStatus enum only has Single + MFJ.)
