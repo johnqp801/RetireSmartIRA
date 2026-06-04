@@ -84,7 +84,7 @@ Now ~4 days "Waiting for Review" (submitted Wed 5/20). Still within normal-but-u
 
 ## Still open (carried over)
 
-- 🔐 **Rotate ImprovMX API key** `sk_2edc0c2785c641a9806226929b7b1067` — exposed in yesterday's transcript + a screenshot. 10 seconds at `app.improvmx.com/account`. Reminded 4× now across two days.
+- 🔐 **Rotate ImprovMX API key** `sk_REDACTED-rotated-2026-06-04` — exposed in yesterday's transcript + a screenshot. 10 seconds at `app.improvmx.com/account`. Reminded 4× now across two days.
 - 📅 **Mac 1.8.4 review check Monday afternoon** — see above.
 - 📌 **Next iOS submission:** update App Review Contact to `johnqp@mac.com` (currently locked at `plansmartira@gmail.com` on iOS side).
 - 👀 **Watch for Jonggie App Store review** over the next few days (sent thank-you + soft review ask yesterday).

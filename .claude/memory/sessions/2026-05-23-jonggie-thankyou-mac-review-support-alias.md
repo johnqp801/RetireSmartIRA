@@ -84,7 +84,7 @@ Remote routine `trig_01QYbiRyNP9M71rxHzLvRxUv` will fire at **2026-05-24 09:00 P
 
 ## Security follow-up — STILL OPEN
 
-🔐 **ImprovMX API key `sk_2edc0c2785c641a9806226929b7b1067` is still live and in this conversation's transcript + a screenshot John shared.** John needs to rotate it: app.improvmx.com/account/api → ✕ next to that key → Generate API Key. 10 seconds. Reminded 3× this session, not yet confirmed done.
+🔐 **ImprovMX API key `sk_REDACTED-rotated-2026-06-04` is still live and in this conversation's transcript + a screenshot John shared.** John needs to rotate it: app.improvmx.com/account/api → ✕ next to that key → Generate API Key. 10 seconds. Reminded 3× this session, not yet confirmed done.
 
 ## Open questions / decisions deferred
 

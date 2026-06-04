@@ -197,7 +197,7 @@ Big sequential push through three phases. For each phase: dispatch research agen
 
 ## Carried over from prior sessions (unchanged)
 
-- 🔐 Rotate ImprovMX API key `sk_2edc0c2785c641a9806226929b7b1067` — exposed in transcripts (Day 4 outstanding)
+- 🔐 Rotate ImprovMX API key `sk_REDACTED-rotated-2026-06-04` — exposed in transcripts (Day 4 outstanding)
 - 📅 Mac 1.8.4 App Review status — inquiry sent today; expect Apple response in 1-3 business days
 - 📨 Watch for Jonggie App Store review (sent thank-you + soft ask 5/23)
 - 👀 Press outreach bumps Tue 6/2 / Wed 6/3 for Karsten/Fritz/Chris non-responders
