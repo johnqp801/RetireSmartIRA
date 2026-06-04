@@ -1,15 +1,30 @@
 # Git Topology & `main` Reconciliation Plan
 
-**Captured:** 2026-06-04. **Status:** PLAN ONLY — nothing executed. Verify hashes before
-acting (branches may have moved).
+**Captured:** 2026-06-04. **Status:** ✅ EXECUTED 2026-06-04 — `main` reconciled. The plan
+below is now history; current truth is in "Post-reconciliation state."
 
 ---
 
-## The one-line truth
+## ✅ Post-reconciliation state (2026-06-04 — CURRENT)
 
-**The real App Store app = the tag `v1.8.5-build50` (`6a6e110`).** Not `main`, not the
-branch you're probably checked out on. Releases shipped from worktree branches/tags and were
-never merged back, so the normal branches are misleading.
+- **`main` (`c45327f`, on origin) IS the shipped app now** = the `v1.8.5-build50` tree
+  (MARKETING_VERSION 1.8.5 / build 49) + latest `.claude/memory/` synced on top. `main` is
+  trustworthy again — clone it, branch from it, feed it to reviewers.
+- **`feature/multi-year-planning` — DELETED** (was the confusing 1.1/build-14 experiment).
+- **`archive/v2.0-planning` (`1f43de2`, local + origin)** — preserves old main's 10 V2.0
+  planning-doc commits. Roadmap links resolve here.
+- **`backup/feature-myp` (`e004b54`, local only)** — old feature-branch tip with all memory,
+  kept as insurance.
+- Shipped tag `v1.8.5-build50` (commit `6a6e110`) is unchanged/immutable.
+- Undo, if ever needed: `git checkout -B main archive/v2.0-planning && git push --force-with-lease origin main`.
+
+---
+
+## The one-line truth (historical — pre-reconciliation)
+
+**The real App Store app WAS only on the tag `v1.8.5-build50` (`6a6e110`)**, not `main`.
+Releases shipped from worktree branches/tags and were never merged back, so the normal
+branches were misleading. **This is now fixed — `main` carries the shipped code.**
 
 ## What each thing actually is
 

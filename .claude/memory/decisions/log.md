@@ -4,7 +4,19 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
-## 2026-06-04: Plan to reconcile `main` to shipped 1.8.5 (parked — not executed)
+## 2026-06-04: Reconciled `main` to shipped 1.8.5 — ✅ EXECUTED
+
+**Decision (executed):** `main` now equals the shipped App Store code. New `main` = `c45327f`
+(on origin) = the `v1.8.5-build50` tree (v1.8.5 / build 49) + latest memory. Old main's V2.0
+planning docs preserved on `archive/v2.0-planning` (local + origin). `feature/multi-year-planning`
+deleted; old tip kept as `backup/feature-myp` (local). Force-pushed `main`; fully reversible via
+`git checkout -B main archive/v2.0-planning && git push --force-with-lease`. See
+`reference/git-topology.md` "Post-reconciliation state."
+
+**Rationale:** `main` was a 207-commit-stale orphaned V2.0-planning fork with no app release and
+no memory; the live app lived only on a tag. Now `main` is the canonical shipped line again.
+
+## 2026-06-04: Plan to reconcile `main` to shipped 1.8.5 (SUPERSEDED — see entry above; executed)
 
 **Decision:** Adopt a concrete plan to make `main` equal the shipped App Store code and
 retire the confusing branches — but **do NOT execute yet** (user wants to think first; this

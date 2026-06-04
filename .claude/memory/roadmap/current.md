@@ -44,13 +44,11 @@
 
 ## Next / in-progress tracks
 
-### Reconcile `main` to shipped 1.8.5 (PARKED — plan ready, not executed)
-**Status:** Plan captured 2026-06-04, user thinking before executing. `main` is an
-orphaned V2.0-planning fork (reports v1.8.0, no memory); the live App Store code is the
-tag `v1.8.5-build50`; the current branch `feature/multi-year-planning` is an old
-1.1/build-14 experiment whose only value is the newest (unpushed) memory. Full topology +
-4-step plan: `reference/git-topology.md`; decision-log 2026-06-04. ⚠️ Don't build/ship
-from `feature/multi-year-planning`.
+### Reconcile `main` to shipped 1.8.5 — ✅ DONE 2026-06-04
+**Status:** Executed. `main` (`c45327f`, on origin) is now the shipped `v1.8.5-build50`
+tree + latest memory — trustworthy again. V2.0 planning docs archived to
+`archive/v2.0-planning`; `feature/multi-year-planning` deleted (backup: `backup/feature-myp`).
+Details + undo command: `reference/git-topology.md`, decision-log 2026-06-04.
 
 ### V1.9 — features bundle
 **Status:** In progress on worktrees `1.9/features-bundle` and
