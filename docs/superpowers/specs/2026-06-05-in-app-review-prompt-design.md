@@ -19,8 +19,8 @@ Design principles:
   engaged with the core loop, not merely opened the app N times.
 - **Never fire mid-loop.** Detect a high-value session, then fire at a calm moment.
 - **Lean on the OS throttle.** iOS/macOS already cap the native prompt (~3×/365 days, ~once
-  per version, OS decides whether to actually show it). We add only a thin maturity floor and
-  a per-version gate — no heavy custom rate-limiting.
+  per version, OS decides whether to actually show it). We add only a per-version gate — no
+  maturity floor, no heavy custom rate-limiting.
 
 ## 2. Trigger logic — "got value"
 
@@ -31,14 +31,15 @@ A session is **high-value** when *either* signal crosses its bar (combined engag
 | Scenario↔Tax-Planning switches | `≥ 4` (`reviewSwitchThreshold`) |
 | Scenario recalcs (slider/input changes) | `≥ 6` (`reviewRecalcThreshold`) |
 
-Gated by a **maturity floor** (don't prompt newcomers):
-- `sessionCount ≥ 2` (`reviewMinSessions`) **AND**
-- `daysSinceFirstLaunch ≥ 3` (`reviewMinDays`)
+Gated only by a **version gate**: prompt at most once per app marketing version
+(`lastPromptedVersion`). The OS throttle (~3×/365 days, once per version, the OS decides
+whether to actually show it) is the backstop on top of this.
 
-And a **version gate**: prompt at most once per app marketing version
-(`lastPromptedVersion`). The OS throttle is the backstop on top of this.
-
-All five numbers are named constants in one place for easy tuning.
+**No maturity floor.** An earlier draft also gated on "≥ 2nd session AND ≥ 3 days since first
+launch"; removed as too conservative. The value-event itself (4 switches or 6 recalcs) is
+already a strong engagement signal — a user who does that much, even in their first session,
+has genuinely explored — and the version gate plus the OS throttle prevent over-prompting.
+Both thresholds are named constants for easy tuning.
 
 ## 3. Fire timing — calm moments only
 
@@ -68,7 +69,6 @@ A single, testable unit owns all logic and state:
 - **Event inputs:** `recordLaunch()`, `recordTabSwitch(to:)`, `recordScenarioRecalc()`,
   `recordReturnToDashboard()`
 - **Decision:** `shouldRequestReviewNow() -> Bool`, `markRequested()`
-- **Injectable** `clock: () -> Date` (for deterministic tests)
 - **No StoreKit inside.** The manager only decides; the *view* performs the actual
   `requestReview`. This keeps the decision logic pure and unit-testable.
 
@@ -78,9 +78,8 @@ Deliberately avoid `SKStoreReviewRequest.requestReview(in: windowScene)` — its
 parameter is iOS-only and won't compile for macOS.
 
 ### Per-session vs persisted state
-- **In memory (per session):** `switchCount`, `recalcCount`.
-- **Persisted (UserDefaults), 4 keys:** `firstLaunchDate`, `sessionCount`,
-  `lastPromptedVersion`, `pendingReviewRequest`.
+- **In memory (per session):** `switchCount`, `recalcCount` (reset on each launch).
+- **Persisted (UserDefaults), 2 keys:** `lastPromptedVersion`, `pendingReviewRequest`.
 
 ## 6. Wiring — hook points
 
@@ -104,12 +103,10 @@ parameter is iOS-only and won't compile for macOS.
 
 ## 8. Testing
 
-Unit-test `ReviewPromptManager` with an injected clock and a spy for the request action
-(no StoreKit in tests):
+Unit-test `ReviewPromptManager` with a spy for the request action (no StoreKit in tests):
 - Crossing the switch threshold alone → high-value.
 - Crossing the recalc threshold alone → high-value.
 - Below both thresholds → not high-value.
-- Maturity floor blocks prompting before session 2 / before day 3, even when high-value.
 - Version gate: fires once per version, not again.
 - Mid-loop: high-value detected but no calm moment yet → does **not** fire.
 - Calm moment after high-value + eligible → fires exactly once, sets `lastPromptedVersion`,
