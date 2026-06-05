@@ -51,6 +51,11 @@ final class ReviewPromptManager {
     }
 
     func recordScenarioRecalc() {
+        let t = now()
+        if let last = lastRecalcTime, t.timeIntervalSince(last) < Self.recalcDebounceInterval {
+            return
+        }
+        lastRecalcTime = t
         recalcCount += 1
         evaluateHighValue()
     }

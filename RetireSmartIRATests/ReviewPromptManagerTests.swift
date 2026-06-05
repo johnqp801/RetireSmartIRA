@@ -30,4 +30,26 @@ struct ReviewPromptManagerTests {
         m.recordScenarioTaxSwitch()
         #expect(m.pendingRequest == false)
     }
+
+    @Test("Rapid recalcs within debounce interval count as one")
+    func recalcDebounceCoalesces() {
+        let t = Date(timeIntervalSince1970: 0)
+        let m = makeManager(now: { t })
+        // 20 recalcs at the same instant (a single slider drag) -> counts as 1
+        for _ in 0..<20 { m.recordScenarioRecalc() }
+        #expect(m.recalcCount == 1)
+        #expect(m.pendingRequest == false)
+    }
+
+    @Test("6 spaced recalcs cross the recalc threshold")
+    func spacedRecalcsSetPending() {
+        var t = Date(timeIntervalSince1970: 0)
+        let m = makeManager(now: { t })
+        for _ in 0..<6 {
+            m.recordScenarioRecalc()
+            t = t.addingTimeInterval(2)   // > 1.0s apart
+        }
+        #expect(m.recalcCount == 6)
+        #expect(m.pendingRequest == true)
+    }
 }
