@@ -4,6 +4,21 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-04: ImprovMX API key rotated — ✅ RESOLVED (security)
+
+**Decision (executed):** Rotated/revoked the exposed ImprovMX API key. The leaked
+`sk_2edc0c…b7b1067` (live on a PUBLIC GitHub repo via committed memory files + the
+`v1.8.5-build50` tag, confirmed HTTP 200) was deleted in the dashboard → verified dead
+(401). A replacement `sk_c6e05…04406` was generated but immediately exposed in a shared
+screenshot, so it was deleted too → verified dead (401). **Account now holds ZERO API
+keys** (none needed — the original was a one-off alias-creation call). Leaked string
+redacted from 3 memory session files (commit 5576940).
+
+**Rationale:** A live secret on a public repo is an active leak; the only real fix is
+revocation (working-file redaction and history rewrites don't neutralize copies already
+public — a dead key does). Keeping zero standing keys removes the leak surface entirely;
+generate one ad-hoc only when actually needed, and never screenshot/paste it.
+
 ## 2026-06-04: Reconciled `main` to shipped 1.8.5 — ✅ EXECUTED
 
 **Decision (executed):** `main` now equals the shipped App Store code. New `main` = `c45327f`

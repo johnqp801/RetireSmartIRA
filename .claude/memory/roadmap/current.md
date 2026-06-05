@@ -84,4 +84,9 @@ work on `2.0/plan-b-ui` (also `2.0/v2.0.1-path-3-polish`). Branched from
    source verification) and engine-API edge cases; see
    `decisions/2026-05-26-50-state-bracket-freshness-audit.md`.
 3. **Jonggie** — substantive reply queued; watch for App Store review.
-4. 🔐 **Rotate exposed ImprovMX API key** — outstanding since Day 4.
+4. 🔐 **Rotate exposed ImprovMX API key** — ✅ RESOLVED 2026-06-04. Old key
+   `…b7b1067` deleted (verified HTTP 401); a briefly-exposed replacement
+   `…04406` was also deleted (verified 401). Account now has ZERO live API
+   keys. Leaked string redacted from 3 memory session files (commit 5576940).
+   Note: git history + public `v1.8.5-build50` tag still contain the old
+   string, but it's dead — harmless. See decision-log 2026-06-04.
