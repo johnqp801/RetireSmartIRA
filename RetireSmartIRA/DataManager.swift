@@ -2201,12 +2201,14 @@ class DataManager {
     /// Total Net Investment Income from income sources.
     /// Includes: dividends, qualified dividends, interest, short/long-term capital gains.
     /// Excludes: Social Security, pensions, RMDs, Roth conversions, employment, state tax refunds.
-    /// Stock donation avoids realizing capital gains, so scenarioStockGainAvoided reduces NII.
+    /// Donated-stock gain is NOT subtracted here: an unrealized gain that is never sold
+    /// was never part of NII, so removing it would wrongly strip out the taxpayer's actual
+    /// realized investment income. (The avoided gain feeds `stockCapGainsTaxAvoided` instead.)
     var scenarioNetInvestmentIncome: Double {
         let baseNII = incomeSources
             .filter { DataManager.niitQualifyingTypes.contains($0.type) }
             .reduce(0) { $0 + $1.annualAmount }
-        return max(0, baseNII - scenarioStockGainAvoided)
+        return max(0, baseNII)
     }
 
     /// Current scenario NIIT result based on estimatedAGI (effectively MAGI for retirees).
@@ -2604,7 +2606,7 @@ class DataManager {
             additionalIncome: scenarioTotalWithdrawals
         )
         let baseWithoutConv = scenarioOrdinaryIncomeSubtotal + ssWithoutConv + preferentialIncome()
-        let grossWithoutConv = baseWithoutConv + scenarioTotalWithdrawals - scenarioStockGainAvoided
+        let grossWithoutConv = baseWithoutConv + scenarioTotalWithdrawals
         let withoutConversions = totalTaxFor(
             grossIncome: grossWithoutConv,
             taxableSocialSecurity: ssWithoutConv,
@@ -2623,7 +2625,7 @@ class DataManager {
             additionalIncome: scenarioTotalRothConversion + rmdsOnly
         )
         let baseWithout = scenarioOrdinaryIncomeSubtotal + ssWithout + preferentialIncome()
-        let grossWithout = baseWithout + scenarioTotalRothConversion + rmdsOnly - scenarioStockGainAvoided
+        let grossWithout = baseWithout + scenarioTotalRothConversion + rmdsOnly
         let withoutWithdrawals = totalTaxFor(
             grossIncome: grossWithout,
             taxableSocialSecurity: ssWithout,
@@ -2649,7 +2651,7 @@ class DataManager {
             additionalIncome: scenarioTotalRothConversion + scenarioTotalWithdrawals + taxableQCDOffset
         )
         let baseWithoutQCD = scenarioOrdinaryIncomeSubtotal + ssWithoutQCD + preferentialIncome()
-        let grossWithoutQCD = baseWithoutQCD + scenarioTotalRothConversion + scenarioTotalWithdrawals + taxableQCDOffset - scenarioStockGainAvoided
+        let grossWithoutQCD = baseWithoutQCD + scenarioTotalRothConversion + scenarioTotalWithdrawals + taxableQCDOffset
         let withoutQCD = totalTaxFor(
             grossIncome: grossWithoutQCD,
             taxableSocialSecurity: ssWithoutQCD,
@@ -2707,7 +2709,7 @@ class DataManager {
             additionalIncome: scenarioTotalRothConversion + scenarioTotalWithdrawals - inheritedTraditionalExtraTotal
         )
         let baseWithout = scenarioOrdinaryIncomeSubtotal + ssWithout + preferentialIncome()
-        let grossWithout = baseWithout + scenarioTotalRothConversion + scenarioTotalWithdrawals - inheritedTraditionalExtraTotal - scenarioStockGainAvoided
+        let grossWithout = baseWithout + scenarioTotalRothConversion + scenarioTotalWithdrawals - inheritedTraditionalExtraTotal
         let withoutInherited = totalTaxFor(
             grossIncome: grossWithout,
             taxableSocialSecurity: ssWithout,

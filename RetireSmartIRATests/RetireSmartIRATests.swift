@@ -1751,6 +1751,29 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioCharitableDeductions, 30_000))
     }
 
+    @Test("Stock donation does NOT reduce net investment income (gain never realized)")
+    func stockDonationDoesNotReduceNII() {
+        let dm = makeDM()
+        dm.incomeSources = [
+            IncomeSource(name: "Qual Div", type: .qualifiedDividends, annualAmount: 50_000),
+            IncomeSource(name: "Interest", type: .interest, annualAmount: 5_000)
+        ]
+        let baseNII = dm.scenarioNetInvestmentIncome   // $55,000
+
+        dm.stockDonationEnabled = true
+        dm.stockPurchasePrice = 10_000
+        dm.stockCurrentValue = 30_000                  // unrealized gain = $20,000
+        dm.stockPurchaseDate = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
+
+        // Donating stock never realizes the gain, so it was never part of NII —
+        // NII (and therefore NIIT) must be UNCHANGED. Subtracting it would wrongly
+        // strip out the taxpayer's actual dividends/interest/realized gains.
+        #expect(
+            isClose(dm.scenarioNetInvestmentIncome, baseNII),
+            "Stock donation must not reduce NII; the avoided gain was never realized. Expected \(baseNII), got \(dm.scenarioNetInvestmentIncome)"
+        )
+    }
+
     @Test("Short-term stock: gain avoided equals unrealized gain")
     func shortTermGainAvoided() {
         let dm = makeDM()
