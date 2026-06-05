@@ -76,6 +76,7 @@ struct ReviewPromptManagerTests {
     func versionGate() {
         let m = makeManager(version: "1.8.6")
         for _ in 0..<4 { m.recordScenarioTaxSwitch() }
+        m.recordLaunch()
         #expect(m.shouldRequestReviewOnLaunch() == true)
         m.markRequested()
         #expect(m.pendingRequest == false)
@@ -83,6 +84,16 @@ struct ReviewPromptManagerTests {
         // New high-value engagement does NOT re-arm for the same version
         for _ in 0..<4 { m.recordScenarioTaxSwitch() }
         #expect(m.pendingRequest == false)
+    }
+
+    @Test("Pending set this session does NOT fire until a launch")
+    func sameSessionDoesNotFire() {
+        let m = makeManager()
+        for _ in 0..<4 { m.recordScenarioTaxSwitch() }   // pending = true, same session
+        #expect(m.pendingRequest == true)
+        #expect(m.shouldRequestReviewOnLaunch() == false) // not armed until a launch
+        m.recordLaunch()
+        #expect(m.shouldRequestReviewOnLaunch() == true)  // armed now (prior-session pending)
     }
 
     @Test("Write-review URL targets app id 6759405282 with write-review action")

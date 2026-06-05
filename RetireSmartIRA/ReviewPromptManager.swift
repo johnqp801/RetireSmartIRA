@@ -30,6 +30,7 @@ final class ReviewPromptManager {
     private(set) var switchCount = 0
     private(set) var recalcCount = 0
     private var lastRecalcTime: Date?
+    private var armedAtLaunch = false
 
     private enum Key {
         static let lastPromptedVersion = "reviewPrompt.lastPromptedVersion"
@@ -80,6 +81,7 @@ final class ReviewPromptManager {
 
     /// Call once when the app becomes active. Resets per-session engagement counters.
     func recordLaunch() {
+        armedAtLaunch = pendingRequest   // only arm for a request earned in a prior session
         switchCount = 0
         recalcCount = 0
         lastRecalcTime = nil
@@ -87,7 +89,7 @@ final class ReviewPromptManager {
 
     /// Whether the root view should request a review now (call right after recordLaunch()).
     func shouldRequestReviewOnLaunch() -> Bool {
-        pendingRequest && !alreadyPromptedThisVersion
+        armedAtLaunch && !alreadyPromptedThisVersion
     }
 
     /// Call after the native review request has been made.
