@@ -994,9 +994,11 @@ struct DashboardView: View {
                         breakdownRow("Additional Withdrawals", value: dataManager.scenarioTotalExtraWithdrawal)
                     }
 
-                    if dataManager.scenarioStockGainAvoided > 0 {
-                        breakdownRow("Stock Gain Avoided", value: -dataManager.scenarioStockGainAvoided)
-                    }
+                    // NOTE: "Stock Gain Avoided" is intentionally NOT shown in the income
+                    // waterfall. Donating appreciated stock never realizes the gain, so it
+                    // was never in income — its benefit is reflected in the charitable
+                    // deduction below, not as an income reduction. (The avoided-gain figure
+                    // is surfaced separately via the donation's tax-saved callout / PDF.)
                 }
 
                 breakdownSubtotal("Gross Income", value: dataManager.scenarioGrossIncome)

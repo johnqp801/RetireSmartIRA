@@ -1722,6 +1722,35 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioStockGainAvoided, 20_000))
     }
 
+    @Test("Stock donation does NOT reduce scenarioGrossIncome — avoided gain was never realized")
+    func stockDonationDoesNotReduceGrossIncome() {
+        let dm = makeDM()
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 80_000)
+        ]
+
+        // Baseline gross income with no stock donation.
+        let baseGross = dm.scenarioGrossIncome
+
+        // Donate appreciated long-term stock (unrealized gain = $20,000).
+        dm.stockDonationEnabled = true
+        dm.stockPurchasePrice = 10_000
+        dm.stockCurrentValue = 30_000
+        dm.stockPurchaseDate = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
+
+        // The gain is never realized, so it was never in income — gross income
+        // (and therefore MAGI for NIIT/IRMAA) must be UNCHANGED. The donation's
+        // benefit flows through the charitable deduction, not an income reduction.
+        #expect(
+            isClose(dm.scenarioGrossIncome, baseGross),
+            "Donating stock must not reduce gross income; the avoided gain was never realized. Expected \(baseGross), got \(dm.scenarioGrossIncome)"
+        )
+
+        // The avoided gain is still reported (informational) and the deduction still applies.
+        #expect(isClose(dm.scenarioStockGainAvoided, 20_000))
+        #expect(isClose(dm.scenarioCharitableDeductions, 30_000))
+    }
+
     @Test("Short-term stock: gain avoided equals unrealized gain")
     func shortTermGainAvoided() {
         let dm = makeDM()
@@ -1829,8 +1858,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioStockGainAvoided, 0))
     }
 
-    @Test("Gross income subtracts avoided gain for short-term stock")
-    func grossIncomeSubtractsShortTermGain() {
+    @Test("Short-term stock donation does NOT reduce gross income (gain never realized)")
+    func grossIncomeUnchangedShortTermStockDonation() {
         let dm = makeDM()
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 80_000)
@@ -1840,8 +1869,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         dm.stockPurchasePrice = 10_000
         dm.stockCurrentValue = 30_000
         dm.stockPurchaseDate = Calendar.current.date(byAdding: .month, value: -3, to: Date())!
-        // Gross income should be reduced by the $20K avoided gain
-        #expect(isClose(dm.scenarioGrossIncome, grossBefore - 20_000))
+        // Donating short-term stock never realizes the gain → gross income unchanged.
+        // (Benefit is captured by the charitable deduction — basis for short-term.)
+        #expect(isClose(dm.scenarioGrossIncome, grossBefore))
     }
 }
 
@@ -2787,8 +2817,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(grossWithQCD < grossWithoutQCD)
     }
 
-    @Test("Stock donation reduces gross income by avoided gain")
-    func stockDonationReducesGrossIncome() {
+    @Test("Stock donation does NOT reduce gross income (avoided gain never realized)")
+    func stockDonationDoesNotReduceGross() {
         let dm = makeDM(state: .florida)
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 80_000)
@@ -2798,8 +2828,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         dm.stockPurchasePrice = 10_000
         dm.stockCurrentValue = 30_000
         dm.stockPurchaseDate = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
-        // Gross income should be reduced by $20K avoided gain
-        #expect(isClose(dm.scenarioGrossIncome, baseGross - 20_000))
+        // Avoided gain is never realized → gross income unchanged; benefit is in the deduction.
+        #expect(isClose(dm.scenarioGrossIncome, baseGross))
     }
 
     @Test("Multiple decisions: conversion + withdrawal + stock donation → correct gross")
@@ -2815,8 +2845,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         dm.stockPurchasePrice = 10_000
         dm.stockCurrentValue = 25_000
         dm.stockPurchaseDate = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
-        // +$20K conversion + $10K withdrawal - $15K avoided gain = +$15K net
-        #expect(isClose(dm.scenarioGrossIncome, baseGross + 15_000))
+        // +$20K conversion + $10K withdrawal = +$30K. The donated stock's gain is never
+        // realized, so it does NOT reduce gross income (its benefit is in the deduction).
+        #expect(isClose(dm.scenarioGrossIncome, baseGross + 30_000))
     }
 
     @Test("IRMAA cliff crossing from combined scenario decisions")
@@ -3782,8 +3813,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(dm.scenarioStockGainAvoided == 0)
     }
 
-    @Test("Stock donation reduces scenario gross income by avoided gain")
-    func stockDonationReducesGross() {
+    @Test("Stock donation does NOT change scenario gross income (avoided gain never realized)")
+    func stockDonationDoesNotChangeGross() {
         let dm = makeDM(birthYear: 1970, state: .florida)
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)
@@ -3793,8 +3824,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         dm.stockPurchasePrice = 10_000
         dm.stockCurrentValue = 40_000
         dm.stockPurchaseDate = Calendar.current.date(byAdding: .year, value: -2, to: Date())!
-        // Gross should decrease by $30K avoided gain
-        #expect(isClose(dm.scenarioGrossIncome, baseGross - 30_000))
+        // Avoided gain is never realized → gross income unchanged.
+        #expect(isClose(dm.scenarioGrossIncome, baseGross))
     }
 
     @Test("Stock donation with zero gain — no effect on gross income")

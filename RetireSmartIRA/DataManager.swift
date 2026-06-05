@@ -1382,9 +1382,15 @@ class DataManager {
     }
 
     /// Gross income including RMDs + scenario decisions (pre-deduction).
-    /// Subtracts avoided gains from donated stock — that gain was never realized.
+    ///
+    /// Donated-stock gain is intentionally NOT subtracted here. An unrealized gain
+    /// that is never sold was never part of income, so there is nothing to remove —
+    /// subtracting it would understate income (and MAGI for NIIT/IRMAA). The
+    /// donation's entire tax benefit is captured by the charitable deduction (FMV
+    /// for long-term, basis for short-term). `scenarioStockGainAvoided` remains
+    /// available as an informational figure (and feeds `stockCapGainsTaxAvoided`).
     var scenarioGrossIncome: Double {
-        scenarioBaseIncome + scenarioTotalRothConversion + scenarioTotalWithdrawals - scenarioStockGainAvoided
+        scenarioBaseIncome + scenarioTotalRothConversion + scenarioTotalWithdrawals
     }
 
     // MARK: - Standard vs. Itemized Deduction
