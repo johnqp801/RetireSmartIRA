@@ -84,4 +84,16 @@ struct ReviewPromptManagerTests {
         for _ in 0..<4 { m.recordScenarioTaxSwitch() }
         #expect(m.pendingRequest == false)
     }
+
+    @Test("Write-review URL targets app id 6759405282 with write-review action")
+    func writeReviewURL() {
+        let url = ReviewPromptManager.writeReviewURL.absoluteString
+        #expect(url.contains("6759405282"))
+        #expect(url.contains("action=write-review"))
+        #if os(macOS)
+        #expect(url.hasPrefix("macappstore://"))
+        #else
+        #expect(url.hasPrefix("https://apps.apple.com"))
+        #endif
+    }
 }

@@ -11,6 +11,17 @@ final class ReviewPromptManager {
     static let recalcThreshold = 6
     static let recalcDebounceInterval: TimeInterval = 1.0
 
+    static let appStoreID = "6759405282"
+
+    /// Deep link to the App Store "write a review" page (per platform).
+    static var writeReviewURL: URL {
+        #if os(macOS)
+        return URL(string: "macappstore://apps.apple.com/app/id\(appStoreID)?action=write-review")!
+        #else
+        return URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review")!
+        #endif
+    }
+
     private let defaults: UserDefaults
     private let currentVersion: String
     private let now: () -> Date
