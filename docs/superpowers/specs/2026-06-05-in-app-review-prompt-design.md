@@ -41,12 +41,16 @@ already a strong engagement signal — a user who does that much, even in their 
 has genuinely explored — and the version gate plus the OS throttle prevent over-prompting.
 Both thresholds are named constants for easy tuning.
 
-## 3. Fire timing — calm moments only
+## 3. Fire timing — next launch only
 
 When a session becomes high-value, **do not interrupt**. Set a persisted
-`pendingReviewRequest` flag and fire the native prompt at the next calm moment:
-- the user **returns to the Dashboard**, or
-- the **next app launch** (whichever comes first).
+`pendingReviewRequest` flag and fire the native prompt at the **next app launch** — the first
+calm moment after a high-value session ("rich session + returned," the strongest signal).
+
+**Why not "return to Dashboard" within the session?** In this app the Dashboard (Tax Summary,
+tab 6) is *half the exploration loop* — users bounce between Scenarios (tab 5) and Tax Summary
+(tab 6) — so firing there would interrupt mid-loop. Next-launch is unambiguous and never
+mid-loop.
 
 On firing: call the native review request, set `lastPromptedVersion = currentVersion`, clear
 `pendingReviewRequest`.
@@ -57,18 +61,22 @@ A **"Rate RetireSmartIRA"** row in `SettingsView` that always opens the App Stor
 write-review page. This is the escape hatch and drives *written* reviews (the native dialog
 mostly yields silent star ratings).
 
-- iOS: `https://apps.apple.com/app/id<APP_ID>?action=write-review`
-- macOS: routes to the Mac App Store (`macappstore://…?action=write-review`)
-- Same Apple App ID for both (universal app); scheme chosen via `#if os(macOS)`.
+- **App Store App ID: `6759405282`** (universal app — same ID both platforms).
+- iOS: `https://apps.apple.com/app/id6759405282?action=write-review`
+- macOS: `macappstore://apps.apple.com/app/id6759405282?action=write-review`
+- Scheme chosen via `#if os(macOS)`; verify on macOS that it opens the Mac App Store.
 
 ## 5. Architecture
 
 A single, testable unit owns all logic and state:
 
 ### `ReviewPromptManager` (`@Observable`)
-- **Event inputs:** `recordLaunch()`, `recordTabSwitch(to:)`, `recordScenarioRecalc()`,
-  `recordReturnToDashboard()`
-- **Decision:** `shouldRequestReviewNow() -> Bool`, `markRequested()`
+- **Event inputs:** `recordLaunch()`, `recordScenarioTaxSwitch()` (a tab-5↔tab-6 transition),
+  `recordScenarioRecalc()`
+- **Decision:** `shouldRequestReviewOnLaunch() -> Bool`, `markRequested()`
+- **Recalc debounce:** `recordScenarioRecalc()` coalesces rapid calls (slider drags) to at most
+  one per `recalcDebounceInterval` (1.0s), via an injectable `now: () -> Date` (default
+  `Date.init`) used *only* for this debounce — deterministic in tests.
 - **No StoreKit inside.** The manager only decides; the *view* performs the actual
   `requestReview`. This keeps the decision logic pure and unit-testable.
 
@@ -85,13 +93,13 @@ parameter is iOS-only and won't compile for macOS.
 
 | Hook | Location | Call |
 |---|---|---|
-| Tab/section switch | `ContentView.onChange(of: selectedTab)` (line ~163) | `recordTabSwitch(to:)` |
-| Scenario recalc | `ScenarioStateManager` change | `recordScenarioRecalc()` |
-| Launch | app entry / `scenePhase` → active | `recordLaunch()` |
-| Calm moment (fire) | Dashboard `.onAppear` / `scenePhase` active | `recordReturnToDashboard()` then, if `shouldRequestReviewNow()`, call `requestReview` |
+| Scenario↔Tax-Summary switch | `ContentView.onChange(of: selectedTab)` (~line 163): when `{old,new}` is the unordered pair `{5, 6}` | `recordScenarioTaxSwitch()` |
+| Scenario recalc | `scenarioBinding` setter in `TaxPlanningView.swift:1469` (single choke point for all scenario edits) | `recordScenarioRecalc()` (debounced) |
+| Launch + fire | `RetireSmartIRAApp` / root `.onAppear` (or `scenePhase` → active) | `recordLaunch()`; if `shouldRequestReviewOnLaunch()`, call `requestReview` then `markRequested()` |
 
+Tabs: **5 = Scenarios** (`TaxPlanningView`), **6 = Tax Summary** (`DashboardView`).
 `selectedTab` is updated on **both** platforms (iOS `TabView`; macOS sidebar maps into
-`selectedTab` at ContentView line ~161), so the round-trip hook fires on both via one code path.
+`selectedTab` at ContentView ~line 161), so the switch hook fires on both via one code path.
 
 ## 7. Platform considerations (iOS + macOS)
 
@@ -103,15 +111,18 @@ parameter is iOS-only and won't compile for macOS.
 
 ## 8. Testing
 
-Unit-test `ReviewPromptManager` with a spy for the request action (no StoreKit in tests):
-- Crossing the switch threshold alone → high-value.
-- Crossing the recalc threshold alone → high-value.
-- Below both thresholds → not high-value.
-- Version gate: fires once per version, not again.
-- Mid-loop: high-value detected but no calm moment yet → does **not** fire.
-- Calm moment after high-value + eligible → fires exactly once, sets `lastPromptedVersion`,
-  clears `pendingReviewRequest`.
-- Manual "Rate" builds the correct write-review URL per platform.
+Unit-test `ReviewPromptManager` with an injected clock (`now`); no StoreKit in tests:
+- 4 switches alone → sets `pendingReviewRequest`.
+- 6 debounced recalcs alone → sets `pendingReviewRequest`.
+- Below both thresholds → `pendingReviewRequest` stays false.
+- **Recalc debounce:** many recalcs within `recalcDebounceInterval` count as one (a single
+  slider drag must not trip the threshold).
+- **Same-session gate:** after a high-value session, `shouldRequestReviewOnLaunch()` is false
+  until the *next* `recordLaunch()`.
+- **Next launch:** pending + unprompted version → `shouldRequestReviewOnLaunch()` true; after
+  `markRequested()` it sets `lastPromptedVersion`, clears `pendingReviewRequest`, returns false.
+- **Version gate:** once `lastPromptedVersion == currentVersion`, never true again.
+- Manual "Rate" URL builder returns the correct per-platform write-review URL for id `6759405282`.
 
 ## 9. Release
 
