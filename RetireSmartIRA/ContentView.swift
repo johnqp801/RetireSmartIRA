@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 
 // MARK: - Available Width Environment Key
 
@@ -36,6 +37,8 @@ struct WidthAwareContainer<Content: View>: View {
 
 struct ContentView: View {
     @Environment(DataManager.self) var dataManager
+    @Environment(ReviewPromptManager.self) private var reviewPrompt
+    @Environment(\.requestReview) private var requestReview
     @State private var selectedTab = 0
     @State private var sidebarSelection: Int? = 0
     #if !os(macOS)
@@ -45,11 +48,37 @@ struct ContentView: View {
     var body: some View {
         #if os(macOS)
         sidebarBody
+            .task {
+                reviewPrompt.recordLaunch()
+                if reviewPrompt.shouldRequestReviewOnLaunch() {
+                    requestReview()
+                    reviewPrompt.markRequested()
+                }
+            }
+            .onChange(of: selectedTab) { oldValue, newValue in
+                if Set([oldValue, newValue]) == Set([5, 6]) {
+                    reviewPrompt.recordScenarioTaxSwitch()
+                }
+            }
         #else
-        if horizontalSizeClass == .regular {
-            ipadSidebarBody
-        } else {
-            tabBody
+        Group {
+            if horizontalSizeClass == .regular {
+                ipadSidebarBody
+            } else {
+                tabBody
+            }
+        }
+        .task {
+            reviewPrompt.recordLaunch()
+            if reviewPrompt.shouldRequestReviewOnLaunch() {
+                requestReview()
+                reviewPrompt.markRequested()
+            }
+        }
+        .onChange(of: selectedTab) { oldValue, newValue in
+            if Set([oldValue, newValue]) == Set([5, 6]) {
+                reviewPrompt.recordScenarioTaxSwitch()
+            }
         }
         #endif
     }

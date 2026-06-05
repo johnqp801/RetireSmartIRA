@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 
 // MARK: - Cross-platform color support
 #if canImport(UIKit)
@@ -24,6 +25,7 @@ typealias PlatformColor = NSColor
 
 @main
 struct RetireSmartIRAApp: App {
+    @State private var reviewPrompt = ReviewPromptManager()
     @State private var dataManager: DataManager = {
         #if DEBUG
         if DemoProfile.isActive {
@@ -41,6 +43,7 @@ struct RetireSmartIRAApp: App {
             if termsManager.hasAcceptedCurrentTerms {
                 ContentView()
                     .environment(dataManager)
+                    .environment(reviewPrompt)
                     .environmentObject(termsManager)
             } else {
                 ClickwrapView(manager: termsManager)

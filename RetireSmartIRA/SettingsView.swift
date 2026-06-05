@@ -289,6 +289,12 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Support") {
+                Link(destination: ReviewPromptManager.writeReviewURL) {
+                    Label("Rate RetireSmartIRA", systemImage: "star")
+                }
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("My Profile")

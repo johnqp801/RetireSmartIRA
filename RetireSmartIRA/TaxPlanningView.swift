@@ -10,6 +10,7 @@ import Charts
 
 struct TaxPlanningView: View {
     @Environment(DataManager.self) var dataManager
+    @Environment(ReviewPromptManager.self) private var reviewPrompt
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @Environment(\.availableWidth) private var availableWidth
@@ -1470,7 +1471,10 @@ struct TaxPlanningView: View {
                                setter: @escaping (ScenarioStateManager, Double) -> Void) -> Binding<Double> {
         Binding(
             get: { property(dataManager.scenario) },
-            set: { setter(dataManager.scenario, $0) }
+            set: {
+                setter(dataManager.scenario, $0)
+                reviewPrompt.recordScenarioRecalc()
+            }
         )
     }
 
