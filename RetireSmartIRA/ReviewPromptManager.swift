@@ -66,4 +66,22 @@ final class ReviewPromptManager {
             setPending(true)
         }
     }
+
+    /// Call once when the app becomes active. Resets per-session engagement counters.
+    func recordLaunch() {
+        switchCount = 0
+        recalcCount = 0
+        lastRecalcTime = nil
+    }
+
+    /// Whether the root view should request a review now (call right after recordLaunch()).
+    func shouldRequestReviewOnLaunch() -> Bool {
+        pendingRequest && !alreadyPromptedThisVersion
+    }
+
+    /// Call after the native review request has been made.
+    func markRequested() {
+        defaults.set(currentVersion, forKey: Key.lastPromptedVersion)
+        setPending(false)
+    }
 }

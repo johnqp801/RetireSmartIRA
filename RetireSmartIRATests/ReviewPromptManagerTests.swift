@@ -52,4 +52,36 @@ struct ReviewPromptManagerTests {
         #expect(m.recalcCount == 6)
         #expect(m.pendingRequest == true)
     }
+
+    @Test("High-value session: recordLaunch keeps eligibility, pending persists")
+    func eligibleAfterLaunch() {
+        let m = makeManager()
+        for _ in 0..<4 { m.recordScenarioTaxSwitch() }   // pending = true
+        #expect(m.pendingRequest == true)
+        m.recordLaunch()                                 // simulate next launch
+        #expect(m.shouldRequestReviewOnLaunch() == true)
+    }
+
+    @Test("recordLaunch resets per-session counters but not pending")
+    func launchResetsCounters() {
+        let m = makeManager()
+        m.recordScenarioTaxSwitch()
+        m.recordScenarioTaxSwitch()
+        m.recordLaunch()
+        #expect(m.switchCount == 0)
+        #expect(m.recalcCount == 0)
+    }
+
+    @Test("markRequested gates further prompts for this version")
+    func versionGate() {
+        let m = makeManager(version: "1.8.6")
+        for _ in 0..<4 { m.recordScenarioTaxSwitch() }
+        #expect(m.shouldRequestReviewOnLaunch() == true)
+        m.markRequested()
+        #expect(m.pendingRequest == false)
+        #expect(m.shouldRequestReviewOnLaunch() == false)
+        // New high-value engagement does NOT re-arm for the same version
+        for _ in 0..<4 { m.recordScenarioTaxSwitch() }
+        #expect(m.pendingRequest == false)
+    }
 }
