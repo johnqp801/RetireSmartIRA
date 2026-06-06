@@ -1,15 +1,38 @@
 # Current Release Roadmap
 
-**Last updated:** 2026-06-04
+**Last updated:** 2026-06-05
 
 ---
 
-## LIVE: V1.8.5 (iOS build 50, released 2026-05-29 / macOS build 48 live 2026-06-04)
+## IN SUBMISSION: V1.8.6 (build 51 — ready to Archive and submit)
+
+**Status:** Code complete. `main` merged + pushed to origin at `2266943`. Pending Archive + upload in Xcode + App Store submission.
+
+**What's in 1.8.6:**
+- SS taxability fix (IRS Pub 915 line-14 cap — modest SS with high other income was overstated)
+- Stock-gain-avoided double-count fix: avoided gain no longer reduces gross income, NII, or MAGI (was understating NIIT + IRMAA tier when stock donation was active)
+- In-app review prompt (ReviewPromptManager — value-event trigger, fires on next launch, per-version gated, "Rate" row in Settings)
+- TY2024/2025 configs + loadOrFallback stride fix
+- IRS golden-case test suite (Pub 915, 590-B, NIIT Q&A, OBBBA truth tables) — 1,269 tests
+
+**Release notes (approved Option B):**
+> 1.8.6 — Accuracy Improvements
+> • Improved Social Security taxability calculations for scenarios where benefit amounts are modest relative to other income
+> • Refined how charitable stock donations interact with net investment income and MAGI — more accurate IRMAA tier and NIIT projections
+> • Added "Rate RetireSmartIRA" in Settings for easy App Store reviews
+
+**Draft:** `.claude/memory/drafts/release-notes/2026-06-05-1.8.6-release-notes.md`
+**Branch:** `fix/stock-gain-avoided-double-count` (on origin; merged to main)
+**Tag to create after approval:** `v1.8.6-build51`
+
+---
+
+## LIVE: V1.8.5 (iOS build 50 / macOS build 48 — both live)
 
 **Status:**
-- **iOS 1.8.5 build 50 — ✅ APPROVED & LIVE 2026-05-29.**
-- **macOS 1.8.5 build 48 — ✅ APPROVED & LIVE in the App Store (confirmed 2026-06-04).**
-  Both platforms now on 1.8.5.
+- **iOS 1.8.5 build 50 — ✅ LIVE 2026-05-29.**
+- **macOS 1.8.5 build 48 — ✅ LIVE 2026-06-04.**
+  Both platforms on 1.8.5. Superseded by 1.8.6 once approved.
 
 **Marketing version:** 1.8.5
 **Submitted:** ~2026-05-27 PT (both platforms)

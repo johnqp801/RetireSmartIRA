@@ -4,6 +4,23 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-05: 1.8.6 release notes — Option B approved
+
+**Decision:** Approved release-notes Option B ("Accuracy Improvements") for 1.8.6.
+Text: "Improved Social Security taxability calculations for scenarios where benefit amounts
+are modest relative to other income / Refined how charitable stock donations interact with
+net investment income and MAGI — more accurate IRMAA tier and NIIT projections / Added
+'Rate RetireSmartIRA' in Settings for easy App Store reviews."
+**Rationale:** Forward-looking, specific enough to be meaningful to power users, does not
+imply prior dishonesty. Saved to `drafts/release-notes/2026-06-05-1.8.6-release-notes.md`.
+
+## 2026-06-05: Bundle SS fix + stock-donation fix + review prompt into 1.8.6
+
+**Decision:** All work from this session (3 engine accuracy fixes + in-app review prompt +
+IRS golden-case suite + TY2024/2025 configs) ships as one release, 1.8.6 / build 51.
+**Rationale:** One submission, one review queue wait; all fixes are independent and
+individually tested; review prompt was always planned as the next release anyway.
+
 ## 2026-06-04: ImprovMX API key rotated — ✅ RESOLVED (security)
 
 **Decision (executed):** Rotated/revoked the exposed ImprovMX API key. The leaked
