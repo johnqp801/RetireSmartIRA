@@ -188,8 +188,11 @@ struct TaxYearConfig: Codable {
     static func loadOrFallback(forYear year: Int) -> TaxYearConfig {
         // Try the exact year first
         if let config = load(forYear: year) { return config }
-        // Walk backward to find the most recent config
-        for y in stride(from: year - 1, through: 2026, by: -1) {
+        // Walk backward to find the most recent available config at or below `year`.
+        // (Previously bounded at `through: 2026`, which made this an EMPTY range for any
+        // year ≤ 2026 — so 2024/2025 requests silently skipped straight to hardcoded2026
+        // instead of finding the nearest bundled config.)
+        for y in stride(from: year - 1, through: 2000, by: -1) {
             if let config = load(forYear: y) { return config }
         }
         // Hardcoded 2026 fallback for unit tests / environments without bundle resources
