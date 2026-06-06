@@ -349,6 +349,84 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             "OBBBA §63(f)(5) Single: MAGI $81,250 → deduction $5,625. Engine: \(dm.seniorBonusDeductionAmount). (Gemini wrongly said $6,000.)")
     }
 
+    // ── Single filer — full truth table (5 cases, formula confirmed) ──────────
+    // Source: IRC §63(f)(5); IRS Schedule 1-A Part V.
+    // Single: D = max(0, $6,000 − 0.06 × max(0, MAGI − $75,000)).
+    // Full phase-out at MAGI $175,000. No cliff.
+    //
+    // NOTE: The combined MFJ formula D = 12,000 − 0.06×(MAGI−150,000) is WRONG.
+    // It overstates the deduction by $3k–$6k in the $150k–$250k band and implies
+    // a false cliff at $250,001. The IRS Schedule 1-A computes the phase-out
+    // per-person (Line 35), then enters it for each qualifying spouse (36a/36b).
+
+    @Test("OBBBA senior deduction Single: MAGI $50k → $6,000 (below threshold)")
+    func seniorDeductionSingleBelowThreshold() {
+        let dm = makeDM(birthYear: 1961)  // age 65 in 2026
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000)]
+        dm.currentYear = 2026
+        #expect(dm.seniorBonusDeductionAmount == 6_000,
+            "MAGI $50k < $75k threshold → full $6,000. Got \(dm.seniorBonusDeductionAmount).")
+    }
+
+    @Test("OBBBA senior deduction Single: MAGI $75k → $6,000 (at threshold boundary)")
+    func seniorDeductionSingleAtThreshold() {
+        let dm = makeDM(birthYear: 1961)
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 75_000)]
+        dm.currentYear = 2026
+        #expect(isClose(dm.seniorBonusDeductionAmount, 6_000),
+            "MAGI exactly $75k → full $6,000. Got \(dm.seniorBonusDeductionAmount).")
+    }
+
+    @Test("OBBBA senior deduction Single: MAGI $100k → $4,500 (mid phase-out)")
+    func seniorDeductionSingleMidPhaseout() {
+        // 6,000 − 0.06 × (100,000 − 75,000) = 6,000 − 1,500 = $4,500
+        let dm = makeDM(birthYear: 1961)
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)]
+        dm.currentYear = 2026
+        #expect(isClose(dm.seniorBonusDeductionAmount, 4_500),
+            "MAGI $100k → $4,500. Got \(dm.seniorBonusDeductionAmount).")
+    }
+
+    @Test("OBBBA senior deduction Single: MAGI $175k → $0 (upper phase-out boundary)")
+    func seniorDeductionSingleAtUpperBoundary() {
+        // 6,000 − 0.06 × (175,000 − 75,000) = 6,000 − 6,000 = $0. Smooth zero, no cliff.
+        let dm = makeDM(birthYear: 1961)
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 175_000)]
+        dm.currentYear = 2026
+        #expect(dm.seniorBonusDeductionAmount == 0,
+            "MAGI $175k → $0 (phase-out complete). Got \(dm.seniorBonusDeductionAmount).")
+    }
+
+    @Test("OBBBA senior deduction Single: MAGI $200k → $0 (above limit)")
+    func seniorDeductionSingleAboveLimit() {
+        let dm = makeDM(birthYear: 1961)
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 200_000)]
+        dm.currentYear = 2026
+        #expect(dm.seniorBonusDeductionAmount == 0,
+            "MAGI $200k → $0. Got \(dm.seniorBonusDeductionAmount).")
+    }
+
+    // ── MFJ both 65+: correct per-person truth table ───────────────────────────
+    // Per IRC §63(f)(5) + IRS Schedule 1-A: each spouse's $6,000 is independently
+    // reduced by 6% × (MAGI − $150k), then summed.
+    // Full phase-out at $250,000 MAGI. NO cliff.
+    // Contrast with wrong "combined" reading: at $200k the combined model gives
+    // $9,000 but the correct per-person answer is $6,000.
+
+    @Test("OBBBA senior deduction MFJ both-65: MAGI $200k → $6,000 (NOT $9,000 combined)")
+    func seniorDeductionMFJMidPhaseout() {
+        // Per-person: each = max(0, $6,000 − 0.06×$50,000) = $3,000. Total = $6,000.
+        // The wrong "combined" formula gives $12,000 − $3,000 = $9,000 — an overstatement.
+        let dm = makeDM(birthYear: 1959, filingStatus: .marriedFilingJointly)
+        dm.enableSpouse = true
+        var comps = DateComponents(); comps.year = 1961; comps.month = 1; comps.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: comps)!
+        dm.incomeSources = [IncomeSource(name: "Pension", type: .pension, annualAmount: 200_000)]
+        dm.currentYear = 2026
+        #expect(isClose(dm.seniorBonusDeductionAmount, 6_000),
+            "MAGI $200k MFJ both-65 → $6,000 per-person (wrong combined formula gives $9,000). Got \(dm.seniorBonusDeductionAmount).")
+    }
+
     // ── Senior deduction phase-out: full-phase-out boundary (MFJ both 65+) ────
     // Source: IRC §63(f)(5) per-person phase-out confirmed by legal research.
     // At MAGI = $250,000 (MFJ both 65+): per-person reduction = ($250k-$150k)×6% = $6,000
