@@ -767,7 +767,12 @@ struct TaxCalculationEngine {
             return min(excessOverFirst, ssIncome * 0.5)
         } else {
             let excessOverSecond = roundedCombined - threshold2
-            let tier1Amount = (threshold2 - threshold1) * 0.5
+            // IRS Pub 915 Worksheet 1, line 14: the 50%-taxed tier is the *smaller* of
+            // half the threshold band and half the benefits. Without the `ssIncome * 0.5`
+            // cap, taxable SS is overstated when gross benefits are below the band
+            // ($9K single / $12K MFJ) — e.g. Pub 915 Ex. 3 returned $7,275 vs. the
+            // correct $6,275.
+            let tier1Amount = min((threshold2 - threshold1) * 0.5, ssIncome * 0.5)
             let tier2Amount = min(excessOverSecond * 0.85, ssIncome * 0.85 - tier1Amount)
             return min(tier1Amount + tier2Amount, ssIncome * 0.85)
         }

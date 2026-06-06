@@ -238,6 +238,41 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let taxableSS = dm.calculateTaxableSocialSecurity(filingStatus: .marriedFilingJointly)
         #expect(isClose(taxableSS, 28_100))
     }
+
+    @Test("MFJ: small SS $10K + $40.5K other → $6,275 (IRS Pub 915 Worksheet 1, Ex. 3)")
+    func mfjSmallBenefitEightyFiveTier() {
+        // IRS Publication 915, Worksheet 1, Example 3 (Jamie & Jessie Johnson, MFJ):
+        // benefits $10,000, fully-taxable pension $38,000, interest $2,500 → line-19
+        // taxable benefits = $6,275. (Pub 915 Ex. 3 uses RRB SSEB Tier 1, taxed under the
+        // identical Worksheet 1; entered here as .socialSecurity.)
+        // Regression for the missing tier-1 cap: when gross SS ($10K) is below the MFJ
+        // threshold band ($12K), the 50% tier must use min(0.5*band, 0.5*SS) = $5,000,
+        // not 0.5*band = $6,000. The buggy engine returned $7,275.
+        let dm = makeDM(filingStatus: .marriedFilingJointly)
+        dm.incomeSources = [
+            IncomeSource(name: "SS", type: .socialSecurity, annualAmount: 10_000),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 38_000),
+            IncomeSource(name: "Interest", type: .interest, annualAmount: 2_500)
+        ]
+        let taxableSS = dm.calculateTaxableSocialSecurity(filingStatus: .marriedFilingJointly)
+        #expect(isClose(taxableSS, 6_275))
+    }
+
+    @Test("Single: small SS $8K + $31K other → $4,850 (hand-verified IRS Worksheet 1)")
+    func singleSmallBenefitEightyFiveTier() {
+        // Hand-computed from IRS Pub 915 Worksheet 1 (Single): benefits $8,000, other $31,000.
+        // Combined = 31,000 + 4,000 = 35,000 (> $34,000 second threshold).
+        // line14 = min(0.5*8,000, 0.5*(34,000-25,000)) = min(4,000, 4,500) = 4,000
+        // line16 = 0.85*(35,000-34,000) = 850 ; line19 = min(4,000+850, 0.85*8,000) = 4,850.
+        // Buggy engine (uncapped tier1 = 4,500) returned $5,350.
+        let dm = makeDM()
+        dm.incomeSources = [
+            IncomeSource(name: "SS", type: .socialSecurity, annualAmount: 8_000),
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 31_000)
+        ]
+        let taxableSS = dm.calculateTaxableSocialSecurity(filingStatus: .single)
+        #expect(isClose(taxableSS, 4_850))
+    }
 }
 
 // MARK: - 5. RMD Calculations
