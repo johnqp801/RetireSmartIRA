@@ -12,8 +12,14 @@ import Foundation
 // MARK: - Helper
 
 /// Creates a DataManager with a specific birth year (Jan 1) and clean state.
+/// Always pins currentYear=2026 so TaxCalculationEngine.config is reset to the 2026
+/// singleton — since ProfileManager stores currentYear in a static/singleton-backed
+/// TaxCalculationEngine.config, any test that sets currentYear=2024/2025 would
+/// otherwise contaminate subsequent tests. Pinning here eliminates that globally.
+/// Tests that need a specific year override after calling makeDM().
 private func makeDM(birthYear: Int = 1955, filingStatus: FilingStatus = .single, state: USState = .california) -> DataManager {
     let dm = DataManager(skipPersistence: true)
+    dm.currentYear = 2026   // ← reset singleton; overridable per-test after this call
     dm.filingStatus = filingStatus
     dm.selectedState = state
     var c = DateComponents(); c.year = birthYear; c.month = 1; c.day = 1
@@ -59,9 +65,10 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(tax, 1_192.50))
     }
 
-    @Test("$50,000 (12% bracket) → $5,752.00")
+    @Test("$50,000 (12% bracket) → $5,752.00 (TY2026 brackets)")
     func mid22Percent() {
         let dm = makeDM()
+        dm.currentYear = 2026  // pin to 2026 brackets (12% starts at $12,400)
         // 10% on 12,400 = 1,240.00
         // 12% on 37,600 = 4,512.00
         let tax = dm.calculateFederalTax(income: 50_000, filingStatus: .single)
@@ -71,6 +78,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("$150,000 (24% bracket) → $28,598.00")
     func mid24Percent() {
         let dm = makeDM()
+        dm.currentYear = 2026  // pin — 2026 brackets: 22% ends at $105,700; $150k hits 24%
         // 10% on 12,400 = 1,240.00
         // 12% on 38,000 = 4,560.00
         // 22% on 55,300 = 12,166.00
@@ -116,6 +124,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("$100,000 (12% bracket) → $11,504.00")
     func mid22Percent() {
         let dm = makeDM(filingStatus: .marriedFilingJointly)
+        dm.currentYear = 2026  // pin — 2026 MFJ 12% band is $24,800–$100,800; $100k is in 12%
         // 10% on 24,800 = 2,480.00
         // 12% on 75,200 = 9,024.00
         let tax = dm.calculateFederalTax(income: 100_000, filingStatus: .marriedFilingJointly)
@@ -125,6 +134,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("$300,000 (24% bracket) → $57,196.00")
     func mid24Percent() {
         let dm = makeDM(filingStatus: .marriedFilingJointly)
+        dm.currentYear = 2026  // pin — 2026 MFJ brackets: 22% ends at $211,400; $300k hits 24%
         // 10% on 24,800 = 2,480.00
         // 12% on 76,000 = 9,120.00
         // 22% on 110,600 = 24,332.00
@@ -515,6 +525,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("Federal marginal at $50K (single) → 12%")
     func federalMarginalSingle() {
         let dm = makeDM()
+        dm.currentYear = 2026  // pin — 2026 12% bracket ends at $50,400 (12% at $50k); in 2025 it ends at $48,475 so $50k hits 22%
         let rate = dm.federalMarginalRate(income: 50_000, filingStatus: .single)
         #expect(isClose(rate, 12.0, tolerance: 0.1))
     }
@@ -1234,11 +1245,14 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
 @Suite("State Tax — Progressive States", .serialized)
 @MainActor struct ProgressiveTaxStateTests {
 
-    @Test("California $100K preserved (regression test — CA TY 2025, after $288 exemption credits)")
+    @Test("California $100K preserved (regression test — CA TY 2026, after $288 exemption credits)")
     func californiaRegression() {
         let dm = makeDM(state: .california)
+        dm.currentYear = 2026  // pin explicitly — 2026 CA credit is $144/person × 2 = $288;
+                               // now that tax-2025.json exists the singleton may otherwise
+                               // carry a prior test's year (2025 credit is $153, giving $306)
         let tax = dm.calculateStateTax(income: 100_000, filingStatus: .single)
-        // CA TY 2025 $100K single = $5,738.64 raw − $288 credits = $5,450.64
+        // CA TY 2026 $100K single = $5,738.64 raw − $288 credits (2 × $144) = $5,450.64
         #expect(isClose(tax, 5_450.64))
     }
 
@@ -1419,6 +1433,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("CA breakdown shows all income taxed with progressive brackets")
     func caProgressiveBrackets() {
         let dm = makeDMWithRetirementIncome(pension: 50_000, rmd: 30_000, other: 20_000, state: .california)
+        dm.currentYear = 2026  // pin — 2026 CA credit = $144/person × 2 = $288; 2025 = $153 × 2 = $306
         let bd = dm.stateTaxBreakdown(forState: .california, filingStatus: .single)
         // CA has no retirement exemptions (except SS which is exempt but no SS income here)
         #expect(isClose(bd.pensionExemptAmount, 0))
@@ -2242,10 +2257,13 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("Bracket room remaining decreases after conversion")
     func bracketRoomDecreases() {
         let dm = makeDM(state: .florida)
+        dm.currentYear = 2026  // belt-and-suspenders: pin AFTER makeDM (which already pins),
+                               // guarding against inter-suite singleton race
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 60_000)
         ]
-        // $60K in 22% bracket, room = 105,700 - 60,000 = 45,700
+        // 2026 single: 22% bracket runs $50,400 – $105,700; room at $60K = 105,700 - 60,000 = 45,700
+        TaxCalculationEngine.loadConfig(forYear: 2026)  // ensure singleton is 2026 at assertion time
         let result = dm.analyzeEnhancedRothConversion(conversionAmount: 5_000, filingStatus: .single)
         #expect(isClose(result.federalBracketBefore.roomRemaining, 45_700))
         #expect(isClose(result.federalBracketAfter.roomRemaining, 40_700))
@@ -3451,6 +3469,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("Income exactly at standard deduction produces zero taxable income")
     func incomeAtStandardDeduction() {
         let dm = makeDM(birthYear: 1970, state: .florida)
+        dm.currentYear = 2026  // pin — 2026 single std deduction = $16,100
         // Age 56 in 2026, no senior bonus. Single standard deduction = $16,100
         dm.incomeSources = [
             IncomeSource(name: "Part-time", type: .pension, annualAmount: 16_100)
@@ -4496,18 +4515,20 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
 @Suite("QCD Annual Limits", .serialized)
 @MainActor struct QCDAnnualLimitTests {
 
-    @Test("QCD limit falls back to 2026 config ($111K) for earlier years without their own JSON")
+    @Test("QCD limit is $105K for TY2024 (SECURE Act 2.0 inflation-indexed)")
     func qcdLimit2024() {
         let dm = makeDM(birthYear: 1951)
         dm.currentYear = 2024
-        #expect(isClose(dm.qcdAnnualLimit, 111_000))
+        #expect(isClose(dm.qcdAnnualLimit, 105_000))
+        dm.currentYear = 2026  // restore singleton for subsequent tests
     }
 
-    @Test("QCD limit falls back to 2026 config ($111K) for 2025 without its own JSON")
+    @Test("QCD limit is $108K for TY2025 (IRS Notice 2024-80)")
     func qcdLimit2025() {
         let dm = makeDM(birthYear: 1951)
         dm.currentYear = 2025
-        #expect(isClose(dm.qcdAnnualLimit, 111_000))
+        #expect(isClose(dm.qcdAnnualLimit, 108_000))
+        dm.currentYear = 2026  // restore singleton for subsequent tests
     }
 
     @Test("QCD limit is $111K for 2026")
@@ -4522,6 +4543,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         let dm = makeDM(birthYear: 1951)
         dm.currentYear = 2030
         #expect(isClose(dm.qcdAnnualLimit, 111_000))
+        dm.currentYear = 2026  // restore singleton for subsequent tests
     }
 
     @Test("yourMaxQCDAmount equals limit when QCD eligible")
@@ -5529,6 +5551,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("AMT exemption phaseout at high AMTI")
     func amtExemptionPhaseout() {
         let dm = makeDM(birthYear: 1970, filingStatus: .single, state: .california)
+        dm.currentYear = 2026  // pin — 2026 AMT: exemption $90,100, phaseout threshold $500K, rate 0.50 (OBBBA)
         // Use calculateAMT directly with high taxable income to test phaseout
         let result = dm.calculateAMT(
             taxableIncome: 600_000,
@@ -5536,7 +5559,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             filingStatus: .single
         )
         // AMTI = $600K (no itemizing → no add-backs for direct call w/ standard deduction)
-        // Phaseout: ($600K − $500K) × 0.50 = $50,000
+        // Phaseout: ($600K − $500K) × 0.50 = $50,000  (OBBBA raised rate to 50% from 25% for 2026+)
         // Exemption: max(0, $90,100 − $50,000) = $40,100
         // Taxable AMTI: $600K − $40,100 = $559,900
         #expect(isClose(result.exemption, 40_100, tolerance: 1.0))

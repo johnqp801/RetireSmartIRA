@@ -1,0 +1,140 @@
+{
+  "_comment": "TY2024 federal/state constants. Bracketsand standard deduction from IRS Rev. Proc. 2023-34 (IR-2023-208, https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2024). LTCG thresholds and additional 65+ deduction from Tax Foundation (https://taxfoundation.org/data/all/federal/2024-tax-brackets/). AMT from IRS IR-2023-208. IRMAA from SSA POMS HI 01101.020 (https://secure.ssa.gov/poms.nsf/lnx/0601101020) and CMS (standard Part B $174.70 confirmed by CMS 2024 fact sheet). QCD $105,000 per SECURE Act 2.0 inflation indexing (confirmed: https://www.hmpc.com/blog/2024-qualified-charitable-distribution-105000/). 401k limits from IRS IR-2023-203 ($23,000 base, $7,500 catchup). HSA from IRS Rev. Proc. 2023-23 ($4,150/$8,300). SECURE 2.0 age 60-63 super catch-up NOT available in 2024 (first effective year: 2025). SALT cap $10,000 per TCJA (OBBBA expanded SALT first effective TY2025). Senior bonus deduction not applicable (first effective TY2025 per OBBBA). AMT phaseout rate 0.25 per TCJA/IRC 55(d)(3) — OBBBA raised this to 0.50 starting 2026 only. CA exemption credit $149/person per FTB (https://spidell.com/spidellweb/public/editorial/cat/1024-tax-rates-2024.pdf); phaseout threshold $244,857 single / $489,714 MFJ (web-sourced, FLAG: should be verified against FTB 2024 Form 540 booklet). ACA subsidy uses 2023 FPL guidelines (published Jan 2023, HH1=$14,580) per 26 CFR 1.36B; hasCliff=false because IRA 2022 enhanced subsidies ran through TY2025.",
+
+  "taxYear": 2024,
+
+  "federalBracketsSingle": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 11600, "rate": 0.12 },
+    { "threshold": 47150, "rate": 0.22 },
+    { "threshold": 100525, "rate": 0.24 },
+    { "threshold": 191950, "rate": 0.32 },
+    { "threshold": 243725, "rate": 0.35 },
+    { "threshold": 609350, "rate": 0.37 }
+  ],
+  "federalBracketsMFJ": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 23200, "rate": 0.12 },
+    { "threshold": 94300, "rate": 0.22 },
+    { "threshold": 201050, "rate": 0.24 },
+    { "threshold": 383900, "rate": 0.32 },
+    { "threshold": 487450, "rate": 0.35 },
+    { "threshold": 731200, "rate": 0.37 }
+  ],
+  "federalCapGainsBracketsSingle": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 47025, "rate": 0.15 },
+    { "threshold": 518900, "rate": 0.20 }
+  ],
+  "federalCapGainsBracketsMFJ": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 94050, "rate": 0.15 },
+    { "threshold": 583750, "rate": 0.20 }
+  ],
+
+  "standardDeductionSingle": 14600,
+  "standardDeductionMFJ": 29200,
+  "additionalDeduction65Single": 1950,
+  "additionalDeduction65MFJ": 1550,
+
+  "seniorBonusPerPerson": 0,
+  "seniorBonusPhaseoutSingle": 0,
+  "seniorBonusPhaseoutMFJ": 0,
+  "seniorBonusPhaseoutRate": 0.0,
+  "seniorBonusFirstYear": 9999,
+  "seniorBonusLastYear": 9999,
+
+  "saltBaseCap": 10000,
+  "saltInflationRate": 0.0,
+  "saltBaseYear": 2017,
+  "saltPhaseoutBaseThreshold": 0,
+  "saltPhaseoutRate": 0.0,
+  "saltFloor": 10000,
+  "saltExpandedFirstYear": 9999,
+  "saltExpandedLastYear": 9999,
+  "saltDefaultCap": 10000,
+
+  "amtExemptionSingle": 85700,
+  "amtExemptionMFJ": 133300,
+  "amtPhaseoutThresholdSingle": 609350,
+  "amtPhaseoutThresholdMFJ": 1218700,
+  "amtPhaseoutRate": 0.25,
+  "amt26PercentLimit": 232600,
+  "amtRate26": 0.26,
+  "amtRate28": 0.28,
+
+  "irmaaStandardPartB": 174.70,
+  "irmaaTiers": [
+    { "tier": 0, "singleThreshold": 0,      "mfjThreshold": 0,      "partBMonthly": 174.70, "partDMonthly": 0 },
+    { "tier": 1, "singleThreshold": 103001, "mfjThreshold": 206001, "partBMonthly": 244.60, "partDMonthly": 12.90 },
+    { "tier": 2, "singleThreshold": 129001, "mfjThreshold": 258001, "partBMonthly": 349.40, "partDMonthly": 33.00 },
+    { "tier": 3, "singleThreshold": 161001, "mfjThreshold": 322001, "partBMonthly": 454.20, "partDMonthly": 53.80 },
+    { "tier": 4, "singleThreshold": 193001, "mfjThreshold": 386001, "partBMonthly": 559.00, "partDMonthly": 74.20 },
+    { "tier": 5, "singleThreshold": 500001, "mfjThreshold": 750001, "partBMonthly": 594.00, "partDMonthly": 81.00 }
+  ],
+
+  "niitRate": 0.038,
+  "niitThresholdSingle": 200000,
+  "niitThresholdMFJ": 250000,
+
+  "ssTaxationThreshold1Single": 25000,
+  "ssTaxationThreshold2Single": 34000,
+  "ssTaxationThreshold1MFJ": 32000,
+  "ssTaxationThreshold2MFJ": 44000,
+
+  "qcdAnnualLimit": 105000,
+
+  "caExemptionCreditPerPerson": 149,
+  "caExemptionPhaseoutSingle": 244857,
+  "caExemptionPhaseoutMFJ": 489714,
+  "caExemptionPhaseoutReductionPer2500": 6.0,
+
+  "medicalAGIFloorRate": 0.075,
+
+  "contributionLimits401k": {
+    "base": 23000,
+    "catchupAge50To59": 7500,
+    "catchupAge60To63": 7500,
+    "catchupAge64Plus": 7500
+  },
+
+  "contributionLimitsIRA": {
+    "base": 7000,
+    "catchupAge50Plus": 1000
+  },
+
+  "contributionLimitsHSA": {
+    "selfOnly": 4150,
+    "family": 8300,
+    "catchupAge55Plus": 1000
+  },
+
+  "medicare2026": {
+    "partBStandardMonthly": 174.70,
+    "partDAvgMonthly": 33.00,
+    "medigapAvgMonthly": 150.00,
+    "advantageAvgMonthly": 35.00
+  },
+
+  "acaSubsidy2026": {
+    "_comment": "ACA Premium Tax Credit for TY2024 uses HHS 2023 Poverty Guidelines (effective Jan 2023, 48 contiguous states). hasCliff=false: Inflation Reduction Act 2022 removed the 400% FPL cliff through TY2025.",
+    "fpl2026": {
+      "householdSizeToFPL": {
+        "1": 14580, "2": 19720, "3": 24860, "4": 30000,
+        "5": 35140, "6": 40280, "7": 45420, "8": 50560
+      },
+      "alaskaMultiplier": 1.25,
+      "hawaiiMultiplier": 1.15
+    },
+    "applicableFigures": [
+      { "fplPercent": 100, "applicableFigure": 0.00 },
+      { "fplPercent": 150, "applicableFigure": 0.00 },
+      { "fplPercent": 200, "applicableFigure": 0.04 },
+      { "fplPercent": 250, "applicableFigure": 0.06 },
+      { "fplPercent": 300, "applicableFigure": 0.08 },
+      { "fplPercent": 400, "applicableFigure": 1.00 }
+    ],
+    "hasCliff": false,
+    "nationalAvgBenchmarkSilverPlanAnnual": 6700
+  }
+}

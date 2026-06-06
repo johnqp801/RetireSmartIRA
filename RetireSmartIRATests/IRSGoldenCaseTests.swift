@@ -14,8 +14,10 @@ import Foundation
 // MARK: - Helpers (mirrors RetireSmartIRATests.swift conventions)
 
 /// Creates a DataManager with a specific birth year (Jan 1) and clean state.
+/// Always pins currentYear=2026 to reset TaxCalculationEngine.config singleton.
 private func makeDM(birthYear: Int = 1955, filingStatus: FilingStatus = .single, state: USState = .california) -> DataManager {
     let dm = DataManager(skipPersistence: true)
+    dm.currentYear = 2026   // reset singleton; overridable per-test after this call
     dm.filingStatus = filingStatus
     dm.selectedState = state
     var c = DateComponents(); c.year = birthYear; c.month = 1; c.day = 1
@@ -224,5 +226,148 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             isClose(dm.scenarioCharitableDeductions, 60_000),
             "Charitable deduction for long-term stock should equal FMV $60,000. Got \(dm.scenarioCharitableDeductions)."
         )
+    }
+}
+
+// MARK: - OBBBA Persona Sub-Calculation Golden Cases (TY 2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Source: Gemini-generated retirement personas were used as INPUT TEMPLATES
+// ONLY. Each expected value below was INDEPENDENTLY computed from IRS Pub 915
+// Worksheet 1 (SS taxability) and the OBBBA senior-deduction statute
+// (IRC §63(f)(5)) + IRS Schedule 1-A worksheet, confirmed by legal research.
+// Gemini's own tax numbers are NOT used as the oracle — several of them are
+// wrong (e.g. Scenario 3 taxable income $110,800 vs correct $104,800 because
+// Gemini used gross SS of $40k instead of the IRS-worksheet taxable amount of
+// $34k). These tests assert the sub-calculations the engine must get right.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Suite("OBBBA 2026 Persona Sub-Calculations", .serialized)
+@MainActor struct OBBBAPersonaSubCalcTests {
+
+    // ── Scenario 3: Conversion Window ──────────────────────────────────────────
+    // MFJ, ages 67 (you) & 65 (spouse). Social Security gross $40,000.
+    // Pension $35,000. Strategic Roth Conversion $80,000.
+    // Gemini labeled SS as "85% taxable: $40,000" and used it at 100% in AGI.
+    // IRS Pub 915 Worksheet 1 (MFJ):
+    //   combined income = ($35k+$80k) + 0.5×$40k = $135,000
+    //   tier-1 = min(0.5×($44k-$32k), 0.5×$40k) = min($6k,$20k) = $6,000  ← needs line-14 cap
+    //   tier-2 = min(($135k-$44k)×0.85, $40k×0.85-$6k) = min($77,350,$28k) = $28,000
+    //   taxable SS = min($6k+$28k, $40k×0.85) = $34,000  (NOT $40,000)
+
+    @Test("Persona 3 (Conversion Window): taxable SS = $34k (not $40k Gemini said)")
+    func persona3TaxableSS() {
+        // Source: IRS Pub 915 Worksheet 1, hand-computed.
+        // Confirms the Pub 915 line-14 cap fix matters even for a high-income couple.
+        let dm = makeDM(birthYear: 1959, filingStatus: .marriedFilingJointly)  // age 67 in 2026
+        dm.enableSpouse = true
+        // Set spouse born 1961 → age 65 in 2026
+        var comps = DateComponents(); comps.year = 1961; comps.month = 1; comps.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: comps)!
+        dm.incomeSources = [
+            IncomeSource(name: "SS",      type: .socialSecurity, annualAmount: 40_000),
+            IncomeSource(name: "Pension", type: .pension,         annualAmount: 35_000)
+        ]
+        dm.yourRothConversion = 80_000
+        dm.currentYear = 2026  // pin explicitly — singleton may carry earlier year from other tests
+        // Use scenarioTaxableSocialSecurity (not calculateTaxableSocialSecurity(filingStatus:))
+        // because the Roth conversion must be included in the IRS combined-income test.
+        // calculateTaxableSocialSecurity(filingStatus:) uses additionalIncome=0 by default.
+        let taxSS = dm.scenarioTaxableSocialSecurity
+        #expect(isClose(taxSS, 34_000),
+            "IRS Pub 915 Worksheet 1: taxable SS should be $34,000. Engine: \(taxSS). (Gemini wrongly used $40,000.)")
+    }
+
+    @Test("Persona 3 (Conversion Window): senior deduction = $12k (MAGI $149k < $150k threshold)")
+    func persona3SeniorDeduction() {
+        // Source: IRC §63(f)(5) + IRS Schedule 1-A (per-person phase-out confirmed by legal research).
+        // Both spouses 65+. MAGI = pension$35k + Roth$80k + taxable-SS$34k = $149,000.
+        // Phase-out threshold MFJ $150,000. $149k < $150k → no phase-out → full $12,000.
+        // (Gemini used MAGI $155k from wrong SS amount, but coincidentally also applied full $12k.)
+        let dm = makeDM(birthYear: 1959, filingStatus: .marriedFilingJointly)
+        dm.enableSpouse = true
+        var comps = DateComponents(); comps.year = 1961; comps.month = 1; comps.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: comps)!
+        dm.incomeSources = [
+            IncomeSource(name: "SS",      type: .socialSecurity, annualAmount: 40_000),
+            IncomeSource(name: "Pension", type: .pension,         annualAmount: 35_000)
+        ]
+        dm.yourRothConversion = 80_000
+        dm.currentYear = 2026
+        #expect(isClose(dm.seniorBonusDeductionAmount, 12_000),
+            "OBBBA §63(f)(5): MAGI $149k < $150k threshold → full $12,000. Engine: \(dm.seniorBonusDeductionAmount).")
+    }
+
+    // ── Scenario 4: RMD Management ─────────────────────────────────────────────
+    // Single, age 75. SS gross $25,000. Pension $20,000. Net taxable RMD $40,000
+    // (gross $60k − $20k QCD). Note: QCD must be modeled as a pension/withdrawal;
+    // this test asserts the SS sub-calculation and senior deduction on the
+    // resulting income, which is the oracle-verifiable portion.
+    //
+    // IRS Pub 915 Worksheet 1 (Single), other income = pension$20k + netRMD$40k = $60k:
+    //   combined = $60k + 0.5×$25k = $72,500
+    //   $72,500 > $34,000 (second threshold) → 85% tier
+    //   tier-1 = min(0.5×($34k-$25k), 0.5×$25k) = min($4,500, $12,500) = $4,500
+    //   tier-2 = min(($72.5k-$34k)×0.85, $25k×0.85-$4,500) = min($32,725, $16,750) = $16,750
+    //   taxable SS = min($4,500+$16,750, $25k×0.85) = min($21,250, $21,250) = $21,250
+    // (Gemini's $21,250 happens to be correct here.)
+    //
+    // Senior deduction (IRC §63(f)(5), Single):
+    //   MAGI = $60k + $21,250 = $81,250. Threshold $75,000.
+    //   Reduction = ($81,250 - $75,000) × 6% = $375
+    //   Deduction = max(0, $6,000 - $375) = $5,625
+    // (Gemini said $6,000 — wrong; MAGI exceeds the $75k single threshold.)
+
+    @Test("Persona 4 (RMD Management): taxable SS = $21,250 (IRS Pub 915)")
+    func persona4TaxableSS() {
+        // Source: IRS Pub 915 Worksheet 1, Single, hand-computed.
+        let dm = makeDM(birthYear: 1951)  // age 75 in 2026
+        dm.incomeSources = [
+            IncomeSource(name: "SS",      type: .socialSecurity, annualAmount: 25_000),
+            IncomeSource(name: "Pension", type: .pension,         annualAmount: 20_000),
+            IncomeSource(name: "RMD",     type: .pension,         annualAmount: 40_000)  // net of QCD
+        ]
+        dm.currentYear = 2026
+        let taxSS = dm.calculateTaxableSocialSecurity(filingStatus: .single)
+        #expect(isClose(taxSS, 21_250),
+            "IRS Pub 915 Worksheet 1: taxable SS should be $21,250. Engine: \(taxSS).")
+    }
+
+    @Test("Persona 4 (RMD Management): senior deduction = $5,625 (MAGI $81,250 exceeds $75k floor)")
+    func persona4SeniorDeduction() {
+        // Source: IRC §63(f)(5) + IRS Schedule 1-A, hand-computed.
+        // MAGI = $81,250 (pension$20k + netRMD$40k + taxableSS$21,250).
+        // Reduction = ($81,250 - $75,000) × 6% = $375.  Deduction = $6,000 - $375 = $5,625.
+        // Gemini said $6,000 — wrong; they ignored the phase-out.
+        let dm = makeDM(birthYear: 1951)
+        dm.incomeSources = [
+            IncomeSource(name: "SS",      type: .socialSecurity, annualAmount: 25_000),
+            IncomeSource(name: "Pension", type: .pension,         annualAmount: 20_000),
+            IncomeSource(name: "RMD",     type: .pension,         annualAmount: 40_000)
+        ]
+        dm.currentYear = 2026
+        #expect(isClose(dm.seniorBonusDeductionAmount, 5_625),
+            "OBBBA §63(f)(5) Single: MAGI $81,250 → deduction $5,625. Engine: \(dm.seniorBonusDeductionAmount). (Gemini wrongly said $6,000.)")
+    }
+
+    // ── Senior deduction phase-out: full-phase-out boundary (MFJ both 65+) ────
+    // Source: IRC §63(f)(5) per-person phase-out confirmed by legal research.
+    // At MAGI = $250,000 (MFJ both 65+): per-person reduction = ($250k-$150k)×6% = $6,000
+    // → per-person deduction = max(0, $6k-$6k) = $0 → combined = $0.
+    // This pins the legally-confirmed full-phase-out threshold.
+
+    @Test("OBBBA senior deduction: MFJ both 65+ fully phases out at MAGI $250k")
+    func seniorDeductionFullPhaseoutMFJ() {
+        // Source: IRC §63(f)(5) enacted statutory text; IRS Schedule 1-A Part V structure.
+        // Full-phase-out MAGI for MFJ both-65 = $150,000 + $6,000/0.06 = $250,000.
+        let dm = makeDM(birthYear: 1959, filingStatus: .marriedFilingJointly)
+        dm.enableSpouse = true
+        var comps = DateComponents(); comps.year = 1961; comps.month = 1; comps.day = 1
+        dm.spouseBirthDate = Calendar.current.date(from: comps)!
+        dm.incomeSources = [
+            IncomeSource(name: "Income", type: .pension, annualAmount: 250_000)
+        ]
+        dm.currentYear = 2026
+        #expect(dm.seniorBonusDeductionAmount == 0,
+            "At MAGI $250k (MFJ both 65+), senior deduction should be fully phased out. Engine: \(dm.seniorBonusDeductionAmount).")
     }
 }

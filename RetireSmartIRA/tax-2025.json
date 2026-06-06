@@ -1,0 +1,140 @@
+{
+  "_comment": "TY2025 federal/state constants. Income tax brackets from IRS Rev. Proc. 2024-40 (IR-2024-273, https://taxfoundation.org/data/all/federal/2025-tax-brackets/). Standard deduction OBBBA-amended to $15,750/$31,500 (One Big Beautiful Bill Act, signed July 4 2025, retroactive to TY2025; confirmed https://support.taxslayer.com/hc/en-us/articles/12753093500557-One-Big-Beautiful-Bill-Act-OBBBA-Tax-Changes-for-2025). Additional 65+ deduction from Tax Foundation Rev Proc 2024-40 data. AMT exemption/phaseout thresholds from Rev Proc 2024-40 ($88,100/$137,000 exemption; $626,350/$1,252,700 phaseout — OBBBA keeps TCJA thresholds for 2025; phaseout rate remains 0.25 for 2025; OBBBA resets phaseout thresholds and raises rate to 0.50 starting 2026 only). IRMAA from SSA POMS HI 01101.020; standard Part B $185.00 per CMS (confirmed IR-2024-Nov). QCD $108,000 per IRS Notice 2024-80. 401k: $23,500 base, age 60-63 super catch-up $11,250 first available TY2025 per SECURE Act 2.0 §109. HSA from IRS Rev. Proc. 2024-25 ($4,300/$8,550). SALT: $40,000 OBBBA cap first effective TY2025 (retroactive), saltExpandedFirstYear=2025, saltExpandedLastYear=2029, reverts to $10,000 in 2030. Senior bonus: $6,000/person TY2025-2028, phaseout at $75k/$150k per OBBBA. CA exemption credit $153/person for 2025, phaseout $252,203 single per FTB (https://www.ftb.ca.gov; confirmed in search results); MFJ phaseout $504,406 carried from 2026 config — FLAG: confirm exact 2025 MFJ phaseout from FTB 540 booklet. ACA subsidy uses 2024 FPL guidelines (HH1=$15,060) per 26 CFR 1.36B; hasCliff=false because IRA 2022 enhanced subsidies applied through TY2025.",
+
+  "taxYear": 2025,
+
+  "federalBracketsSingle": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 11925, "rate": 0.12 },
+    { "threshold": 48475, "rate": 0.22 },
+    { "threshold": 103350, "rate": 0.24 },
+    { "threshold": 197300, "rate": 0.32 },
+    { "threshold": 250525, "rate": 0.35 },
+    { "threshold": 626350, "rate": 0.37 }
+  ],
+  "federalBracketsMFJ": [
+    { "threshold": 0, "rate": 0.10 },
+    { "threshold": 23850, "rate": 0.12 },
+    { "threshold": 96950, "rate": 0.22 },
+    { "threshold": 206700, "rate": 0.24 },
+    { "threshold": 394600, "rate": 0.32 },
+    { "threshold": 501050, "rate": 0.35 },
+    { "threshold": 751600, "rate": 0.37 }
+  ],
+  "federalCapGainsBracketsSingle": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 48350, "rate": 0.15 },
+    { "threshold": 533400, "rate": 0.20 }
+  ],
+  "federalCapGainsBracketsMFJ": [
+    { "threshold": 0, "rate": 0.0 },
+    { "threshold": 96700, "rate": 0.15 },
+    { "threshold": 600050, "rate": 0.20 }
+  ],
+
+  "standardDeductionSingle": 15750,
+  "standardDeductionMFJ": 31500,
+  "additionalDeduction65Single": 2000,
+  "additionalDeduction65MFJ": 1600,
+
+  "seniorBonusPerPerson": 6000,
+  "seniorBonusPhaseoutSingle": 75000,
+  "seniorBonusPhaseoutMFJ": 150000,
+  "seniorBonusPhaseoutRate": 0.06,
+  "seniorBonusFirstYear": 2025,
+  "seniorBonusLastYear": 2028,
+
+  "saltBaseCap": 40000,
+  "saltInflationRate": 0.01,
+  "saltBaseYear": 2025,
+  "saltPhaseoutBaseThreshold": 500000,
+  "saltPhaseoutRate": 0.30,
+  "saltFloor": 10000,
+  "saltExpandedFirstYear": 2025,
+  "saltExpandedLastYear": 2029,
+  "saltDefaultCap": 10000,
+
+  "amtExemptionSingle": 88100,
+  "amtExemptionMFJ": 137000,
+  "amtPhaseoutThresholdSingle": 626350,
+  "amtPhaseoutThresholdMFJ": 1252700,
+  "amtPhaseoutRate": 0.25,
+  "amt26PercentLimit": 239100,
+  "amtRate26": 0.26,
+  "amtRate28": 0.28,
+
+  "irmaaStandardPartB": 185.00,
+  "irmaaTiers": [
+    { "tier": 0, "singleThreshold": 0,      "mfjThreshold": 0,      "partBMonthly": 185.00, "partDMonthly": 0 },
+    { "tier": 1, "singleThreshold": 109001, "mfjThreshold": 218001, "partBMonthly": 284.10, "partDMonthly": 14.50 },
+    { "tier": 2, "singleThreshold": 137001, "mfjThreshold": 274001, "partBMonthly": 405.80, "partDMonthly": 37.50 },
+    { "tier": 3, "singleThreshold": 171001, "mfjThreshold": 342001, "partBMonthly": 527.50, "partDMonthly": 60.40 },
+    { "tier": 4, "singleThreshold": 205001, "mfjThreshold": 410001, "partBMonthly": 649.20, "partDMonthly": 83.30 },
+    { "tier": 5, "singleThreshold": 500001, "mfjThreshold": 750001, "partBMonthly": 689.90, "partDMonthly": 91.00 }
+  ],
+
+  "niitRate": 0.038,
+  "niitThresholdSingle": 200000,
+  "niitThresholdMFJ": 250000,
+
+  "ssTaxationThreshold1Single": 25000,
+  "ssTaxationThreshold2Single": 34000,
+  "ssTaxationThreshold1MFJ": 32000,
+  "ssTaxationThreshold2MFJ": 44000,
+
+  "qcdAnnualLimit": 108000,
+
+  "caExemptionCreditPerPerson": 153,
+  "caExemptionPhaseoutSingle": 252203,
+  "caExemptionPhaseoutMFJ": 504406,
+  "caExemptionPhaseoutReductionPer2500": 6.0,
+
+  "medicalAGIFloorRate": 0.075,
+
+  "contributionLimits401k": {
+    "base": 23500,
+    "catchupAge50To59": 7500,
+    "catchupAge60To63": 11250,
+    "catchupAge64Plus": 7500
+  },
+
+  "contributionLimitsIRA": {
+    "base": 7000,
+    "catchupAge50Plus": 1000
+  },
+
+  "contributionLimitsHSA": {
+    "selfOnly": 4300,
+    "family": 8550,
+    "catchupAge55Plus": 1000
+  },
+
+  "medicare2026": {
+    "partBStandardMonthly": 185.00,
+    "partDAvgMonthly": 37.50,
+    "medigapAvgMonthly": 150.00,
+    "advantageAvgMonthly": 40.00
+  },
+
+  "acaSubsidy2026": {
+    "_comment": "ACA Premium Tax Credit for TY2025 uses HHS 2024 Poverty Guidelines (effective Jan 2024, 48 contiguous states). hasCliff=false: Inflation Reduction Act 2022 enhanced subsidies and cliff removal applied through TY2025.",
+    "fpl2026": {
+      "householdSizeToFPL": {
+        "1": 15060, "2": 20440, "3": 25820, "4": 31200,
+        "5": 36580, "6": 41960, "7": 47340, "8": 52720
+      },
+      "alaskaMultiplier": 1.25,
+      "hawaiiMultiplier": 1.15
+    },
+    "applicableFigures": [
+      { "fplPercent": 100, "applicableFigure": 0.00 },
+      { "fplPercent": 150, "applicableFigure": 0.00 },
+      { "fplPercent": 200, "applicableFigure": 0.04 },
+      { "fplPercent": 250, "applicableFigure": 0.06 },
+      { "fplPercent": 300, "applicableFigure": 0.08 },
+      { "fplPercent": 400, "applicableFigure": 1.00 }
+    ],
+    "hasCliff": false,
+    "nationalAvgBenchmarkSilverPlanAnnual": 7200
+  }
+}
