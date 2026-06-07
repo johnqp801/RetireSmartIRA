@@ -66,8 +66,21 @@ For future reference (e.g., sitemaps, robots.txt, verification files):
 ---
 
 ## Next Steps (SEO)
-1. ✅ Google Search Console verified
-2. ⬜ Check GSC on June 10 for index coverage + first query data
-3. ⬜ Submit XML sitemap to GSC if not already present (`/sitemap.xml`)
-4. ⬜ Monitor homepage bounce rate — if still >50% in 2 weeks, review hero section
-5. ⬜ Monday June 9 — day-14 press follow-up due (Karsten, Fritz, Chris — final touch before marking cold)
+1. ✅ Google Search Console verified (2026-06-07, HTML file method)
+2. ✅ Sitemap submitted to GSC (2026-06-07) — `/sitemap.xml` existed (Next.js auto-generated)
+3. ⬜ Request manual indexing for all 7 pages via GSC URL Inspection tool (do immediately)
+4. ⬜ Check GSC on **Wednesday June 10** for index coverage + first search query data
+5. ⬜ Monitor homepage bounce rate — if still >50% in 2 weeks, review hero section
+6. ⬜ **Monday June 9** — day-14 press follow-up due (Karsten, Fritz, Chris — final touch before marking cold)
+
+## Pages to Manually Request Indexing (URL Inspection in GSC)
+```
+https://www.retiresmartira.com/
+https://www.retiresmartira.com/features
+https://www.retiresmartira.com/press
+https://www.retiresmartira.com/about
+https://www.retiresmartira.com/accuracy
+https://www.retiresmartira.com/support
+https://www.retiresmartira.com/whats-new
+```
+GSC → URL Inspection → paste URL → Request Indexing (repeat for each)
