@@ -4,6 +4,42 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-07: Google Search Console verified for retiresmartira.com
+
+**Decision (status):** GSC property `https://www.retiresmartira.com` verified via HTML file
+method. File `google88c45cac05ff1a4a.html` added to `public/` in the Next.js website repo
+(`johnqp801/retiresmartira-website` on GitHub), deployed via Vercel auto-deploy.
+
+**Website infrastructure confirmed:**
+- Domain registration: Namecheap (account: johnqp)
+- Hosting/deploy: Vercel (project: `retiresmartira-website`)
+- Source: GitHub `johnqp801/retiresmartira-website` (Next.js, auto-deploy on push to main)
+- DNS: Namecheap nameservers → Vercel
+
+**Follow-up:** Check GSC on Wednesday June 10 for index coverage + first search query data.
+See session `sessions/2026-06-07-google-search-console-setup.md` for full GA analysis and
+what to look for on June 10.
+
+**Rationale:** GA showed only 2 Google organic visitors in 28 days — GSC is needed to
+diagnose whether the site isn't indexed or just isn't being clicked in results.
+
+---
+
+## 2026-06-07: V1.8.6 approved & live — both iOS and macOS
+
+**Decision (status, not a choice):** 1.8.6 (build 51) cleared App Review and is live in the
+App Store on both iOS and macOS. Both platforms now on 1.8.6.
+
+**What shipped:** SS taxability fix (Pub 915 line-14 cap) + stock-gain-avoided double-count
+fix (gross income, NII, 4 impact counterfactuals) + in-app review prompt (ReviewPromptManager,
+value-event trigger, per-version gate) + TY2024/2025 tax configs + IRS golden-case test suite
+(1,269 tests total).
+
+**Rationale:** All three engine accuracy bugs found during real-2025-tax-return dogfooding;
+bundled with review prompt to ship one release instead of two review queue waits.
+
+---
+
 ## 2026-06-05: 1.8.6 release notes — Option B approved
 
 **Decision:** Approved release-notes Option B ("Accuracy Improvements") for 1.8.6.
