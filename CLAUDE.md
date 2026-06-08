@@ -24,6 +24,21 @@ This repo maintains persistent memory in `.claude/memory/`.
 - Don't conflate `MARKETING_VERSION` (1.8.1) with `CURRENT_PROJECT_VERSION` (37 etc.).
 - After modifying retirement/tax engine code, run the test suite before claiming work is done. Tests are the source of truth — 951+ tests run on this project.
 
+## Code Review & Git
+
+- Always verify the current git branch and pull latest before reviewing or assessing code. Do not assume `main` is current — check `git branch` and `git log` first.
+- When reconciling external AI reviews (Perplexity, etc.), cite actual source code and git history before agreeing or rejecting any finding. Do not dismiss a finding without code evidence.
+
+## Accuracy & Verification
+
+- Before stating which features or calculations are live in the app, perform a code audit rather than answering from assumption. Verify against the actual source files and confirm with file/line references.
+- Do not give confident answers about implementation status without reading the relevant code first.
+
+## Testing
+
+- After any edits to retirement, tax, or calculation engine code, run the full test suite and confirm all tests pass before considering the change complete.
+- Tests are the source of truth — 951+ tests run on this project. A change is not done until the suite is green.
+
 ## Code Search Conventions
 
 - Default to scoping searches under `RetireSmartIRA/` and `RetireSmartIRATests/`.
