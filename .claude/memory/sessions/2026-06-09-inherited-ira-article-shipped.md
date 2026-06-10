@@ -58,7 +58,7 @@ Fixes shipped:
 
 | Item | When | Notes |
 |---|---|---|
-| GSC: Request indexing for new URL | User doing now | URL inspection (not the Pages report, which lags). URL: `/articles/inherited-ira-10-year-rule-2026`; also re-submit `/articles` index |
+| GSC: Request indexing for new URL | ✅ Done Jun 9 | Submitted via URL inspection: `/articles/inherited-ira-10-year-rule-2026` (+ `/articles` index). Now in Google's crawl queue. |
 | Verify PDF on live page | After Vercel deploy | Confirm letterhead + download box render |
 | GSC index coverage check | Wed/Thu Jun 10–11 | New article + IRMAA + original 7 pages |
 | Article #3 / ConvertKit email capture | Future | ConvertKit slated for article 3 |
