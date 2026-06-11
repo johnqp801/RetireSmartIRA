@@ -246,7 +246,7 @@ struct TaxYearConfig: Codable {
         ssTaxationThreshold1Single: 25000, ssTaxationThreshold2Single: 34000,
         ssTaxationThreshold1MFJ: 32000, ssTaxationThreshold2MFJ: 44000,
         qcdAnnualLimit: 111000,
-        caExemptionCreditPerPerson: 144, caExemptionPhaseoutSingle: 252203,
+        caExemptionCreditPerPerson: 153, caExemptionPhaseoutSingle: 252203,
         caExemptionPhaseoutMFJ: 504406, caExemptionPhaseoutReductionPer2500: 6.0,
         medicalAGIFloorRate: 0.075,
         contributionLimits401k: ContributionLimits401k(

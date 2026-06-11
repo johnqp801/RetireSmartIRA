@@ -168,7 +168,7 @@
   "ssTaxationThreshold1MFJ": 32000,
   "ssTaxationThreshold2MFJ": 44000,
   "qcdAnnualLimit": 111000,
-  "caExemptionCreditPerPerson": 144,
+  "caExemptionCreditPerPerson": 153,
   "caExemptionPhaseoutSingle": 252203,
   "caExemptionPhaseoutMFJ": 504406,
   "caExemptionPhaseoutReductionPer2500": 6.0,
