@@ -23,63 +23,63 @@ struct ContributionLimitTests {
     func four01kUnder50() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1980)  // age 46 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 23_500)
+        #expect(dm.four01kLimit(for: .primary) == 24_500)
     }
 
     @Test("401(k) age 50 → base + standard catchup")
     func four01kAge50() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1976)  // age 50 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)  // 23_500 + 7_500
+        #expect(dm.four01kLimit(for: .primary) == 32_500)  // 24_500 + 8_000
     }
 
     @Test("401(k) age 59 → base + standard catchup")
     func four01kAge59() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1967)  // age 59 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)
+        #expect(dm.four01kLimit(for: .primary) == 32_500)
     }
 
     @Test("401(k) age 60 → base + super catchup (SECURE 2.0)")
     func four01kAge60SuperCatchup() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1966)  // age 60 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 34_750)  // 23_500 + 11_250
+        #expect(dm.four01kLimit(for: .primary) == 35_750)  // 24_500 + 11_250
     }
 
     @Test("401(k) age 63 → base + super catchup (last super-catchup year)")
     func four01kAge63SuperCatchup() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1963)  // age 63 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 34_750)
+        #expect(dm.four01kLimit(for: .primary) == 35_750)
     }
 
     @Test("401(k) age 64 → drops back to standard catchup")
     func four01kAge64DropsBack() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1962)  // age 64 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)
+        #expect(dm.four01kLimit(for: .primary) == 32_500)
     }
 
     @Test("401(k) age 70 → standard catchup")
     func four01kAge70() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1956)  // age 70 in 2026
-        #expect(dm.four01kLimit(for: .primary) == 31_000)
+        #expect(dm.four01kLimit(for: .primary) == 32_500)
     }
 
     @Test("IRA under 50 → base only")
     func iraUnder50() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1980)
-        #expect(dm.iraLimit(for: .primary) == 7_000)
+        #expect(dm.iraLimit(for: .primary) == 7_500)
     }
 
     @Test("IRA age 50+ → base + 1000 catchup")
     func iraAge50Plus() {
         let dm = DataManager(skipPersistence: true)
         dm.profile.birthDate = dateForYear(1976)
-        #expect(dm.iraLimit(for: .primary) == 8_000)
+        #expect(dm.iraLimit(for: .primary) == 8_600)
     }
 }
 

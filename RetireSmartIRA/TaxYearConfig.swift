@@ -250,11 +250,11 @@ struct TaxYearConfig: Codable {
         caExemptionPhaseoutMFJ: 504406, caExemptionPhaseoutReductionPer2500: 6.0,
         medicalAGIFloorRate: 0.075,
         contributionLimits401k: ContributionLimits401k(
-            base: 23_500, catchupAge50To59: 7_500,
-            catchupAge60To63: 11_250, catchupAge64Plus: 7_500
+            base: 24_500, catchupAge50To59: 8_000,
+            catchupAge60To63: 11_250, catchupAge64Plus: 8_000
         ),
         contributionLimitsIRA: ContributionLimitsIRA(
-            base: 7_000, catchupAge50Plus: 1_000
+            base: 7_500, catchupAge50Plus: 1_100
         ),
         contributionLimitsHSA: ContributionLimitsHSA(
             selfOnly: 4_400, family: 8_750, catchupAge55Plus: 1_000
@@ -266,23 +266,29 @@ struct TaxYearConfig: Codable {
             advantageAvgMonthly: 50.00
         ),
         acaSubsidy2026: ACASubsidyConfig(
-            // Per 26 CFR 1.36B, Premium Tax Credit calculations for tax year 2026
-            // use the prior year's (2025) Federal Poverty Level. Values below are
-            // HHS ASPE 2025 Poverty Guidelines (48 contiguous states + DC):
-            // HH=1 $15,060; increment $5,380 per additional member.
+            // Per 26 CFR 1.36B, Premium Tax Credit calculations for coverage year
+            // 2026 use the prior year's (2025) Federal Poverty Level. Values below
+            // are HHS ASPE 2025 Poverty Guidelines (48 contiguous states + DC):
+            // HH=1 $15,650; increment $5,500 per additional member.
             fpl2026: ACASubsidyConfig.FPL2026(
                 householdSizeToFPL: [
-                    "1": 15_060, "2": 20_440, "3": 25_820, "4": 31_200,
-                    "5": 36_580, "6": 41_960, "7": 47_340, "8": 52_720
+                    "1": 15_650, "2": 21_150, "3": 26_650, "4": 32_150,
+                    "5": 37_650, "6": 43_150, "7": 48_650, "8": 54_150
                 ],
                 alaskaMultiplier: 1.25, hawaiiMultiplier: 1.15
             ),
+            // Rev. Proc. 2025-25 applicable percentages for CY2026 (enhanced
+            // subsidies expired end of 2025; hard cliff restored at 400% FPL).
+            // The 132→133 pair encodes the step from the flat 2.10% band
+            // (<133% FPL) to the 3.14% start of the 133–150% band.
             applicableFigures: [
-                ACASubsidyConfig.ApplicableFigure(fplPercent: 100, applicableFigure: 0.00),
-                ACASubsidyConfig.ApplicableFigure(fplPercent: 150, applicableFigure: 0.00),
-                ACASubsidyConfig.ApplicableFigure(fplPercent: 200, applicableFigure: 0.04),
-                ACASubsidyConfig.ApplicableFigure(fplPercent: 250, applicableFigure: 0.06),
-                ACASubsidyConfig.ApplicableFigure(fplPercent: 300, applicableFigure: 0.08),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 100, applicableFigure: 0.0210),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 132, applicableFigure: 0.0210),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 133, applicableFigure: 0.0314),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 150, applicableFigure: 0.0419),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 200, applicableFigure: 0.0660),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 250, applicableFigure: 0.0844),
+                ACASubsidyConfig.ApplicableFigure(fplPercent: 300, applicableFigure: 0.0996),
                 ACASubsidyConfig.ApplicableFigure(fplPercent: 400, applicableFigure: 1.00)
             ],
             hasCliff: true,
