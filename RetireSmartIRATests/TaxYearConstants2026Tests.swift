@@ -51,19 +51,19 @@ struct TaxYearConstants2026Tests {
     @Test("HHS FPL HH=1 (48 states) = $15,060 — used for 2026 PTC per prior-year rule")
     func fplHouseholdSize1() {
         let fpl = cfg().acaSubsidy2026.fpl2026.householdSizeToFPL["1"]
-        #expect(fpl == 15_060)
+        #expect(fpl == 15_650)
     }
 
     @Test("HHS FPL per additional member = $5,380 (HH=2 = $20,440)")
     func fplPerAdditionalMember() {
         let fpl2 = cfg().acaSubsidy2026.fpl2026.householdSizeToFPL["2"]
-        #expect(fpl2 == 20_440)
+        #expect(fpl2 == 21_150)
     }
 
     @Test("HHS FPL HH=8 = $52,720 (caps lookup for HH ≥ 8)")
     func fplHouseholdSize8() {
         let fpl8 = cfg().acaSubsidy2026.fpl2026.householdSizeToFPL["8"]
-        #expect(fpl8 == 52_720)
+        #expect(fpl8 == 54_150)
     }
 
     @Test("HHS FPL Alaska multiplier = 1.25")

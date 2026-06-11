@@ -243,7 +243,7 @@ struct ScenarioWarningEngineIntegrationTests {
         // MFJ: primary 67 on Medicare (gates IRMAA on), spouse 62 pre-Medicare (gates ACA on).
         // Scenario MAGI = 225_000:
         //   - ACA: fires because spouse is pre-Medicare (< 65)
-        //     225K > 400% FPL cliff (20_440 * 4 = 81_760 for size 2, 2025 HHS used for 2026 PTC) → fires .acaCliff
+        //     225K > 400% FPL cliff (21_150 * 4 = 84_600 for size 2, 2025 HHS used for 2026 PTC) → fires .acaCliff
         //   - IRMAA: fires because primary is on Medicare (age 67, .originalMedicare)
         //     225K > 218_001 (MFJ tier 1 threshold) → fires .irmaaTierCrossing
         let warnings = ScenarioWarningEngine.warningsFor(

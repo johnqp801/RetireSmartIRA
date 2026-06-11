@@ -165,13 +165,13 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         //   4% × 15,188  =   607.52
         //   6% ×  8,548  =   512.88   (50,000 − 41,452)
         // Raw brackets total:     $1,534.89
-        // CA exemption credits: 2 (taxpayer + age 65+) × $144 = $288
-        // Net: $1,534.89 − $288 = $1,246.89
+        // CA exemption credits: 2 (taxpayer + age 65+) × $153 = $306
+        // Net: $1,534.89 − $306 = $1,228.89
         let tax = dm.calculateStateTax(income: 50_000, filingStatus: .single)
-        #expect(isClose(tax, 1_246.89))
+        #expect(isClose(tax, 1_228.89))
     }
 
-    @Test("$100,000 (9.3% bracket) → $5,450.64 (CA TY 2025, after $288 exemption credits)")
+    @Test("$100,000 (9.3% bracket) → $5,432.64 (CA TY 2025, after $306 exemption credits)")
     func mid93Percent() {
         let dm = makeDM()
         // CA TY 2025 single brackets:
@@ -184,7 +184,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         // Raw brackets total:     $5,738.64
         // Less $288 exemption credits → $5,450.64
         let tax = dm.calculateStateTax(income: 100_000, filingStatus: .single)
-        #expect(isClose(tax, 5_450.64))
+        #expect(isClose(tax, 5_432.64))
     }
 }
 
@@ -1245,15 +1245,14 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
 @Suite("State Tax — Progressive States", .serialized)
 @MainActor struct ProgressiveTaxStateTests {
 
-    @Test("California $100K preserved (regression test — CA TY 2026, after $288 exemption credits)")
+    @Test("California $100K preserved (regression test — CA TY 2026, after $306 exemption credits)")
     func californiaRegression() {
         let dm = makeDM(state: .california)
-        dm.currentYear = 2026  // pin explicitly — 2026 CA credit is $144/person × 2 = $288;
-                               // now that tax-2025.json exists the singleton may otherwise
-                               // carry a prior test's year (2025 credit is $153, giving $306)
+        dm.currentYear = 2026  // pin explicitly — CA credit is $153/person × 2 = $306
+                               // (2026 config carries TY2025 FTB indexing, the latest published)
         let tax = dm.calculateStateTax(income: 100_000, filingStatus: .single)
-        // CA TY 2026 $100K single = $5,738.64 raw − $288 credits (2 × $144) = $5,450.64
-        #expect(isClose(tax, 5_450.64))
+        // CA TY 2026 $100K single = $5,738.64 raw − $306 credits (2 × $153) = $5,432.64
+        #expect(isClose(tax, 5_432.64))
     }
 
     @Test("New York: progressive brackets produce tax > 0")
@@ -1433,7 +1432,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("CA breakdown shows all income taxed with progressive brackets")
     func caProgressiveBrackets() {
         let dm = makeDMWithRetirementIncome(pension: 50_000, rmd: 30_000, other: 20_000, state: .california)
-        dm.currentYear = 2026  // pin — 2026 CA credit = $144/person × 2 = $288; 2025 = $153 × 2 = $306
+        dm.currentYear = 2026  // pin — CA credit = $153/person × 2 = $306
         let bd = dm.stateTaxBreakdown(forState: .california, filingStatus: .single)
         // CA has no retirement exemptions (except SS which is exempt but no SS income here)
         #expect(isClose(bd.pensionExemptAmount, 0))
@@ -1443,8 +1442,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         // Sum of bracket taxes should be >= total (total includes CA exemption credits)
         let bracketSum = bd.bracketBreakdown.reduce(0) { $0 + $1.taxFromBracket }
         #expect(bracketSum >= bd.totalStateTax)
-        // Difference should be CA exemption credits ($288 for single age 65+)
-        #expect(isClose(bracketSum - bd.totalStateTax, 288.0))
+        // Difference should be CA exemption credits ($306 for single age 65+)
+        #expect(isClose(bracketSum - bd.totalStateTax, 306.0))
         #expect(bd.totalStateTax > 0)
     }
 
@@ -5048,8 +5047,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             IncomeSource(name: "Pension", type: .pension, annualAmount: 185_000)
         ]
         #expect(dm.scenarioIRMAA.tier == 3)
-        // Tier 2 surcharge: (405.50 - 202.90 + 37.40) * 12 = 2,880
-        let expectedTier2Surcharge = (405.50 - 202.90 + 37.40) * 12
+        // Tier 2 surcharge: (405.80 - 202.90 + 37.50) * 12 = 2,885.40
+        let expectedTier2Surcharge = (405.80 - 202.90 + 37.50) * 12
         #expect(isClose(dm.scenarioIRMAAPreviousTierAnnualSurcharge, expectedTier2Surcharge))
     }
 
@@ -5086,8 +5085,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             IncomeSource(name: "Pension", type: .pension, annualAmount: 600_000)
         ]
         #expect(dm.scenarioIRMAA.tier == 5)
-        // Tier 4 surcharge: (608.40 - 202.90 + 83.10) * 12 = 5,863.20
-        let expectedTier4Surcharge = (608.40 - 202.90 + 83.10) * 12
+        // Tier 4 surcharge: (649.20 - 202.90 + 83.50) * 12 = 6,355.20
+        let expectedTier4Surcharge = (649.20 - 202.90 + 83.50) * 12
         #expect(isClose(dm.scenarioIRMAAPreviousTierAnnualSurcharge, expectedTier4Surcharge))
     }
 }
@@ -5331,9 +5330,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         //   8% × 15,182 = 1,214.56
         //   9.3% × 14,212 = 1,321.67
         //   Subtotal: $4,523.64
-        // CA exemption credits: 2 (taxpayer + age 65+) × $144 = $288
-        // Net: $4,523.64 − $288 = $4,235.64
-        #expect(isClose(dm.scenarioStateTax, 4_235.64, tolerance: 1.0))
+        // CA exemption credits: 2 (taxpayer + age 65+) × $153 = $306
+        // Net: $4,523.64 − $306 = $4,217.64
+        #expect(isClose(dm.scenarioStateTax, 4_217.64, tolerance: 1.0))
     }
 
     @Test("A: NIIT = $0 (no investment income, MAGI below $200K)")
@@ -5351,8 +5350,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("A: Total tax ≈ $19,799 (CA TY 2025)")
     func a_totalTax() {
         let dm = makeScenarioA()
-        // Federal $15,563 + CA $4,236 + NIIT $0 + AMT $0 = $19,799
-        #expect(isClose(dm.scenarioTotalTax, 19_798.80, tolerance: 2.0))
+        // Federal $15,563 + CA $4,218 + NIIT $0 + AMT $0 = $19,781
+        #expect(isClose(dm.scenarioTotalTax, 19_780.80, tolerance: 2.0))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -5984,9 +5983,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         //   1% × 11,079 + 2% × 15,185 + 4% × 15,188 + 6% × 16,090 + 8% × 15,182
         //   + 9.3% × ($159,000 − $72,724) = 9.3% × $86,276 = $8,023.67
         //   Subtotal: $11,225.64
-        // CA exemption credit: $144 (age 56, single) − phaseout? $159K < $252K → no phaseout
-        // Net: $11,225.64 − $144 = $11,081.64
-        #expect(isClose(dm.scenarioStateTax, 11_081.64, tolerance: 2.0))
+        // CA exemption credit: $153 (age 56, single) − phaseout? $159K < $252K → no phaseout
+        // Net: $11,225.64 − $153 = $11,072.64
+        #expect(isClose(dm.scenarioStateTax, 11_072.64, tolerance: 2.0))
     }
 
     @Test("E: NIIT = $4,560 (full $120K NII taxed)")
@@ -6001,9 +6000,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     @Test("E: Total tax ≈ $120,924 (AMT adds $42K to total, CA TY 2025)")
     func e_totalTax() {
         let dm = makeScenarioE()
-        // Federal $62,848 + CA $11,082 + NIIT $4,560 + AMT $42,434 = $120,924
+        // Federal $62,848 + CA $11,073 + NIIT $4,560 + AMT $42,434 = $120,915
         // (CA state tax reduced by state-specific itemized deductions: $361K vs $5.7K standard)
-        #expect(isClose(dm.scenarioTotalTax, 120_923.64, tolerance: 5.0))
+        #expect(isClose(dm.scenarioTotalTax, 120_914.64, tolerance: 5.0))
         // AMT should still add significant tax
         let withoutAMT = dm.scenarioFederalTax + dm.scenarioStateTax + dm.scenarioNIITAmount
         #expect(dm.scenarioTotalTax > withoutAMT + 40_000, "AMT should add >$40K to total tax")
