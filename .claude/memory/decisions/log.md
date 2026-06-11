@@ -4,6 +4,53 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-09: Article #3 topic — Fred Lucha's suggestion (2026 MAGI → 2028 Medicare premiums)
+
+**Decision:** Article #3 will cover how 2026 income decisions set 2028 Medicare premiums for people starting Medicare in 2028 — Fred Lucha's suggestion after reading the IRMAA article. Fred reviews the draft before publication and gets the first copy.
+
+**Rationale:** Engaged-reader ownership strategy — acting on Fred's idea and involving him in the draft turns a responsive tester into a proactive promoter; the topic is also the natural actionable companion to the IRMAA article. Exchange saved at `drafts/emails/2026-06-09-fred-lucha-irmaa-article-exchange.md`.
+
+---
+
+## 2026-06-10: Sequencing — ConvertKit setup before media outreach
+
+**Decision:** Tomorrow's priority is ConvertKit email capture setup (triggered by article 3). Media/press outreach follows after ConvertKit is live.
+
+**Rationale:** Email capture compounds on every future article and visitor; setting it up before outreach means any press-driven traffic builds the list from day one.
+
+---
+
+## 2026-06-08: Advisor market — open question, not yet a roadmap commitment
+
+**Decision:** Treat the advisor market as an open strategic question requiring validation before any build commitment. Bryan Jepson's response (loves app, wants multi-client folders, wants web/screen-share access, asked about vision) is the strongest advisor signal to date but one advisor is not a market. Next step is a structured conversation with Bryan and 3–5 other advisors to test whether the gap is real and payable.
+
+**Rationale:** Native Mac/iOS multi-client version is tractable (3–4 months, $50–90K) but should not redirect V2.0. Validate first.
+
+---
+
+## 2026-06-08: Outreach to Bryan Jepson — IRMAA article + advisor tool positioning
+
+**Decision:** Sent Bryan Jepson the IRMAA article with a note framing RetireSmartIRA as a tool that sits with the advisor and client together to work numbers in real time — complementary to advisor strategy, not a replacement for it.
+
+**Rationale:** Bryan is a strong retirement tax planning advisor; the pitch is that clients need both the advice layer and the analytical layer, and the app provides the latter.
+
+**Next step:** Await Bryan's response. If positive, explore whether he'd refer clients or use it in client meetings.
+
+---
+
+## 2026-06-07: Articles section added to retiresmartira.com — ConvertKit at article 3
+
+**Decision:** Add `/articles` section to retiresmartira.com (Next.js TSX pages, no CMS).
+First article: IRMAA Brackets 2026. Nav link "Articles" added. ConvertKit email capture
+deliberately deferred — add it when article count reaches 3.
+
+**Reminder:** At 3 articles → set up ConvertKit free tier, add email capture form to
+ArticleLayout bottom, update privacy policy.
+
+**Spec:** `retiresmartira-website/docs/superpowers/specs/2026-06-07-articles-section-design.md`
+
+---
+
 ## 2026-06-07: Google Search Console verified for retiresmartira.com
 
 **Decision (status):** GSC property `https://www.retiresmartira.com` verified via HTML file
