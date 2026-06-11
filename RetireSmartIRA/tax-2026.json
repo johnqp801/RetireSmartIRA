@@ -135,22 +135,22 @@
       "tier": 2,
       "singleThreshold": 137001,
       "mfjThreshold": 274001,
-      "partBMonthly": 405.5,
-      "partDMonthly": 37.4
+      "partBMonthly": 405.8,
+      "partDMonthly": 37.5
     },
     {
       "tier": 3,
       "singleThreshold": 171001,
       "mfjThreshold": 342001,
-      "partBMonthly": 527.0,
-      "partDMonthly": 60.3
+      "partBMonthly": 527.5,
+      "partDMonthly": 60.4
     },
     {
       "tier": 4,
       "singleThreshold": 205001,
       "mfjThreshold": 410001,
-      "partBMonthly": 608.4,
-      "partDMonthly": 83.1
+      "partBMonthly": 649.2,
+      "partDMonthly": 83.5
     },
     {
       "tier": 5,

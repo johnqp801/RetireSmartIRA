@@ -5047,8 +5047,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             IncomeSource(name: "Pension", type: .pension, annualAmount: 185_000)
         ]
         #expect(dm.scenarioIRMAA.tier == 3)
-        // Tier 2 surcharge: (405.50 - 202.90 + 37.40) * 12 = 2,880
-        let expectedTier2Surcharge = (405.50 - 202.90 + 37.40) * 12
+        // Tier 2 surcharge: (405.80 - 202.90 + 37.50) * 12 = 2,885.40
+        let expectedTier2Surcharge = (405.80 - 202.90 + 37.50) * 12
         #expect(isClose(dm.scenarioIRMAAPreviousTierAnnualSurcharge, expectedTier2Surcharge))
     }
 
@@ -5085,8 +5085,8 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             IncomeSource(name: "Pension", type: .pension, annualAmount: 600_000)
         ]
         #expect(dm.scenarioIRMAA.tier == 5)
-        // Tier 4 surcharge: (608.40 - 202.90 + 83.10) * 12 = 5,863.20
-        let expectedTier4Surcharge = (608.40 - 202.90 + 83.10) * 12
+        // Tier 4 surcharge: (649.20 - 202.90 + 83.50) * 12 = 6,355.20
+        let expectedTier4Surcharge = (649.20 - 202.90 + 83.50) * 12
         #expect(isClose(dm.scenarioIRMAAPreviousTierAnnualSurcharge, expectedTier4Surcharge))
     }
 }
