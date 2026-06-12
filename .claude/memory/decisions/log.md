@@ -4,6 +4,22 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-12: V1.8.7 iOS approved and live — both platforms on 1.8.7
+
+**Decision (status):** iOS 1.8.7 (build 54) cleared App Review and is live. Both iOS and macOS now on 1.8.7.
+
+**Rationale:** Closes the 1.8.7 review thread. Next release will be 1.9 or a data patch.
+
+---
+
+## 2026-06-10: TY2026 config audit — ACA/IRA/401k values were stale; annual refresh ritual needed
+
+**Decision:** Fixed `tax-2026.json` + hardcoded fallback on `fix/aca-2026-config` (pushed): ACA FPL was 2024 guidelines (cliff showed $60,240/$81,760 instead of $62,600/$84,600), applicableFigures were placeholders (0/4/6/8% → Rev. Proc. 2025-25 2.10–9.96%), IRA $7,000→$7,500/+$1,100, 401k $23,500→$24,500/+$8,000. Suite green: 1,271/0. Ship vehicle TBD (1.8.7 data update or fold into 1.9).
+
+**Rationale:** Found while auditing the article-3 CTA claim ("app models the ACA cliff") — the app had the same stale-FPL error as the article draft. **Process lesson: every November when IRS/HHS publish next-year figures (FPL, Rev. Proc. applicable %s, Notice COLA limits, Rev. Proc. HSA), do a full tax-config refresh audit — the 2026 file was seeded from 2025 and never refreshed.**
+
+---
+
 ## 2026-06-09: Article #3 topic — Fred Lucha's suggestion (2026 MAGI → 2028 Medicare premiums)
 
 **Decision:** Article #3 will cover how 2026 income decisions set 2028 Medicare premiums for people starting Medicare in 2028 — Fred Lucha's suggestion after reading the IRMAA article. Fred reviews the draft before publication and gets the first copy.

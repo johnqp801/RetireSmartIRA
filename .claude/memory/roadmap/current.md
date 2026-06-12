@@ -1,12 +1,37 @@
 # Current Release Roadmap
 
-**Last updated:** 2026-06-05
+**Last updated:** 2026-06-11
 
 ---
 
-## IN SUBMISSION: V1.8.6 (build 51 — ready to Archive and submit)
+## IN REVIEW / PARTIAL LIVE: V1.8.7 (build 54 — submitted iOS + macOS 2026-06-11)
 
-**Status:** Code complete. `main` merged + pushed to origin at `2266943`. Pending Archive + upload in Xcode + App Store submission.
+**Status:** ✅ Both iOS and macOS approved and live (2026-06-12).
+
+**What's in 1.8.7:**
+- ACA FPL thresholds updated to 2025 HHS poverty guidelines ($15,650 single / $21,150 couple)
+- ACA applicable percentage figures corrected to Rev. Proc. 2025-25 (2.10%–9.96%)
+- IRA limits: base $7,500 / catch-up $1,100 (age 50+) per Notice 2025-67
+- 401k limits: base $24,500 / catch-up $8,000 (50-59) / super catch-up $11,250 (60-63)
+- CA exemption credit: $144 → $153/person (FTB)
+- IRMAA tiers 2-4 corrected to 2026 CMS values (Tier 4 Part B was most significant: $608.40 → $649.20)
+- 1,271 tests passing
+
+**Release notes (approved Option C):**
+> 1.8.7 — Updated 2026 Figures
+> • ACA subsidy thresholds and premium percentages updated for 2026
+> • IRA and 401(k) contribution limits updated for 2026
+> • Medicare IRMAA premium tiers updated for 2026
+
+**Draft:** `.claude/memory/drafts/release-notes/2026-06-11-1.8.7-release-notes.md`
+**Branch:** `fix/aca-2026-config` (merged to main)
+**Tag:** `v1.8.7-build54` ← create: `git tag -a v1.8.7-build54 -m "1.8.7 submitted review 2026-06-11" && git push origin v1.8.7-build54`
+
+---
+
+## SUPERSEDED: V1.8.6 (build 54 — both iOS and macOS live 2026-06-07)
+
+**Status:** ✅ LIVE on both platforms. Approved and available in the App Store.
 
 **What's in 1.8.6:**
 - SS taxability fix (IRS Pub 915 line-14 cap — modest SS with high other income was overstated)
@@ -23,11 +48,11 @@
 
 **Draft:** `.claude/memory/drafts/release-notes/2026-06-05-1.8.6-release-notes.md`
 **Branch:** `fix/stock-gain-avoided-double-count` (on origin; merged to main)
-**Tag to create after approval:** `v1.8.6-build51`
+**Tag:** `v1.8.6-build51` ← create this now: `git tag -a v1.8.6-build51 -m "1.8.6 live both platforms 2026-06-07" && git push origin v1.8.6-build51`
 
 ---
 
-## LIVE: V1.8.5 (iOS build 50 / macOS build 48 — both live)
+## SUPERSEDED: V1.8.5 (iOS build 50 / macOS build 48)
 
 **Status:**
 - **iOS 1.8.5 build 50 — ✅ LIVE 2026-05-29.**
