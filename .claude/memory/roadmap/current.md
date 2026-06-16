@@ -1,6 +1,6 @@
 # Current Release Roadmap
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-14
 
 ---
 
@@ -26,6 +26,17 @@
 **Draft:** `.claude/memory/drafts/release-notes/2026-06-11-1.8.7-release-notes.md`
 **Branch:** `fix/aca-2026-config` (merged to main)
 **Tag:** `v1.8.7-build54` ← create: `git tag -a v1.8.7-build54 -m "1.8.7 submitted review 2026-06-11" && git push origin v1.8.7-build54`
+
+---
+
+## PLANNED (NEXT): V1.8.8 — state-tax accuracy patch
+
+**Status:** Planned. This is the next release (an .8.x accuracy patch, not the 1.9 feature bundle). Build 55 already staged in pbxproj (`CURRENT_PROJECT_VERSION` bumped 54→55).
+
+**Committed scope:**
+- **NJ pension-exclusion AGI phaseout** (from Brian/Bob NJ feedback, 2026-06-14): model NJSA 54A:6-15 income-based phaseout. Currently NJ over-exempts in the $100K–$150K window (no phaseout, no $150K cliff) and single filers use the MFJ $100K cap instead of the correct $75K. Phase E's `.partialWithAGIPhaseout` doesn't fit cleanly — NJ's phaseout is *stepped* (50%/25% for MFJ; 37.5%/18.75% single), not linear, and needs per-filing-status caps ($75K single / $100K MFJ), so the engine case needs a small extension. Touches the `ExemptionLevel` enum → update `StateComparisonView.swift` switch statements (badge color + status text) for exhaustiveness. Add regression tests for the $100K/$125K/$150K boundaries (single + MFJ). Full detail + worked example: decision-log 2026-06-14.
+
+**Reminders before ship:** full test suite (1,271+) green incl. new NJ boundary tests; offer 2-3 neutral release-note wordings (per CLAUDE.md — no "honesty/bug-fix" framing).
 
 ---
 

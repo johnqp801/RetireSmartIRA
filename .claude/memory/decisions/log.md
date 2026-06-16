@@ -4,6 +4,33 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-14: NJ pension-exclusion AGI phaseout — tracked gap (Phase E follow-up)
+
+**Decision:** Track and fix the New Jersey pension/retirement-exclusion AGI phaseout, currently not modeled. Surfaced by user feedback (Brian relaying his friend Bob's NJ review, 2026-06-14).
+
+**The gap (engine *over*-exempts in the $100K–$150K window):** NJ is configured `pensionExemption/iraWithdrawalExemption: .partial(maxExempt: 100_000)` ([StateTaxData.swift:1538-1539](RetireSmartIRA/StateTaxData.swift:1538)) with no total-income gate. Real NJSA 54A:6-15 phases the exclusion out by **total NJ gross income**:
+
+| Total income | MFJ | Single |
+|---|---|---|
+| ≤ $100,000 | 100% | 100% |
+| $100,001–$125,000 | 50% | 37.5% |
+| $125,001–$150,000 | 25% | 18.75% |
+| > $150,000 | 0% (cliff) | 0% (cliff) |
+
+**Worked example (the one Bob may test):** $50K dividends + $100K pension = $150K total, MFJ. App exempts the full $100K pension → taxes only the $50K dividends (~$805). Real NJ: 25% tier → only $25K pension excluded → tax on ~$125K (~$4,100). App under-taxes by ~$3,300.
+
+**Two related NJ approximations also open (documented in code at [StateTaxData.swift:1530-1537](RetireSmartIRA/StateTaxData.swift:1530)):**
+- Single filers use the MFJ $100K cap instead of the correct $75K.
+- No $150K eligibility cliff (engine exempts even above $150K).
+
+**Implementation note:** Phase E already added `.partialWithAGIPhaseout(maxExempt, singleStart, singleEnd, mfjStart, mfjEnd)` (CT/RI). NJ does **not** fit cleanly: NJ's phaseout is **stepped** (50%/25%), not linear, AND uses **different caps per filing status** ($75K single / $100K MFJ). A linear ramp $100K→$150K matches at the $125K midpoint (50%) but under-exempts across the $125K–$150K band (linear→0% vs NJ's flat 25%), and the single-value `maxExempt` can't carry the $75K/$100K split. Needs either a stepped variant or per-filing-status caps on the case.
+
+**Rationale:** All three issues cause *under*-taxation (opposite of Bob's original over-tax complaint) but matter for accuracy; the engine API mostly exists, so this is a contained Phase E follow-up rather than new architecture.
+
+**Release target (decided 2026-06-14):** Next release is **1.8.8** (an .8.x state-tax accuracy patch), NOT the 1.9 feature bundle. NJ phaseout is committed scope for 1.8.8. See `roadmap/current.md`.
+
+---
+
 ## 2026-06-12: V1.8.7 iOS approved and live — both platforms on 1.8.7
 
 **Decision (status):** iOS 1.8.7 (build 54) cleared App Review and is live. Both iOS and macOS now on 1.8.7.
