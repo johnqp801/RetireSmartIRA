@@ -1407,16 +1407,25 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         return dm
     }
 
-    @Test("NJ breakdown shows pension exempt up to $100K")
+    @Test("NJ breakdown applies stepped AGI phaseout + $75K single cap (NJSA 54A:6-15)")
     func njPensionExemption() {
+        // Single filer, $80K pension + $30K RMD = $110K total NJ gross income.
+        // NJSA 54A:6-15 is a SINGLE COMBINED exclusion across ALL qualifying
+        // retirement income (pension + IRA/RMD), capped in AGGREGATE — NOT a
+        // separate cap per income type.
+        // $110K falls in the $100,001–$125,000 band → 37.5% retained (single).
+        // Combined eligible = $80K + $30K = $110K; per-status cap $75K (single):
+        //   excluded = min($110K, $75K) × 37.5% = $75K × 0.375 = $28,125
+        // Adjusted taxable = $110K − $28,125 = $81,875 → NJ single tax ≈ $3,089.19.
+        // Breakdown attributes the combined exclusion to pension first ($28,125),
+        // leaving the IRA/RMD share at $0 (display-only; total is what's taxed).
         let dm = makeDMWithRetirementIncome(pension: 80_000, rmd: 30_000, state: .newJersey)
         let bd = dm.stateTaxBreakdown(forState: .newJersey, filingStatus: .single)
-        // NJ exempts first $100K pension and first $100K IRA
-        #expect(isClose(bd.pensionExemptAmount, 80_000))  // all pension exempt (below $100K cap)
-        #expect(isClose(bd.iraExemptAmount, 30_000))       // all RMD exempt (below $100K cap)
-        #expect(bd.totalExempted > 0)
-        #expect(isClose(bd.adjustedTaxableIncome, 0))      // all income exempted
-        #expect(isClose(bd.totalStateTax, 0))
+        #expect(isClose(bd.pensionExemptAmount, 28_125))
+        #expect(isClose(bd.iraExemptAmount, 0))
+        #expect(isClose(bd.totalExempted, 28_125))
+        #expect(isClose(bd.adjustedTaxableIncome, 81_875))
+        #expect(abs(bd.totalStateTax - 3_089.19) < 2)
     }
 
     @Test("TX breakdown shows $0 tax with no-tax system")

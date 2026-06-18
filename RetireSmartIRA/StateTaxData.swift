@@ -227,6 +227,19 @@ struct RetirementIncomeExemptions {
         let level: ExemptionLevel
     }
 
+    /// A single income band in a stepped exclusion phaseout. The percentage of
+    /// the (capped) excludable income that survives is filing-status specific.
+    /// Bands are evaluated in order; `upperBound` is the inclusive top of the
+    /// band (use `.infinity` for the open-ended cliff band).
+    struct PhaseoutTier {
+        /// Inclusive upper bound of total gross income for this band.
+        let upperBound: Double
+        /// Fraction of the capped excludable income retained for MFJ filers.
+        let mfjPercent: Double
+        /// Fraction retained for single filers.
+        let singlePercent: Double
+    }
+
     enum ExemptionLevel {
         /// No exemption — fully taxed as ordinary income
         case none
@@ -234,6 +247,54 @@ struct RetirementIncomeExemptions {
         case full
         /// Partially exempt — first N dollars exempt
         case partial(maxExempt: Double)
+        /// Stepped exclusion phased out by TOTAL state gross income, with
+        /// per-filing-status caps applied to the excludable income BEFORE the
+        /// tier percentage. Models NJSA 54A:6-15 (NJ pension/retirement
+        /// exclusion): caps are $100K MFJ / $75K single, and the retained
+        /// percentage steps down by income band (not a linear ramp). The
+        /// `tiers` array is searched in order for the first band whose
+        /// `upperBound` is ≥ the total income.
+        case steppedPhaseoutByFilingStatus(
+            maxExemptSingle: Double,
+            maxExemptMFJ: Double,
+            tiers: [PhaseoutTier]
+        )
+
+        /// Compute the excluded (subtracted) amount for this level.
+        ///
+        /// - Parameters:
+        ///   - eligibleIncome: the pension / IRA-withdrawal income eligible for
+        ///     the exclusion.
+        ///   - totalGrossIncome: the total state gross income used as the
+        ///     phaseout gate (only consulted by the stepped phaseout case).
+        ///   - isMarried: true for MFJ (selects the MFJ cap + MFJ tier %).
+        ///   - perIndividualMultiplier: cap doubler for per-taxpayer states
+        ///     (NY/GA); applies to `.partial` only.
+        ///
+        /// Centralizing this keeps `TaxCalculationEngine.applyRetirementExemptions`
+        /// and the `DataManager` breakdown computation byte-identical (their
+        /// agreement is enforced by StateTaxBreakdownTests).
+        func excludedAmount(
+            eligibleIncome: Double,
+            totalGrossIncome: Double,
+            isMarried: Bool,
+            perIndividualMultiplier: Double = 1.0
+        ) -> Double {
+            switch self {
+            case .none:
+                return 0
+            case .full:
+                return eligibleIncome
+            case .partial(let maxExempt):
+                return min(eligibleIncome, maxExempt * perIndividualMultiplier)
+            case .steppedPhaseoutByFilingStatus(let maxExemptSingle, let maxExemptMFJ, let tiers):
+                let cap = isMarried ? maxExemptMFJ : maxExemptSingle
+                let capped = min(eligibleIncome, cap)
+                let tier = tiers.first { totalGrossIncome <= $0.upperBound } ?? tiers.last
+                let percent = tier.map { isMarried ? $0.mfjPercent : $0.singlePercent } ?? 0
+                return capped * percent
+            }
+        }
     }
 
     enum CapGainsTreatment {
@@ -354,6 +415,16 @@ struct StateTaxData {
 
     /// Shorthand alias for bracket creation
     private typealias B = TaxBracket
+
+    /// NJSA 54A:6-15 stepped pension/retirement exclusion phaseout tiers,
+    /// keyed by TOTAL NJ gross income. Bands are inclusive of their upper
+    /// bound; the final band is the open-ended ($150K+) zero-exclusion cliff.
+    static let njRetirementExclusionTiers: [RetirementIncomeExemptions.PhaseoutTier] = [
+        .init(upperBound: 100_000, mfjPercent: 1.0,  singlePercent: 1.0),
+        .init(upperBound: 125_000, mfjPercent: 0.50, singlePercent: 0.375),
+        .init(upperBound: 150_000, mfjPercent: 0.25, singlePercent: 0.1875),
+        .init(upperBound: .infinity, mfjPercent: 0.0, singlePercent: 0.0)
+    ]
 
     // MARK: No-Income-Tax States (9)
 
@@ -1523,21 +1594,36 @@ struct StateTaxData {
                 //   MFJ:    up to $100,000
                 //   Single: up to  $75,000
                 //   MFS:    up to  $50,000
-                // AGI phaseout (TY2021+): full exclusion below $100K AGI;
-                // reduced 50%/37.5%/25% in $100K–$125K tier; reduced
-                // 25%/18.75%/12.5% in $125K–$150K tier; zero above $150K.
+                // AGI phaseout (TY2021+), stepped by TOTAL NJ gross income:
+                //   ≤ $100,000          → 100% / 100%  (MFJ / single)
+                //   $100,001–$125,000   →  50% / 37.5%
+                //   $125,001–$150,000   →  25% / 18.75%
+                //   > $150,000          →   0% / 0%  (cliff)
+                // The per-filing-status cap ($100K MFJ / $75K single) is
+                // applied to the excludable pension/IRA income BEFORE the
+                // tier percentage.
                 //
-                // Current encoding uses the MFJ cap. Two known
-                // approximations remain (filed as TODOs for follow-up):
-                //   - Single filers currently get the MFJ $100K cap rather
-                //     than the correct $75K. Affects only single retirees
-                //     with $75K-$100K of pension/IRA income.
-                //   - AGI-based phaseout is not modeled. Affects retirees
-                //     with total income $100K-$150K. Engine over-exempts
-                //     in that window.
-                pensionExemption: .partial(maxExempt: 100_000),
-                iraWithdrawalExemption: .partial(maxExempt: 100_000),
+                // NJSA 54A:6-15 grants ONE COMBINED exclusion across ALL
+                // qualifying retirement income (pension + annuity + IRA
+                // withdrawals) — the cap is an AGGREGATE, not per income type.
+                // `pensionAndIRAShareSingleCap: true` makes the engine combine
+                // pension + IRA income, apply the per-filing-status cap to the
+                // total, then apply the stepped tier percentage based on total
+                // gross income. Without the flag the cap would be applied to
+                // pension and IRA separately, over-excluding for filers with
+                // both income types.
+                pensionExemption: .steppedPhaseoutByFilingStatus(
+                    maxExemptSingle: 75_000,
+                    maxExemptMFJ: 100_000,
+                    tiers: njRetirementExclusionTiers
+                ),
+                iraWithdrawalExemption: .steppedPhaseoutByFilingStatus(
+                    maxExemptSingle: 75_000,
+                    maxExemptMFJ: 100_000,
+                    tiers: njRetirementExclusionTiers
+                ),
                 regularExemptionMinAge: 62,
+                pensionAndIRAShareSingleCap: true,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none,

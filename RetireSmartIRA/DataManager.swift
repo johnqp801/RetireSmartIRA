@@ -644,6 +644,7 @@ class DataManager {
             income: income,
             config: config,
             state: selectedState,
+            filingStatus: filingStatus,
             taxableSocialSecurity: taxableSocialSecurity,
             incomeSources: incomeSources,
             primaryAge: currentAge,
@@ -768,31 +769,36 @@ class DataManager {
         let pensionExemptAmt: Double
         let iraExemptAmt: Double
 
+        // The stepped phaseout (NJ) gates on TOTAL state gross income (`income`,
+        // pre-exemption). Mirror of TaxCalculationEngine.applyRetirementExemptions.
+        let isMarried = filingStatus == .marriedFilingJointly
         if exemptions.pensionAndIRAShareSingleCap {
             // Shared cap (CO): pension + IRA share one annual subtraction.
             let combinedIncome = pensionIncome + iraIncome
-            let combinedExempt: Double
-            switch effectivePensionExemption {
-            case .full: combinedExempt = combinedIncome
-            case .partial(let maxExempt): combinedExempt = min(combinedIncome, maxExempt * perIndividualMultiplier)
-            case .none: combinedExempt = 0
-            }
+            let combinedExempt = effectivePensionExemption.excludedAmount(
+                eligibleIncome: combinedIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
             // Attribute the combined exemption to pension first, then IRA
             // (purely for display purposes — the totalExempted is what matters
             // for the tax calculation).
             pensionExemptAmt = min(pensionIncome, combinedExempt)
             iraExemptAmt = combinedExempt - pensionExemptAmt
         } else {
-            switch effectivePensionExemption {
-            case .full: pensionExemptAmt = pensionIncome
-            case .partial(let maxExempt): pensionExemptAmt = min(pensionIncome, maxExempt * perIndividualMultiplier)
-            case .none: pensionExemptAmt = 0
-            }
-            switch effectiveIRAExemption {
-            case .full: iraExemptAmt = iraIncome
-            case .partial(let maxExempt): iraExemptAmt = min(iraIncome, maxExempt * perIndividualMultiplier)
-            case .none: iraExemptAmt = 0
-            }
+            pensionExemptAmt = effectivePensionExemption.excludedAmount(
+                eligibleIncome: pensionIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
+            iraExemptAmt = effectiveIRAExemption.excludedAmount(
+                eligibleIncome: iraIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
         }
 
         // Military Retirement: per-source state exemption (Task 6.3).

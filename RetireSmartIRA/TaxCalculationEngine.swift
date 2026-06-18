@@ -357,6 +357,7 @@ struct TaxCalculationEngine {
             income: income,
             config: config,
             state: state,
+            filingStatus: filingStatus,
             taxableSocialSecurity: taxableSocialSecurity,
             incomeSources: incomeSources,
             primaryAge: currentAge,
@@ -423,6 +424,7 @@ struct TaxCalculationEngine {
         income: Double,
         config: StateTaxConfig,
         state: USState,
+        filingStatus: FilingStatus = .single,
         taxableSocialSecurity: Double,
         incomeSources: [IncomeSource],
         primaryAge: Int,
@@ -534,33 +536,31 @@ struct TaxCalculationEngine {
             // pension and IRA fields should be set to the same value when
             // this flag is true; we ignore the IRA-side level here to avoid
             // double-counting).
+            // The stepped phaseout (NJ) gates on TOTAL state gross income —
+            // the original `income` argument, before SS/exemption subtraction.
+            let isMarried = filingStatus == .marriedFilingJointly
             let combinedIncome = pensionIncome + iraIncome
-            switch effectivePensionExemption {
-            case .full:
-                adjusted -= combinedIncome
-            case .partial(let maxExempt):
-                adjusted -= min(combinedIncome, maxExempt * perIndividualMultiplier)
-            case .none:
-                break
-            }
+            adjusted -= effectivePensionExemption.excludedAmount(
+                eligibleIncome: combinedIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
         } else {
             // Standard per-type application: each type's cap applied independently.
-            switch effectivePensionExemption {
-            case .full:
-                adjusted -= pensionIncome
-            case .partial(let maxExempt):
-                adjusted -= min(pensionIncome, maxExempt * perIndividualMultiplier)
-            case .none:
-                break
-            }
-            switch effectiveIRAExemption {
-            case .full:
-                adjusted -= iraIncome
-            case .partial(let maxExempt):
-                adjusted -= min(iraIncome, maxExempt * perIndividualMultiplier)
-            case .none:
-                break
-            }
+            let isMarried = filingStatus == .marriedFilingJointly
+            adjusted -= effectivePensionExemption.excludedAmount(
+                eligibleIncome: pensionIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
+            adjusted -= effectiveIRAExemption.excludedAmount(
+                eligibleIncome: iraIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
         }
 
         // Military Retirement: per-state exemption applied per-source using the
