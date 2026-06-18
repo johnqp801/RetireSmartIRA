@@ -92,11 +92,20 @@ struct LegacyPlanningEngine {
     // MARK: - Spouse-then-Child Chain Projections
 
     /// Projects Traditional IRA through three phases: owner's life → spouse rollover → child's 10-year drawdown.
-    static func projectTraditionalSpouseThenChild(startingBalance: Double, params: ProjectionParams) -> Double {
-        guard startingBalance > 0 else { return 0 }
+    ///
+    /// When `balanceAtOwnerDeathOverride` is supplied (drawdown active, decision (b)),
+    /// Phase 1 is skipped and that drawn-down balance seeds the spouse rollover phase,
+    /// instead of re-compounding the starting balance grow-only.
+    static func projectTraditionalSpouseThenChild(
+        startingBalance: Double,
+        params: ProjectionParams,
+        balanceAtOwnerDeathOverride: Double? = nil
+    ) -> Double {
+        guard startingBalance > 0 || balanceAtOwnerDeathOverride != nil else { return 0 }
 
-        // Phase 1: Owner's lifetime
-        let balanceAtOwnerDeath = projectTraditionalToInheritance(startingBalance: startingBalance, params: params)
+        // Phase 1: Owner's lifetime (or the supplied drawn-down balance at death)
+        let balanceAtOwnerDeath = balanceAtOwnerDeathOverride
+            ?? projectTraditionalToInheritance(startingBalance: startingBalance, params: params)
 
         // Phase 2: Spouse rollover period — spouse takes RMDs based on their age
         var balance = balanceAtOwnerDeath

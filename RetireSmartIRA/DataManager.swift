@@ -3163,6 +3163,10 @@ class DataManager {
         let rmdAge: Int
         let taxPaid: Double
         let spouseSurvivorYears: Int
+        let drawdownMode: String
+        let drawdownRatePercent: Double
+        let drawdownSpendingTarget: Double
+        let drawdownInflationPercent: Double
     }
 
     /// Cached results of expensive legacy calculations.
@@ -3186,7 +3190,11 @@ class DataManager {
             currentAge: currentAge,
             rmdAge: rmdAge,
             taxPaid: legacyConversionTaxPaidToday,
-            spouseSurvivorYears: legacySpouseSurvivorYears
+            spouseSurvivorYears: legacySpouseSurvivorYears,
+            drawdownMode: drawdownMode.rawValue,
+            drawdownRatePercent: drawdownRatePercent,
+            drawdownSpendingTarget: drawdownSpendingTarget,
+            drawdownInflationPercent: drawdownInflationPercent
         )
     }
 
@@ -3251,19 +3259,45 @@ class DataManager {
         LegacyPlanningEngine.projectHeirDrawdownTotal(startingBalance: startingBalance, params: legacyProjectionParams)
     }
 
-    private func projectTraditionalSpouseThenChild(startingBalance: Double) -> Double {
-        LegacyPlanningEngine.projectTraditionalSpouseThenChild(startingBalance: startingBalance, params: legacyProjectionParams)
+    private func projectTraditionalSpouseThenChild(startingBalance: Double, balanceAtOwnerDeathOverride: Double? = nil) -> Double {
+        LegacyPlanningEngine.projectTraditionalSpouseThenChild(
+            startingBalance: startingBalance,
+            params: legacyProjectionParams,
+            balanceAtOwnerDeathOverride: balanceAtOwnerDeathOverride)
     }
 
     private func projectRothSpouseThenChild(startingBalance: Double) -> Double {
         LegacyPlanningEngine.projectRothSpouseThenChild(startingBalance: startingBalance, params: legacyProjectionParams)
     }
 
+    // MARK: - Drawdown → Legacy bridge (decision (b))
+
+    /// Drawn-down Traditional/401(k) household balance at the owner's projected death year,
+    /// or nil when the drawdown feature is inactive (no voluntary withdrawals) — in which
+    /// case Legacy must use its original grow-only balance. "Active" means the projection
+    /// takes a non-zero *voluntary* (planned) withdrawal over the projection-to-death
+    /// horizon; RMD-forced-only withdrawals do NOT count, so when the user has left
+    /// spending target 0 / rate 0 the Legacy path stays byte-for-byte identical to its
+    /// pre-drawdown behavior. Runs the projection exactly once per access.
+    private var drawdownTraditionalAtOwnerDeath: Double? {
+        guard legacyYearsUntilDeath > 0, totalTraditionalIRABalance > 0 else { return nil }
+        let projection = drawdownProjection(horizonYears: legacyYearsUntilDeath)
+        let plannedTotal = projection.years.reduce(0.0) { $0 + $1.plannedPortion }
+        guard plannedTotal > 0, let last = projection.years.last else { return nil }
+        return max(0, last.householdBalanceEnd)
+    }
+
     // MARK: - "Do Nothing" Scenario (no conversions, no QCDs)
 
     /// Traditional IRA balance at death WITHOUT any scenario actions.
+    /// When the drawdown feature is active, this reflects the drawn-down
+    /// household balance at the owner's death year instead of the grow-only
+    /// projection (decision (b)).
     var legacyNoActionTraditionalAtDeath: Double {
-        projectTraditionalToInheritance(startingBalance: totalTraditionalIRABalance)
+        if let drawnDown = drawdownTraditionalAtOwnerDeath {
+            return drawnDown
+        }
+        return projectTraditionalToInheritance(startingBalance: totalTraditionalIRABalance)
     }
 
     /// Roth IRA balance at death WITHOUT any scenario actions.
@@ -3274,7 +3308,9 @@ class DataManager {
     /// Heir's total taxable drawdown from Traditional IRA WITHOUT scenario (includes growth during drawdown).
     var legacyNoActionHeirTaxableDrawdown: Double {
         if legacyHeirType == "spouseThenChild" {
-            return projectTraditionalSpouseThenChild(startingBalance: totalTraditionalIRABalance)
+            return projectTraditionalSpouseThenChild(
+                startingBalance: totalTraditionalIRABalance,
+                balanceAtOwnerDeathOverride: drawdownTraditionalAtOwnerDeath)
         }
         return projectHeirDrawdownTotal(startingBalance: legacyNoActionTraditionalAtDeath)
     }
@@ -3288,8 +3324,17 @@ class DataManager {
     // MARK: - "With Scenario" Projections
 
     /// Traditional IRA balance at death WITH scenario actions (conversions + QCDs reduce starting balance).
+    /// When drawdown is active, the drawn-down death balance is scaled by the same
+    /// proportional reduction the scenario applies to the starting balance, so the
+    /// conversion/QCD effect is preserved on top of the drawdown (decision (b)).
     var legacyWithScenarioTraditionalAtDeath: Double {
-        projectTraditionalToInheritance(startingBalance: legacyTraditionalAtInheritance)
+        if let drawnDown = drawdownTraditionalAtOwnerDeath {
+            let total = totalTraditionalIRABalance
+            guard total > 0 else { return 0 }
+            let scenarioFraction = legacyTraditionalAtInheritance / total
+            return max(0, drawnDown * scenarioFraction)
+        }
+        return projectTraditionalToInheritance(startingBalance: legacyTraditionalAtInheritance)
     }
 
     /// Roth IRA balance at death WITH scenario (original Roth + converted amount, all compounding tax-free).
@@ -3300,7 +3345,16 @@ class DataManager {
     /// Heir's total taxable drawdown from Traditional IRA WITH scenario.
     var legacyWithScenarioHeirTaxableDrawdown: Double {
         if legacyHeirType == "spouseThenChild" {
-            return projectTraditionalSpouseThenChild(startingBalance: legacyTraditionalAtInheritance)
+            // Scale the drawn-down death balance by the scenario's proportional
+            // reduction (conversions/QCDs), mirroring legacyWithScenarioTraditionalAtDeath.
+            let scenarioOverride: Double? = drawdownTraditionalAtOwnerDeath.map { drawnDown in
+                let total = totalTraditionalIRABalance
+                guard total > 0 else { return 0 }
+                return max(0, drawnDown * (legacyTraditionalAtInheritance / total))
+            }
+            return projectTraditionalSpouseThenChild(
+                startingBalance: legacyTraditionalAtInheritance,
+                balanceAtOwnerDeathOverride: scenarioOverride)
         }
         return projectHeirDrawdownTotal(startingBalance: legacyWithScenarioTraditionalAtDeath)
     }
