@@ -14,6 +14,7 @@ struct RMDCalculatorView: View {
     @State private var projectionYears = 10
     @State private var showGuide: Bool = false
     @State private var showAboutRMDs: Bool = false
+    @State private var showTodaysDollars = false
 
     @Environment(\.availableWidth) private var availableWidth
     private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
@@ -45,6 +46,7 @@ struct RMDCalculatorView: View {
                 rmdProjectionChart
                 projectionsSection
                 inheritedIRAProjectionsSection
+                retirementDrawdownSection
                 aboutRMDs
             }
             .padding()
@@ -70,6 +72,7 @@ struct RMDCalculatorView: View {
                     rmdProjectionChart
                     projectionsSection
                     inheritedIRAProjectionsSection
+                    retirementDrawdownSection
                     aboutRMDs
                 }
                 .padding()
@@ -1033,9 +1036,11 @@ struct RMDCalculatorView: View {
                     Text("10 years").tag(10)
                     Text("15 years").tag(15)
                     Text("20 years").tag(20)
+                    Text("30 years").tag(30)
+                    Text("40 years").tag(40)
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 280)
+                .frame(width: 360)
             }
 
             // Nudge notice: inherited NEDB deadlines outside the picker window
@@ -1440,6 +1445,246 @@ struct RMDCalculatorView: View {
             .background(Color(PlatformColor.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        }
+    }
+
+    // MARK: - Retirement Drawdown (V1.9 Tasks 9 + 10)
+
+    /// Deflates a nominal value to today's dollars when the toggle is on.
+    private func drawdownDisplayValue(_ nominal: Double, yearOffset: Int) -> Double {
+        guard showTodaysDollars else { return nominal }
+        return nominal * pow(1 + dataManager.drawdownInflationPercent / 100.0, -Double(yearOffset))
+    }
+
+    /// Owner RMD-start and SS-start calendar-year markers within the current horizon.
+    private var drawdownMarkers: [(year: Int, label: String)] {
+        var markers: [(year: Int, label: String)] = []
+        let lastYear = dataManager.currentYear + projectionYears - 1
+
+        func addMarker(startAge: Int, currentAge: Int, year: Int, label: String) {
+            guard startAge > currentAge else { return } // already started — no marker
+            guard year >= dataManager.currentYear && year <= lastYear else { return }
+            markers.append((year: year, label: label))
+        }
+
+        // RMD-start markers
+        addMarker(startAge: dataManager.rmdAge,
+                  currentAge: dataManager.currentAge,
+                  year: dataManager.currentYear + (dataManager.rmdAge - dataManager.currentAge),
+                  label: "RMDs begin")
+        if dataManager.enableSpouse {
+            let spLabel = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
+            addMarker(startAge: dataManager.spouseRmdAge,
+                      currentAge: dataManager.spouseCurrentAge,
+                      year: dataManager.currentYear + (dataManager.spouseRmdAge - dataManager.spouseCurrentAge),
+                      label: "\(spLabel) RMDs")
+        }
+
+        // SS-start markers (from the SS planner's planned claiming age)
+        if let primaryClaim = dataManager.primarySSBenefit?.plannedClaimingAge {
+            addMarker(startAge: primaryClaim,
+                      currentAge: dataManager.currentAge,
+                      year: dataManager.currentYear + (primaryClaim - dataManager.currentAge),
+                      label: "SS begins")
+        }
+        if dataManager.enableSpouse, let spouseClaim = dataManager.spouseSSBenefit?.plannedClaimingAge {
+            let spLabel = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
+            addMarker(startAge: spouseClaim,
+                      currentAge: dataManager.spouseCurrentAge,
+                      year: dataManager.currentYear + (spouseClaim - dataManager.spouseCurrentAge),
+                      label: "\(spLabel) SS")
+        }
+
+        return markers
+    }
+
+    private var hasDrawdownData: Bool {
+        dataManager.primaryTraditionalIRABalance > 0
+        || (dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0)
+    }
+
+    @ViewBuilder
+    private var retirementDrawdownSection: some View {
+        @Bindable var dataManager = dataManager
+        if hasDrawdownData {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Retirement Drawdown")
+                    .font(.headline)
+
+                Text("Models how your IRA/401(k) balance is spent down over the \(projectionYears)-year horizon, after guaranteed income (Social Security and pensions). Uses the horizon selector above.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                // Inputs card
+                VStack(alignment: .leading, spacing: 16) {
+                    // Mode picker
+                    Picker("Drawdown mode", selection: $dataManager.drawdownMode) {
+                        ForEach(DrawdownMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    // Conditional input by mode
+                    if dataManager.drawdownMode == .spendingGap {
+                        HStack {
+                            Text("Target annual spending")
+                                .font(.subheadline)
+                            Spacer()
+                            CurrencyField(
+                                value: $dataManager.drawdownSpendingTarget,
+                                range: 0...1_000_000,
+                                color: Color.UI.textPrimary
+                            )
+                        }
+                        Text("Household spending goal in today's dollars. We withdraw only the gap not covered by guaranteed income.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        HStack {
+                            Text("Withdrawal rate")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("\(dataManager.drawdownRatePercent, specifier: "%.1f")%")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .frame(width: 50, alignment: .trailing)
+                        }
+                        Slider(value: $dataManager.drawdownRatePercent, in: 2...8, step: 0.1)
+                            .tint(Color.UI.brandTeal)
+                        Text("Annual withdrawal as a percent of the starting balance each year.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    // Inflation rate
+                    HStack {
+                        Text("Inflation rate")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(dataManager.drawdownInflationPercent, specifier: "%.1f")%")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .frame(width: 50, alignment: .trailing)
+                    }
+                    Slider(value: $dataManager.drawdownInflationPercent, in: 0...6, step: 0.1)
+                        .tint(Color.Chart.callout)
+
+                    Toggle("Show in today's dollars", isOn: $showTodaysDollars)
+                        .font(.subheadline)
+                }
+                .padding()
+                .background(Color(PlatformColor.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                drawdownChart
+            }
+            .padding()
+            .background(Color(PlatformColor.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+            .onChange(of: dataManager.drawdownMode) { dataManager.saveAllData() }
+            .onChange(of: dataManager.drawdownSpendingTarget) { dataManager.saveAllData() }
+            .onChange(of: dataManager.drawdownRatePercent) { dataManager.saveAllData() }
+            .onChange(of: dataManager.drawdownInflationPercent) { dataManager.saveAllData() }
+        }
+    }
+
+    @ViewBuilder
+    private var drawdownChart: some View {
+        let years = dataManager.drawdownProjection(horizonYears: projectionYears).years
+        if years.isEmpty {
+            Text("Add Traditional IRA/401(k) accounts to see a drawdown projection.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 16)
+        } else {
+            // Legend
+            HStack(spacing: 16) {
+                HStack(spacing: 6) {
+                    Circle().fill(Color.Chart.heroTeal).frame(width: 8, height: 8)
+                    Text("Year-end balance")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 6) {
+                    Circle().fill(Color.Chart.callout).frame(width: 8, height: 8)
+                    Text("Annual withdrawal")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            Chart {
+                ForEach(years, id: \.calendarYear) { year in
+                    AreaMark(
+                        x: .value("Year", year.calendarYear),
+                        y: .value("Withdrawal", drawdownDisplayValue(year.householdWithdrawal, yearOffset: year.yearOffset))
+                    )
+                    .foregroundStyle(Color.Chart.callout.opacity(0.18))
+                    .interpolationMethod(.monotone)
+
+                    LineMark(
+                        x: .value("Year", year.calendarYear),
+                        y: .value("Withdrawal", drawdownDisplayValue(year.householdWithdrawal, yearOffset: year.yearOffset)),
+                        series: .value("Series", "Withdrawal")
+                    )
+                    .foregroundStyle(Color.Chart.callout)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4]))
+                    .interpolationMethod(.monotone)
+
+                    LineMark(
+                        x: .value("Year", year.calendarYear),
+                        y: .value("Balance", drawdownDisplayValue(year.householdBalanceEnd, yearOffset: year.yearOffset)),
+                        series: .value("Series", "Balance")
+                    )
+                    .foregroundStyle(Color.Chart.heroTeal)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .interpolationMethod(.monotone)
+                }
+
+                ForEach(Array(drawdownMarkers.enumerated()), id: \.offset) { _, marker in
+                    RuleMark(x: .value("Year", marker.year))
+                        .foregroundStyle(Color.Chart.gray3)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
+                        .annotation(position: .top, alignment: .center) {
+                            Text(marker.label)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisValueLabel {
+                        if let amount = value.as(Double.self) {
+                            Text(chartYAxisLabel(amount))
+                                .font(.caption2)
+                        }
+                    }
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                }
+            }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let yr = value.as(Int.self) {
+                            Text("'\(String(yr).suffix(2))").font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 240)
+
+            Text(showTodaysDollars
+                 ? "Values shown in today's dollars (deflated at \(String(format: "%.1f", dataManager.drawdownInflationPercent))% per year). Balance is the year-end IRA/401(k) total; withdrawal is the household amount taken that year."
+                 : "Nominal future dollars. Balance is the year-end IRA/401(k) total; withdrawal is the household amount taken that year.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 
