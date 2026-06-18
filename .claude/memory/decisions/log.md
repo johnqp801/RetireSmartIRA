@@ -4,6 +4,34 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-18: 2.0 branch audit + product principle (single-year Scenarios/Tax Summary stay core; multi-year gets its own home)
+
+**Audit finding (verified on `2.0/v2.0.1-path-3-polish`, the furthest 2.0 branch):** the multi-year Roth-optimization engine and Plan-B year-by-year UI are **substantially built and tested** (~27,500 lines; `MultiYearTaxStrategyEngine`, `OptimizationEngine` + DP spike, `ProjectionEngine`, `MultiYearStrategyManager`, full `Year*` UI suite; 43 new test files, ~163+ engine test cases). **But all three 2.0 branches are ~190 commits behind main** (branched ~2026-05-02, before the 1.8.x healthcare bundle, the ACA/Medicare engines that landed May 9–17, the SS-taxability + stock-gain fixes, the 26-state tax refresh, the 2026 config corrections). The engine was built against an **old tax engine**.
+
+**Therefore the dominant cost of 2.0 is reconciliation, not greenfield:** forward-porting the 27k-line engine onto current main, whose 190 commits changed the exact tax-engine surfaces the multi-year engine consumes. Not built at all: plan history / year snapshots (only an `AccountSnapshot` stub), HSA full-account modeling, and the entire 2.1 decumulation set (brokerage, withdrawal-order). Revised shape of "2.0" = **expensive merge + finish plan-history + HSA + (2.1) decumulation**, not the old "3-4 weeks" estimate.
+
+**Product principle (decision):** the existing **single-year "Scenarios" and "Tax Summary" tabs are core to the product and must NOT be replaced or removed by 2.0/2.1.** The multi-year tax + Roth-conversion planning capabilities are **additive** and need their own home — **possibly a brand-new tab** (e.g., "Multi-Year Plan") — sitting alongside the single-year tools, not on top of them. When the 2.0 reconciliation happens, verify the Plan-B UI augments rather than supplants Scenarios/Tax Summary.
+
+**Implication for V1.9:** the small per-year income projector for V1.9's Medium IRMAA overlay overlaps conceptually with the stranded 2.0 `ProjectionEngine`. Build V1.9's projector **standalone and tiny on current main** — do NOT build V1.9 atop the 2.0 engine, which would drag the 190-commit reconciliation into a small feature. Reconciling 2.0 is a separate, deliberately-scheduled project; V1.9 does not depend on it.
+
+**Rationale:** evidence over assumption (the audit corrected the "3-4 weeks" estimate the same way the healthcare-bundle audit corrected "1.9 is unbuilt"); and the single-year workflow is what users like Tim already value, so multi-year must extend the product, not replace its foundation.
+
+---
+
+## 2026-06-18: V1.9 = NJ phaseout + contained drawdown (1.8.8 folded in; "1.9" label reassigned)
+
+**Decision:** No standalone 1.8.8. The next App Store release is **V1.9**, combining (a) the NJ pension-exclusion AGI phaseout (former 1.8.8 scope) and (b) a new **contained pre-RMD drawdown projection** feature. One submission, one Apple review (the reason for folding: avoid two back-to-back reviews).
+
+**"1.9" label reassigned.** Audit 2026-06-18 confirmed the original "1.9 features bundle" (ACA subsidy, Medicare plan-type, contribution levers, Reduce-AGI dashboard, ScenarioWarningEngine, AGI strong types) **never shipped as 1.9** — it landed incrementally inside 1.8.2–1.8.7 and is live now (wired in DashboardView; ~80 Swift Testing cases across ACASubsidyEngineTests/MedicareCostEngineTests/ScenarioWarningEngineTests/ContributionLeverTests/StateTaxHSATests/AGITypesTests; config keys `acaSubsidy2026`/`medicare2026`/`contributionLimits*` in tax-2026.json). Minor spec deltas only: the two-panel cost-spike chart was simplified (reuses existing acaSubsidyChart + irmaaTierChart), and the marginal-sensitivity "+Medicare/ACA effects" second figure was dropped. Since no 1.9 ever reached users, the version slot is free and is assigned to the drawdown feature. The old spec [docs/superpowers/specs/2026-05-01-1.9-features-bundle-design.md] is now historical (header note added).
+
+**Contained drawdown scope (V1.9):** planned annual withdrawal / target-spending input for pre-RMD years; balance drawn down year by year at the growth rate; after RMD age take `max(planned, RMD)`; balance-over-time graph; 40-year horizon; single inflation input; pro-rata household split. Lives in the **RMD Calculator tab, display-only**. Does NOT touch Scenarios or Tax Summary (verified: `growthRate`/`projectBalance` not consumed there; those tabs use current-year `calculatePrimaryRMD()`). Legacy planning is the only adjacent system sharing the projection machinery — decide whether drawdowns propagate there. Open seam: optionally show projected IRMAA/ACA exposure per year by reusing the already-shipped `MedicareCostEngine`/`ACASubsidyEngine`. Traditional-focused; multi-bucket (brokerage/Roth) sequencing stays 2.0/2.1.
+
+**2.0 (target unchanged, now informed by Tim Lucas 2026-06-18 email):** full decumulation engine — multi-bucket pro-rata vs sequential drawdown, withdrawal-order optimization, Roth-conversion optimizer, plan history (per docs/2.0-scope.md), budget-gap drawdown net of guaranteed income, inflation-indexed thresholds, and a **selectable objective** (Tim is explicitly NOT optimizing for max longevity value). Competitive benchmark: RetIQ (native iOS, on-device, $69.99, already ships tax-aware drawdown + 5 buckets).
+
+**Rationale:** drawdown is a real feature deserving a minor bump and a marketable moment (1.9 can finally market the quietly-shipped healthcare bundle too); folding NJ avoids a second review; the big decumulation engine stays 2.0.
+
+---
+
 ## 2026-06-14: NJ pension-exclusion AGI phaseout — tracked gap (Phase E follow-up)
 
 **Decision:** Track and fix the New Jersey pension/retirement-exclusion AGI phaseout, currently not modeled. Surfaced by user feedback (Brian relaying his friend Bob's NJ review, 2026-06-14).
