@@ -189,6 +189,85 @@ class DataManager {
     }
     var taxableAccountGrowthRate: Double { growthRates.taxableAccountGrowthRate }
 
+    // Drawdown projection settings (forwarding to GrowthRatesManager) — V1.9 Task 8
+    var drawdownMode: DrawdownMode {
+        get { growthRates.drawdownMode }
+        set { growthRates.drawdownMode = newValue }
+    }
+    var drawdownSpendingTarget: Double {
+        get { growthRates.drawdownSpendingTarget }
+        set { growthRates.drawdownSpendingTarget = newValue }
+    }
+    var drawdownRatePercent: Double {
+        get { growthRates.drawdownRatePercent }
+        set { growthRates.drawdownRatePercent = newValue }
+    }
+    var drawdownInflationPercent: Double {
+        get { growthRates.drawdownInflationPercent }
+        set { growthRates.drawdownInflationPercent = newValue }
+    }
+
+    /// Assembles owner states + the guaranteed-income schedule from live app data and
+    /// runs the drawdown projection. Horizon is supplied by the view's picker (Task 9/10)
+    /// and capped at 40 years. Per-owner starting balance is the Traditional IRA + 401(k)
+    /// aggregate for that owner (AccountsManager already folds .traditional401k into the
+    /// per-owner Traditional balances). Pension is treated as active from projection start
+    /// (V1.9 limitation). Spouse owner/SS is included only when enableSpouse is true.
+    func drawdownProjection(horizonYears: Int) -> DrawdownProjection {
+        let horizon = max(0, min(horizonYears, 40))
+
+        var owners: [OwnerState] = [
+            OwnerState(currentAge: currentAge,
+                       rmdAge: rmdAge,
+                       growthRatePercent: primaryGrowthRate,
+                       startingBalance: primaryTraditionalIRABalance)
+        ]
+        if enableSpouse {
+            owners.append(OwnerState(currentAge: spouseCurrentAge,
+                                     rmdAge: spouseRmdAge,
+                                     growthRatePercent: spouseGrowthRate,
+                                     startingBalance: spouseTraditionalIRABalance))
+        }
+
+        let primaryClaimAge = primarySSBenefit?.plannedClaimingAge ?? 67
+        let primaryAnnualSS = primarySSBenefit?.plannedAnnualBenefit(birthYear: birthYear) ?? 0
+        let spouseClaimAge = enableSpouse ? (spouseSSBenefit?.plannedClaimingAge ?? 67) : nil
+        let spouseAnnualSS = enableSpouse
+            ? (spouseSSBenefit?.plannedAnnualBenefit(birthYear: spouseBirthYear) ?? 0)
+            : 0
+
+        let annualPension = incomeSources
+            .filter { $0.type == .pension }
+            .reduce(0) { $0 + $1.annualAmount }
+
+        let guaranteed = GuaranteedIncomeAdapter.schedule(
+            primaryCurrentAge: currentAge,
+            primarySSClaimAge: primaryClaimAge,
+            primaryAnnualSS: primaryAnnualSS,
+            spouseCurrentAge: enableSpouse ? spouseCurrentAge : nil,
+            spouseSSClaimAge: spouseClaimAge,
+            spouseAnnualSS: spouseAnnualSS,
+            annualPensionFromStart: annualPension,
+            inflationRatePercent: drawdownInflationPercent,
+            horizonYears: horizon
+        )
+
+        let inputs = DrawdownInputs(
+            mode: drawdownMode,
+            annualSpendingTarget: drawdownSpendingTarget,
+            withdrawalRatePercent: drawdownRatePercent,
+            inflationRatePercent: drawdownInflationPercent,
+            horizonYears: horizon
+        )
+
+        return DrawdownProjectionEngine.project(
+            inputs: inputs,
+            owners: owners,
+            guaranteed: guaranteed,
+            startCalendarYear: currentYear
+        )
+    }
+
     // Legacy Planning (forwarding to LegacyPlanningManager)
     var enableLegacyPlanning: Bool {
         get { legacy.enableLegacyPlanning }
