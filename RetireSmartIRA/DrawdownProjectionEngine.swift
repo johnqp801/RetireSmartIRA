@@ -115,4 +115,10 @@ enum DrawdownProjectionEngine {
         }
         return DrawdownProjection(years: rows)
     }
+
+    /// Inflates a nominal IRMAA tier-1 MAGI threshold forward to a given year offset.
+    /// `inflationPercent` is a whole number (10 == 10%). Pure, view-agnostic.
+    static func inflatedIrmaaTier1(threshold: Double, inflationPercent: Double, yearOffset: Int) -> Double {
+        threshold * pow(1 + inflationPercent / 100, Double(yearOffset))
+    }
 }

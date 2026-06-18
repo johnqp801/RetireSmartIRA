@@ -80,4 +80,9 @@ struct DrawdownProjectionEngineTests {
         #expect(abs(p.years[0].householdWithdrawal - 100_000) < 0.01)   // year 0: no inflation
         #expect(abs(p.years[1].householdWithdrawal - 110_000) < 0.01)   // year 1: 100k * 1.10 (float)
     }
+
+    @Test("IRMAA tier-1 threshold inflates by year offset")
+    func irmaaTier1ThresholdInflates() {
+        #expect(abs(DrawdownProjectionEngine.inflatedIrmaaTier1(threshold: 218_000, inflationPercent: 10, yearOffset: 1) - 239_800) < 0.01)
+    }
 }

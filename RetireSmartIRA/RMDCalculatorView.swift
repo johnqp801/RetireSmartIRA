@@ -1456,6 +1456,16 @@ struct RMDCalculatorView: View {
         return nominal * pow(1 + dataManager.drawdownInflationPercent / 100.0, -Double(yearOffset))
     }
 
+    /// First IRMAA tier MAGI threshold (nominal, today's config dollars) for the
+    /// household's filing status. Reuses the same `DataManager.irmaa2026Tiers`
+    /// path as the Dashboard IRMAA chart. Tier 1 is the first surcharge tier.
+    private var drawdownIrmaaTier1Threshold: Double? {
+        let tiers = DataManager.irmaa2026Tiers
+        guard let tier1 = tiers.first(where: { $0.tier == 1 }) else { return nil }
+        let isMFJ = dataManager.filingStatus == .marriedFilingJointly
+        return isMFJ ? tier1.mfjThreshold : tier1.singleThreshold
+    }
+
     /// Owner RMD-start and SS-start calendar-year markers within the current horizon.
     private var drawdownMarkers: [(year: Int, label: String)] {
         var markers: [(year: Int, label: String)] = []
@@ -1616,6 +1626,12 @@ struct RMDCalculatorView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                HStack(spacing: 6) {
+                    Circle().fill(Color.Chart.tealRamp4).frame(width: 8, height: 8)
+                    Text("Projected income")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
             }
 
@@ -1645,6 +1661,34 @@ struct RMDCalculatorView: View {
                     .foregroundStyle(Color.Chart.heroTeal)
                     .lineStyle(StrokeStyle(lineWidth: 2.5))
                     .interpolationMethod(.monotone)
+
+                    LineMark(
+                        x: .value("Year", year.calendarYear),
+                        y: .value("Projected income", drawdownDisplayValue(year.projectedIncome, yearOffset: year.yearOffset)),
+                        series: .value("Series", "Projected income")
+                    )
+                    .foregroundStyle(Color.Chart.tealRamp4)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5))
+                    .interpolationMethod(.monotone)
+                }
+
+                // IRMAA tier-1 crossing flags: compare NOMINAL projected income to the
+                // NOMINAL inflated threshold (deflation is display-only). Plot the marker
+                // at the displayed (possibly deflated) projected-income value.
+                if let tier1 = drawdownIrmaaTier1Threshold {
+                    ForEach(years.filter {
+                        $0.projectedIncome >= DrawdownProjectionEngine.inflatedIrmaaTier1(
+                            threshold: tier1,
+                            inflationPercent: dataManager.drawdownInflationPercent,
+                            yearOffset: $0.yearOffset)
+                    }, id: \.calendarYear) { year in
+                        PointMark(
+                            x: .value("Year", year.calendarYear),
+                            y: .value("Projected income", drawdownDisplayValue(year.projectedIncome, yearOffset: year.yearOffset))
+                        )
+                        .foregroundStyle(Color.Chart.callout)
+                        .symbolSize(60)
+                    }
                 }
 
                 ForEach(Array(drawdownMarkers.enumerated()), id: \.offset) { _, marker in
@@ -1685,6 +1729,92 @@ struct RMDCalculatorView: View {
                  : "Nominal future dollars. Balance is the year-end IRA/401(k) total; withdrawal is the household amount taken that year.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+
+            Text("Approximate. Flags when projected income (withdrawals + Social Security/pension) reaches the first IRMAA tier; does not compute exact tax.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            DisclosureGroup("Show where the money comes from") {
+                drawdownCashSourceChart(years: years)
+            }
+            .font(.caption)
+            .padding(.top, 4)
+        }
+    }
+
+    /// Stacked per-year breakdown of the household withdrawal into guaranteed
+    /// income, the planned (gap/rate) portion, and the RMD-forced portion.
+    @ViewBuilder
+    private func drawdownCashSourceChart(years: [DrawdownYear]) -> some View {
+        if years.isEmpty {
+            Text("No projection data.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 16) {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color.Chart.heroTeal).frame(width: 8, height: 8)
+                        Text("Guaranteed").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 6) {
+                        Circle().fill(Color.Chart.gray3).frame(width: 8, height: 8)
+                        Text("Planned draw").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 6) {
+                        Circle().fill(Color.Chart.callout).frame(width: 8, height: 8)
+                        Text("RMD-forced").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                Chart {
+                    ForEach(years, id: \.calendarYear) { year in
+                        BarMark(
+                            x: .value("Year", year.calendarYear),
+                            y: .value("Amount", drawdownDisplayValue(year.guaranteedIncome, yearOffset: year.yearOffset))
+                        )
+                        .foregroundStyle(Color.Chart.heroTeal)
+
+                        BarMark(
+                            x: .value("Year", year.calendarYear),
+                            y: .value("Amount", drawdownDisplayValue(year.plannedPortion, yearOffset: year.yearOffset))
+                        )
+                        .foregroundStyle(Color.Chart.gray3)
+
+                        BarMark(
+                            x: .value("Year", year.calendarYear),
+                            y: .value("Amount", drawdownDisplayValue(year.rmdForcedPortion, yearOffset: year.yearOffset))
+                        )
+                        .foregroundStyle(Color.Chart.callout)
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading) { value in
+                        AxisValueLabel {
+                            if let amount = value.as(Double.self) {
+                                Text(chartYAxisLabel(amount)).font(.caption2)
+                            }
+                        }
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks { value in
+                        AxisValueLabel {
+                            if let yr = value.as(Int.self) {
+                                Text("'\(String(yr).suffix(2))").font(.caption2)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 200)
+
+                Text("Each bar splits that year's cash flow into guaranteed income (Social Security/pension), the planned withdrawal, and any amount RMDs force above the plan.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 8)
         }
     }
 
