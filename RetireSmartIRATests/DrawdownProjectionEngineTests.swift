@@ -26,4 +26,58 @@ struct DrawdownProjectionEngineTests {
         #expect(p.years[0].rmdForcedPortion == 0)
         #expect(p.years[1].rmdForcedPortion == 0)
     }
+
+    @Test("RMD floor forces withdrawal above the planned rate")
+    func rmdFloor_forcesAbovePlannedRate() {
+        // 75yo (RMD age 75), $2,460,000, divisor 24.6 => RMD 100,000.
+        // Mode C 1% => planned 24,600. actual = max(24,600, 100,000) = 100,000.
+        let inputs = DrawdownInputs(mode: .withdrawalRate, annualSpendingTarget: 0,
+                                    withdrawalRatePercent: 1, inflationRatePercent: 0, horizonYears: 1)
+        let owner = OwnerState(currentAge: 75, rmdAge: 75, growthRatePercent: 0, startingBalance: 2_460_000)
+        let p = DrawdownProjectionEngine.project(inputs: inputs, owners: [owner],
+                                                 guaranteed: .init(annualByYearOffset: [0]), startCalendarYear: 2026)
+        #expect(p.years[0].householdWithdrawal == 100_000)
+        #expect(p.years[0].plannedPortion == 24_600)
+        #expect(p.years[0].rmdForcedPortion == 75_400)
+    }
+
+    @Test("two owners, pro-rata split, independent RMD ages")
+    func twoOwners_proRataSplit_independentRMDAge() {
+        // Primary 75 (RMD), spouse 70 (no RMD yet). Balances 600k / 400k. 0% growth.
+        // Mode C 5% of 1,000,000 = 50,000 desired. Shares 30,000 / 20,000.
+        // Primary RMD at 75 on 600k = 600,000/24.6 ≈ 24,390 < 30,000 => actual 30,000.
+        // Spouse no RMD => 20,000. Household 50,000.
+        let inputs = DrawdownInputs(mode: .withdrawalRate, annualSpendingTarget: 0,
+                                    withdrawalRatePercent: 5, inflationRatePercent: 0, horizonYears: 1)
+        let primary = OwnerState(currentAge: 75, rmdAge: 75, growthRatePercent: 0, startingBalance: 600_000)
+        let spouse  = OwnerState(currentAge: 70, rmdAge: 75, growthRatePercent: 0, startingBalance: 400_000)
+        let p = DrawdownProjectionEngine.project(inputs: inputs, owners: [primary, spouse],
+                                                 guaranteed: .init(annualByYearOffset: [0]), startCalendarYear: 2026)
+        #expect(p.years[0].householdWithdrawal == 50_000)
+        #expect(p.years[0].spouseAge == 70)
+    }
+
+    @Test("mode B gap shrinks when guaranteed income starts")
+    func spendingGap_gapShrinksWhenGuaranteedIncomeStarts() {
+        // Spend 100k. Guaranteed: 0,0 then 70k from year 2 (SS starts). 0% infl, 0% growth, pre-RMD.
+        let inputs = DrawdownInputs(mode: .spendingGap, annualSpendingTarget: 100_000,
+                                    withdrawalRatePercent: 0, inflationRatePercent: 0, horizonYears: 3)
+        let owner = OwnerState(currentAge: 64, rmdAge: 75, growthRatePercent: 0, startingBalance: 5_000_000)
+        let sched = GuaranteedIncomeSchedule(annualByYearOffset: [0, 0, 70_000])
+        let p = DrawdownProjectionEngine.project(inputs: inputs, owners: [owner], guaranteed: sched, startCalendarYear: 2026)
+        #expect(p.years[0].householdWithdrawal == 100_000)
+        #expect(p.years[2].householdWithdrawal == 30_000)
+        #expect(p.years[2].projectedIncome == 100_000) // 30k draw + 70k guaranteed
+    }
+
+    @Test("mode B inflates the spending target")
+    func spendingGap_inflatesSpendingTarget() {
+        let inputs = DrawdownInputs(mode: .spendingGap, annualSpendingTarget: 100_000,
+                                    withdrawalRatePercent: 0, inflationRatePercent: 10, horizonYears: 2)
+        let owner = OwnerState(currentAge: 64, rmdAge: 75, growthRatePercent: 0, startingBalance: 9_000_000)
+        let p = DrawdownProjectionEngine.project(inputs: inputs, owners: [owner],
+                                                 guaranteed: .init(annualByYearOffset: [0, 0]), startCalendarYear: 2026)
+        #expect(abs(p.years[0].householdWithdrawal - 100_000) < 0.01)   // year 0: no inflation
+        #expect(abs(p.years[1].householdWithdrawal - 110_000) < 0.01)   // year 1: 100k * 1.10 (float)
+    }
 }
