@@ -8,6 +8,7 @@
 import Foundation
 
 enum DrawdownMode: String, Codable, CaseIterable {
+    case rmdOnly = "RMD only"
     case spendingGap = "Spending gap"
     case withdrawalRate = "Withdrawal rate"
 }
@@ -76,6 +77,9 @@ enum DrawdownProjectionEngine {
 
             let desired: Double
             switch inputs.mode {
+            case .rmdOnly:
+                // No voluntary withdrawal; RMDs still apply via the per-owner floor below.
+                desired = 0
             case .spendingGap:
                 let spend = inputs.annualSpendingTarget * pow(1 + infl, Double(y))
                 desired = max(0, spend - gIncome)

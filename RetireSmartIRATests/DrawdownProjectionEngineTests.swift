@@ -8,6 +8,28 @@ import Testing
 
 @Suite("DrawdownProjectionEngine")
 struct DrawdownProjectionEngineTests {
+    @Test("RMD-only mode: no withdrawal before RMD age, exactly the RMD after")
+    func rmdOnly_withdrawsOnlyTheRMD() {
+        // Pre-RMD (62, rmdAge 75): no withdrawal, balance just grows.
+        let preInputs = DrawdownInputs(mode: .rmdOnly, annualSpendingTarget: 0,
+                                       withdrawalRatePercent: 0, inflationRatePercent: 0, horizonYears: 1)
+        let young = OwnerState(currentAge: 62, rmdAge: 75, growthRatePercent: 5, startingBalance: 1_000_000)
+        let pre = DrawdownProjectionEngine.project(inputs: preInputs, owners: [young],
+                                                   guaranteed: .init(annualByYearOffset: [0]), startCalendarYear: 2026)
+        #expect(pre.years[0].householdWithdrawal == 0)
+        #expect(pre.years[0].householdBalanceEnd == 1_050_000) // 1,000,000 * 1.05
+
+        // At RMD age 75, $2,460,000, divisor 24.6 => RMD 100,000; that's the whole withdrawal.
+        let rmdInputs = DrawdownInputs(mode: .rmdOnly, annualSpendingTarget: 0,
+                                       withdrawalRatePercent: 0, inflationRatePercent: 0, horizonYears: 1)
+        let old = OwnerState(currentAge: 75, rmdAge: 75, growthRatePercent: 0, startingBalance: 2_460_000)
+        let r = DrawdownProjectionEngine.project(inputs: rmdInputs, owners: [old],
+                                                 guaranteed: .init(annualByYearOffset: [0]), startCalendarYear: 2026)
+        #expect(r.years[0].householdWithdrawal == 100_000)
+        #expect(r.years[0].plannedPortion == 0)
+        #expect(r.years[0].rmdForcedPortion == 100_000)
+    }
+
     @Test("withdrawalRate mode, single owner, pre-RMD: balance compounds correctly over two years")
     func withdrawalRate_singleOwner_preRMD_compoundsCorrectly() {
         // 62yo, $1,000,000, 5% growth, 4% withdrawal, 0% inflation, RMD age 75

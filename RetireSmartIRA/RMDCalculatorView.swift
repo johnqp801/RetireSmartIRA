@@ -44,9 +44,9 @@ struct RMDCalculatorView: View {
                 inheritedIRASection
                 accountBreakdown
                 rmdProjectionChart
+                retirementDrawdownSection
                 projectionsSection
                 inheritedIRAProjectionsSection
-                retirementDrawdownSection
                 aboutRMDs
             }
             .padding()
@@ -70,9 +70,9 @@ struct RMDCalculatorView: View {
             ScrollView {
                 LazyVStack(spacing: 24) {
                     rmdProjectionChart
+                    retirementDrawdownSection
                     projectionsSection
                     inheritedIRAProjectionsSection
-                    retirementDrawdownSection
                     aboutRMDs
                 }
                 .padding()
@@ -1505,7 +1505,12 @@ struct RMDCalculatorView: View {
                       label: "\(spLabel) SS")
         }
 
-        return markers
+        // Merge markers that land on the same year so their labels stack
+        // vertically in one annotation instead of overlapping horizontally.
+        let grouped = Dictionary(grouping: markers, by: { $0.year })
+        return grouped.keys.sorted().map { yr in
+            (year: yr, label: grouped[yr]!.map { $0.label }.joined(separator: "\n"))
+        }
     }
 
     private var hasDrawdownData: Bool {
@@ -1536,7 +1541,12 @@ struct RMDCalculatorView: View {
                     .pickerStyle(.segmented)
 
                     // Conditional input by mode
-                    if dataManager.drawdownMode == .spendingGap {
+                    switch dataManager.drawdownMode {
+                    case .rmdOnly:
+                        Text("Withdraws only the IRS-required minimum once RMDs begin at 73/75. The balance grows otherwise — your baseline if you don't voluntarily draw from these accounts.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    case .spendingGap:
                         HStack {
                             Text("Target annual spending")
                                 .font(.subheadline)
@@ -1550,7 +1560,7 @@ struct RMDCalculatorView: View {
                         Text("Household spending goal in today's dollars. We withdraw only the gap not covered by guaranteed income.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                    } else {
+                    case .withdrawalRate:
                         HStack {
                             Text("Withdrawal rate")
                                 .font(.subheadline)
@@ -1612,29 +1622,6 @@ struct RMDCalculatorView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 16)
         } else {
-            // Legend
-            HStack(spacing: 16) {
-                HStack(spacing: 6) {
-                    Circle().fill(Color.Chart.heroTeal).frame(width: 8, height: 8)
-                    Text("Year-end balance")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                HStack(spacing: 6) {
-                    Circle().fill(Color.Chart.callout).frame(width: 8, height: 8)
-                    Text("Annual withdrawal")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                HStack(spacing: 6) {
-                    Circle().fill(Color.Chart.tealRamp4).frame(width: 8, height: 8)
-                    Text("Projected income")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-
             Chart {
                 ForEach(years, id: \.calendarYear) { year in
                     AreaMark(
@@ -1698,6 +1685,7 @@ struct RMDCalculatorView: View {
                         .annotation(position: .top, alignment: .center) {
                             Text(marker.label)
                                 .font(.caption2)
+                                .multilineTextAlignment(.center)
                                 .foregroundStyle(.secondary)
                         }
                 }
@@ -1713,6 +1701,7 @@ struct RMDCalculatorView: View {
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
                 }
             }
+            .chartXScale(domain: years.first!.calendarYear ... years.last!.calendarYear)
             .chartXAxis {
                 AxisMarks { value in
                     AxisValueLabel {
@@ -1723,6 +1712,29 @@ struct RMDCalculatorView: View {
                 }
             }
             .frame(height: 240)
+
+            // Legend below the chart so it doesn't collide with the top marker labels.
+            HStack(spacing: 16) {
+                HStack(spacing: 6) {
+                    Circle().fill(Color.Chart.heroTeal).frame(width: 8, height: 8)
+                    Text("Year-end balance")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 6) {
+                    Circle().fill(Color.Chart.callout).frame(width: 8, height: 8)
+                    Text("Annual withdrawal")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 6) {
+                    Circle().fill(Color.Chart.tealRamp4).frame(width: 8, height: 8)
+                    Text("Projected income")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
 
             Text(showTodaysDollars
                  ? "Values shown in today's dollars (deflated at \(String(format: "%.1f", dataManager.drawdownInflationPercent))% per year). Balance is the year-end IRA/401(k) total; withdrawal is the household amount taken that year."
@@ -1799,6 +1811,7 @@ struct RMDCalculatorView: View {
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
                     }
                 }
+                .chartXScale(domain: years.first!.calendarYear ... years.last!.calendarYear)
                 .chartXAxis {
                     AxisMarks { value in
                         AxisValueLabel {
