@@ -19,7 +19,7 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 **Cross-cutting (CA/NY/PA/NJ):** out-of-state municipal-bond interest reversal = already-tracked `TODO(v1.8.4)` ([DataManager.swift:473](RetireSmartIRA/DataManager.swift:473)).
 
-**Status:** NY $20k fix → building into 1.9 (TDD). Everything else logged for a future multi-state completeness pass.
+**Status:** NY $20k combined-cap fix **DONE** in 1.9 — commit `41364ac` (`pensionAndIRAShareSingleCap: true` on NY; 4 TDD tests; TaxsimOracle + consistency green; concentrated-income MFJ limitation documented in-code). Everything else (NY government-pension full exclusion, NYC local tax, CA itemized/exemption-credits/HSA-earnings, PA Tax Forgiveness, cross-state out-of-state-muni TODO) logged for a future multi-state completeness pass.
 
 ---
 
