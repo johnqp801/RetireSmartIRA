@@ -4,6 +4,32 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-18: NJ tax-completeness audit — Worksheet D (Bob) + broader NJ gaps; scope decision for 1.9 PENDING
+
+**Status: OPEN — John reviewing later today to decide which NJ items land in 1.9.** This entry captures the findings; the scope decision is not yet made.
+
+**Trigger:** Tester Bob (on shipped 1.8.7 build 55, profile ages 69 & 68) challenged our NJ position, citing **NJ-1040 Worksheet D (Other Retirement Income Exclusion)**. Verified: **Bob is right.**
+
+**What NJ models today** (verified [StateTaxData.swift:1566-1633](RetireSmartIRA/StateTaxData.swift:1566)): progressive brackets 1.4%→10.75%; `socialSecurityExempt: true`; pension+IRA exclusion as `steppedPhaseoutByFilingStatus` + combined cap (the 1.9 phaseout work); age-62 gate; `hsaContributionsTaxableForState: true`; safe harbor. That is the entire NJ surface — everything below is NOT modeled.
+
+**Confirmed / likely gaps, by retiree $ impact:**
+1. **NJ IRA basis** (NJ-1040 IRA Worksheet / Worksheet C, General Rule) — NJ never allowed a traditional-**IRA** contribution deduction, so withdrawals have NJ basis and only the **earnings** portion is NJ-taxable; we tax the full withdrawal. Biggest dollar error. IRA-specific (401(k) deferrals were NJ-excluded since 1984 → fully taxable, no basis). Needs a new **IRA-basis input** → bigger design item.
+2. **Other Retirement Income Exclusion — Worksheet D** (Bob): unused pension exclusion spills onto interest/dividends/cap gains, gated on **total income ≤ $150k AND earned income ≤ $3,000** (NJ-1040 lines 15+18+21+22). Confirmed not modeled — we only exclude `.pension` + IRA/RMD ([TaxCalculationEngine.swift:516-563](RetireSmartIRA/TaxCalculationEngine.swift:516)), no $3,000 gate. Pure-logic fix.
+3. **NJ personal exemptions** (NJ-1040 lines 6–13): $1,000 regular per filer/spouse **+ $1,000 each at 65+** + blind/disabled. `stateDeduction: .none` applies none → over-tax a senior couple by ~$4,000 of exemptions. Easy add.
+4. **NJ medical-expense deduction** (line 31): expenses over **2% of NJ gross** (vs federal 7.5%) — frequently real for retirees w/ Medicare. Needs medical input.
+5. **Property-tax deduction/credit** (Worksheet F): up to ~$18k senior deduction or refundable credit. Needs property-tax input.
+6. **Tax-exempt interest, NJ reversal — CONFIRMED, already-tracked.** All `.taxExemptInterest` is treated as state-exempt for ALL states; out-of-state munis (which NJ taxes) are under-billed. Known gap with a plan: `TODO(v1.8.4)` at [DataManager.swift:473-481](RetireSmartIRA/DataManager.swift:473); full plan in `docs/.../2026-05-19-qualified-dividends-ltcg-state-tax-audit.md` (Bug #3). Needs a per-row issuer-state flag. (Verified 2026-06-18 once Bash recovered.)
+7. **Capital gains — VERIFIED, not a bug.** The per-state `capitalGainsTreatment` / `CapGainsTreatment` flag is set in configs and stored in `StateTaxBreakdown` (TaxModels.swift:110) but is **never read in any tax computation** (no switch/case/if consumes it). So `.followsFederal` does NOT apply federal preferential LTCG rates at the state level — NJ gains are taxed at ordinary NJ bracket rates via `adjustedTaxableIncome`. The enum/label is **misleading dead code** (cleanup candidate), not an accuracy gap. Separately, whether cap gains / qualified dividends are correctly INCLUDED in state gross income is covered by the 2026-05-19 LTCG/state-tax audit — re-confirm there, not via this flag.
+8. **Special Exclusion** (never-received-SS/Railroad) — niche, low priority.
+
+**Tractable as pure engine logic (1.9 candidates): #2 Worksheet D, #3 personal exemptions, #6 tax-exempt interest.** Need new inputs (bigger): #1 IRA basis, #4 medical, #5 property tax.
+
+**Docs to review with John:** NJ-1040 Worksheets A/C/D, Worksheet F, lines 6–13 / 15–22 / 31, Schedule NJ-DOP, and GIT-1 & GIT-2 bulletins.
+
+**Rationale:** our entire target user is the NJ-style retiree; Bob's challenge surfaced a real gap, and the audit shows several more. Concede Worksheet D to Bob. **TODO when Bash is back:** verify #6 and #7 in code.
+
+---
+
 ## 2026-06-18: 2.0 branch audit + product principle (single-year Scenarios/Tax Summary stay core; multi-year gets its own home)
 
 **Audit finding (verified on `2.0/v2.0.1-path-3-polish`, the furthest 2.0 branch):** the multi-year Roth-optimization engine and Plan-B year-by-year UI are **substantially built and tested** (~27,500 lines; `MultiYearTaxStrategyEngine`, `OptimizationEngine` + DP spike, `ProjectionEngine`, `MultiYearStrategyManager`, full `Year*` UI suite; 43 new test files, ~163+ engine test cases). **But all three 2.0 branches are ~190 commits behind main** (branched ~2026-05-02, before the 1.8.x healthcare bundle, the ACA/Medicare engines that landed May 9–17, the SS-taxability + stock-gain fixes, the 26-state tax refresh, the 2026 config corrections). The engine was built against an **old tax engine**.
