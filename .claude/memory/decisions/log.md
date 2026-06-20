@@ -4,6 +4,25 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-18: Multi-state tax-completeness audit (CA, NY, PA) — NY $20k double-exemption bug fixed into 1.9; rest tracked
+
+**Trigger:** after the NJ audit, ran the same worksheet/config audit for CA, NY, PA. Verified against configs (CA `StateTaxData.swift:1008-1045`, NY `:1715-1759`, PA `:893-905`).
+
+**NY — has a real bug + gaps:**
+- 🔴 **$20,000 exclusion applied TWICE (over-exemption bug).** NY config has `pensionExemption: .partial(20_000)` AND `iraWithdrawalExemption: .partial(20_000)` with NO `pensionAndIRAShareSingleCap`, so the engine subtracts $20k for pension AND another $20k for IRA (up to ~$40k/person, ~$80k MFJ both-qualifying). NY Tax Law §612(c)(3-a) is **ONE combined $20,000 per individual** across pension+annuity+IRA. **DECISION: fix in 1.9** via `pensionAndIRAShareSingleCap: true` (same one-flag fix as NJ). **Limitation:** the combined-cap branch sums HOUSEHOLD pension+IRA and applies `min(combined, 20k×perIndividualMultiplier)`; NY's cap is truly PER-SPOUSE ($20k each), so a concentrated-income MFJ couple (one spouse holds most pension/IRA) may still slightly over-exempt. Full per-spouse attribution is a follow-up; the flag still fixes the egregious double-count.
+- 🟠 **Government/federal/military pension FULL exclusion not modeled.** NY fully exempts NY State/local, federal civil-service, and military pensions (no $20k cap); we cap all `.pension` at $20k → over-taxes public retirees. Needs a pension subtype/input. (Military may be handled via `MilitaryRetirementExemption` — verify it exempts NY.) Defer past 1.9.
+- 🟠 **NYC / Yonkers local income tax** (~3.08–3.88% NYC) not modeled at all. Big for NYC residents. Scope item, defer.
+
+**CA — mostly correct.** SS exempt ✓; pension/IRA fully taxable ✓ (CA has no retirement exclusion); cap gains `.taxedAsOrdinary` ✓; std deduction $5,706/$11,412; HSA contribution add-back ✓. Gaps: CA **itemized deductions** (differ from federal, no SALT cap at state level — confirm we support CA itemized vs standard-only); CA **exemption credits** (~$149/person, credit not deduction, not modeled); CA **HSA earnings** also taxable (niche); confirm std-deduction is current-year. All defer.
+
+**PA — best-modeled for retirees.** Flat 3.07%; all retirement income exempt (`.full`) ✓; SS exempt ✓; cap gains at flat rate; `capitalLossesClassIsolated: true` (Class-3 isolation) ✓; early-distribution basis partially modeled. Gaps low-priority: Tax Forgiveness/Schedule SP (mostly moot — retiree PA taxable income ~$0 after exemption); early-dist basis rarely hit for 60+ audience.
+
+**Cross-cutting (CA/NY/PA/NJ):** out-of-state municipal-bond interest reversal = already-tracked `TODO(v1.8.4)` ([DataManager.swift:473](RetireSmartIRA/DataManager.swift:473)).
+
+**Status:** NY $20k fix → building into 1.9 (TDD). Everything else logged for a future multi-state completeness pass.
+
+---
+
 ## 2026-06-18: NJ 1.9 scope DECIDED — add Worksheet D + personal exemptions (resolves the OPEN item below)
 
 **Decision (John, 2026-06-18):** Add to 1.9, on top of the already-built pension-exclusion phaseout: (1) **Worksheet D — Other Retirement Income Exclusion**, and (2) **NJ personal exemptions**. Defer IRA basis, medical, property-tax, and the tax-exempt-interest flag to a later release.
