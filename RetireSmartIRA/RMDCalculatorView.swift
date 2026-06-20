@@ -15,6 +15,8 @@ struct RMDCalculatorView: View {
     @State private var showGuide: Bool = false
     @State private var showAboutRMDs: Bool = false
     @State private var showTodaysDollars = false
+    @State private var selectedDrawdownYear: Int?
+    @State private var selectedCashSourceYear: Int?
 
     @Environment(\.availableWidth) private var availableWidth
     private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
@@ -1689,6 +1691,17 @@ struct RMDCalculatorView: View {
                                 .foregroundStyle(.secondary)
                         }
                 }
+
+                // Tap / hover readout: a rule at the selected year with a value callout.
+                if let selYear = selectedDrawdownYear,
+                   let sel = years.min(by: { abs($0.calendarYear - selYear) < abs($1.calendarYear - selYear) }) {
+                    RuleMark(x: .value("Year", sel.calendarYear))
+                        .foregroundStyle(Color.UI.textPrimary.opacity(0.3))
+                        .annotation(position: .top, spacing: 2,
+                                    overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                            drawdownSelectionCallout(for: sel)
+                        }
+                }
             }
             .chartYAxis {
                 AxisMarks(position: .leading) { value in
@@ -1702,6 +1715,7 @@ struct RMDCalculatorView: View {
                 }
             }
             .chartXScale(domain: years.first!.calendarYear ... years.last!.calendarYear)
+            .chartXSelection(value: $selectedDrawdownYear)
             .chartXAxis {
                 AxisMarks { value in
                     AxisValueLabel {
@@ -1757,6 +1771,50 @@ struct RMDCalculatorView: View {
     /// Stacked per-year breakdown of the household withdrawal into guaranteed
     /// income, the planned (gap/rate) portion, and the RMD-forced portion.
     @ViewBuilder
+    private func drawdownSelectionCallout(for year: DrawdownYear) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(String(year.calendarYear)).font(.caption2).fontWeight(.semibold)
+            drawdownCalloutRow(color: Color.Chart.heroTeal, label: "Balance",
+                               value: drawdownDisplayValue(year.householdBalanceEnd, yearOffset: year.yearOffset))
+            drawdownCalloutRow(color: Color.Chart.callout, label: "Withdrawal",
+                               value: drawdownDisplayValue(year.householdWithdrawal, yearOffset: year.yearOffset))
+            drawdownCalloutRow(color: Color.Chart.tealRamp4, label: "Income",
+                               value: drawdownDisplayValue(year.projectedIncome, yearOffset: year.yearOffset))
+        }
+        .padding(6)
+        .background(Color(PlatformColor.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+    }
+
+    private func drawdownCalloutRow(color: Color, label: String, value: Double) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Spacer(minLength: 10)
+            Text(value, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.caption2).fontWeight(.medium)
+        }
+    }
+
+    @ViewBuilder
+    private func cashSourceSelectionCallout(for year: DrawdownYear) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(String(year.calendarYear)).font(.caption2).fontWeight(.semibold)
+            drawdownCalloutRow(color: Color.Chart.heroTeal, label: "Guaranteed",
+                               value: drawdownDisplayValue(year.guaranteedIncome, yearOffset: year.yearOffset))
+            drawdownCalloutRow(color: Color.Chart.gray3, label: "Planned draw",
+                               value: drawdownDisplayValue(year.plannedPortion, yearOffset: year.yearOffset))
+            drawdownCalloutRow(color: Color.Chart.callout, label: "RMD-forced",
+                               value: drawdownDisplayValue(year.rmdForcedPortion, yearOffset: year.yearOffset))
+        }
+        .padding(6)
+        .background(Color(PlatformColor.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+    }
+
+    @ViewBuilder
     private func drawdownCashSourceChart(years: [DrawdownYear]) -> some View {
         if years.isEmpty {
             Text("No projection data.")
@@ -1800,6 +1858,16 @@ struct RMDCalculatorView: View {
                         )
                         .foregroundStyle(Color.Chart.callout)
                     }
+
+                    if let selYear = selectedCashSourceYear,
+                       let sel = years.min(by: { abs($0.calendarYear - selYear) < abs($1.calendarYear - selYear) }) {
+                        RuleMark(x: .value("Year", sel.calendarYear))
+                            .foregroundStyle(Color.UI.textPrimary.opacity(0.25))
+                            .annotation(position: .top, spacing: 2,
+                                        overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                                cashSourceSelectionCallout(for: sel)
+                            }
+                    }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
@@ -1812,6 +1880,7 @@ struct RMDCalculatorView: View {
                     }
                 }
                 .chartXScale(domain: years.first!.calendarYear ... years.last!.calendarYear)
+                .chartXSelection(value: $selectedCashSourceYear)
                 .chartXAxis {
                     AxisMarks { value in
                         AxisValueLabel {
