@@ -4,9 +4,28 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-06-18: NJ 1.9 scope DECIDED — add Worksheet D + personal exemptions (resolves the OPEN item below)
+
+**Decision (John, 2026-06-18):** Add to 1.9, on top of the already-built pension-exclusion phaseout: (1) **Worksheet D — Other Retirement Income Exclusion**, and (2) **NJ personal exemptions**. Defer IRA basis, medical, property-tax, and the tax-exempt-interest flag to a later release.
+
+**Precise Worksheet D mechanic (worked out against the official 2025 chart Bob sent):**
+- Chart "maximum exclusion" (line 1) = **% of line 27 (TOTAL income)** and is the ceiling for pension **+ other** combined: $100k (≤$100k) / 50%×total ($100,001–125k) / 25%×total ($125,001–150k) / $0 (>$150k). Single: $75k / 37.5% / 18.75% / $0.
+- Pension exclusion (line 28a) = tier% × pension/IRA income.
+- Unused (line 3) = chartMax − pension exclusion → shelters OTHER income (interest/dividends/cap gains) **iff** age 62+ AND total ≤ $150k AND earned income (wages+business+partnership+S-corp, NJ lines 15+18+21+22) ≤ $3,000.
+
+**Consequence — changes our existing 1.9 worked example (correctly):** $50k div + $100k pension, MFJ, $150k total, no wages → chartMax 25%×$150k = $37,500; pension excl $25,000; unused $12,500 shelters $12,500 of dividends → **NJ taxable $125,000 → $112,500** (then −~$4,000 exemptions = $108,500). The `NJPensionPhaseoutTests` $150k assertion must be updated to the new correct value.
+
+**Also fix (narrow):** the existing phaseout applies the $100k cap BEFORE the tier % (`min(pension,$100k)×tier%`), under-excluding pension > $100k MFJ inside a band. Correct form: `min(pension×tier%, chartMax)`. Agrees with current results for pension ≤ cap (e.g., the $100k example stays $25k), only changes the >$100k-in-band corner.
+
+**Personal exemptions:** NJ $1,000 regular per filer (+spouse if MFJ) + **$1,000 each age 65+**. Subtract from NJ taxable income (currently `stateDeduction: .none` applies none). 65+ MFJ couple = $4,000.
+
+**Status: IN PROGRESS (TDD build dispatched 2026-06-18, `1.9/drawdown` worktree).** Original findings retained below.
+
+---
+
 ## 2026-06-18: NJ tax-completeness audit — Worksheet D (Bob) + broader NJ gaps; scope decision for 1.9 PENDING
 
-**Status: OPEN — John reviewing later today to decide which NJ items land in 1.9.** This entry captures the findings; the scope decision is not yet made.
+**Status: SUPERSEDED by the scope decision above (2026-06-18).** Findings retained for reference.
 
 **Trigger:** Tester Bob (on shipped 1.8.7 build 55, profile ages 69 & 68) challenged our NJ position, citing **NJ-1040 Worksheet D (Other Retirement Income Exclusion)**. Verified: **Bob is right.**
 
