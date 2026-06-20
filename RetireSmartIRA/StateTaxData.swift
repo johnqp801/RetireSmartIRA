@@ -215,6 +215,15 @@ struct RetirementIncomeExemptions {
     /// ignore the second one to avoid double-counting.
     var pensionAndIRAShareSingleCap: Bool = false
 
+    /// When `true`, applies the NJ-1040 Worksheet D "Other Retirement Income
+    /// Exclusion" (NJSA 54A:6-15). After the pension/IRA exclusion, the UNUSED
+    /// portion of the chart maximum (chartMax − pension exclusion) shelters
+    /// OTHER eligible income (interest/dividends/cap-gains/refunds/other),
+    /// provided the taxpayer is age `regularExemptionMinAge`+ (62 for NJ),
+    /// total gross income ≤ $150,000, and earned income (wages/self-employment;
+    /// NJ lines 15+18+21+22) ≤ $3,000. Only New Jersey sets this today.
+    var otherRetirementIncomeExclusion: Bool = false
+
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
 
@@ -287,13 +296,43 @@ struct RetirementIncomeExemptions {
                 return eligibleIncome
             case .partial(let maxExempt):
                 return min(eligibleIncome, maxExempt * perIndividualMultiplier)
-            case .steppedPhaseoutByFilingStatus(let maxExemptSingle, let maxExemptMFJ, let tiers):
-                let cap = isMarried ? maxExemptMFJ : maxExemptSingle
-                let capped = min(eligibleIncome, cap)
-                let tier = tiers.first { totalGrossIncome <= $0.upperBound } ?? tiers.last
-                let percent = tier.map { isMarried ? $0.mfjPercent : $0.singlePercent } ?? 0
-                return capped * percent
+            case .steppedPhaseoutByFilingStatus:
+                // exclusion = min(eligible × tier%, chartMax). Applying the tier
+                // percentage to the income FIRST and then capping at the chart
+                // maximum matches NJ-1040 Worksheet D. (The earlier formula
+                // capped at $100K/$75K BEFORE the percentage, under-excluding
+                // when pension exceeded the cap inside a phaseout band — e.g.
+                // $120K pension at total $125K MFJ yielded $50K instead of the
+                // correct $60K.) For pension ≤ cap this equals the old result.
+                let percent = tierPercent(totalGrossIncome: totalGrossIncome, isMarried: isMarried)
+                let max = chartMax(totalGrossIncome: totalGrossIncome, isMarried: isMarried)
+                return min(eligibleIncome * percent, max)
             }
+        }
+
+        /// Retained-fraction for the band containing `totalGrossIncome`.
+        /// Non-stepped levels return 1.0 (the percentage concept doesn't apply).
+        func tierPercent(totalGrossIncome: Double, isMarried: Bool) -> Double {
+            guard case .steppedPhaseoutByFilingStatus(_, _, let tiers) = self else { return 1.0 }
+            let tier = tiers.first { totalGrossIncome <= $0.upperBound } ?? tiers.last
+            return tier.map { isMarried ? $0.mfjPercent : $0.singlePercent } ?? 0
+        }
+
+        /// The Worksheet D "chart maximum" — the ceiling on the pension/IRA
+        /// exclusion AND the basis for the unused other-income exclusion:
+        ///   • ≤ first band (≤$100K): the per-filing-status cap ($100K MFJ / $75K single)
+        ///   • phaseout bands: tier% × total gross income
+        ///   • over the cliff: $0
+        /// Returns 0 for non-stepped levels (no chart concept applies).
+        func chartMax(totalGrossIncome: Double, isMarried: Bool) -> Double {
+            guard case .steppedPhaseoutByFilingStatus(let maxExemptSingle, let maxExemptMFJ, let tiers) = self else { return 0 }
+            let cap = isMarried ? maxExemptMFJ : maxExemptSingle
+            let percent = tierPercent(totalGrossIncome: totalGrossIncome, isMarried: isMarried)
+            // First band retains 100% — the chart max there is the flat cap.
+            // Otherwise it is the tier percentage applied to total income
+            // (and 0 in the cliff band, where percent == 0).
+            if percent >= 1.0 { return cap }
+            return percent * totalGrossIncome
         }
     }
 
@@ -1624,6 +1663,9 @@ struct StateTaxData {
                 ),
                 regularExemptionMinAge: 62,
                 pensionAndIRAShareSingleCap: true,
+                // NJ-1040 Worksheet D: the unused chart maximum shelters other
+                // retirement income (62+, total ≤ $150K, earned ≤ $3,000).
+                otherRetirementIncomeExclusion: true,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none,

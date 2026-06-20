@@ -1414,18 +1414,25 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         // retirement income (pension + IRA/RMD), capped in AGGREGATE — NOT a
         // separate cap per income type.
         // $110K falls in the $100,001–$125,000 band → 37.5% retained (single).
-        // Combined eligible = $80K + $30K = $110K; per-status cap $75K (single):
-        //   excluded = min($110K, $75K) × 37.5% = $75K × 0.375 = $28,125
-        // Adjusted taxable = $110K − $28,125 = $81,875 → NJ single tax ≈ $3,089.19.
-        // Breakdown attributes the combined exclusion to pension first ($28,125),
+        // 1.9: exclusion = min(eligible × 37.5%, chartMax), chartMax = 37.5% × $110K
+        // = $41,250. Combined eligible = $80K + $30K = $110K:
+        //   excluded = min($110K × 0.375, $41,250) = min($41,250, $41,250) = $41,250.
+        // (The cap-before-percent formula previously gave min($110K,$75K)×0.375 =
+        // $28,125 — under-excluding because pension+IRA exceeded the $75K cap
+        // inside the phaseout band. The new figure matches NJ-1040 Worksheet D.)
+        // Worksheet D other-income exclusion = $0 (unused chart max = $41,250 −
+        // $41,250 = $0, and all income is retirement income anyway).
+        // Adjusted taxable = $110K − $41,250 = $68,750, then minus the NJ personal
+        // exemption (single 65+ → $2,000) = $66,750 → NJ single tax ≈ $2,195.44.
+        // Breakdown attributes the combined exclusion to pension first ($41,250),
         // leaving the IRA/RMD share at $0 (display-only; total is what's taxed).
         let dm = makeDMWithRetirementIncome(pension: 80_000, rmd: 30_000, state: .newJersey)
         let bd = dm.stateTaxBreakdown(forState: .newJersey, filingStatus: .single)
-        #expect(isClose(bd.pensionExemptAmount, 28_125))
+        #expect(isClose(bd.pensionExemptAmount, 41_250))
         #expect(isClose(bd.iraExemptAmount, 0))
-        #expect(isClose(bd.totalExempted, 28_125))
-        #expect(isClose(bd.adjustedTaxableIncome, 81_875))
-        #expect(abs(bd.totalStateTax - 3_089.19) < 2)
+        #expect(isClose(bd.totalExempted, 41_250))
+        #expect(isClose(bd.adjustedTaxableIncome, 66_750))
+        #expect(abs(bd.totalStateTax - 2_195.44) < 2)
     }
 
     @Test("TX breakdown shows $0 tax with no-tax system")

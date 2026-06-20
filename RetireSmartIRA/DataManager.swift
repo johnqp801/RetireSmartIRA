@@ -519,8 +519,8 @@ class DataManager {
     /// Calculates state tax for a specific state (used for cross-state comparison).
     /// `income` is post-state-deduction income (state taxable income before retirement exemptions).
     /// `taxableSocialSecurity` is the SS amount included in income (to correctly subtract for SS-exempt states).
-    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0, scenarioRothConversionWithholdingAmount: Double = 0) -> Double {
-        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount)
+    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0, scenarioRothConversionWithholdingAmount: Double = 0, postExemptionDeduction: Double = 0) -> Double {
+        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction)
     }
 
     /// Sum of scenario-level retirement-distribution income subject to state-level
@@ -631,8 +631,19 @@ class DataManager {
                 : stateStandardDeduction
         }
 
+        // NJ has no standard deduction but grants personal exemptions ($1,000
+        // regular per filer + $1,000 per filer 65+). These reduce taxable
+        // income AFTER the retirement exclusions/phaseout (which gate on total
+        // income), so they are passed as `postExemptionDeduction` rather than
+        // subtracted from the phaseout gate here. Other states return 0.
+        let njExemptions = state == .newJersey
+            ? TaxCalculationEngine.njPersonalExemptions(
+                filingStatus: filingStatus, enableSpouse: enableSpouse,
+                primaryAge: currentAge, spouseAge: spouseCurrentAge)
+            : 0
+
         let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
-        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount)
+        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: njExemptions)
     }
 
     /// Applies state-specific retirement income exemptions to reduce state taxable income.
@@ -840,8 +851,42 @@ class DataManager {
             }
         }()
 
-        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt + conversionExemptAmt
-        let adjustedIncome = max(0, income - totalExempted)
+        // NJ-1040 Worksheet D — Other Retirement Income Exclusion. Mirrors
+        // TaxCalculationEngine.applyRetirementExemptions. The unused chart
+        // maximum shelters other eligible income (62+, total ≤ $150K, earned
+        // ≤ $3,000). Only NJ sets `otherRetirementIncomeExclusion`.
+        var otherRetirementExemptAmt: Double = 0
+        if exemptions.otherRetirementIncomeExclusion && exemptions.pensionAndIRAShareSingleCap {
+            let earnedIncome = incomeSources
+                .filter { $0.type == .consulting }
+                .reduce(0) { $0 + $1.annualAmount }
+            let ageQualifies = effectiveAge >= max(minAge, 1)
+            if ageQualifies && income <= 150_000 && earnedIncome <= 3_000 {
+                let chartMax = effectivePensionExemption.chartMax(
+                    totalGrossIncome: income, isMarried: isMarried)
+                let pensionIRAExclusion = pensionExemptAmt + iraExemptAmt
+                let unused = max(0, chartMax - pensionIRAExclusion)
+                // Income still taxable after SS + pension/IRA exclusion, minus
+                // earned income (not eligible). Mirrors the engine, which
+                // subtracts from `adjusted` after those two steps.
+                let remainingAfterExclusions = max(0, income - ssExemptAmt - pensionIRAExclusion)
+                let otherEligible = max(0, remainingAfterExclusions - earnedIncome)
+                otherRetirementExemptAmt = min(unused, otherEligible)
+            }
+        }
+
+        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt + conversionExemptAmt + otherRetirementExemptAmt
+
+        // NJ personal exemptions ($1,000 regular per filer + $1,000 per filer
+        // 65+). Applied AFTER the retirement exclusions (consistent with the
+        // engine's `postExemptionDeduction`). Other states: 0.
+        let njPersonalExemptionAmt = state == .newJersey
+            ? TaxCalculationEngine.njPersonalExemptions(
+                filingStatus: filingStatus, enableSpouse: enableSpouse,
+                primaryAge: currentAge, spouseAge: spouseCurrentAge)
+            : 0
+
+        let adjustedIncome = max(0, income - totalExempted - njPersonalExemptionAmt)
 
         // 3. Calculate tax with bracket-level detail
         var bracketDetails: [StateTaxBreakdown.BracketDetail] = []
