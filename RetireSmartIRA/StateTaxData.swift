@@ -1749,11 +1749,26 @@ struct StateTaxData {
                 pensionExemption: .partial(maxExempt: 20_000),
                 iraWithdrawalExemption: .partial(maxExempt: 20_000),
                 // Per-individual: MFJ where both spouses are 59½+ gets 2 × $20K.
+                // In the shared-cap branch perIndividualMultiplier=2.0 doubles
+                // the cap → exclusion = min(combinedPensionIRA, 20_000 × 2).
                 exemptionAppliesPerIndividual: true,
                 // Age 59½ statutory minimum. Engine uses integer ages; we use
                 // 59 as a slightly generous approximation matching the rest of
                 // the engine's `>= 59` convention for retirement-age gates.
                 regularExemptionMinAge: 59,
+                // § 612(c)(3-a) is ONE combined $20,000 exclusion per qualifying
+                // individual across pension + annuity + IRA distributions — NOT
+                // a separate $20K for pension and another $20K for IRA. Route
+                // pension and IRA through the shared-cap branch (same mechanism
+                // NJ/CO use) so ONE $20K applies to the SUMMED pension+IRA income.
+                // Without this flag the engine subtracted up to $20K twice
+                // (~$40K/person), over-exempting retirees holding both.
+                // KNOWN LIMITATION: the combined-cap branch sums HOUSEHOLD
+                // pension+IRA, so a concentrated-income MFJ couple (one spouse
+                // holding most of the income) may still slightly over-exempt vs.
+                // true per-spouse caps. Full per-spouse dollar attribution is a
+                // deferred follow-up.
+                pensionAndIRAShareSingleCap: true,
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 8_000, married: 16_050)
