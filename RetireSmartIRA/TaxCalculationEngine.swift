@@ -349,14 +349,16 @@ struct TaxCalculationEngine {
         currentYear: Int,
         scenarioRetirementDistributions: Double = 0,
         scenarioRothConversionAmount: Double = 0,
-        scenarioRothConversionWithholdingAmount: Double = 0
+        scenarioRothConversionWithholdingAmount: Double = 0,
+        postExemptionDeduction: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let spouseAge = currentYear - spouseBirthYear
-        let adjustedIncome = applyRetirementExemptions(
+        let exemptedIncome = applyRetirementExemptions(
             income: income,
             config: config,
             state: state,
+            filingStatus: filingStatus,
             taxableSocialSecurity: taxableSocialSecurity,
             incomeSources: incomeSources,
             primaryAge: currentAge,
@@ -366,6 +368,13 @@ struct TaxCalculationEngine {
             scenarioRothConversionAmount: scenarioRothConversionAmount,
             scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount
         )
+
+        // Personal exemptions / similar post-exclusion deductions (e.g. NJ's
+        // $1,000-per-filer personal exemptions) reduce taxable income AFTER the
+        // retirement-income exclusions and their income-gated phaseouts — they
+        // do not shift the NJ Worksheet exclusion bands, which key off total
+        // income (line 27).
+        let adjustedIncome = max(0, exemptedIncome - postExemptionDeduction)
 
         var tax: Double
         switch config.taxSystem {
@@ -417,12 +426,40 @@ struct TaxCalculationEngine {
         return totalCredit
     }
 
+    // MARK: - New Jersey Personal Exemptions
+
+    /// NJ-1040 personal exemptions (NJ has no standard deduction). Each filer
+    /// (and spouse, if MFJ/`enableSpouse`) gets a $1,000 regular exemption, plus
+    /// an additional $1,000 per filer/spouse age 65+. Amounts are statutory and
+    /// stable for 2026. Subtracted from NJ taxable income by the caller.
+    ///
+    ///   single, under 65   → $1,000
+    ///   single, 65+        → $2,000
+    ///   MFJ, both under 65 → $2,000
+    ///   MFJ, both 65+      → $4,000
+    static func njPersonalExemptions(
+        filingStatus: FilingStatus,
+        enableSpouse: Bool,
+        primaryAge: Int,
+        spouseAge: Int
+    ) -> Double {
+        let hasSpouse = filingStatus == .marriedFilingJointly && enableSpouse
+        var exemption = 1_000.0                       // primary regular
+        if primaryAge >= 65 { exemption += 1_000 }    // primary senior
+        if hasSpouse {
+            exemption += 1_000                        // spouse regular
+            if spouseAge >= 65 { exemption += 1_000 } // spouse senior
+        }
+        return exemption
+    }
+
     // MARK: - Retirement Income Exemptions
 
     static func applyRetirementExemptions(
         income: Double,
         config: StateTaxConfig,
         state: USState,
+        filingStatus: FilingStatus = .single,
         taxableSocialSecurity: Double,
         incomeSources: [IncomeSource],
         primaryAge: Int,
@@ -534,33 +571,56 @@ struct TaxCalculationEngine {
             // pension and IRA fields should be set to the same value when
             // this flag is true; we ignore the IRA-side level here to avoid
             // double-counting).
+            // The stepped phaseout (NJ) gates on TOTAL state gross income —
+            // the original `income` argument, before SS/exemption subtraction.
+            let isMarried = filingStatus == .marriedFilingJointly
             let combinedIncome = pensionIncome + iraIncome
-            switch effectivePensionExemption {
-            case .full:
-                adjusted -= combinedIncome
-            case .partial(let maxExempt):
-                adjusted -= min(combinedIncome, maxExempt * perIndividualMultiplier)
-            case .none:
-                break
+            let pensionIRAExclusion = effectivePensionExemption.excludedAmount(
+                eligibleIncome: combinedIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
+            adjusted -= pensionIRAExclusion
+
+            // NJ-1040 Worksheet D — Other Retirement Income Exclusion.
+            // The UNUSED chart maximum (chartMax − pension/IRA exclusion)
+            // shelters OTHER eligible income when the taxpayer is at/above the
+            // exemption age, total gross income ≤ $150,000, and earned income
+            // (NJ lines 15+18+21+22 ≈ `.consulting`) ≤ $3,000.
+            if exemptions.otherRetirementIncomeExclusion {
+                let earnedIncome = incomeSources
+                    .filter { $0.type == .consulting }
+                    .reduce(0) { $0 + $1.annualAmount }
+                let ageQualifies = effectiveAge >= max(minAge, 1)
+                if ageQualifies && income <= 150_000 && earnedIncome <= 3_000 {
+                    let chartMax = effectivePensionExemption.chartMax(
+                        totalGrossIncome: income, isMarried: isMarried)
+                    let unused = max(0, chartMax - pensionIRAExclusion)
+                    // Other eligible income = everything still in NJ taxable
+                    // income after the SS exemption and the pension/IRA
+                    // exclusion, minus earned income (which is not eligible).
+                    // `adjusted` already reflects both subtractions here.
+                    let otherEligible = max(0, adjusted - earnedIncome)
+                    let otherExclusion = min(unused, otherEligible)
+                    adjusted -= otherExclusion
+                }
             }
         } else {
             // Standard per-type application: each type's cap applied independently.
-            switch effectivePensionExemption {
-            case .full:
-                adjusted -= pensionIncome
-            case .partial(let maxExempt):
-                adjusted -= min(pensionIncome, maxExempt * perIndividualMultiplier)
-            case .none:
-                break
-            }
-            switch effectiveIRAExemption {
-            case .full:
-                adjusted -= iraIncome
-            case .partial(let maxExempt):
-                adjusted -= min(iraIncome, maxExempt * perIndividualMultiplier)
-            case .none:
-                break
-            }
+            let isMarried = filingStatus == .marriedFilingJointly
+            adjusted -= effectivePensionExemption.excludedAmount(
+                eligibleIncome: pensionIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
+            adjusted -= effectiveIRAExemption.excludedAmount(
+                eligibleIncome: iraIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
         }
 
         // Military Retirement: per-state exemption applied per-source using the

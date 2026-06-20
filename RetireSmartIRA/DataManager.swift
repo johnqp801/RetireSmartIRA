@@ -189,6 +189,85 @@ class DataManager {
     }
     var taxableAccountGrowthRate: Double { growthRates.taxableAccountGrowthRate }
 
+    // Drawdown projection settings (forwarding to GrowthRatesManager) — V1.9 Task 8
+    var drawdownMode: DrawdownMode {
+        get { growthRates.drawdownMode }
+        set { growthRates.drawdownMode = newValue }
+    }
+    var drawdownSpendingTarget: Double {
+        get { growthRates.drawdownSpendingTarget }
+        set { growthRates.drawdownSpendingTarget = newValue }
+    }
+    var drawdownRatePercent: Double {
+        get { growthRates.drawdownRatePercent }
+        set { growthRates.drawdownRatePercent = newValue }
+    }
+    var drawdownInflationPercent: Double {
+        get { growthRates.drawdownInflationPercent }
+        set { growthRates.drawdownInflationPercent = newValue }
+    }
+
+    /// Assembles owner states + the guaranteed-income schedule from live app data and
+    /// runs the drawdown projection. Horizon is supplied by the view's picker (Task 9/10)
+    /// and capped at 40 years. Per-owner starting balance is the Traditional IRA + 401(k)
+    /// aggregate for that owner (AccountsManager already folds .traditional401k into the
+    /// per-owner Traditional balances). Pension is treated as active from projection start
+    /// (V1.9 limitation). Spouse owner/SS is included only when enableSpouse is true.
+    func drawdownProjection(horizonYears: Int) -> DrawdownProjection {
+        let horizon = max(0, min(horizonYears, 40))
+
+        var owners: [OwnerState] = [
+            OwnerState(currentAge: currentAge,
+                       rmdAge: rmdAge,
+                       growthRatePercent: primaryGrowthRate,
+                       startingBalance: primaryTraditionalIRABalance)
+        ]
+        if enableSpouse {
+            owners.append(OwnerState(currentAge: spouseCurrentAge,
+                                     rmdAge: spouseRmdAge,
+                                     growthRatePercent: spouseGrowthRate,
+                                     startingBalance: spouseTraditionalIRABalance))
+        }
+
+        let primaryClaimAge = primarySSBenefit?.plannedClaimingAge ?? 67
+        let primaryAnnualSS = primarySSBenefit?.plannedAnnualBenefit(birthYear: birthYear) ?? 0
+        let spouseClaimAge = enableSpouse ? (spouseSSBenefit?.plannedClaimingAge ?? 67) : nil
+        let spouseAnnualSS = enableSpouse
+            ? (spouseSSBenefit?.plannedAnnualBenefit(birthYear: spouseBirthYear) ?? 0)
+            : 0
+
+        let annualPension = incomeSources
+            .filter { $0.type == .pension }
+            .reduce(0) { $0 + $1.annualAmount }
+
+        let guaranteed = GuaranteedIncomeAdapter.schedule(
+            primaryCurrentAge: currentAge,
+            primarySSClaimAge: primaryClaimAge,
+            primaryAnnualSS: primaryAnnualSS,
+            spouseCurrentAge: enableSpouse ? spouseCurrentAge : nil,
+            spouseSSClaimAge: spouseClaimAge,
+            spouseAnnualSS: spouseAnnualSS,
+            annualPensionFromStart: annualPension,
+            inflationRatePercent: drawdownInflationPercent,
+            horizonYears: horizon
+        )
+
+        let inputs = DrawdownInputs(
+            mode: drawdownMode,
+            annualSpendingTarget: drawdownSpendingTarget,
+            withdrawalRatePercent: drawdownRatePercent,
+            inflationRatePercent: drawdownInflationPercent,
+            horizonYears: horizon
+        )
+
+        return DrawdownProjectionEngine.project(
+            inputs: inputs,
+            owners: owners,
+            guaranteed: guaranteed,
+            startCalendarYear: currentYear
+        )
+    }
+
     // Legacy Planning (forwarding to LegacyPlanningManager)
     var enableLegacyPlanning: Bool {
         get { legacy.enableLegacyPlanning }
@@ -440,8 +519,8 @@ class DataManager {
     /// Calculates state tax for a specific state (used for cross-state comparison).
     /// `income` is post-state-deduction income (state taxable income before retirement exemptions).
     /// `taxableSocialSecurity` is the SS amount included in income (to correctly subtract for SS-exempt states).
-    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0, scenarioRothConversionWithholdingAmount: Double = 0) -> Double {
-        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount)
+    func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0, scenarioRothConversionWithholdingAmount: Double = 0, postExemptionDeduction: Double = 0) -> Double {
+        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction)
     }
 
     /// Sum of scenario-level retirement-distribution income subject to state-level
@@ -552,8 +631,19 @@ class DataManager {
                 : stateStandardDeduction
         }
 
+        // NJ has no standard deduction but grants personal exemptions ($1,000
+        // regular per filer + $1,000 per filer 65+). These reduce taxable
+        // income AFTER the retirement exclusions/phaseout (which gate on total
+        // income), so they are passed as `postExemptionDeduction` rather than
+        // subtracted from the phaseout gate here. Other states return 0.
+        let njExemptions = state == .newJersey
+            ? TaxCalculationEngine.njPersonalExemptions(
+                filingStatus: filingStatus, enableSpouse: enableSpouse,
+                primaryAge: currentAge, spouseAge: spouseCurrentAge)
+            : 0
+
         let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
-        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount)
+        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: njExemptions)
     }
 
     /// Applies state-specific retirement income exemptions to reduce state taxable income.
@@ -565,6 +655,7 @@ class DataManager {
             income: income,
             config: config,
             state: selectedState,
+            filingStatus: filingStatus,
             taxableSocialSecurity: taxableSocialSecurity,
             incomeSources: incomeSources,
             primaryAge: currentAge,
@@ -689,31 +780,36 @@ class DataManager {
         let pensionExemptAmt: Double
         let iraExemptAmt: Double
 
+        // The stepped phaseout (NJ) gates on TOTAL state gross income (`income`,
+        // pre-exemption). Mirror of TaxCalculationEngine.applyRetirementExemptions.
+        let isMarried = filingStatus == .marriedFilingJointly
         if exemptions.pensionAndIRAShareSingleCap {
             // Shared cap (CO): pension + IRA share one annual subtraction.
             let combinedIncome = pensionIncome + iraIncome
-            let combinedExempt: Double
-            switch effectivePensionExemption {
-            case .full: combinedExempt = combinedIncome
-            case .partial(let maxExempt): combinedExempt = min(combinedIncome, maxExempt * perIndividualMultiplier)
-            case .none: combinedExempt = 0
-            }
+            let combinedExempt = effectivePensionExemption.excludedAmount(
+                eligibleIncome: combinedIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
             // Attribute the combined exemption to pension first, then IRA
             // (purely for display purposes — the totalExempted is what matters
             // for the tax calculation).
             pensionExemptAmt = min(pensionIncome, combinedExempt)
             iraExemptAmt = combinedExempt - pensionExemptAmt
         } else {
-            switch effectivePensionExemption {
-            case .full: pensionExemptAmt = pensionIncome
-            case .partial(let maxExempt): pensionExemptAmt = min(pensionIncome, maxExempt * perIndividualMultiplier)
-            case .none: pensionExemptAmt = 0
-            }
-            switch effectiveIRAExemption {
-            case .full: iraExemptAmt = iraIncome
-            case .partial(let maxExempt): iraExemptAmt = min(iraIncome, maxExempt * perIndividualMultiplier)
-            case .none: iraExemptAmt = 0
-            }
+            pensionExemptAmt = effectivePensionExemption.excludedAmount(
+                eligibleIncome: pensionIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
+            iraExemptAmt = effectiveIRAExemption.excludedAmount(
+                eligibleIncome: iraIncome,
+                totalGrossIncome: income,
+                isMarried: isMarried,
+                perIndividualMultiplier: perIndividualMultiplier
+            )
         }
 
         // Military Retirement: per-source state exemption (Task 6.3).
@@ -755,8 +851,42 @@ class DataManager {
             }
         }()
 
-        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt + conversionExemptAmt
-        let adjustedIncome = max(0, income - totalExempted)
+        // NJ-1040 Worksheet D — Other Retirement Income Exclusion. Mirrors
+        // TaxCalculationEngine.applyRetirementExemptions. The unused chart
+        // maximum shelters other eligible income (62+, total ≤ $150K, earned
+        // ≤ $3,000). Only NJ sets `otherRetirementIncomeExclusion`.
+        var otherRetirementExemptAmt: Double = 0
+        if exemptions.otherRetirementIncomeExclusion && exemptions.pensionAndIRAShareSingleCap {
+            let earnedIncome = incomeSources
+                .filter { $0.type == .consulting }
+                .reduce(0) { $0 + $1.annualAmount }
+            let ageQualifies = effectiveAge >= max(minAge, 1)
+            if ageQualifies && income <= 150_000 && earnedIncome <= 3_000 {
+                let chartMax = effectivePensionExemption.chartMax(
+                    totalGrossIncome: income, isMarried: isMarried)
+                let pensionIRAExclusion = pensionExemptAmt + iraExemptAmt
+                let unused = max(0, chartMax - pensionIRAExclusion)
+                // Income still taxable after SS + pension/IRA exclusion, minus
+                // earned income (not eligible). Mirrors the engine, which
+                // subtracts from `adjusted` after those two steps.
+                let remainingAfterExclusions = max(0, income - ssExemptAmt - pensionIRAExclusion)
+                let otherEligible = max(0, remainingAfterExclusions - earnedIncome)
+                otherRetirementExemptAmt = min(unused, otherEligible)
+            }
+        }
+
+        let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt + conversionExemptAmt + otherRetirementExemptAmt
+
+        // NJ personal exemptions ($1,000 regular per filer + $1,000 per filer
+        // 65+). Applied AFTER the retirement exclusions (consistent with the
+        // engine's `postExemptionDeduction`). Other states: 0.
+        let njPersonalExemptionAmt = state == .newJersey
+            ? TaxCalculationEngine.njPersonalExemptions(
+                filingStatus: filingStatus, enableSpouse: enableSpouse,
+                primaryAge: currentAge, spouseAge: spouseCurrentAge)
+            : 0
+
+        let adjustedIncome = max(0, income - totalExempted - njPersonalExemptionAmt)
 
         // 3. Calculate tax with bracket-level detail
         var bracketDetails: [StateTaxBreakdown.BracketDetail] = []
@@ -3084,6 +3214,10 @@ class DataManager {
         let rmdAge: Int
         let taxPaid: Double
         let spouseSurvivorYears: Int
+        let drawdownMode: String
+        let drawdownRatePercent: Double
+        let drawdownSpendingTarget: Double
+        let drawdownInflationPercent: Double
     }
 
     /// Cached results of expensive legacy calculations.
@@ -3107,7 +3241,11 @@ class DataManager {
             currentAge: currentAge,
             rmdAge: rmdAge,
             taxPaid: legacyConversionTaxPaidToday,
-            spouseSurvivorYears: legacySpouseSurvivorYears
+            spouseSurvivorYears: legacySpouseSurvivorYears,
+            drawdownMode: drawdownMode.rawValue,
+            drawdownRatePercent: drawdownRatePercent,
+            drawdownSpendingTarget: drawdownSpendingTarget,
+            drawdownInflationPercent: drawdownInflationPercent
         )
     }
 
@@ -3172,19 +3310,45 @@ class DataManager {
         LegacyPlanningEngine.projectHeirDrawdownTotal(startingBalance: startingBalance, params: legacyProjectionParams)
     }
 
-    private func projectTraditionalSpouseThenChild(startingBalance: Double) -> Double {
-        LegacyPlanningEngine.projectTraditionalSpouseThenChild(startingBalance: startingBalance, params: legacyProjectionParams)
+    private func projectTraditionalSpouseThenChild(startingBalance: Double, balanceAtOwnerDeathOverride: Double? = nil) -> Double {
+        LegacyPlanningEngine.projectTraditionalSpouseThenChild(
+            startingBalance: startingBalance,
+            params: legacyProjectionParams,
+            balanceAtOwnerDeathOverride: balanceAtOwnerDeathOverride)
     }
 
     private func projectRothSpouseThenChild(startingBalance: Double) -> Double {
         LegacyPlanningEngine.projectRothSpouseThenChild(startingBalance: startingBalance, params: legacyProjectionParams)
     }
 
+    // MARK: - Drawdown → Legacy bridge (decision (b))
+
+    /// Drawn-down Traditional/401(k) household balance at the owner's projected death year,
+    /// or nil when the drawdown feature is inactive (no voluntary withdrawals) — in which
+    /// case Legacy must use its original grow-only balance. "Active" means the projection
+    /// takes a non-zero *voluntary* (planned) withdrawal over the projection-to-death
+    /// horizon; RMD-forced-only withdrawals do NOT count, so when the user has left
+    /// spending target 0 / rate 0 the Legacy path stays byte-for-byte identical to its
+    /// pre-drawdown behavior. Runs the projection exactly once per access.
+    private var drawdownTraditionalAtOwnerDeath: Double? {
+        guard legacyYearsUntilDeath > 0, totalTraditionalIRABalance > 0 else { return nil }
+        let projection = drawdownProjection(horizonYears: legacyYearsUntilDeath)
+        let plannedTotal = projection.years.reduce(0.0) { $0 + $1.plannedPortion }
+        guard plannedTotal > 0, let last = projection.years.last else { return nil }
+        return max(0, last.householdBalanceEnd)
+    }
+
     // MARK: - "Do Nothing" Scenario (no conversions, no QCDs)
 
     /// Traditional IRA balance at death WITHOUT any scenario actions.
+    /// When the drawdown feature is active, this reflects the drawn-down
+    /// household balance at the owner's death year instead of the grow-only
+    /// projection (decision (b)).
     var legacyNoActionTraditionalAtDeath: Double {
-        projectTraditionalToInheritance(startingBalance: totalTraditionalIRABalance)
+        if let drawnDown = drawdownTraditionalAtOwnerDeath {
+            return drawnDown
+        }
+        return projectTraditionalToInheritance(startingBalance: totalTraditionalIRABalance)
     }
 
     /// Roth IRA balance at death WITHOUT any scenario actions.
@@ -3195,7 +3359,9 @@ class DataManager {
     /// Heir's total taxable drawdown from Traditional IRA WITHOUT scenario (includes growth during drawdown).
     var legacyNoActionHeirTaxableDrawdown: Double {
         if legacyHeirType == "spouseThenChild" {
-            return projectTraditionalSpouseThenChild(startingBalance: totalTraditionalIRABalance)
+            return projectTraditionalSpouseThenChild(
+                startingBalance: totalTraditionalIRABalance,
+                balanceAtOwnerDeathOverride: drawdownTraditionalAtOwnerDeath)
         }
         return projectHeirDrawdownTotal(startingBalance: legacyNoActionTraditionalAtDeath)
     }
@@ -3209,8 +3375,17 @@ class DataManager {
     // MARK: - "With Scenario" Projections
 
     /// Traditional IRA balance at death WITH scenario actions (conversions + QCDs reduce starting balance).
+    /// When drawdown is active, the drawn-down death balance is scaled by the same
+    /// proportional reduction the scenario applies to the starting balance, so the
+    /// conversion/QCD effect is preserved on top of the drawdown (decision (b)).
     var legacyWithScenarioTraditionalAtDeath: Double {
-        projectTraditionalToInheritance(startingBalance: legacyTraditionalAtInheritance)
+        if let drawnDown = drawdownTraditionalAtOwnerDeath {
+            let total = totalTraditionalIRABalance
+            guard total > 0 else { return 0 }
+            let scenarioFraction = legacyTraditionalAtInheritance / total
+            return max(0, drawnDown * scenarioFraction)
+        }
+        return projectTraditionalToInheritance(startingBalance: legacyTraditionalAtInheritance)
     }
 
     /// Roth IRA balance at death WITH scenario (original Roth + converted amount, all compounding tax-free).
@@ -3221,7 +3396,16 @@ class DataManager {
     /// Heir's total taxable drawdown from Traditional IRA WITH scenario.
     var legacyWithScenarioHeirTaxableDrawdown: Double {
         if legacyHeirType == "spouseThenChild" {
-            return projectTraditionalSpouseThenChild(startingBalance: legacyTraditionalAtInheritance)
+            // Scale the drawn-down death balance by the scenario's proportional
+            // reduction (conversions/QCDs), mirroring legacyWithScenarioTraditionalAtDeath.
+            let scenarioOverride: Double? = drawdownTraditionalAtOwnerDeath.map { drawnDown in
+                let total = totalTraditionalIRABalance
+                guard total > 0 else { return 0 }
+                return max(0, drawnDown * (legacyTraditionalAtInheritance / total))
+            }
+            return projectTraditionalSpouseThenChild(
+                startingBalance: legacyTraditionalAtInheritance,
+                balanceAtOwnerDeathOverride: scenarioOverride)
         }
         return projectHeirDrawdownTotal(startingBalance: legacyWithScenarioTraditionalAtDeath)
     }

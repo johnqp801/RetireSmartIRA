@@ -1164,6 +1164,14 @@ private struct StateTaxDetailSheet: View {
             } else {
                 return "Exempt"  // actual amount is less than cap, so fully exempt
             }
+        case .steppedPhaseoutByFilingStatus:
+            // Exclusion phases out by total income (NJ). Show the actual
+            // computed amount rather than a fixed cap.
+            if exemptAmount > 0 {
+                return "Up to \(exemptAmount.formatted(.currency(code: "USD").precision(.fractionLength(0)))) exempt"
+            } else {
+                return "Taxed"
+            }
         case .none:
             return "Taxed"
         }
@@ -1174,6 +1182,7 @@ private struct StateTaxDetailSheet: View {
         switch level {
         case .full: return Color.UI.brandTeal
         case .partial: return Color.UI.textSecondary
+        case .steppedPhaseoutByFilingStatus: return Color.UI.textSecondary
         case .none: return Color.UI.textPrimary
         }
     }
@@ -1230,6 +1239,7 @@ private struct StateTaxDetailSheet: View {
                 switch breakdown.pensionExemptionLevel {
                 case .full: exemptions.append("pensions are fully exempt")
                 case .partial: exemptions.append("pensions are partially exempt")
+                case .steppedPhaseoutByFilingStatus: exemptions.append("pension exclusion phases out by total income")
                 case .none: exemptions.append("pensions are fully taxed")
                 }
             }
@@ -1238,6 +1248,7 @@ private struct StateTaxDetailSheet: View {
                 switch breakdown.iraExemptionLevel {
                 case .full: exemptions.append("IRA/RMD withdrawals are fully exempt")
                 case .partial: exemptions.append("IRA/RMD withdrawals are partially exempt")
+                case .steppedPhaseoutByFilingStatus: exemptions.append("IRA/RMD exclusion phases out by total income")
                 case .none: exemptions.append("IRA/RMD withdrawals are fully taxed")
                 }
             }

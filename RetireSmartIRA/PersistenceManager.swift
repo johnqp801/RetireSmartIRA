@@ -53,6 +53,11 @@ struct PersistenceManager {
         static let userName = "userName"
         static let primaryGrowthRate = "primaryGrowthRate"
         static let spouseGrowthRate = "spouseGrowthRate"
+        // 1.9 Drawdown projection settings
+        static let drawdownMode = "drawdownMode"
+        static let drawdownSpendingTarget = "drawdownSpendingTarget"
+        static let drawdownRatePercent = "drawdownRatePercent"
+        static let drawdownInflationPercent = "drawdownInflationPercent"
         static let enableLegacyPlanning = "enableLegacyPlanning"
         static let legacyHeirType = "legacyHeirType"
         static let legacyHeirEstimatedSalary = "legacyHeirEstimatedSalary"
@@ -270,6 +275,21 @@ struct PersistenceManager {
             dm.spouseGrowthRate = defaults.double(forKey: StorageKey.spouseGrowthRate)
         }
 
+        // Drawdown projection settings
+        if let raw = defaults.string(forKey: StorageKey.drawdownMode),
+           let mode = DrawdownMode(rawValue: raw) {
+            dm.drawdownMode = mode
+        }
+        if defaults.object(forKey: StorageKey.drawdownSpendingTarget) != nil {
+            dm.drawdownSpendingTarget = defaults.double(forKey: StorageKey.drawdownSpendingTarget)
+        }
+        if defaults.object(forKey: StorageKey.drawdownRatePercent) != nil {
+            dm.drawdownRatePercent = defaults.double(forKey: StorageKey.drawdownRatePercent)
+        }
+        if defaults.object(forKey: StorageKey.drawdownInflationPercent) != nil {
+            dm.drawdownInflationPercent = defaults.double(forKey: StorageKey.drawdownInflationPercent)
+        }
+
         // Legacy planning
         if defaults.object(forKey: StorageKey.enableLegacyPlanning) != nil {
             dm.enableLegacyPlanning = defaults.bool(forKey: StorageKey.enableLegacyPlanning)
@@ -476,6 +496,12 @@ struct PersistenceManager {
         // Growth rates
         defaults.set(dm.primaryGrowthRate, forKey: StorageKey.primaryGrowthRate)
         defaults.set(dm.spouseGrowthRate, forKey: StorageKey.spouseGrowthRate)
+
+        // Drawdown projection settings
+        defaults.set(dm.drawdownMode.rawValue, forKey: StorageKey.drawdownMode)
+        defaults.set(dm.drawdownSpendingTarget, forKey: StorageKey.drawdownSpendingTarget)
+        defaults.set(dm.drawdownRatePercent, forKey: StorageKey.drawdownRatePercent)
+        defaults.set(dm.drawdownInflationPercent, forKey: StorageKey.drawdownInflationPercent)
 
         // Legacy planning
         defaults.set(dm.enableLegacyPlanning, forKey: StorageKey.enableLegacyPlanning)
