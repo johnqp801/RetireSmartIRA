@@ -19,7 +19,7 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 **Personal exemptions:** NJ $1,000 regular per filer (+spouse if MFJ) + **$1,000 each age 65+**. Subtract from NJ taxable income (currently `stateDeduction: .none` applies none). 65+ MFJ couple = $4,000.
 
-**Status: IN PROGRESS (TDD build dispatched 2026-06-18, `1.9/drawdown` worktree).** Original findings retained below.
+**Status: DONE — built, TDD-tested, independently reviewed, full suite green. Commit `b61ba23` on `1.9/drawdown`.** Implementation: `chartMax`/`tierPercent` accessors on `ExemptionLevel`; exclusion = `min((pension+IRA)×tier%, chartMax)`; `otherRetirementIncomeExclusion: Bool` flag (NJ-only) gating the unused-exclusion spill onto other income (other = remaining taxable − earned, where earned = `.consulting`); NJ personal exemptions via a `postExemptionDeduction` applied AFTER the income-gated bands. Reviewer recomputed all values to the penny vs NJ-1040 Worksheet D; engine and `stateTaxBreakdown` mirror agree (`StateTaxConsistencyTests` green); TaxsimOracle NJ fixture unchanged. **Follow-up (minor, latent):** a future direct caller of `calculateStateTax(income:forState:...)` that omits `postExemptionDeduction` would silently drop NJ exemptions — all current production callers route through wrappers, so not a live bug; consider consolidating so it can't be dropped. Original findings retained below.
 
 ---
 
