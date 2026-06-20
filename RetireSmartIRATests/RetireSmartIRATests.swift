@@ -1407,16 +1407,32 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         return dm
     }
 
-    @Test("NJ breakdown shows pension exempt up to $100K")
+    @Test("NJ breakdown applies stepped AGI phaseout + $75K single cap (NJSA 54A:6-15)")
     func njPensionExemption() {
+        // Single filer, $80K pension + $30K RMD = $110K total NJ gross income.
+        // NJSA 54A:6-15 is a SINGLE COMBINED exclusion across ALL qualifying
+        // retirement income (pension + IRA/RMD), capped in AGGREGATE — NOT a
+        // separate cap per income type.
+        // $110K falls in the $100,001–$125,000 band → 37.5% retained (single).
+        // 1.9: exclusion = min(eligible × 37.5%, chartMax), chartMax = 37.5% × $110K
+        // = $41,250. Combined eligible = $80K + $30K = $110K:
+        //   excluded = min($110K × 0.375, $41,250) = min($41,250, $41,250) = $41,250.
+        // (The cap-before-percent formula previously gave min($110K,$75K)×0.375 =
+        // $28,125 — under-excluding because pension+IRA exceeded the $75K cap
+        // inside the phaseout band. The new figure matches NJ-1040 Worksheet D.)
+        // Worksheet D other-income exclusion = $0 (unused chart max = $41,250 −
+        // $41,250 = $0, and all income is retirement income anyway).
+        // Adjusted taxable = $110K − $41,250 = $68,750, then minus the NJ personal
+        // exemption (single 65+ → $2,000) = $66,750 → NJ single tax ≈ $2,195.44.
+        // Breakdown attributes the combined exclusion to pension first ($41,250),
+        // leaving the IRA/RMD share at $0 (display-only; total is what's taxed).
         let dm = makeDMWithRetirementIncome(pension: 80_000, rmd: 30_000, state: .newJersey)
         let bd = dm.stateTaxBreakdown(forState: .newJersey, filingStatus: .single)
-        // NJ exempts first $100K pension and first $100K IRA
-        #expect(isClose(bd.pensionExemptAmount, 80_000))  // all pension exempt (below $100K cap)
-        #expect(isClose(bd.iraExemptAmount, 30_000))       // all RMD exempt (below $100K cap)
-        #expect(bd.totalExempted > 0)
-        #expect(isClose(bd.adjustedTaxableIncome, 0))      // all income exempted
-        #expect(isClose(bd.totalStateTax, 0))
+        #expect(isClose(bd.pensionExemptAmount, 41_250))
+        #expect(isClose(bd.iraExemptAmount, 0))
+        #expect(isClose(bd.totalExempted, 41_250))
+        #expect(isClose(bd.adjustedTaxableIncome, 66_750))
+        #expect(abs(bd.totalStateTax - 2_195.44) < 2)
     }
 
     @Test("TX breakdown shows $0 tax with no-tax system")
@@ -5448,7 +5464,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 21_308.38, tolerance: 1.0))
     }
 
-    @Test("B: NY state tax ≈ $2,311")
+    @Test("B: NY state tax ≈ $4,216")
     func b_stateTax() {
         let dm = makeScenarioB()
         // Updated 2026-05-27 (v1.8.5) — NY Chapter 59/2025 Part A cut bottom-5
@@ -5460,11 +5476,17 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         //
         // Previous v1.8.4 value $2,433.42 reflected old TY 2025 rates.
         //
-        // Per-individual exemption stack (unchanged):
-        //   Pension exempt −$40K (2 × $20K, both spouses 65+)
-        //   IRA exempt −$35,283 (cap of $40K, but only $35,283 of withdrawal
-        //                          income to apply against)
-        #expect(isClose(dm.scenarioStateTax, 2_310.75, tolerance: 2.0))
+        // Updated 2026-06-20 — NY § 612(c)(3-a) combined-cap correction
+        // (commit 41364ac, pensionAndIRAShareSingleCap). The $20,000 exclusion
+        // is ONE combined cap per qualifying spouse across pension + IRA, not a
+        // separate $20K for each. Old exclusion stack double-counted:
+        //   Pension exempt −$40K (2 × $20K) + IRA exempt −$35,283 = −$75,283.
+        // Corrected: each spouse caps combined pension+IRA at $20K → 2 × $20K =
+        //   −$40,000 total. Lost exclusion = $75,283 − $40,000 = $35,283.02,
+        //   added back to NY taxable income.
+        //   State-tax delta = $35,283.02 × 5.40% (NY MFJ $27.9K–$161.55K band,
+        //   TY2026 Ch.59 rate) = +$1,905.33 → $2,310.75 + $1,905.33 = $4,216.08.
+        #expect(isClose(dm.scenarioStateTax, 4_216.08, tolerance: 2.0))
     }
 
     @Test("B: NIIT = $0 (no investment income, MAGI below $250K)")
@@ -5479,13 +5501,15 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioAMTAmount, 0))
     }
 
-    @Test("B: Total tax ≈ $23,619")
+    @Test("B: Total tax ≈ $25,524")
     func b_totalTax() {
         let dm = makeScenarioB()
-        // Updated 2026-05-27 (v1.8.5) — see b_stateTax for explanation.
-        // NY Chapter 59/2025 Part A bottom-5 rate cuts dropped state tax by ~$123.
-        // Federal $21,308.38 + NY state $2,310.75 + NIIT $0 + AMT $0 = $23,619.13
-        #expect(isClose(dm.scenarioTotalTax, 23_619.13, tolerance: 3.0))
+        // Updated 2026-06-20 — see b_stateTax. NY § 612(c)(3-a) combined-cap
+        // correction (commit 41364ac) raised NY state tax by +$1,905.33
+        // ($2,310.75 → $4,216.08). Federal/NIIT/AMT unchanged (the NY exclusion
+        // only affects state tax).
+        // Federal $21,308.38 + NY state $4,216.08 + NIIT $0 + AMT $0 = $25,524.46
+        #expect(isClose(dm.scenarioTotalTax, 25_524.46, tolerance: 3.0))
     }
 }
 
@@ -5830,19 +5854,23 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(dm.scenarioFederalTax, 184_870.48, tolerance: 2.0))
     }
 
-    @Test("D: NY state tax ≈ $44,475 (6.85% bracket, $40K pension + $40K IRA per-individual)")
+    @Test("D: NY state tax ≈ $47,215 (6.85% bracket, combined $20K-per-spouse exclusion)")
     func d_stateTax() {
         let dm = makeScenarioD()
         // Updated 2026-05-27 (v1.8.5) — NY Chapter 59/2025 Part A cut bottom-5
         // bracket rates effective TY 2026: 4.00→3.90, 4.50→4.40, 5.25→5.15,
         // 5.85→5.40, 6.25→5.90. Source: NYS Pub NYS-50-T-NYS rev 1/26.
-        // Same NY taxable income ($710,742) at new rates dropped state tax by
-        // ~$1,195 (mostly from the 5.85→5.40 cut in the $27.9K-$161.5K MFJ band
-        // and 6.25→5.90 cut in the $161.5K-$323.2K MFJ band).
         //
-        // Previous v1.8.4 value $45,670.31 reflected old TY 2025 rates.
-        // Engine actual: $44,475.21
-        #expect(isClose(dm.scenarioStateTax, 44_475.21, tolerance: 2.0))
+        // Updated 2026-06-20 — NY § 612(c)(3-a) combined-cap correction
+        // (commit 41364ac, pensionAndIRAShareSingleCap). The $20,000 exclusion
+        // is ONE combined cap per qualifying spouse across pension + IRA. The old
+        // value reflected the pre-fix double-count: $40K pension + $40K IRA =
+        // $80,000 exclusion. Corrected: each spouse caps combined pension+IRA at
+        // $20K → 2 × $20K = $40,000 total. Lost exclusion = $40,000, added back
+        // to NY taxable income, which sits in the NY MFJ $323.2K–$2,155.35K band.
+        //   State-tax delta = $40,000 × 6.85% = +$2,740.00.
+        //   $44,475.21 + $2,740.00 = $47,215.21. Engine actual: $47,215.21.
+        #expect(isClose(dm.scenarioStateTax, 47_215.21, tolerance: 2.0))
     }
 
     @Test("D: NIIT = $12,160 (full $320K NII taxed)")
@@ -5864,13 +5892,15 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(result.amt, 0, tolerance: 1.0))
     }
 
-    @Test("D: Total tax ≈ $241,506")
+    @Test("D: Total tax ≈ $244,246")
     func d_totalTax() {
         let dm = makeScenarioD()
-        // Updated 2026-05-27 (v1.8.5) — see d_stateTax for explanation.
-        // NY Chapter 59/2025 Part A bottom-5 rate cuts dropped state tax by ~$1,195.
-        // Federal $184,870 + NY $44,475.21 + NIIT $12,160 + AMT $0 = $241,505.69
-        #expect(isClose(dm.scenarioTotalTax, 241_505.69, tolerance: 5.0))
+        // Updated 2026-06-20 — see d_stateTax. NY § 612(c)(3-a) combined-cap
+        // correction (commit 41364ac) raised NY state tax by +$2,740.00
+        // ($44,475.21 → $47,215.21). Federal/NIIT/AMT unchanged (the NY exclusion
+        // only affects state tax).
+        // Federal $184,870 + NY $47,215.21 + NIIT $12,160 + AMT $0 = $244,245.69
+        #expect(isClose(dm.scenarioTotalTax, 244_245.69, tolerance: 5.0))
     }
 }
 

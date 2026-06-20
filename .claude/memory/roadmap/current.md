@@ -1,6 +1,6 @@
 # Current Release Roadmap
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-14
 
 ---
 
@@ -26,6 +26,22 @@
 **Draft:** `.claude/memory/drafts/release-notes/2026-06-11-1.8.7-release-notes.md`
 **Branch:** `fix/aca-2026-config` (merged to main)
 **Tag:** `v1.8.7-build54` ← create: `git tag -a v1.8.7-build54 -m "1.8.7 submitted review 2026-06-11" && git push origin v1.8.7-build54`
+
+---
+
+## PLANNED (NEXT): V1.9 — drawdown feature + NJ phaseout (single release)
+
+**Status:** Planned. Decision 2026-06-18: **no standalone 1.8.8** — its NJ scope is folded into **V1.9** to avoid two back-to-back Apple reviews. Build 55 already staged in pbxproj (`CURRENT_PROJECT_VERSION` 54→55); `MARKETING_VERSION` bumps 1.8.7 → **1.9** at release. NOTE: the original "1.9 features bundle" (healthcare/AGI) already SHIPPED inside 1.8.2–1.8.7 — see decision-log 2026-06-18; the 1.9 label is reassigned to the drawdown feature.
+
+**Scope item A — Contained pre-RMD drawdown projection (new headline feature):**
+- Lives in the **RMD Calculator tab**, display-only. Planned annual withdrawal / target-spending input for the pre-RMD years; balance drawn down year by year at the growth-rate slider; after RMD age take `max(planned, RMD)`; new balance-over-time graph; 40-year horizon; single inflation input; pro-rata split across a household's accounts. Traditional/401(k)-focused.
+- **Does NOT touch Scenarios or Tax Summary** (verified: those use current-year `calculatePrimaryRMD()`, not `projectBalance`/`growthRate`). Legacy planning is the only adjacent consumer of the projection machinery — decide whether drawdowns propagate.
+- Open seam: optionally surface projected IRMAA/ACA exposure per year by reusing the already-live `MedicareCostEngine` / `ACASubsidyEngine`.
+- Needs its own brainstorm → spec → plan (in progress as of 2026-06-18). Multi-bucket (brokerage/Roth) sequencing stays 2.0.
+
+**Scope item B — NJ pension-exclusion AGI phaseout** (from Brian/Bob NJ feedback, 2026-06-14): model NJSA 54A:6-15 income-based phaseout. Currently NJ over-exempts in the $100K–$150K window (no phaseout, no $150K cliff) and single filers use the MFJ $100K cap instead of the correct $75K. Phase E's `.partialWithAGIPhaseout` doesn't fit cleanly — NJ's phaseout is *stepped* (50%/25% MFJ; 37.5%/18.75% single), not linear, and needs per-filing-status caps ($75K single / $100K MFJ), so the engine case needs a small extension. Touches the `ExemptionLevel` enum → update `StateComparisonView.swift` switch statements for exhaustiveness. Add regression tests for the $100K/$125K/$150K boundaries (single + MFJ). Full detail + worked example: decision-log 2026-06-14.
+
+**Reminders before ship:** full test suite (1,271+) green incl. new NJ boundary tests + drawdown tests; offer 2-3 neutral release-note wordings (per CLAUDE.md — no "honesty/bug-fix" framing). 1.9 is also the moment to finally market the quietly-shipped healthcare bundle (ACA + Medicare + Reduce-AGI).
 
 ---
 
@@ -103,12 +119,26 @@ Details + undo command: `reference/git-topology.md`, decision-log 2026-06-04.
 `1.9/snapshot-testing-pass-1`. Scope TBD-confirm.
 
 ### V2.0 Plan B — Multi-Year Tax Strategy UI
-**Status:** Engine locked on `2.0/multi-year-engine` (951+ passing tests). UI
-work on `2.0/plan-b-ui` (also `2.0/v2.0.1-path-3-polish`). Branched from
-`2.0/multi-year-engine`, not main.
+**Status (re-audited 2026-06-18):** Multi-year Roth-optimization engine + Plan-B
+year-by-year UI are **substantially built and tested** on `2.0/v2.0.1-path-3-polish`
+(furthest branch; ~27.5k lines; `MultiYearTaxStrategyEngine`, `OptimizationEngine`+DP
+spike, `ProjectionEngine`, `MultiYearStrategyManager`, full `Year*` UI; 43 test files,
+~163+ engine cases). **BUT all 2.0 branches are ~190 commits behind main** (branched
+~2026-05-02, pre-1.8.x healthcare bundle and pre-state-tax-refresh). Built against an
+**old tax engine** → the dominant remaining cost is **reconciliation onto current
+main**, not greenfield. NOT built: plan history/snapshots (only `AccountSnapshot` stub),
+HSA full accounts, and the 2.1 decumulation set (brokerage, withdrawal-order).
+Old "3-4 weeks" estimate is superseded; true shape = expensive merge + finish
+plan-history + HSA + (2.1) decumulation. See decision-log 2026-06-18.
+
+**PRODUCT PRINCIPLE (decision 2026-06-18):** single-year **Scenarios** and **Tax
+Summary** tabs are CORE and must NOT be replaced/removed by 2.0/2.1. Multi-year
+capability is **additive — likely a brand-new tab** ("Multi-Year Plan") beside the
+single-year tools. Verify the Plan-B UI augments, not supplants, during reconciliation.
+
 **Spec:** `docs/superpowers/specs/2026-05-04-2.0-plan-b-multi-year-ui-design.md`
 **Plan:** `docs/superpowers/plans/2026-05-04-2.0-plan-b-multi-year-ui.md`
-(12 phases, 53 tasks, 145 steps). Est. 3-4 weeks.
+(12 phases, 53 tasks, 145 steps — predates the audit; estimate stale).
 
 ### iCloud cross-device sync
 **Status:** Scoped, not started. Target v1.9 or v2.x. Opt-in by default
