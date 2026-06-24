@@ -1,12 +1,30 @@
 # Current Release Roadmap
 
-**Last updated:** 2026-06-14
+**Last updated:** 2026-06-21
 
 ---
 
-## IN REVIEW / PARTIAL LIVE: V1.8.7 (build 54 — submitted iOS + macOS 2026-06-11)
+## ✅ LIVE: V1.9.0 (build 55 — both iOS and macOS approved & live in the App Store, 2026-06-21)
 
-**Status:** ✅ Both iOS and macOS approved and live (2026-06-12).
+**Status:** ✅ Both iOS and macOS approved and available in the App Store (confirmed 2026-06-21). Submitted 2026-06-20; approved within ~1 day. Tagged `v1.9.0-build55`. PR #6 merged to `main`.
+
+**What's in 1.9.0:**
+- **Retirement Drawdown** (new headline feature, RMD Calculator tab): 3 modes — RMD-only / spending-gap / withdrawal-rate; 40-year horizon; pro-rata household split; after RMD age takes `max(planned, RMD)`; balance-over-time chart with tap/hover readout; Medicare IRMAA overlay; today's-dollars toggle. Traditional/401(k)-focused. Legacy estate propagation wired in.
+- **NJ tax work:** Worksheet D Other Retirement Income Exclusion (unused pension exclusion spills onto interest/dividends/cap gains, gated total ≤ $150k + earned ≤ $3,000); pension-exclusion AGI phaseout fix (stepped, per-filing-status caps $75k single / $100k MFJ); NJ personal exemptions ($1,000 + $1,000 senior each).
+- **NY $20k double-exemption bug fix** — combined pension+IRA cap per NY Tax Law §612(c)(3-a) (was applying $20k to pension AND IRA separately).
+- Full suite green (caught + fixed 2 stale NY tests pre-ship).
+
+**App Store copy:** locked in `drafts/marketing/2026-06-18-1.9.0-app-store-metadata.md` (subtitle kept `Roth, RMD & IRMAA Calculator`; keywords refreshed; drawdown-led What's New + description rewritten to 3,801 chars).
+
+**Session detail:** `sessions/2026-06-20-v1.9-implementation-release-tax-fixes.md`.
+
+**Deferred (logged for a future state-tax completeness pass):** NJ IRA basis / medical (>2% NJ gross) / property-tax deduction; NY government-pension full exclusion + NYC/Yonkers local tax + the Worksheet-D per-spouse attribution limitation; CA itemized / exemption credits / HSA earnings; out-of-state muni `TODO(v1.8.4)`; latent NJ `postExemptionDeduction` caller consolidation; `capGainsTreatment` dead-code cleanup.
+
+---
+
+## SUPERSEDED: V1.8.7 (build 54 — submitted iOS + macOS 2026-06-11)
+
+**Status:** ✅ Both iOS and macOS approved and live (2026-06-12). Superseded by 1.9.0 (2026-06-21).
 
 **What's in 1.8.7:**
 - ACA FPL thresholds updated to 2025 HHS poverty guidelines ($15,650 single / $21,150 couple)
@@ -29,9 +47,11 @@
 
 ---
 
-## PLANNED (NEXT): V1.9 — drawdown feature + NJ phaseout (single release)
+## ✅ SHIPPED (planning archive): V1.9 — drawdown feature + NJ phaseout (single release)
 
-**Status:** Planned. Decision 2026-06-18: **no standalone 1.8.8** — its NJ scope is folded into **V1.9** to avoid two back-to-back Apple reviews. Build 55 already staged in pbxproj (`CURRENT_PROJECT_VERSION` 54→55); `MARKETING_VERSION` bumps 1.8.7 → **1.9** at release. NOTE: the original "1.9 features bundle" (healthcare/AGI) already SHIPPED inside 1.8.2–1.8.7 — see decision-log 2026-06-18; the 1.9 label is reassigned to the drawdown feature.
+**Status:** ✅ Shipped as 1.9.0 build 55, live both platforms 2026-06-21 (see top of file). Scope items A/B/C all landed. Planning context retained below for reference.
+
+**Status (original):** Planned. Decision 2026-06-18: **no standalone 1.8.8** — its NJ scope is folded into **V1.9** to avoid two back-to-back Apple reviews. Build 55 already staged in pbxproj (`CURRENT_PROJECT_VERSION` 54→55); `MARKETING_VERSION` bumps 1.8.7 → **1.9** at release. NOTE: the original "1.9 features bundle" (healthcare/AGI) already SHIPPED inside 1.8.2–1.8.7 — see decision-log 2026-06-18; the 1.9 label is reassigned to the drawdown feature.
 
 **Scope item A — Contained pre-RMD drawdown projection (new headline feature):**
 - Lives in the **RMD Calculator tab**, display-only. Planned annual withdrawal / target-spending input for the pre-RMD years; balance drawn down year by year at the growth-rate slider; after RMD age take `max(planned, RMD)`; new balance-over-time graph; 40-year horizon; single inflation input; pro-rata split across a household's accounts. Traditional/401(k)-focused.

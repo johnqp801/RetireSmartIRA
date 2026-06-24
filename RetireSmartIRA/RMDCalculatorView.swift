@@ -287,7 +287,7 @@ struct RMDCalculatorView: View {
     private var currentYearRMD: some View {
         if hasAnyRMDs {
             VStack(alignment: .leading, spacing: 16) {
-                Text("\(dataManager.currentYear) Required Minimum Distribution")
+                Text(verbatim: "\(dataManager.currentYear) Required Minimum Distribution")
                     .font(.headline)
 
                 // Your RMD
@@ -1053,7 +1053,7 @@ struct RMDCalculatorView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "info.circle")
                                 .font(.caption2)
-                            Text("\(entry.ownerLabel)'s \(entry.accountName) deadline: \(entry.deadlineYear). Pick a longer horizon to see it.")
+                            Text("\(entry.ownerLabel)'s \(entry.accountName) deadline: \(String(entry.deadlineYear)). Pick a longer horizon to see it.")
                                 .font(.caption)
                         }
                         .foregroundStyle(.secondary)
@@ -1383,7 +1383,7 @@ struct RMDCalculatorView: View {
                             VStack(spacing: 4) {
                                 ForEach(projections) { row in
                                     HStack(spacing: 0) {
-                                        Text("\(row.year)")
+                                        Text(String(row.year))
                                             .font(.caption)
                                             .fontWeight(row.year == dataManager.currentYear ? .bold : .regular)
                                             .frame(width: 50, alignment: .leading)
