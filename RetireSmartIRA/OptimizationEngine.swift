@@ -353,11 +353,16 @@ struct OptimizationEngine {
         var iteration = 0
         var converged = false
         while iteration < maxIterations && !converged {
+            // Cooperative cancellation (M8): when the manager cancels a superseded compute
+            // (rapid slider changes), bail out of the expensive candidate sweep instead of
+            // running it to completion. The caller discards a cancelled result.
+            if Task.isCancelled { return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0) }
             iteration += 1
             let previousLocked = locked
 
             // ───── Inner forward greedy pass ─────
             for yearIdx in 0..<horizonYears {
+                if Task.isCancelled { return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0) }
                 let Y = baseYear + yearIdx
 
                 // Plan B Phase 1: if user has pinned Year 1 actions, skip optimization

@@ -77,10 +77,16 @@ struct ClaimAgeFlag: Codable, Equatable, Sendable {
 
 // MARK: - SensitivityBands
 
+/// Deterministic **growth-rate sensitivity** for the plan: the optimizer re-run at
+/// average / average−2pp / average+2pp constant growth. This is a sensitivity band, NOT a
+/// risk model — it is not Monte Carlo, not sequence-of-returns risk, and not a
+/// probability-of-success estimate. UI must label it as growth sensitivity, never as
+/// "risk" or "odds of success" (the engine is positioned as a tax optimizer, not a
+/// longevity/ruin-probability tool).
 struct SensitivityBands: Codable, Equatable, Sendable {
-    let optimistic: [YearRecommendation]
-    let average: [YearRecommendation]
-    let pessimistic: [YearRecommendation]
+    let optimistic: [YearRecommendation]   // higher constant growth (avg + 2pp)
+    let average: [YearRecommendation]      // the recommended plan at the average growth rate
+    let pessimistic: [YearRecommendation]  // lower constant growth (avg − 2pp, clamped ≥ 0%)
 
     init(optimistic: [YearRecommendation], average: [YearRecommendation], pessimistic: [YearRecommendation]) {
         self.optimistic = optimistic

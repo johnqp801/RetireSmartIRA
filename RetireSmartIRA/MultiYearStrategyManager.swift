@@ -37,6 +37,15 @@ final class MultiYearStrategyManager: ObservableObject {
     private var debounceTask: Task<Void, Never>?
     private var observationTask: Task<Void, Never>?
 
+    /// Off-main engine compute output, bundled so the detached work task can be stored and
+    /// cancelled when a newer compute supersedes it (M8 — cooperative cancellation).
+    private struct EngineOutputs: Sendable {
+        let optimal: MultiYearStrategyResult?
+        let current: MultiYearStrategyResult
+        let baseline: [YearRecommendation]?
+    }
+    private var engineWorkTask: Task<EngineOutputs, Never>?
+
     /// Resolves the tax-year config for the multi-year engine. Defaults to `.current`
     /// (the active global config), so production behavior is unchanged; tests inject a
     /// fixed provider for determinism.
@@ -63,6 +72,7 @@ final class MultiYearStrategyManager: ObservableObject {
         // (these fire recompute()/observation on the shared main actor otherwise).
         observationTask?.cancel()
         debounceTask?.cancel()
+        engineWorkTask?.cancel()
     }
 
     /// Wire upstream dependencies post-init. StateObject construction can't
@@ -125,6 +135,7 @@ final class MultiYearStrategyManager: ObservableObject {
         }
 
         debounceTask?.cancel()
+        engineWorkTask?.cancel()   // M8: stop any in-flight compute superseded by this call
         isComputing = true
         computeFailed = false
 
@@ -239,8 +250,11 @@ final class MultiYearStrategyManager: ObservableObject {
             : [:]
 
         // Run engine off-main. Capture the config provider (Sendable) for the detached task.
+        // The work task is stored so a newer compute can cancel it (M8); the engine checks
+        // Task.isCancelled in its hot loops and bails early.
         let configProvider = self.configProvider
-        let result = await Task.detached(priority: .userInitiated) {
+        engineWorkTask?.cancel()
+        let work = Task.detached(priority: .userInitiated) {
             let engine = MultiYearTaxStrategyEngine()
             let current = engine.compute(inputs: currentInputs, assumptions: assumptions, configProvider: configProvider)
             let optimal: MultiYearStrategyResult? = optimalInputs.map {
@@ -253,11 +267,13 @@ final class MultiYearStrategyManager: ObservableObject {
                     assumptions: assumptions,
                     actionsPerYear: baselineActions
                 )
-            return (optimal: optimal, current: current, baseline: baseline)
-        }.value
+            return EngineOutputs(optimal: optimal, current: current, baseline: baseline)
+        }
+        engineWorkTask = work
+        let result = await work.value
 
-        // Final cancellation check before mutating @Published state.
-        guard !Task.isCancelled else { return }
+        // Discard a superseded/cancelled compute before mutating @Published state.
+        guard !Task.isCancelled, !work.isCancelled else { return }
 
         // Apply results on main actor.
         if let optimal = result.optimal {
