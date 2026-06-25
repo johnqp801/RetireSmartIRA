@@ -406,7 +406,8 @@ struct OptimizationEngine {
         let hits = ConstraintAcceptor().detect(
             path: finalPath,
             filingStatus: inputs.filingStatus,
-            householdSize: inputs.acaHouseholdSize
+            householdSize: inputs.acaHouseholdSize,
+            configProvider: configProvider
         )
 
         let baselineActions = Dictionary(

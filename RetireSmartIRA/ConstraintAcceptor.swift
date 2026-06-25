@@ -28,17 +28,18 @@ struct ConstraintAcceptor {
     func detect(
         path: [YearRecommendation],
         filingStatus: FilingStatus,
-        householdSize: Int
+        householdSize: Int,
+        configProvider: TaxYearConfigProvider = .current
     ) -> [ConstraintHit] {
         var hits: [ConstraintHit] = []
         for year in path {
             if let hit = detectIRMAAHit(year: year, filingStatus: filingStatus) {
                 hits.append(hit)
             }
-            if let hit = detectACAHit(year: year, householdSize: householdSize) {
+            if let hit = detectACAHit(year: year, householdSize: householdSize, configProvider: configProvider) {
                 hits.append(hit)
             }
-            if let hit = detectBracketOverrun(year: year, filingStatus: filingStatus) {
+            if let hit = detectBracketOverrun(year: year, filingStatus: filingStatus, configProvider: configProvider) {
                 hits.append(hit)
             }
         }
@@ -99,11 +100,12 @@ struct ConstraintAcceptor {
     /// - MAGI is at or below 400% FPL (no cliff crossed)
     private func detectACAHit(
         year: YearRecommendation,
-        householdSize: Int
+        householdSize: Int,
+        configProvider: TaxYearConfigProvider
     ) -> ConstraintHit? {
         guard let magi = year.acaMagi else { return nil }
 
-        let config = TaxCalculationEngine.config
+        let config = configProvider.config(forYear: year.year)
         let acaConfig = config.acaSubsidy2026
         let fplBase = acaConfig.fpl2026.householdSizeToFPL[String(householdSize)]
             ?? acaConfig.fpl2026.householdSizeToFPL[String(min(householdSize, 8))]!
@@ -157,9 +159,10 @@ struct ConstraintAcceptor {
     ///   - 12→22: income > threshold22 but ≤ threshold24
     private func detectBracketOverrun(
         year: YearRecommendation,
-        filingStatus: FilingStatus
+        filingStatus: FilingStatus,
+        configProvider: TaxYearConfigProvider
     ) -> ConstraintHit? {
-        let brackets = TaxCalculationEngine.default2026Brackets
+        let brackets = configProvider.config(forYear: year.year).toTaxBrackets()
         let ordinaryBrackets = filingStatus == .single
             ? brackets.federalSingle
             : brackets.federalMarried
