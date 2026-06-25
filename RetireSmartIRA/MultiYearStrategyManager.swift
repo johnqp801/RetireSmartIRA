@@ -68,26 +68,35 @@ final class MultiYearStrategyManager: ObservableObject {
         self.dataManager = dataManager
         self.scenarioStateManager = scenarioStateManager
 
-        // Subscribe to upstream changes using @Observable withObservationTracking.
         // DataManager and ScenarioStateManager use the @Observable macro (not ObservableObject),
-        // so we observe via a tracking loop rather than Combine objectWillChange.
-        // A 50ms Task.sleep coalesces rapid change notifications into one recompute trigger.
+        // so we observe via withObservationTracking rather than Combine objectWillChange.
         observationTask?.cancel()
-        observationTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                // withObservationTracking fires onChange when any tracked property changes.
-                await withObservationTracking {
-                    _ = dataManager.scenario  // track any DataManager change
-                    _ = scenarioStateManager.yourRothConversion  // track ScenarioStateManager
-                } onChange: {
-                    Task { @MainActor [weak self] in
-                        try? await Task.sleep(nanoseconds: 50_000_000)
-                        self?.recompute(reason: .overridesChanged)
-                    }
+        observationTask = nil
+        observeUpstreamChanges()
+    }
+
+    /// Re-arming observation of the upstream @Observable managers. `withObservationTracking`
+    /// fires `onChange` exactly once per change, so we re-register inside `onChange` (no polling
+    /// loop — the previous busy-loop spun the CPU and stacked redundant registrations). Each
+    /// change schedules a 50ms-debounced `.overridesChanged` recompute; recompute()'s own 500ms
+    /// debounce then throttles the engine (two-stage debounce). NOTE: @Observable tracks only the
+    /// properties read in the closure below; full live-reactivity parity across all upstream
+    /// fields is wired in the deferred UI milestone.
+    private func observeUpstreamChanges() {
+        guard let dataManager, let scenarioStateManager else { return }
+        withObservationTracking {
+            _ = dataManager.scenario
+            _ = scenarioStateManager.yourRothConversion
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.observationTask?.cancel()
+                self.observationTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    guard !Task.isCancelled else { return }
+                    self?.recompute(reason: .overridesChanged)
                 }
-                // Yield to avoid tight-looping if onChange fires synchronously.
-                await Task.yield()
+                self.observeUpstreamChanges()   // re-arm for the next change
             }
         }
     }

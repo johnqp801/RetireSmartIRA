@@ -238,9 +238,11 @@ enum MultiYearInputAdapter {
         switch incomeType {
         case .dividends, .qualifiedDividends, .interest,
              .capitalGainsShort, .capitalGainsLong,
-             .stateTaxRefund, .other:
-            return true
-        case .consulting, .pension, .militaryRetirement:
+             .stateTaxRefund, .militaryRetirement, .other:
+            return true  // militaryRetirement is taxable ordinary income (unlike VA disability);
+                         // include it so it is not silently dropped. Proper state pension-exemption
+                         // treatment is deferred to the v2.1 veteran/federal package.
+        case .consulting, .pension:
             return false  // already extracted as wage / pension
         case .socialSecurity, .rmd:
             return false  // handled separately
