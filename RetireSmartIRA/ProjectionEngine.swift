@@ -127,8 +127,13 @@ struct ProjectionEngine {
         var primaryAge = inputs.primaryCurrentAge
         var spouseAge = inputs.spouseCurrentAge
 
-        // Resolve state once — default to .california if abbreviation lookup fails
-        let usState: USState = USState.allCases.first { $0.abbreviation == inputs.state } ?? .california
+        // Resolve state once. A malformed/unknown abbreviation falls back to .california so the
+        // projection still runs, but that silently mis-taxes the household — assert in DEBUG so
+        // bad input surfaces in tests/dev instead of producing a quietly-wrong plan. (A future
+        // diagnostics channel on MultiYearStrategyResult should surface this to the user.)
+        let resolvedState = USState.allCases.first { $0.abbreviation == inputs.state }
+        assert(resolvedState != nil, "Unknown state abbreviation '\(inputs.state)' — defaulting to CA")
+        let usState: USState = resolvedState ?? .california
 
         var results: [YearRecommendation] = []
 
@@ -704,6 +709,11 @@ struct ProjectionEngine {
 
         switch rule {
         case .taxEfficient, .preserveRoth:
+            // V2.0: `.taxEfficient` and `.preserveRoth` intentionally share one order
+            // (taxable → traditional → roth) — both spend Roth last. They are NOT yet
+            // differentiated: a true `.taxEfficient` should sequence by marginal tax / ACA /
+            // IRMAA per year, which requires the withdrawal-strategy optimizer planned for
+            // v2.1. Documented here so the shared branch reads as deliberate, not a bug.
             // Order: taxable → traditional → roth
             let fromTaxable = min(remaining, max(0, taxableBalance))
             taxableBalance -= fromTaxable; remaining -= fromTaxable
