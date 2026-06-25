@@ -180,6 +180,11 @@ enum MultiYearInputAdapter {
             primaryMedicareEnrollmentAge: primaryMedAge,
             spouseMedicareEnrollmentAge: spouseMedAge,
             baselineAnnualExpenses: baselineAnnualExpenses,
+            // Heir/legacy inputs — same source as the single-year Legacy Impact view so the two
+            // views agree (DataManager defaults legacyHeirEstimatedSalary to 75_000 when unset).
+            heirSalary: dataManager.legacyHeirEstimatedSalary,
+            heirFilingStatus: dataManager.legacyHeirFilingStatus,
+            heirDrawdownYears: dataManager.legacyDrawdownYears,
             year1PrimaryRothConversion: primaryRoth,
             year1SpouseRothConversion: spouseRoth,
             year1PrimaryWithdrawal: primaryWithdrawal,

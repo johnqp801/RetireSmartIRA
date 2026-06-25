@@ -62,6 +62,12 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     // Living-expense baseline (annual, in today's dollars)
     let baselineAnnualExpenses: Double
 
+    // Heir / legacy inputs (reused from DataManager's single-year Legacy Impact view) — drive
+    // the heir-weighted optimizer objective + trade-off frontier.
+    let heirSalary: Double             // heir's estimated annual wage income
+    let heirFilingStatus: FilingStatus
+    let heirDrawdownYears: Int         // SECURE forced-drawdown window (default 10)
+
     // Year 1 lever values from DataManager slider state.
     // These capture the user's current-year overrides (Roth conversion,
     // extra withdrawal, QCD) so the engine can honor them in Year 1 of the
@@ -99,6 +105,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         primaryMedicareEnrollmentAge: Int,
         spouseMedicareEnrollmentAge: Int?,
         baselineAnnualExpenses: Double,
+        heirSalary: Double = 75_000,
+        heirFilingStatus: FilingStatus = .single,
+        heirDrawdownYears: Int = 10,
         year1PrimaryRothConversion: Double = 0,
         year1SpouseRothConversion: Double = 0,
         year1PrimaryWithdrawal: Double = 0,
@@ -129,6 +138,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.primaryMedicareEnrollmentAge = primaryMedicareEnrollmentAge
         self.spouseMedicareEnrollmentAge = spouseMedicareEnrollmentAge
         self.baselineAnnualExpenses = baselineAnnualExpenses
+        self.heirSalary = heirSalary
+        self.heirFilingStatus = heirFilingStatus
+        self.heirDrawdownYears = heirDrawdownYears
         self.year1PrimaryRothConversion = year1PrimaryRothConversion
         self.year1SpouseRothConversion = year1SpouseRothConversion
         self.year1PrimaryWithdrawal = year1PrimaryWithdrawal
@@ -163,6 +175,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             primaryMedicareEnrollmentAge: primaryMedicareEnrollmentAge,
             spouseMedicareEnrollmentAge: spouseMedicareEnrollmentAge,
             baselineAnnualExpenses: baselineAnnualExpenses,
+            heirSalary: heirSalary,
+            heirFilingStatus: heirFilingStatus,
+            heirDrawdownYears: heirDrawdownYears,
             year1PrimaryRothConversion: year1PrimaryRothConversion,
             year1SpouseRothConversion: year1SpouseRothConversion,
             year1PrimaryWithdrawal: year1PrimaryWithdrawal,

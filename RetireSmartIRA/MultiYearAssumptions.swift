@@ -29,6 +29,9 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     /// Whether the user has confirmed assumptions via the onboarding sheet.
     /// Gates the macro pane: false = locked overlay/banner; true = pane unlocked.
     var assumptionsConfirmed: Bool = false
+    /// Real discount rate for the heir-frontier present-value display toggle (display-only;
+    /// does NOT affect optimization). Default 3% real.
+    var pvRealDiscountRate: Double = 0.03
 
     init(
         horizonEndAge: Int = 95,
@@ -44,7 +47,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         terminalLiquidationTaxRate: Double = 0.22,
         cliffBuffer: Double = 5_000,
         dismissedInsightKeys: Set<String> = [],
-        assumptionsConfirmed: Bool = false
+        assumptionsConfirmed: Bool = false,
+        pvRealDiscountRate: Double = 0.03
     ) {
         self.horizonEndAge = horizonEndAge
         self.horizonEndAgeSpouse = horizonEndAgeSpouse
@@ -60,6 +64,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.cliffBuffer = cliffBuffer
         self.dismissedInsightKeys = dismissedInsightKeys
         self.assumptionsConfirmed = assumptionsConfirmed
+        self.pvRealDiscountRate = pvRealDiscountRate
     }
 
     // Explicit init(from:) for backward compatibility — older saves that lack
@@ -80,6 +85,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.cliffBuffer = try c.decode(Double.self, forKey: .cliffBuffer)
         self.dismissedInsightKeys = try c.decodeIfPresent(Set<String>.self, forKey: .dismissedInsightKeys) ?? []
         self.assumptionsConfirmed = try c.decodeIfPresent(Bool.self, forKey: .assumptionsConfirmed) ?? false
+        self.pvRealDiscountRate = try c.decodeIfPresent(Double.self, forKey: .pvRealDiscountRate) ?? 0.03
     }
 
     static let `default` = MultiYearAssumptions()

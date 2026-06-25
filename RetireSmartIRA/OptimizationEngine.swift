@@ -225,12 +225,57 @@ struct OptimizationEngine {
         return inHorizon + (trad * terminalLiquidationTaxRate)
     }
 
+    // MARK: - Heir-weighted objective (owner-vs-heirs trade-off)
+    //
+    // objective(λ) = inHorizon + (1−λ)·ownerTerminalSelfTax + λ·heirTerminalTax
+    // In-horizon tax is always counted once; only the TERMINAL disposition is convex-blended.
+    // λ=0 reproduces today's objective exactly (preserves the Terminal-Tax-Illusion fix).
+
+    /// Pure convex blend of the two terminal dispositions (in-horizon counted once by callers).
+    static func blendedObjectiveCost(
+        inHorizon: Double,
+        selfTerminalTax: Double,
+        heirTerminalTax: Double,
+        heirWeight: Double
+    ) -> Double {
+        inHorizon + (1 - heirWeight) * selfTerminalTax + heirWeight * heirTerminalTax
+    }
+
+    /// Heir 10-year "tax bomb" on the terminal Traditional balance (stacked heir rate).
+    /// Roth is tax-free to the heir and excluded.
+    private func heirTerminalTax(
+        _ path: [YearRecommendation],
+        inputs: MultiYearStaticInputs
+    ) -> Double {
+        guard let last = path.last else { return 0 }
+        let trad = last.endOfYearBalances.primaryTraditional
+                 + last.endOfYearBalances.spouseTraditional
+        return LegacyPlanningEngine.heirTaxOnInheritedTraditional(
+            balance: trad,
+            heirSalary: inputs.heirSalary,
+            heirFilingStatus: inputs.heirFilingStatus,
+            drawdownYears: inputs.heirDrawdownYears)
+    }
+
+    /// Blended terminal disposition: (1−λ)·owner-self-liquidation + λ·heir bomb.
+    private func blendedTerminalTax(
+        _ path: [YearRecommendation],
+        inputs: MultiYearStaticInputs,
+        selfRate: Double,
+        heirWeight: Double
+    ) -> Double {
+        let selfTax = terminalLiquidationTax(path, rate: selfRate)
+        let heirTax = heirTerminalTax(path, inputs: inputs)
+        return (1 - heirWeight) * selfTax + heirWeight * heirTax
+    }
+
     // MARK: - Public API
 
     func optimize(
         inputs: MultiYearStaticInputs,
         assumptions: MultiYearAssumptions,
-        configProvider: TaxYearConfigProvider = .current
+        configProvider: TaxYearConfigProvider = .current,
+        heirWeight: Double = 0
     ) -> Result {
         let baseYear = inputs.baseYear
 
@@ -368,7 +413,9 @@ struct OptimizationEngine {
                         inputs: inputs, assumptions: assumptions, actionsPerYear: trialActions
                     )
                     let objective = path.reduce(0.0) { $0 + $1.taxBreakdown.total }
-                                  + terminalLiquidationTax(path, rate: assumptions.terminalLiquidationTaxRate)
+                                  + blendedTerminalTax(path, inputs: inputs,
+                                                       selfRate: assumptions.terminalLiquidationTaxRate,
+                                                       heirWeight: heirWeight)
 
                     if objective < bestObjective {
                         bestObjective = objective
@@ -428,9 +475,13 @@ struct OptimizationEngine {
             inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions
         )
         let baselineLifetimeTax = baselinePath.reduce(0.0) { $0 + $1.taxBreakdown.total }
-                                + terminalLiquidationTax(baselinePath, rate: assumptions.terminalLiquidationTaxRate)
+                                + blendedTerminalTax(baselinePath, inputs: inputs,
+                                                     selfRate: assumptions.terminalLiquidationTaxRate,
+                                                     heirWeight: heirWeight)
         let currentLifetimeTax = finalPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
-                               + terminalLiquidationTax(finalPath, rate: assumptions.terminalLiquidationTaxRate)
+                               + blendedTerminalTax(finalPath, inputs: inputs,
+                                                    selfRate: assumptions.terminalLiquidationTaxRate,
+                                                    heirWeight: heirWeight)
         let lifetimeSavings = baselineLifetimeTax - currentLifetimeTax
 
         var acceptedHits: [ConstraintHit] = []
@@ -448,13 +499,14 @@ struct OptimizationEngine {
             ))
         }
 
+        let inHorizonTax = finalPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
         return Result(
             recommendedPath: finalPath,
             tradeOffsAccepted: acceptedHits,
-            totalObjectiveCost: OptimizationEngine.computeObjectiveCost(
-                path: finalPath,
-                terminalLiquidationTaxRate: assumptions.terminalLiquidationTaxRate
-            )
+            totalObjectiveCost: inHorizonTax
+                + blendedTerminalTax(finalPath, inputs: inputs,
+                                     selfRate: assumptions.terminalLiquidationTaxRate,
+                                     heirWeight: heirWeight)
         )
     }
 }
