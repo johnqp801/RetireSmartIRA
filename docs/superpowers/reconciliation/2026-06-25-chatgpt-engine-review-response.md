@@ -17,8 +17,17 @@ correctness bugs and caught a config-provider inconsistency the Option C refacto
 | M1 | `taxEfficient` == `preserveRoth` (dead behavior) | Documented as intentional v2.0 aliasing; true sequencing is the v2.1 withdrawal optimizer. | `898becf` |
 | L2 | Silent fallback to California on bad state input | DEBUG assert so bad input surfaces in tests/dev (user-facing diagnostics = follow-up). | `898becf` |
 
-Full suite green throughout: **1027 tests / 146 suites**, deterministic. 3 new regression tests
-(`EngineCorrectnessFixTests.swift`).
+| H2 | Base year hardcoded to `Date()` | `baseYear` added to `MultiYearStaticInputs` (default current year; adapter passes `DataManager.currentYear`); ProjectionEngine/OptimizationEngine use it. Regression test. | `2f35f4a` |
+| H3 | Spouse horizon stored but unused | Household horizon = later of each spouse's endpoint. 2 regression tests; 3 existing assertions re-baselined. | `2f35f4a` |
+| H4 | Expenses flat nominal while SS COLA'd | Baseline expenses inflate by CPI (per-year overrides stay nominal). Regression test. | `2f35f4a` |
+
+Full suite green throughout: **1031 tests / 147 suites**, deterministic. 7 new regression tests
+(`EngineCorrectnessFixTests.swift`, `EngineRoadmapBatchTests.swift`).
+
+> **Known interaction flagged during H3:** extending the MFJ baseline horizon to the younger
+> spouse, while `WidowStressTest`'s survivor variant still uses the primary's horizon, leaves the
+> baseline/widow horizons mismatched. The H7 widow rework should run the survivor to their own
+> life expectancy. (Scenario-2 widow-delta threshold re-baselined >$50K → >$40K accordingly.)
 
 ## Deferred with rationale (valid, but not a quick fix)
 
@@ -30,11 +39,8 @@ Full suite green throughout: **1027 tests / 146 suites**, deterministic. 3 new r
 
 ## Roadmap (valid capability gaps — competitiveness, not bugs)
 
-These align with already-planned V2.0/2.1 work:
-- **H6 / H7 / H8** — optimizer is Roth-only; terminal tax is a flat rate; inherited IRA collapsed into traditional. → the planned **heir-tax objective** + **2.1 decumulation** (withdrawal-order optimizer, taxable/LTCG, inherited-IRA buckets, objective selection).
-- **H3** — spouse horizon (`horizonEndAgeSpouse`) stored but unused; optimizer uses primary only. → household horizon = max of both.
-- **H4** — expenses flat nominal while SS is COLA'd. → inflate expenses by CPI (real/nominal flag).
-- **H2** — base year hardcoded to `Date()`. → add `baseYear` to `MultiYearStaticInputs`; freeze in tests.
+These align with already-planned V2.0/2.1 work (H2/H3/H4 now DONE — see above):
+- **H6 / H7 / H8** — optimizer is Roth-only; terminal tax is a flat rate; inherited IRA collapsed into traditional. → the planned **heir-tax objective** + **2.1 decumulation** (withdrawal-order optimizer, taxable/LTCG, inherited-IRA buckets, objective selection). NOTE: H7 widow rework should also resolve the baseline/widow horizon mismatch flagged under H3.
 - **M3** — ACA uses national benchmark, not household-specific. → accept SLCSP/premium inputs.
 - **M4** — standard-deduction-only. → itemized/charitable/QCD layer (interacts with C4).
 - **M5** — SS couple math single-only (documented). → couple-aware in the projection.
