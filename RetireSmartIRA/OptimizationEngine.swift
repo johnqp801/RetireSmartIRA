@@ -232,15 +232,26 @@ struct OptimizationEngine {
         assumptions: MultiYearAssumptions,
         configProvider: TaxYearConfigProvider = .current
     ) -> Result {
-        let baseYear = Calendar.current.component(.year, from: Date())
-        let horizonYears = assumptions.horizonEndAge - inputs.primaryCurrentAge + 1
+        let baseYear = inputs.baseYear
+
+        // H3: the household horizon runs to the LATER of each spouse's endpoint, so a younger
+        // spouse's longer horizon isn't truncated to the primary's. Each spouse's end year =
+        // baseYear + (their horizonEndAge − their current age). horizonEndAge(for: .spouse)
+        // falls back to the shared horizonEndAge when no spouse override is set. (Mid-horizon
+        // survivor filing-status transitions are modeled separately by WidowStressTest; here
+        // both spouses are assumed alive across the household horizon.)
+        let primaryEndYear = baseYear + (assumptions.horizonEndAge - inputs.primaryCurrentAge)
+        let spouseEndYear: Int = {
+            guard let spouseAge = inputs.spouseCurrentAge else { return primaryEndYear }
+            return baseYear + (assumptions.horizonEndAge(for: .spouse) - spouseAge)
+        }()
+        let endYear = max(primaryEndYear, spouseEndYear)
+        let horizonYears = endYear - baseYear + 1
 
         // Empty horizon (e.g., horizonEndAge < currentAge): return empty result
         guard horizonYears > 0 else {
             return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0)
         }
-
-        let endYear = baseYear + horizonYears - 1
 
         // ───────────────────────────────────────────────────────────
         // Initial locked state: $0 for every year (matches old single-pass behavior).

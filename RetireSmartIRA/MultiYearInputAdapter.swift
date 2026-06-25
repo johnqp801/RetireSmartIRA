@@ -156,6 +156,9 @@ enum MultiYearInputAdapter {
 
         return MultiYearStaticInputs(
             startingBalances: snapshot,
+            // Use DataManager's planning year as the projection base year so the engine respects
+            // a user-set future planning year (consistent with yearsBeforeFirstRMD).
+            baseYear: dataManager.currentYear,
             primaryCurrentAge: primaryAge,
             spouseCurrentAge: spouseAge,
             filingStatus: dataManager.filingStatus,

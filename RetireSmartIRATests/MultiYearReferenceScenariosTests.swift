@@ -109,9 +109,14 @@ struct MultiYearReferenceScenariosTests {
 
         let result = MultiYearTaxStrategyEngine().compute(inputs: inputs, assumptions: assumptions)
 
-        // Widow penalty: surviving spouse pays single-filer rates → meaningful positive delta
-        #expect(result.widowStressDelta.delta > 50_000,
-            "Widow penalty should be >$50K; got \(result.widowStressDelta.delta)")
+        // Widow penalty: surviving spouse pays single-filer rates → meaningful positive delta.
+        // Re-baselined 2026-06 (>$50K → >$40K): H3 extended the MFJ baseline horizon to the
+        // younger spouse (age 65 → 26y vs the primary's 24y), raising the baseline objective and
+        // shrinking the delta to ~$43K. KNOWN INTERACTION: the widow (survivor) variant still
+        // uses the primary's horizon, so baseline/widow horizons are mismatched — the H7 widow
+        // rework should run the survivor to their own life expectancy.
+        #expect(result.widowStressDelta.delta > 40_000,
+            "Widow penalty should be a meaningful positive delta (>$40K); got \(result.widowStressDelta.delta)")
         #expect(result.widowStressDelta.delta < 1_000_000,
             "Widow penalty sanity bound; got \(result.widowStressDelta.delta)")
         #expect(result.widowStressDelta.scenarioLifetimeTax > result.widowStressDelta.baselineLifetimeTax)
@@ -256,7 +261,9 @@ struct MultiYearReferenceScenariosTests {
 
         let result = MultiYearTaxStrategyEngine().compute(inputs: inputs, assumptions: assumptions)
 
-        #expect(result.recommendedPath.count == 24)
+        // H3: household horizon runs to the younger spouse (age 60 → 85-60+1 = 26), not the
+        // primary (age 62 → 24). Re-baselined 2026-06.
+        #expect(result.recommendedPath.count == 26)
         #expect(result.recommendedPath[0].agi >= 40_000,
             "Year 0 AGI should reflect wage income >=$40K; got \(result.recommendedPath[0].agi)")
 

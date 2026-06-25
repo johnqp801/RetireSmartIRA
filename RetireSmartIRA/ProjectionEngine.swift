@@ -111,8 +111,9 @@ struct ProjectionEngine {
         assumptions: MultiYearAssumptions,
         actionsPerYear: [Int: [LeverAction]]
     ) -> [YearRecommendation] {
-        // Base year is the current calendar year (MultiYearStaticInputs has no base year field).
-        let scenarioBaseYear = Calendar.current.component(.year, from: Date())
+        // Scenario base year (year 0). Injectable via inputs.baseYear (defaults to the current
+        // calendar year), so projections are deterministic and can model a non-current planning year.
+        let scenarioBaseYear = inputs.baseYear
 
         let sortedYears = actionsPerYear.keys.sorted()
         guard !sortedYears.isEmpty else { return [] }
@@ -364,9 +365,13 @@ struct ProjectionEngine {
             // ─────────────────────────────────────────
             let annualExpenses: Double = {
                 if let override = assumptions.perYearExpenseOverrides[year] {
-                    return override
+                    return override   // explicit nominal value for this year
                 }
-                return inputs.baselineAnnualExpenses
+                // H4: inflate the baseline (stated in today's dollars) by CPI so expenses stay
+                // consistent with COLA-adjusted Social Security. Without this, flat-nominal
+                // expenses understated late-horizon withdrawals and overstated end balances.
+                let yearsFromBase = max(0, year - scenarioBaseYear)
+                return inputs.baselineAnnualExpenses * pow(1.0 + assumptions.cpiRate, Double(yearsFromBase))
             }()
 
             let wageIncome = inputs.primaryWageIncome + inputs.spouseWageIncome

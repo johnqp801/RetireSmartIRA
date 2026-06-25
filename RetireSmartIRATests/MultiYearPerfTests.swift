@@ -86,7 +86,9 @@ struct MultiYearPerfTests {
         assumptions.stressTestEnabled = true
 
         let (elapsed, result) = compute(inputs, assumptions)
-        #expect(result.recommendedPath.count == 36)
+        // H3: household horizon runs to the younger spouse (age 58 → 95-58+1 = 38), not the
+        // primary (age 60 → 36). Re-baselined 2026-06 when the spouse horizon was honored.
+        #expect(result.recommendedPath.count == 38)
         #expect(elapsed < 15.0, "MFJ 35-year compute() took \(elapsed)s; budget <15s (see file header)")
     }
 

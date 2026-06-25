@@ -16,6 +16,12 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     // Account starting balances (rolled up from 1.9 AccountType + user inputs for taxable/HSA)
     let startingBalances: AccountSnapshot
 
+    // Scenario planning base year (year 0 of the projection). Defaults to the current
+    // calendar year so production/existing callers are unchanged, but is injectable so a
+    // saved or future-dated scenario projects from a fixed year and tests are deterministic
+    // (instead of silently depending on `Date()`).
+    let baseYear: Int
+
     // Demographics
     let primaryCurrentAge: Int
     let spouseCurrentAge: Int?      // nil = single filer
@@ -71,6 +77,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
 
     init(
         startingBalances: AccountSnapshot,
+        baseYear: Int = Calendar.current.component(.year, from: Date()),
         primaryCurrentAge: Int,
         spouseCurrentAge: Int?,
         filingStatus: FilingStatus,
@@ -100,6 +107,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         year1SpouseQCD: Double = 0
     ) {
         self.startingBalances = startingBalances
+        self.baseYear = baseYear
         self.primaryCurrentAge = primaryCurrentAge
         self.spouseCurrentAge = spouseCurrentAge
         self.filingStatus = filingStatus
@@ -133,6 +141,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     func withClaimAge(_ age: Int, for spouse: SpouseID) -> MultiYearStaticInputs {
         MultiYearStaticInputs(
             startingBalances: startingBalances,
+            baseYear: baseYear,
             primaryCurrentAge: primaryCurrentAge,
             spouseCurrentAge: spouseCurrentAge,
             filingStatus: filingStatus,
