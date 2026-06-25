@@ -132,18 +132,21 @@ struct OptimizationEngine {
         baselineTaxableIncome: Double,
         filingStatus: FilingStatus,
         householdSize: Int,
-        assumptions: MultiYearAssumptions
+        assumptions: MultiYearAssumptions,
+        configProvider: TaxYearConfigProvider = .current
     ) -> [Double] {
         var candidates: [Double] = []
         let buffer = assumptions.cliffBuffer
         let cap: Double = 500_000
+        // Resolve this projection year's config explicitly (no global static dependency).
+        let cfg = configProvider.config(forYear: year)
 
         // ─── IRMAA tier candidates (only if Medicare-relevant) ───
         if let irmaaMagi = baselineIRMAAMagi {
             // TaxCalculationEngine.config.irmaaTiers has 6 entries: tier 0 (no surcharge) + tiers 1-5.
             // We want fill-to-(threshold - buffer) for tiers 1-5 only (skip tier 0, which has
             // threshold == 0 and is the standard zone).
-            for tierEntry in TaxCalculationEngine.config.irmaaTiers where tierEntry.tier > 0 {
+            for tierEntry in cfg.irmaaTiers where tierEntry.tier > 0 {
                 let threshold = filingStatus == .single
                     ? tierEntry.singleThreshold
                     : tierEntry.mfjThreshold
@@ -159,7 +162,7 @@ struct OptimizationEngine {
         if let acaMagi = baselineACAMagi {
             // householdSizeToFPL is keyed by string ("1", "2", ...). Cap at 8 (config max).
             let key = String(min(householdSize, 8))
-            if let fpl = TaxCalculationEngine.config.acaSubsidy2026.fpl2026.householdSizeToFPL[key] {
+            if let fpl = cfg.acaSubsidy2026.fpl2026.householdSizeToFPL[key] {
                 let cliff = fpl * 4.0
                 let target = cliff - buffer
                 let delta = target - acaMagi
@@ -170,7 +173,7 @@ struct OptimizationEngine {
         }
 
         // ─── Ordinary tax bracket tops (no buffer) ───
-        let brackets = TaxCalculationEngine.config.toTaxBrackets()
+        let brackets = cfg.toTaxBrackets()
         let bracketArray = filingStatus == .single ? brackets.federalSingle : brackets.federalMarried
         // Bracket "top" for bracket i = bracket i+1's threshold. Last bracket has no top.
         for i in 0..<(bracketArray.count - 1) {
@@ -226,7 +229,8 @@ struct OptimizationEngine {
 
     func optimize(
         inputs: MultiYearStaticInputs,
-        assumptions: MultiYearAssumptions
+        assumptions: MultiYearAssumptions,
+        configProvider: TaxYearConfigProvider = .current
     ) -> Result {
         let baseYear = Calendar.current.component(.year, from: Date())
         let horizonYears = assumptions.horizonEndAge - inputs.primaryCurrentAge + 1
@@ -315,7 +319,7 @@ struct OptimizationEngine {
                 // been updated through year Y-1 in this pass). Critical for cliff
                 // candidate generation: stale baseline → wrong distance-to-cliff.
                 // (Gemini correction; see spec section "Algorithm".)
-                let currentBaselinePath = ProjectionEngine().project(
+                let currentBaselinePath = ProjectionEngine(configProvider: configProvider).project(
                     inputs: inputs, assumptions: assumptions, actionsPerYear: locked
                 )
                 let baselineRec = currentBaselinePath[yearIdx]
@@ -328,7 +332,8 @@ struct OptimizationEngine {
                     baselineTaxableIncome: baselineRec.taxableIncome,
                     filingStatus: inputs.filingStatus,
                     householdSize: inputs.acaHouseholdSize,
-                    assumptions: assumptions
+                    assumptions: assumptions,
+                    configProvider: configProvider
                 )
 
                 // Union with static set; dedupe within $1K tolerance.
@@ -348,7 +353,7 @@ struct OptimizationEngine {
                     // Future undecided years keep PRIOR-iteration locked values.
                     // (No more `trialActions[y] = []` — that was Bug 2.)
 
-                    let path = ProjectionEngine().project(
+                    let path = ProjectionEngine(configProvider: configProvider).project(
                         inputs: inputs, assumptions: assumptions, actionsPerYear: trialActions
                     )
                     let objective = path.reduce(0.0) { $0 + $1.taxBreakdown.total }
@@ -389,7 +394,7 @@ struct OptimizationEngine {
             }
         }
 
-        let finalPath = ProjectionEngine().project(
+        let finalPath = ProjectionEngine(configProvider: configProvider).project(
             inputs: inputs, assumptions: assumptions, actionsPerYear: finalActions
         )
 
@@ -407,7 +412,7 @@ struct OptimizationEngine {
         let baselineActions = Dictionary(
             uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) }
         )
-        let baselinePath = ProjectionEngine().project(
+        let baselinePath = ProjectionEngine(configProvider: configProvider).project(
             inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions
         )
         let baselineLifetimeTax = baselinePath.reduce(0.0) { $0 + $1.taxBreakdown.total }

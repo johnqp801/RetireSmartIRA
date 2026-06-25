@@ -96,7 +96,13 @@ import Foundation
 
 struct ProjectionEngine {
 
-    init() {}
+    /// Resolves the tax-year config for each projection year. Defaults to `.current`
+    /// (the active global config for every year), preserving existing behavior exactly.
+    let configProvider: TaxYearConfigProvider
+
+    init(configProvider: TaxYearConfigProvider = .current) {
+        self.configProvider = configProvider
+    }
 
     /// Project the scenario forward for each year in `actionsPerYear` (sorted ascending).
     /// Returns one `YearRecommendation` per year.
@@ -508,7 +514,7 @@ struct ProjectionEngine {
             // so guarding on acaMagiValue != nil is sufficient — no separate age check needed.
             let acaPremiumImpact: Double = {
                 guard inputs.acaEnrolled, let acaMagi = acaMagiValue else { return 0 }
-                let taxConfig = TaxCalculationEngine.config
+                let taxConfig = configProvider.config(forYear: year)
                 let result = ACASubsidyEngine.calculateSubsidy(
                     acaMAGI: ACAMAGI(value: acaMagi),
                     householdSize: inputs.acaHouseholdSize,
@@ -718,7 +724,7 @@ struct ProjectionEngine {
         year: Int,
         federalAGI: Double
     ) -> Double {
-        let cfg = TaxCalculationEngine.config
+        let cfg = configProvider.config(forYear: year)
 
         var amount: Double
         switch filingStatus {

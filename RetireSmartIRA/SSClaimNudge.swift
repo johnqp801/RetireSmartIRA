@@ -53,10 +53,11 @@ struct SSClaimNudge {
         inputs: MultiYearStaticInputs,
         assumptions: MultiYearAssumptions,
         baselinePath: [YearRecommendation]? = nil,
-        baselineObjective: Double? = nil
+        baselineObjective: Double? = nil,
+        configProvider: TaxYearConfigProvider = .current
     ) -> ClaimAgeFlag? {
         let engine = OptimizationEngine()
-        let projector = ProjectionEngine()
+        let projector = ProjectionEngine(configProvider: configProvider)
 
         // Baseline: use injected path/objective when both provided; otherwise compute.
         let baselineRecommendedPath: [YearRecommendation]
@@ -65,7 +66,7 @@ struct SSClaimNudge {
             baselineRecommendedPath = injectedPath
             baselineObj = injectedObj
         } else {
-            let baseline = engine.optimize(inputs: inputs, assumptions: assumptions)
+            let baseline = engine.optimize(inputs: inputs, assumptions: assumptions, configProvider: configProvider)
             baselineRecommendedPath = baseline.recommendedPath
             baselineObj = baseline.totalObjectiveCost
         }

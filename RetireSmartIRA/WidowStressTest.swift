@@ -45,7 +45,8 @@ struct WidowStressTest {
         assumptions: MultiYearAssumptions,
         widowhoodAge: Int = 75,
         baselinePath: [YearRecommendation]? = nil,
-        baselineObjective: Double? = nil
+        baselineObjective: Double? = nil,
+        configProvider: TaxYearConfigProvider = .current
     ) -> TaxImpact {
         // Single-filer scenarios: no widow penalty applies
         guard inputs.filingStatus == .marriedFilingJointly,
@@ -61,13 +62,13 @@ struct WidowStressTest {
             _ = injectedPath  // path itself isn't used here, only the cost — but keep parameter for symmetry
             baselineObj = injectedObj
         } else {
-            let baseline = engine.optimize(inputs: inputs, assumptions: assumptions)
+            let baseline = engine.optimize(inputs: inputs, assumptions: assumptions, configProvider: configProvider)
             baselineObj = baseline.totalObjectiveCost
         }
 
         // Widow variant (v2.0 simplification: single-filer from year 0)
         let widowInputs = makeWidowVariant(inputs: inputs)
-        let widow = engine.optimize(inputs: widowInputs, assumptions: assumptions)
+        let widow = engine.optimize(inputs: widowInputs, assumptions: assumptions, configProvider: configProvider)
         let widowObjective = widow.totalObjectiveCost
 
         return TaxImpact(

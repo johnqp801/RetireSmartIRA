@@ -37,6 +37,11 @@ final class MultiYearStrategyManager: ObservableObject {
     private var debounceTask: Task<Void, Never>?
     private var observationTask: Task<Void, Never>?
 
+    /// Resolves the tax-year config for the multi-year engine. Defaults to `.current`
+    /// (the active global config), so production behavior is unchanged; tests inject a
+    /// fixed provider for determinism.
+    private let configProvider: TaxYearConfigProvider
+
     // MARK: - Recompute reasons
 
     enum RecomputeReason {
@@ -47,8 +52,17 @@ final class MultiYearStrategyManager: ObservableObject {
 
     // MARK: - Init / attach
 
-    init(assumptions: MultiYearAssumptions = MultiYearAssumptions()) {
+    init(assumptions: MultiYearAssumptions = MultiYearAssumptions(),
+         configProvider: TaxYearConfigProvider = .current) {
         self.assumptions = assumptions
+        self.configProvider = configProvider
+    }
+
+    deinit {
+        // Cancel in-flight work so the manager never outlives itself via leaked Tasks
+        // (these fire recompute()/observation on the shared main actor otherwise).
+        observationTask?.cancel()
+        debounceTask?.cancel()
     }
 
     /// Wire upstream dependencies post-init. StateObject construction can't
@@ -224,16 +238,17 @@ final class MultiYearStrategyManager: ObservableObject {
             ? Self.buildEmptyActionsMap(for: currentInputs, assumptions: assumptions)
             : [:]
 
-        // Run engine off-main.
+        // Run engine off-main. Capture the config provider (Sendable) for the detached task.
+        let configProvider = self.configProvider
         let result = await Task.detached(priority: .userInitiated) {
             let engine = MultiYearTaxStrategyEngine()
-            let current = engine.compute(inputs: currentInputs, assumptions: assumptions)
+            let current = engine.compute(inputs: currentInputs, assumptions: assumptions, configProvider: configProvider)
             let optimal: MultiYearStrategyResult? = optimalInputs.map {
-                engine.compute(inputs: $0, assumptions: assumptions)
+                engine.compute(inputs: $0, assumptions: assumptions, configProvider: configProvider)
             }
             let baseline: [YearRecommendation]? = baselineActions.isEmpty
                 ? nil
-                : ProjectionEngine().project(
+                : ProjectionEngine(configProvider: configProvider).project(
                     inputs: currentInputs,
                     assumptions: assumptions,
                     actionsPerYear: baselineActions

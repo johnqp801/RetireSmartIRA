@@ -24,7 +24,8 @@ struct StressTestRunner {
     func run(
         inputs: MultiYearStaticInputs,
         assumptions: MultiYearAssumptions,
-        baselinePath: [YearRecommendation]? = nil
+        baselinePath: [YearRecommendation]? = nil,
+        configProvider: TaxYearConfigProvider = .current
     ) -> SensitivityBands {
         let engine = OptimizationEngine()
 
@@ -37,12 +38,12 @@ struct StressTestRunner {
         // Use injected baseline path for the "average" band when provided;
         // otherwise compute it (preserves old behavior for existing callers / tests).
         let averagePath = baselinePath
-            ?? engine.optimize(inputs: inputs, assumptions: assumptions).recommendedPath
+            ?? engine.optimize(inputs: inputs, assumptions: assumptions, configProvider: configProvider).recommendedPath
 
         return SensitivityBands(
-            optimistic: engine.optimize(inputs: inputs, assumptions: optimistic).recommendedPath,
+            optimistic: engine.optimize(inputs: inputs, assumptions: optimistic, configProvider: configProvider).recommendedPath,
             average: averagePath,
-            pessimistic: engine.optimize(inputs: inputs, assumptions: pessimistic).recommendedPath
+            pessimistic: engine.optimize(inputs: inputs, assumptions: pessimistic, configProvider: configProvider).recommendedPath
         )
     }
 }

@@ -32,12 +32,13 @@ struct MultiYearTaxStrategyEngine {
 
     func compute(
         inputs: MultiYearStaticInputs,
-        assumptions: MultiYearAssumptions
+        assumptions: MultiYearAssumptions,
+        configProvider: TaxYearConfigProvider = .current
     ) -> MultiYearStrategyResult {
 
         // Main optimization (the single source of truth for the baseline)
         let optEngine = OptimizationEngine()
-        let optResult = optEngine.optimize(inputs: inputs, assumptions: assumptions)
+        let optResult = optEngine.optimize(inputs: inputs, assumptions: assumptions, configProvider: configProvider)
 
         // Sensitivity bands — pass baseline path through to skip the redundant "average" run
         let bands: SensitivityBands
@@ -45,7 +46,8 @@ struct MultiYearTaxStrategyEngine {
             bands = StressTestRunner().run(
                 inputs: inputs,
                 assumptions: assumptions,
-                baselinePath: optResult.recommendedPath
+                baselinePath: optResult.recommendedPath,
+                configProvider: configProvider
             )
         } else {
             // Disabled: optimistic and pessimistic mirror the recommended path
@@ -61,7 +63,8 @@ struct MultiYearTaxStrategyEngine {
             inputs: inputs,
             assumptions: assumptions,
             baselinePath: optResult.recommendedPath,
-            baselineObjective: optResult.totalObjectiveCost
+            baselineObjective: optResult.totalObjectiveCost,
+            configProvider: configProvider
         )
 
         // SS claim-age nudge — pass baseline through to skip the redundant baseline run
@@ -69,7 +72,8 @@ struct MultiYearTaxStrategyEngine {
             inputs: inputs,
             assumptions: assumptions,
             baselinePath: optResult.recommendedPath,
-            baselineObjective: optResult.totalObjectiveCost
+            baselineObjective: optResult.totalObjectiveCost,
+            configProvider: configProvider
         )
 
         return MultiYearStrategyResult(
