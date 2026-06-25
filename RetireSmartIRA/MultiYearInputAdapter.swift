@@ -240,7 +240,7 @@ enum MultiYearInputAdapter {
              .capitalGainsShort, .capitalGainsLong,
              .stateTaxRefund, .other:
             return true
-        case .consulting, .pension:
+        case .consulting, .pension, .militaryRetirement:
             return false  // already extracted as wage / pension
         case .socialSecurity, .rmd:
             return false  // handled separately

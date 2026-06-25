@@ -35,7 +35,7 @@ final class MultiYearStrategyManager: ObservableObject {
     private weak var dataManager: DataManager?
     private weak var scenarioStateManager: ScenarioStateManager?
     private var debounceTask: Task<Void, Never>?
-    private var dataCancellable: AnyCancellable?
+    private var observationTask: Task<Void, Never>?
 
     // MARK: - Recompute reasons
 
@@ -68,18 +68,28 @@ final class MultiYearStrategyManager: ObservableObject {
         self.dataManager = dataManager
         self.scenarioStateManager = scenarioStateManager
 
-        // Subscribe to upstream changes. SwiftUI fires objectWillChange BEFORE
-        // mutations land, so a 50ms debounce on this pipeline coalesces the
-        // notification storm into a single recompute trigger.
-        let merged = Publishers.Merge(
-            dataManager.objectWillChange.eraseToAnyPublisher(),
-            scenarioStateManager.objectWillChange.eraseToAnyPublisher()
-        )
-        dataCancellable = merged
-            .debounce(for: .milliseconds(50), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.recompute(reason: .overridesChanged)
+        // Subscribe to upstream changes using @Observable withObservationTracking.
+        // DataManager and ScenarioStateManager use the @Observable macro (not ObservableObject),
+        // so we observe via a tracking loop rather than Combine objectWillChange.
+        // A 50ms Task.sleep coalesces rapid change notifications into one recompute trigger.
+        observationTask?.cancel()
+        observationTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                // withObservationTracking fires onChange when any tracked property changes.
+                await withObservationTracking {
+                    _ = dataManager.scenario  // track any DataManager change
+                    _ = scenarioStateManager.yourRothConversion  // track ScenarioStateManager
+                } onChange: {
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(nanoseconds: 50_000_000)
+                        self?.recompute(reason: .overridesChanged)
+                    }
+                }
+                // Yield to avoid tight-looping if onChange fires synchronously.
+                await Task.yield()
             }
+        }
     }
 
     // MARK: - Public API
