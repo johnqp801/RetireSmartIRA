@@ -30,6 +30,24 @@ single-year engine still uses the static unchanged. Also added a `deinit` to
 `MultiYearStrategyManager` that cancels its observation/debounce Tasks (removes the leak that
 amplified the parallel collateral).
 
+## Pre-existing main hazard fixed — test parallelization disabled (approved by John)
+After Option C, the multi-year engine no longer reads the global config static, eliminating
+22 of the original 23 parallel failures. One residual flake remained — `FederalBracketInfoTests`
+(a main test) racing `TaxsimOracleTests`, which swaps the global `TaxCalculationEngine.config`
+to TY2023 via the TEST-ONLY `withConfig(forYear:)` to match TAXSIM-35's year cap (its DataManager
+reads the global). Main's own devs documented this hazard (`RetireSmartIRATests.swift:15`).
+
+**Fix:** set `parallelizable = "NO"` on the test target in `RetireSmartIRA.xcscheme`, with an
+explanatory comment on the `TaxsimOracleTests` suite. Rationale: the config singleton is
+intentional production architecture (set once at startup, never swapped in prod), so the correct
+response to a global a test must swap is serial test execution — **zero production impact, no
+locking added to the shipped engine hot path** (vs. a live App Store app). Serial is fast here
+(~12.5s for 1024 tests; the heavy optimizer tests dominate, so parallelism barely helped). The
+forward path to true parallel-safety is config injection (TaxYearConfigProvider), already done
+for the multi-year engine.
+
+Result: default `xcodebuild test` (scheme) now passes 1024 tests / 145 suites, deterministically.
+
 ## Diagnosis: the "23 parallel failures" were not real
 | Run | Result |
 |---|---|
