@@ -583,7 +583,8 @@ struct ProjectionEngine {
             )
 
             // ─────────────────────────────────────────
-            // Step 7: Debit year's total tax from the taxable bucket
+            // Step 7: Debit year's total tax from the taxable bucket,
+            //         with optional gross-up from traditional when taxable is short.
             // ─────────────────────────────────────────
             // taxBreakdown.total = federal + state + irmaa + acaPremiumImpact.
             // acaPremiumImpact is negative for subsidy savings (reduces net cost), positive
@@ -591,9 +592,11 @@ struct ProjectionEngine {
             // nets these out. max(0, ...) guards against the edge case where a large ACA subsidy
             // makes total negative — a positive subsidy cash-flow, not a debit.
             //
-            // If taxable is insufficient, debit what's available; the remainder is implicitly
-            // assumed paid from external sources (v2.0 limitation). v2.1 will let users
-            // designate the tax-payment source (Roth / trad / taxable / external).
+            // .taxableThenGrossUp (default): pay tax from taxable; if short, fund the gap by
+            //   an additional traditional withdrawal grossed-up for the federal+state tax that
+            //   withdrawal itself creates (3-iteration fixed-point). IRMAA/ACA are NOT
+            //   recomputed for the gross-up withdrawal (documented approximation).
+            // .external: any shortfall after taxable is silently absorbed (legacy behavior).
             //
             // This step closes the phantom-wealth gap: the previous engine reported taxBreakdown
             // but never debited any account, so projected end-of-horizon wealth was overstated
@@ -602,9 +605,66 @@ struct ProjectionEngine {
             // Note on excess RMD: gross RMD still flows to the taxable bucket (Approach A),
             // and the year's tax is then debited from taxable. The net effect is the post-tax
             // position the user actually holds.
-            let yearTaxBurden = max(0, taxBreakdown.total)
-            let taxDebit = min(taxable, yearTaxBurden)
-            taxable -= taxDebit
+            var grossUpWithdrawal = 0.0
+            var underfundedTax = 0.0
+            var fedTax = federalTax
+            var stTax = stateTax
+            var reportedAGI = federalAGI
+            var reportedTaxableIncome = taxableIncome
+
+            if assumptions.taxPaymentSource == .taxableThenGrossUp {
+                let nonFedState = max(0, taxBreakdown.total - federalTax - stateTax) // irmaa+aca, NOT recomputed
+                let baseTotalTax = federalTax + stateTax + nonFedState
+                let shortfall0 = max(0, baseTotalTax - taxable)
+                if shortfall0 > 0 {
+                    let availableTrad = max(0, primaryTrad + spouseTrad)
+                    func taxOn(_ dW: Double) -> Double {
+                        let fed = TaxCalculationEngine.calculateFederalTax(
+                            income: max(0, taxableIncome + dW), filingStatus: inputs.filingStatus,
+                            brackets: brackets, preferentialIncome: taxablePreferential) - federalTax
+                        let st = computeStateTax(
+                            federalAGI: federalAGI + dW, taxableSS: taxableSS, pensionIncome: pensionIncome,
+                            totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
+                            usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
+                            year: year) - stateTax
+                        return max(0, fed) + max(0, st)
+                    }
+                    var dW = min(shortfall0, availableTrad)
+                    for _ in 0..<3 {
+                        let next = min(shortfall0 + taxOn(dW), availableTrad)
+                        if abs(next - dW) < 1.0 { dW = next; break }
+                        dW = next
+                    }
+                    grossUpWithdrawal = dW
+                    var remaining = dW
+                    if primaryIsOlderOrSingle {
+                        let fromP = min(remaining, max(0, primaryTrad)); primaryTrad -= fromP; remaining -= fromP
+                        spouseTrad -= min(remaining, max(0, spouseTrad))
+                    } else {
+                        let fromS = min(remaining, max(0, spouseTrad)); spouseTrad -= fromS; remaining -= fromS
+                        primaryTrad -= min(remaining, max(0, primaryTrad))
+                    }
+                    reportedTaxableIncome = max(0, taxableIncome + dW)
+                    reportedAGI = federalAGI + dW
+                    fedTax = TaxCalculationEngine.calculateFederalTax(
+                        income: reportedTaxableIncome, filingStatus: inputs.filingStatus,
+                        brackets: brackets, preferentialIncome: taxablePreferential)
+                    stTax = computeStateTax(
+                        federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
+                        totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
+                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year)
+                    underfundedTax = max(0, (fedTax + stTax + nonFedState) - taxable - dW)
+                }
+            }
+
+            let taxBreakdownFinal = TaxBreakdown(
+                federal: fedTax,
+                state: stTax,
+                irmaa: taxBreakdown.irmaa,
+                acaPremiumImpact: taxBreakdown.acaPremiumImpact)
+
+            let yearTaxBurden = max(0, taxBreakdownFinal.total)
+            taxable -= min(taxable, yearTaxBurden)
 
             let snapshot = AccountSnapshot(
                 primaryTraditional: max(0, primaryTrad),
@@ -614,24 +674,28 @@ struct ProjectionEngine {
                 hsa: max(0, hsa)
             )
 
-            // Build the combined actions list: explicit user actions + auto-imposed RMD (if any).
-            // This lets callers inspect the full picture of what actually happened in the year,
-            // including auto-imposed RMD trad withdrawals.
+            // Build the combined actions list: explicit user actions + auto-imposed RMD (if any)
+            // + gross-up withdrawal (if any).
+            // This lets callers inspect the full picture of what actually happened in the year.
             var allActions = actions
             if autoImposedRMD > 0 {
                 allActions.append(.traditionalWithdrawal(amount: autoImposedRMD))
             }
+            if grossUpWithdrawal > 0 {
+                allActions.append(.traditionalWithdrawal(amount: grossUpWithdrawal))
+            }
 
             results.append(YearRecommendation(
                 year: year,
-                agi: federalAGI,
+                agi: reportedAGI,
                 acaMagi: acaMagiValue,
                 irmaaMagi: irmaaMagiValue,
-                taxableIncome: taxableIncome,
-                taxBreakdown: taxBreakdown,
+                taxableIncome: reportedTaxableIncome,
+                taxBreakdown: taxBreakdownFinal,
                 endOfYearBalances: snapshot,
                 actions: allActions,
-                medicareEnrolledCount: medicareEnrolledCount
+                medicareEnrolledCount: medicareEnrolledCount,
+                underfunded: underfundedTax > 0 ? underfundedTax : nil
             ))
 
             // Advance ages for next iteration
