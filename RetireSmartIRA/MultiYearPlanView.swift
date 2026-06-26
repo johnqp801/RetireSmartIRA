@@ -1,0 +1,63 @@
+import SwiftUI
+
+struct MultiYearPlanView: View {
+    @Environment(DataManager.self) private var dataManager
+    @StateObject private var manager = MultiYearStrategyManager()
+    @State private var attached = false
+    @State private var units: DisplayUnits = .todaysDollars
+
+    // Selected weight's path (drives summary + ladder). Falls back to currentResult.
+    private var activePath: [YearRecommendation] {
+        if let p = manager.heirFrontier?.points.first(where: { $0.weight == manager.selectedHeirWeight })?.recommendedPath, !p.isEmpty {
+            return p
+        }
+        return manager.currentResult?.recommendedPath ?? []
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Multi-Year Plan").font(.largeTitle.bold())
+
+                AssumptionsStripView(
+                    taxableBalance: Binding(get: { manager.assumptions.currentTaxableBalance },
+                                            set: { manager.assumptions.currentTaxableBalance = $0 }),
+                    hsaBalance: Binding(get: { manager.assumptions.currentHSABalance },
+                                        set: { manager.assumptions.currentHSABalance = $0 }),
+                    horizonEndAge: Binding(get: { manager.assumptions.horizonEndAge },
+                                           set: { manager.assumptions.horizonEndAge = $0 }),
+                    onCommit: { recomputeAll() })
+
+                if manager.isComputing && manager.currentResult == nil {
+                    ProgressView("Computing your plan…").frame(maxWidth: .infinity).padding()
+                } else if activePath.isEmpty {
+                    ContentUnavailableView("Set your assumptions to see your plan",
+                        systemImage: "calendar.badge.clock")
+                } else {
+                    PlanSummaryView(summary: PlanSummary(path: activePath))
+                    LadderListView(rows: activePath.map(LadderRow.init))
+                    if let frontier = manager.heirFrontier {
+                        HeirFrontierView(result: frontier,
+                            selectedWeight: Binding(get: { manager.selectedHeirWeight },
+                                                    set: { manager.selectedHeirWeight = $0 }),
+                            units: $units)
+                    } else if manager.isComputingFrontier {
+                        ProgressView("Computing heir trade-off…")
+                    }
+                }
+            }
+            .padding()
+        }
+        .task {
+            guard !attached else { return }
+            attached = true
+            manager.attach(dataManager: dataManager, scenarioStateManager: dataManager.scenario)
+            recomputeAll()
+        }
+    }
+
+    private func recomputeAll() {
+        manager.recompute(reason: .assumptionsChanged)
+        manager.computeHeirFrontier()
+    }
+}
