@@ -180,6 +180,29 @@ struct TaxGrossUpTests {
             actionsPerYear: [2026: [.rothConversion(amount: 400_000)]])
         #expect(abs(p[0].endOfYearBalances.primaryTraditional - 600_000) < 1.0)
     }
+
+    // Ample taxable: the conversion tax is easily funded from taxable, so the gross-up never fires
+    // and the traditional ends the same under .taxableThenGrossUp and .external (≈ unchanged behavior).
+    @Test("ample taxable: gross-up does not fire") func ample() {
+        let g = ProjectionEngine(configProvider: provider).project(
+            inputs: inputs(trad: 1_000_000, taxable: 1_000_000), assumptions: assumptions(.taxableThenGrossUp),
+            actionsPerYear: [2026: [.rothConversion(amount: 200_000)]])
+        let e = ProjectionEngine(configProvider: provider).project(
+            inputs: inputs(trad: 1_000_000, taxable: 1_000_000), assumptions: assumptions(.external),
+            actionsPerYear: [2026: [.rothConversion(amount: 200_000)]])
+        #expect(abs(g[0].endOfYearBalances.primaryTraditional - e[0].endOfYearBalances.primaryTraditional) < 1.0)
+        #expect(g[0].underfunded == nil)   // fully funded
+    }
+
+    // The gross-up withdrawal is visible in the year's actions (credibility — "we pulled $X to pay tax").
+    @Test("gross-up shows up as a traditional withdrawal action") func visibleAction() {
+        let p = ProjectionEngine(configProvider: provider).project(
+            inputs: inputs(trad: 1_000_000, taxable: 0), assumptions: assumptions(.taxableThenGrossUp),
+            actionsPerYear: [2026: [.rothConversion(amount: 400_000)]])
+        let withdrawals = p[0].actions.compactMap { act -> Double? in
+            if case let .traditionalWithdrawal(a) = act { return a }; return nil }
+        #expect(withdrawals.contains { $0 > 0 })
+    }
 }
 ```
 
@@ -256,13 +279,19 @@ Change as follows:
             // Taxable pays first; the gross-up withdrawal funded the rest (already taken from trad).
             taxable -= min(taxable, yearTaxBurden)
 ```
-(c) In the `YearRecommendation(...)` construction, use the revised values:
+(c) Make the gross-up withdrawal visible: in the existing `var allActions = actions` block (where the auto-RMD is already appended), also append the gross-up so the ladder shows it:
+```swift
+            if grossUpWithdrawal > 0 {
+                allActions.append(.traditionalWithdrawal(amount: grossUpWithdrawal))
+            }
+```
+(d) In the `YearRecommendation(...)` construction, use the revised values:
 ```swift
                 agi: reportedAGI,
                 ...
                 taxableIncome: reportedTaxableIncome,
                 taxBreakdown: taxBreakdownFinal,
-                ...
+                actions: allActions,
                 medicareEnrolledCount: medicareEnrolledCount,
                 underfunded: underfundedTax > 0 ? underfundedTax : nil
 ```
@@ -308,6 +337,8 @@ import Foundation
 
 enum EngineMath {
     /// Present value of `amount` received `yearsFromBase` years from the base year, at a real rate.
+    /// CONVENTION: `yearsFromBase == 0` is the base/current year and is **undiscounted** (factor 1.0);
+    /// each later year is discounted by one more period. Tested in PresentValueTests.
     static func presentValue(_ amount: Double, yearsFromBase: Int, realDiscountRate r: Double) -> Double {
         amount / pow(1 + r, Double(max(0, yearsFromBase)))
     }
@@ -411,45 +442,64 @@ git commit -m "feat(optimizer): PV-discount in-horizon + terminal tax in the obj
 - [ ] **Step 1: Run the FULL suite, capture failures.**
 `xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' 2>&1 | tee /tmp/realism.log | grep -E '✘ Test|Test run with'`
 
-- [ ] **Step 2: Bucket each failure** (spec §4): A = should-NOT-move (structure/monotonicity/blend/formatting/`lambdaZeroMatchesLegacy`) → if it fails, it's a real bug, fix the source; B = a hard-coded conversion/terminal/objective number → attribute to C3 or PV, update, record a row; C = investigate. Create the ledger:
+- [ ] **Step 2: Bucket each failure** (spec §4): A = should-NOT-move (structure/monotonicity/blend/formatting/`lambdaZeroMatchesLegacy`) → if it fails, it's a real bug, fix the source; B = a hard-coded conversion/terminal/objective number → attribute to C3 or PV, update, record a row; C = investigate. **Guardrail (external-review #5):** when a conversion goes DOWN, confirm the reduction is explained by removed over-weighting of distant terminal tax or by the gross-up's real cost — NOT by discounting away an in-horizon-justified conversion (a bracket fill, an RMD-compression avoidance, an IRMAA/heir/survivor effect). If a conversion that's justified by *in-horizon* reasons collapses, that's a regression, not a re-baseline — investigate the discounting (it should discount, not delete, near-term-justified moves). Create the ledger:
 ```markdown
 # Realism batch delta ledger (2026-06-26)
 | Test | Old | New | Attributed to (C3 gross-up / PV discount) |
 |---|---|---|---|
 ```
 
-- [ ] **Step 3: Write the finding-regression test** `RetireSmartIRATests/RealismRegressionTests.swift` — the screenshot scenario no longer drains the trad, and the frontier opens:
+- [ ] **Step 3: Write the finding-regression tests** `RetireSmartIRATests/RealismRegressionTests.swift`. Per the external-review caution: do NOT require a wealthy, high-liquidity case to retain trad — full conversion may legitimately be PV-rational there (C3's brake never fires when taxable easily funds the tax). Assert the brake where it should bite (constrained liquidity) and the spread where heir arbitrage exists (high-income heir).
 ```swift
 import Testing
 import Foundation
 @testable import RetireSmartIRA
 
-@Suite("Realism regression: frontier opens", .serialized)
+@Suite("Realism regression", .serialized)
 @MainActor
 struct RealismRegressionTests {
-    @Test("screenshot scenario retains terminal trad and the frontier spreads") func opens() {
-        let provider = TaxYearConfigProvider.fixed(TaxYearConfig.loadOrFallback(forYear: 2026))
-        let inputs = MultiYearStaticInputs(
-            startingBalances: AccountSnapshot(traditional: 3_000_000, roth: 0, taxable: 3_500_000, hsa: 0),
+    private var provider: TaxYearConfigProvider { .fixed(TaxYearConfig.loadOrFallback(forYear: 2026)) }
+    private func inputs(trad: Double, taxable: Double, heirSalary: Double) -> MultiYearStaticInputs {
+        MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: trad, roth: 0, taxable: taxable, hsa: 0),
             baseYear: 2026, primaryCurrentAge: 70, spouseCurrentAge: nil, filingStatus: .single, state: "CA",
             primarySSClaimAge: 70, spouseSSClaimAge: nil, primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
             primaryBirthYear: 1956, spouseBirthYear: nil, primaryWageIncome: 0, spouseWageIncome: 0,
             primaryPensionIncome: 0, spousePensionIncome: 0, acaEnrolled: false, acaHouseholdSize: 1,
             primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil, baselineAnnualExpenses: 0,
-            heirSalary: 200_000, heirFilingStatus: .single, heirDrawdownYears: 10)  // high-income heir
-        let a = MultiYearAssumptions(horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0,
+            heirSalary: heirSalary, heirFilingStatus: .single, heirDrawdownYears: 10)
+    }
+    private func assumptions() -> MultiYearAssumptions {
+        MultiYearAssumptions(horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0.06, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 3_500_000, currentHSABalance: 0)
-        let r = HeirFrontierCoordinator().computeFrontier(inputs: inputs, assumptions: a, configProvider: provider)
+            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+    }
+
+    // (1) LIQUIDITY-CONSTRAINED: little taxable to pay conversion tax. C3 gross-up + PV must stop
+    // the engine from fully draining the traditional IRA at the owner-optimal weight.
+    @Test("constrained liquidity: traditional is no longer fully drained") func brakeStopsDrain() {
+        let r = HeirFrontierCoordinator().computeFrontier(
+            inputs: inputs(trad: 1_500_000, taxable: 50_000, heirSalary: 75_000),
+            assumptions: assumptions(), configProvider: provider)
         let last = r.points.first(where: { $0.weight == 0 })!.recommendedPath.last!
         let termTrad = last.endOfYearBalances.primaryTraditional + last.endOfYearBalances.spouseTraditional
-        #expect(termTrad > 0, "C3+PV should stop fully draining the traditional balance")
-        let spread = abs((r.points.last!.heirAfterTaxInheritanceToday) - (r.points.first!.heirAfterTaxInheritanceToday))
-        #expect(spread > 1000, "the heir frontier should show a material owner-vs-heir trade-off; got \(spread)")
+        #expect(termTrad > 0, "with little taxable to fund conversion tax, the engine should not drain the IRA to zero")
     }
+
+    // (2) HIGH-INCOME HEIR + constrained liquidity: heir bracket-stacking is much costlier than the
+    // owner's self-liquidation, so weighting toward heirs should produce a MEASURABLE trade-off.
+    @Test("high-income heir: the frontier shows a measurable trade-off") func frontierSpreads() {
+        let r = HeirFrontierCoordinator().computeFrontier(
+            inputs: inputs(trad: 1_500_000, taxable: 50_000, heirSalary: 250_000),
+            assumptions: assumptions(), configProvider: provider)
+        let spread = abs(r.points.last!.heirAfterTaxInheritanceToday - r.points.first!.heirAfterTaxInheritanceToday)
+        #expect(spread > 1000, "when heir rates differ materially and trad is retained, the frontier should open; got \(spread)")
+    }
+    // NOTE: deliberately NO assertion about a wealthy high-taxable case — full conversion may be
+    // correct there, and a flat frontier in that case is the right answer, not a bug.
 }
 ```
-> If `termTrad` is still 0 after C3+PV, that is a real finding — investigate (do not weaken the assertion); it means the brake/discount isn't strong enough and the spec's approach needs revisiting before this batch is done.
+> If `brakeStopsDrain` still sees `termTrad == 0`, that is a real finding — investigate (do not weaken the assertion); the brake/discount isn't strong enough and the spec's approach needs revisiting before this batch is done. If `frontierSpreads` stays flat, confirm it's because the trad fully drained (then it's a C3/PV strength issue) vs. heir rate ≈ owner rate at that salary (then raise the heir salary in the fixture).
 
 - [ ] **Step 4: Run the FULL suite, expect ALL PASS** with every moved number attributed in the ledger.
 - [ ] **Step 5: Commit**
@@ -465,8 +515,10 @@ git commit -m "test(engine): re-baseline conversions for C3+PV; frontier-opens r
 **Files:** none (manual/agent verification).
 
 - [ ] **Step 1:** Build + launch the macOS app; open **Multi-Year Plan**.
-- [ ] **Step 2:** Confirm: conversions respect liquidity (no AGI-$401k-every-year wall of IRMAA warnings), the recommended plan is believable, and the heir frontier shows a visible owner-vs-heir spread that changes the ladder when you select a weight. Screenshot.
-- [ ] **Step 3:** Record any remaining issue. If the recommendations are now credible and the frontier opens, the batch is done.
+- [ ] **Step 2:** Confirm the acceptance signs (external-review #7): recommended AGI no longer parks at a very high level every year; IRMAA warnings are occasional/intentional, not automatic every year; low-taxable scenarios are visibly liquidity-constrained (gross-up withdrawals appear, conversions shrink); high-taxable scenarios may still convert aggressively but for a PV-defensible reason; the heir frontier shows a visible spread when heir arbitrage exists and changes the ladder when you select a weight. Screenshot.
+- [ ] **Step 3:** Record any remaining issue. If the recommendations are now credible and the frontier opens where the facts support it, the batch is done.
+
+> **Follow-up (next increment, NOT this batch) — Explainability audit (external-review suggestion):** give each ladder year a machine-readable reason for its conversion level (filled a bracket / avoided RMD compression / reduced heir-or-survivor exposure / stopped because taxable liquidity was exhausted [`underfunded`] / stopped because the IRMAA+PV cost outweighed the benefit). This builds on `underfunded` (this batch) + the existing `tradeOffsAccepted`/`ConstraintAcceptor` rationale machinery; internal-only at first, then surfaced in the ladder UI. Logged as the natural next step after realism.
 
 ---
 
