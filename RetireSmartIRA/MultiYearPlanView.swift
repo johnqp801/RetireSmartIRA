@@ -35,6 +35,14 @@ struct MultiYearPlanView: View {
                         systemImage: "calendar.badge.clock")
                 } else {
                     PlanSummaryView(summary: PlanSummary(path: activePath))
+                    if let baseline = manager.baselineProjection, !baseline.isEmpty {
+                        PlanComparisonView(comparison: PlanComparison(
+                            plan: activePath,
+                            doingNothing: baseline,
+                            heirSalary: dataManager.legacyHeirEstimatedSalary,
+                            heirFilingStatus: dataManager.legacyHeirFilingStatus,
+                            heirDrawdownYears: dataManager.legacyDrawdownYears))
+                    }
                     LadderListView(rows: activePath.map(LadderRow.init))
                     if let frontier = manager.heirFrontier {
                         HeirFrontierView(result: frontier,

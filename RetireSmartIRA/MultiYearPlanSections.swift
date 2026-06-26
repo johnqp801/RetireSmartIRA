@@ -41,6 +41,41 @@ struct PlanSummaryView: View {
     }
 }
 
+struct PlanComparisonView: View {
+    let comparison: PlanComparison
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Your plan vs. doing nothing").font(.headline)
+            Text(comparison.headline).font(.callout).foregroundStyle(.secondary)
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+                GridRow {
+                    Text("")
+                    Text("Your plan").font(.caption.bold()).gridColumnAlignment(.trailing)
+                    Text("Doing nothing").font(.caption.bold()).gridColumnAlignment(.trailing)
+                }
+                metricRow("Lifetime tax", comparison.lifetimeTax)
+                metricRow("Ending IRA balance", comparison.endingTraditional)
+                metricRow("What heirs keep", comparison.heirsKeep)
+                metricRow("Peak forced RMD", comparison.peakForcedRMD)
+            }
+            .font(.callout)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func metricRow(_ label: String, _ pair: PlanComparison.Pair) -> some View {
+        GridRow {
+            Text(label)
+            Text(PlanSummary.shortDollars(pair.plan))
+                .monospacedDigit().gridColumnAlignment(.trailing)
+            Text(PlanSummary.shortDollars(pair.doingNothing))
+                .monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+        }
+    }
+}
+
 struct LadderListView: View {
     let rows: [LadderRow]
     var body: some View {
