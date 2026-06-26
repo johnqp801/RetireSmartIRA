@@ -148,7 +148,8 @@ struct HeirObjectiveTests {
     @Test("Task5: FrontierPoint exposes both unit outputs")
     func frontierPointUnits() {
         let p = FrontierPoint(weight: 0.5, ownerLifetimeTaxToday: 168_000,
-            heirAfterTaxInheritanceToday: 758_000, heirTaxToday: 242_000, pvDiscountFactor: 0.5537)
+            heirAfterTaxInheritanceToday: 758_000, heirTaxToday: 242_000, pvDiscountFactor: 0.5537,
+            recommendedPath: [])
         #expect(p.ownerLifetimeTax(units: .todaysDollars) == 168_000)
         #expect(abs(p.ownerLifetimeTax(units: .presentValue) - 168_000 * 0.5537) < 0.01)
     }

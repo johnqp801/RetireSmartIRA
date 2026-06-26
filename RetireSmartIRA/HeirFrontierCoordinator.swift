@@ -51,7 +51,8 @@ struct HeirFrontierCoordinator {
                 ownerLifetimeTaxToday: inHorizonTax,
                 heirAfterTaxInheritanceToday: heirKeeps,
                 heirTaxToday: heirTax,
-                pvDiscountFactor: pvFactor)
+                pvDiscountFactor: pvFactor,
+                recommendedPath: result.recommendedPath)
         }
 
         return HeirFrontierResult(points: points)

@@ -24,6 +24,7 @@ struct FrontierPoint: Identifiable, Equatable, Sendable {
     let heirAfterTaxInheritanceToday: Double   // today's dollars
     let heirTaxToday: Double                   // today's dollars
     let pvDiscountFactor: Double               // multiply today's-dollar figures to get PV
+    let recommendedPath: [YearRecommendation]  // the optimizer's plan at this weight (drives the ladder/summary)
 
     func ownerLifetimeTax(units: DisplayUnits) -> Double {
         units == .presentValue ? ownerLifetimeTaxToday * pvDiscountFactor : ownerLifetimeTaxToday
@@ -42,6 +43,7 @@ struct FrontierPoint: Identifiable, Equatable, Sendable {
             && lhs.heirAfterTaxInheritanceToday == rhs.heirAfterTaxInheritanceToday
             && lhs.heirTaxToday == rhs.heirTaxToday
             && lhs.pvDiscountFactor == rhs.pvDiscountFactor
+            && lhs.recommendedPath == rhs.recommendedPath
     }
 }
 
