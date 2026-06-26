@@ -695,7 +695,8 @@ struct ProjectionEngine {
                 endOfYearBalances: snapshot,
                 actions: allActions,
                 medicareEnrolledCount: medicareEnrolledCount,
-                underfunded: underfundedTax > 0 ? underfundedTax : nil
+                underfunded: underfundedTax > 0 ? underfundedTax : nil,
+                rmd: primaryRequiredRMD + spouseRequiredRMD
             ))
 
             // Advance ages for next iteration
