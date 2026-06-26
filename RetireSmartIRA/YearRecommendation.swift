@@ -22,6 +22,9 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     /// Used by ConstraintAcceptor to scale annualSurchargePerPerson correctly
     /// for MFJ couples where both spouses are on Medicare.
     let medicareEnrolledCount: Int
+    /// Tax that could not be funded from taxable or traditional this year (genuinely insolvent).
+    /// nil/0 means fully funded. Never silent "external" funding.
+    let underfunded: Double?
 
     init(
         year: Int,
@@ -32,7 +35,8 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         taxBreakdown: TaxBreakdown,
         endOfYearBalances: AccountSnapshot,
         actions: [LeverAction],
-        medicareEnrolledCount: Int = 0
+        medicareEnrolledCount: Int = 0,
+        underfunded: Double? = nil
     ) {
         self.year = year
         self.agi = agi
@@ -43,5 +47,6 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         self.endOfYearBalances = endOfYearBalances
         self.actions = actions
         self.medicareEnrolledCount = medicareEnrolledCount
+        self.underfunded = underfunded
     }
 }
