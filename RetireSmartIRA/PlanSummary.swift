@@ -26,5 +26,16 @@ struct PlanSummary: Equatable, Sendable {
         return "Convert \(Self.shortDollars(totalConversions)) over \(conversionYears) year\(conversionYears == 1 ? "" : "s")."
     }
 
-    static func shortDollars(_ v: Double) -> String { "$\(Int((v / 1000).rounded()))k" }
+    /// Compact currency: "$1.2M" at/above a million, "$148k" at/above a thousand, else "$N".
+    static func shortDollars(_ v: Double) -> String {
+        let a = abs(v)
+        let sign = v < 0 ? "-" : ""
+        if a >= 1_000_000 {
+            return "\(sign)$\(String(format: "%.1f", a / 1_000_000))M"
+        }
+        if a >= 1_000 {
+            return "\(sign)$\(Int((a / 1_000).rounded()))k"
+        }
+        return "\(sign)$\(Int(a.rounded()))"
+    }
 }

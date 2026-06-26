@@ -29,4 +29,15 @@ struct PlanSummaryTests {
         let s = PlanSummary(path: [])
         #expect(s.lifetimeTax == 0 && s.totalConversions == 0 && s.conversionYears == 0)
     }
+
+    @Test("shortDollars scales to millions instead of '$12641k'")
+    func shortDollarsScales() {
+        #expect(PlanSummary.shortDollars(12_641_000) == "$12.6M")
+        #expect(PlanSummary.shortDollars(4_314_000) == "$4.3M")
+        #expect(PlanSummary.shortDollars(1_000_000) == "$1.0M")
+        #expect(PlanSummary.shortDollars(148_000) == "$148k")
+        #expect(PlanSummary.shortDollars(26_000) == "$26k")
+        #expect(PlanSummary.shortDollars(500) == "$500")
+        #expect(PlanSummary.shortDollars(0) == "$0")
+    }
 }
