@@ -1,0 +1,32 @@
+import Testing
+import Foundation
+@testable import RetireSmartIRA
+
+@Suite("PlanSummary", .serialized)
+struct PlanSummaryTests {
+    private func rec(year: Int, fed: Double, conv: Double) -> YearRecommendation {
+        YearRecommendation(
+            year: year, agi: 0, acaMagi: nil, irmaaMagi: nil, taxableIncome: 0,
+            taxBreakdown: TaxBreakdown(federal: fed, state: 0, irmaa: 0, acaPremiumImpact: 0),
+            endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
+            actions: conv > 0 ? [.rothConversion(amount: conv)] : [],
+            medicareEnrolledCount: 0)
+    }
+
+    @Test("sums lifetime tax and total conversions over the path")
+    func sums() {
+        let path = [rec(year: 2026, fed: 10_000, conv: 50_000),
+                    rec(year: 2027, fed: 12_000, conv: 30_000),
+                    rec(year: 2028, fed: 8_000, conv: 0)]
+        let s = PlanSummary(path: path)
+        #expect(s.lifetimeTax == 30_000)
+        #expect(s.totalConversions == 80_000)
+        #expect(s.conversionYears == 2)
+    }
+
+    @Test("empty path is all zeros")
+    func empty() {
+        let s = PlanSummary(path: [])
+        #expect(s.lifetimeTax == 0 && s.totalConversions == 0 && s.conversionYears == 0)
+    }
+}
