@@ -11,10 +11,9 @@ struct HeirFrontierViewConstructTests {
             heirTaxToday: 0, pvDiscountFactor: 1, recommendedPath: [])
         let result = HeirFrontierResult(points: [p])
         var weight = 0.0
-        var units = DisplayUnits.todaysDollars
         let view = HeirFrontierView(result: result,
             selectedWeight: Binding(get: { weight }, set: { weight = $0 }),
-            units: Binding(get: { units }, set: { units = $0 }))
+            units: .todaysDollars)
         _ = view.body
         #expect(true)
     }

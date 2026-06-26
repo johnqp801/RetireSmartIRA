@@ -2,12 +2,19 @@ import Foundation
 
 /// Testable macro-summary of a recommended multi-year path. Pure value type — the view formats it.
 struct PlanSummary: Equatable, Sendable {
-    let lifetimeTax: Double      // sum of in-horizon federal+state+IRMAA+ACA across the path
-    let totalConversions: Double // sum of recommended Roth conversions
+    let lifetimeTax: Double      // sum of in-horizon federal+state+IRMAA+ACA across the path (nominal)
+    let lifetimeTaxPV: Double     // same, each year discounted to the base year
+    let totalConversions: Double // sum of recommended Roth conversions (always nominal - a flow, not wealth)
     let conversionYears: Int     // count of years with a conversion
 
-    init(path: [YearRecommendation]) {
+    init(path: [YearRecommendation], pvRealDiscountRate: Double = 0) {
         self.lifetimeTax = path.reduce(0) { $0 + $1.taxBreakdown.total }
+        let baseYear = path.first?.year ?? 0
+        self.lifetimeTaxPV = path.reduce(0) {
+            $0 + EngineMath.presentValue($1.taxBreakdown.total,
+                                         yearsFromBase: $1.year - baseYear,
+                                         realDiscountRate: pvRealDiscountRate)
+        }
         var total = 0.0, years = 0
         for yr in path {
             let conv = yr.actions.reduce(0.0) { acc, act in
@@ -18,6 +25,11 @@ struct PlanSummary: Equatable, Sendable {
         }
         self.totalConversions = total
         self.conversionYears = years
+    }
+
+    /// Lifetime tax for the chosen display units (per-year discounted in present-value mode).
+    func lifetimeTax(units: DisplayUnits) -> Double {
+        units == .presentValue ? lifetimeTaxPV : lifetimeTax
     }
 
     /// One-line plain-language headline.

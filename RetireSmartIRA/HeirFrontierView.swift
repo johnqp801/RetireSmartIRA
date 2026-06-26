@@ -3,7 +3,7 @@ import SwiftUI
 struct HeirFrontierView: View {
     let result: HeirFrontierResult
     @Binding var selectedWeight: Double
-    @Binding var units: DisplayUnits
+    let units: DisplayUnits   // governed by the tab-level toggle (MultiYearPlanView)
 
     private var selected: FrontierPoint {
         result.points.first(where: { $0.weight == selectedWeight }) ?? result.points[0]
@@ -15,16 +15,7 @@ struct HeirFrontierView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Your taxes vs. what your heirs keep").font(.headline)
-                Spacer()
-                Picker("", selection: $units) {
-                    Text("Today's $").tag(DisplayUnits.todaysDollars)
-                    Text("Present value").tag(DisplayUnits.presentValue)
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 220)
-            }
+            Text("Your taxes vs. what your heirs keep").font(.headline)
             ForEach(result.points) { p in
                 Button {
                     selectedWeight = p.weight

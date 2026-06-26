@@ -30,10 +30,11 @@ struct AssumptionsStripView: View {
 
 struct PlanSummaryView: View {
     let summary: PlanSummary
+    let units: DisplayUnits
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Your plan").font(.headline)
-            Text("Projected lifetime tax: \(PlanSummary.shortDollars(summary.lifetimeTax))")
+            Text("Projected lifetime tax: \(PlanSummary.shortDollars(summary.lifetimeTax(units: units)))")
             Text(summary.headline).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

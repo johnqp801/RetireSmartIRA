@@ -17,7 +17,19 @@ struct MultiYearPlanView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Multi-Year Plan").font(.largeTitle.bold())
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Multi-Year Plan").font(.largeTitle.bold())
+                    Spacer()
+                    if !activePath.isEmpty {
+                        Picker("Units", selection: $units) {
+                            Text("Today's $").tag(DisplayUnits.todaysDollars)
+                            Text("Present value").tag(DisplayUnits.presentValue)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                }
 
                 AssumptionsStripView(
                     taxableBalance: Binding(get: { manager.assumptions.currentTaxableBalance },
@@ -34,7 +46,8 @@ struct MultiYearPlanView: View {
                     ContentUnavailableView("Set your assumptions to see your plan",
                         systemImage: "calendar.badge.clock")
                 } else {
-                    PlanSummaryView(summary: PlanSummary(path: activePath))
+                    PlanSummaryView(summary: PlanSummary(path: activePath,
+                        pvRealDiscountRate: manager.assumptions.pvRealDiscountRate), units: units)
                     if let baseline = manager.baselineProjection, !baseline.isEmpty {
                         PlanComparisonView(comparison: PlanComparison(
                             plan: activePath,
@@ -50,7 +63,7 @@ struct MultiYearPlanView: View {
                         HeirFrontierView(result: frontier,
                             selectedWeight: Binding(get: { manager.selectedHeirWeight },
                                                     set: { manager.selectedHeirWeight = $0 }),
-                            units: $units)
+                            units: units)
                     } else if manager.isComputingFrontier {
                         ProgressView("Computing heir trade-off…")
                     }
