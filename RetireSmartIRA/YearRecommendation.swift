@@ -25,6 +25,10 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     /// Tax that could not be funded from taxable or traditional this year (genuinely insolvent).
     /// nil/0 means fully funded. Never silent "external" funding.
     let underfunded: Double?
+    /// Forced required minimum distribution for this year (primary + spouse), pre-tax.
+    /// 0 before RMD age. Surfaced separately so the UI can show forced income without
+    /// digging it out of the bundled `.traditionalWithdrawal` actions.
+    let rmd: Double
 
     init(
         year: Int,
@@ -36,7 +40,8 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         endOfYearBalances: AccountSnapshot,
         actions: [LeverAction],
         medicareEnrolledCount: Int = 0,
-        underfunded: Double? = nil
+        underfunded: Double? = nil,
+        rmd: Double = 0
     ) {
         self.year = year
         self.agi = agi
@@ -48,5 +53,6 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         self.actions = actions
         self.medicareEnrolledCount = medicareEnrolledCount
         self.underfunded = underfunded
+        self.rmd = rmd
     }
 }
