@@ -221,6 +221,10 @@ struct ProjectionEngineTests {
 
     @Test("Action sequence is reflected in YearRecommendation.actions verbatim")
     func actionsArePropagatedToOutput() {
+        // C3 (Task 3): when taxable == 0, the engine appends a .traditionalWithdrawal to
+        // gross-up the conversion tax from the IRA itself. So the full actions list is:
+        //   [user actions..., grossUp .traditionalWithdrawal]
+        // The user-provided actions must appear as the prefix of the output actions.
         let inputs = makeInputs(traditional: 1_000_000)
         let engine = ProjectionEngine()
         let actions: [LeverAction] = [.rothConversion(amount: 30_000), .hsaContribution(amount: 4_300)]
@@ -229,7 +233,20 @@ struct ProjectionEngineTests {
             assumptions: makeAssumptions(),
             actionsPerYear: [baseYear: actions]
         )
-        #expect(years[0].actions == actions)
+        // User actions are preserved as a prefix; engine may append auto-generated actions.
+        let output = years[0].actions
+        #expect(output.count >= actions.count, "output must contain at least the user-specified actions")
+        #expect(Array(output.prefix(actions.count)) == actions,
+                "user-specified actions must appear verbatim as the first elements")
+        // C3 gross-up: the engine also appends a .traditionalWithdrawal to cover conversion
+        // tax when taxable == 0 (re-baselined 2026-06-26, attributed to C3 gross-up).
+        let grossUp = output.dropFirst(actions.count)
+        #expect(grossUp.count == 1, "exactly one engine-appended gross-up withdrawal expected")
+        if case .traditionalWithdrawal(let amt) = grossUp.first! {
+            #expect(amt > 0 && amt < 30_000, "gross-up should be a small fraction of the conversion (got \(amt))")
+        } else {
+            Issue.record("expected .traditionalWithdrawal for gross-up, got \(grossUp.first!)")
+        }
     }
 
     // MARK: Additional edge-case tests
@@ -763,10 +780,16 @@ struct ProjectionEngineTests {
 
         // The auto-imposed traditionalWithdrawal must equal the full RMD on $1M.
         // (Roth conversions don't count toward RMD satisfaction in the engine's logic.)
+        //
+        // C3 (Task 3): the engine also appends a second .traditionalWithdrawal to gross-up
+        // the conversion tax (since taxable == 0). The ordering in allActions is:
+        //   [.rothConversion(200_000), .traditionalWithdrawal(RMD), .traditionalWithdrawal(grossUp)]
+        // So we check only the FIRST auto-generated traditional withdrawal (= the RMD),
+        // not the sum of all traditional withdrawals (re-baselined 2026-06-26, C3 gross-up).
         let tradAutoActions = years[0].actions.compactMap {
             if case .traditionalWithdrawal(let a) = $0 { return a } else { return nil }
         }
-        let autoRMD = tradAutoActions.reduce(0.0, +)
+        let autoRMD = tradAutoActions.first ?? 0.0
         #expect(abs(autoRMD - expectedRMD) < 1.0,
                 "Auto RMD must equal RMD($1M)=\(expectedRMD). Got \(autoRMD). Buggy basis would give \(buggyRMD)")
         // AGI includes both the $200K conversion income AND the auto-imposed RMD income
