@@ -84,20 +84,31 @@ struct PlanComparisonView: View {
 
 struct LadderListView: View {
     let rows: [LadderRow]
+    private var anyIRMAA: Bool { rows.contains(where: \.hasIRMAASurcharge) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Recommended ladder").font(.headline)
             ForEach(rows) { row in
-                HStack {
+                HStack(spacing: 6) {
                     Text(String(row.year)).monospacedDigit()
                     Text(row.conversionLabel)
                     Spacer()
                     Text(row.agiLabel).foregroundStyle(.secondary)
                     if row.hasIRMAASurcharge {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text(row.irmaaLabel).foregroundStyle(.orange)
                     }
                 }
                 .font(.callout)
+            }
+            if anyIRMAA {
+                Label(
+                    "IRMAA = projected Medicare premium surcharge from higher income that year. Amounts are estimates based on current thresholds; future Medicare rules and your actual income may change them.",
+                    systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
             }
         }
         .padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))

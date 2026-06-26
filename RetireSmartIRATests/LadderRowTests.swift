@@ -27,5 +27,19 @@ struct LadderRowTests {
         let row = LadderRow(rec(year: 2030, agi: 60_000, conv: 0, irmaaMagi: nil, acaMagi: nil))
         #expect(row.conversion == 0)
         #expect(row.hasIRMAASurcharge == false)
+        #expect(row.irmaaLabel == "")
+    }
+
+    @Test("IRMAA surcharge amount and label are surfaced")
+    func irmaaAmount() {
+        let r = YearRecommendation(
+            year: 2028, agi: 300_000, acaMagi: nil, irmaaMagi: 300_000, taxableIncome: 300_000,
+            taxBreakdown: TaxBreakdown(federal: 0, state: 0, irmaa: 8_400, acaPremiumImpact: 0),
+            endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
+            actions: [], medicareEnrolledCount: 2)
+        let row = LadderRow(r)
+        #expect(row.irmaaSurcharge == 8_400)
+        #expect(row.hasIRMAASurcharge == true)
+        #expect(row.irmaaLabel == "IRMAA +$8k")
     }
 }

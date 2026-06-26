@@ -6,7 +6,7 @@ struct LadderRow: Identifiable, Equatable, Sendable {
     let year: Int
     let conversion: Double
     let agi: Double
-    let hasIRMAASurcharge: Bool
+    let irmaaSurcharge: Double   // this year's projected Medicare IRMAA cost (both spouses, annual)
 
     init(_ rec: YearRecommendation) {
         self.year = rec.year
@@ -15,9 +15,13 @@ struct LadderRow: Identifiable, Equatable, Sendable {
             return acc
         }
         self.agi = rec.agi
-        self.hasIRMAASurcharge = rec.taxBreakdown.irmaa > 0
+        self.irmaaSurcharge = rec.taxBreakdown.irmaa
     }
+
+    var hasIRMAASurcharge: Bool { irmaaSurcharge > 0 }
 
     var conversionLabel: String { conversion > 0 ? "convert \(PlanSummary.shortDollars(conversion))" : "—" }
     var agiLabel: String { "AGI \(PlanSummary.shortDollars(agi))" }
+    /// Compact "IRMAA +$Xk" tag for the year, empty when there is no surcharge.
+    var irmaaLabel: String { hasIRMAASurcharge ? "IRMAA +\(PlanSummary.shortDollars(irmaaSurcharge))" : "" }
 }
