@@ -143,6 +143,8 @@ enum MultiYearInputAdapter {
         let spousePension = spouseIncome(from: sources, type: .pension, enableSpouse: dataManager.enableSpouse)
         let primaryOther = Self.primaryOtherOrdinaryIncome(from: sources)
         let spouseOther = Self.spouseOtherOrdinaryIncome(from: sources, enableSpouse: dataManager.enableSpouse)
+        let primaryPreferential = Self.primaryPreferentialIncome(from: sources)
+        let spousePreferential = Self.spousePreferentialIncome(from: sources, enableSpouse: dataManager.enableSpouse)
 
         // MARK: ACA / Medicare
         let acaEnrolled = scenarioState.enableACAModeling
@@ -175,6 +177,8 @@ enum MultiYearInputAdapter {
             spousePensionIncome: spousePension,
             primaryOtherOrdinaryIncome: primaryOther,
             spouseOtherOrdinaryIncome: spouseOther,
+            primaryPreferentialIncome: primaryPreferential,
+            spousePreferentialIncome: spousePreferential,
             acaEnrolled: acaEnrolled,
             acaHouseholdSize: acaSize,
             primaryMedicareEnrollmentAge: primaryMedAge,
@@ -233,23 +237,47 @@ enum MultiYearInputAdapter {
             .reduce(0.0) { $0 + $1.annualAmount }
     }
 
+    /// Sum of primary-owner PREFERENTIAL-rate income (qualified dividends + long-term cap gains).
+    private static func primaryPreferentialIncome(from sources: [IncomeSource]) -> Double {
+        sources
+            .filter { $0.owner == .primary && Self.isPreferential(type: $0.type) }
+            .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Same, for spouse owner. Returns 0 when spouse is not enabled.
+    private static func spousePreferentialIncome(from sources: [IncomeSource], enableSpouse: Bool) -> Double {
+        guard enableSpouse else { return 0 }
+        return sources
+            .filter { $0.owner == .spouse && Self.isPreferential(type: $0.type) }
+            .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Income taxed at the federal LTCG/qualified-dividend preferential schedule.
+    private static func isPreferential(type incomeType: IncomeType) -> Bool {
+        switch incomeType {
+        case .qualifiedDividends, .capitalGainsLong:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Allowlist of IncomeType cases that are taxable as ORDINARY income and not
-    /// already handled by another field on MultiYearStaticInputs.
-    ///
-    /// V2.0 simplification: includes capitalGainsLong and qualifiedDividends, both of
-    /// which warrant preferential rate treatment that this v2.0 mapping doesn't model.
-    /// Conservative over-tax direction; v2.1 Path B refactor will classify properly.
+    /// already handled by another field on MultiYearStaticInputs. Preferential-rate types
+    /// (qualified dividends, long-term cap gains) are NOT ordinary — see isPreferential.
     ///
     /// Exhaustive switch (no default branch): any future IncomeType case must be
     /// explicitly classified here — Swift will fail to compile otherwise.
     private static func isOtherOrdinary(type incomeType: IncomeType) -> Bool {
         switch incomeType {
-        case .dividends, .qualifiedDividends, .interest,
-             .capitalGainsShort, .capitalGainsLong,
+        case .dividends, .interest,
+             .capitalGainsShort,
              .stateTaxRefund, .militaryRetirement, .other:
             return true  // militaryRetirement is taxable ordinary income (unlike VA disability);
                          // include it so it is not silently dropped. Proper state pension-exemption
                          // treatment is deferred to the v2.1 veteran/federal package.
+        case .qualifiedDividends, .capitalGainsLong:
+            return false  // PREFERENTIAL rate — routed to primaryPreferentialIncome instead.
         case .consulting, .pension:
             return false  // already extracted as wage / pension
         case .socialSecurity, .rmd:

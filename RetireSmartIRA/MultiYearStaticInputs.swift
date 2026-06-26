@@ -50,8 +50,16 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     // direction, makes the optimizer slightly less aggressive than truly optimal.
     // V2.1 will classify by income type via a Path B refactor (ProjectionEngine
     // consumes [IncomeSource] directly with allowlist semantics).
-    let primaryOtherOrdinaryIncome: Double   // dividends + interest + cap gains + state refund + other (taxable, ordinary rate)
+    let primaryOtherOrdinaryIncome: Double   // ordinary-rate: dividends + interest + short-term cap gains + state refund + other
     let spouseOtherOrdinaryIncome: Double    // same, for spouse
+
+    // Preferential-rate income (qualified dividends + long-term capital gains). Included in
+    // AGI/MAGI like any income, but taxed at the federal LTCG schedule, not ordinary rates.
+    // (Decumulation step 1 of 2.1: prior to this, these were lumped into otherOrdinaryIncome
+    // and over-taxed ~5pp. Cost-basis / gain-harvesting on taxable-account WITHDRAWALS remains
+    // a later 2.1 item — this only fixes the rate on the user's stated investment income.)
+    let primaryPreferentialIncome: Double
+    let spousePreferentialIncome: Double
 
     // ACA / Medicare context
     let acaEnrolled: Bool
@@ -100,6 +108,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         spousePensionIncome: Double,
         primaryOtherOrdinaryIncome: Double = 0,   // NEW — see field comment above
         spouseOtherOrdinaryIncome: Double = 0,    // NEW — see field comment above
+        primaryPreferentialIncome: Double = 0,    // qualified dividends + LTCG (preferential rate)
+        spousePreferentialIncome: Double = 0,
         acaEnrolled: Bool,
         acaHouseholdSize: Int,
         primaryMedicareEnrollmentAge: Int,
@@ -133,6 +143,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.spousePensionIncome = spousePensionIncome
         self.primaryOtherOrdinaryIncome = primaryOtherOrdinaryIncome
         self.spouseOtherOrdinaryIncome = spouseOtherOrdinaryIncome
+        self.primaryPreferentialIncome = primaryPreferentialIncome
+        self.spousePreferentialIncome = spousePreferentialIncome
         self.acaEnrolled = acaEnrolled
         self.acaHouseholdSize = acaHouseholdSize
         self.primaryMedicareEnrollmentAge = primaryMedicareEnrollmentAge
@@ -170,6 +182,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             spousePensionIncome: spousePensionIncome,
             primaryOtherOrdinaryIncome: primaryOtherOrdinaryIncome,
             spouseOtherOrdinaryIncome: spouseOtherOrdinaryIncome,
+            primaryPreferentialIncome: primaryPreferentialIncome,
+            spousePreferentialIncome: spousePreferentialIncome,
             acaEnrolled: acaEnrolled,
             acaHouseholdSize: acaHouseholdSize,
             primaryMedicareEnrollmentAge: primaryMedicareEnrollmentAge,

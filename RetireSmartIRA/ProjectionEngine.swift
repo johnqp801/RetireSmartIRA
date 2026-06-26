@@ -379,7 +379,10 @@ struct ProjectionEngine {
             // V2.0: otherOrdinaryIncome captures dividends + interest + cap gains + state refund + other,
             // all taxed as ordinary for v2.0 simplicity. V2.1 will classify properly.
             let otherOrdinaryIncome = inputs.primaryOtherOrdinaryIncome + inputs.spouseOtherOrdinaryIncome
-            let passiveIncome = wageIncome + pensionIncome + otherOrdinaryIncome + totalGrossSSAnnual
+            // Preferential-rate income (qualified dividends + LTCG): part of AGI/MAGI/provisional
+            // income and spendable cash, but taxed at the federal LTCG schedule (not ordinary).
+            let preferentialIncome = inputs.primaryPreferentialIncome + inputs.spousePreferentialIncome
+            let passiveIncome = wageIncome + pensionIncome + otherOrdinaryIncome + preferentialIncome + totalGrossSSAnnual
 
             var autoFundedTradWithdrawals = 0.0
             // RMD cash already extracted from trad; subtract from shortfall before auto-funding.
@@ -433,7 +436,7 @@ struct ProjectionEngine {
                 type: .socialSecurity,
                 annualAmount: totalGrossSSAnnual
             )
-            let otherIncomeForSSTax = pensionIncome + wageIncome + otherOrdinaryIncome
+            let otherIncomeForSSTax = pensionIncome + wageIncome + otherOrdinaryIncome + preferentialIncome
                 + totalTradWithdrawals + explicitRothConversions
             let taxableSS = TaxCalculationEngine.calculateTaxableSocialSecurity(
                 filingStatus: inputs.filingStatus,
@@ -449,7 +452,8 @@ struct ProjectionEngine {
             let federalAGI = max(0,
                 pensionIncome
                 + wageIncome
-                + otherOrdinaryIncome  // V2.0: ordinary-rate bucket; v2.1 will classify LTCG/qualDiv separately
+                + otherOrdinaryIncome       // ordinary-rate investment/other income
+                + preferentialIncome        // qualified dividends + LTCG (in AGI; taxed preferentially below)
                 + totalTradWithdrawals
                 + explicitRothConversions
                 + taxableSS
@@ -499,17 +503,20 @@ struct ProjectionEngine {
                 federalAGI: federalAGI
             )
             let taxableIncome = max(0, federalAGI - stdDed)
+            // Preferential portion of taxable income (qualified dividends + LTCG), capped at
+            // taxable income. The standard deduction offsets ordinary income first, so the
+            // preferential amount stacks on top at the LTCG schedule — matching the single-year
+            // engine's calculateFederalTax(preferentialIncome:) convention.
+            let taxablePreferential = min(max(0, preferentialIncome), taxableIncome)
 
-            // Federal tax (ordinary income only; no cap gains modeling in v2.0).
-            // Resolve brackets through the per-year config provider (not the global static) so
-            // the projection is consistent with the optimizer's cliff candidates and supports
-            // future per-year tax law.
+            // Federal tax — ordinary brackets on the ordinary portion, the federal LTCG schedule
+            // on the preferential portion. Brackets resolve through the per-year config provider.
             let brackets = configProvider.config(forYear: year).toTaxBrackets()
             let federalTax = TaxCalculationEngine.calculateFederalTax(
                 income: taxableIncome,
                 filingStatus: inputs.filingStatus,
                 brackets: brackets,
-                preferentialIncome: 0
+                preferentialIncome: taxablePreferential
             )
 
             // State tax — build minimal income source list for retirement exemptions
