@@ -7,6 +7,11 @@
 
 import Foundation
 
+enum TaxPaymentSource: String, Codable, Sendable {
+    case taxableThenGrossUp   // pay from taxable; shortfall pulled from traditional (taxed)
+    case external             // legacy: tax assumed paid from outside funds (for tests/back-compat)
+}
+
 struct MultiYearAssumptions: Codable, Equatable, Sendable {
     var horizonEndAge: Int                       // primary spouse / single, default 95
     var horizonEndAgeSpouse: Int?                // override for second spouse, optional
@@ -32,6 +37,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     /// Real discount rate for the heir-frontier present-value display toggle (display-only;
     /// does NOT affect optimization). Default 3% real.
     var pvRealDiscountRate: Double = 0.03
+    /// Where conversion/year tax is paid from. Default brakes over-conversion (C3).
+    var taxPaymentSource: TaxPaymentSource = .taxableThenGrossUp
 
     init(
         horizonEndAge: Int = 95,
@@ -48,7 +55,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         cliffBuffer: Double = 5_000,
         dismissedInsightKeys: Set<String> = [],
         assumptionsConfirmed: Bool = false,
-        pvRealDiscountRate: Double = 0.03
+        pvRealDiscountRate: Double = 0.03,
+        taxPaymentSource: TaxPaymentSource = .taxableThenGrossUp
     ) {
         self.horizonEndAge = horizonEndAge
         self.horizonEndAgeSpouse = horizonEndAgeSpouse
@@ -65,6 +73,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.dismissedInsightKeys = dismissedInsightKeys
         self.assumptionsConfirmed = assumptionsConfirmed
         self.pvRealDiscountRate = pvRealDiscountRate
+        self.taxPaymentSource = taxPaymentSource
     }
 
     // Explicit init(from:) for backward compatibility — older saves that lack
@@ -86,6 +95,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.dismissedInsightKeys = try c.decodeIfPresent(Set<String>.self, forKey: .dismissedInsightKeys) ?? []
         self.assumptionsConfirmed = try c.decodeIfPresent(Bool.self, forKey: .assumptionsConfirmed) ?? false
         self.pvRealDiscountRate = try c.decodeIfPresent(Double.self, forKey: .pvRealDiscountRate) ?? 0.03
+        self.taxPaymentSource = try c.decodeIfPresent(TaxPaymentSource.self, forKey: .taxPaymentSource) ?? .taxableThenGrossUp
     }
 
     static let `default` = MultiYearAssumptions()
