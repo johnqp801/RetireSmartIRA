@@ -41,7 +41,9 @@ struct MultiYearPlanView: View {
                             doingNothing: baseline,
                             heirSalary: dataManager.legacyHeirEstimatedSalary,
                             heirFilingStatus: dataManager.legacyHeirFilingStatus,
-                            heirDrawdownYears: dataManager.legacyDrawdownYears))
+                            heirDrawdownYears: dataManager.legacyDrawdownYears,
+                            pvRealDiscountRate: manager.assumptions.pvRealDiscountRate),
+                            units: units)
                     }
                     LadderListView(rows: activePath.map(LadderRow.init))
                     if let frontier = manager.heirFrontier {

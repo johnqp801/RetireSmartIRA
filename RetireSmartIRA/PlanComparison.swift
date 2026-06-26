@@ -9,19 +9,30 @@ struct PlanComparison: Equatable, Sendable {
     struct Pair: Equatable, Sendable {
         let plan: Double
         let doingNothing: Double
+        func scaled(by factor: Double) -> Pair {
+            Pair(plan: plan * factor, doingNothing: doingNothing * factor)
+        }
     }
 
-    let lifetimeTax: Pair        // lower is better
+    let lifetimeTax: Pair        // lower is better (nominal sum)
     let endingTraditional: Pair  // lower is better (defused RMD bomb)
     let endingRoth: Pair         // higher is better (value shifted into tax-free Roth)
     let heirsKeep: Pair          // higher is better
-    let peakForcedRMD: Pair      // lower is better
+    let peakForcedRMD: Pair      // lower is better; ALWAYS nominal (a stress figure, not wealth)
+
+    /// Lifetime tax with each year discounted to the base year. Use in present-value mode.
+    let lifetimeTaxPV: Pair
+    /// Discount factor from the horizon's terminal year back to the base year. Multiply the
+    /// terminal-balance metrics (ending traditional, ending Roth, what heirs keep) by this for
+    /// present-value mode. 1.0 when no discounting.
+    let terminalPVFactor: Double
 
     init(plan: [YearRecommendation],
          doingNothing: [YearRecommendation],
          heirSalary: Double,
          heirFilingStatus: FilingStatus,
-         heirDrawdownYears: Int) {
+         heirDrawdownYears: Int,
+         pvRealDiscountRate: Double = 0) {
 
         func lifetimeTax(_ p: [YearRecommendation]) -> Double {
             p.reduce(0) { $0 + $1.taxBreakdown.total }
@@ -40,21 +51,43 @@ struct PlanComparison: Equatable, Sendable {
         }
         func peakRMD(_ p: [YearRecommendation]) -> Double { p.map(\.rmd).max() ?? 0 }
 
+        // Per-year discounted lifetime tax (each year discounted to the base year).
+        let baseYear = plan.first?.year ?? doingNothing.first?.year ?? 0
+        func lifetimeTaxPV(_ p: [YearRecommendation]) -> Double {
+            p.reduce(0) {
+                $0 + EngineMath.presentValue($1.taxBreakdown.total,
+                                             yearsFromBase: $1.year - baseYear,
+                                             realDiscountRate: pvRealDiscountRate)
+            }
+        }
+        let lastYear = plan.last?.year ?? doingNothing.last?.year ?? baseYear
+
         self.lifetimeTax = Pair(plan: lifetimeTax(plan), doingNothing: lifetimeTax(doingNothing))
         self.endingTraditional = Pair(plan: endingTrad(plan), doingNothing: endingTrad(doingNothing))
         self.endingRoth = Pair(plan: endingRoth(plan), doingNothing: endingRoth(doingNothing))
         self.heirsKeep = Pair(plan: heirsKeep(plan), doingNothing: heirsKeep(doingNothing))
         self.peakForcedRMD = Pair(plan: peakRMD(plan), doingNothing: peakRMD(doingNothing))
+        self.lifetimeTaxPV = Pair(plan: lifetimeTaxPV(plan), doingNothing: lifetimeTaxPV(doingNothing))
+        self.terminalPVFactor = EngineMath.presentValue(1.0, yearsFromBase: lastYear - baseYear,
+                                                        realDiscountRate: pvRealDiscountRate)
     }
 
-    /// Lifetime-tax reduction vs doing nothing (positive = plan saves money).
-    var lifetimeTaxSavings: Double { lifetimeTax.doingNothing - lifetimeTax.plan }
+    /// Lifetime tax for the chosen display units (per-year discounted in present-value mode).
+    func lifetimeTax(units: DisplayUnits) -> Pair {
+        units == .presentValue ? lifetimeTaxPV : lifetimeTax
+    }
+    /// A terminal-balance metric scaled for the chosen display units.
+    func terminal(_ nominal: Pair, units: DisplayUnits) -> Pair {
+        units == .presentValue ? nominal.scaled(by: terminalPVFactor) : nominal
+    }
 
-    /// One-line plain-language headline. Uses the existing compact-dollar formatter.
-    var headline: String {
-        guard lifetimeTaxSavings > 1_000 else {
+    /// One-line plain-language headline for the chosen units. Peak RMD stays nominal.
+    func headline(units: DisplayUnits) -> String {
+        let lt = lifetimeTax(units: units)
+        let savings = lt.doingNothing - lt.plan
+        guard savings > 1_000 else {
             return "This plan comes out about even with doing nothing here."
         }
-        return "This plan saves \(PlanSummary.shortDollars(lifetimeTaxSavings)) in lifetime tax and holds your largest forced RMD to \(PlanSummary.shortDollars(peakForcedRMD.plan))."
+        return "This plan saves \(PlanSummary.shortDollars(savings)) in lifetime tax and holds your largest forced RMD to \(PlanSummary.shortDollars(peakForcedRMD.plan))."
     }
 }

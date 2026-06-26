@@ -43,22 +43,26 @@ struct PlanSummaryView: View {
 
 struct PlanComparisonView: View {
     let comparison: PlanComparison
+    let units: DisplayUnits
+
+    private var titleSuffix: String { units == .presentValue ? " · present value" : "" }
+    private var rmdLabel: String { units == .presentValue ? "Peak forced RMD (nominal)" : "Peak forced RMD" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Your plan vs. doing nothing").font(.headline)
-            Text(comparison.headline).font(.callout).foregroundStyle(.secondary)
+            Text("Your plan vs. doing nothing\(titleSuffix)").font(.headline)
+            Text(comparison.headline(units: units)).font(.callout).foregroundStyle(.secondary)
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
                 GridRow {
                     Text("")
                     Text("Your plan").font(.caption.bold()).gridColumnAlignment(.trailing)
                     Text("Doing nothing").font(.caption.bold()).gridColumnAlignment(.trailing)
                 }
-                metricRow("Lifetime tax", comparison.lifetimeTax)
-                metricRow("Ending traditional IRA", comparison.endingTraditional)
-                metricRow("Ending Roth IRA", comparison.endingRoth)
-                metricRow("Peak forced RMD", comparison.peakForcedRMD)
-                metricRow("What heirs keep", comparison.heirsKeep)
+                metricRow("Lifetime tax", comparison.lifetimeTax(units: units))
+                metricRow("Ending traditional IRA", comparison.terminal(comparison.endingTraditional, units: units))
+                metricRow("Ending Roth IRA", comparison.terminal(comparison.endingRoth, units: units))
+                metricRow(rmdLabel, comparison.peakForcedRMD)
+                metricRow("What heirs keep", comparison.terminal(comparison.heirsKeep, units: units))
             }
             .font(.callout)
         }
