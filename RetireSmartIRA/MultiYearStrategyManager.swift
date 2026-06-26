@@ -24,6 +24,10 @@ final class MultiYearStrategyManager: ObservableObject {
     @Published private(set) var firstOffPlanShown: Bool = false
     @Published private(set) var computeFailed: Bool = false
     @Published private(set) var baselineProjection: [YearRecommendation]?
+    @Published private(set) var heirFrontier: HeirFrontierResult?
+    @Published private(set) var isComputingFrontier: Bool = false
+    @Published var selectedHeirWeight: Double = 0   // 0 = owner-optimal (today's recommendation)
+    private var frontierWorkTask: Task<HeirFrontierResult, Never>?
 
     // MARK: - Internal state
 
@@ -73,6 +77,7 @@ final class MultiYearStrategyManager: ObservableObject {
         observationTask?.cancel()
         debounceTask?.cancel()
         engineWorkTask?.cancel()
+        frontierWorkTask?.cancel()
     }
 
     /// Wire upstream dependencies post-init. StateObject construction can't
@@ -207,6 +212,29 @@ final class MultiYearStrategyManager: ObservableObject {
 
     func markFirstOffPlanShown() {
         firstOffPlanShown = true
+    }
+
+    /// Compute the owner-vs-heirs trade-off frontier off the main actor and publish it.
+    func computeHeirFrontier() {
+        guard let dataManager, let scenarioStateManager else { return }
+        let assumptions = self.assumptions
+        let configProvider = self.configProvider
+        let inputs = MultiYearInputAdapter.build(
+            from: dataManager, scenarioState: scenarioStateManager,
+            assumptions: assumptions, excludeYear1Overrides: false)
+        isComputingFrontier = true
+        frontierWorkTask?.cancel()
+        let work = Task.detached(priority: .userInitiated) {
+            HeirFrontierCoordinator().computeFrontier(
+                inputs: inputs, assumptions: assumptions, configProvider: configProvider)
+        }
+        frontierWorkTask = work
+        Task { @MainActor [weak self] in
+            let result = await work.value
+            guard let self, !Task.isCancelled, !work.isCancelled else { return }
+            self.heirFrontier = result
+            self.isComputingFrontier = false
+        }
     }
 
     // MARK: - Internal compute
