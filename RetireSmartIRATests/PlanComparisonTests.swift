@@ -36,6 +36,8 @@ struct PlanComparisonTests {
         #expect(c.endingTraditional.doingNothing == 1_800_000)
         #expect(c.peakForcedRMD.plan == 20_000)
         #expect(c.peakForcedRMD.doingNothing == 90_000)
+        #expect(c.endingRoth.plan == 200_000)
+        #expect(c.endingRoth.doingNothing == 0)
 
         let planHeirTax = LegacyPlanningEngine.heirTaxOnInheritedTraditional(
             balance: 400_000, heirSalary: 75_000, heirFilingStatus: .single, drawdownYears: 10)

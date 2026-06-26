@@ -13,6 +13,7 @@ struct PlanComparison: Equatable, Sendable {
 
     let lifetimeTax: Pair        // lower is better
     let endingTraditional: Pair  // lower is better (defused RMD bomb)
+    let endingRoth: Pair         // higher is better (value shifted into tax-free Roth)
     let heirsKeep: Pair          // higher is better
     let peakForcedRMD: Pair      // lower is better
 
@@ -41,6 +42,7 @@ struct PlanComparison: Equatable, Sendable {
 
         self.lifetimeTax = Pair(plan: lifetimeTax(plan), doingNothing: lifetimeTax(doingNothing))
         self.endingTraditional = Pair(plan: endingTrad(plan), doingNothing: endingTrad(doingNothing))
+        self.endingRoth = Pair(plan: endingRoth(plan), doingNothing: endingRoth(doingNothing))
         self.heirsKeep = Pair(plan: heirsKeep(plan), doingNothing: heirsKeep(doingNothing))
         self.peakForcedRMD = Pair(plan: peakRMD(plan), doingNothing: peakRMD(doingNothing))
     }

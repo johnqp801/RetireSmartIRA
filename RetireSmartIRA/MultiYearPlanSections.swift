@@ -55,9 +55,10 @@ struct PlanComparisonView: View {
                     Text("Doing nothing").font(.caption.bold()).gridColumnAlignment(.trailing)
                 }
                 metricRow("Lifetime tax", comparison.lifetimeTax)
-                metricRow("Ending IRA balance", comparison.endingTraditional)
-                metricRow("What heirs keep", comparison.heirsKeep)
+                metricRow("Ending traditional IRA", comparison.endingTraditional)
+                metricRow("Ending Roth IRA", comparison.endingRoth)
                 metricRow("Peak forced RMD", comparison.peakForcedRMD)
+                metricRow("What heirs keep", comparison.heirsKeep)
             }
             .font(.callout)
         }
