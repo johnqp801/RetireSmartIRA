@@ -178,6 +178,11 @@ class DataManager {
         set { scenario.completedActionKeys = newValue }
     }
 
+    /// Per-scenario Multi-Year Plan assumptions (horizon, growth, CPI, balances, dismissed
+    /// insight banners, etc.). Persisted as one Codable blob via PersistenceManager. The
+    /// MultiYearStrategyManager seeds itself from this on attach and mirrors changes back.
+    var multiYearAssumptions = MultiYearAssumptions()
+
     // Growth Rates (forwarding to GrowthRatesManager)
     var primaryGrowthRate: Double {
         get { growthRates.primaryGrowthRate }
