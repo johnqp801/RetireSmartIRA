@@ -22,15 +22,19 @@ struct HeirFrontierCoordinator {
 
         // Present-value discount factor for the display toggle (display-only; the optimizer
         // is unaffected). Balances are projected in NOMINAL dollars, so deflate by CPI to today's
-        // dollars and then discount at the real rate — the combined (Fisher) factor (1+cpi)(1+r).
-        let yearsToTerminal = Double(assumptions.horizonEndAge - inputs.primaryCurrentAge)
-        let pvFactor = pow((1.0 + assumptions.cpiRate) * (1.0 + assumptions.pvRealDiscountRate),
-                           -max(0, yearsToTerminal))
+        // dollars and then discount at the real rate: the combined (Fisher) factor (1+cpi)(1+r).
+        let combinedRate = (1.0 + assumptions.cpiRate) * (1.0 + assumptions.pvRealDiscountRate)
 
         let points: [FrontierPoint] = Self.presetWeights.map { w in
             let result = OptimizationEngine().optimize(
                 inputs: inputs, assumptions: assumptions,
                 configProvider: configProvider, heirWeight: w)
+
+            // Derive the terminal year from the path itself (lastYear - baseYear), so this factor
+            // matches PlanComparison.terminalPVFactor exactly and the two on-screen "heirs keep"
+            // figures never disagree (even for couples whose spouse horizon extends the path).
+            let yearsToTerminal = max(0, (result.recommendedPath.last?.year ?? inputs.baseYear) - inputs.baseYear)
+            let pvFactor = pow(combinedRate, -Double(yearsToTerminal))
 
             let inHorizonTax = result.recommendedPath.reduce(0.0) { $0 + $1.taxBreakdown.total }
 

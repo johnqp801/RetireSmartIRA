@@ -17,6 +17,10 @@ struct PlanComparison: Equatable, Sendable {
     let lifetimeTax: Pair        // lower is better (nominal sum)
     let endingTraditional: Pair  // lower is better (defused RMD bomb)
     let endingRoth: Pair         // higher is better (value shifted into tax-free Roth)
+    /// After-tax inheritance = ending Roth + (ending traditional - heir income tax).
+    /// LIMITATION: excludes the taxable brokerage account, which also passes to heirs and
+    /// receives a stepped-up cost basis (near tax-free to them). So a large taxable balance is
+    /// UNDER-credited here. Mirrors HeirFrontierCoordinator's "heirs keep" for consistency.
     let heirsKeep: Pair          // higher is better
     let peakForcedRMD: Pair      // lower is better; ALWAYS nominal (a stress figure, not wealth)
 
@@ -89,6 +93,7 @@ struct PlanComparison: Equatable, Sendable {
         guard savings > 1_000 else {
             return "This plan comes out about even with doing nothing here."
         }
-        return "This plan saves \(PlanSummary.shortDollars(savings)) in lifetime tax and holds your largest forced RMD to \(PlanSummary.shortDollars(peakForcedRMD.plan))."
+        let rmd = PlanSummary.shortDollars(peakForcedRMD.plan) + (units == .presentValue ? " (nominal)" : "")
+        return "This plan saves \(PlanSummary.shortDollars(savings)) in lifetime tax and holds your largest forced RMD to \(rmd)."
     }
 }
