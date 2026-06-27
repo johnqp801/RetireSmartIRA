@@ -220,18 +220,34 @@ struct OptimizationEngine {
         path.reduce(0.0) { $0 + EngineMath.presentValue($1.taxBreakdown.total, yearsFromBase: $1.year - baseYear, realDiscountRate: rate) }
     }
 
+    /// Single source of truth for the full PV objective: discounted in-horizon tax PLUS the
+    /// terminal tax discounted by the FULL horizon length (`horizonYears == endYear - baseYear + 1`;
+    /// the terminal balance is liquidated at the end of the last horizon year). Every site that
+    /// ranks a path — the candidate sweep, the constraint-acceptance baseline/current comparison,
+    /// the final Result, and `computeObjectiveCost` — MUST go through this so the optimizer's
+    /// ranking and the wrappers (SSClaimNudge) never diverge on the terminal discount period.
+    static func objectiveCost(path: [YearRecommendation], baseYear: Int, horizonYears: Int,
+                              rate: Double, terminalTax: Double) -> Double {
+        discountedInHorizon(path, baseYear: baseYear, rate: rate)
+            + EngineMath.presentValue(terminalTax, yearsFromBase: horizonYears, realDiscountRate: rate)
+    }
+
     static func computeObjectiveCost(
         path: [YearRecommendation],
         terminalLiquidationTaxRate: Double,
         baseYear: Int,
         pvRealDiscountRate: Double
     ) -> Double {
-        let inHorizon = discountedInHorizon(path, baseYear: baseYear, rate: pvRealDiscountRate)
-        guard let last = path.last else { return inHorizon }
+        guard let last = path.last else {
+            return discountedInHorizon(path, baseYear: baseYear, rate: pvRealDiscountRate)
+        }
         let trad = last.endOfYearBalances.primaryTraditional
                  + last.endOfYearBalances.spouseTraditional
-        let yearsToTerminal = max(0, last.year - baseYear)
-        return inHorizon + EngineMath.presentValue(trad * terminalLiquidationTaxRate, yearsFromBase: yearsToTerminal, realDiscountRate: pvRealDiscountRate)
+        // Match optimize()'s horizonYears (endYear - baseYear + 1) exactly, so this helper and the
+        // optimizer's totalObjectiveCost discount the terminal tax over the same number of years.
+        let horizonYears = max(0, last.year - baseYear + 1)
+        return objectiveCost(path: path, baseYear: baseYear, horizonYears: horizonYears,
+                             rate: pvRealDiscountRate, terminalTax: trad * terminalLiquidationTaxRate)
     }
 
     // MARK: - Heir-weighted objective (owner-vs-heirs trade-off)
@@ -427,12 +443,11 @@ struct OptimizationEngine {
                         inputs: inputs, assumptions: assumptions, actionsPerYear: trialActions
                     )
                     let r = assumptions.pvRealDiscountRate
-                    let objective = Self.discountedInHorizon(path, baseYear: baseYear, rate: r)
-                                  + EngineMath.presentValue(
-                                        blendedTerminalTax(path, inputs: inputs,
-                                                           selfRate: assumptions.terminalLiquidationTaxRate,
-                                                           heirWeight: heirWeight),
-                                        yearsFromBase: horizonYears, realDiscountRate: r)
+                    let objective = Self.objectiveCost(
+                        path: path, baseYear: baseYear, horizonYears: horizonYears, rate: r,
+                        terminalTax: blendedTerminalTax(path, inputs: inputs,
+                                                        selfRate: assumptions.terminalLiquidationTaxRate,
+                                                        heirWeight: heirWeight))
 
                     if objective < bestObjective {
                         bestObjective = objective
@@ -492,10 +507,12 @@ struct OptimizationEngine {
             inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions
         )
         let rRate = assumptions.pvRealDiscountRate
-        let baselineLifetimeTax = Self.discountedInHorizon(baselinePath, baseYear: baseYear, rate: rRate)
-            + EngineMath.presentValue(blendedTerminalTax(baselinePath, inputs: inputs, selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight), yearsFromBase: horizonYears, realDiscountRate: rRate)
-        let currentLifetimeTax = Self.discountedInHorizon(finalPath, baseYear: baseYear, rate: rRate)
-            + EngineMath.presentValue(blendedTerminalTax(finalPath, inputs: inputs, selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight), yearsFromBase: horizonYears, realDiscountRate: rRate)
+        let baselineLifetimeTax = Self.objectiveCost(
+            path: baselinePath, baseYear: baseYear, horizonYears: horizonYears, rate: rRate,
+            terminalTax: blendedTerminalTax(baselinePath, inputs: inputs, selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
+        let currentLifetimeTax = Self.objectiveCost(
+            path: finalPath, baseYear: baseYear, horizonYears: horizonYears, rate: rRate,
+            terminalTax: blendedTerminalTax(finalPath, inputs: inputs, selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
         let lifetimeSavings = baselineLifetimeTax - currentLifetimeTax
 
         var acceptedHits: [ConstraintHit] = []
@@ -516,12 +533,12 @@ struct OptimizationEngine {
         return Result(
             recommendedPath: finalPath,
             tradeOffsAccepted: acceptedHits,
-            totalObjectiveCost: Self.discountedInHorizon(finalPath, baseYear: baseYear, rate: assumptions.pvRealDiscountRate)
-                + EngineMath.presentValue(
-                    blendedTerminalTax(finalPath, inputs: inputs,
-                                       selfRate: assumptions.terminalLiquidationTaxRate,
-                                       heirWeight: heirWeight),
-                    yearsFromBase: horizonYears, realDiscountRate: assumptions.pvRealDiscountRate)
+            totalObjectiveCost: Self.objectiveCost(
+                path: finalPath, baseYear: baseYear, horizonYears: horizonYears,
+                rate: assumptions.pvRealDiscountRate,
+                terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
+                                                selfRate: assumptions.terminalLiquidationTaxRate,
+                                                heirWeight: heirWeight))
         )
     }
 }

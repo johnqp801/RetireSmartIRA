@@ -31,4 +31,26 @@ struct ObjectivePVTests {
         let r3 = OptimizationEngine().optimize(inputs: inputs(), assumptions: assumptions(pv: 0.05), configProvider: provider)
         #expect(totalConverted(r3) <= totalConverted(r0) + 1.0)
     }
+
+    // Review finding #2: computeObjectiveCost (used by SSClaimNudge) must discount the terminal tax
+    // over the SAME horizon as the optimizer's totalObjectiveCost: yearsFromBase == last.year - baseYear + 1.
+    @Test("computeObjectiveCost discounts terminal tax over the full horizon (last.year - baseYear + 1)")
+    func computeObjectiveCostTerminalDiscount() {
+        func yr(_ year: Int, tax: Double, trad: Double) -> YearRecommendation {
+            YearRecommendation(year: year, agi: 0, acaMagi: nil, irmaaMagi: nil, taxableIncome: 0,
+                taxBreakdown: TaxBreakdown(federal: tax, state: 0, irmaa: 0, acaPremiumImpact: 0),
+                endOfYearBalances: AccountSnapshot(traditional: trad, roth: 0, taxable: 0, hsa: 0),
+                actions: [])
+        }
+        let path = [yr(2026, tax: 10_000, trad: 0), yr(2027, tax: 10_000, trad: 1_000_000)]
+        let rate = 0.03, rateLiq = 0.22, baseYear = 2026
+        let got = OptimizationEngine.computeObjectiveCost(
+            path: path, terminalLiquidationTaxRate: rateLiq, baseYear: baseYear, pvRealDiscountRate: rate)
+        let inHorizon = OptimizationEngine.discountedInHorizon(path, baseYear: baseYear, rate: rate)
+        // terminal discounted over 2 years (2027 - 2026 + 1), NOT 1 (the old off-by-one)
+        let correct = inHorizon + EngineMath.presentValue(1_000_000 * rateLiq, yearsFromBase: 2, realDiscountRate: rate)
+        let offByOne = inHorizon + EngineMath.presentValue(1_000_000 * rateLiq, yearsFromBase: 1, realDiscountRate: rate)
+        #expect(abs(got - correct) < 0.01)
+        #expect(abs(got - offByOne) > 1.0)
+    }
 }
