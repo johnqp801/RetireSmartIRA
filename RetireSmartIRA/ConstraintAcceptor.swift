@@ -167,21 +167,33 @@ struct ConstraintAcceptor {
             ? brackets.federalSingle
             : brackets.federalMarried
 
-        // Find threshold where rate first becomes 22% and 24%.
+        // Locate the 22% and 24% brackets. NOTE (v2.0 simplification): this still identifies them
+        // by exact rate, so under a future bracket structure (e.g. TCJA reversion to 25%/28%) the
+        // lookup returns nil and bracket-overrun detection no-ops. Generalizing the 12/22/24 model
+        // is deferred to v2.1; what we DO fix here is deriving the marginal-rate penalty from the
+        // config rates instead of hardcoded literals.
         guard
-            let threshold22 = ordinaryBrackets.first(where: { $0.rate == 0.22 })?.threshold,
-            let threshold24 = ordinaryBrackets.first(where: { $0.rate == 0.24 })?.threshold
+            let bracket22 = ordinaryBrackets.first(where: { $0.rate == 0.22 }),
+            let bracket24 = ordinaryBrackets.first(where: { $0.rate == 0.24 })
         else {
             return nil
         }
+        let threshold22 = bracket22.threshold
+        let threshold24 = bracket24.threshold
+        // Marginal-rate jumps, derived from the live config (not literal 0.10 / 0.02).
+        // The "native" bracket is the one immediately below the 22% threshold (the 12% bracket
+        // under the current structure); the cost model assumes the user is natively there.
+        let nativeRate = ordinaryBrackets.last(where: { $0.threshold < threshold22 })?.rate ?? 0.12
+        let jump12to22 = bracket22.rate - nativeRate   // 0.22 - 0.12 = 0.10 today
+        let jump22to24 = bracket24.rate - bracket22.rate // 0.24 - 0.22 = 0.02 today
 
         let income = year.taxableIncome
 
         // Multi-bracket jump: income crossed both 22% AND 24% thresholds.
         // Sum the penalties for both crossings.
         if income > threshold24 {
-            let twentyTwoPortion = (threshold24 - threshold22) * 0.10  // 22% - 12% = 10pp
-            let twentyFourPortion = (income - threshold24) * 0.02      // 24% - 22% = 2pp
+            let twentyTwoPortion = (threshold24 - threshold22) * jump12to22
+            let twentyFourPortion = (income - threshold24) * jump22to24
             let cost = twentyTwoPortion + twentyFourPortion
             return ConstraintHit(
                 year: year.year,
@@ -194,7 +206,7 @@ struct ConstraintAcceptor {
         // Single-boundary 12→22: income crossed above 22% bracket start but didn't reach 24%
         if income > threshold22 {
             let overrun = income - threshold22
-            let cost = overrun * 0.10   // 22% - 12% = 10pp marginal jump
+            let cost = overrun * jump12to22
             return ConstraintHit(
                 year: year.year,
                 type: .bracketOverrun(fromBracket: 12, toBracket: 22),
