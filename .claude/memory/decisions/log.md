@@ -740,3 +740,24 @@ When implementation kicks off, generate `docs/superpowers/plans/2026-05-XX-sep-i
 **Future work (ordered):**
 - (a) Add a HARD optimizer rule: never intentionally land MAGI within ~$5k below an IRMAA cliff (the cliffBuffer dead zone) unless the user explicitly disables the buffer. Today buffer respect is "soft" (relies on cliff candidates usually winning); the CPI experiment proved it can be violated.
 - (b) ONLY AFTER (a) ships, make the optimizer objective CPI-consistent (use `realPresentValue` in `discountedInHorizon` / `computeObjectiveCost` / inner objective / rationale / Result, threading `cpiRate`; update SSClaimNudge call sites). Re-baseline goldens then.
+
+---
+
+## 2026-06-26 — External CPA-style tax review (ChatGPT + Gemini + Perplexity), reconciled against source
+
+Three independent AI "CPA" reviews of the V2.0 tax constants/logic, reconciled per the CLAUDE.md rule (cite source before agreeing/rejecting) and web-verified against primary/CMS/IRS sources.
+
+**Net result: exactly ONE real engine error across all three reviews.**
+- **FIXED:** IRMAA Part D Tier 4 surcharge 83.50 → 83.30 (`tax-2026.json` + `TaxYearConfig.hardcoded2026` + test re-baseline). Confirmed via CMS 2026 Part D schedule. Commit on `2.0/heir-objective`.
+
+**Flagged but verified CORRECT (no change):**
+- IRMAA Part D Tier 3 = $60.40 (Perplexity's $57.00 was wrong).
+- QCD 2026 = $111,000 (Perplexity's $108,000 was wrong; IRS Notice 2025-67 confirms $111k; also UNUSED by the multi-year optimizer — no `.qcd` lever).
+- IRMAA Part B field stores TOTAL premium; engine computes surcharge = partB - $202.90 (`TaxCalculationEngine.calculateIRMAA`). Not a double-count.
+- OBBBA senior bonus is below-the-line (folded into stdDed; MAGI uses federalAGI, not taxableIncome) — does NOT reduce IRMAA/ACA/NIIT/SS MAGI. Correct.
+- ACA MAGI == IRMAA MAGI (identical addback); SS provisional income uses 0.5×gross SS (no double-count).
+- RMD born-1959 → 73 (correct per IRS proposed regs); IRMAA tier matching `>= threshold` with "+1" values is correct for tiers 1-4 (off by $1 only at the exact tier-5 entry — negligible).
+
+**Doc-only / negligible (not actioned):** RMD pre-1949 returns Int 70 not 70½ and doesn't split July 1 1949 — zero projection impact (that cohort is age 76+ in 2026, already taking RMDs). Optional born-1959 "proposed regs" user-facing disclosure.
+
+**Real limitation logged (see [[multi-year-muni-magi-gap]] memory):** the multi-year engine models tax-exempt (muni) interest as 0 in ALL MAGI-sensitive calcs (IRMAA, ACA, SS provisional). Consistent, not an ACA-specific bug, but UNDERSTATES IRMAA/ACA MAGI and SS taxation for users with muni interest. v2.x enhancement.
