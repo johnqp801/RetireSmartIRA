@@ -40,6 +40,15 @@ struct MultiYearPlanView: View {
                     }
                 }
 
+                if let result = manager.currentResult {
+                    SurvivorStressBanner(widowDelta: result.widowStressDelta,
+                                         dismissed: dismissBinding("survivor"))
+                    SSClaimNudgeBanner(nudge: result.ssClaimNudge,
+                                       dismissed: dismissBinding("ssNudge"))
+                }
+                ConversionWindowBanner(yearsBeforeFirstRMD: manager.yearsBeforeFirstRMD,
+                                       dismissed: dismissBinding("conversionWindow"))
+
                 AssumptionsStripView(
                     taxableBalance: Binding(get: { manager.assumptions.currentTaxableBalance },
                                             set: { manager.assumptions.currentTaxableBalance = $0 }),
@@ -78,6 +87,7 @@ struct MultiYearPlanView: View {
                     } else if manager.isComputingFrontier {
                         ProgressView("Computing heir trade-off…")
                     }
+                    AssumptionsLimitationsView()
                 }
             }
             .padding()
@@ -93,5 +103,14 @@ struct MultiYearPlanView: View {
     private func recomputeAll() {
         manager.recompute(reason: .assumptionsChanged)
         manager.computeHeirFrontier()
+    }
+
+    /// One-way dismissal binding backed by the manager's persisted dismissed-insight keys.
+    /// Setting it true records the dismissal; banners do not un-dismiss themselves.
+    private func dismissBinding(_ key: String) -> Binding<Bool> {
+        Binding(
+            get: { manager.assumptions.dismissedInsightKeys.contains(key) },
+            set: { newValue in if newValue { manager.dismissInsight(key) } }
+        )
     }
 }
