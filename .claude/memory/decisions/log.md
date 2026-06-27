@@ -723,3 +723,20 @@ When implementation kicks off, generate `docs/superpowers/plans/2026-05-XX-sep-i
 **Status:** Logged for 1.8.2 implementation. Do NOT implement during this session (1.8.2 work hasn't started; user is on 48h pause; needs spec finalization first). Resume when full 1.8.2 planning session happens.
 
 **Suggested sequence:** add SEP IRA to the existing 1.8.2 spec at `docs/superpowers/specs/2026-05-12-1.8.2-incremental-design.md` as item H6 or a new SEP-series, before kicking off implementation.
+
+---
+
+## 2026-06-26 — PV display made CPI-consistent; optimizer-objective CPI deferred behind IRMAA-cliff hardening
+
+**Context:** The "Present value" toggle on the Multi-Year Plan tab discounted NOMINAL projected dollars (8% nominal growth, 2.5% CPI) at a 3% REAL rate — a units mismatch that under-discounted and made PV figures rosier than correct.
+
+**Decisions:**
+1. **DONE — display PV fixed.** Added `EngineMath.realPresentValue(_:yearsFromBase:cpiRate:realDiscountRate:)` = deflate by CPI to today's dollars, then discount at 3% real (combined Fisher factor `(1+cpi)(1+r)`). Wired into PlanComparison, PlanSummary, and HeirFrontierCoordinator's display factor. Optimizer untouched.
+2. **DONE — toggle relabeled.** "Today's $" → "Future $" (it shows nominal future dollars); "Present value" now is the true today's-dollars view.
+3. **REVERTED — optimizer-objective CPI discounting.** Making the optimizer objective CPI-consistent (~5.6% effective) was implemented then reverted: it destabilized the optimizer and broke the IRMAA safety-buffer guarantee — in the reference scenario it parked MAGI in the (cliff−$5k, cliff) dead zone in 4 years, most dangerously 2031 at $273,789, just $212 below the $274,001 cliff. Also drifted the Kitces widow reference scenario from >$40k to $38.2k.
+
+**Rationale:** The objective's discount rate is an internal ranking tuning parameter, not user-visible. The current 3%-real-on-nominal is conservative and keeps IRMAA buffers intact; "consistency" gained nothing user-facing while breaking a real quality guarantee.
+
+**Future work (ordered):**
+- (a) Add a HARD optimizer rule: never intentionally land MAGI within ~$5k below an IRMAA cliff (the cliffBuffer dead zone) unless the user explicitly disables the buffer. Today buffer respect is "soft" (relies on cliff candidates usually winning); the CPI experiment proved it can be violated.
+- (b) ONLY AFTER (a) ships, make the optimizer objective CPI-consistent (use `realPresentValue` in `discountedInHorizon` / `computeObjectiveCost` / inner objective / rationale / Result, threading `cpiRate`; update SSClaimNudge call sites). Re-baseline goldens then.
