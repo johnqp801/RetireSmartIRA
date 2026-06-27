@@ -42,6 +42,7 @@ struct HeirFrontierCoordinator {
                 $0.endOfYearBalances.primaryTraditional + $0.endOfYearBalances.spouseTraditional
             } ?? 0
             let terminalRoth = result.recommendedPath.last?.endOfYearBalances.roth ?? 0
+            let terminalTaxable = result.recommendedPath.last?.endOfYearBalances.taxable ?? 0
 
             let heirTax = LegacyPlanningEngine.heirTaxOnInheritedTraditional(
                 balance: terminalTrad,
@@ -49,8 +50,10 @@ struct HeirFrontierCoordinator {
                 heirFilingStatus: inputs.heirFilingStatus,
                 drawdownYears: inputs.heirDrawdownYears)
 
-            // Heirs keep: tax-free Roth + after-(heir-)tax traditional.
-            let heirKeeps = terminalRoth + (terminalTrad - heirTax)
+            // Heirs keep: tax-free Roth + after-(heir-)tax traditional + taxable at stepped-up basis.
+            let heirKeeps = HeirValue.afterTaxToHeirs(
+                roth: terminalRoth, traditional: terminalTrad,
+                taxable: terminalTaxable, heirTaxOnTraditional: heirTax)
 
             return FrontierPoint(
                 weight: w,

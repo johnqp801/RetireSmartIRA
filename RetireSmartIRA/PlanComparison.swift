@@ -17,10 +17,9 @@ struct PlanComparison: Equatable, Sendable {
     let lifetimeTax: Pair        // lower is better (nominal sum)
     let endingTraditional: Pair  // lower is better (defused RMD bomb)
     let endingRoth: Pair         // higher is better (value shifted into tax-free Roth)
-    /// After-tax inheritance = ending Roth + (ending traditional - heir income tax).
-    /// LIMITATION: excludes the taxable brokerage account, which also passes to heirs and
-    /// receives a stepped-up cost basis (near tax-free to them). So a large taxable balance is
-    /// UNDER-credited here. Mirrors HeirFrontierCoordinator's "heirs keep" for consistency.
+    /// After-tax inheritance = ending Roth + (ending traditional - heir income tax) + ending taxable.
+    /// The taxable account receives a stepped-up cost basis at death, so it passes to heirs near
+    /// tax-free; it is credited in full here (see HeirValue / V2Disclosures for the simplification).
     let heirsKeep: Pair          // higher is better
     let peakForcedRMD: Pair      // lower is better; ALWAYS nominal (a stress figure, not wealth)
 
@@ -47,12 +46,15 @@ struct PlanComparison: Equatable, Sendable {
             return last.endOfYearBalances.primaryTraditional + last.endOfYearBalances.spouseTraditional
         }
         func endingRoth(_ p: [YearRecommendation]) -> Double { p.last?.endOfYearBalances.roth ?? 0 }
+        func endingTaxable(_ p: [YearRecommendation]) -> Double { p.last?.endOfYearBalances.taxable ?? 0 }
         func heirsKeep(_ p: [YearRecommendation]) -> Double {
             let trad = endingTrad(p)
             let heirTax = LegacyPlanningEngine.heirTaxOnInheritedTraditional(
                 balance: trad, heirSalary: heirSalary,
                 heirFilingStatus: heirFilingStatus, drawdownYears: heirDrawdownYears)
-            return endingRoth(p) + (trad - heirTax)
+            return HeirValue.afterTaxToHeirs(
+                roth: endingRoth(p), traditional: trad,
+                taxable: endingTaxable(p), heirTaxOnTraditional: heirTax)
         }
         func peakRMD(_ p: [YearRecommendation]) -> Double { p.map(\.rmd).max() ?? 0 }
 
