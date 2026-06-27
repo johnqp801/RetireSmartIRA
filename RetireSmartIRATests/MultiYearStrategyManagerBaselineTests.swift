@@ -201,6 +201,49 @@ final class MultiYearStrategyManagerBaselineTests: XCTestCase {
                      "yearsBeforeFirstRMD must return nil when user is past RMD age (74)")
     }
 
+    // MARK: - buildEmptyActionsMap alignment (review finding #1)
+
+    private func inputs(primaryAge: Int, spouseAge: Int?, baseYear: Int) -> MultiYearStaticInputs {
+        MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 1_000_000, roth: 0, taxable: 0, hsa: 0),
+            baseYear: baseYear, primaryCurrentAge: primaryAge, spouseCurrentAge: spouseAge,
+            filingStatus: spouseAge == nil ? .single : .marriedFilingJointly, state: "CA",
+            primarySSClaimAge: 70, spouseSSClaimAge: spouseAge == nil ? nil : 67,
+            primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: spouseAge == nil ? nil : 0,
+            primaryBirthYear: baseYear - primaryAge,
+            spouseBirthYear: spouseAge.map { baseYear - $0 },
+            primaryWageIncome: 0, spouseWageIncome: 0, primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: spouseAge == nil ? 1 : 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: spouseAge == nil ? nil : 65,
+            baselineAnnualExpenses: 0, heirSalary: 75_000, heirFilingStatus: .single, heirDrawdownYears: 10)
+    }
+
+    /// The no-conversion baseline map must span to the LATER spouse's endpoint, not just the
+    /// primary's — otherwise the "doing nothing" comparison is truncated for age-gap couples.
+    func testEmptyActionsMap_ExtendsToYoungerSpouseHorizon() {
+        var a = MultiYearAssumptions.default
+        a.horizonEndAge = 95
+        // primary 71 → ends 2050; spouse 60 → ends 2061 (later). Map must reach 2061.
+        let map = MultiYearStrategyManager.buildEmptyActionsMap(
+            for: inputs(primaryAge: 71, spouseAge: 60, baseYear: 2026), assumptions: a)
+        XCTAssertEqual(map.keys.min(), 2026)
+        XCTAssertEqual(map.keys.max(), 2061,
+                       "map must extend to the younger spouse's endpoint (2026 + 95 - 60), not the primary's 2050")
+        XCTAssertEqual(map.count, 36)
+    }
+
+    /// The map must key off inputs.baseYear (user-set planning year), not the calendar year.
+    func testEmptyActionsMap_UsesInputsBaseYearNotCalendar() {
+        var a = MultiYearAssumptions.default
+        a.horizonEndAge = 95
+        let futureBase = Calendar.current.component(.year, from: Date()) + 4
+        let map = MultiYearStrategyManager.buildEmptyActionsMap(
+            for: inputs(primaryAge: 71, spouseAge: nil, baseYear: futureBase), assumptions: a)
+        XCTAssertEqual(map.keys.min(), futureBase,
+                       "map must start at inputs.baseYear (\(futureBase)), not Calendar.current year")
+        XCTAssertEqual(map.keys.max(), futureBase + 24)  // 95 - 71
+    }
+
     // MARK: - Helpers
 
     private func waitForComputation(manager: MultiYearStrategyManager, timeout: TimeInterval) async throws {

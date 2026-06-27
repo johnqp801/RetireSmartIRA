@@ -318,17 +318,23 @@ final class MultiYearStrategyManager: ObservableObject {
 
     /// Builds a map of `year: []` for every projected year in the inputs.
     /// Required because `ProjectionEngine.project()` iterates `actionsPerYear.keys` —
-    /// an empty dict returns no projection. The horizon length is derived from
-    /// `assumptions.horizonEndAge - inputs.primaryCurrentAge + 1`, mirroring
-    /// OptimizationEngine's convention.
-    private static func buildEmptyActionsMap(
+    /// an empty dict returns no projection. MUST mirror OptimizationEngine.optimize()'s
+    /// horizon derivation EXACTLY, or the no-conversion baseline path won't align with the
+    /// recommended path (wrong "doing nothing" comparison + IRMAA attribution): base year is
+    /// `inputs.baseYear` (not the calendar year — the user may set a future planning year), and
+    /// the horizon runs to the LATER of the two spouses' endpoints (a younger spouse extends it).
+    static func buildEmptyActionsMap(   // internal for testing the baseline-alignment invariant
         for inputs: MultiYearStaticInputs,
         assumptions: MultiYearAssumptions
     ) -> [Int: [LeverAction]] {
-        let horizonYears = max(0, assumptions.horizonEndAge - inputs.primaryCurrentAge + 1)
-        guard horizonYears > 0 else { return [:] }
-        let baseYear = Calendar.current.component(.year, from: Date())
-        let endYear = baseYear + horizonYears
-        return Dictionary(uniqueKeysWithValues: (baseYear..<endYear).map { ($0, []) })
+        let baseYear = inputs.baseYear
+        let primaryEndYear = baseYear + (assumptions.horizonEndAge - inputs.primaryCurrentAge)
+        let spouseEndYear: Int = {
+            guard let spouseAge = inputs.spouseCurrentAge else { return primaryEndYear }
+            return baseYear + (assumptions.horizonEndAge(for: .spouse) - spouseAge)
+        }()
+        let endYear = max(primaryEndYear, spouseEndYear)
+        guard endYear >= baseYear else { return [:] }
+        return Dictionary(uniqueKeysWithValues: (baseYear...endYear).map { ($0, []) })
     }
 }
