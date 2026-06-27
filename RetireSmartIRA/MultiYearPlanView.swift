@@ -105,7 +105,8 @@ struct MultiYearPlanView: View {
         manager.computeHeirFrontier()
     }
 
-    /// One-way dismissal binding backed by the manager's persisted dismissed-insight keys.
+    /// One-way dismissal binding backed by the manager's session-scoped dismissed-insight keys
+    /// (held for the lifetime of the StateObject; not yet persisted across app launches).
     /// Setting it true records the dismissal; banners do not un-dismiss themselves.
     private func dismissBinding(_ key: String) -> Binding<Bool> {
         Binding(
