@@ -239,7 +239,7 @@ struct TaxYearConfig: Codable {
             IRMAATierEntry(tier: 1, singleThreshold: 109001, mfjThreshold: 218001, partBMonthly: 284.10, partDMonthly: 14.50),
             IRMAATierEntry(tier: 2, singleThreshold: 137001, mfjThreshold: 274001, partBMonthly: 405.80, partDMonthly: 37.50),
             IRMAATierEntry(tier: 3, singleThreshold: 171001, mfjThreshold: 342001, partBMonthly: 527.50, partDMonthly: 60.40),
-            IRMAATierEntry(tier: 4, singleThreshold: 205001, mfjThreshold: 410001, partBMonthly: 649.20, partDMonthly: 83.50),
+            IRMAATierEntry(tier: 4, singleThreshold: 205001, mfjThreshold: 410001, partBMonthly: 649.20, partDMonthly: 83.30),
             IRMAATierEntry(tier: 5, singleThreshold: 500001, mfjThreshold: 750001, partBMonthly: 689.90, partDMonthly: 91.00)
         ],
         niitRate: 0.038, niitThresholdSingle: 200000, niitThresholdMFJ: 250000,
