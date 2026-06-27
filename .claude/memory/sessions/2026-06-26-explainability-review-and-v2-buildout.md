@@ -39,3 +39,27 @@ The Multi-Year Plan tab is currently a deliberate **thin-first MVP**. The user w
 - Work is on `2.0/heir-objective` (PR #8), all pushed, suite green.
 - The app builds/launches via `xcodebuild ... -derivedDataPath <scratch>` then `open` (the user's default Debug build kept going stale; use an explicit derivedDataPath to guarantee a fresh binary).
 - The real test profile lives in the `com.john.RetireSmartIRA.demo` UserDefaults suite (DEBUG): $5.6M traditional (3.2M+2.4M), MFJ, both age 71, CA, 8% growth, $46,927 muni.
+
+---
+
+## V2.0 UI BUILDOUT — START HERE (next-session handoff)
+
+You don't need to invent the vision; mine the existing material first, then brainstorm/scope before building.
+
+**Read first (where the material lives):**
+1. **Thin-first tab design + the backlog:** `docs/superpowers/specs/2026-06-25-multi-year-plan-tab-mvp-design.md`. Its **§9 "Out of scope (later increments)" IS the buildout backlog** (editability, charts, sensitivity bands, advanced sheet).
+2. **Full Plan-B UI vision + PARTIAL IMPLEMENTATION lives on branch `origin/2.0/plan-b-ui`** (also `archive/v2.0-planning`) — NOT on `2.0/heir-objective`. Spec `docs/superpowers/specs/2026-05-04-2.0-plan-b-multi-year-ui-design.md` + plan `...plans/2026-05-04-2.0-plan-b-multi-year-ui.md` + impl commits (e.g. "Phase 1C1 off-grid pin amount"). MINE it for full-UI component/layout ideas. **CAVEAT — its central premise is VOID:** it wanted to *replace* Scenarios + Tax Summary with 1.8→2.0 migration + locked-pane UX. The 2026-06-18 product principle killed that. Salvage the components, drop the replacement/migration framing.
+3. **Binding product constraint:** additive tabs ONLY, never replace Scenarios/Tax Summary. Source: `sessions/2026-06-18-v1.9-drawdown-design-and-2.0-audit.md`.
+4. **Design conventions (use so new UI is consistent):** `docs/superpowers/plans/2026-04-25-color-system.md` (color system) + `docs/superpowers/plans/2026-04-30-metriccard-sweep.md` (MetricCard component). The 1.9 Drawdown tab (`RMDCalculatorView`) is the best in-app example of a finished chart+overlay+toggle tab to match.
+5. **Launch context:** `roadmap/current.md` (1.9.0 is live; launch = App Store submission, both iOS + macOS). iOS release workflow + versioning rules in CLAUDE.md.
+
+**Current built state:** Multi-Year Plan = ContentView **tag 10** (additive, beside Scenarios/Tax Summary). Views: `MultiYearPlanView`, `MultiYearPlanSections` (`PlanSummaryView`/`PlanComparisonView`/`LadderListView`/`AssumptionsStripView`), `HeirFrontierView`/`ViewModel`. Manager: `MultiYearStrategyManager` (@MainActor ObservableObject), runs engine off-main, publishes `currentResult`/`baselineProjection`/`heirFrontier`.
+
+**Backlog = candidate "full V2.0" set:**
+- Editable Year-1 levers wired to the engine + **full observation tracking** (today only `yourRothConversion` triggers recompute — review finding #6; the rest is part of this work).
+- Charts: ladder/balances over time, the heir-frontier curve, sensitivity bands.
+- Advanced / assumptions sheet (growth, CPI, pvRealDiscountRate, terminalLiquidationTaxRate, per-spouse horizon).
+- CPA-briefing PDF export (heir tasks 9-11).
+- Richer comparison/insights; the "before-and-after representative-household projection" John offered Laura Saunders is a concrete real-world demand on exactly this surface.
+
+**Recommended first move:** `git show origin/2.0/plan-b-ui:docs/...` to pull the old design+plan, then BRAINSTORM the full-V2.0 scope against the additive-only principle — decide the launch bar (which increments ship in v2.0 vs defer to 2.1) before writing UI.
