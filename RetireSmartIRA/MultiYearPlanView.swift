@@ -31,7 +31,7 @@ struct MultiYearPlanView: View {
                     Spacer()
                     if !activePath.isEmpty {
                         Picker("Units", selection: $units) {
-                            Text("Today's $").tag(DisplayUnits.todaysDollars)
+                            Text("Future $").tag(DisplayUnits.todaysDollars)
                             Text("Present value").tag(DisplayUnits.presentValue)
                         }
                         .pickerStyle(.segmented)
