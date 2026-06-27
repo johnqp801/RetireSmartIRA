@@ -761,3 +761,28 @@ Three independent AI "CPA" reviews of the V2.0 tax constants/logic, reconciled p
 **Doc-only / negligible (not actioned):** RMD pre-1949 returns Int 70 not 70½ and doesn't split July 1 1949 — zero projection impact (that cohort is age 76+ in 2026, already taking RMDs). Optional born-1959 "proposed regs" user-facing disclosure.
 
 **Real limitation logged (see [[multi-year-muni-magi-gap]] memory):** the multi-year engine models tax-exempt (muni) interest as 0 in ALL MAGI-sensitive calcs (IRMAA, ACA, SS provisional). Consistent, not an ACA-specific bug, but UNDERSTATES IRMAA/ACA MAGI and SS taxation for users with muni interest. v2.x enhancement.
+
+---
+
+## 2026-06-27 — V2.0 UI launch scope locked (focused Roth/tax-optimizer release, NOT a full planner)
+
+After a scope reconciliation against the live engine + a multi-round product debate, the "full V2.0 UI" launch bar is **locked**. Decision: **ship V2.0 as a focused, honestly-scoped Roth-conversion / RMD / IRMAA / ACA / survivor / heir-tax optimizer — NOT a full household decumulation planner — and do NOT gate the Apple release on V2.1.**
+
+**Rationale:** most of the "competitive completeness" wishlist is already built (engine outputs or shipped UI); the genuine gaps (brokerage cost-basis, withdrawal-order optimizer) were already promised to Tim as 2.1; gating the whole release on the largest/most-uncertain scope risks shipping nothing and concentrates QA/rework (2.1 engine changes would disturb already-tested 2.0 UI). Trust comes from not over-claiming, not from completeness.
+
+**IN scope (V2.0 launch bar):**
+1. Editable Year-1 levers + **full observation tracking** (expand `observeUpstreamChanges()` past the current 2 fields; surface the 6 DataManager levers + off-plan indicator + `resetYear1ToEngineOptimal`).
+2. Charts (conversion ladder, account balances over time, heir-frontier curve, **growth** sensitivity bands — labeled growth-sensitivity, never "risk/odds").
+3. Advanced assumptions sheet (growth, CPI, pvRealDiscountRate, **terminalLiquidationTaxRate** [flagged required], per-spouse horizon, withdrawal-ordering **preset** — surface the existing `WithdrawalOrderingRule`, not an optimizer).
+4. CPA-briefing PDF with assumptions + **Limitations** section + year-by-year table.
+5. Riders off existing engine outputs: survivor (`widowStressDelta`) + SS-nudge (`ssClaimNudge`) callout banners, richer year table, threshold/cliff surfacing (`ConstraintHit`).
+6. Explicit **Assumptions & Limitations** surface (UI + PDF); narrow non-full-planner positioning.
+7. **4a — ONE narrow engine change:** credit the terminal taxable balance to heirs at step-up (`HeirFrontierCoordinator.swift:53` + `PlanComparison.heirsKeep` both currently omit `endOfYearBalances.taxable`). `heirKeeps = terminalRoth + (terminalTrad - heirTax) + terminalTaxable`. No optimizer/loop touch (step-up = no gain to tax at death); fixes the heir-frontier's biggest trust risk.
+
+**DEFERRED to V2.1:** 4b — capital-gains/NIIT tax on *lifetime* taxable withdrawals (NOT narrow: prerequisite is fixing the LTCG/QDI-taxed-as-ordinary Path A simplification, and it hits the optimizer's per-year loop and interacts with conversion decisions); full brokerage cost-basis; withdrawal-order **optimizer**. Label the lifetime taxable-drawdown treatment as simplified in UI + PDF.
+
+**DEFERRED indefinitely:** Monte Carlo / multi-factor sensitivity (positioning mismatch — product is a tax optimizer, not a ruin-probability tool; `SensitivityBands` doc already forbids "risk/odds" labeling).
+
+**Trust-story principle:** disclaimers mark the *edge of scope*, not the *reliability of what's inside* (which is CPA-reviewed). Positioning copy must avoid "complete/full retirement income optimization."
+
+Work lands on `2.0/heir-objective` (worktree `.worktrees/2.0-reconcile-engine`). Spec: `docs/superpowers/specs/2026-06-27-v2.0-ui-launch-scope-design.md`.
