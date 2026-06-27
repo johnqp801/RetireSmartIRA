@@ -104,7 +104,7 @@ struct LadderListView: View {
             }
             if anyIRMAA {
                 Label(
-                    "IRMAA = projected Medicare premium surcharge from higher income that year. Amounts are estimates based on current thresholds; future Medicare rules and your actual income may change them.",
+                    "IRMAA = the EXTRA Medicare premium these conversions add, beyond what your other income would trigger anyway. Medicare sets the premium from your income two years earlier, so a conversion shows up as a surcharge later. Amounts are estimates under current thresholds; future Medicare rules and your actual income may change them.",
                     systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)

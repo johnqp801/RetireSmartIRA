@@ -6,22 +6,25 @@ struct LadderRow: Identifiable, Equatable, Sendable {
     let year: Int
     let conversion: Double
     let agi: Double
-    let irmaaSurcharge: Double   // this year's projected Medicare IRMAA cost (both spouses, annual)
+    /// EXTRA Medicare IRMAA this year *attributable to converting* — this year's plan IRMAA
+    /// minus the no-conversion baseline's IRMAA for the same year, floored at 0. A year whose
+    /// surcharge the user's other income would trigger anyway shows 0 here (not flagged).
+    let irmaaSurcharge: Double
 
-    init(_ rec: YearRecommendation) {
+    init(_ rec: YearRecommendation, baselineIRMAA: Double = 0) {
         self.year = rec.year
         self.conversion = rec.actions.reduce(0.0) { acc, act in
             if case let .rothConversion(amount) = act { return acc + amount }
             return acc
         }
         self.agi = rec.agi
-        self.irmaaSurcharge = rec.taxBreakdown.irmaa
+        self.irmaaSurcharge = max(0, rec.taxBreakdown.irmaa - baselineIRMAA)
     }
 
     var hasIRMAASurcharge: Bool { irmaaSurcharge > 0 }
 
     var conversionLabel: String { conversion > 0 ? "convert \(PlanSummary.shortDollars(conversion))" : "—" }
     var agiLabel: String { "AGI \(PlanSummary.shortDollars(agi))" }
-    /// Compact "IRMAA +$Xk" tag for the year, empty when there is no surcharge.
+    /// Compact "IRMAA +$Xk" tag for the conversion-attributable surcharge, empty when there is none.
     var irmaaLabel: String { hasIRMAASurcharge ? "IRMAA +\(PlanSummary.shortDollars(irmaaSurcharge))" : "" }
 }

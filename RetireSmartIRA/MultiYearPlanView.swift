@@ -14,6 +14,15 @@ struct MultiYearPlanView: View {
         return manager.currentResult?.recommendedPath ?? []
     }
 
+    // Ladder rows with IRMAA attributed to conversions only: each year's surcharge minus the
+    // no-conversion baseline's surcharge for that year (so income-driven IRMAA isn't blamed on the plan).
+    private var ladderRows: [LadderRow] {
+        let baselineIRMAA = Dictionary(
+            (manager.baselineProjection ?? []).map { ($0.year, $0.taxBreakdown.irmaa) },
+            uniquingKeysWith: { first, _ in first })
+        return activePath.map { LadderRow($0, baselineIRMAA: baselineIRMAA[$0.year] ?? 0) }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -58,7 +67,7 @@ struct MultiYearPlanView: View {
                             pvRealDiscountRate: manager.assumptions.pvRealDiscountRate),
                             units: units)
                     }
-                    LadderListView(rows: activePath.map(LadderRow.init))
+                    LadderListView(rows: ladderRows)
                     if let frontier = manager.heirFrontier {
                         HeirFrontierView(result: frontier,
                             selectedWeight: Binding(get: { manager.selectedHeirWeight },

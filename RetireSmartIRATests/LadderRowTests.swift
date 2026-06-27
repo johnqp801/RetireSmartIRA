@@ -42,4 +42,24 @@ struct LadderRowTests {
         #expect(row.hasIRMAASurcharge == true)
         #expect(row.irmaaLabel == "IRMAA +$8k")
     }
+
+    @Test("IRMAA is attributed to conversions: plan minus no-conversion baseline")
+    func irmaaIncremental() {
+        // Plan year has $10k total IRMAA; the no-conversion baseline that year already had $6k.
+        // Only the $4k difference is attributable to converting.
+        let planYear = YearRecommendation(
+            year: 2030, agi: 300_000, acaMagi: nil, irmaaMagi: 300_000, taxableIncome: 300_000,
+            taxBreakdown: TaxBreakdown(federal: 0, state: 0, irmaa: 10_000, acaPremiumImpact: 0),
+            endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
+            actions: [.rothConversion(amount: 100_000)], medicareEnrolledCount: 2)
+        let attributed = LadderRow(planYear, baselineIRMAA: 6_000)
+        #expect(attributed.irmaaSurcharge == 4_000)
+        #expect(attributed.hasIRMAASurcharge == true)
+
+        // If the baseline already had the full surcharge, the conversion added nothing -> not flagged.
+        let notTheConversion = LadderRow(planYear, baselineIRMAA: 10_000)
+        #expect(notTheConversion.irmaaSurcharge == 0)
+        #expect(notTheConversion.hasIRMAASurcharge == false)
+        #expect(notTheConversion.irmaaLabel == "")
+    }
 }
