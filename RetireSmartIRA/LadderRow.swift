@@ -23,7 +23,7 @@ struct LadderRow: Identifiable, Equatable, Sendable {
 
     var hasIRMAASurcharge: Bool { irmaaSurcharge > 0 }
 
-    var conversionLabel: String { conversion > 0 ? "convert \(PlanSummary.shortDollars(conversion))" : "—" }
+    var conversionLabel: String { conversion > 0 ? "convert \(PlanSummary.shortDollars(conversion))" : "no conversion" }
     var agiLabel: String { "AGI \(PlanSummary.shortDollars(agi))" }
     /// Compact "IRMAA +$Xk" tag for the conversion-attributable surcharge, empty when there is none.
     var irmaaLabel: String { hasIRMAASurcharge ? "IRMAA +\(PlanSummary.shortDollars(irmaaSurcharge))" : "" }
