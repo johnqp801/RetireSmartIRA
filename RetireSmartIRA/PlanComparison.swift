@@ -32,7 +32,8 @@ struct PlanComparison: Equatable, Sendable {
          heirSalary: Double,
          heirFilingStatus: FilingStatus,
          heirDrawdownYears: Int,
-         pvRealDiscountRate: Double = 0) {
+         pvRealDiscountRate: Double = 0,
+         cpiRate: Double = 0) {
 
         func lifetimeTax(_ p: [YearRecommendation]) -> Double {
             p.reduce(0) { $0 + $1.taxBreakdown.total }
@@ -55,9 +56,9 @@ struct PlanComparison: Equatable, Sendable {
         let baseYear = plan.first?.year ?? doingNothing.first?.year ?? 0
         func lifetimeTaxPV(_ p: [YearRecommendation]) -> Double {
             p.reduce(0) {
-                $0 + EngineMath.presentValue($1.taxBreakdown.total,
-                                             yearsFromBase: $1.year - baseYear,
-                                             realDiscountRate: pvRealDiscountRate)
+                $0 + EngineMath.realPresentValue($1.taxBreakdown.total,
+                                                 yearsFromBase: $1.year - baseYear,
+                                                 cpiRate: cpiRate, realDiscountRate: pvRealDiscountRate)
             }
         }
         let lastYear = plan.last?.year ?? doingNothing.last?.year ?? baseYear
@@ -68,8 +69,8 @@ struct PlanComparison: Equatable, Sendable {
         self.heirsKeep = Pair(plan: heirsKeep(plan), doingNothing: heirsKeep(doingNothing))
         self.peakForcedRMD = Pair(plan: peakRMD(plan), doingNothing: peakRMD(doingNothing))
         self.lifetimeTaxPV = Pair(plan: lifetimeTaxPV(plan), doingNothing: lifetimeTaxPV(doingNothing))
-        self.terminalPVFactor = EngineMath.presentValue(1.0, yearsFromBase: lastYear - baseYear,
-                                                        realDiscountRate: pvRealDiscountRate)
+        self.terminalPVFactor = EngineMath.realPresentValue(1.0, yearsFromBase: lastYear - baseYear,
+                                                            cpiRate: cpiRate, realDiscountRate: pvRealDiscountRate)
     }
 
     /// Lifetime tax for the chosen display units (per-year discounted in present-value mode).

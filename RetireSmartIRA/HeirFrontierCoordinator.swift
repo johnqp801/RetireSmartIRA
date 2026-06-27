@@ -21,9 +21,11 @@ struct HeirFrontierCoordinator {
     ) -> HeirFrontierResult {
 
         // Present-value discount factor for the display toggle (display-only; the optimizer
-        // is unaffected). Discount from the terminal year back to the base year.
+        // is unaffected). Balances are projected in NOMINAL dollars, so deflate by CPI to today's
+        // dollars and then discount at the real rate — the combined (Fisher) factor (1+cpi)(1+r).
         let yearsToTerminal = Double(assumptions.horizonEndAge - inputs.primaryCurrentAge)
-        let pvFactor = pow(1.0 + assumptions.pvRealDiscountRate, -max(0, yearsToTerminal))
+        let pvFactor = pow((1.0 + assumptions.cpiRate) * (1.0 + assumptions.pvRealDiscountRate),
+                           -max(0, yearsToTerminal))
 
         let points: [FrontierPoint] = Self.presetWeights.map { w in
             let result = OptimizationEngine().optimize(

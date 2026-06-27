@@ -56,7 +56,8 @@ struct MultiYearPlanView: View {
                         systemImage: "calendar.badge.clock")
                 } else {
                     PlanSummaryView(summary: PlanSummary(path: activePath,
-                        pvRealDiscountRate: manager.assumptions.pvRealDiscountRate), units: units)
+                        pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
+                        cpiRate: manager.assumptions.cpiRate), units: units)
                     if let baseline = manager.baselineProjection, !baseline.isEmpty {
                         PlanComparisonView(comparison: PlanComparison(
                             plan: activePath,
@@ -64,7 +65,8 @@ struct MultiYearPlanView: View {
                             heirSalary: dataManager.legacyHeirEstimatedSalary,
                             heirFilingStatus: dataManager.legacyHeirFilingStatus,
                             heirDrawdownYears: dataManager.legacyDrawdownYears,
-                            pvRealDiscountRate: manager.assumptions.pvRealDiscountRate),
+                            pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
+                            cpiRate: manager.assumptions.cpiRate),
                             units: units)
                     }
                     LadderListView(rows: ladderRows)

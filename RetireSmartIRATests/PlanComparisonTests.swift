@@ -70,6 +70,23 @@ struct PlanComparisonTests {
         #expect(c.lifetimeTax(units: .todaysDollars).plan == c.lifetimeTax.plan)
     }
 
+    @Test("present value deflates nominal dollars by CPI, then discounts at the real rate")
+    func cpiDeflationThenRealDiscount() {
+        let plan = [
+            yr(2026, tax: 100_000, trad: 0, roth: 1_000_000, rmd: 0),
+            yr(2027, tax: 100_000, trad: 0, roth: 1_000_000, rmd: 0),
+        ]
+        let c = PlanComparison(plan: plan, doingNothing: [],
+                               heirSalary: 75_000, heirFilingStatus: .single, heirDrawdownYears: 10,
+                               pvRealDiscountRate: 0.03, cpiRate: 0.025)
+        // combined per-year factor is 1 / ((1+cpi)(1+r)); year 0 undiscounted, year 1 once.
+        let f = 1.0 / (1.025 * 1.03)
+        #expect(abs(c.terminalPVFactor - f) < 1e-9)              // terminal year is 2027 (1 year out)
+        #expect(abs(c.lifetimeTaxPV.plan - (100_000 + 100_000 * f)) < 0.01)
+        // strictly more discounting than real-rate-only would give (1/1.03)
+        #expect(c.terminalPVFactor < 1.0 / 1.03)
+    }
+
     @Test("default (no discount rate) leaves PV equal to nominal")
     func noDiscountIsNominal() {
         let plan = [yr(2026, tax: 100_000, trad: 400_000, roth: 200_000, rmd: 20_000)]

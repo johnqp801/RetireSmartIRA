@@ -7,13 +7,13 @@ struct PlanSummary: Equatable, Sendable {
     let totalConversions: Double // sum of recommended Roth conversions (always nominal - a flow, not wealth)
     let conversionYears: Int     // count of years with a conversion
 
-    init(path: [YearRecommendation], pvRealDiscountRate: Double = 0) {
+    init(path: [YearRecommendation], pvRealDiscountRate: Double = 0, cpiRate: Double = 0) {
         self.lifetimeTax = path.reduce(0) { $0 + $1.taxBreakdown.total }
         let baseYear = path.first?.year ?? 0
         self.lifetimeTaxPV = path.reduce(0) {
-            $0 + EngineMath.presentValue($1.taxBreakdown.total,
-                                         yearsFromBase: $1.year - baseYear,
-                                         realDiscountRate: pvRealDiscountRate)
+            $0 + EngineMath.realPresentValue($1.taxBreakdown.total,
+                                             yearsFromBase: $1.year - baseYear,
+                                             cpiRate: cpiRate, realDiscountRate: pvRealDiscountRate)
         }
         var total = 0.0, years = 0
         for yr in path {
