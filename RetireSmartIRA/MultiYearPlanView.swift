@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MultiYearPlanView: View {
     @Environment(DataManager.self) private var dataManager
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @StateObject private var manager = MultiYearStrategyManager()
     @State private var attached = false
     @State private var units: DisplayUnits = .todaysDollars
@@ -36,20 +37,36 @@ struct MultiYearPlanView: View {
         return activePath.map { LadderRow($0, baselineIRMAA: baselineIRMAA[$0.year] ?? 0) }
     }
 
+    // Future-dollars vs present-value toggle. Shared by the compact (stacked) and regular
+    // (side-by-side) header layouts. Only shown once there's a plan to display.
+    @ViewBuilder private var unitsPicker: some View {
+        if !activePath.isEmpty {
+            Picker("Units", selection: $units) {
+                Text("Future $").tag(DisplayUnits.todaysDollars)
+                Text("Present value").tag(DisplayUnits.presentValue)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Multi-Year Plan").font(.largeTitle.bold())
-                    Spacer()
-                    if !activePath.isEmpty {
-                        Picker("Units", selection: $units) {
-                            Text("Future $").tag(DisplayUnits.todaysDollars)
-                            Text("Present value").tag(DisplayUnits.presentValue)
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .fixedSize()
+                if hSizeClass == .compact {
+                    // Narrow widths (iPhone): the fixed-size segmented picker crowds and truncates
+                    // the large title on one line, so stack the toggle beneath it. iPad/Mac (regular)
+                    // keep the original side-by-side header below.
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Multi-Year Plan").font(.largeTitle.bold())
+                        unitsPicker
+                    }
+                } else {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Multi-Year Plan").font(.largeTitle.bold())
+                        Spacer()
+                        unitsPicker
                     }
                 }
 
