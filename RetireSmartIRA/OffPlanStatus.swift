@@ -23,6 +23,22 @@ enum OffPlanStatus: Equatable {
         }
     }
 
+    /// Off-plan status for the Year-1 editor. The only lever the user controls on this tab is the
+    /// Year-1 conversion, so they are ON PLAN once their Year-1 amount matches the engine's optimal
+    /// Year-1 amount. We do NOT classify directly off the whole-path lifetime-tax delta: the
+    /// optimizer is path-dependent under pinning (pinning even the OPTIMAL Year-1 still yields a
+    /// slightly worse years-2+ path than the free optimum), so the residual gap is not user-fixable
+    /// and must not read as "off plan." When the Year-1 amounts genuinely differ, classify by the
+    /// lifetime-tax delta.
+    static func forYear1(userYear1: Double,
+                         optimalYear1: Double,
+                         currentLifetimeTax: Double,
+                         optimalLifetimeTax: Double,
+                         matchThreshold: Double = 1_000) -> OffPlanStatus {
+        if abs(userYear1 - optimalYear1) < matchThreshold { return .onPlan }
+        return OffPlanStatus(extraLifetimeTax: currentLifetimeTax - optimalLifetimeTax)
+    }
+
     var isOnPlan: Bool { self == .onPlan }
 
     var label: String {

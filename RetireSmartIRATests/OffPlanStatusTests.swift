@@ -28,4 +28,24 @@ struct OffPlanStatusTests {
         #expect(OffPlanStatus.onPlan.severity == .good)
         #expect(OffPlanStatus.significantlyOffPlan.severity == .warning)
     }
+
+    @Test("matching Year-1 reads on plan despite a residual lifetime-tax gap (optimizer artifact)")
+    func year1MatchIsOnPlan() {
+        // The exact demo bug: user Year-1 == optimal Year-1 ($200k), but current lifetime tax sits
+        // $41,639 above the free optimum because pinning yields a slightly worse years-2+ path.
+        // That residual is not user-fixable, so it must read as on plan.
+        let s = OffPlanStatus.forYear1(userYear1: 200_000, optimalYear1: 200_000,
+                                       currentLifetimeTax: 4_433_936, optimalLifetimeTax: 4_392_297)
+        #expect(s == .onPlan)
+    }
+
+    @Test("genuinely different Year-1 is classified by the lifetime-tax delta")
+    func year1DifferentUsesDelta() {
+        let off = OffPlanStatus.forYear1(userYear1: 0, optimalYear1: 200_000,
+                                         currentLifetimeTax: 4_500_000, optimalLifetimeTax: 4_392_297)
+        #expect(off == .significantlyOffPlan)   // ~$108k delta
+        let near = OffPlanStatus.forYear1(userYear1: 150_000, optimalYear1: 200_000,
+                                          currentLifetimeTax: 4_397_000, optimalLifetimeTax: 4_392_297)
+        #expect(near == .nearOptimal)            // ~$4.7k delta
+    }
 }

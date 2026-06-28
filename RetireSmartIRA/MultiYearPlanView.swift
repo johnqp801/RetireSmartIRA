@@ -229,10 +229,23 @@ struct MultiYearPlanView: View {
         )
     }
 
+    private func year1Roth(_ result: MultiYearStrategyResult) -> Double {
+        (result.recommendedPath.first?.actions ?? []).reduce(0.0) { acc, act in
+            if case let .rothConversion(amount) = act { return acc + amount }
+            return acc
+        }
+    }
+
     private var offPlanStatus: OffPlanStatus? {
         guard let current = manager.currentResult, let optimal = manager.engineOptimalResult else { return nil }
-        return OffPlanStatus(extraLifetimeTax:
-            current.lifetimeTaxFromRecommendedPath - optimal.lifetimeTaxFromRecommendedPath)
+        // Off-plan reflects the user's only lever here (Year-1 conversion). When it already matches
+        // the engine-optimal Year-1, the residual whole-path gap is the optimizer's pinned-vs-free
+        // path-dependence, not a user-fixable choice, so it reads as on plan.
+        return OffPlanStatus.forYear1(
+            userYear1: year1Roth(current),
+            optimalYear1: year1Roth(optimal),
+            currentLifetimeTax: current.lifetimeTaxFromRecommendedPath,
+            optimalLifetimeTax: optimal.lifetimeTaxFromRecommendedPath)
     }
 
     private func onYear1Edited() {
