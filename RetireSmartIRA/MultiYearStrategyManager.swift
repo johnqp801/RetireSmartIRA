@@ -262,7 +262,9 @@ final class MultiYearStrategyManager: ObservableObject {
             assumptions: assumptions, excludeYear1Overrides: false)
         isComputingFrontier = true
         frontierWorkTask?.cancel()
-        let work = Task.detached(priority: .userInitiated) {
+        // .utility (not .userInitiated): the 6-weight frontier optimize is heavy and secondary to the
+        // main plan, so it should yield CPU to the UI / typing rather than compete with it.
+        let work = Task.detached(priority: .utility) {
             HeirFrontierCoordinator().computeFrontier(
                 inputs: inputs, assumptions: assumptions, configProvider: configProvider)
         }

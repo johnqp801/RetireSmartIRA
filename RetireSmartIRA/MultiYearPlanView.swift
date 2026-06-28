@@ -7,6 +7,7 @@ struct MultiYearPlanView: View {
     @State private var units: DisplayUnits = .todaysDollars
     @State private var showingAdvanced = false
     @State private var isGeneratingPDF = false
+    @State private var settleWorkTask: Task<Void, Never>?
     #if canImport(UIKit)
     @State private var briefingPDF: Data?
     @State private var showBriefingShare = false
@@ -154,8 +155,15 @@ struct MultiYearPlanView: View {
         // settled compute (currentResult republishes after the debounced engine run) and, for the
         // save, on banner dismissal.
         .onChange(of: manager.currentResult) {
-            manager.computeHeirFrontier()
-            dataManager.saveAllData()
+            // Defer the heavy/secondary work (6-weight frontier optimize + full-model save) until the
+            // user has been idle briefly, so it does not collide with resumed typing during bursts.
+            settleWorkTask?.cancel()
+            settleWorkTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 900_000_000)
+                guard !Task.isCancelled else { return }
+                manager.computeHeirFrontier()
+                dataManager.saveAllData()
+            }
         }
         .onChange(of: manager.assumptions.dismissedInsightKeys) { dataManager.saveAllData() }
         .sheet(isPresented: $showingAdvanced) {
