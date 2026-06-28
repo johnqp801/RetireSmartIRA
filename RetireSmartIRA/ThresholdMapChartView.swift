@@ -8,6 +8,12 @@ struct ThresholdMapChartView: View {
     /// 2026-nominal honesty caveat (static so a test can assert it).
     static let caveat = "Thresholds are shown at 2026 levels. They are not inflation-adjusted, so in later years the real thresholds will sit higher than the lines here."
 
+    private var xDomain: ClosedRange<Int> {
+        let ys = model.points(for: measure).map(\.year)
+        let lo = ys.min() ?? 0, hi = ys.max() ?? 0
+        return lo...(hi > lo ? hi : lo + 1)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Income vs tax cliffs by year").font(.headline)
@@ -40,6 +46,15 @@ struct ThresholdMapChartView: View {
                         }
                     }
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                }
+            }
+            .chartXScale(domain: xDomain)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                    AxisValueLabel {
+                        if let y = value.as(Int.self) { Text(verbatim: String(y)).font(.caption2) }
+                    }
                 }
             }
             .frame(height: 240)

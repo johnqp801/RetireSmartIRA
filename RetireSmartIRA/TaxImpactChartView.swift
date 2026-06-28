@@ -14,6 +14,12 @@ struct TaxImpactChartView: View {
         return "Cumulative tax paid under your plan versus doing nothing."
     }
 
+    private var xDomain: ClosedRange<Int> {
+        let ys = model.points.map(\.year)
+        let lo = ys.min() ?? 0, hi = ys.max() ?? 0
+        return lo...(hi > lo ? hi : lo + 1)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Cumulative tax: your plan vs doing nothing").font(.headline)
@@ -39,6 +45,15 @@ struct TaxImpactChartView: View {
                         }
                     }
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                }
+            }
+            .chartXScale(domain: xDomain)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                    AxisValueLabel {
+                        if let y = value.as(Int.self) { Text(verbatim: String(y)).font(.caption2) }
+                    }
                 }
             }
             .frame(height: 200)
