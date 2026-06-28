@@ -4,16 +4,17 @@ import SwiftUI
 /// one-tap reset to the engine-optimal. Year-1 is the shared single-year scenario; this edits the
 /// combined household Roth conversion (the only Year-1 lever the v2.0 optimizer honors).
 ///
-/// Typing edits a LOCAL draft (instant); it commits to the shared model — which triggers the
-/// recompute and the chart re-render — only after a brief pause, so keystrokes never wait on the
-/// engine.
+/// The field is a plain String input backed by local state: a keystroke only appends to that string
+/// (no live number-reformatting, no model write, no recompute). It parses + commits to the shared
+/// model ~0.4s after the user stops typing, so editing is buttery and the engine work happens once
+/// the user pauses.
 struct Year1EditorView: View {
     @Binding var year1RothConversion: Double
     let status: OffPlanStatus?
     var onCommit: () -> Void
     var onResetToOptimal: () -> Void
 
-    @State private var draft: Double = 0
+    @State private var text: String = ""
     @State private var commitTask: Task<Void, Never>?
 
     var body: some View {
@@ -24,32 +25,46 @@ struct Year1EditorView: View {
                 if let status { OffPlanBadge(status: status) }
             }
             LabeledContent("Roth conversion this year") {
-                TextField("0", value: $draft, format: .number)
+                TextField("0", text: $text)
                     .multilineTextAlignment(.trailing)
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
             }
             if let status, !status.isOnPlan {
                 Text(status.caption).font(.caption).foregroundStyle(.secondary)
                 Button("Reset to optimal", action: onResetToOptimal).font(.callout)
             }
         }
-        .onAppear { draft = year1RothConversion }
+        .onAppear { text = Self.string(from: year1RothConversion) }
         .onChange(of: year1RothConversion) { _, newValue in
-            // External change (e.g., Reset or a recompute): sync the field; do not re-commit.
-            if newValue != draft { draft = newValue }
+            // External change (Reset / recompute): sync the field; do not re-commit.
+            if Self.parse(text) != newValue { text = Self.string(from: newValue) }
         }
-        .onChange(of: draft) { _, newValue in
-            // Debounced commit: keystrokes touch only `draft`; the model write + recompute fire
-            // ~0.4s after the user stops typing, so editing stays instant.
+        .onChange(of: text) { _, newValue in
+            // Debounced commit: keystrokes only mutate `text`; the model write + recompute fire
+            // ~0.4s after the user stops typing.
+            let parsed = Self.parse(newValue)
             commitTask?.cancel()
             commitTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 400_000_000)
-                guard !Task.isCancelled, year1RothConversion != newValue else { return }
-                year1RothConversion = newValue
+                guard !Task.isCancelled, year1RothConversion != parsed else { return }
+                year1RothConversion = parsed
                 onCommit()
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// Plain whole-dollar string (no grouping) so typing never triggers a live reformat.
+    private static func string(from value: Double) -> String {
+        value == 0 ? "" : String(Int(value.rounded()))
+    }
+
+    /// Parse digits only (tolerant of any separators the user pastes).
+    private static func parse(_ s: String) -> Double {
+        Double(s.filter { $0.isNumber }) ?? 0
     }
 }
 
