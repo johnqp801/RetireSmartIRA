@@ -5,6 +5,7 @@ struct MultiYearPlanView: View {
     @StateObject private var manager = MultiYearStrategyManager()
     @State private var attached = false
     @State private var units: DisplayUnits = .todaysDollars
+    @State private var showingAdvanced = false
 
     // Selected weight's path (drives summary + ladder). Falls back to currentResult.
     private var activePath: [YearRecommendation] {
@@ -64,6 +65,13 @@ struct MultiYearPlanView: View {
                     onCommit: { onYear1Edited() },
                     onResetToOptimal: { resetYear1ToOptimal() })
 
+                Button {
+                    showingAdvanced = true
+                } label: {
+                    Label("Advanced assumptions", systemImage: "slider.horizontal.3")
+                }
+                .font(.callout)
+
                 if manager.isComputing && manager.currentResult == nil {
                     ProgressView("Computing your plan…").frame(maxWidth: .infinity).padding()
                 } else if activePath.isEmpty {
@@ -106,6 +114,12 @@ struct MultiYearPlanView: View {
         }
         .onChange(of: manager.assumptions) {
             dataManager.saveAllData()
+        }
+        .sheet(isPresented: $showingAdvanced) {
+            AdvancedAssumptionsSheet(
+                assumptions: Binding(get: { manager.assumptions }, set: { manager.assumptions = $0 }),
+                spouseEnabled: dataManager.enableSpouse,
+                onCommit: { recomputeAll() })
         }
     }
 
