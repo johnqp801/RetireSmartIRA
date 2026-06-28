@@ -92,6 +92,9 @@ struct MultiYearPlanView: View {
                             cpiRate: manager.assumptions.cpiRate),
                             units: units)
                     }
+                    if let baseline = manager.baselineProjection, !baseline.isEmpty {
+                        TaxImpactChartView(model: TaxImpactChart(plan: activePath, doingNothing: baseline))
+                    }
                     ConversionLadderChartView(model: ConversionLadderChart(path: activePath))
                     LadderListView(rows: ladderRows)
                     if let frontier = manager.heirFrontier {
