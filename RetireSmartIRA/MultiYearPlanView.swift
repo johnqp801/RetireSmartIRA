@@ -92,6 +92,7 @@ struct MultiYearPlanView: View {
                             cpiRate: manager.assumptions.cpiRate),
                             units: units)
                     }
+                    ConversionLadderChartView(model: ConversionLadderChart(path: activePath))
                     LadderListView(rows: ladderRows)
                     if let frontier = manager.heirFrontier {
                         HeirFrontierView(result: frontier,
