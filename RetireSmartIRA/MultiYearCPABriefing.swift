@@ -12,6 +12,8 @@ struct CPABriefingModel: Equatable, Sendable {
     let comparison: PlanComparison
     let yearRows: [YearRecommendation]
     let frontier: HeirFrontierResult?
+    /// When legacy planning is off, the briefing omits the heir metric (the frontier is also nil).
+    let includeHeirs: Bool
     let assumptions: MultiYearAssumptions
     let limitations: [String]
     let positioning: String
@@ -95,7 +97,7 @@ enum MultiYearCPABriefingHTML {
         \(row("Lifetime tax", m.comparison.lifetimeTax))
         \(row("Ending traditional IRA", m.comparison.endingTraditional))
         \(row("Ending Roth IRA", m.comparison.endingRoth))
-        \(row("What heirs keep", m.comparison.heirsKeep))
+        \(m.includeHeirs ? row("What heirs keep", m.comparison.heirsKeep) : "")
         \(row("Peak forced RMD", m.comparison.peakForcedRMD))
         </table>
         """

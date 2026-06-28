@@ -25,6 +25,7 @@ struct MultiYearCPABriefingTests {
                                        heirFilingStatus: .single, heirDrawdownYears: 10),
             yearRows: path,
             frontier: nil,
+            includeHeirs: true,
             assumptions: MultiYearAssumptions(),
             limitations: V2Disclosures.limitations,
             positioning: V2Disclosures.positioning)
@@ -54,9 +55,24 @@ struct MultiYearCPABriefingTests {
         m = CPABriefingModel(preparedFor: m.preparedFor, taxYear: m.taxYear,
             filingStatusLabel: m.filingStatusLabel, stateLabel: m.stateLabel,
             primaryBirthYear: m.primaryBirthYear, summary: m.summary, comparison: m.comparison,
-            yearRows: [rec(2026, conv: 0)], frontier: nil, assumptions: m.assumptions,
-            limitations: m.limitations, positioning: m.positioning)
+            yearRows: [rec(2026, conv: 0)], frontier: nil, includeHeirs: m.includeHeirs,
+            assumptions: m.assumptions, limitations: m.limitations, positioning: m.positioning)
         let html = MultiYearCPABriefingHTML.build(m)
         #expect(html.contains("</html>"))
+    }
+
+    @Test("includeHeirs gates the heir metric row")
+    func heirGating() {
+        // Default model has includeHeirs == true: the heir row is present.
+        #expect(MultiYearCPABriefingHTML.build(model()).contains("What heirs keep"))
+
+        // includeHeirs == false (legacy planning off): the heir row is omitted.
+        let m = model()
+        let off = CPABriefingModel(preparedFor: m.preparedFor, taxYear: m.taxYear,
+            filingStatusLabel: m.filingStatusLabel, stateLabel: m.stateLabel,
+            primaryBirthYear: m.primaryBirthYear, summary: m.summary, comparison: m.comparison,
+            yearRows: m.yearRows, frontier: nil, includeHeirs: false,
+            assumptions: m.assumptions, limitations: m.limitations, positioning: m.positioning)
+        #expect(!MultiYearCPABriefingHTML.build(off).contains("What heirs keep"))
     }
 }

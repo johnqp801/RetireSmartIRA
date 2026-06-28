@@ -45,6 +45,8 @@ struct PlanSummaryView: View {
 struct PlanComparisonView: View {
     let comparison: PlanComparison
     let units: DisplayUnits
+    /// When legacy planning is off, the heir metric is hidden (owner-lifetime-only view).
+    var showHeirs: Bool = true
 
     private var titleSuffix: String { units == .presentValue ? " · present value" : "" }
     private var rmdLabel: String { units == .presentValue ? "Peak forced RMD (nominal)" : "Peak forced RMD" }
@@ -63,7 +65,9 @@ struct PlanComparisonView: View {
                 metricRow("Ending traditional IRA", comparison.terminal(comparison.endingTraditional, units: units))
                 metricRow("Ending Roth IRA", comparison.terminal(comparison.endingRoth, units: units))
                 metricRow(rmdLabel, comparison.peakForcedRMD)
-                metricRow("What heirs keep", comparison.terminal(comparison.heirsKeep, units: units))
+                if showHeirs {
+                    metricRow("What heirs keep", comparison.terminal(comparison.heirsKeep, units: units))
+                }
             }
             .font(.callout)
         }

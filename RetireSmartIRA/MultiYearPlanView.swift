@@ -12,9 +12,16 @@ struct MultiYearPlanView: View {
     @State private var showBriefingShare = false
     #endif
 
-    // Selected weight's path (drives summary + ladder). Falls back to currentResult.
+    // Whether heir / legacy analysis is active. Mirrors the Profile "Consider Legacy Planning"
+    // toggle so the Multi-Year tab stays consistent with the single-year views: when off, the heir
+    // trade-off (frontier + "what heirs keep") is hidden and the plan follows the owner-optimal path.
+    private var legacyEnabled: Bool { dataManager.enableLegacyPlanning }
+
+    // Selected weight's path (drives summary + ladder). Falls back to currentResult. When legacy
+    // planning is off, the heir-weighted frontier path is ignored so the view shows owner-optimal.
     private var activePath: [YearRecommendation] {
-        if let p = manager.heirFrontier?.points.first(where: { $0.weight == manager.selectedHeirWeight })?.recommendedPath, !p.isEmpty {
+        if legacyEnabled,
+           let p = manager.heirFrontier?.points.first(where: { $0.weight == manager.selectedHeirWeight })?.recommendedPath, !p.isEmpty {
             return p
         }
         return manager.currentResult?.recommendedPath ?? []
@@ -95,7 +102,8 @@ struct MultiYearPlanView: View {
                             heirDrawdownYears: dataManager.legacyDrawdownYears,
                             pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
                             cpiRate: manager.assumptions.cpiRate),
-                            units: units)
+                            units: units,
+                            showHeirs: legacyEnabled)
                     }
                     if let baseline = manager.baselineProjection, !baseline.isEmpty {
                         TaxImpactChartView(model: TaxImpactChart(plan: activePath, doingNothing: baseline))
@@ -118,15 +126,17 @@ struct MultiYearPlanView: View {
                         bracketLines: ThresholdMapThresholds.bracketLines(
                             config: TaxCalculationEngine.config,
                             filingStatus: dataManager.filingStatus)))
-                    if let frontier = manager.heirFrontier {
-                        HeirFrontierChartView(model: HeirFrontierChart(
-                            result: frontier, selectedWeight: manager.selectedHeirWeight, units: units))
-                        HeirFrontierView(result: frontier,
-                            selectedWeight: Binding(get: { manager.selectedHeirWeight },
-                                                    set: { manager.selectedHeirWeight = $0 }),
-                            units: units)
-                    } else if manager.isComputingFrontier {
-                        ProgressView("Computing heir trade-off…")
+                    if legacyEnabled {
+                        if let frontier = manager.heirFrontier {
+                            HeirFrontierChartView(model: HeirFrontierChart(
+                                result: frontier, selectedWeight: manager.selectedHeirWeight, units: units))
+                            HeirFrontierView(result: frontier,
+                                selectedWeight: Binding(get: { manager.selectedHeirWeight },
+                                                        set: { manager.selectedHeirWeight = $0 }),
+                                units: units)
+                        } else if manager.isComputingFrontier {
+                            ProgressView("Computing heir trade-off…")
+                        }
                     }
                     AssumptionsLimitationsView()
                     Button {
@@ -155,9 +165,15 @@ struct MultiYearPlanView: View {
         // save, on banner dismissal.
         .onChange(of: manager.currentResult) {
             // Once per settled compute (now infrequent, since the Year-1 field commits on a debounce):
-            // refresh the heir frontier (at .utility, so it yields to the UI) and persist.
-            manager.computeHeirFrontier()
+            // refresh the heir frontier (at .utility, so it yields to the UI) and persist. Skip the
+            // heavy 6-weight optimize entirely when legacy planning is off (heir view is hidden).
+            if legacyEnabled { manager.computeHeirFrontier() }
             dataManager.saveAllData()
+        }
+        // The Profile "Consider Legacy Planning" toggle gates the heir trade-off here too. Turning it
+        // back on refreshes the frontier (which may be nil or stale from while it was off).
+        .onChange(of: dataManager.enableLegacyPlanning) { _, enabled in
+            if enabled { manager.computeHeirFrontier() }
         }
         .onChange(of: manager.assumptions.dismissedInsightKeys) { dataManager.saveAllData() }
         .sheet(isPresented: $showingAdvanced) {
@@ -198,7 +214,8 @@ struct MultiYearPlanView: View {
                 heirFilingStatus: dataManager.legacyHeirFilingStatus,
                 heirDrawdownYears: dataManager.legacyDrawdownYears),
             yearRows: activePath,
-            frontier: manager.heirFrontier,
+            frontier: legacyEnabled ? manager.heirFrontier : nil,
+            includeHeirs: legacyEnabled,
             assumptions: manager.assumptions,
             limitations: V2Disclosures.limitations,
             positioning: V2Disclosures.positioning)
