@@ -97,6 +97,10 @@ struct MultiYearPlanView: View {
                     }
                     ConversionLadderChartView(model: ConversionLadderChart(path: activePath))
                     LadderListView(rows: ladderRows)
+                    BalancesChartView(model: BalancesChart(
+                        path: activePath,
+                        pessimistic: manager.currentResult?.sensitivityBands.pessimistic,
+                        optimistic: manager.currentResult?.sensitivityBands.optimistic))
                     if let frontier = manager.heirFrontier {
                         HeirFrontierView(result: frontier,
                             selectedWeight: Binding(get: { manager.selectedHeirWeight },
