@@ -64,7 +64,7 @@ enum MultiYearCPABriefingHTML {
         .note { color: #666; font-size: 10px; margin: 4px 0; }
         </style></head><body>
         <h1>Multi-Year Roth Conversion Plan</h1>
-        <div class="sub">Prepared for \(esc(m.preparedFor)) &middot; \(esc(m.filingStatusLabel)) &middot; \(esc(m.stateLabel)) &middot; \(date)</div>
+        <div class="sub">Prepared for \(esc(m.preparedFor)) &middot; \(esc(m.filingStatusLabel)) &middot; \(esc(m.stateLabel)) &middot; Plan base year \(m.taxYear) &middot; \(date)</div>
         <div class="note">\(esc(m.positioning))</div>
         """
     }
@@ -74,7 +74,7 @@ enum MultiYearCPABriefingHTML {
         return """
         <h2>Executive summary</h2>
         <table>
-        <tr><td>Recommended conversions</td><td>\(fmt(m.summary.totalConversions)) over \(m.summary.conversionYears) year(s)</td></tr>
+        <tr><td>Recommended Roth conversions</td><td>\(fmt(m.summary.totalConversions)) over \(m.summary.conversionYears) year(s)</td></tr>
         <tr><td>Projected lifetime tax (plan)</td><td>\(fmt(m.summary.lifetimeTax))</td></tr>
         <tr><td>Projected lifetime tax (doing nothing)</td><td>\(fmt(m.comparison.lifetimeTax.doingNothing))</td></tr>
         <tr><td>Lifetime tax difference</td><td>\(fmt(savings))</td></tr>
