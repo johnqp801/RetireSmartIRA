@@ -786,3 +786,17 @@ After a scope reconciliation against the live engine + a multi-round product deb
 **Trust-story principle:** disclaimers mark the *edge of scope*, not the *reliability of what's inside* (which is CPA-reviewed). Positioning copy must avoid "complete/full retirement income optimization."
 
 Work lands on `2.0/heir-objective` (worktree `.worktrees/2.0-reconcile-engine`). Spec: `docs/superpowers/specs/2026-06-27-v2.0-ui-launch-scope-design.md`.
+
+---
+
+## 2026-06-27 — §6.1 Year-1 editing: SHARED one-source-of-truth model + workflow + engine-lever reality
+
+**Decision (workflow, user-stated):** The Multi-Year Plan tab's Year-1 IS the single-year scenario (SHARED `DataManager` fields — one source of truth, NOT independent overrides). Workflow: the multi-year plan proposes an optimal Year-1 → the user adjusts it (in Scenarios OR the Multi-Year tab; same fields) for real-life reasons → the engine **pins Year-1 and re-optimizes years 2+** around the user's choice → an off-plan indicator shows divergence from the unconstrained optimum → "Reset to optimal" snaps back. Rationale: matches the existing engine architecture (no new storage), lowest risk, coherent "plan proposes / scenario disposes / plan reflects" mental model. This does NOT violate the additive/never-modify-Scenarios constraint (we don't touch Scenarios code; the underlying scenario data was always shared/editable from multiple places).
+
+**Engine-lever reality (durable, verified in `OptimizationEngine.swift` ~L335-360):** In v2.0 the multi-year optimizer **only honors the Year-1 ROTH CONVERSION** override (`locked[baseYear] = .rothConversion(year1Primary+year1Spouse)`). Year-1 **withdrawal and QCD overrides are NOT honored** by the multi-year projection (the greedy candidate sweep never emits them; there is no `.qcd` LeverAction). Therefore §6.1's live, plan-affecting Year-1 lever = **Roth conversion only**. Do NOT surface editable withdrawal/QCD in the Multi-Year tab (they would silently fail to change the projection — misleading). Withdrawal/funding control ("I don't want to use my cash/assets this way") is the **2.1 decumulation/withdrawal-order work**, not v2.0. Single-year Scenarios tab still models a year's withdrawals as before.
+
+**Off-plan metric:** compare `currentResult.lifetimeTaxFromRecommendedPath` vs `engineOptimalResult.lifetimeTaxFromRecommendedPath` (the user-visible lifetime-tax figures). Do NOT expose the internal `OptimizationEngine.Result.totalObjectiveCost` on the manager (would be an engine surface change). 4-state bands (delta = current − optimal): On plan <$1K; Near optimal $1K-$10K; Off plan $10K-$25K; Significantly off plan >$25K.
+
+**Deferred to v2.x backlog (NOT §6.1):** **Year-end finalization / rollover** — once a tax year is finalized, lock that year's actuals, advance the base year, and re-optimize the plan forward. A lifecycle feature; capture and revisit post-launch.
+
+Plan: `docs/superpowers/plans/2026-06-27-v2.0-ui-plan-3-editable-year1.md`.
