@@ -38,4 +38,26 @@ struct ManagerHeirFrontierTests {
         mgr.dismissInsight("survivor")
         #expect(dm.multiYearAssumptions.dismissedInsightKeys.contains("survivor"))
     }
+
+    @Test("editing a tracked upstream field triggers a recompute")
+    func upstreamEditTriggersRecompute() async {
+        let dm = DataManager(skipPersistence: true)
+        let mgr = MultiYearStrategyManager()
+        mgr.attach(dataManager: dm, scenarioStateManager: dm.scenario)
+        let before = mgr.recomputeCount
+        dm.filingStatus = (dm.filingStatus == .single) ? .marriedFilingJointly : .single
+        try? await Task.sleep(nanoseconds: 250_000_000)  // > 50ms observation debounce
+        #expect(mgr.recomputeCount > before)
+    }
+
+    @Test("editing the Year-1 Roth conversion triggers a recompute")
+    func year1RothEditTriggersRecompute() async {
+        let dm = DataManager(skipPersistence: true)
+        let mgr = MultiYearStrategyManager()
+        mgr.attach(dataManager: dm, scenarioStateManager: dm.scenario)
+        let before = mgr.recomputeCount
+        dm.yourRothConversion += 10_000
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        #expect(mgr.recomputeCount > before)
+    }
 }

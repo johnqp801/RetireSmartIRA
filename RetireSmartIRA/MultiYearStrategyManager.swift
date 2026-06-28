@@ -38,6 +38,10 @@ final class MultiYearStrategyManager: ObservableObject {
     /// See spec §5.2.
     private(set) var needsOptimalRecompute: Bool = false
 
+    /// Number of times recompute(reason:) has been invoked. Test seam for verifying that upstream
+    /// observation actually fires a recompute. Not used by the UI.
+    private(set) var recomputeCount = 0
+
     private weak var dataManager: DataManager?
     private weak var scenarioStateManager: ScenarioStateManager?
     private var debounceTask: Task<Void, Never>?
@@ -120,8 +124,28 @@ final class MultiYearStrategyManager: ObservableObject {
     private func observeUpstreamChanges() {
         guard let dataManager, let scenarioStateManager else { return }
         withObservationTracking {
-            _ = dataManager.scenario
-            _ = scenarioStateManager.yourRothConversion
+            // Mirrors the inputs MultiYearInputAdapter.build(...) reads, so an edit to any of them
+            // (in any tab) refreshes the multi-year plan. Excludes multiYearAssumptions by design.
+            _ = dataManager.iraAccounts
+            _ = dataManager.incomeSources
+            _ = dataManager.yourRothConversion
+            _ = dataManager.spouseRothConversion
+            _ = dataManager.yourExtraWithdrawal
+            _ = dataManager.spouseExtraWithdrawal
+            _ = dataManager.yourQCDAmount
+            _ = dataManager.spouseQCDAmount
+            _ = dataManager.filingStatus
+            _ = dataManager.selectedState
+            _ = dataManager.enableSpouse
+            _ = dataManager.birthYear
+            _ = dataManager.spouseBirthYear
+            _ = dataManager.primarySSBenefit
+            _ = dataManager.spouseSSBenefit
+            _ = dataManager.legacyHeirEstimatedSalary
+            _ = dataManager.legacyHeirFilingStatus
+            _ = dataManager.legacyDrawdownYears
+            _ = scenarioStateManager.enableACAModeling
+            _ = scenarioStateManager.acaHouseholdSize
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -139,6 +163,7 @@ final class MultiYearStrategyManager: ObservableObject {
     // MARK: - Public API
 
     func recompute(reason: RecomputeReason) {
+        recomputeCount += 1
         // Mark optimal-cache dirty if assumptions or static inputs changed.
         // The flag survives task cancellation — see spec §5.2 dirty-flag pattern.
         if reason == .assumptionsChanged || reason == .appLaunch {
