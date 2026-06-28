@@ -11,13 +11,14 @@ struct AssumptionsStripView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Assumptions").font(.subheadline).foregroundStyle(.secondary)
-            HStack {
-                LabeledContent("Taxable balance") {
-                    TextField("0", value: $taxableBalance, format: .number).multilineTextAlignment(.trailing)
-                }
-                LabeledContent("HSA balance") {
-                    TextField("0", value: $hsaBalance, format: .number).multilineTextAlignment(.trailing)
-                }
+            // One field per row: side-by-side LabeledContent crowded the Taxable value against the
+            // HSA label (tight on iPad, worse on iPhone). Full-width rows match the stepper below
+            // and read cleanly on every size class.
+            LabeledContent("Taxable balance") {
+                TextField("0", value: $taxableBalance, format: .number).multilineTextAlignment(.trailing)
+            }
+            LabeledContent("HSA balance") {
+                TextField("0", value: $hsaBalance, format: .number).multilineTextAlignment(.trailing)
             }
             Stepper("Plan through age \(horizonEndAge)", value: $horizonEndAge, in: 70...110)
         }
