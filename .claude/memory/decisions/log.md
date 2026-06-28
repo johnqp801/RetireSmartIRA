@@ -800,3 +800,7 @@ Work lands on `2.0/heir-objective` (worktree `.worktrees/2.0-reconcile-engine`).
 **Deferred to v2.x backlog (NOT §6.1):** **Year-end finalization / rollover** — once a tax year is finalized, lock that year's actuals, advance the base year, and re-optimize the plan forward. A lifecycle feature; capture and revisit post-launch.
 
 Plan: `docs/superpowers/plans/2026-06-27-v2.0-ui-plan-3-editable-year1.md`.
+
+## 2026-06-28: "Consider Legacy Planning" toggle now gates the Multi-Year tab's heir analysis
+
+**Decision (user-chosen):** When Profile's "Consider Legacy Planning" (`enableLegacyPlanning`) is OFF, the Multi-Year Plan tab shows an owner-lifetime-only view: hide the heir frontier (chart + table), drop the "What heirs keep" comparison row, follow the owner-optimal path, and omit both from the CPA briefing. **Rationale:** the Multi-Year path was consuming heir inputs unconditionally, so the toggle had no effect there (user-reported); flipping it off should remove heir-focused content app-wide for consistency. Shipped commit `22666e9` on `2.0/heir-objective` (1129 tests). Implementation: `PlanComparisonView.showHeirs`, `CPABriefingModel.includeHeirs`, frontier compute skipped while off and recomputed on re-enable, and `activePath` ignores the heir-weighted frontier path when off so a stale heir-optimized plan can't leak through.
