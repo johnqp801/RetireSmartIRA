@@ -6,6 +6,11 @@ struct MultiYearPlanView: View {
     @State private var attached = false
     @State private var units: DisplayUnits = .todaysDollars
     @State private var showingAdvanced = false
+    @State private var isGeneratingPDF = false
+    #if canImport(UIKit)
+    @State private var briefingPDF: Data?
+    @State private var showBriefingShare = false
+    #endif
 
     // Selected weight's path (drives summary + ladder). Falls back to currentResult.
     private var activePath: [YearRecommendation] {
@@ -124,6 +129,17 @@ struct MultiYearPlanView: View {
                         ProgressView("Computing heir trade-off…")
                     }
                     AssumptionsLimitationsView()
+                    Button {
+                        exportBriefing()
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isGeneratingPDF { ProgressView().controlSize(.small) }
+                            Image(systemName: "doc.richtext")
+                            Text(isGeneratingPDF ? "Generating PDF..." : "Export CPA briefing")
+                        }
+                        .font(.callout)
+                    }
+                    .disabled(isGeneratingPDF)
                 }
             }
             .padding()
@@ -143,11 +159,57 @@ struct MultiYearPlanView: View {
                 spouseEnabled: dataManager.enableSpouse,
                 onCommit: { recomputeAll() })
         }
+        #if canImport(UIKit)
+        .sheet(isPresented: $showBriefingShare) {
+            if let briefingPDF {
+                ShareSheet(pdfData: briefingPDF, fileName: "MultiYearPlan_\(dataManager.currentYear).pdf")
+            }
+        }
+        #endif
     }
 
     private func recomputeAll() {
         manager.recompute(reason: .assumptionsChanged)
         manager.computeHeirFrontier()
+    }
+
+    private func makeBriefingModel() -> CPABriefingModel {
+        CPABriefingModel(
+            preparedFor: dataManager.userName.isEmpty ? "Plan" : dataManager.userName,
+            taxYear: dataManager.currentYear,
+            filingStatusLabel: dataManager.filingStatus.rawValue,
+            stateLabel: dataManager.selectedState.abbreviation,
+            primaryBirthYear: dataManager.birthYear,
+            summary: PlanSummary(path: activePath,
+                                 pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
+                                 cpiRate: manager.assumptions.cpiRate),
+            comparison: PlanComparison(
+                plan: activePath,
+                doingNothing: manager.baselineProjection ?? [],
+                heirSalary: dataManager.legacyHeirEstimatedSalary,
+                heirFilingStatus: dataManager.legacyHeirFilingStatus,
+                heirDrawdownYears: dataManager.legacyDrawdownYears),
+            yearRows: activePath,
+            frontier: manager.heirFrontier,
+            assumptions: manager.assumptions,
+            limitations: V2Disclosures.limitations,
+            positioning: V2Disclosures.positioning)
+    }
+
+    private func exportBriefing() {
+        isGeneratingPDF = true
+        let html = MultiYearCPABriefingHTML.build(makeBriefingModel())
+        let year = dataManager.currentYear
+        Task {
+            let data = await PDFExportService.generatePDF(fromHTML: html)
+            isGeneratingPDF = false
+            #if canImport(UIKit)
+            briefingPDF = data
+            showBriefingShare = true
+            #elseif canImport(AppKit)
+            MacPDFExporter.save(pdfData: data, fileName: "MultiYearPlan_\(year).pdf")
+            #endif
+        }
     }
 
     // Combined household Year-1 Roth conversion. v2.0 treats it as one amount (matches
