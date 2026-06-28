@@ -723,3 +723,80 @@ When implementation kicks off, generate `docs/superpowers/plans/2026-05-XX-sep-i
 **Status:** Logged for 1.8.2 implementation. Do NOT implement during this session (1.8.2 work hasn't started; user is on 48h pause; needs spec finalization first). Resume when full 1.8.2 planning session happens.
 
 **Suggested sequence:** add SEP IRA to the existing 1.8.2 spec at `docs/superpowers/specs/2026-05-12-1.8.2-incremental-design.md` as item H6 or a new SEP-series, before kicking off implementation.
+
+---
+
+## 2026-06-26 — PV display made CPI-consistent; optimizer-objective CPI deferred behind IRMAA-cliff hardening
+
+**Context:** The "Present value" toggle on the Multi-Year Plan tab discounted NOMINAL projected dollars (8% nominal growth, 2.5% CPI) at a 3% REAL rate — a units mismatch that under-discounted and made PV figures rosier than correct.
+
+**Decisions:**
+1. **DONE — display PV fixed.** Added `EngineMath.realPresentValue(_:yearsFromBase:cpiRate:realDiscountRate:)` = deflate by CPI to today's dollars, then discount at 3% real (combined Fisher factor `(1+cpi)(1+r)`). Wired into PlanComparison, PlanSummary, and HeirFrontierCoordinator's display factor. Optimizer untouched.
+2. **DONE — toggle relabeled.** "Today's $" → "Future $" (it shows nominal future dollars); "Present value" now is the true today's-dollars view.
+3. **REVERTED — optimizer-objective CPI discounting.** Making the optimizer objective CPI-consistent (~5.6% effective) was implemented then reverted: it destabilized the optimizer and broke the IRMAA safety-buffer guarantee — in the reference scenario it parked MAGI in the (cliff−$5k, cliff) dead zone in 4 years, most dangerously 2031 at $273,789, just $212 below the $274,001 cliff. Also drifted the Kitces widow reference scenario from >$40k to $38.2k.
+
+**Rationale:** The objective's discount rate is an internal ranking tuning parameter, not user-visible. The current 3%-real-on-nominal is conservative and keeps IRMAA buffers intact; "consistency" gained nothing user-facing while breaking a real quality guarantee.
+
+**Future work (ordered):**
+- (a) Add a HARD optimizer rule: never intentionally land MAGI within ~$5k below an IRMAA cliff (the cliffBuffer dead zone) unless the user explicitly disables the buffer. Today buffer respect is "soft" (relies on cliff candidates usually winning); the CPI experiment proved it can be violated.
+- (b) ONLY AFTER (a) ships, make the optimizer objective CPI-consistent (use `realPresentValue` in `discountedInHorizon` / `computeObjectiveCost` / inner objective / rationale / Result, threading `cpiRate`; update SSClaimNudge call sites). Re-baseline goldens then.
+
+---
+
+## 2026-06-26 — External CPA-style tax review (ChatGPT + Gemini + Perplexity), reconciled against source
+
+Three independent AI "CPA" reviews of the V2.0 tax constants/logic, reconciled per the CLAUDE.md rule (cite source before agreeing/rejecting) and web-verified against primary/CMS/IRS sources.
+
+**Net result: exactly ONE real engine error across all three reviews.**
+- **FIXED:** IRMAA Part D Tier 4 surcharge 83.50 → 83.30 (`tax-2026.json` + `TaxYearConfig.hardcoded2026` + test re-baseline). Confirmed via CMS 2026 Part D schedule. Commit on `2.0/heir-objective`.
+
+**Flagged but verified CORRECT (no change):**
+- IRMAA Part D Tier 3 = $60.40 (Perplexity's $57.00 was wrong).
+- QCD 2026 = $111,000 (Perplexity's $108,000 was wrong; IRS Notice 2025-67 confirms $111k; also UNUSED by the multi-year optimizer — no `.qcd` lever).
+- IRMAA Part B field stores TOTAL premium; engine computes surcharge = partB - $202.90 (`TaxCalculationEngine.calculateIRMAA`). Not a double-count.
+- OBBBA senior bonus is below-the-line (folded into stdDed; MAGI uses federalAGI, not taxableIncome) — does NOT reduce IRMAA/ACA/NIIT/SS MAGI. Correct.
+- ACA MAGI == IRMAA MAGI (identical addback); SS provisional income uses 0.5×gross SS (no double-count).
+- RMD born-1959 → 73 (correct per IRS proposed regs); IRMAA tier matching `>= threshold` with "+1" values is correct for tiers 1-4 (off by $1 only at the exact tier-5 entry — negligible).
+
+**Doc-only / negligible (not actioned):** RMD pre-1949 returns Int 70 not 70½ and doesn't split July 1 1949 — zero projection impact (that cohort is age 76+ in 2026, already taking RMDs). Optional born-1959 "proposed regs" user-facing disclosure.
+
+**Real limitation logged (see [[multi-year-muni-magi-gap]] memory):** the multi-year engine models tax-exempt (muni) interest as 0 in ALL MAGI-sensitive calcs (IRMAA, ACA, SS provisional). Consistent, not an ACA-specific bug, but UNDERSTATES IRMAA/ACA MAGI and SS taxation for users with muni interest. v2.x enhancement.
+
+---
+
+## 2026-06-27 — V2.0 UI launch scope locked (focused Roth/tax-optimizer release, NOT a full planner)
+
+After a scope reconciliation against the live engine + a multi-round product debate, the "full V2.0 UI" launch bar is **locked**. Decision: **ship V2.0 as a focused, honestly-scoped Roth-conversion / RMD / IRMAA / ACA / survivor / heir-tax optimizer — NOT a full household decumulation planner — and do NOT gate the Apple release on V2.1.**
+
+**Rationale:** most of the "competitive completeness" wishlist is already built (engine outputs or shipped UI); the genuine gaps (brokerage cost-basis, withdrawal-order optimizer) were already promised to Tim as 2.1; gating the whole release on the largest/most-uncertain scope risks shipping nothing and concentrates QA/rework (2.1 engine changes would disturb already-tested 2.0 UI). Trust comes from not over-claiming, not from completeness.
+
+**IN scope (V2.0 launch bar):**
+1. Editable Year-1 levers + **full observation tracking** (expand `observeUpstreamChanges()` past the current 2 fields; surface the 6 DataManager levers + off-plan indicator + `resetYear1ToEngineOptimal`).
+2. Charts (conversion ladder, account balances over time, heir-frontier curve, **growth** sensitivity bands — labeled growth-sensitivity, never "risk/odds").
+3. Advanced assumptions sheet (growth, CPI, pvRealDiscountRate, **terminalLiquidationTaxRate** [flagged required], per-spouse horizon, withdrawal-ordering **preset** — surface the existing `WithdrawalOrderingRule`, not an optimizer).
+4. CPA-briefing PDF with assumptions + **Limitations** section + year-by-year table.
+5. Riders off existing engine outputs: survivor (`widowStressDelta`) + SS-nudge (`ssClaimNudge`) callout banners, richer year table, threshold/cliff surfacing (`ConstraintHit`).
+6. Explicit **Assumptions & Limitations** surface (UI + PDF); narrow non-full-planner positioning.
+7. **4a — ONE narrow engine change:** credit the terminal taxable balance to heirs at step-up (`HeirFrontierCoordinator.swift:53` + `PlanComparison.heirsKeep` both currently omit `endOfYearBalances.taxable`). `heirKeeps = terminalRoth + (terminalTrad - heirTax) + terminalTaxable`. No optimizer/loop touch (step-up = no gain to tax at death); fixes the heir-frontier's biggest trust risk.
+
+**DEFERRED to V2.1:** 4b — capital-gains/NIIT tax on *lifetime* taxable withdrawals (NOT narrow: prerequisite is fixing the LTCG/QDI-taxed-as-ordinary Path A simplification, and it hits the optimizer's per-year loop and interacts with conversion decisions); full brokerage cost-basis; withdrawal-order **optimizer**. Label the lifetime taxable-drawdown treatment as simplified in UI + PDF.
+
+**DEFERRED indefinitely:** Monte Carlo / multi-factor sensitivity (positioning mismatch — product is a tax optimizer, not a ruin-probability tool; `SensitivityBands` doc already forbids "risk/odds" labeling).
+
+**Trust-story principle:** disclaimers mark the *edge of scope*, not the *reliability of what's inside* (which is CPA-reviewed). Positioning copy must avoid "complete/full retirement income optimization."
+
+Work lands on `2.0/heir-objective` (worktree `.worktrees/2.0-reconcile-engine`). Spec: `docs/superpowers/specs/2026-06-27-v2.0-ui-launch-scope-design.md`.
+
+---
+
+## 2026-06-27 — §6.1 Year-1 editing: SHARED one-source-of-truth model + workflow + engine-lever reality
+
+**Decision (workflow, user-stated):** The Multi-Year Plan tab's Year-1 IS the single-year scenario (SHARED `DataManager` fields — one source of truth, NOT independent overrides). Workflow: the multi-year plan proposes an optimal Year-1 → the user adjusts it (in Scenarios OR the Multi-Year tab; same fields) for real-life reasons → the engine **pins Year-1 and re-optimizes years 2+** around the user's choice → an off-plan indicator shows divergence from the unconstrained optimum → "Reset to optimal" snaps back. Rationale: matches the existing engine architecture (no new storage), lowest risk, coherent "plan proposes / scenario disposes / plan reflects" mental model. This does NOT violate the additive/never-modify-Scenarios constraint (we don't touch Scenarios code; the underlying scenario data was always shared/editable from multiple places).
+
+**Engine-lever reality (durable, verified in `OptimizationEngine.swift` ~L335-360):** In v2.0 the multi-year optimizer **only honors the Year-1 ROTH CONVERSION** override (`locked[baseYear] = .rothConversion(year1Primary+year1Spouse)`). Year-1 **withdrawal and QCD overrides are NOT honored** by the multi-year projection (the greedy candidate sweep never emits them; there is no `.qcd` LeverAction). Therefore §6.1's live, plan-affecting Year-1 lever = **Roth conversion only**. Do NOT surface editable withdrawal/QCD in the Multi-Year tab (they would silently fail to change the projection — misleading). Withdrawal/funding control ("I don't want to use my cash/assets this way") is the **2.1 decumulation/withdrawal-order work**, not v2.0. Single-year Scenarios tab still models a year's withdrawals as before.
+
+**Off-plan metric:** compare `currentResult.lifetimeTaxFromRecommendedPath` vs `engineOptimalResult.lifetimeTaxFromRecommendedPath` (the user-visible lifetime-tax figures). Do NOT expose the internal `OptimizationEngine.Result.totalObjectiveCost` on the manager (would be an engine surface change). 4-state bands (delta = current − optimal): On plan <$1K; Near optimal $1K-$10K; Off plan $10K-$25K; Significantly off plan >$25K.
+
+**Deferred to v2.x backlog (NOT §6.1):** **Year-end finalization / rollover** — once a tax year is finalized, lock that year's actuals, advance the base year, and re-optimize the plan forward. A lifecycle feature; capture and revisit post-launch.
+
+Plan: `docs/superpowers/plans/2026-06-27-v2.0-ui-plan-3-editable-year1.md`.

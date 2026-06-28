@@ -10,6 +10,32 @@ import Foundation
 
 struct LegacyPlanningEngine {
 
+    // MARK: - Heir tax on an inherited traditional balance
+
+    /// Total federal tax an heir pays on an inherited Traditional balance, drawn down
+    /// evenly over `drawdownYears` (SECURE 10-year rule), using the heir's stacked-on-salary
+    /// effective rate. Roth inheritances are tax-free and must not call this.
+    ///
+    /// Equivalent to the single-year Legacy Impact view's `heirTaxEstimate(...).incrementalTax ×
+    /// drawdownYears` (since `effectiveRateOnDistribution = incrementalTax / annualDistribution`
+    /// and `annualDistribution = balance / drawdownYears`), so the multi-year frontier and the
+    /// single-year view share one heir-tax primitive (see HeirCrossViewConsistencyTests).
+    static func heirTaxOnInheritedTraditional(
+        balance: Double,
+        heirSalary: Double,
+        heirFilingStatus: FilingStatus,
+        drawdownYears: Int = 10
+    ) -> Double {
+        guard balance > 0 else { return 0 }
+        let years = max(1, drawdownYears)
+        let annualDistribution = balance / Double(years)
+        let effRate = TaxCalculationEngine.heirEffectiveTaxRate(
+            annualDistribution: annualDistribution,
+            heirSalary: heirSalary,
+            filingStatus: heirFilingStatus)
+        return balance * effRate
+    }
+
     // MARK: - Projection Parameters
 
     /// Bundles all the inputs needed for legacy projection calculations.

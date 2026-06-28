@@ -66,6 +66,7 @@ struct PersistenceManager {
         static let legacySpouseSurvivorYears = "legacySpouseSurvivorYears"
         static let legacyGrowthRate = "legacyGrowthRate"
         static let taxBrackets = "taxBrackets"
+        static let multiYearAssumptions = "multiYearAssumptions"
 
         // 1.9 Medicare
         static let yourMedicarePlanType = "yourMedicarePlanType"
@@ -378,6 +379,12 @@ struct PersistenceManager {
             dm.scenario.acaBenchmarkSilverPlanMonthlyOverride = defaults.double(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
         }
 
+        // Multi-Year Plan assumptions (Codable blob; missing key leaves the default)
+        if let data = defaults.data(forKey: StorageKey.multiYearAssumptions),
+           let decoded = try? JSONDecoder().decode(MultiYearAssumptions.self, from: data) {
+            dm.multiYearAssumptions = decoded
+        }
+
         // Social Security Planner data
         dm.loadSSData()
     }
@@ -578,6 +585,11 @@ struct PersistenceManager {
             defaults.set(v, forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
         } else {
             defaults.removeObject(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        }
+
+        // Multi-Year Plan assumptions (Codable blob)
+        if let data = try? JSONEncoder().encode(dm.multiYearAssumptions) {
+            defaults.set(data, forKey: StorageKey.multiYearAssumptions)
         }
 
         // Social Security Planner data
