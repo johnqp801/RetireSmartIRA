@@ -118,9 +118,11 @@ final class MultiYearStrategyManager: ObservableObject {
     /// fires `onChange` exactly once per change, so we re-register inside `onChange` (no polling
     /// loop — the previous busy-loop spun the CPU and stacked redundant registrations). Each
     /// change schedules a 50ms-debounced `.overridesChanged` recompute; recompute()'s own 500ms
-    /// debounce then throttles the engine (two-stage debounce). NOTE: @Observable tracks only the
-    /// properties read in the closure below; full live-reactivity parity across all upstream
-    /// fields is wired in the deferred UI milestone.
+    /// debounce then throttles the engine (two-stage debounce). The closure below reads the full
+    /// set of inputs MultiYearInputAdapter.build(...) consumes, so an edit to any of them in any tab
+    /// refreshes the plan. (multiYearAssumptions is intentionally excluded — assumption changes
+    /// recompute through their own commit paths, and tracking it here would couple dismissals to
+    /// recompute.)
     private func observeUpstreamChanges() {
         guard let dataManager, let scenarioStateManager else { return }
         withObservationTracking {
