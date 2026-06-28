@@ -150,9 +150,13 @@ struct MultiYearPlanView: View {
             manager.attach(dataManager: dataManager, scenarioStateManager: dataManager.scenario)
             recomputeAll()
         }
-        // Persist on the infrequent events, not per keystroke: once per settled compute
-        // (currentResult republishes after the debounced engine run) and on banner dismissal.
-        .onChange(of: manager.currentResult) { dataManager.saveAllData() }
+        // Run the heir frontier and persist on the infrequent events, not per keystroke: once per
+        // settled compute (currentResult republishes after the debounced engine run) and, for the
+        // save, on banner dismissal.
+        .onChange(of: manager.currentResult) {
+            manager.computeHeirFrontier()
+            dataManager.saveAllData()
+        }
         .onChange(of: manager.assumptions.dismissedInsightKeys) { dataManager.saveAllData() }
         .sheet(isPresented: $showingAdvanced) {
             AdvancedAssumptionsSheet(

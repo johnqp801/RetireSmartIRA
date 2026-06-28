@@ -174,14 +174,19 @@ final class MultiYearStrategyManager: ObservableObject {
 
         debounceTask?.cancel()
         engineWorkTask?.cancel()   // M8: stop any in-flight compute superseded by this call
-        isComputing = true
-        computeFailed = false
+
+        // Show the spinner immediately ONLY before the first result exists (initial load). After
+        // that, do NOT flip @Published state synchronously per call: editors call recompute() on
+        // every keystroke, and republishing here would re-render the whole tab (all charts) each
+        // keystroke. The spinner flips once inside the debounced task when the compute actually runs.
+        if currentResult == nil { isComputing = true }
 
         debounceTask = Task { [weak self] in
             // Debounce window — 500ms after last call.
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled, let self else { return }
-
+            self.isComputing = true
+            self.computeFailed = false
             await self.performCompute()
         }
     }
@@ -347,11 +352,8 @@ final class MultiYearStrategyManager: ObservableObject {
         self.currentResult = result.current
         self.hasEverComputed = true
         self.isComputing = false
-
-        // Refresh the heir frontier ONCE per settled compute (not per keystroke). Persistence is
-        // driven from the view off `currentResult` so saveAllData() stays out of the manager and
-        // out of the test path.
-        self.computeHeirFrontier()
+        // The heir frontier and persistence are driven from the view off `currentResult` (once per
+        // settled compute), keeping both out of the manager's cold-start path.
     }
 
     /// Builds a map of `year: []` for every projected year in the inputs.
