@@ -150,9 +150,10 @@ struct MultiYearPlanView: View {
             manager.attach(dataManager: dataManager, scenarioStateManager: dataManager.scenario)
             recomputeAll()
         }
-        .onChange(of: manager.assumptions) {
-            dataManager.saveAllData()
-        }
+        // Persist on the infrequent events, not per keystroke: once per settled compute
+        // (currentResult republishes after the debounced engine run) and on banner dismissal.
+        .onChange(of: manager.currentResult) { dataManager.saveAllData() }
+        .onChange(of: manager.assumptions.dismissedInsightKeys) { dataManager.saveAllData() }
         .sheet(isPresented: $showingAdvanced) {
             AdvancedAssumptionsSheet(
                 assumptions: Binding(get: { manager.assumptions }, set: { manager.assumptions = $0 }),
@@ -168,9 +169,10 @@ struct MultiYearPlanView: View {
         #endif
     }
 
+    // Editors just trigger a (debounced) recompute. The manager refreshes the heir frontier and
+    // persists once per settled compute (see performCompute), so editing stays snappy.
     private func recomputeAll() {
         manager.recompute(reason: .assumptionsChanged)
-        manager.computeHeirFrontier()
     }
 
     private func makeBriefingModel() -> CPABriefingModel {
@@ -250,19 +252,15 @@ struct MultiYearPlanView: View {
 
     private func onYear1Edited() {
         manager.recompute(reason: .overridesChanged)   // current-only; optimal is cached
-        manager.computeHeirFrontier()
-        dataManager.saveAllData()
     }
 
     private func resetYear1ToOptimal() {
         manager.resetYear1ToEngineOptimal()            // writes the shared levers + recomputes current
-        manager.computeHeirFrontier()
-        dataManager.saveAllData()
     }
 
     /// One-way dismissal binding backed by the manager's dismissed-insight keys, which are
-    /// persisted across app launches via MultiYearAssumptions / DataManager (the view's
-    /// onChange(of: manager.assumptions) saves them through saveAllData()).
+    /// persisted across app launches via MultiYearAssumptions / DataManager (manager.dismissInsight
+    /// saves directly, since a dismissal does not trigger a recompute).
     /// Setting it true records the dismissal; banners do not un-dismiss themselves.
     private func dismissBinding(_ key: String) -> Binding<Bool> {
         Binding(

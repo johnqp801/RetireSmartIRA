@@ -347,6 +347,11 @@ final class MultiYearStrategyManager: ObservableObject {
         self.currentResult = result.current
         self.hasEverComputed = true
         self.isComputing = false
+
+        // Refresh the heir frontier ONCE per settled compute (not per keystroke). Persistence is
+        // driven from the view off `currentResult` so saveAllData() stays out of the manager and
+        // out of the test path.
+        self.computeHeirFrontier()
     }
 
     /// Builds a map of `year: []` for every projected year in the inputs.
