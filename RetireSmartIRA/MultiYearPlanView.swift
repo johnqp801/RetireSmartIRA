@@ -103,6 +103,16 @@ struct MultiYearPlanView: View {
                         path: activePath,
                         pessimistic: manager.currentResult?.sensitivityBands.pessimistic,
                         optimistic: manager.currentResult?.sensitivityBands.optimistic))
+                    ThresholdMapChartView(model: ThresholdMapChart(
+                        path: activePath,
+                        magiLines: ThresholdMapThresholds.magiLines(
+                            config: TaxCalculationEngine.config,
+                            filingStatus: dataManager.filingStatus,
+                            householdSize: dataManager.scenario.acaHouseholdSize,
+                            includeACA: dataManager.scenario.enableACAModeling),
+                        bracketLines: ThresholdMapThresholds.bracketLines(
+                            config: TaxCalculationEngine.config,
+                            filingStatus: dataManager.filingStatus)))
                     if let frontier = manager.heirFrontier {
                         HeirFrontierChartView(model: HeirFrontierChart(
                             result: frontier, selectedWeight: manager.selectedHeirWeight, units: units))
