@@ -62,6 +62,7 @@ enum MultiYearCPABriefingHTML {
         td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; font-size: 9px; text-align: right; }
         .sub { color: #666; font-size: 10px; }
         .note { color: #666; font-size: 10px; margin: 4px 0; }
+        table.yby th, table.yby td { font-size: 8px; padding: 2px 3px; white-space: nowrap; }
         </style></head><body>
         <h1>Multi-Year Roth Conversion Plan</h1>
         <div class="sub">Prepared for \(esc(m.preparedFor)) &middot; \(esc(m.filingStatusLabel)) &middot; \(esc(m.stateLabel)) &middot; Plan base year \(m.taxYear) &middot; \(date)</div>
@@ -120,18 +121,22 @@ enum MultiYearCPABriefingHTML {
             let age = r.year - m.primaryBirthYear
             let conv = r.actions.reduce(0.0) { a, act in
                 if case let .rothConversion(amount) = act { return a + amount }; return a }
+            // Compact currency (e.g. $785k, $1.5M) so the 12-column table fits portrait width
+            // without wrapping each value onto two lines.
+            let s = PlanSummary.shortDollars
             rows += """
-            <tr><td>\(r.year)</td><td>\(age)</td><td>\(fmt(r.agi))</td><td>\(fmt(r.taxableIncome))</td>\
-            <td>\(fmt(r.taxBreakdown.federal))</td><td>\(fmt(r.taxBreakdown.state))</td>\
-            <td>\(fmt(r.taxBreakdown.irmaa))</td><td>\(fmt(r.rmd))</td><td>\(fmt(conv))</td>\
-            <td>\(fmt(r.endOfYearBalances.traditional))</td><td>\(fmt(r.endOfYearBalances.roth))</td>\
-            <td>\(fmt(r.endOfYearBalances.taxable))</td></tr>
+            <tr><td>\(r.year)</td><td>\(age)</td><td>\(s(r.agi))</td><td>\(s(r.taxableIncome))</td>\
+            <td>\(s(r.taxBreakdown.federal))</td><td>\(s(r.taxBreakdown.state))</td>\
+            <td>\(s(r.taxBreakdown.irmaa))</td><td>\(s(r.rmd))</td><td>\(s(conv))</td>\
+            <td>\(s(r.endOfYearBalances.traditional))</td><td>\(s(r.endOfYearBalances.roth))</td>\
+            <td>\(s(r.endOfYearBalances.taxable))</td></tr>
             """
         }
         return """
         <h2>Year-by-year detail</h2>
-        <table>
-        <tr><th>Year</th><th>Age</th><th>AGI</th><th>Taxable</th><th>Federal</th><th>State</th><th>IRMAA</th><th>RMD</th><th>Conversion</th><th>End Trad</th><th>End Roth</th><th>End Taxable</th></tr>
+        <div class="note">Amounts are rounded (k = thousands, M = millions).</div>
+        <table class="yby">
+        <tr><th>Year</th><th>Age</th><th>AGI</th><th>Taxable</th><th>Fed</th><th>State</th><th>IRMAA</th><th>RMD</th><th>Conv</th><th>End Trad</th><th>End Roth</th><th>End Txbl</th></tr>
         \(rows)
         </table>
         """
