@@ -102,6 +102,8 @@ struct MultiYearPlanView: View {
                         pessimistic: manager.currentResult?.sensitivityBands.pessimistic,
                         optimistic: manager.currentResult?.sensitivityBands.optimistic))
                     if let frontier = manager.heirFrontier {
+                        HeirFrontierChartView(model: HeirFrontierChart(
+                            result: frontier, selectedWeight: manager.selectedHeirWeight, units: units))
                         HeirFrontierView(result: frontier,
                             selectedWeight: Binding(get: { manager.selectedHeirWeight },
                                                     set: { manager.selectedHeirWeight = $0 }),
