@@ -120,7 +120,7 @@ final class MultiYearStrategyManager: ObservableObject {
     /// change schedules a 50ms-debounced `.overridesChanged` recompute; recompute()'s own 500ms
     /// debounce then throttles the engine (two-stage debounce). The closure below reads the full
     /// set of inputs MultiYearInputAdapter.build(...) consumes, so an edit to any of them in any tab
-    /// refreshes the plan. (multiYearAssumptions is intentionally excluded — assumption changes
+    /// refreshes the plan. (multiYearAssumptions is intentionally excluded: assumption changes
     /// recompute through their own commit paths, and tracking it here would couple dismissals to
     /// recompute.)
     private func observeUpstreamChanges() {

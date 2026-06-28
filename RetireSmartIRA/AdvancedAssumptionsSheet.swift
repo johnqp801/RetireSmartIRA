@@ -59,10 +59,13 @@ struct AdvancedAssumptionsSheet: View {
 
     /// Whole-percent stepper over a stored decimal rate (0.06 shown as 6%).
     private func percentStepper(_ label: String, _ value: Binding<Double>, maxPercent: Double) -> some View {
+        // Show the true value (do not round in `get`, which would misreport a 2.5% default as 3%
+        // and snap it to a whole percent on the first tap). Stepping moves by 1 percentage point.
         let pct = Binding<Double>(
-            get: { (value.wrappedValue * 100).rounded() },
+            get: { value.wrappedValue * 100 },
             set: { value.wrappedValue = $0 / 100 }
         )
-        return Stepper("\(label): \(Int(pct.wrappedValue))%", value: pct, in: 0...maxPercent, step: 1)
+        let shown = (pct.wrappedValue * 10).rounded() / 10   // 1-decimal display, no float noise
+        return Stepper("\(label): \(String(format: "%g", shown))%", value: pct, in: 0...maxPercent, step: 1)
     }
 }

@@ -213,13 +213,18 @@ struct MultiYearPlanView: View {
     }
 
     // Combined household Year-1 Roth conversion. v2.0 treats it as one amount (matches
-    // resetYear1ToEngineOptimal): editing assigns the whole amount to primary and zeroes spouse.
+    // resetYear1ToEngineOptimal). Editing preserves any existing per-spouse split (engine sums them,
+    // so totals/tax are unchanged); per-spouse editing UI is 2.1.
     private var year1RothBinding: Binding<Double> {
         Binding(
             get: { dataManager.yourRothConversion + dataManager.spouseRothConversion },
             set: { newValue in
-                dataManager.yourRothConversion = max(0, newValue)
-                dataManager.spouseRothConversion = 0
+                let split = Year1RothSplit.apply(
+                    newTotal: newValue,
+                    your: dataManager.yourRothConversion,
+                    spouse: dataManager.spouseRothConversion)
+                dataManager.yourRothConversion = split.your
+                dataManager.spouseRothConversion = split.spouse
             }
         )
     }
