@@ -95,7 +95,9 @@ struct MultiYearPlanView: View {
                     if let baseline = manager.baselineProjection, !baseline.isEmpty {
                         TaxImpactChartView(model: TaxImpactChart(plan: activePath, doingNothing: baseline))
                     }
-                    ConversionLadderChartView(model: ConversionLadderChart(path: activePath))
+                    if ladderRows.contains(where: { $0.conversion > 0 }) {
+                        ConversionLadderChartView(model: ConversionLadderChart(path: activePath))
+                    }
                     LadderListView(rows: ladderRows)
                     BalancesChartView(model: BalancesChart(
                         path: activePath,
