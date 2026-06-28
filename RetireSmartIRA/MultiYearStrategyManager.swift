@@ -16,7 +16,9 @@ final class MultiYearStrategyManager: ObservableObject {
 
     // MARK: - Published state
 
-    @Published var assumptions: MultiYearAssumptions
+    @Published var assumptions: MultiYearAssumptions {
+        didSet { dataManager?.multiYearAssumptions = assumptions }
+    }
     @Published private(set) var engineOptimalResult: MultiYearStrategyResult?
     @Published private(set) var currentResult: MultiYearStrategyResult?
     @Published private(set) var isComputing: Bool = false
@@ -95,6 +97,10 @@ final class MultiYearStrategyManager: ObservableObject {
     /// still go through explicit recompute(.assumptionsChanged) calls from the pill bar.
     func attach(dataManager: DataManager, scenarioStateManager: ScenarioStateManager) {
         self.dataManager = dataManager
+
+        // Restore persisted assumptions for this scenario (dismissed banners, horizon, balances, ...).
+        self.assumptions = dataManager.multiYearAssumptions
+
         self.scenarioStateManager = scenarioStateManager
 
         // DataManager and ScenarioStateManager use the @Observable macro (not ObservableObject),

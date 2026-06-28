@@ -98,6 +98,9 @@ struct MultiYearPlanView: View {
             manager.attach(dataManager: dataManager, scenarioStateManager: dataManager.scenario)
             recomputeAll()
         }
+        .onChange(of: manager.assumptions) {
+            dataManager.saveAllData()
+        }
     }
 
     private func recomputeAll() {
