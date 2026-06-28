@@ -185,8 +185,12 @@ final class MultiYearStrategyManager: ObservableObject {
             // Debounce window — 500ms after last call.
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled, let self else { return }
-            self.isComputing = true
-            self.computeFailed = false
+            // Cold start only: flip the spinner. For edits (a result already exists), republishing
+            // isComputing here re-renders the entire tab (every chart) twice per commit just to
+            // toggle a spinner that never shows (it gates on currentResult == nil). Skip it so
+            // editing stays smooth. Same for computeFailed: only republish on an actual transition.
+            if self.currentResult == nil { self.isComputing = true }
+            if self.computeFailed { self.computeFailed = false }
             await self.performCompute()
         }
     }
@@ -260,7 +264,10 @@ final class MultiYearStrategyManager: ObservableObject {
         let inputs = MultiYearInputAdapter.build(
             from: dataManager, scenarioState: scenarioStateManager,
             assumptions: assumptions, excludeYear1Overrides: false)
-        isComputingFrontier = true
+        // Cold start only: show the spinner. Later refreshes update the chart silently so an edit
+        // doesn't toggle @Published state (re-rendering the whole tab) twice per commit; the old
+        // frontier stays on screen until the new one lands.
+        if heirFrontier == nil { isComputingFrontier = true }
         frontierWorkTask?.cancel()
         // .utility (not .userInitiated): the 6-weight frontier optimize is heavy and secondary to the
         // main plan, so it should yield CPU to the UI / typing rather than compete with it.
@@ -273,14 +280,14 @@ final class MultiYearStrategyManager: ObservableObject {
             let result = await work.value
             guard let self, !Task.isCancelled, !work.isCancelled else { return }
             self.heirFrontier = result
-            self.isComputingFrontier = false
+            if self.isComputingFrontier { self.isComputingFrontier = false }
         }
     }
 
     // MARK: - Internal compute
 
     private func performCompute() async {
-        self.computeFailed = false
+        if self.computeFailed { self.computeFailed = false }
         guard let dataManager = self.dataManager,
               let scenarioStateManager = self.scenarioStateManager else {
             // Manager not attached — clear computing flag and bail.
@@ -352,8 +359,8 @@ final class MultiYearStrategyManager: ObservableObject {
             self.baselineProjection = baseline
         }
         self.currentResult = result.current
-        self.hasEverComputed = true
-        self.isComputing = false
+        if !self.hasEverComputed { self.hasEverComputed = true }
+        if self.isComputing { self.isComputing = false }
         // The heir frontier and persistence are driven from the view off `currentResult` (once per
         // settled compute), keeping both out of the manager's cold-start path.
     }
