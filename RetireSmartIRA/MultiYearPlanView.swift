@@ -58,6 +58,12 @@ struct MultiYearPlanView: View {
                                            set: { manager.assumptions.horizonEndAge = $0 }),
                     onCommit: { recomputeAll() })
 
+                Year1EditorView(
+                    year1RothConversion: year1RothBinding,
+                    status: offPlanStatus,
+                    onCommit: { onYear1Edited() },
+                    onResetToOptimal: { resetYear1ToOptimal() })
+
                 if manager.isComputing && manager.currentResult == nil {
                     ProgressView("Computing your plan…").frame(maxWidth: .infinity).padding()
                 } else if activePath.isEmpty {
@@ -106,6 +112,36 @@ struct MultiYearPlanView: View {
     private func recomputeAll() {
         manager.recompute(reason: .assumptionsChanged)
         manager.computeHeirFrontier()
+    }
+
+    // Combined household Year-1 Roth conversion. v2.0 treats it as one amount (matches
+    // resetYear1ToEngineOptimal): editing assigns the whole amount to primary and zeroes spouse.
+    private var year1RothBinding: Binding<Double> {
+        Binding(
+            get: { dataManager.yourRothConversion + dataManager.spouseRothConversion },
+            set: { newValue in
+                dataManager.yourRothConversion = max(0, newValue)
+                dataManager.spouseRothConversion = 0
+            }
+        )
+    }
+
+    private var offPlanStatus: OffPlanStatus? {
+        guard let current = manager.currentResult, let optimal = manager.engineOptimalResult else { return nil }
+        return OffPlanStatus(extraLifetimeTax:
+            current.lifetimeTaxFromRecommendedPath - optimal.lifetimeTaxFromRecommendedPath)
+    }
+
+    private func onYear1Edited() {
+        manager.recompute(reason: .overridesChanged)   // current-only; optimal is cached
+        manager.computeHeirFrontier()
+        dataManager.saveAllData()
+    }
+
+    private func resetYear1ToOptimal() {
+        manager.resetYear1ToEngineOptimal()            // writes the shared levers + recomputes current
+        manager.computeHeirFrontier()
+        dataManager.saveAllData()
     }
 
     /// One-way dismissal binding backed by the manager's dismissed-insight keys, which are
