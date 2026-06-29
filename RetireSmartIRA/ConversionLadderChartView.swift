@@ -23,6 +23,16 @@ struct ConversionLadderChartView: View {
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
                 }
             }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisTick()
+                    AxisValueLabel {
+                        if let year = value.as(String.self) {
+                            Text(year).font(.caption2)
+                        }
+                    }
+                }
+            }
             .frame(height: 200)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
