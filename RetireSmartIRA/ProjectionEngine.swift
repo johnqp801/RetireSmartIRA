@@ -738,8 +738,14 @@ struct ProjectionEngine {
                 // direct analogue of the legacy "pay tax from taxable first" step. The realized gain
                 // raises taxable income, which is folded into the gross-up fixed point below. In legacy
                 // mode the synthesized bucket is gain-free, so saleGain == 0 and this reproduces the old
-                // taxable debit exactly. Sales target the gain-inclusive tax so a gainful account funds
-                // its own incremental tax before falling to traditional.
+                // taxable debit exactly.
+                //
+                // V2.0 simplification: Phase 1 sells only enough to cover the BASE tax (the
+                // incrementalTax(0,0) term is zero by construction). The extra tax created by the
+                // sale's own realized gain is then grossed up below (Phase 2), funded from traditional
+                // rather than by re-selling the bucket. The reported total tax is still exact (recomputed
+                // with saleGain folded in); only the funding source of the gain-on-gain sliver is
+                // approximate. Re-selling within the iteration is a v2.1 refinement.
                 let availableTrad = max(0, primaryTrad + spouseTrad)
                 let sellTarget = baseTotalTax + incrementalTax(saleGain: 0, dW: 0)
                 let applied = TaxableAccountEngine.sell(amount: sellTarget, from: &buckets, forTaxes: true)
