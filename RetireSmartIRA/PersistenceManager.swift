@@ -23,6 +23,7 @@ struct PersistenceManager {
         static let spouseName = "spouseName"
         static let enableSpouse = "enableSpouse"
         static let iraAccounts = "iraAccounts"
+        static let taxableAccounts = "taxableAccounts"
         static let incomeSources = "incomeSources"
         static let quarterlyPayments = "quarterlyPayments"
         static let yourRothConversion = "yourRothConversion"
@@ -385,6 +386,21 @@ struct PersistenceManager {
             dm.multiYearAssumptions = decoded
         }
 
+        // Taxable accounts (decoded AFTER assumptions so the legacy-balance migration
+        // below can read currentTaxableBalance). When none are stored but a legacy
+        // currentTaxableBalance exists, seed a single brokerage account from it. Basis
+        // defaults to balance (optimistic, preserves prior behavior) and is flagged so
+        // the UI shows "Confirm basis".
+        if let data = defaults.data(forKey: StorageKey.taxableAccounts),
+           let decoded = try? JSONDecoder().decode([TaxableAccount].self, from: data) {
+            dm.taxableAccounts = decoded
+        } else if dm.multiYearAssumptions.currentTaxableBalance > 0 {
+            let bal = dm.multiYearAssumptions.currentTaxableBalance
+            dm.taxableAccounts = [TaxableAccount(
+                name: "Brokerage", balance: bal, costBasis: bal,
+                basisNeedsConfirmation: true)]
+        }
+
         // Social Security Planner data
         dm.loadSSData()
     }
@@ -453,6 +469,9 @@ struct PersistenceManager {
         // Accounts
         if let data = try? JSONEncoder().encode(dm.iraAccounts) {
             defaults.set(data, forKey: StorageKey.iraAccounts)
+        }
+        if let data = try? JSONEncoder().encode(dm.taxableAccounts) {
+            defaults.set(data, forKey: StorageKey.taxableAccounts)
         }
 
         // Income & Deductions
