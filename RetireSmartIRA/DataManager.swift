@@ -84,7 +84,13 @@ class DataManager {
         get { accounts.iraAccounts }
         set { accounts.iraAccounts = newValue }
     }
-    
+
+    // Taxable (non-retirement) accounts (forwarding to AccountsManager)
+    var taxableAccounts: [TaxableAccount] {
+        get { accounts.taxableAccounts }
+        set { accounts.taxableAccounts = newValue }
+    }
+
     // Income Sources (forwarding to IncomeDeductionsManager)
     var incomeSources: [IncomeSource] {
         get { incomeDeductions.incomeSources }
