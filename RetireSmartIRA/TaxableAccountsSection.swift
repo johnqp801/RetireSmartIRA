@@ -96,6 +96,14 @@ struct TaxableAccountEditor: View {
                     Toggle("Can be used for living expenses", isOn: $draft.availableForExpenses)
                     Toggle("Can be used to pay Roth conversion taxes", isOn: $draft.availableForConversionTaxes)
                 }
+                if let existing {
+                    Section {
+                        Button("Delete Account", role: .destructive) {
+                            dataManager.removeTaxableAccount(id: existing.id)
+                            dismiss()
+                        }
+                    }
+                }
             }
             .navigationTitle(existing == nil ? "Add Taxable Account" : "Edit Taxable Account")
             .toolbar {

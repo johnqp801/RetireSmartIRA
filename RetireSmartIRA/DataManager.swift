@@ -1272,6 +1272,18 @@ class DataManager {
         #endif
     }
 
+    /// Removes a taxable account and persists. When the last one is removed, the legacy
+    /// `currentTaxableBalance` scalar is zeroed so the engine's empty-accounts fallback can't
+    /// resurrect a deleted balance as a phantom bucket (the scalar is only consumed when there
+    /// are no taxable accounts).
+    func removeTaxableAccount(id: UUID) {
+        taxableAccounts.removeAll { $0.id == id }
+        if taxableAccounts.isEmpty {
+            multiYearAssumptions.currentTaxableBalance = 0
+        }
+        saveAllData()
+    }
+
     /// Resets all scenario properties to defaults.
     func resetScenario() {
         scenario.resetScenarioState()
