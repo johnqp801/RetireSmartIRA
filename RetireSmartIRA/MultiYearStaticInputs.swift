@@ -16,6 +16,10 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     // Account starting balances (rolled up from 1.9 AccountType + user inputs for taxable/HSA)
     let startingBalances: AccountSnapshot
 
+    // First-class taxable accounts (V2.0). Empty -> engine synthesizes a single bucket from
+    // startingBalances.taxable so legacy callers/tests are unchanged.
+    let taxableAccounts: [TaxableAccountInput]
+
     // Scenario planning base year (year 0 of the projection). Defaults to the current
     // calendar year so production/existing callers are unchanged, but is injectable so a
     // saved or future-dated scenario projects from a fixed year and tests are deterministic
@@ -123,9 +127,11 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         year1PrimaryWithdrawal: Double = 0,
         year1SpouseWithdrawal: Double = 0,
         year1PrimaryQCD: Double = 0,
-        year1SpouseQCD: Double = 0
+        year1SpouseQCD: Double = 0,
+        taxableAccounts: [TaxableAccountInput] = []
     ) {
         self.startingBalances = startingBalances
+        self.taxableAccounts = taxableAccounts
         self.baseYear = baseYear
         self.primaryCurrentAge = primaryCurrentAge
         self.spouseCurrentAge = spouseCurrentAge
@@ -197,7 +203,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             year1PrimaryWithdrawal: year1PrimaryWithdrawal,
             year1SpouseWithdrawal: year1SpouseWithdrawal,
             year1PrimaryQCD: year1PrimaryQCD,
-            year1SpouseQCD: year1SpouseQCD
+            year1SpouseQCD: year1SpouseQCD,
+            taxableAccounts: taxableAccounts
         )
     }
 }
