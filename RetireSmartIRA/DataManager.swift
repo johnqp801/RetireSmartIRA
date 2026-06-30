@@ -84,7 +84,13 @@ class DataManager {
         get { accounts.iraAccounts }
         set { accounts.iraAccounts = newValue }
     }
-    
+
+    // Taxable (non-retirement) accounts (forwarding to AccountsManager)
+    var taxableAccounts: [TaxableAccount] {
+        get { accounts.taxableAccounts }
+        set { accounts.taxableAccounts = newValue }
+    }
+
     // Income Sources (forwarding to IncomeDeductionsManager)
     var incomeSources: [IncomeSource] {
         get { incomeDeductions.incomeSources }
@@ -177,6 +183,11 @@ class DataManager {
         get { scenario.completedActionKeys }
         set { scenario.completedActionKeys = newValue }
     }
+
+    /// Per-scenario Multi-Year Plan assumptions (horizon, growth, CPI, balances, dismissed
+    /// insight banners, etc.). Persisted as one Codable blob via PersistenceManager. The
+    /// MultiYearStrategyManager seeds itself from this on attach and mirrors changes back.
+    var multiYearAssumptions = MultiYearAssumptions()
 
     // Growth Rates (forwarding to GrowthRatesManager)
     var primaryGrowthRate: Double {
@@ -1259,6 +1270,18 @@ class DataManager {
         #else
         PersistenceManager.saveAll(from: self)
         #endif
+    }
+
+    /// Removes a taxable account and persists. When the last one is removed, the legacy
+    /// `currentTaxableBalance` scalar is zeroed so the engine's empty-accounts fallback can't
+    /// resurrect a deleted balance as a phantom bucket (the scalar is only consumed when there
+    /// are no taxable accounts).
+    func removeTaxableAccount(id: UUID) {
+        taxableAccounts.removeAll { $0.id == id }
+        if taxableAccounts.isEmpty {
+            multiYearAssumptions.currentTaxableBalance = 0
+        }
+        saveAllData()
     }
 
     /// Resets all scenario properties to defaults.

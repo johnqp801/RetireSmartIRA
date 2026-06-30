@@ -105,6 +105,13 @@ struct AccountsView: View {
                 .background(Color(PlatformColor.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+
+                // Taxable / non-retirement accounts (V2.0). Multi-Year planner consumes these.
+                TaxableAccountsSection()
+                    .padding()
+                    .background(Color(PlatformColor.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
             }
             .padding()
         }

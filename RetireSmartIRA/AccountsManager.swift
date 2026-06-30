@@ -17,6 +17,8 @@ class AccountsManager {
 
     var iraAccounts: [IRAAccount] = []
 
+    var taxableAccounts: [TaxableAccount] = []
+
     // MARK: - Balance Aggregations (all accounts)
 
     var totalTraditionalIRABalance: Double {
