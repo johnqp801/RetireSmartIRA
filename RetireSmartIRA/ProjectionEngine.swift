@@ -123,8 +123,54 @@ struct ProjectionEngine {
         var primaryTrad = inputs.startingBalances.primaryTraditional
         var spouseTrad = inputs.startingBalances.spouseTraditional
         var roth = inputs.startingBalances.roth
-        var taxable = inputs.startingBalances.taxable
+        // V2.0 first-class taxable accounts: model per-account buckets instead of one scalar.
+        // When no accounts were supplied, synthesize a single legacy-equivalent bucket from
+        // startingBalances.taxable (basis = balance, both flags true, zero yields, appreciation =
+        // investmentGrowthRate) so a no-accounts projection reproduces the old scalar's numbers exactly.
+        // Legacy mode: no first-class accounts were supplied. The old engine modeled taxable as a
+        // single gain-free scalar (every dollar withdrawable with no embedded capital gain). To
+        // reproduce that EXACTLY, the synthesized bucket's basis tracks its balance through
+        // appreciation (Step 5), so selling to fund expenses/tax never realizes a phantom gain.
+        let legacyTaxableMode = inputs.taxableAccounts.isEmpty
+        var buckets: [TaxableBucket] = inputs.taxableAccounts.isEmpty
+            ? (inputs.startingBalances.taxable > 0
+                ? [TaxableBucket(balance: inputs.startingBalances.taxable,
+                                 costBasis: inputs.startingBalances.taxable,
+                                 input: TaxableAccountInput(
+                                    balance: inputs.startingBalances.taxable,
+                                    costBasis: inputs.startingBalances.taxable,
+                                    protectedAmount: 0, appreciationRate: assumptions.investmentGrowthRate,
+                                    qualifiedDividendYield: 0, ordinaryIncomeYield: 0, taxExemptYield: 0,
+                                    realizedLongTermGainYield: 0, availableForExpenses: true,
+                                    availableForConversionTaxes: true, fundingPriority: nil))]
+                : [])
+            : inputs.taxableAccounts.map {
+                TaxableBucket(balance: $0.balance, costBasis: $0.costBasis, input: $0)
+            }
         var hsa = inputs.startingBalances.hsa
+        // Sum of all taxable-bucket balances. Replaces every read of the old `taxable` scalar.
+        func totalTaxableBalance() -> Double { buckets.reduce(0) { $0 + $1.balance } }
+
+        // Deposit already-taxed cash (excess RMD, spendable surplus) into the first
+        // expense-available bucket, raising both balance and basis by the same amount (no gain
+        // on a fresh deposit). If no bucket exists yet (legacy zero-taxable path), synthesize one
+        // so the cash is preserved exactly as the old scalar held it.
+        func depositToBuckets(_ amount: Double) {
+            guard amount > 0 else { return }
+            if let i = buckets.firstIndex(where: { $0.input.availableForExpenses }) {
+                buckets[i].balance += amount
+                buckets[i].costBasis += amount
+            } else {
+                buckets.append(TaxableBucket(
+                    balance: amount, costBasis: amount,
+                    input: TaxableAccountInput(
+                        balance: amount, costBasis: amount, protectedAmount: 0,
+                        appreciationRate: assumptions.investmentGrowthRate,
+                        qualifiedDividendYield: 0, ordinaryIncomeYield: 0, taxExemptYield: 0,
+                        realizedLongTermGainYield: 0, availableForExpenses: true,
+                        availableForConversionTaxes: true, fundingPriority: nil)))
+            }
+        }
         var primaryAge = inputs.primaryCurrentAge
         var spouseAge = inputs.spouseCurrentAge
 
@@ -181,6 +227,7 @@ struct ProjectionEngine {
             var explicitRothConversions = 0.0          // add to AGI
             var aboveTheLineDeductions = 0.0           // HSA + pre-tax 401k; reduces AGI
             var explicitTaxableWithdrawals = 0.0       // taxable cash pulled out (funds expenses)
+            var explicitTaxableGain = 0.0              // realized LTCG from explicit taxable sales (preferential)
             var explicitRothWithdrawals = 0.0          // qualified Roth cash pulled out (funds expenses)
 
             // Helper: is primary the older spouse (or single filer)?
@@ -251,11 +298,10 @@ struct ProjectionEngine {
                     }
 
                 case .taxableWithdrawal(let amount):
-                    let actual = min(amount, max(0, taxable))
-                    taxable -= actual
-                    // Zero-gain approximation: no AGI impact in v2.0 (cost-basis tracking deferred to v2.1).
-                    // The cash IS available to fund expenses (tracked below).
-                    explicitTaxableWithdrawals += actual
+                    // Sell from buckets (expense funding), realizing a proportional long-term gain.
+                    let s = TaxableAccountEngine.sell(amount: amount, from: &buckets, forTaxes: false)
+                    explicitTaxableWithdrawals += s.raised
+                    explicitTaxableGain += s.realizedGain   // preferential income (LTCG schedule)
 
                 case .rothWithdrawal(let amount):
                     let actual = min(amount, max(0, roth))
@@ -264,18 +310,20 @@ struct ProjectionEngine {
                     explicitRothWithdrawals += actual
 
                 case .hsaContribution(let amount):
-                    let actual = min(amount, max(0, taxable))
-                    taxable -= actual
-                    hsa += actual
-                    aboveTheLineDeductions += actual
+                    // Funded by selling taxable buckets; realized gain feeds preferential income.
+                    let s = TaxableAccountEngine.sell(amount: amount, from: &buckets, forTaxes: false)
+                    explicitTaxableGain += s.realizedGain
+                    hsa += s.raised
+                    aboveTheLineDeductions += s.raised
 
                 case .fourOhOneKContribution(let amount):
-                    // Default to primary's bucket (one employer's 401k per spouse; primary default)
-                    let actual = min(amount, max(0, taxable))
-                    taxable -= actual
-                    primaryTrad += actual
+                    // Default to primary's bucket (one employer's 401k per spouse; primary default).
+                    // Funded by selling taxable buckets; realized gain feeds preferential income.
+                    let s = TaxableAccountEngine.sell(amount: amount, from: &buckets, forTaxes: false)
+                    explicitTaxableGain += s.realizedGain
+                    primaryTrad += s.raised
                     // Pre-tax 401k contribution: reduces AGI (treated like HSA as above-the-line deduction)
-                    aboveTheLineDeductions += actual
+                    aboveTheLineDeductions += s.raised
 
                 case .deferSocialSecurity:
                     break   // marker only — no balance change
@@ -382,7 +430,12 @@ struct ProjectionEngine {
             // Preferential-rate income (qualified dividends + LTCG): part of AGI/MAGI/provisional
             // income and spendable cash, but taxed at the federal LTCG schedule (not ordinary).
             let preferentialIncome = inputs.primaryPreferentialIncome + inputs.spousePreferentialIncome
-            let passiveIncome = wageIncome + pensionIncome + otherOrdinaryIncome + preferentialIncome + totalGrossSSAnnual
+            // Account income on the START-of-year balances (before growth). Ordinary + preferential
+            // flow into AGI; tax-exempt flows into MAGI add-back only. spendableCash is the income
+            // from expense-available accounts (walled-account income is taxed but reinvested in Step 5).
+            let acctIncome = TaxableAccountEngine.annualIncome(buckets)
+            let passiveIncome = wageIncome + pensionIncome + otherOrdinaryIncome + preferentialIncome
+                + totalGrossSSAnnual + acctIncome.spendableCash
 
             var autoFundedTradWithdrawals = 0.0
             // RMD cash already extracted from trad; subtract from shortfall before auto-funding.
@@ -394,22 +447,32 @@ struct ProjectionEngine {
             let expenseShortfallBeforeRMD = max(0, annualExpenses - passiveIncome)
             let expenseShortfall = max(0, expenseShortfallBeforeRMD - rmdCashAvailable - explicitNonTradCash)
 
-            // Deposit gross excess RMD (above expense need) to taxable bucket
+            // Deposit gross excess RMD (above expense need) into a taxable bucket (Approach A).
             let rmdExcess = max(0, rmdCashAvailable - expenseShortfallBeforeRMD)
-            taxable += rmdExcess
+            depositToBuckets(rmdExcess)
 
+            // Realized LTCG from auto-fund taxable sales (preferential income, like explicit sales).
+            var autoFundTaxableGain = 0.0
             if expenseShortfall > 0 {
                 // Bug D: pass both per-spouse trad buckets; older-spouse-first is applied inside.
-                let (tradWD, remaining) = autoFundExpenses(
+                // The taxable leg runs against a scratch scalar seeded from the bucket total so the
+                // ordering rules are unchanged; we then realize exactly that draw from the buckets,
+                // capturing its proportional gain.
+                var scratchTaxable = totalTaxableBalance()
+                let (tradWD, taxableWD, remaining) = autoFundExpenses(
                     shortfall: expenseShortfall,
                     primaryTrad: &primaryTrad,
                     spouseTrad: &spouseTrad,
-                    taxableBalance: &taxable,
+                    taxableBalance: &scratchTaxable,
                     roth: &roth,
                     rule: assumptions.withdrawalOrderingRule,
                     primaryIsOlderOrSingle: primaryIsOlderOrSingle
                 )
                 autoFundedTradWithdrawals = tradWD
+                if taxableWD > 0 {
+                    let s = TaxableAccountEngine.sell(amount: taxableWD, from: &buckets, forTaxes: false)
+                    autoFundTaxableGain = s.realizedGain
+                }
                 _ = remaining  // v2.0: assume solvent, ignore any residual
             }
 
@@ -422,8 +485,32 @@ struct ProjectionEngine {
             primaryTrad *= growthFactor
             spouseTrad *= growthFactor
             roth *= growthFactor
-            taxable *= growthFactor
             hsa *= growthFactor
+
+            // Per-account taxable growth: each bucket appreciates at its own appreciationRate
+            // (basis unchanged by appreciation). Walled accounts (not available for expenses) have
+            // their year's income reinvested first — it was taxed in Step 6 but is not spendable, so
+            // it compounds in-account (raising both balance and basis, since it's already-taxed cash).
+            for i in buckets.indices {
+                if !buckets[i].input.availableForExpenses {
+                    let inc = (buckets[i].input.ordinaryIncomeYield + buckets[i].input.qualifiedDividendYield
+                               + buckets[i].input.taxExemptYield + buckets[i].input.realizedLongTermGainYield)
+                              * buckets[i].balance
+                    buckets[i].balance += inc
+                    buckets[i].costBasis += inc
+                }
+                buckets[i].balance *= (1.0 + buckets[i].input.appreciationRate)  // appreciation only; basis unchanged
+                // Legacy mode keeps basis == balance so the synthesized bucket stays gain-free,
+                // reproducing the old gain-agnostic scalar exactly (no phantom realized gains).
+                if legacyTaxableMode { buckets[i].costBasis = buckets[i].balance }
+            }
+
+            // Spendable surplus reinvestment: account distributions that exceeded the year's expense
+            // need are already-taxed cash. Redeposit the unspent portion into the first available
+            // bucket so it compounds instead of leaking out of the projection. Only the account-sourced
+            // distributions are reinvested (wage/SS/pension surplus is consumption, not re-invested).
+            let spendSurplus = max(0, passiveIncome - annualExpenses)
+            depositToBuckets(min(acctIncome.spendableCash, spendSurplus))
 
             // ─────────────────────────────────────────
             // Step 6: Compute AGI and tax breakdown
@@ -436,7 +523,18 @@ struct ProjectionEngine {
                 type: .socialSecurity,
                 annualAmount: totalGrossSSAnnual
             )
-            let otherIncomeForSSTax = pensionIncome + wageIncome + otherOrdinaryIncome + preferentialIncome
+            // Account income that flows into taxable income:
+            //   ordinary  → taxed at ordinary brackets (interest, non-qualified dividends, walled too)
+            //   preferential → taxed at the LTCG schedule. Realized gains from THIS year's sales
+            //     (explicit taxable withdrawals, expense auto-funding, contribution funding) are
+            //     also preferential and join the bucket here. Tax-paying sales' gains are added
+            //     inside the Step 7 gross-up loop, not here.
+            let accountOrdinaryIncome = acctIncome.ordinary
+            let realizedSaleGains = explicitTaxableGain + autoFundTaxableGain
+            let totalPreferentialIncome = preferentialIncome + acctIncome.preferential + realizedSaleGains
+
+            let otherIncomeForSSTax = pensionIncome + wageIncome + otherOrdinaryIncome
+                + accountOrdinaryIncome + totalPreferentialIncome
                 + totalTradWithdrawals + explicitRothConversions
             let taxableSS = TaxCalculationEngine.calculateTaxableSocialSecurity(
                 filingStatus: inputs.filingStatus,
@@ -453,17 +551,19 @@ struct ProjectionEngine {
                 pensionIncome
                 + wageIncome
                 + otherOrdinaryIncome       // ordinary-rate investment/other income
-                + preferentialIncome        // qualified dividends + LTCG (in AGI; taxed preferentially below)
+                + accountOrdinaryIncome     // taxable-account ordinary income (interest, non-qual divs)
+                + totalPreferentialIncome   // qualified dividends + LTCG + realized sale gains (in AGI; taxed preferentially below)
                 + totalTradWithdrawals
                 + explicitRothConversions
                 + taxableSS
                 - aboveTheLineDeductions
             )
 
-            // ACA MAGI = federalAGI + tax-exempt interest + non-taxable SS
-            // non-taxable SS = grossSS - taxableSS; tax-exempt interest = 0 for v2.0
+            // ACA / IRMAA MAGI = federalAGI + tax-exempt interest + non-taxable SS.
+            // non-taxable SS = grossSS - taxableSS; tax-exempt interest = muni income on taxable
+            // accounts (V2.0: now modeled per-account instead of the old hardcoded 0).
             let nonTaxableSS = max(0, totalGrossSSAnnual - taxableSS)
-            let magiAddback = nonTaxableSS  // tax-exempt interest = 0 in v2.0
+            let magiAddback = nonTaxableSS + acctIncome.taxExempt
 
             // Bug C fix: ACA MAGI is tracked when EITHER spouse is pre-Medicare.
             // Gating on primaryAge < 65 alone was incorrect for mixed-age couples where
@@ -507,7 +607,7 @@ struct ProjectionEngine {
             // taxable income. The standard deduction offsets ordinary income first, so the
             // preferential amount stacks on top at the LTCG schedule — matching the single-year
             // engine's calculateFederalTax(preferentialIncome:) convention.
-            let taxablePreferential = min(max(0, preferentialIncome), taxableIncome)
+            let taxablePreferential = min(max(0, totalPreferentialIncome), taxableIncome)
 
             // Federal tax — ordinary brackets on the ordinary portion, the federal LTCG schedule
             // on the preferential portion. Brackets resolve through the per-year config provider.
@@ -611,31 +711,61 @@ struct ProjectionEngine {
             var stTax = stateTax
             var reportedAGI = federalAGI
             var reportedTaxableIncome = taxableIncome
+            var taxFundingGain = 0.0   // realized LTCG from selling buckets to PAY the tax bill
 
             if assumptions.taxPaymentSource == .taxableThenGrossUp {
                 let nonFedState = max(0, taxBreakdown.total - federalTax - stateTax) // irmaa+aca, NOT recomputed
                 let baseTotalTax = federalTax + stateTax + nonFedState
-                let shortfall0 = max(0, baseTotalTax - taxable)
-                if shortfall0 > 0 {
-                    let availableTrad = max(0, primaryTrad + spouseTrad)
-                    func taxOn(_ dW: Double) -> Double {
-                        let fed = TaxCalculationEngine.calculateFederalTax(
-                            income: max(0, taxableIncome + dW), filingStatus: inputs.filingStatus,
-                            brackets: brackets, preferentialIncome: taxablePreferential) - federalTax
-                        let st = computeStateTax(
-                            federalAGI: federalAGI + dW, taxableSS: taxableSS, pensionIncome: pensionIncome,
-                            totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
-                            usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
-                            year: year) - stateTax
-                        return max(0, fed) + max(0, st)
-                    }
-                    var dW = min(shortfall0, availableTrad)
+
+                // Incremental fed+state tax created by (a) realized gains from tax-funding bucket
+                // sales (preferential) and (b) a grossed-up traditional withdrawal (ordinary). Both
+                // ride on top of the already-computed federalTax/stateTax. The gain enters as
+                // additional preferential income; dW enters as additional ordinary income + AGI.
+                func incrementalTax(saleGain: Double, dW: Double) -> Double {
+                    let fed = TaxCalculationEngine.calculateFederalTax(
+                        income: max(0, taxableIncome + dW), filingStatus: inputs.filingStatus,
+                        brackets: brackets, preferentialIncome: min(taxablePreferential + max(0, saleGain),
+                                                                     max(0, taxableIncome + dW))) - federalTax
+                    let st = computeStateTax(
+                        federalAGI: federalAGI + dW + max(0, saleGain), taxableSS: taxableSS, pensionIncome: pensionIncome,
+                        totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
+                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
+                        year: year) - stateTax
+                    return max(0, fed) + max(0, st)
+                }
+
+                // Phase 1: fund the tax bill by selling taxable buckets (forTaxes: true). This is the
+                // direct analogue of the legacy "pay tax from taxable first" step. The realized gain
+                // raises taxable income, which is folded into the gross-up fixed point below. In legacy
+                // mode the synthesized bucket is gain-free, so saleGain == 0 and this reproduces the old
+                // taxable debit exactly. Sales target the gain-inclusive tax so a gainful account funds
+                // its own incremental tax before falling to traditional.
+                let availableTrad = max(0, primaryTrad + spouseTrad)
+                let sellTarget = baseTotalTax + incrementalTax(saleGain: 0, dW: 0)
+                let applied = TaxableAccountEngine.sell(amount: sellTarget, from: &buckets, forTaxes: true)
+                let saleCash = applied.raised
+                let saleGain = applied.realizedGain
+                taxFundingGain = saleGain
+
+                // Phase 2: gross up from traditional for whatever the buckets could not cover, including
+                // the incremental tax created by the realized gain AND by the gross-up withdrawal itself.
+                // This mirrors the legacy 3-iteration fixed point: dW = shortfall + taxOn(dW), seeded at
+                // the bucket shortfall so the iteration count and convergence match exactly.
+                let shortfall0 = max(0, baseTotalTax - saleCash) // base tax not covered by bucket sales
+                var dW = min(shortfall0 + incrementalTax(saleGain: saleGain, dW: 0), availableTrad)
+                if shortfall0 > 0 || saleGain > 0 {
                     for _ in 0..<3 {
-                        let next = min(shortfall0 + taxOn(dW), availableTrad)
+                        let next = min(shortfall0 + incrementalTax(saleGain: saleGain, dW: dW), availableTrad)
                         if abs(next - dW) < 1.0 { dW = next; break }
                         dW = next
                     }
-                    grossUpWithdrawal = dW
+                } else {
+                    dW = 0
+                }
+
+                // Apply the converged traditional gross-up (older-spouse-first).
+                grossUpWithdrawal = dW
+                if dW > 0 {
                     var remaining = dW
                     if primaryIsOlderOrSingle {
                         let fromP = min(remaining, max(0, primaryTrad)); primaryTrad -= fromP; remaining -= fromP
@@ -644,16 +774,21 @@ struct ProjectionEngine {
                         let fromS = min(remaining, max(0, spouseTrad)); spouseTrad -= fromS; remaining -= fromS
                         primaryTrad -= min(remaining, max(0, primaryTrad))
                     }
+                }
+
+                // Recompute reported tax with the realized gain and gross-up folded in.
+                if saleGain > 0 || dW > 0 {
                     reportedTaxableIncome = max(0, taxableIncome + dW)
-                    reportedAGI = federalAGI + dW
+                    reportedAGI = federalAGI + dW + saleGain
                     fedTax = TaxCalculationEngine.calculateFederalTax(
                         income: reportedTaxableIncome, filingStatus: inputs.filingStatus,
-                        brackets: brackets, preferentialIncome: taxablePreferential)
+                        brackets: brackets,
+                        preferentialIncome: min(taxablePreferential + saleGain, reportedTaxableIncome))
                     stTax = computeStateTax(
                         federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year)
-                    underfundedTax = max(0, (fedTax + stTax + nonFedState) - taxable - dW)
+                    underfundedTax = max(0, (fedTax + stTax + nonFedState) - saleCash - dW)
                 }
             }
 
@@ -663,14 +798,16 @@ struct ProjectionEngine {
                 irmaa: taxBreakdown.irmaa,
                 acaPremiumImpact: taxBreakdown.acaPremiumImpact)
 
-            let yearTaxBurden = max(0, taxBreakdownFinal.total)
-            taxable -= min(taxable, yearTaxBurden)
+            // The bucket sales above raised cash to pay the tax; that cash leaves the household as the
+            // tax payment. Any tax not covered by sales/gross-up (underfunded) is assumed paid from an
+            // external source (v2.0 limitation), so no further bucket debit is needed here.
+            _ = max(0, taxBreakdownFinal.total)
 
             let snapshot = AccountSnapshot(
                 primaryTraditional: max(0, primaryTrad),
                 spouseTraditional: max(0, spouseTrad),
                 roth: max(0, roth),
-                taxable: max(0, taxable),
+                taxable: max(0, totalTaxableBalance()),
                 hsa: max(0, hsa)
             )
 
@@ -745,8 +882,9 @@ struct ProjectionEngine {
     }
 
     /// Auto-fund the expense shortfall from account buckets per the withdrawal ordering rule.
-    /// Returns (totalTradWithdrawn, remainingShortfall).
-    /// Mutates primaryTrad, spouseTrad, taxable, and roth directly.
+    /// Returns (totalTradWithdrawn, taxableWithdrawn, remainingShortfall).
+    /// Mutates primaryTrad, spouseTrad, taxableBalance, and roth directly. The caller realizes the
+    /// taxableBalance decrement against the per-account buckets (so basis/gain are tracked there).
     /// When drawing from trad, uses older-spouse-first order (primaryIsOlderOrSingle).
     private func autoFundExpenses(
         shortfall: Double,
@@ -756,7 +894,8 @@ struct ProjectionEngine {
         roth: inout Double,
         rule: WithdrawalOrderingRule,
         primaryIsOlderOrSingle: Bool
-    ) -> (tradWithdrawn: Double, remaining: Double) {
+    ) -> (tradWithdrawn: Double, taxableWithdrawn: Double, remaining: Double) {
+        let taxableStart = taxableBalance
         var remaining = shortfall
         var tradWithdrawn = 0.0
 
@@ -845,7 +984,7 @@ struct ProjectionEngine {
             roth -= fromRoth; remaining -= fromRoth
         }
 
-        return (tradWithdrawn, remaining)
+        return (tradWithdrawn, max(0, taxableStart - taxableBalance), remaining)
     }
 
     /// Compute the standard deduction from TaxCalculationEngine.config (no DataManager dependency).
