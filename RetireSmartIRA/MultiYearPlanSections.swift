@@ -3,7 +3,9 @@ import SwiftUI
 /// Editable strip for the inputs with no home elsewhere. Mutates the bound assumptions and
 /// triggers a recompute via the closure.
 struct AssumptionsStripView: View {
-    @Binding var taxableBalance: Double
+    // Taxable accounts are entered in the Accounts tab now; this is a read-only roll-up so the
+    // balance isn't owned in two places. Editing lives where the rest of the balance sheet lives.
+    let taxableSummary: (count: Int, total: Double)
     @Binding var hsaBalance: Double
     @Binding var horizonEndAge: Int
     var onCommit: () -> Void
@@ -11,18 +13,21 @@ struct AssumptionsStripView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Assumptions").font(.subheadline).foregroundStyle(.secondary)
-            // One field per row: side-by-side LabeledContent crowded the Taxable value against the
-            // HSA label (tight on iPad, worse on iPhone). Full-width rows match the stepper below
-            // and read cleanly on every size class.
-            LabeledContent("Taxable balance") {
-                TextField("0", value: $taxableBalance, format: .number).multilineTextAlignment(.trailing)
+            // One field per row: side-by-side LabeledContent crowded values against labels (tight on
+            // iPad, worse on iPhone). Full-width rows match the stepper below and read cleanly.
+            LabeledContent("Taxable accounts") {
+                if taxableSummary.count == 0 {
+                    Text("None entered").foregroundStyle(.secondary)
+                } else {
+                    Text("\(taxableSummary.total, format: .currency(code: "USD").precision(.fractionLength(0))) across \(taxableSummary.count) accounts")
+                        .foregroundStyle(.secondary)
+                }
             }
             LabeledContent("HSA balance") {
                 TextField("0", value: $hsaBalance, format: .number).multilineTextAlignment(.trailing)
             }
             Stepper("Plan through age \(horizonEndAge)", value: $horizonEndAge, in: 70...110)
         }
-        .onChange(of: taxableBalance) { _, _ in onCommit() }
         .onChange(of: hsaBalance) { _, _ in onCommit() }
         .onChange(of: horizonEndAge) { _, _ in onCommit() }
         .padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))

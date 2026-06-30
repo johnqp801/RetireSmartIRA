@@ -80,8 +80,8 @@ struct MultiYearPlanView: View {
                                        dismissed: dismissBinding("conversionWindow"))
 
                 AssumptionsStripView(
-                    taxableBalance: Binding(get: { manager.assumptions.currentTaxableBalance },
-                                            set: { manager.assumptions.currentTaxableBalance = $0 }),
+                    taxableSummary: (dataManager.taxableAccounts.count,
+                                     dataManager.taxableAccounts.reduce(0) { $0 + $1.balance }),
                     hsaBalance: Binding(get: { manager.assumptions.currentHSABalance },
                                         set: { manager.assumptions.currentHSABalance = $0 }),
                     horizonEndAge: Binding(get: { manager.assumptions.horizonEndAge },
@@ -110,6 +110,12 @@ struct MultiYearPlanView: View {
                     PlanSummaryView(summary: PlanSummary(path: activePath,
                         pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
                         cpiRate: manager.assumptions.cpiRate), units: units)
+                    if dataManager.taxableAccounts.isEmpty,
+                       ladderRows.contains(where: { $0.conversion > 0 }) {
+                        Text("No taxable account entered. This plan assumes Roth conversion taxes must be paid from additional IRA withdrawals, which may materially change the conversion ladder.")
+                            .font(.callout).foregroundStyle(.orange)
+                            .padding().background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    }
                     if let baseline = manager.baselineProjection, !baseline.isEmpty {
                         PlanComparisonView(comparison: PlanComparison(
                             plan: activePath,
@@ -155,6 +161,8 @@ struct MultiYearPlanView: View {
                             ProgressView("Computing heir trade-off…")
                         }
                     }
+                    Text("Taxable-account sales use an average cost-basis estimate and a default funding order. Lot-level tax selection, short-term holding periods, and single-year income reconciliation are planned future enhancements.")
+                        .font(.caption).foregroundStyle(.secondary)
                     AssumptionsLimitationsView()
                     Button {
                         exportBriefing()
