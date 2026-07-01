@@ -10,6 +10,7 @@ struct Year1EditorViewTests {
         for status in [OffPlanStatus.onPlan, .nearOptimal, .offPlan, .significantlyOffPlan] {
             let editor = Year1EditorView(
                 year1RothConversion: .constant(40_000),
+                plannedYear1: 40_000,
                 status: status,
                 onCommit: {},
                 onResetToOptimal: {})
@@ -17,7 +18,7 @@ struct Year1EditorViewTests {
             _ = OffPlanBadge(status: status).body
         }
         // nil status (no results yet) still builds
-        _ = Year1EditorView(year1RothConversion: .constant(0), status: nil,
+        _ = Year1EditorView(year1RothConversion: .constant(0), plannedYear1: 0, status: nil,
                             onCommit: {}, onResetToOptimal: {}).body
         #expect(true)
     }

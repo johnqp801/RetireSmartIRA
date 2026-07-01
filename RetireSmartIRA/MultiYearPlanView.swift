@@ -90,6 +90,7 @@ struct MultiYearPlanView: View {
 
                 Year1EditorView(
                     year1RothConversion: year1RothBinding,
+                    plannedYear1: manager.currentResult.map { year1Roth($0) } ?? 0,
                     status: offPlanStatus,
                     onCommit: { onYear1Edited() },
                     onResetToOptimal: { resetYear1ToOptimal() })

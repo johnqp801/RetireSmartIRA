@@ -9,7 +9,11 @@ import SwiftUI
 /// model ~0.4s after the user stops typing, so editing is buttery and the engine work happens once
 /// the user pauses.
 struct Year1EditorView: View {
+    /// The user's explicit override for this year (0 = no override, follow the plan).
     @Binding var year1RothConversion: Double
+    /// What the modeled plan actually converts in Year 1. Shown in the field so it agrees with
+    /// the ladder/chart instead of displaying a bare 0 when there is no override.
+    let plannedYear1: Double
     let status: OffPlanStatus?
     var onCommit: () -> Void
     var onResetToOptimal: () -> Void
@@ -31,14 +35,22 @@ struct Year1EditorView: View {
                     .keyboardType(.numberPad)
                     #endif
             }
-            if let status, !status.isOnPlan {
-                Text(status.caption).font(.caption).foregroundStyle(.secondary)
+            if year1RothConversion == 0 {
+                Text("Following the modeled plan. Enter an amount to set your own conversion for this year.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                if let status, !status.isOnPlan {
+                    Text(status.caption).font(.caption).foregroundStyle(.secondary)
+                }
                 Button("Reset to optimal", action: onResetToOptimal).font(.callout)
             }
         }
-        .onAppear { text = Self.string(from: year1RothConversion) }
-        .onChange(of: year1RothConversion) { _, newValue in
-            // External change (Reset / recompute): sync the field; do not re-commit.
+        // The field displays the plan's Year-1 amount (so it agrees with the ladder/chart). When
+        // there is no override it shows what the engine chose; when overridden it shows the pinned
+        // value (the plan's Year-1 equals the override once pinned).
+        .onAppear { text = Self.string(from: plannedYear1) }
+        .onChange(of: plannedYear1) { _, newValue in
+            // Plan recomputed (or Reset): sync the field to the new modeled amount; do not re-commit.
             if Self.parse(text) != newValue { text = Self.string(from: newValue) }
         }
         .onChange(of: text) { _, newValue in
@@ -48,8 +60,13 @@ struct Year1EditorView: View {
             commitTask?.cancel()
             commitTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 400_000_000)
-                guard !Task.isCancelled, year1RothConversion != parsed else { return }
-                year1RothConversion = parsed
+                guard !Task.isCancelled else { return }
+                // Editing to the plan's own Year-1 amount clears the override (follow the plan);
+                // any other value is an explicit override. This also makes the on-appear sync
+                // (text := plannedYear1) a no-op rather than a spurious override.
+                let target = abs(parsed - plannedYear1) < 1 ? 0 : parsed
+                guard year1RothConversion != target else { return }
+                year1RothConversion = target
                 onCommit()
             }
         }
