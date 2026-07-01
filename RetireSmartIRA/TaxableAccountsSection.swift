@@ -76,24 +76,40 @@ struct TaxableAccountEditor: View {
                     }
                 }
                 Section {
-                    TextField("Balance", value: $draft.balance, format: .number)
-                    TextField("Cost basis", value: $draft.costBasis, format: .number)
+                    LabeledContent("Balance") {
+                        TextField("0", value: $draft.balance, format: .number).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Cost basis") {
+                        TextField("0", value: $draft.costBasis, format: .number).multilineTextAlignment(.trailing)
+                    }
                     if draft.basisNeedsConfirmation {
                         Label("Confirm basis", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption).foregroundStyle(.orange)
                     }
-                    TextField("Price growth (excludes yield)", value: $draft.expectedAppreciationRate, format: .percent)
+                    LabeledContent("Price growth (excludes yield)") {
+                        TextField("0", value: $draft.expectedAppreciationRate, format: .percent).multilineTextAlignment(.trailing)
+                    }
                 } header: {
                     Text("Balances")
                 } footer: {
                     Text("Balance is the account's current value. Cost basis is your amount invested; it estimates capital gains if the account is sold to fund expenses or conversion taxes. Price growth is yearly appreciation as a percent of the balance, separate from the income yields under Advanced.")
                 }
                 Section {
-                    TextField("Qualified dividend yield", value: $draft.qualifiedDividendYield, format: .percent)
-                    TextField("Ordinary income yield", value: $draft.ordinaryIncomeYield, format: .percent)
-                    TextField("Tax-exempt (muni) yield", value: $draft.taxExemptYield, format: .percent)
-                    TextField("Capital gain distributions", value: $draft.realizedLongTermGainYield, format: .percent)
-                    TextField("Reserve (keep at least)", value: $draft.protectedAmount, format: .number)
+                    LabeledContent("Qualified dividend yield") {
+                        TextField("0", value: $draft.qualifiedDividendYield, format: .percent).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Ordinary income yield") {
+                        TextField("0", value: $draft.ordinaryIncomeYield, format: .percent).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Tax-exempt (muni) yield") {
+                        TextField("0", value: $draft.taxExemptYield, format: .percent).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Capital gain distributions") {
+                        TextField("0", value: $draft.realizedLongTermGainYield, format: .percent).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Reserve (keep at least)") {
+                        TextField("0", value: $draft.protectedAmount, format: .number).multilineTextAlignment(.trailing)
+                    }
                     Toggle("Use for living expenses", isOn: $draft.availableForExpenses)
                     Toggle("Use to pay Roth conversion taxes", isOn: $draft.availableForConversionTaxes)
                 } header: {
