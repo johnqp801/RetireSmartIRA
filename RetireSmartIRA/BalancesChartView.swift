@@ -28,8 +28,8 @@ struct BalancesChartView: View {
                 ForEach(model.points) { point in
                     LineMark(x: .value("Year", point.year),
                              y: .value("Balance", point.traditional),
-                             series: .value("Account", "Traditional"))
-                        .foregroundStyle(Color.Chart.gray3)
+                             series: .value("Account", "Traditional IRA/401k"))
+                        .foregroundStyle(Color.Chart.gray1)
                     LineMark(x: .value("Year", point.year),
                              y: .value("Balance", point.roth),
                              series: .value("Account", "Roth"))
@@ -41,7 +41,7 @@ struct BalancesChartView: View {
                 }
             }
             .chartForegroundStyleScale([
-                "Traditional": Color.Chart.gray3,
+                "Traditional IRA/401k": Color.Chart.gray1,
                 "Roth": Color.Chart.heroTeal,
                 "Taxable": Color.Chart.callout
             ])
