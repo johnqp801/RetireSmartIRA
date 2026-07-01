@@ -86,7 +86,7 @@ struct TaxableAccountEditor: View {
                 } header: {
                     Text("Balances")
                 } footer: {
-                    Text("Cost basis is your amount invested; it estimates capital gains if this account is sold to fund expenses or conversion taxes. Income yields are entered under Advanced.")
+                    Text("Balance is the account's current value. Cost basis is your amount invested; it estimates capital gains if the account is sold to fund expenses or conversion taxes. Price growth is yearly appreciation as a percent of the balance, separate from the income yields under Advanced.")
                 }
                 Section {
                     TextField("Qualified dividend yield", value: $draft.qualifiedDividendYield, format: .percent)
@@ -99,7 +99,7 @@ struct TaxableAccountEditor: View {
                 } header: {
                     Text("Advanced")
                 } footer: {
-                    Text("Ordinary income yield covers interest and non-qualified dividends. Reserve is an amount this account never drops below when funding the plan.")
+                    Text("Each yield is annual income as a percent of this account's balance. Example: a $4M account at 2% qualified dividend yield produces about $80,000 a year. Ordinary income yield covers interest and non-qualified dividends. Reserve is a dollar amount the account never drops below when funding the plan.")
                 }
                 if let existing {
                     Section {
