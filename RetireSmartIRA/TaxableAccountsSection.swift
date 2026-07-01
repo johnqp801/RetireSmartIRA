@@ -57,7 +57,6 @@ struct TaxableAccountEditor: View {
     let existing: TaxableAccount?
 
     @State private var draft: TaxableAccount
-    @State private var showAdvanced = false
 
     init(existing: TaxableAccount?) {
         self.existing = existing
@@ -77,24 +76,30 @@ struct TaxableAccountEditor: View {
                     }
                 }
                 Section {
-                    currencyField("Balance", $draft.balance)
-                    currencyField("Cost basis / amount invested", $draft.costBasis)
+                    TextField("Balance", value: $draft.balance, format: .number)
+                    TextField("Cost basis", value: $draft.costBasis, format: .number)
                     if draft.basisNeedsConfirmation {
                         Label("Confirm basis", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption).foregroundStyle(.orange)
                     }
-                    percentField("Expected price growth, excluding income yield", $draft.expectedAppreciationRate)
+                    TextField("Price growth (excludes yield)", value: $draft.expectedAppreciationRate, format: .percent)
+                } header: {
+                    Text("Balances")
                 } footer: {
-                    Text("Cost basis is used to estimate capital gains if this account is sold to pay expenses or conversion taxes. Dividends, interest, and tax-exempt income are entered under Advanced.")
+                    Text("Cost basis is your amount invested; it estimates capital gains if this account is sold to fund expenses or conversion taxes. Income yields are entered under Advanced.")
                 }
-                DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
-                    percentField("Qualified dividend yield", $draft.qualifiedDividendYield)
-                    percentField("Ordinary income yield (interest, non-qualified dividends)", $draft.ordinaryIncomeYield)
-                    percentField("Tax-exempt (muni) yield", $draft.taxExemptYield)
-                    percentField("Long-term capital gain distributions", $draft.realizedLongTermGainYield)
-                    currencyField("Reserve (never spend below)", $draft.protectedAmount)
-                    Toggle("Can be used for living expenses", isOn: $draft.availableForExpenses)
-                    Toggle("Can be used to pay Roth conversion taxes", isOn: $draft.availableForConversionTaxes)
+                Section {
+                    TextField("Qualified dividend yield", value: $draft.qualifiedDividendYield, format: .percent)
+                    TextField("Ordinary income yield", value: $draft.ordinaryIncomeYield, format: .percent)
+                    TextField("Tax-exempt (muni) yield", value: $draft.taxExemptYield, format: .percent)
+                    TextField("Capital gain distributions", value: $draft.realizedLongTermGainYield, format: .percent)
+                    TextField("Reserve (keep at least)", value: $draft.protectedAmount, format: .number)
+                    Toggle("Use for living expenses", isOn: $draft.availableForExpenses)
+                    Toggle("Use to pay Roth conversion taxes", isOn: $draft.availableForConversionTaxes)
+                } header: {
+                    Text("Advanced")
+                } footer: {
+                    Text("Ordinary income yield covers interest and non-qualified dividends. Reserve is an amount this account never drops below when funding the plan.")
                 }
                 if let existing {
                     Section {
@@ -125,20 +130,5 @@ struct TaxableAccountEditor: View {
             dataManager.taxableAccounts.append(draft)
         }
         dataManager.saveAllData()
-    }
-
-    private func currencyField(_ label: String, _ value: Binding<Double>) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            TextField("0", value: value, format: .number).multilineTextAlignment(.trailing)
-        }
-    }
-    private func percentField(_ label: String, _ value: Binding<Double>) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            TextField("0", value: value, format: .percent).multilineTextAlignment(.trailing).frame(width: 90)
-        }
     }
 }
