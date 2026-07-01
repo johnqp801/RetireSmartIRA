@@ -17,6 +17,7 @@ struct PlanComparison: Equatable, Sendable {
     let lifetimeTax: Pair        // lower is better (nominal sum)
     let endingTraditional: Pair  // lower is better (defused RMD bomb)
     let endingRoth: Pair         // higher is better (value shifted into tax-free Roth)
+    let endingTaxable: Pair      // after-tax money; the plan shifts this into Roth vs. doing nothing
     /// After-tax inheritance = ending Roth + (ending traditional - heir income tax) + ending taxable.
     /// The taxable account receives a stepped-up cost basis at death, so it passes to heirs near
     /// tax-free; it is credited in full here (see HeirValue / V2Disclosures for the simplification).
@@ -72,6 +73,7 @@ struct PlanComparison: Equatable, Sendable {
         self.lifetimeTax = Pair(plan: lifetimeTax(plan), doingNothing: lifetimeTax(doingNothing))
         self.endingTraditional = Pair(plan: endingTrad(plan), doingNothing: endingTrad(doingNothing))
         self.endingRoth = Pair(plan: endingRoth(plan), doingNothing: endingRoth(doingNothing))
+        self.endingTaxable = Pair(plan: endingTaxable(plan), doingNothing: endingTaxable(doingNothing))
         self.heirsKeep = Pair(plan: heirsKeep(plan), doingNothing: heirsKeep(doingNothing))
         self.peakForcedRMD = Pair(plan: peakRMD(plan), doingNothing: peakRMD(doingNothing))
         self.lifetimeTaxPV = Pair(plan: lifetimeTaxPV(plan), doingNothing: lifetimeTaxPV(doingNothing))

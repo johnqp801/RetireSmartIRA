@@ -77,6 +77,7 @@ struct PlanComparisonView: View {
                 metricRow("Lifetime tax", comparison.lifetimeTax(units: units))
                 metricRow("Ending traditional IRA", comparison.terminal(comparison.endingTraditional, units: units))
                 metricRow("Ending Roth IRA", comparison.terminal(comparison.endingRoth, units: units))
+                metricRow("Ending taxable", comparison.terminal(comparison.endingTaxable, units: units))
                 metricRow(rmdLabel, comparison.peakForcedRMD)
                 if showHeirs {
                     metricRow("What heirs keep", comparison.terminal(comparison.heirsKeep, units: units))
