@@ -25,7 +25,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     /// Baseline annual living expenses in today's dollars. Default $60K.
     /// Previously a caller-supplied parameter to MultiYearInputAdapter.build();
     /// migrated to assumptions in Plan B so it persists per-scenario.
-    var baselineAnnualExpenses: Double = 60_000
+    var baselineAnnualExpenses: Double = 120_000
     var terminalLiquidationTaxRate: Double       // default 0.22 — see optimizer-correctness-fixes spec
     var cliffBuffer: Double                      // default 5_000 — IRMAA/ACA cliff safety margin
     /// Hashes of dismissed insight callouts (SS nudge, widow stress).
@@ -50,7 +50,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         perYearExpenseOverrides: [Int: Double] = [:],
         currentTaxableBalance: Double = 0,
         currentHSABalance: Double = 0,
-        baselineAnnualExpenses: Double = 60_000,
+        baselineAnnualExpenses: Double = 120_000,
         terminalLiquidationTaxRate: Double = 0.22,
         cliffBuffer: Double = 5_000,
         dismissedInsightKeys: Set<String> = [],
@@ -89,7 +89,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.perYearExpenseOverrides = try c.decode([Int: Double].self, forKey: .perYearExpenseOverrides)
         self.currentTaxableBalance = try c.decode(Double.self, forKey: .currentTaxableBalance)
         self.currentHSABalance = try c.decode(Double.self, forKey: .currentHSABalance)
-        self.baselineAnnualExpenses = try c.decodeIfPresent(Double.self, forKey: .baselineAnnualExpenses) ?? 60_000
+        self.baselineAnnualExpenses = try c.decodeIfPresent(Double.self, forKey: .baselineAnnualExpenses) ?? 120_000
         self.terminalLiquidationTaxRate = try c.decode(Double.self, forKey: .terminalLiquidationTaxRate)
         self.cliffBuffer = try c.decode(Double.self, forKey: .cliffBuffer)
         self.dismissedInsightKeys = try c.decodeIfPresent(Set<String>.self, forKey: .dismissedInsightKeys) ?? []

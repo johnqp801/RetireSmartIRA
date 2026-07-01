@@ -87,7 +87,7 @@ final class MultiYearAssumptionsTests: XCTestCase {
 
         let decoded = try JSONDecoder().decode(MultiYearAssumptions.self, from: oldJSON)
 
-        XCTAssertEqual(decoded.baselineAnnualExpenses, 60_000, "Should default to 60K when missing from old saves")
+        XCTAssertEqual(decoded.baselineAnnualExpenses, 120_000, "Should default to the current default (120K) when missing from old saves")
         XCTAssertEqual(decoded.dismissedInsightKeys, [], "Should default to empty set when missing from old saves")
         XCTAssertEqual(decoded.horizonEndAge, 95)
         XCTAssertEqual(decoded.cpiRate, 0.025)
