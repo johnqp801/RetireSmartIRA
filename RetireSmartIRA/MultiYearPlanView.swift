@@ -37,6 +37,13 @@ struct MultiYearPlanView: View {
         return activePath.map { LadderRow($0, baselineIRMAA: baselineIRMAA[$0.year] ?? 0) }
     }
 
+    /// How many years the no-conversion baseline already pays Medicare IRMAA on its own. When this
+    /// is high but few ladder rows are flagged, the surcharge is coming from RMDs/other income (not
+    /// the conversions), so a note clarifies why the IRMAA column is nearly empty.
+    private var baselineIRMAAYears: Int {
+        (manager.baselineProjection ?? []).filter { $0.taxBreakdown.irmaa > 0 }.count
+    }
+
     // Future-dollars vs present-value toggle. Shared by the compact (stacked) and regular
     // (side-by-side) header layouts. Only shown once there's a plan to display.
     @ViewBuilder private var unitsPicker: some View {
@@ -135,7 +142,7 @@ struct MultiYearPlanView: View {
                     if ladderRows.contains(where: { $0.conversion > 0 }) {
                         ConversionLadderChartView(model: ConversionLadderChart(path: activePath))
                     }
-                    LadderListView(rows: ladderRows)
+                    LadderListView(rows: ladderRows, baselineIRMAAYears: baselineIRMAAYears)
                     BalancesChartView(model: BalancesChart(
                         path: activePath,
                         pessimistic: manager.currentResult?.sensitivityBands.pessimistic,

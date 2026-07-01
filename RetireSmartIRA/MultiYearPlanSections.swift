@@ -94,6 +94,9 @@ struct PlanComparisonView: View {
 
 struct LadderListView: View {
     let rows: [LadderRow]
+    /// How many years the no-conversion baseline pays IRMAA on its own. Drives a clarifying note
+    /// when your income triggers IRMAA in far more years than the conversions add to.
+    var baselineIRMAAYears: Int = 0
     private var anyIRMAA: Bool { rows.contains(where: \.hasIRMAASurcharge) }
 
     var body: some View {
@@ -111,6 +114,14 @@ struct LadderListView: View {
                     }
                 }
                 .font(.callout)
+            }
+            if baselineIRMAAYears >= 3 {
+                Label(
+                    "Your other income already triggers Medicare IRMAA in \(baselineIRMAAYears) of these years, mainly from required distributions. The ladder flags only the extra surcharge a conversion adds on top.",
+                    systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
             }
             if anyIRMAA {
                 Label(
