@@ -98,7 +98,7 @@ struct LadderListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Recommended ladder").font(.headline)
+            Text("Modeled conversion ladder").font(.headline)
             ForEach(rows) { row in
                 HStack(spacing: 6) {
                     Text(String(row.year)).monospacedDigit()

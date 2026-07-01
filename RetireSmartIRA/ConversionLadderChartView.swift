@@ -6,7 +6,7 @@ struct ConversionLadderChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Recommended conversions by year").font(.headline)
+            Text("Modeled conversions by year").font(.headline)
             Chart(model.points) { point in
                 BarMark(x: .value("Year", point.yearLabel),
                         y: .value("Conversion", point.conversion))

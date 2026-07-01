@@ -96,6 +96,6 @@ struct PlanComparison: Equatable, Sendable {
             return "This plan comes out about even with doing nothing here."
         }
         let rmd = PlanSummary.shortDollars(peakForcedRMD.plan) + (units == .presentValue ? " (nominal)" : "")
-        return "This plan saves \(PlanSummary.shortDollars(savings)) in lifetime tax and holds your largest forced RMD to \(rmd)."
+        return "Under these assumptions, this plan saves \(PlanSummary.shortDollars(savings)) in lifetime tax and holds your largest forced RMD to \(rmd)."
     }
 }

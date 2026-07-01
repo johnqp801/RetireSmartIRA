@@ -7,7 +7,7 @@ struct TaxImpactChartView: View {
     private var caption: String {
         let s = model.totalSavings
         if s > 1_000 {
-            return "Your plan pays more tax early, then comes out ahead by about \(PlanSummary.shortDollars(s)) over the horizon."
+            return "Your plan pays more tax early, then comes out ahead by about \(PlanSummary.shortDollars(s)) over the horizon, under these assumptions."
         } else if s < -1_000 {
             return "Over this horizon the plan pays about \(PlanSummary.shortDollars(-s)) more tax than doing nothing; the payoff is in defused future RMDs and what heirs keep."
         }

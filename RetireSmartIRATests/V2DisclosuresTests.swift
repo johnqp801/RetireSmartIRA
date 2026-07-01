@@ -19,4 +19,22 @@ struct V2DisclosuresTests {
         #expect(V2Disclosures.limitations.allSatisfy { !$0.isEmpty })
         #expect(V2Disclosures.limitations.allSatisfy { !$0.contains("\u{2014}") })
     }
+
+    @Test("limitations reflect shipped taxable-accounts accuracy (no stale muni/rate-tier claims)")
+    func limitationsMatchShippedEngine() {
+        let all = V2Disclosures.limitations.joined(separator: "\n").lowercased()
+        // Muni is now included in MAGI; the old "excluded from MAGI" claim must be gone.
+        #expect(!all.contains("excluded from magi"))
+        // Qualified dividends / LTCG are now rate-tiered; the old "not separately rate-tiered" claim must be gone.
+        #expect(!all.contains("not separately rate-tiered"))
+        // The accurate replacement is present.
+        #expect(all.contains("average cost-basis estimate"))
+    }
+
+    @Test("inputsUsed is present, non-empty, and uses no em dash")
+    func inputsUsedIsHonest() {
+        #expect(!V2Disclosures.inputsUsed.isEmpty)
+        #expect(!V2Disclosures.inputsUsed.contains("\u{2014}"))
+        #expect(V2Disclosures.inputsUsed.lowercased().contains("taxable accounts"))
+    }
 }

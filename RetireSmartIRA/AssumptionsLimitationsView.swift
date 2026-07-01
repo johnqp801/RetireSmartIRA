@@ -9,6 +9,7 @@ struct AssumptionsLimitationsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("What this plan covers").font(.headline)
             Text(V2Disclosures.positioning).font(.callout).foregroundStyle(.secondary)
+            Text(V2Disclosures.inputsUsed).font(.caption).foregroundStyle(.secondary)
             DisclosureGroup("Assumptions & limitations", isExpanded: $expanded) {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(V2Disclosures.limitations, id: \.self) { item in
