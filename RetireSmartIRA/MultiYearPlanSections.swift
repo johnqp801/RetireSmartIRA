@@ -6,6 +6,9 @@ struct AssumptionsStripView: View {
     // Taxable accounts are entered in the Accounts tab now; this is a read-only roll-up so the
     // balance isn't owned in two places. Editing lives where the rest of the balance sheet lives.
     let taxableSummary: (count: Int, total: Double)
+    /// Annual living expenses in today's dollars; the engine inflates by CPI over the horizon.
+    /// Drives how much is actually spent (vs accumulated), which materially changes ending balances.
+    @Binding var annualExpenses: Double
     @Binding var hsaBalance: Double
     @Binding var horizonEndAge: Int
     var onCommit: () -> Void
@@ -23,11 +26,15 @@ struct AssumptionsStripView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            LabeledContent("Annual living expenses") {
+                TextField("0", value: $annualExpenses, format: .number).multilineTextAlignment(.trailing)
+            }
             LabeledContent("HSA balance") {
                 TextField("0", value: $hsaBalance, format: .number).multilineTextAlignment(.trailing)
             }
             Stepper("Plan through age \(horizonEndAge)", value: $horizonEndAge, in: 70...110)
         }
+        .onChange(of: annualExpenses) { _, _ in onCommit() }
         .onChange(of: hsaBalance) { _, _ in onCommit() }
         .onChange(of: horizonEndAge) { _, _ in onCommit() }
         .padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))

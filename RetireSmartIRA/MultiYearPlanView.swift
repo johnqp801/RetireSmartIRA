@@ -89,6 +89,8 @@ struct MultiYearPlanView: View {
                 AssumptionsStripView(
                     taxableSummary: (dataManager.taxableAccounts.count,
                                      dataManager.taxableAccounts.reduce(0) { $0 + $1.balance }),
+                    annualExpenses: Binding(get: { manager.assumptions.baselineAnnualExpenses },
+                                            set: { manager.assumptions.baselineAnnualExpenses = $0 }),
                     hsaBalance: Binding(get: { manager.assumptions.currentHSABalance },
                                         set: { manager.assumptions.currentHSABalance = $0 }),
                     horizonEndAge: Binding(get: { manager.assumptions.horizonEndAge },
