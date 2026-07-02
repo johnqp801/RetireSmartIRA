@@ -70,6 +70,41 @@ assumptions, read the balances chart / cliffs chart / heir comparison. Watch for
 
 ## 4. Findings
 
+### HEADLINE — T3: Data-representation fragmentation across analysis surfaces (Critical)
+
+The app has grown several analysis surfaces that each consume the household inputs a little
+differently and **don't visibly reconcile**. Concrete evidence from one profile:
+
+- **Four different "income" totals**, same-ish labels: Income tab **$176,054** · Scenarios "Income
+  from Sources" **$140,490** (taxable-only; excludes $46,927 tax-exempt) · Tax Summary "Total
+  Baseline Income" **$187,417** · Quarterly "Gross Income" **$224,499**. Each is internally correct;
+  together they read as the app disagreeing with itself.
+- **Investment income entered twice** (Income tab manual entries *and* taxable-account yields), with
+  the Multi-Year adapter **silently superseding** the manual entries while the single-year tabs still
+  use them — no UI signal (this is a direct consequence of the taxable-accounts supersede logic).
+- **RMD peak differs**: RMD Calculator "IRA/401k peak $534k in 2035" vs Multi-Year "peak forced RMD
+  $785k-$1.1M" (different horizons/assumptions, unexplained to the user).
+- **Effective rate** defined differently: Tax Summary avg 3.6% vs State Comparison 1.81%.
+
+Root cause: three engines behind overlapping UI (`TaxCalculationEngine` -> Scenarios/Tax Summary/
+Quarterly/State; `DrawdownProjectionEngine` -> RMD Calculator; `ProjectionEngine` -> Multi-Year).
+**Fix direction:** one household "inputs" model with consistent labels; where a surface uses a subset
+(taxable-only, +scenario, +horizon), label it explicitly; and a single place to see "what income the
+app thinks you have."
+
+### IA consolidation question (Major)
+
+**Scenarios + Tax Summary + Quarterly Tax** are three separate tabs doing closely-related *single-year*
+scenario work — they share the exact output (taxable $111,738.93, total tax $8,930.84) but frame the
+input four ways. This is the "two-mode" question: consider one **"This Year"** surface (single-year)
+clearly distinct from **Multi-Year** (multi-year), rather than three sibling tabs.
+
+### Positive baseline (protect these)
+
+The tax-engine depth is the real differentiator and it shows: Tax Summary's IRMAA guidance ("$2,574
+until next tier; reduce income by $53k to save $2,297/yr"), the State Comparison (current scenario
+taxed in all 51 states), the RMD projection chart, and honest disclosures throughout.
+
 ### Systemic themes (fix these for leverage)
 
 - **T1 — Cross-tab dependency is inconsistently surfaced (D1, Major).** The Multi-Year plan
@@ -100,16 +135,40 @@ assumptions, read the balances chart / cliffs chart / heir comparison. Watch for
 | AC-4 | Accounts | D4 | Minor | S | Button labels inconsistent: "Add" (taxable) vs "Add Account" (IRA). | unify label |
 | MY-1 | Multi-Year | D3 | (+) | - | Assumptions strip now shows taxable roll-up + Annual living expenses + horizon; fixes present. | keep |
 | MY-2 | Multi-Year | D3 | Minor | S | Year-1 field shows "0" during "Computing your plan…" (plannedYear1 is 0 until the result lands), briefly re-showing the old 0-vs-plan confusion. | show a placeholder while computing |
+| INC-1 | Income & Deductions | D1/D3 | Critical | M | Manual investment income (~$172k) is silently superseded by taxable-account yields in Multi-Year, but still used by single-year tabs; no signal (theme T3). | `MultiYearInputAdapter` supersede; add a note on Income tab when accounts exist |
+| INC-2 | Income & Deductions | D3 | Minor | S | "Short Term Cp Gains" label typo ("Cp"). | fix label |
+| RMD-1 | RMD Calculator | D3 | (+) | - | Dated obligations + projected-RMD chart with peaks; strong. | keep |
+| RMD-2 | RMD Calculator | D1/D4 | Major | L | Own drawdown model (RMD only / spending gap / withdrawal rate) overlaps Multi-Year; RMD peak ($534k) does not obviously reconcile with Multi-Year ($785k-$1.1M) (theme T3). | reconcile / cross-link / explain horizon diff |
+| SCN-1 | Scenarios | D3/D4 | Major | M | "Income from Sources $140,490" (taxable-only) vs Income tab $176,054 under near-identical labels (theme T3). | label the subset explicitly |
+| SCN-2 | Scenarios | D1 | Major | L | Scenarios / Tax Summary / Quarterly overlap heavily (single-year scenario tax); consolidation question. | see IA consolidation |
+| TS-1 | Tax Summary | D3/D5 | (+) | - | Rich single-year breakdown + excellent actionable IRMAA guidance; the app's strength. | keep |
+| QT-1 | Quarterly Tax | D3/D7 | (+) | - | Safe-harbor choice with tradeoffs + payment schedule with paid toggles. | keep |
+| QT-2 | Quarterly Tax | D4 | Major | M | "Gross Income $224,499" — a 4th income figure across tabs (theme T3). | consistent income labeling |
+| SC-1 | State Comparison | D3 | (+) | - | Current scenario taxed across all 51 states, ranked; genuine differentiator. | keep |
+| SC-2 | State Comparison | D6 | Minor | M | 50 two-letter bars will be cramped on iPhone (compact width). | parity check |
 
-**Not yet captured (pilot stopped after 5 screens):** Income & Deductions, RMD Calculator, Scenarios,
-Tax Summary, Quarterly Tax, State Comparison; all modals; iPad + iPhone parity passes.
+**Full macOS pass complete (all 11 tabs).** Not yet captured: modals/editors (Advanced assumptions
+sheet, account editors, SS estimate entry) and the **iPad + iPhone parity passes**.
 
-### Prioritized (from the pilot so far)
-1. **T2 / MP-1** — reconcile the duplicate "taxable" concept (structural clarity).
-2. **T1 / SS-2** — missing-critical-input nudges on Multi-Year (trust + correctness).
-3. **AC-3** — Taxable card in the balances summary (completeness).
-4. **AC-2** — fix the misleading category subtitle (quick win).
-5. **AC-4, MY-2** — polish (quick wins).
+### Prioritized (full macOS pass)
+
+**Structural (highest leverage, L):**
+1. **T3 — data-representation fragmentation.** One household inputs model + consistent income labels
+   across tabs; explicitly label subsets; a single "what income the app thinks you have" view. This is
+   the #1 credibility issue (numbers that don't match across tabs). Covers INC-1, SCN-1, QT-2, RMD-2.
+2. **IA consolidation** — collapse Scenarios / Tax Summary / Quarterly into one "This Year" surface,
+   distinct from Multi-Year (SCN-2).
+3. **T2 / MP-1** — reconcile the duplicate "taxable" concept.
+
+**Trust/correctness (M):**
+4. **T1 / SS-2** — missing-critical-input nudges on Multi-Year (SS, income), not just taxable.
+5. **INC-1** — signal on the Income tab that account yields supersede manual investment income for Multi-Year.
+6. **AC-3** — Taxable card in the balances summary.
+
+**Quick wins (S):**
+7. **AC-2** category subtitle; **INC-2** "Cp" typo; **AC-4** Add-button label; **MY-2** Year-1 computing placeholder.
+
+**Deferred to parity pass:** SC-2 (iPhone 50-bar chart) and a full iPad/iPhone sweep.
 
 ---
 
