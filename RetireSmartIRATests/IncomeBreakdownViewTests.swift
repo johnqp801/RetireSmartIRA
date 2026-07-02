@@ -7,9 +7,10 @@ import SwiftUI
 struct IncomeBreakdownViewTests {
     @Test("builds from a breakdown")
     func build() {
-        let b = IncomeBreakdown(allSources: 176_054, inheritedRMD: 11_363, taxExempt: 46_927,
-            taxableFromSources: 140_490, scenarioAdditions: 84_009, grossWithScenario: 224_499)
+        let b = IncomeBreakdown(allSources: 120_000, regularRMD: 30_000, inheritedRMD: 5_000,
+            taxableFromSources: 130_000, grossWithScenario: 180_000)
         _ = IncomeBreakdownView(breakdown: b).body
-        #expect(b.steps.count == 7)
+        // All RMD rows shown (both nonzero): 8 steps.
+        #expect(b.steps.count == 8)
     }
 }

@@ -43,21 +43,44 @@ Year" surface — a larger navigation/product decision that gets its own brainst
 
 ### `IncomeBreakdown` (pure value type)
 Computed once from the household inputs. Exposes the chain as ordered, labeled steps so any consumer
-reads the same numbers:
+reads the same numbers. The chain must **foot by construction** for every household, not just the demo
+profile — each subtotal equals the corresponding tab's headline exactly, and the bridge steps are
+residuals so the arithmetic always adds up:
 
 ```
-sourcesTotal         "Income from all sources"          (incl. tax-exempt)
-+ inheritedRMD        "Inherited-IRA RMD"
-= totalBaseline       "Total income (sources + RMDs)"
-- taxExempt           "Less tax-exempt interest"
-= taxableFromSources  "Taxable income from sources"
-+ scenarioAdditions   "Scenario withdrawals / conversions"
-= grossForScenario    "Gross income (with scenario)"
+allSources            "Income from all sources"          (gross, incl. tax-exempt + gross SS)
++ regularRMD          "Regular RMD"                       (row hidden when 0)
++ inheritedRMD        "Inherited-IRA RMD"                 (row hidden when 0)
+= totalWithRMDs       "Total income (sources + RMDs)"     [= Tax Summary headline]
+- (residual)          "Less tax-exempt interest and untaxed Social Security"  (= taxableFromSources - totalWithRMDs)
+= taxableFromSources  "Taxable income from sources"       [= Scenarios headline]
++ (residual)          "Scenario withdrawals / conversions" (= grossWithScenario - taxableFromSources)
+= grossWithScenario   "Gross income (with scenario)"      [= Quarterly headline]
 ```
 
-Each step: label + amount. Pure, `Sendable`, unit-tested against the known chain
-($176k → $187k → $140k → $224k). Sourced from the existing figures (`incomeSources`, inherited RMD,
-tax-exempt subset, `scenarioGrossIncome` components) so it does not recompute tax.
+Why the two bridge steps are residuals, not independent computations: Tax Summary's baseline is
+**gross** (`totalAnnualIncome() + combinedRMD + inheritedRMD`) while Scenarios' is **taxable**
+(`taxableIncome() + combinedRMD + inheritedRMD`); the true gross-to-taxable bridge removes tax-exempt
+interest **and** the untaxed portion of Social Security. Computing that residual guarantees the shown
+subtotals foot regardless of SS taxability or RMD age. The final residual similarly absorbs any
+scenario-driven change in SS taxability into the "scenario withdrawals / conversions" line.
+
+Init: `init(allSources:regularRMD:inheritedRMD:taxableFromSources:grossWithScenario:)`. Pure,
+`Sendable`. Unit-tested that the chain foots for a **nonzero-regular-RMD** case (the demo hid this by
+having regularRMD == 0), and that each subtotal reproduces its headline expression.
+
+### RMD reconciliation (single source)
+The three `combinedRMD` expressions across the tabs (`DashboardView`, `TaxPlanningView`, and
+`DataManager.calculateCombinedRMD()`) are behaviorally identical — `calculateSpouseRMD()` already
+guards on `enableSpouse && spouseIsRMDRequired`, so all reduce to `calculatePrimaryRMD() +
+calculateSpouseRMD()`. Route every headline and the model through `DataManager.calculateCombinedRMD()`
+and delete the duplicated per-view locals, so there is one canonical regular-RMD figure.
+
+### Single source of truth
+Rebind each of the four tab headlines to `dataManager.incomeBreakdown` (`.allSources`, `.totalWithRMDs`,
+`.taxableFromSources`, `.grossWithScenario`) and remove the duplicated view-local income totals
+(`DashboardView.totalBaseline`, `TaxPlanningView.incomeFromSourcesWithRMDs`). Because the model uses the
+identical expressions, the displayed numbers are unchanged; the duplication is what goes away.
 
 ### `IncomeBreakdownView` (reusable)
 A disclosure row ("Show how this is computed") that renders the chain (or the slice a tab cares about).

@@ -20,10 +20,19 @@ struct IncomeBreakdown: Equatable, Sendable {
 
     let steps: [Step]
 
-    init(allSources: Double, inheritedRMD: Double, taxExempt: Double,
-         taxableFromSources: Double, scenarioAdditions: Double, grossWithScenario: Double) {
+    /// The chain foots by construction: the two bridge steps are computed as residuals so the shown
+    /// arithmetic always adds up, and each subtotal equals its tab's headline expression.
+    ///
+    /// - `allSources`: gross income from all sources (`totalAnnualIncome()`).
+    /// - `regularRMD`: combined regular RMD (`calculateCombinedRMD()`); row hidden when 0.
+    /// - `inheritedRMD`: inherited-IRA RMD total; row hidden when 0.
+    /// - `taxableFromSources`: taxable baseline incl. RMDs (Scenarios headline expression).
+    /// - `grossWithScenario`: gross incl. scenario conversions/withdrawals (`scenarioGrossIncome`).
+    init(allSources: Double, regularRMD: Double, inheritedRMD: Double,
+         taxableFromSources: Double, grossWithScenario: Double) {
+        let totalWithRMDs = allSources + regularRMD + inheritedRMD
         self.allSources = allSources
-        self.totalWithRMDs = allSources + inheritedRMD
+        self.totalWithRMDs = totalWithRMDs
         self.taxableFromSources = taxableFromSources
         self.grossWithScenario = grossWithScenario
 
@@ -32,11 +41,16 @@ struct IncomeBreakdown: Equatable, Sendable {
             out.append(Step(id: out.count, label: label, amount: amount, isSubtotal: subtotal))
         }
         add("Income from all sources", allSources)
-        add("Inherited-IRA RMD", inheritedRMD)
-        add("Total income (sources + RMDs)", allSources + inheritedRMD, subtotal: true)
-        add("Less tax-exempt interest", -taxExempt)
+        if regularRMD != 0 { add("Regular RMD", regularRMD) }
+        if inheritedRMD != 0 { add("Inherited-IRA RMD", inheritedRMD) }
+        add("Total income (sources + RMDs)", totalWithRMDs, subtotal: true)
+        // Residual bridge: gross baseline minus tax-exempt interest AND the untaxed portion of Social
+        // Security. Computed as a residual so the chain foots regardless of SS taxability / RMD age.
+        add("Less tax-exempt interest and untaxed Social Security", taxableFromSources - totalWithRMDs)
         add("Taxable income from sources", taxableFromSources, subtotal: true)
-        add("Scenario withdrawals / conversions", scenarioAdditions)
+        // Residual: scenario-driven additions (conversions + extra withdrawals, and any scenario-driven
+        // change in SS taxability), so the final subtotal foots to grossWithScenario exactly.
+        add("Scenario withdrawals / conversions", grossWithScenario - taxableFromSources)
         add("Gross income (with scenario)", grossWithScenario, subtotal: true)
         self.steps = out
     }
