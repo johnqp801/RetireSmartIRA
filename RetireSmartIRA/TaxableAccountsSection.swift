@@ -11,7 +11,7 @@ struct TaxableAccountsSection: View {
                 Text("Taxable Accounts").font(.headline)
                 Spacer()
                 Button { showingAdd = true } label: {
-                    Label("Add", systemImage: "plus.circle.fill").font(.callout)
+                    Label("Add Account", systemImage: "plus.circle.fill").font(.callout)
                 }
             }
             Text("Brokerage accounts, cash, muni ladders, taxable trusts, and other non-retirement assets.")
@@ -37,7 +37,11 @@ struct TaxableAccountRow: View {
         HStack {
             VStack(alignment: .leading) {
                 Text(account.name.isEmpty ? "Untitled" : account.name).font(.body)
-                Text(account.category.rawValue).font(.caption).foregroundStyle(.secondary)
+                // Only surface the category when the user picked a non-default one; showing the
+                // default "Brokerage" under a name like "Tax Free Money Market" reads as wrong.
+                if account.category != .brokerage {
+                    Text(account.category.rawValue).font(.caption).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             VStack(alignment: .trailing) {
@@ -86,7 +90,7 @@ struct TaxableAccountEditor: View {
                         Label("Confirm basis", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption).foregroundStyle(.orange)
                     }
-                    LabeledContent("Price growth (excludes yield)") {
+                    LabeledContent("Price growth") {
                         TextField("0", value: $draft.expectedAppreciationRate, format: .percent).multilineTextAlignment(.trailing)
                     }
                 } header: {
@@ -95,19 +99,19 @@ struct TaxableAccountEditor: View {
                     Text("Balance is the account's current value. Cost basis is your amount invested; it estimates capital gains if the account is sold to fund expenses or conversion taxes. Price growth is yearly appreciation as a percent of the balance, separate from the income yields under Advanced.")
                 }
                 Section {
-                    LabeledContent("Qualified dividend yield") {
+                    LabeledContent("Qualified div yield") {
                         TextField("0", value: $draft.qualifiedDividendYield, format: .percent).multilineTextAlignment(.trailing)
                     }
-                    LabeledContent("Ordinary income yield") {
+                    LabeledContent("Ordinary yield") {
                         TextField("0", value: $draft.ordinaryIncomeYield, format: .percent).multilineTextAlignment(.trailing)
                     }
-                    LabeledContent("Tax-exempt (muni) yield") {
+                    LabeledContent("Muni yield") {
                         TextField("0", value: $draft.taxExemptYield, format: .percent).multilineTextAlignment(.trailing)
                     }
-                    LabeledContent("Capital gain distributions") {
+                    LabeledContent("Cap-gain distributions") {
                         TextField("0", value: $draft.realizedLongTermGainYield, format: .percent).multilineTextAlignment(.trailing)
                     }
-                    LabeledContent("Reserve (keep at least)") {
+                    LabeledContent("Reserve") {
                         TextField("0", value: $draft.protectedAmount, format: .number).multilineTextAlignment(.trailing)
                     }
                     Toggle("Use for living expenses", isOn: $draft.availableForExpenses)

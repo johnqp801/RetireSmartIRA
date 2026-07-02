@@ -271,7 +271,7 @@ struct ContentView: View {
                 .tag(6)
 
             MultiYearPlanView()
-                .tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }
+                .tabItem { Label("Multi-Year Plan", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(10)
 
             QuarterlyTaxView()
