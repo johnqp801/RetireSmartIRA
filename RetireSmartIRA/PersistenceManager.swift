@@ -85,9 +85,6 @@ struct PersistenceManager {
         static let plannedMedicareStartAge = "plannedMedicareStartAge"
         static let hasQualifiedEmployerCoverageForMedicare = "hasQualifiedEmployerCoverageForMedicare"
 
-        // 1.8.2 L2 — Taxable brokerage toggle (gates 0% LTCG harvesting card)
-        static let hasTaxableBrokerage = "hasTaxableBrokerage"
-
         // 1.9 ACA Marketplace Modeling
         static let enableACAModeling = "enableACAModeling"
         static let acaHouseholdSize = "acaHouseholdSize"
