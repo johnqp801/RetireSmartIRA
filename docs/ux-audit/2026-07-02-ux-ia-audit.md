@@ -68,14 +68,48 @@ assumptions, read the balances chart / cliffs chart / heir comparison. Watch for
 
 ---
 
-## 4. Findings (fill during analysis)
+## 4. Findings
 
-| ID | Screen / flow step | Dimension | Severity | Effort | Finding | Code location | Fix |
-|----|--------------------|-----------|----------|--------|---------|---------------|-----|
-| _pending_ | | | | | | | |
+### Systemic themes (fix these for leverage)
 
-Group **systemic patterns** (multiple instances / one root cause) at the top of the final report,
-separate from one-offs. End with a prioritized list: quick wins (S) vs structural (L).
+- **T1 — Cross-tab dependency is inconsistently surfaced (D1, Major).** The Multi-Year plan
+  silently consumes data entered on other tabs (Social Security, Income, Accounts). Only the
+  *missing-taxable-account* case shows a warning; missing SS or income run to $0 with no nudge.
+  The tab also mixes inline inputs (living expenses, HSA, horizon, Year-1) with off-tab inputs.
+  **Fix:** a "Plan inputs / health check" strip at the top of Multi-Year that flags empty critical
+  inputs (SS, income) the same way the taxable warning does; and/or a compact "inputs used" line
+  near the top (today it only appears at the very bottom in "What this plan covers").
+
+- **T2 — "Taxable" is split across three places (D1/D4, Major).** My Profile's "I have a taxable
+  brokerage account" toggle (legacy / single-year) + the Accounts "Taxable Accounts" section
+  (new, first-class) + the Multi-Year roll-up. Users must reconcile them. **Fix:** reconcile the
+  My Profile toggle with the first-class accounts (derive it from `taxableAccounts.isEmpty`, drop
+  it, or relabel it to point at the Accounts section).
+
+### Pilot findings (Flow 1, macOS)
+
+| ID | Screen | Dim | Sev | Eff | Finding | Code / fix |
+|----|--------|-----|-----|-----|---------|-----------|
+| GS-1 | Get Started | D5 | (+) | - | Honest "manual entry, no aggregation" disclosure + Setup Progress checklist; strong onboarding. | keep |
+| MP-1 | My Profile | D1/D4 | Major | M | "I have a taxable brokerage account" toggle now collides with first-class Taxable Accounts (theme T2). | SettingsView; reconcile with `dataManager.taxableAccounts` |
+| SS-1 | Social Security | D1 | (+) | - | "Benefits automatically synced to Income & Deductions" clearly states a cross-tab dependency. | keep |
+| SS-2 | Social Security | D1/D5 | Major | M | SS not entered (setup 4/5), yet Multi-Year runs with $0 SS and no nudge (theme T1). | add missing-input nudge |
+| AC-1 | Accounts | D2 | (+) | - | Taxable Accounts now above the IRA list (discoverable) — the move landed. | keep |
+| AC-2 | Accounts | D3/D4 | Major | S | Every taxable row shows "Brokerage" subtitle even for "Tax Free Money Market" / "Jack's Trust" — category unused, subtitle can contradict the name. | `TaxableAccountRow` shows `category.rawValue`; hide when default, or use category meaningfully |
+| AC-3 | Accounts | D3/D4 | Major | M | Top "IRA Balances" summary omits Taxable (~$11M sits right below). Add a Taxable card / rename to "Balances". | `AccountsView` balances summary |
+| AC-4 | Accounts | D4 | Minor | S | Button labels inconsistent: "Add" (taxable) vs "Add Account" (IRA). | unify label |
+| MY-1 | Multi-Year | D3 | (+) | - | Assumptions strip now shows taxable roll-up + Annual living expenses + horizon; fixes present. | keep |
+| MY-2 | Multi-Year | D3 | Minor | S | Year-1 field shows "0" during "Computing your plan…" (plannedYear1 is 0 until the result lands), briefly re-showing the old 0-vs-plan confusion. | show a placeholder while computing |
+
+**Not yet captured (pilot stopped after 5 screens):** Income & Deductions, RMD Calculator, Scenarios,
+Tax Summary, Quarterly Tax, State Comparison; all modals; iPad + iPhone parity passes.
+
+### Prioritized (from the pilot so far)
+1. **T2 / MP-1** — reconcile the duplicate "taxable" concept (structural clarity).
+2. **T1 / SS-2** — missing-critical-input nudges on Multi-Year (trust + correctness).
+3. **AC-3** — Taxable card in the balances summary (completeness).
+4. **AC-2** — fix the misleading category subtitle (quick win).
+5. **AC-4, MY-2** — polish (quick wins).
 
 ---
 
