@@ -57,7 +57,7 @@ struct IncomeBreakdown: Equatable, Sendable {
         // when 0 (no active scenario) so we don't show a $0 addition.
         let scenarioBridge = grossWithScenario - taxableFromSources
         if scenarioBridge != 0 {
-            add("Scenario withdrawals / conversions", scenarioBridge)
+            add("Scenario additions (conversions, withdrawals)", scenarioBridge)
         }
         add("Gross income (with scenario)", grossWithScenario, subtotal: true)
         self.steps = out

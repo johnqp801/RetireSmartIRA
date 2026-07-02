@@ -45,7 +45,7 @@ struct IncomeBreakdownTests {
         let b = IncomeBreakdown(allSources: 100_000, regularRMD: 0, inheritedRMD: 0,
             taxableFromSources: 100_000, grossWithScenario: 100_000)
         #expect(!b.steps.contains { $0.label == "Less tax-exempt interest and untaxed Social Security" })
-        #expect(!b.steps.contains { $0.label == "Scenario withdrawals / conversions" })
+        #expect(!b.steps.contains { $0.label == "Scenario additions (conversions, withdrawals)" })
         // Subtotals still present and equal; chain trivially foots.
         #expect(b.totalWithRMDs == 100_000)
         #expect(b.taxableFromSources == 100_000)
@@ -66,7 +66,7 @@ struct IncomeBreakdownTests {
         #expect(b.steps.contains {
             $0.label == "Less tax-exempt interest and untaxed Social Security" && $0.amount == -25_000 })
         // Scenario residual: 180k - 130k = 50k.
-        #expect(b.steps.contains { $0.label == "Scenario withdrawals / conversions" && $0.amount == 50_000 })
+        #expect(b.steps.contains { $0.label == "Scenario additions (conversions, withdrawals)" && $0.amount == 50_000 })
         // Every subtotal foots to the running total.
         #expect(abs(runningTotalAt(b, label: "Total income (sources + RMDs)") - 155_000) < 0.01)
         #expect(abs(runningTotalAt(b, label: "Taxable income from sources") - 130_000) < 0.01)
