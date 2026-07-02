@@ -486,7 +486,7 @@ struct TaxPlanningView: View {
 
     @ViewBuilder
     private var ltcgHarvestingCard: some View {
-        if dataManager.profile.hasTaxableBrokerage {
+        if dataManager.hasTaxableBrokerage {
             LTCGHarvestingCard()
                 .environment(dataManager)
         }

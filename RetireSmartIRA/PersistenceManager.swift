@@ -363,10 +363,7 @@ struct PersistenceManager {
             dm.profile.hasQualifiedEmployerCoverageForMedicare = defaults.bool(forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare)
         }
 
-        // 1.8.2 L2 — Taxable brokerage toggle
-        if defaults.object(forKey: StorageKey.hasTaxableBrokerage) != nil {
-            dm.profile.hasTaxableBrokerage = defaults.bool(forKey: StorageKey.hasTaxableBrokerage)
-        }
+        // 1.8.2 L2 — hasTaxableBrokerage is now derived from taxableAccounts; legacy key ignored.
 
         // 1.9 ACA Marketplace Modeling
         if defaults.object(forKey: StorageKey.enableACAModeling) != nil {
@@ -593,9 +590,6 @@ struct PersistenceManager {
         // 1.8.2 D2 — Medicare planned start age + late-enrollment penalty
         defaults.set(dm.profile.plannedMedicareStartAge, forKey: StorageKey.plannedMedicareStartAge)
         defaults.set(dm.profile.hasQualifiedEmployerCoverageForMedicare, forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare)
-
-        // 1.8.2 L2 — Taxable brokerage toggle
-        defaults.set(dm.profile.hasTaxableBrokerage, forKey: StorageKey.hasTaxableBrokerage)
 
         // 1.9 ACA Marketplace Modeling
         defaults.set(dm.scenario.enableACAModeling, forKey: StorageKey.enableACAModeling)

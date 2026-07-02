@@ -74,10 +74,9 @@ class DataManager {
         get { profile.hasQualifiedEmployerCoverageForMedicare }
         set { profile.hasQualifiedEmployerCoverageForMedicare = newValue }
     }
-    var hasTaxableBrokerage: Bool {
-        get { profile.hasTaxableBrokerage }
-        set { profile.hasTaxableBrokerage = newValue }
-    }
+    /// Derived from first-class taxable accounts. Gates single-year taxable-account surfaces
+    /// (e.g. the LTCG-harvesting card). The old manual toggle was removed from My Profile.
+    var hasTaxableBrokerage: Bool { !taxableAccounts.isEmpty }
     
     // IRA Accounts (forwarding to AccountsManager)
     var iraAccounts: [IRAAccount] {
