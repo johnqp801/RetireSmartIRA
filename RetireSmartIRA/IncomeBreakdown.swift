@@ -46,11 +46,19 @@ struct IncomeBreakdown: Equatable, Sendable {
         add("Total income (sources + RMDs)", totalWithRMDs, subtotal: true)
         // Residual bridge: gross baseline minus tax-exempt interest AND the untaxed portion of Social
         // Security. Computed as a residual so the chain foots regardless of SS taxability / RMD age.
-        add("Less tax-exempt interest and untaxed Social Security", taxableFromSources - totalWithRMDs)
+        // Hidden when 0 (fully-taxable SS, no tax-exempt interest) so we don't show a $0 subtraction.
+        let taxExemptBridge = taxableFromSources - totalWithRMDs
+        if taxExemptBridge != 0 {
+            add("Less tax-exempt interest and untaxed Social Security", taxExemptBridge)
+        }
         add("Taxable income from sources", taxableFromSources, subtotal: true)
         // Residual: scenario-driven additions (conversions + extra withdrawals, and any scenario-driven
-        // change in SS taxability), so the final subtotal foots to grossWithScenario exactly.
-        add("Scenario withdrawals / conversions", grossWithScenario - taxableFromSources)
+        // change in SS taxability), so the final subtotal foots to grossWithScenario exactly. Hidden
+        // when 0 (no active scenario) so we don't show a $0 addition.
+        let scenarioBridge = grossWithScenario - taxableFromSources
+        if scenarioBridge != 0 {
+            add("Scenario withdrawals / conversions", scenarioBridge)
+        }
         add("Gross income (with scenario)", grossWithScenario, subtotal: true)
         self.steps = out
     }

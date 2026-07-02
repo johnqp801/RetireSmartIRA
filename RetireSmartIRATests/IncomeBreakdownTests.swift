@@ -39,6 +39,20 @@ struct IncomeBreakdownTests {
         #expect(abs(runningTotalAt(b, label: "Gross income (with scenario)") - 224_499) < 0.01)
     }
 
+    @Test("zero-valued bridge rows are hidden (no $0 subtraction/addition rows)")
+    func zeroBridgesHidden() {
+        // Fully-taxable SS, no tax-exempt interest, no active scenario: taxable == total == gross.
+        let b = IncomeBreakdown(allSources: 100_000, regularRMD: 0, inheritedRMD: 0,
+            taxableFromSources: 100_000, grossWithScenario: 100_000)
+        #expect(!b.steps.contains { $0.label == "Less tax-exempt interest and untaxed Social Security" })
+        #expect(!b.steps.contains { $0.label == "Scenario withdrawals / conversions" })
+        // Subtotals still present and equal; chain trivially foots.
+        #expect(b.totalWithRMDs == 100_000)
+        #expect(b.taxableFromSources == 100_000)
+        #expect(b.grossWithScenario == 100_000)
+        #expect(b.steps.filter(\.isSubtotal).count == 3)
+    }
+
     @Test("general case (nonzero regularRMD, taxable < gross): chain still foots by construction")
     func generalChainFoots() {
         // A household at RMD age with tax-exempt interest + untaxed SS, so taxable < gross.
