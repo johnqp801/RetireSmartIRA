@@ -350,8 +350,9 @@ struct DashboardView: View {
                 }
             }
 
-            // Total baseline income
-            let totalBaseline = dataManager.totalAnnualIncome() + combinedRMD + inheritedRMD
+            // Total baseline income (single source of truth: IncomeBreakdown.totalWithRMDs, which
+            // equals totalAnnualIncome() + combinedRMD + inheritedRMD).
+            let totalBaseline = dataManager.incomeBreakdown.totalWithRMDs
             if totalBaseline > 0 {
                 Divider()
                 ViewThatFits {

@@ -202,12 +202,6 @@ struct TaxPlanningView: View {
         dataManager.taxableIncome(filingStatus: dataManager.filingStatus)
     }
 
-    /// Income from sources including mandatory RMDs (regular + inherited) but before
-    /// discretionary conversions, additional withdrawals, and charitable contributions.
-    private var incomeFromSourcesWithRMDs: Double {
-        baseIncome + combinedRMD + dataManager.inheritedIRARMDTotal
-    }
-
     private var itemizeDeductions: Bool { dataManager.scenarioEffectiveItemize }
 
     private var itemizeBinding: Binding<Bool> {
@@ -701,7 +695,7 @@ struct TaxPlanningView: View {
                     Text("Taxable income from sources")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(incomeFromSourcesWithRMDs, format: .currency(code: "USD"))
+                    Text(dataManager.incomeBreakdown.taxableFromSources, format: .currency(code: "USD"))
                         .font(.title3)
                         .fontWeight(.semibold)
                 }
