@@ -27,7 +27,9 @@ struct IncomeBreakdownTests {
         #expect(b.totalWithRMDs == 187_417)              // allSources + regularRMD + inheritedRMD
         #expect(b.taxableFromSources == 140_490)
         #expect(b.grossWithScenario == 224_499)
-        // Zero regularRMD row is hidden; inherited row shown. Three subtotals, in order.
+        // Zero regularRMD row is hidden; inherited row shown, so 7 steps (3 components + 3 subtotals
+        // + 1 residual bridge... i.e. sources, inheritedRMD, Total, less-residual, Taxable, scenario, Gross).
+        #expect(b.steps.count == 7)
         #expect(!b.steps.contains { $0.label == "Regular RMD" })
         #expect(b.steps.filter(\.isSubtotal).map(\.label) == [
             "Total income (sources + RMDs)", "Taxable income from sources", "Gross income (with scenario)"])

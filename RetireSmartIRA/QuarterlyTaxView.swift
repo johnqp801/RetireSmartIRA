@@ -184,7 +184,7 @@ struct QuarterlyTaxView: View {
                 .font(.headline)
 
             VStack(spacing: 12) {
-                summaryRow(label: "Gross income (with scenario)", value: dataManager.scenarioGrossIncome)
+                summaryRow(label: "Gross income (with scenario)", value: dataManager.incomeBreakdown.grossWithScenario)
 
                 summaryRow(
                     label: "Deduction (\(dataManager.scenarioEffectiveItemize ? "Itemized" : "Standard"))",

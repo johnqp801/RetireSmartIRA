@@ -21,7 +21,7 @@ struct IncomeSourcesView: View {
                 // Total Income Card — uses canonical MetricCard
                 MetricCard(
                     label: "Total income from sources",
-                    value: dataManager.totalAnnualIncome().formatted(.currency(code: "USD")),
+                    value: dataManager.incomeBreakdown.allSources.formatted(.currency(code: "USD")),
                     category: .informational
                 )
                 IncomeBreakdownView(breakdown: dataManager.incomeBreakdown)
