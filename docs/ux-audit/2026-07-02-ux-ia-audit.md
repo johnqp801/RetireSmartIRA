@@ -148,7 +148,21 @@ taxed in all 51 states), the RMD projection chart, and honest disclosures throug
 | SC-2 | State Comparison | D6 | Minor | M | 50 two-letter bars will be cramped on iPhone (compact width). | parity check |
 
 **Full macOS pass complete (all 11 tabs).** Not yet captured: modals/editors (Advanced assumptions
-sheet, account editors, SS estimate entry) and the **iPad + iPhone parity passes**.
+sheet, account editors, SS estimate entry) and a full **iPad** pass.
+
+### iPhone parity pass (iOS 26 Simulator, iPhone 17)
+
+| ID | Screen | Dim | Sev | Eff | Finding | Fix |
+|----|--------|-----|-----|-----|---------|-----|
+| IP-1 | Nav | D6 | (+) | - | Tab bar (Get Started/My Profile/SS/Income/More) correctly replaces the sidebar; remaining tabs under More. | keep |
+| IP-2 | Get Started | D6 | (+) | - | Two-column (progress + Tab Guides) cleanly collapses to single column. | keep |
+| IP-3 | Accounts | D6 | (+) | - | Taxable section + empty states render correctly on compact width. | keep |
+| IP-4 | Taxable editor | D6 | **Major** | S | Long labels **truncate** on iPhone: "Price growth (exclu…", "Qualified dividend y…", "Ordinary income yi…". The LabeledContent fix stopped labels vanishing but they now clip on compact width. | shorten labels (detail already in the footer), e.g. "Price growth", "Qualified div yield", "Ordinary yield", "Cap-gain distributions"; or stack label-above-field on compact via `horizontalSizeClass` |
+| IP-5 | Nav | D4 | Minor | S | Multi-Year is "Plan" in the iPhone More menu but "Multi-Year Plan" in the sidebar/title. | unify name |
+| IP-6 | Onboarding | D5 | (+) | - | Terms-of-Use clickwrap (read-full-terms gate before agree) on fresh install; copy reinforces "not recommendations" positioning. | keep |
+
+**IP-4 generalizes:** any `LabeledContent` row with a long label (Advanced assumptions, the Multi-Year
+strip) is at risk on iPhone. Shortening labels fixes it everywhere at once.
 
 ### Prioritized (full macOS pass)
 
