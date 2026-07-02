@@ -126,6 +126,18 @@ struct MultiYearPlanView: View {
                             .font(.callout).foregroundStyle(.orange)
                             .padding().background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
                     }
+                    let primarySS = dataManager.primarySSBenefit?.plannedAnnualBenefit(birthYear: dataManager.birthYear) ?? 0
+                    let spouseSS = dataManager.enableSpouse ? (dataManager.spouseSSBenefit?.plannedAnnualBenefit(birthYear: dataManager.spouseBirthYear) ?? 0) : 0
+                    if primarySS == 0 && spouseSS == 0 {
+                        Text("No Social Security entered. This plan assumes $0 in benefits. Add yours on the Social Security tab.")
+                            .font(.callout).foregroundStyle(.orange)
+                            .padding().background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    if dataManager.incomeSources.isEmpty {
+                        Text("No income sources entered. If you have pension, wages, or investment income, add it on the Income & Deductions tab.")
+                            .font(.callout).foregroundStyle(.orange)
+                            .padding().background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    }
                     if let baseline = manager.baselineProjection, !baseline.isEmpty {
                         PlanComparisonView(comparison: PlanComparison(
                             plan: activePath,
