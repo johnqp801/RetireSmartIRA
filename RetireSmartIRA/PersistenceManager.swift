@@ -363,7 +363,7 @@ struct PersistenceManager {
             dm.profile.hasQualifiedEmployerCoverageForMedicare = defaults.bool(forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare)
         }
 
-        // 1.8.2 L2 — hasTaxableBrokerage is now derived from taxableAccounts; legacy key ignored.
+        // 1.8.2 L2: hasTaxableBrokerage is now derived from taxableAccounts; legacy key ignored.
 
         // 1.9 ACA Marketplace Modeling
         if defaults.object(forKey: StorageKey.enableACAModeling) != nil {
