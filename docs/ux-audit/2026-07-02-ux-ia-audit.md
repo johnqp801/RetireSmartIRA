@@ -70,6 +70,10 @@ assumptions, read the balances chart / cliffs chart / heir comparison. Watch for
 
 ## 4. Findings
 
+> **Resolved 2026-07-02 (commit 794cacf):** IP-4 (label truncation, verified on iOS Simulator),
+> IP-5 (Plan -> Multi-Year Plan), AC-2 (category subtitle), AC-4 (Add -> Add Account).
+> **Still open:** the structural items (T3, IA consolidation, T2, T1) and the trust/M items.
+
 ### HEADLINE — T3: Data-representation fragmentation across analysis surfaces (Critical)
 
 The app has grown several analysis surfaces that each consume the household inputs a little
