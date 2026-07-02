@@ -698,7 +698,7 @@ struct TaxPlanningView: View {
 
             HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Income from Sources")
+                    Text("Taxable income from sources")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(incomeFromSourcesWithRMDs, format: .currency(code: "USD"))
@@ -719,6 +719,7 @@ struct TaxPlanningView: View {
                         .foregroundStyle(Color.UI.textPrimary)
                 }
             }
+            IncomeBreakdownView(breakdown: dataManager.incomeBreakdown)
 
             Text("Includes all scenario decisions (conversions, withdrawals, charitable contributions)")
                 .font(.caption2)

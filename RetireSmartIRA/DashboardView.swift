@@ -356,7 +356,7 @@ struct DashboardView: View {
                 Divider()
                 ViewThatFits {
                     HStack {
-                        Text("Total Baseline Income")
+                        Text("Total income (sources + RMDs)")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         Spacer()
@@ -365,7 +365,7 @@ struct DashboardView: View {
                             .fontWeight(.bold)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Total Baseline Income")
+                        Text("Total income (sources + RMDs)")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         Text(totalBaseline, format: .currency(code: "USD"))
@@ -373,6 +373,7 @@ struct DashboardView: View {
                             .fontWeight(.bold)
                     }
                 }
+                IncomeBreakdownView(breakdown: dataManager.incomeBreakdown)
             }
         }
         .padding()

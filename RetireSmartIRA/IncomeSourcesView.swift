@@ -20,10 +20,11 @@ struct IncomeSourcesView: View {
             VStack(spacing: 24) {
                 // Total Income Card — uses canonical MetricCard
                 MetricCard(
-                    label: "Total Annual Income",
+                    label: "Total income from sources",
                     value: dataManager.totalAnnualIncome().formatted(.currency(code: "USD")),
                     category: .informational
                 )
+                IncomeBreakdownView(breakdown: dataManager.incomeBreakdown)
 
                 // Income Sources List
                 VStack(alignment: .leading, spacing: 16) {
