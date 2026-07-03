@@ -24,6 +24,7 @@ struct GuideView: View {
     @State private var taxSummaryGuideExpanded: Bool = false
     @State private var rmdGuideExpanded: Bool = false
     @State private var scenariosGuideExpanded: Bool = false
+    @State private var multiYearGuideExpanded: Bool = false
     @State private var quarterlyTaxGuideExpanded: Bool = false
     @State private var stateComparisonGuideExpanded: Bool = false
     @State private var keyConceptsExpanded: Bool = false
@@ -57,6 +58,7 @@ struct GuideView: View {
                 rmdGuide
                 scenariosGuide
                 taxSummaryGuide
+                multiYearGuide
                 quarterlyTaxGuide
                 stateComparisonGuide
                 keyConceptsSection
@@ -94,6 +96,7 @@ struct GuideView: View {
                     rmdGuide
                     scenariosGuide
                     taxSummaryGuide
+                    multiYearGuide
                     quarterlyTaxGuide
                     stateComparisonGuide
                 }
@@ -116,7 +119,7 @@ struct GuideView: View {
                     .fontWeight(.bold)
             }
 
-            Text("Plan your retirement tax strategy with confidence. This guide walks you through setting up the app and understanding its features. Plan to spend about 30 minutes on your first setup — see \"What to Gather Before You Start\" below.")
+            Text("Plan your retirement tax strategy with confidence. This guide walks you through setting up the app and understanding its features. Plan to spend about 30 minutes on your first setup - see \"What to Gather Before You Start\" below.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -221,7 +224,7 @@ struct GuideView: View {
                     Image(systemName: "hand.raised.fill")
                         .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
-                    Text("All values are entered manually \u{2014} the app does not import from banks, brokerages, or aggregators like Empower or Credit Karma. The one exception is an optional Social Security earnings-history XML import on the SS tab. Use prior-year tax documents and account statements as your source.")
+                    Text("All values are entered manually - the app does not import from banks, brokerages, or aggregators like Empower or Credit Karma. The one exception is an optional Social Security earnings-history XML import on the SS tab. Use prior-year tax documents and account statements as your source.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -247,7 +250,8 @@ struct GuideView: View {
                     items: [
                         "Traditional IRA and/or Traditional 401(k) balances",
                         "Roth IRA and/or Roth 401(k) balances",
-                        "Inherited IRA balances (plus year inherited, decedent\u{2019}s birth year, and your beneficiary type)"
+                        "Inherited IRA balances (plus year inherited, decedent\u{2019}s birth year, and your beneficiary type)",
+                        "Taxable brokerage account balances and approximate cost basis (what you originally paid)"
                     ]
                 )
 
@@ -275,7 +279,7 @@ struct GuideView: View {
                     ]
                 )
 
-                InlineHint("For income that varies year to year \u{2014} interest, dividends, capital gains, consulting \u{2014} last year\u{2019}s tax documents are a good starting point. You can always update amounts as the year progresses.")
+                InlineHint("For income that varies year to year - interest, dividends, capital gains, consulting - last year\u{2019}s tax documents are a good starting point. You can always update amounts as the year progresses.")
 
                 gatherCategory(
                     icon: "checkmark.shield.fill",
@@ -324,7 +328,7 @@ struct GuideView: View {
                     Image(systemName: "lightbulb.fill")
                         .foregroundStyle(Color.UI.brandTeal)
                         .font(.caption)
-                    Text("Don\u{2019}t sweat it \u{2014} not all of these will apply to you. Start with the basics (birth date, accounts, and income) and add details as you gather them.")
+                    Text("Don\u{2019}t sweat it - not all of these will apply to you. Start with the basics (birth date, accounts, and income) and add details as you gather them.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .italic()
@@ -439,7 +443,7 @@ struct GuideView: View {
             guidePoint("Couples Strategy: see a claiming-age matrix showing which combination maximizes household lifetime income")
             guidePoint("Survivor Analysis: understand how household income changes if either spouse passes first")
             guidePoint("Tax Impact card shows how much of your SS is taxable based on your total income")
-            guidePoint("Auto-sync sends your SS benefit amounts to Income & Deductions automatically \u{2014} no need to enter them twice")
+            guidePoint("Auto-sync sends your SS benefit amounts to Income & Deductions automatically - no need to enter them twice")
             guidePoint("Optional: import your earnings history XML from ssa.gov for an independent AIME/PIA calculation")
         }
     }
@@ -448,19 +452,21 @@ struct GuideView: View {
         tabGuideSection(icon: "building.columns.fill", title: "Accounts", color: Color.UI.brandTeal, isExpanded: $accountsGuideExpanded) {
             guidePoint("Add all retirement accounts: Traditional IRA, Roth IRA, Traditional 401(k), Roth 401(k)")
             guidePoint("Inherited IRAs: select Inherited Traditional IRA or Inherited Roth IRA, then fill in beneficiary type, year inherited, and birth years")
-            guidePoint("Enter balances as of December 31 of the prior year \u{2014} these drive RMD calculations")
+            guidePoint("Enter balances as of December 31 of the prior year - these drive RMD calculations")
             guidePoint("Assign each account to an owner (You, Spouse, or Joint)")
             guidePoint("Only Traditional accounts have RMD requirements; Roth IRAs do not")
-            guidePoint("Inherited IRA RMDs follow different rules \u{2014} see RMD Calculator for details and deadlines")
+            guidePoint("Inherited IRA RMDs follow different rules - see RMD Calculator for details and deadlines")
+            guidePoint("Taxable brokerage accounts: add these too, with balance and cost basis, so the Multi-Year Plan can model their growth and use them to help pay Roth conversion taxes")
+            guidePoint("Taxable accounts receive a stepped-up cost basis at death, which the Multi-Year Plan factors into your heirs' taxes")
             guidePoint("Tap any account to edit; swipe to delete")
         }
     }
 
     private var incomeGuide: some View {
         tabGuideSection(icon: "banknote.fill", title: "Income & Deductions", color: Color.UI.brandTeal, isExpanded: $incomeGuideExpanded) {
-            guidePoint("Social Security income is auto-synced from the SS Planner \u{2014} look for the \u{201C}Managed by SS Planner\u{201D} badge")
+            guidePoint("Social Security income is auto-synced from the SS Planner - look for the \u{201C}Managed by SS Planner\u{201D} badge")
             guidePoint("Add other income sources: pensions, dividends, interest, capital gains, employment/other income")
-            guidePoint("Enter federal and state withholding for each source \u{2014} this reduces quarterly payment estimates")
+            guidePoint("Enter federal and state withholding for each source - this reduces quarterly payment estimates")
             guidePoint("Social Security is taxed at 0%, 50%, or 85% based on combined income thresholds")
             guidePoint("Long-term capital gains and qualified dividends receive preferential federal tax rates")
             guidePoint("Add itemized deductions (mortgage interest, property tax, medical, SALT) to compare against the standard deduction")
@@ -492,15 +498,29 @@ struct GuideView: View {
 
     private var scenariosGuide: some View {
         tabGuideSection(icon: "slider.horizontal.3", title: "Scenarios", color: Color.UI.brandTeal, isExpanded: $scenariosGuideExpanded) {
-            guidePoint("This is the scenario modeling engine \u{2014} changes here flow to Tax Summary and Quarterly Tax")
-            guidePoint("Withdrawal Timing: choose which quarter you plan to take each withdrawal or conversion \u{2014} this shifts the tax obligation to that quarter\u{2019}s estimated payment")
+            guidePoint("This is the scenario modeling engine - changes here flow to Tax Summary and Quarterly Tax")
+            guidePoint("Withdrawal Timing: choose which quarter you plan to take each withdrawal or conversion - this shifts the tax obligation to that quarter\u{2019}s estimated payment")
             guidePoint("Roth Conversions: set conversion amounts and see real-time bracket impact")
             guidePoint("QCD (Qualified Charitable Distribution): donate up to $111k/person directly from IRA to charity; satisfies RMD tax-free; requires age 70\u{00BD}+")
-            guidePoint("Appreciated Stock Donation: donate appreciated stock to avoid tax on the gain — long-term holdings get a fair market value deduction; short-term holdings are deductible at cost basis")
+            guidePoint("Appreciated Stock Donation: donate appreciated stock to avoid tax on the gain - long-term holdings get a fair market value deduction; short-term holdings are deductible at cost basis")
             guidePoint("Cash Donations: direct cash gifts that provide a tax benefit when itemizing")
             guidePoint("Bracket Analysis shows whether your scenario pushes you into a higher federal or state bracket")
-            guidePoint("Medicare IRMAA shows your current tier, annual surcharge, and how close you are to the next cliff \u{2014} scenario decisions that push you into a higher tier are flagged with a warning")
+            guidePoint("Medicare IRMAA shows your current tier, annual surcharge, and how close you are to the next cliff - scenario decisions that push you into a higher tier are flagged with a warning")
             guidePoint("Per-Decision Tax Impact shows the incremental tax cost or savings of each decision, including IRMAA surcharge changes")
+        }
+    }
+
+    private var multiYearGuide: some View {
+        tabGuideSection(icon: "chart.line.uptrend.xyaxis", title: "Multi-Year Plan", color: Color.UI.brandTeal, isExpanded: $multiYearGuideExpanded) {
+            guidePoint("Builds a year-by-year Roth conversion plan across your whole retirement horizon, aiming to reduce projected lifetime and heir taxes under the assumptions you enter")
+            guidePoint("Models the trade-off: converting Traditional IRA/401(k) dollars now costs more tax today, in exchange for lower RMDs, Medicare IRMAA, and heir taxes later")
+            guidePoint("Factors in what your heirs would owe: an inherited Traditional IRA must be emptied within 10 years and taxed as their ordinary income, while taxable accounts receive a stepped-up basis at death")
+            guidePoint("Year 1 is shared with Scenarios and Tax Summary: the recommended first-year conversion pre-populates there, so you can review this year in full detail and adjust it")
+            guidePoint("Edit the Year-1 conversion directly; if you move it off the plan's recommendation, an off-plan badge shows the difference")
+            guidePoint("Charts show projected balances, the conversion ladder, taxes by year, and a threshold/cliff map for IRMAA tiers and bracket edges")
+            guidePoint("Open the advanced assumptions sheet to set growth rate, planning horizon, and annual living expenses to fit your situation")
+            guidePoint("Export a CPA briefing PDF to share the plan and its assumptions with your tax advisor")
+            guidePoint("This is a planning model, not personalized tax advice: results depend entirely on the assumptions you enter")
         }
     }
 
@@ -545,12 +565,17 @@ struct GuideView: View {
                 conceptItem(
                     icon: "arrow.right.arrow.left",
                     title: "Roth Conversion Window",
-                    description: "The years between retirement and RMD age are often ideal for converting Traditional IRA funds to Roth at potentially lower tax rates. You can still do Roth conversions after RMDs begin — you just must take your RMD first. Even in higher brackets, conversions may benefit your long-term tax picture and legacy."
+                    description: "The years between retirement and RMD age are often ideal for converting Traditional IRA funds to Roth at potentially lower tax rates. You can still do Roth conversions after RMDs begin - you just must take your RMD first. Even in higher brackets, conversions may benefit your long-term tax picture and legacy."
+                )
+                conceptItem(
+                    icon: "gift.fill",
+                    title: "Heir Taxes and Step-Up Basis",
+                    description: "An inherited Traditional IRA must be emptied by your heirs within 10 years, and every dollar is taxed as their ordinary income - often in their peak earning years. A taxable brokerage account works differently: its cost basis steps up to market value at death, so heirs can sell with little or no capital gains tax. The Multi-Year Plan weighs the tax you would pay converting now against the tax your heirs would otherwise owe later."
                 )
                 conceptItem(
                     icon: "heart.fill",
                     title: "QCD Strategy",
-                    description: "Qualified Charitable Distributions (up to $111,000/person/year) go directly from your IRA to charity. They satisfy your RMD but are excluded from taxable income. Available at age 70\u{00BD}+. Only donations to qualifying charities are eligible — see IRS Publication 590-B for details (irs.gov/publications/p590b)."
+                    description: "Qualified Charitable Distributions (up to $111,000/person/year) go directly from your IRA to charity. They satisfy your RMD but are excluded from taxable income. Available at age 70\u{00BD}+. Only donations to qualifying charities are eligible - see IRS Publication 590-B for details (irs.gov/publications/p590b)."
                 )
                 conceptItem(
                     icon: "doc.plaintext",
@@ -575,17 +600,17 @@ struct GuideView: View {
                 conceptItem(
                     icon: "map.fill",
                     title: "State Tax Comparisons",
-                    description: "State income tax varies dramatically \u{2014} nine states have no income tax, while others tax retirement income heavily. Many states exempt Social Security, and some exempt pensions or IRA withdrawals partially or fully. Where you live in retirement can save (or cost) thousands per year in state taxes."
+                    description: "State income tax varies dramatically - nine states have no income tax, while others tax retirement income heavily. Many states exempt Social Security, and some exempt pensions or IRA withdrawals partially or fully. Where you live in retirement can save (or cost) thousands per year in state taxes."
                 )
                 conceptItem(
                     icon: "arrow.down.doc.fill",
                     title: "Inherited IRAs (BDAs)",
-                    description: "Inherited IRAs have different rules based on your relationship to the decedent AND when the original owner died. Post-SECURE Act (deaths on or after January 1, 2020): Eligible Designated Beneficiaries (spouse, disabled, chronically ill, minor child, not >10 years younger) get lifetime stretch. All others must empty the account within 10 years; if the decedent had already begun RMDs, annual distributions are also required in years 1\u{2013}9. Pre-SECURE (deaths before 2020): all designated beneficiaries are grandfathered into the classic lifetime stretch \u{2014} no 10-year cap. RMDs are calculated using the account balance as of December 31 of the prior year. Inherited IRA distributions are NOT eligible for QCDs."
+                    description: "Inherited IRAs have different rules based on your relationship to the decedent AND when the original owner died. Post-SECURE Act (deaths on or after January 1, 2020): Eligible Designated Beneficiaries (spouse, disabled, chronically ill, minor child, not >10 years younger) get lifetime stretch. All others must empty the account within 10 years; if the decedent had already begun RMDs, annual distributions are also required in years 1\u{2013}9. Pre-SECURE (deaths before 2020): all designated beneficiaries are grandfathered into the classic lifetime stretch - no 10-year cap. RMDs are calculated using the account balance as of December 31 of the prior year. Inherited IRA distributions are NOT eligible for QCDs."
                 )
                 conceptItem(
                     icon: "cross.case.fill",
                     title: "Medicare IRMAA",
-                    description: "Income-Related Monthly Adjustment Amount adds surcharges to Medicare Parts B and D premiums when your MAGI exceeds thresholds. Unlike tax brackets, IRMAA uses cliffs \u{2014} crossing a threshold by even $1 triggers the full surcharge for that tier. IRMAA is based on income from 2 years prior, so this year\u{2019}s Roth conversions and withdrawals affect future premiums."
+                    description: "Income-Related Monthly Adjustment Amount adds surcharges to Medicare Parts B and D premiums when your MAGI exceeds thresholds. Unlike tax brackets, IRMAA uses cliffs - crossing a threshold by even $1 triggers the full surcharge for that tier. IRMAA is based on income from 2 years prior, so this year\u{2019}s Roth conversions and withdrawals affect future premiums."
                 )
             }
             .padding(.top, 8)
@@ -635,7 +660,7 @@ struct GuideView: View {
                     icon: "heart.fill",
                     color: Color.UI.brandTeal,
                     title: "Use QCDs If Eligible",
-                    description: "If you are age 70\u{00BD}+ and have RMDs, QCDs are the most tax-efficient way to give to charity. Donations must go to a qualifying organization — see IRS Publication 590-B for eligible recipients."
+                    description: "If you are age 70\u{00BD}+ and have RMDs, QCDs are the most tax-efficient way to give to charity. Donations must go to a qualifying organization - see IRS Publication 590-B for eligible recipients."
                 )
                 tipItem(
                     icon: "chart.bar.fill",
@@ -647,7 +672,7 @@ struct GuideView: View {
                     icon: "cross.case.fill",
                     color: Color.UI.brandTeal,
                     title: "Watch IRMAA Cliffs",
-                    description: "IRMAA surcharges are cliff-based \u{2014} crossing a threshold by even $1 can add over $1,100/year per person in Medicare premiums. Check the IRMAA section in Scenarios before finalizing Roth conversions or withdrawals. Your income this year affects premiums two years from now."
+                    description: "IRMAA surcharges are cliff-based - crossing a threshold by even $1 can add over $1,100/year per person in Medicare premiums. Check the IRMAA section in Scenarios before finalizing Roth conversions or withdrawals. Your income this year affects premiums two years from now."
                 )
                 tipItem(
                     icon: "person.text.rectangle.fill",
