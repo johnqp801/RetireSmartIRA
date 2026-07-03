@@ -109,6 +109,8 @@ struct ContentView: View {
                         .tag(5)
                     Label("Tax Summary", systemImage: "chart.bar.fill")
                         .tag(6)
+                    Label("Multi-Year Plan", systemImage: "chart.line.uptrend.xyaxis")
+                        .tag(10)
                 }
 
                 Section("More") {
@@ -136,6 +138,7 @@ struct ContentView: View {
         case 4: RMDCalculatorView()
         case 5: TaxPlanningView()
         case 6: DashboardView()
+        case 10: MultiYearPlanView()
         case 7: QuarterlyTaxView()
         case 8: StateComparisonView()
         case 9: SocialSecurityPlannerView()
@@ -170,6 +173,8 @@ struct ContentView: View {
                         .tag(5)
                     Label("Tax Summary", systemImage: "chart.bar.fill")
                         .tag(6)
+                    Label("Multi-Year Plan", systemImage: "chart.line.uptrend.xyaxis")
+                        .tag(10)
                 }
 
                 Section("More") {
@@ -204,6 +209,7 @@ struct ContentView: View {
         case 4: RMDCalculatorView()
         case 5: TaxPlanningView()
         case 6: DashboardView()
+        case 10: MultiYearPlanView()
         case 7: QuarterlyTaxView()
         case 8: StateComparisonView()
         case 9: SocialSecurityPlannerView()
@@ -263,6 +269,10 @@ struct ContentView: View {
                     Label("Tax Summary", systemImage: "chart.bar.fill")
                 }
                 .tag(6)
+
+            MultiYearPlanView()
+                .tabItem { Label("Multi-Year Plan", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(10)
 
             QuarterlyTaxView()
                 .tabItem {

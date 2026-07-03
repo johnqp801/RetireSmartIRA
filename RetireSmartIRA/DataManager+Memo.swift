@@ -95,7 +95,6 @@ extension DataManager {
         h.combine(profile.enableSpouse)
         h.combine(profile.plannedMedicareStartAge)
         h.combine(profile.hasQualifiedEmployerCoverageForMedicare)
-        h.combine(profile.hasTaxableBrokerage)
 
         // AccountsManager (full account list — balance, type, owner, inherited fields all affect engine output)
         h.combine(accounts.iraAccounts.count)

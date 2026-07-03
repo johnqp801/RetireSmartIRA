@@ -48,6 +48,14 @@ struct AccountsView: View {
                         .italic()
                 }
 
+                // Taxable / non-retirement accounts (V2.0). Placed above the (long) IRA list so
+                // it's discoverable without scrolling. The Multi-Year planner consumes these.
+                TaxableAccountsSection()
+                    .padding()
+                    .background(Color(PlatformColor.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+
                 // Accounts List
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {

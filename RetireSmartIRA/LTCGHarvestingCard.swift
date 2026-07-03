@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Shows the user the top of the 0% long-term capital gains bracket and their
 /// remaining headroom against current scenario taxable income. Mounted in
-/// `TaxPlanningView` only when `profile.hasTaxableBrokerage` is true.
+/// `TaxPlanningView` only when `dataManager.hasTaxableBrokerage` is true.
 struct LTCGHarvestingCard: View {
     @Environment(DataManager.self) var dataManager
 

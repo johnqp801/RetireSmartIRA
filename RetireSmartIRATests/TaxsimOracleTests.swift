@@ -202,6 +202,22 @@ private func buildEngine(for s: Scenario) -> DataManager? {
 
 // MARK: - The harness
 
+// IMPORTANT — test parallelization is intentionally DISABLED for this target
+// (RetireSmartIRA.xcscheme: TestableReference parallelizable = "NO").
+//
+// This suite calls `TaxCalculationEngine.withConfig(forYear: 2023)`, which swaps the
+// process-global `TaxCalculationEngine.config` singleton for the duration of the closure
+// (DataManager and the scenario computed properties read that global). The config singleton
+// is intentional production architecture — it is set once at app startup and never swapped
+// in production. But under parallel test execution this swap window races every other test
+// that reads the global config (e.g. the federal-bracket suites that expect TY2026),
+// producing flaky, message-less failures.
+//
+// The correct fix for a deliberate process-global singleton that tests must swap is to run
+// the config-dependent tests serially rather than to add locking to the shipped engine's
+// hot path. If you re-enable parallelization, this races again — instead inject config
+// explicitly (see TaxYearConfigProvider, which the multi-year engine already uses) so no
+// test needs to mutate the global.
 @MainActor
 @Suite("TAXSIM-35 oracle differential harness (Part 1)")
 struct TaxsimOracleTests {

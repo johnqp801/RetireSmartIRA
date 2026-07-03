@@ -23,6 +23,7 @@ struct PersistenceManager {
         static let spouseName = "spouseName"
         static let enableSpouse = "enableSpouse"
         static let iraAccounts = "iraAccounts"
+        static let taxableAccounts = "taxableAccounts"
         static let incomeSources = "incomeSources"
         static let quarterlyPayments = "quarterlyPayments"
         static let yourRothConversion = "yourRothConversion"
@@ -66,6 +67,7 @@ struct PersistenceManager {
         static let legacySpouseSurvivorYears = "legacySpouseSurvivorYears"
         static let legacyGrowthRate = "legacyGrowthRate"
         static let taxBrackets = "taxBrackets"
+        static let multiYearAssumptions = "multiYearAssumptions"
 
         // 1.9 Medicare
         static let yourMedicarePlanType = "yourMedicarePlanType"
@@ -82,9 +84,6 @@ struct PersistenceManager {
         // 1.8.2 D2 — Medicare planned start age + late-enrollment penalty
         static let plannedMedicareStartAge = "plannedMedicareStartAge"
         static let hasQualifiedEmployerCoverageForMedicare = "hasQualifiedEmployerCoverageForMedicare"
-
-        // 1.8.2 L2 — Taxable brokerage toggle (gates 0% LTCG harvesting card)
-        static let hasTaxableBrokerage = "hasTaxableBrokerage"
 
         // 1.9 ACA Marketplace Modeling
         static let enableACAModeling = "enableACAModeling"
@@ -361,10 +360,7 @@ struct PersistenceManager {
             dm.profile.hasQualifiedEmployerCoverageForMedicare = defaults.bool(forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare)
         }
 
-        // 1.8.2 L2 — Taxable brokerage toggle
-        if defaults.object(forKey: StorageKey.hasTaxableBrokerage) != nil {
-            dm.profile.hasTaxableBrokerage = defaults.bool(forKey: StorageKey.hasTaxableBrokerage)
-        }
+        // 1.8.2 L2: hasTaxableBrokerage is now derived from taxableAccounts; legacy key ignored.
 
         // 1.9 ACA Marketplace Modeling
         if defaults.object(forKey: StorageKey.enableACAModeling) != nil {
@@ -376,6 +372,27 @@ struct PersistenceManager {
         }
         if defaults.object(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride) != nil {
             dm.scenario.acaBenchmarkSilverPlanMonthlyOverride = defaults.double(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        }
+
+        // Multi-Year Plan assumptions (Codable blob; missing key leaves the default)
+        if let data = defaults.data(forKey: StorageKey.multiYearAssumptions),
+           let decoded = try? JSONDecoder().decode(MultiYearAssumptions.self, from: data) {
+            dm.multiYearAssumptions = decoded
+        }
+
+        // Taxable accounts (decoded AFTER assumptions so the legacy-balance migration
+        // below can read currentTaxableBalance). When none are stored but a legacy
+        // currentTaxableBalance exists, seed a single brokerage account from it. Basis
+        // defaults to balance (optimistic, preserves prior behavior) and is flagged so
+        // the UI shows "Confirm basis".
+        if let data = defaults.data(forKey: StorageKey.taxableAccounts),
+           let decoded = try? JSONDecoder().decode([TaxableAccount].self, from: data) {
+            dm.taxableAccounts = decoded
+        } else if dm.multiYearAssumptions.currentTaxableBalance > 0 {
+            let bal = dm.multiYearAssumptions.currentTaxableBalance
+            dm.taxableAccounts = [TaxableAccount(
+                name: "Brokerage", balance: bal, costBasis: bal,
+                basisNeedsConfirmation: true)]
         }
 
         // Social Security Planner data
@@ -446,6 +463,9 @@ struct PersistenceManager {
         // Accounts
         if let data = try? JSONEncoder().encode(dm.iraAccounts) {
             defaults.set(data, forKey: StorageKey.iraAccounts)
+        }
+        if let data = try? JSONEncoder().encode(dm.taxableAccounts) {
+            defaults.set(data, forKey: StorageKey.taxableAccounts)
         }
 
         // Income & Deductions
@@ -568,9 +588,6 @@ struct PersistenceManager {
         defaults.set(dm.profile.plannedMedicareStartAge, forKey: StorageKey.plannedMedicareStartAge)
         defaults.set(dm.profile.hasQualifiedEmployerCoverageForMedicare, forKey: StorageKey.hasQualifiedEmployerCoverageForMedicare)
 
-        // 1.8.2 L2 — Taxable brokerage toggle
-        defaults.set(dm.profile.hasTaxableBrokerage, forKey: StorageKey.hasTaxableBrokerage)
-
         // 1.9 ACA Marketplace Modeling
         defaults.set(dm.scenario.enableACAModeling, forKey: StorageKey.enableACAModeling)
         defaults.set(dm.scenario.acaHouseholdSize, forKey: StorageKey.acaHouseholdSize)
@@ -578,6 +595,11 @@ struct PersistenceManager {
             defaults.set(v, forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
         } else {
             defaults.removeObject(forKey: StorageKey.acaBenchmarkSilverPlanMonthlyOverride)
+        }
+
+        // Multi-Year Plan assumptions (Codable blob)
+        if let data = try? JSONEncoder().encode(dm.multiYearAssumptions) {
+            defaults.set(data, forKey: StorageKey.multiYearAssumptions)
         }
 
         // Social Security Planner data

@@ -58,11 +58,8 @@ class ProfileManager {
     /// penalty when they delay enrollment.
     var hasQualifiedEmployerCoverageForMedicare: Bool = false
 
-    // MARK: - Taxable Brokerage Account (1.8.2 L2)
-
-    /// User-attested presence of a taxable brokerage account. Unlocks LTCG-harvesting
-    /// awareness surfaces and any future taxable-account-specific modeling. (L2)
-    var hasTaxableBrokerage: Bool = false
+    // Taxable-brokerage presence is now derived from first-class taxable accounts
+    // (DataManager.hasTaxableBrokerage = !taxableAccounts.isEmpty); no stored flag.
 
     // TODO(v2.1): Split into per-spouse fields. Real-world case: older spouse
     // keeps employer coverage to maintain younger spouse on plan, then enrolls

@@ -394,8 +394,12 @@ struct PDFExportService {
 
     @MainActor
     static func generatePDF(from data: PDFExportData) async -> Data {
-        let html = buildHTML(from: data)
+        await generatePDF(fromHTML: buildHTML(from: data))
+    }
 
+    /// Render an arbitrary HTML document to PDF via the same backend the single-year export uses.
+    @MainActor
+    static func generatePDF(fromHTML html: String) async -> Data {
         #if canImport(UIKit)
         // iOS: WKWebView + viewPrintFormatter (properly respects CSS page-break rules)
         let result = await withCheckedContinuation { (continuation: CheckedContinuation<Data, Never>) in

@@ -20,10 +20,11 @@ struct IncomeSourcesView: View {
             VStack(spacing: 24) {
                 // Total Income Card — uses canonical MetricCard
                 MetricCard(
-                    label: "Total Annual Income",
-                    value: dataManager.totalAnnualIncome().formatted(.currency(code: "USD")),
+                    label: "Total income from sources",
+                    value: dataManager.incomeBreakdown.allSources.formatted(.currency(code: "USD")),
                     category: .informational
                 )
+                IncomeBreakdownView(breakdown: dataManager.incomeBreakdown)
 
                 // Income Sources List
                 VStack(alignment: .leading, spacing: 16) {
@@ -68,6 +69,13 @@ struct IncomeSourcesView: View {
                         .frame(maxWidth: .infinity)
                         .padding(40)
                     } else {
+                        if !dataManager.taxableAccounts.isEmpty
+                            && dataManager.incomeSources.contains(where: { [.dividends, .qualifiedDividends, .interest, .capitalGainsShort, .capitalGainsLong, .taxExemptInterest].contains($0.type) }) {
+                            Label("For the Multi-Year plan, investment income is derived from your taxable accounts. These entries are still used by the single-year Tax Summary, Scenarios, and Quarterly views.",
+                                  systemImage: "info.circle")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .padding(.bottom, 4)
+                        }
                         ForEach(dataManager.incomeSources) { source in
                             IncomeRow(source: source)
                                 .onTapGesture {
