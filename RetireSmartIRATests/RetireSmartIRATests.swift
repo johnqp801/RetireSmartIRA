@@ -2024,7 +2024,14 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
 
     @Test("No deduction savings when standard deduction")
     func noDeductionSavingsStandard() {
-        let dm = makeDM()
+        // Florida (no state income tax) keeps this deterministic: with a CA-style
+        // state, DataManager auto-estimates state tax payments into itemized SALT
+        // (`autoEstimatedStatePayments`), which combined with the stock donation
+        // could tip the auto-recommendation to itemized regardless of this test's
+        // intent. Using a no-income-tax state isolates exactly what this test means
+        // to verify: a small charitable-only itemized total loses to the standard
+        // deduction, so stock donation yields zero incremental tax savings.
+        let dm = makeDM(state: .florida)
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 100_000)
         ]

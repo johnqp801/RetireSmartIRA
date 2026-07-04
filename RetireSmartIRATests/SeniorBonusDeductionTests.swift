@@ -114,4 +114,35 @@ struct SeniorBonusDeductionTests {
         // reduction = (200K - 75K) * 0.06 = 7_500; bonus = max(0, 6_000 - 7_500) = 0
         #expect(dm.seniorBonusDeductionAmount == 0)
     }
+
+    /// Regression: the OBBBA senior bonus must apply whether the taxpayer
+    /// itemizes or takes the standard deduction (it's available either way,
+    /// per IRC § 151(d)) — it must not vanish when `totalItemizedDeductions`
+    /// is chosen over `standardDeductionAmount`.
+    @Test("Itemizing 65+ filer still gets the senior bonus on top of itemized total")
+    func seniorBonusAppliesWhenItemizing() {
+        let dm = DataManager(skipPersistence: true)
+        setAges(dm, your: 70)
+        dm.filingStatus = .single
+        dm.selectedState = .florida // no state income tax → deterministic SALT
+        dm.incomeSources = [
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000)
+        ]
+        dm.deductionItems = [
+            DeductionItem(name: "Mortgage Interest", type: .mortgageInterest, annualAmount: 20_000),
+            DeductionItem(name: "Property Tax", type: .propertyTax, annualAmount: 8_000),
+        ]
+        dm.cashDonationAmount = 5_000
+        dm.deductionOverride = .itemized
+
+        // MAGI $50K is below the $75K single phaseout threshold → full $6,000 bonus.
+        #expect(abs(dm.seniorBonusDeductionAmount - 6_000) < 1)
+
+        let itemizedWithoutBonus = dm.baseItemizedDeductions + dm.scenarioCharitableDeductions
+        let expectedEffective = itemizedWithoutBonus + dm.seniorBonusDeductionAmount
+
+        #expect(dm.scenarioEffectiveItemize == true)
+        #expect(abs(dm.effectiveDeductionAmount - expectedEffective) < 1,
+                "Itemizing 65+ filer lost the senior bonus: effective=\(dm.effectiveDeductionAmount) expected=\(expectedEffective)")
+    }
 }

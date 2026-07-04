@@ -1855,8 +1855,12 @@ class DataManager {
     }
 
     /// Total itemized deductions: base entries + charitable from Tax Planning
+    /// + the OBBBA Senior Bonus. The senior bonus is available whether the
+    /// taxpayer itemizes or takes the standard deduction (per IRC § 151(d)),
+    /// so it must be added here too, not just embedded in `standardDeductionAmount`
+    /// — otherwise itemizing 65+ filers would silently lose it.
     var totalItemizedDeductions: Double {
-        baseItemizedDeductions + scenarioCharitableDeductions
+        baseItemizedDeductions + scenarioCharitableDeductions + seniorBonusDeductionAmount
     }
 
     /// Auto-recommended deduction type (whichever is higher)
