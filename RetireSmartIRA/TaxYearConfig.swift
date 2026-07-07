@@ -32,6 +32,14 @@ struct TaxYearConfig: Codable {
     let seniorBonusFirstYear: Int
     let seniorBonusLastYear: Int
 
+    // MARK: - OBBBA Non-Itemizer Cash Charitable Deduction (§170(p), permanent, 2026+)
+    // Deduction for taxpayers who take the standard deduction: up to the cap below for CASH
+    // gifts to qualifying charities, on top of the standard deduction, effective for tax years
+    // beginning after 2025. Non-joint (single/HoH/MFS) uses the "Single" cap; joint uses "MFJ".
+    let nonItemizerCashCharitableCapSingle: Double
+    let nonItemizerCashCharitableCapMFJ: Double
+    let nonItemizerCashCharitableFirstYear: Int
+
     // MARK: - SALT Cap (OBBBA 2025-2029)
     let saltBaseCap: Double
     let saltInflationRate: Double
@@ -227,6 +235,8 @@ struct TaxYearConfig: Codable {
         seniorBonusPerPerson: 6000, seniorBonusPhaseoutSingle: 75000,
         seniorBonusPhaseoutMFJ: 150000, seniorBonusPhaseoutRate: 0.06,
         seniorBonusFirstYear: 2025, seniorBonusLastYear: 2028,
+        nonItemizerCashCharitableCapSingle: 1000, nonItemizerCashCharitableCapMFJ: 2000,
+        nonItemizerCashCharitableFirstYear: 2026,
         saltBaseCap: 40000, saltInflationRate: 0.01, saltBaseYear: 2025,
         saltPhaseoutBaseThreshold: 500000, saltPhaseoutRate: 0.30, saltFloor: 10000,
         saltExpandedFirstYear: 2025, saltExpandedLastYear: 2029, saltDefaultCap: 10000,

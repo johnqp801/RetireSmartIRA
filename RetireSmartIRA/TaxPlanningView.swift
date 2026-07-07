@@ -1796,6 +1796,9 @@ struct TaxPlanningView: View {
         // OBBBA Senior Bonus prominence (self-hides when not applicable) — H4
         SeniorBonusDeductionCard()
 
+        // OBBBA non-itemizer cash charitable deduction (self-hides unless it applies)
+        NonItemizerCharitableCard()
+
         Divider()
 
         // MARK: QCD Sub-section

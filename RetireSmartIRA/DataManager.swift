@@ -1905,11 +1905,29 @@ class DataManager {
         return nonSALTNonMedical + fullPropertyTax + medical + charitable
     }
 
+    /// OBBBA §170(p) charitable deduction for filers who take the standard deduction: up to
+    /// $1,000 (single/HoH/MFS) or $2,000 (MFJ) for CASH gifts to qualifying charities, on top of
+    /// the standard deduction, for tax years beginning after 2025 (permanent). It reduces taxable
+    /// income but NOT AGI, so it is subtracted in `scenarioTaxableIncome` and must not touch
+    /// `federalAGI`/MAGI. Cash only — stock/appreciated-property gifts do not qualify. Zero when the
+    /// taxpayer itemizes, since the cash already flows through `totalItemizedDeductions`.
+    var nonItemizerCharitableDeduction: Double {
+        guard !scenarioEffectiveItemize else { return 0 }
+        let cfg = TaxCalculationEngine.config
+        guard currentYear >= cfg.nonItemizerCashCharitableFirstYear else { return 0 }
+        let cap = filingStatus == .marriedFilingJointly
+            ? cfg.nonItemizerCashCharitableCapMFJ
+            : cfg.nonItemizerCashCharitableCapSingle
+        return min(max(0, cashDonationAmount), cap)
+    }
+
     /// Taxable income after scenario decisions, above-the-line deductions, and below-the-line deductions.
     /// Pre-tax contributions (401k, Traditional IRA, HSA) reduce AGI and therefore taxable income,
-    /// consistent with how Roth conversions increase it via scenarioGrossIncome.
+    /// consistent with how Roth conversions increase it via scenarioGrossIncome. The OBBBA
+    /// non-itemizer cash-charitable deduction reduces taxable income here without affecting AGI.
     var scenarioTaxableIncome: Double {
-        let income = scenarioGrossIncome - totalAboveTheLineDeductions - effectiveDeductionAmount
+        let income = scenarioGrossIncome - totalAboveTheLineDeductions
+            - effectiveDeductionAmount - nonItemizerCharitableDeduction
         return max(0, income)
     }
 
