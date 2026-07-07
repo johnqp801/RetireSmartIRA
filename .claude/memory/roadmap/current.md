@@ -4,9 +4,11 @@
 
 ---
 
-## 🚀 STAGED (not yet submitted): V2.0.1 (build 59 — both platforms)
+## ⏳ SUBMITTED FOR REVIEW: V2.0.1 (build 59 — both platforms)
 
-**Status (2026-07-06):** Code complete + merged to `main` + version-bumped. NOT yet pushed to origin / NOT yet archived or submitted. `main` @ `1421634` (feature merge `71a3aa3`, bump `819c918` → MARKETING_VERSION 2.0.1 / CURRENT_PROJECT_VERSION 59, release notes `1421634`).
+**Status (2026-07-06):** Both iOS and macOS 2.0.1 (build 59) archived, uploaded to Apple, and **submitted — "Waiting for Review"** in App Store Connect (2026-07-06 ~10pm). Code merged + pushed: `main` @ `f63ee2b` on origin (feature merge `71a3aa3`, bump `819c918` → MARKETING_VERSION 2.0.1 / CURRENT_PROJECT_VERSION 59, release notes `1421634`, roadmap `f63ee2b`). What's New pasted = approved "Feature-led" text. **Awaiting Apple approval.**
+
+**On approval:** (1) send Chris Viscomi the "it's live" note ([drafts/emails/2026-07-04-chris-viscomi-senior-deduction-itemize-bug.md](../drafts/emails/2026-07-04-chris-viscomi-senior-deduction-itemize-bug.md)); (2) mark 2.0.1 LIVE here; (3) tag the release. Next build = **60+**.
 
 **Why 2.0.1 exists:** carries the OBBBA senior-bonus itemization correctness fix (`f88966b`/`32db2de`, merged 2026-07-06) that was NOT in the shipped 2.0.0 (Mac 57 / iOS 58). Two presentation-only enhancements ride along.
 
