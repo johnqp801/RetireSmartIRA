@@ -13,7 +13,11 @@ struct BalancesChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Account balances over time").font(.headline)
+            HStack(spacing: 6) {
+                Text("Account balances over time").font(.headline)
+                ChartInfoButton(commentary: model.commentary)
+                Spacer()
+            }
             Chart {
                 if showBand {
                     ForEach(model.points) { point in

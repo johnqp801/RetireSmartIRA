@@ -13,7 +13,11 @@ struct HeirFrontierChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Your taxes vs. what heirs keep").font(.headline)
+            HStack(spacing: 6) {
+                Text("Your taxes vs. what heirs keep").font(.headline)
+                ChartInfoButton(commentary: model.commentary)
+                Spacer()
+            }
             if hasMaterialTradeoff {
                 chart
                 Text("Each point is a strategy weighting; the highlighted point is your current selection. Down-left favors you (less lifetime tax); up-right favors heirs (more inheritance).")
