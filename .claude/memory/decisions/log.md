@@ -4,6 +4,22 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-07: OBBBA itemized-charitable 2026 changes — 0.5% AGI floor built; 35% benefit cap filed
+
+**Trigger:** researching a comment made during the non-itemizer fix. Web-verified (Thomson Reuters, Greenberg Traurig, Tax Foundation, Fidelity Charitable, Journal of Accountancy) that OBBBA adds two itemized-charitable changes for TY2026+: (1) a **0.5%-of-AGI floor** — only charitable gifts exceeding 0.5% of the contribution base (AGI) are deductible when itemizing; (2) a **35% benefit cap** — but that's actually a **broad limitation on ALL itemized deductions** (not charitable-specific) for **37%-bracket** taxpayers, reducing itemized deductions by **2/37 of the lesser of (total itemized) or (income above the 37% threshold)**. (My earlier note called #2 "35% cap on itemized charitable" — imprecise; corrected here.) Code audit confirmed the app modeled **neither** (`totalItemizedDeductions` summed charitable at full face value, no floor/cap logic).
+
+**Direction note:** these are the OPPOSITE error from the non-itemizer gap — without them the app *overstates* itemized deductions → *understates* tax for itemizing donors (0.5% floor: broad) and top-bracket filers (35% cap: narrow).
+
+**Decision (user-chosen: both):**
+- **Built the 0.5% floor now.** `DataManager.charitableAGIFloor` (0.5% × AGI, 2026+) + `deductibleCharitableDeductions` (= max(0, charitable − floor)); `totalItemizedDeductions` now uses the floored amount (federal only; AGI/state unaffected). Config fields in all 4 JSONs + fallback. Itemized-breakdown UI line ("0.5% AGI Floor" + "Deductible Charitable"), mirroring the medical-floor display so the breakdown foots. TDD: 5 new `ItemizedCharitableAGIFloorTests`; updated 2 tests that encoded the pre-floor behavior (cash-in-itemized, senior-bonus-on-itemized). Full suite green (1,189). Merged to `main` (`e68f0bf`).
+- **Filed the 35% cap** as a spawned background task (`task_bf6c96bd`) — low priority (only 37%-bracket, ~$640k+ single / $768k+ MFJ; narrow for a retiree audience). Formula + sources captured in the task prompt.
+
+**Rationale:** the 0.5% floor is broadly applicable and correctness-relevant; the 35% cap is narrow and more complex, so defer.
+
+**State:** single-year engine only (multi-year `ProjectionEngine` stays standard-deduction-only). Not in the submitted 2.0.1/build 59 — future build. The non-itemizer §170(p) $1,000/$2,000 deduction is NOT subject to the 0.5% floor (verified). Interaction handled: flooring runs before the auto itemize-vs-standard pick, so a filer flipped to standard correctly gets the non-itemizer deduction instead. See [[optimizer-objective-not-selectable]] neighbors in this log (2026-07-07 non-itemizer entry below).
+
+---
+
 ## 2026-07-07: OBBBA non-itemizer cash charitable deduction (§170(p)) modeled + surfaced
 
 **Trigger:** working a tax-scenario question (single filer "Jill," 2026), the correct hand-calc diverged from what the engine would produce. Code audit confirmed a real gap: cash donations only flowed into `totalItemizedDeductions` (`scenarioCharitableDeductions` → `totalItemizedDeductions`), so a **standard-deduction filer's cash gift produced $0 federal benefit** — but 2026+ OBBBA §170(p) allows non-itemizers up to **$1,000 (single/HoH/MFS) / $2,000 (MFJ)** for **cash** gifts on top of the standard deduction. Not previously logged as known/deferred (the "M4 standard-deduction-only" note is about the separate multi-year engine).
