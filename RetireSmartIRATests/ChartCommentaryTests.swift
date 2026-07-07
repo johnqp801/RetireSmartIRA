@@ -35,4 +35,10 @@ struct ChartCommentaryTests {
         #expect(chart.hasBand)
         #expect(chart.commentary.body.contains("sensitivity"))
     }
+
+    @Test("balances commentary notes the still-taxable Traditional balance when it leads")
+    func balancesTraditionalLeads() {
+        let chart = BalancesChart(path: [rec(2026, trad: 100, roth: 10, taxable: 5)])
+        #expect(chart.commentary.body.contains("still faces income tax"))
+    }
 }
