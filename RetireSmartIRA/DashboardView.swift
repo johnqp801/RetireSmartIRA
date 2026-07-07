@@ -66,6 +66,7 @@ struct DashboardView: View {
                 incomeBreakdown
                 incomeCompositionChart
                 taxPlanningDecisions
+                SeniorBonusDeductionCard()
                 ReduceAGISection()
                 legacyStrategySummary
                 taxProjection
@@ -91,6 +92,7 @@ struct DashboardView: View {
                     incomeBreakdown
                     incomeCompositionChart
                     taxPlanningDecisions
+                    SeniorBonusDeductionCard()
                     ReduceAGISection()
                     legacyStrategySummary
                     accountBalances

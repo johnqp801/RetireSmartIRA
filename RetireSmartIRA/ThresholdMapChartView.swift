@@ -16,7 +16,11 @@ struct ThresholdMapChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Income vs tax cliffs by year").font(.headline)
+            HStack(spacing: 6) {
+                Text("Income vs tax cliffs by year").font(.headline)
+                ChartInfoButton(commentary: model.commentary)
+                Spacer()
+            }
             Picker("Measure", selection: $measure) {
                 Text("Medicare & subsidies").tag(ThresholdMapChart.Measure.magiCliffs)
                 Text("Income tax brackets").tag(ThresholdMapChart.Measure.incomeTaxBrackets)

@@ -9,18 +9,15 @@ struct HeirFrontierChartView: View {
 
     private var maxWeight: Double { model.points.map(\.weight).max() ?? 0 }
 
-    private var hasMaterialTradeoff: Bool {
-        let taxes = model.points.map(\.ownerTax)
-        let heirs = model.points.map(\.heirsKeep)
-        let taxSpread = (taxes.max() ?? 0) - (taxes.min() ?? 0)
-        let heirSpread = (heirs.max() ?? 0) - (heirs.min() ?? 0)
-        return taxSpread >= HeirFrontierPresentation.materialThreshold
-            || heirSpread >= HeirFrontierPresentation.materialThreshold
-    }
+    private var hasMaterialTradeoff: Bool { model.hasMaterialTradeoff }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Your taxes vs. what heirs keep").font(.headline)
+            HStack(spacing: 6) {
+                Text("Your taxes vs. what heirs keep").font(.headline)
+                ChartInfoButton(commentary: model.commentary)
+                Spacer()
+            }
             if hasMaterialTradeoff {
                 chart
                 Text("Each point is a strategy weighting; the highlighted point is your current selection. Down-left favors you (less lifetime tax); up-right favors heirs (more inheritance).")

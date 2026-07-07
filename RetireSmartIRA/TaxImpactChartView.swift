@@ -22,7 +22,11 @@ struct TaxImpactChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Cumulative tax: your plan vs doing nothing").font(.headline)
+            HStack(spacing: 6) {
+                Text("Cumulative tax: your plan vs doing nothing").font(.headline)
+                ChartInfoButton(commentary: model.commentary)
+                Spacer()
+            }
             Chart(model.points) { point in
                 LineMark(x: .value("Year", point.year),
                          y: .value("Cumulative tax", point.cumulativePlan),
