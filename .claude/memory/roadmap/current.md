@@ -1,6 +1,25 @@
 # Current Release Roadmap
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-07-06
+
+---
+
+## 🚀 STAGED (not yet submitted): V2.0.1 (build 59 — both platforms)
+
+**Status (2026-07-06):** Code complete + merged to `main` + version-bumped. NOT yet pushed to origin / NOT yet archived or submitted. `main` @ `1421634` (feature merge `71a3aa3`, bump `819c918` → MARKETING_VERSION 2.0.1 / CURRENT_PROJECT_VERSION 59, release notes `1421634`).
+
+**Why 2.0.1 exists:** carries the OBBBA senior-bonus itemization correctness fix (`f88966b`/`32db2de`, merged 2026-07-06) that was NOT in the shipped 2.0.0 (Mac 57 / iOS 58). Two presentation-only enhancements ride along.
+
+**What's in 2.0.1:**
+- **OBBBA senior-bonus itemization fix** — 65+ itemizers under the MAGI phaseout were losing the $6,000/$12,000 deduction; now applies whether standard or itemized.
+- **Senior Bonus card on Tax Summary** — `SeniorBonusDeductionCard()` now on `DashboardView` (both layouts); self-hides under 65. Previously Scenarios-only.
+- **Per-chart "Explain this chart" popovers** — deterministic `ChartCommentary` on all five Multi-Year chart models + reusable `ChartInfoButton` (ⓘ → popover). Offline, adapts to the user's numbers, no LLM.
+
+**Process:** spec + plan in `docs/superpowers/{specs,plans}/2026-07-06-2.0.1-*`; built via subagent-driven development (8 tasks, TDD); full suite green (TEST SUCCEEDED, ~1,179 tests); whole-branch review = ready to merge. Release notes (approved "Feature-led") in `drafts/release-notes/2026-07-06-2.0.1-release-notes.md`.
+
+**Remaining to ship:** (1) push `main` to origin; (2) archive + submit both platforms at build 59; (3) after approval, send Chris Viscomi the "it's live" note ([drafts/emails/2026-07-04-chris-viscomi-senior-deduction-itemize-bug.md](../drafts/emails/2026-07-04-chris-viscomi-senior-deduction-itemize-bug.md)). Next release build = **60+**.
+
+**Deferred to 2.0.2 (non-blocking Minors from the whole-branch review):** consolidate the pre-existing inline chart captions with the new popover commentary into one narrative source (chief item); make ThresholdMap commentary's "subsidy" mention conditional on ACA enabled; shorten `ChartInfoButton` accessibility hint. Filed as a spawned background task 2026-07-06.
 
 ---
 
