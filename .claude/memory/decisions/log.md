@@ -4,6 +4,18 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-07: OBBBA non-itemizer cash charitable deduction (§170(p)) modeled + surfaced
+
+**Trigger:** working a tax-scenario question (single filer "Jill," 2026), the correct hand-calc diverged from what the engine would produce. Code audit confirmed a real gap: cash donations only flowed into `totalItemizedDeductions` (`scenarioCharitableDeductions` → `totalItemizedDeductions`), so a **standard-deduction filer's cash gift produced $0 federal benefit** — but 2026+ OBBBA §170(p) allows non-itemizers up to **$1,000 (single/HoH/MFS) / $2,000 (MFJ)** for **cash** gifts on top of the standard deduction. Not previously logged as known/deferred (the "M4 standard-deduction-only" note is about the separate multi-year engine).
+
+**Decision (user-chosen: build it now):** Model it in the single-year engine. Added `DataManager.nonItemizerCharitableDeduction` (cash only — stock gifts excluded; non-itemizers only; year-gated to 2026+; capped) and subtracted it in `scenarioTaxableIncome` **but not `federalAGI`** (below-the-line, so SS/IRMAA/ACA/NIIT are unaffected). Config fields (`nonItemizerCashCharitableCapSingle/MFJ`, `...FirstYear`) added to all four `tax-*.json` + the hardcoded fallback. UI: a "Cash Charitable (OBBBA)" line in the Dashboard deduction breakdown (so Taxable Income foots) + a self-hiding `NonItemizerCharitableCard` in the Scenarios charitable step.
+
+**Rationale:** same shape as the senior-bonus itemize bug (a deduction the law grants to non-itemizers that the engine only applied on the itemized path); it silently overstated tax for a very common case (most filers take the standard deduction and many donate cash).
+
+**State:** TDD, 7 new tests + 1 corrected (a test had encoded the pre-2026 zero-benefit premise). Full suite green (1,184). Merged to `main` (`2e52aa5`). **Single-year engine only** — the multi-year `ProjectionEngine` stays standard-deduction-only (separate limitation). **Not in the submitted 2.0.1/build 59** — needs a future build (2.0.2/2.1). Jill's tax: ~$1,910 → ~$1,640 (the $1,000 deduction is worth ~$270 for her because it also drops LTCG under the 0% cap-gains ceiling). Follow-up candidate: the OBBBA 0.5% AGI floor + 35% benefit cap on *itemized* charitable (2026) is likely also unmodeled — separate itemized-side task.
+
+---
+
 ## 2026-06-18: Multi-state tax-completeness audit (CA, NY, PA) — NY $20k double-exemption bug fixed into 1.9; rest tracked
 
 **Trigger:** after the NJ audit, ran the same worksheet/config audit for CA, NY, PA. Verified against configs (CA `StateTaxData.swift:1008-1045`, NY `:1715-1759`, PA `:893-905`).
