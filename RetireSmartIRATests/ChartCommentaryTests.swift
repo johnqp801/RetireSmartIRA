@@ -60,6 +60,15 @@ struct ChartCommentaryTests {
         #expect(c.body.lowercased().contains("ahead"))
     }
 
+    @Test("tax-impact commentary reports the plan behind when it pays more")
+    func taxImpactBehind() {
+        let plan    = [rec(2026, tax: 30_000)]
+        let nothing = [rec(2026, tax: 10_000)]
+        let c = TaxImpactChart(plan: plan, doingNothing: nothing).commentary
+        #expect(c.body.lowercased().contains("pays about $20k more in total tax"))
+        #expect(!c.body.lowercased().contains("comes out about"))
+    }
+
     // MARK: - ConversionLadderChart
 
     @Test("ladder commentary says none when there are no conversions")
@@ -97,23 +106,36 @@ struct ChartCommentaryTests {
 
     // MARK: - HeirFrontierChart
 
-    private func fp(_ weight: Double) -> FrontierPoint {
-        FrontierPoint(weight: weight, ownerLifetimeTaxToday: 100,
-                      heirAfterTaxInheritanceToday: 1_000, heirTaxToday: 0,
+    private func fp(_ weight: Double, ownerToday: Double, heirsToday: Double) -> FrontierPoint {
+        FrontierPoint(weight: weight, ownerLifetimeTaxToday: ownerToday,
+                      heirAfterTaxInheritanceToday: heirsToday, heirTaxToday: 0,
                       pvDiscountFactor: 0.5, recommendedPath: [])
     }
 
     @Test("heir-frontier commentary: degenerate single point")
     func heirDegenerate() {
-        let result = HeirFrontierResult(points: [fp(0)])
+        let result = HeirFrontierResult(points: [fp(0, ownerToday: 100, heirsToday: 1_000)])
         let c = HeirFrontierChart(result: result, selectedWeight: 0, units: .todaysDollars).commentary
         #expect(c.title == "Your taxes vs. what heirs keep")
         #expect(c.body.lowercased().contains("no trade-off"))
     }
 
+    @Test("heir-frontier commentary: near-flat multiple points is still degenerate")
+    func heirDegenerateMultiplePoints() {
+        let result = HeirFrontierResult(points: [
+            fp(0, ownerToday: 100, heirsToday: 1_000),
+            fp(1, ownerToday: 100, heirsToday: 1_000.5),
+        ])
+        let c = HeirFrontierChart(result: result, selectedWeight: 0, units: .todaysDollars).commentary
+        #expect(c.body.lowercased().contains("no trade-off"))
+    }
+
     @Test("heir-frontier commentary describes the trade-off with multiple points")
     func heirTradeoff() {
-        let result = HeirFrontierResult(points: [fp(0), fp(1)])
+        let result = HeirFrontierResult(points: [
+            fp(0, ownerToday: 100, heirsToday: 1_000),
+            fp(1, ownerToday: 5_000, heirsToday: 20_000),
+        ])
         let c = HeirFrontierChart(result: result, selectedWeight: 0, units: .todaysDollars).commentary
         #expect(c.body.lowercased().contains("lifetime tax"))
         #expect(c.body.lowercased().contains("heirs"))

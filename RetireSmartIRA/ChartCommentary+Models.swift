@@ -68,7 +68,7 @@ extension ThresholdMapChart {
 extension HeirFrontierChart {
     var commentary: ChartCommentary {
         let title = "Your taxes vs. what heirs keep"
-        guard points.count > 1 else {
+        guard hasMaterialTradeoff else {
             return ChartCommentary(
                 title: title,
                 body: "At these assumptions every strategy weighting lands in essentially the same place, so there is no trade-off curve to plot.")
