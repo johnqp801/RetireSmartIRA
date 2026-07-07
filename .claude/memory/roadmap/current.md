@@ -8,7 +8,7 @@
 
 **Status (2026-07-07):** ✅ Both iOS and macOS 2.0.1 (build 59) **approved and live in the App Store** (confirmed 2026-07-07). Submitted 2026-07-06, approved ~1 day. Tagged `v2.0.1-build59` (→ commit `819c918`, the version bump). Code on `main` @ origin. What's New = approved "Feature-led" text; promotional text reused from 2.0.0.
 
-**Post-approval follow-ups:** (1) Chris Viscomi "it's live" note — the senior-bonus itemization fix he prompted IS in build 59 (verified `f88966b` is an ancestor of the 2.0.1 bump); reply drafted 2026-07-07 (see `drafts/emails/`). (2) Next build = **60+**.
+**Post-approval follow-ups:** (1) Chris Viscomi "it's live" note — ✅ SENT 2026-07-07 (`drafts/emails/2026-07-07-chris-viscomi-2.0.1-live.md`); the senior-bonus itemization fix he prompted IS in build 59. (2) Next build = **60+**.
 
 **NOTE — later correctness fixes are NOT in 2.0.1/build 59** (built 2026-07-07, after 2.0.1 was submitted; they ride a future build 2.0.2/2.1): OBBBA non-itemizer cash charitable deduction (§170(p)) and the 0.5% AGI floor on itemized charitable (§170(b)(1)). See decisions/log.md 2026-07-07.
 
