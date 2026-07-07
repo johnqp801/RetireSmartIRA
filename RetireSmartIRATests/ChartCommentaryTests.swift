@@ -41,4 +41,22 @@ struct ChartCommentaryTests {
         let chart = BalancesChart(path: [rec(2026, trad: 100, roth: 10, taxable: 5)])
         #expect(chart.commentary.body.contains("still faces income tax"))
     }
+
+    // MARK: - TaxImpactChart
+
+    @Test("tax-impact commentary: title + even when empty")
+    func taxImpactEmpty() {
+        let c = TaxImpactChart(plan: [], doingNothing: []).commentary
+        #expect(c.title == "Cumulative tax: your plan vs doing nothing")
+        #expect(c.body.lowercased().contains("even"))
+        #expect(!c.body.contains("\u{2014}"))
+    }
+
+    @Test("tax-impact commentary reports the plan ahead when it pays less")
+    func taxImpactAhead() {
+        let plan    = [rec(2026, tax: 10_000), rec(2027, tax: 10_000)]   // cumulative 20k
+        let nothing = [rec(2026, tax: 30_000), rec(2027, tax: 30_000)]   // cumulative 60k
+        let c = TaxImpactChart(plan: plan, doingNothing: nothing).commentary
+        #expect(c.body.lowercased().contains("ahead"))
+    }
 }

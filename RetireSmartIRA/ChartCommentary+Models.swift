@@ -22,3 +22,19 @@ extension BalancesChart {
         return ChartCommentary(title: "Account balances over time", body: base + trend + band)
     }
 }
+
+extension TaxImpactChart {
+    var commentary: ChartCommentary {
+        let base = "This adds up total tax paid so far under your plan versus doing nothing, year by year. A conversion plan usually pays more tax early, then pulls ahead as forced withdrawals shrink."
+        let outcome: String
+        let s = totalSavings
+        if s > 1_000 {
+            outcome = " Over the full horizon shown, the plan comes out about \(PlanSummary.shortDollars(s)) ahead."
+        } else if s < -1_000 {
+            outcome = " Over the full horizon shown, the plan pays about \(PlanSummary.shortDollars(-s)) more in total tax under these assumptions."
+        } else {
+            outcome = " Over the full horizon shown, the plan and doing nothing come out about even."
+        }
+        return ChartCommentary(title: "Cumulative tax: your plan vs doing nothing", body: base + outcome)
+    }
+}
