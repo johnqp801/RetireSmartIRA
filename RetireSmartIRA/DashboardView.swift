@@ -1025,6 +1025,13 @@ struct DashboardView: View {
                 }
             }
 
+            // OBBBA non-itemizer cash charitable deduction (§170(p)): a below-the-line deduction
+            // taken on top of the standard deduction, so it needs its own line for the numbers to
+            // foot. Self-hides (returns 0) when itemizing, pre-2026, or no cash gift.
+            if dataManager.nonItemizerCharitableDeduction > 0 {
+                breakdownRow("Cash Charitable (OBBBA)", value: -dataManager.nonItemizerCharitableDeduction)
+            }
+
             // Final total
             Divider()
             HStack {
