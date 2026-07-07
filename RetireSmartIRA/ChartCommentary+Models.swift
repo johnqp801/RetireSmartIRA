@@ -38,3 +38,18 @@ extension TaxImpactChart {
         return ChartCommentary(title: "Cumulative tax: your plan vs doing nothing", body: base + outcome)
     }
 }
+
+extension ConversionLadderChart {
+    var commentary: ChartCommentary {
+        let title = "Modeled conversions by year"
+        guard hasAnyConversion else {
+            return ChartCommentary(
+                title: title,
+                body: "Under these assumptions, no Roth conversions are recommended, so there is no ladder to show.")
+        }
+        let years = points.filter { $0.conversion > 0 }.count
+        let total = points.reduce(0.0) { $0 + $1.conversion }
+        let body = "Each bar is the Roth conversion this plan models for that year. It converts about \(PlanSummary.shortDollars(total)) across \(years) year\(years == 1 ? "" : "s"), sized to use up lower tax brackets without pushing your income past the next cliff."
+        return ChartCommentary(title: title, body: body)
+    }
+}

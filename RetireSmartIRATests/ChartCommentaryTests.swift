@@ -59,4 +59,21 @@ struct ChartCommentaryTests {
         let c = TaxImpactChart(plan: plan, doingNothing: nothing).commentary
         #expect(c.body.lowercased().contains("ahead"))
     }
+
+    // MARK: - ConversionLadderChart
+
+    @Test("ladder commentary says none when there are no conversions")
+    func ladderNone() {
+        let c = ConversionLadderChart(path: [rec(2026, conv: 0), rec(2027, conv: 0)]).commentary
+        #expect(c.title == "Modeled conversions by year")
+        #expect(c.body.lowercased().contains("no roth conversions"))
+        #expect(!c.body.contains("$"))   // no dollar amount when there are none
+    }
+
+    @Test("ladder commentary reports total and year count")
+    func ladderReports() {
+        let c = ConversionLadderChart(path: [rec(2026, conv: 50_000), rec(2027, conv: 50_000)]).commentary
+        #expect(c.body.contains("$"))
+        #expect(c.body.contains("2 years"))
+    }
 }
