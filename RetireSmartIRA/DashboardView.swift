@@ -1284,6 +1284,14 @@ struct DashboardView: View {
                 if dataManager.cashDonationAmount > 0 {
                     breakdownDetailRow("Cash Donations", value: dataManager.cashDonationAmount)
                 }
+                // OBBBA 0.5%-of-AGI floor on itemized charitable (2026+): only the portion of
+                // gifts above the floor is deductible. Mirrors the medical-expense floor display.
+                if dataManager.charitableAGIFloor > 0 {
+                    breakdownDetailRow("0.5% AGI Floor",
+                                       value: -(dataManager.scenarioCharitableDeductions - dataManager.deductibleCharitableDeductions),
+                                       color: Color.Semantic.red)
+                    breakdownDetailRow("Deductible Charitable", value: dataManager.deductibleCharitableDeductions, isBold: true)
+                }
             }
 
             Divider()
