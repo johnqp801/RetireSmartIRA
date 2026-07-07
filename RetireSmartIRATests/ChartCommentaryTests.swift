@@ -94,4 +94,28 @@ struct ChartCommentaryTests {
         let c = ThresholdMapChart(path: [], magiLines: [line], bracketLines: []).commentary
         #expect(c.body.lowercased().contains("under a line"))
     }
+
+    // MARK: - HeirFrontierChart
+
+    private func fp(_ weight: Double) -> FrontierPoint {
+        FrontierPoint(weight: weight, ownerLifetimeTaxToday: 100,
+                      heirAfterTaxInheritanceToday: 1_000, heirTaxToday: 0,
+                      pvDiscountFactor: 0.5, recommendedPath: [])
+    }
+
+    @Test("heir-frontier commentary: degenerate single point")
+    func heirDegenerate() {
+        let result = HeirFrontierResult(points: [fp(0)])
+        let c = HeirFrontierChart(result: result, selectedWeight: 0, units: .todaysDollars).commentary
+        #expect(c.title == "Your taxes vs. what heirs keep")
+        #expect(c.body.lowercased().contains("no trade-off"))
+    }
+
+    @Test("heir-frontier commentary describes the trade-off with multiple points")
+    func heirTradeoff() {
+        let result = HeirFrontierResult(points: [fp(0), fp(1)])
+        let c = HeirFrontierChart(result: result, selectedWeight: 0, units: .todaysDollars).commentary
+        #expect(c.body.lowercased().contains("lifetime tax"))
+        #expect(c.body.lowercased().contains("heirs"))
+    }
 }

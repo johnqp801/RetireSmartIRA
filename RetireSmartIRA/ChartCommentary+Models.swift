@@ -64,3 +64,16 @@ extension ThresholdMapChart {
         return ChartCommentary(title: title, body: base + note)
     }
 }
+
+extension HeirFrontierChart {
+    var commentary: ChartCommentary {
+        let title = "Your taxes vs. what heirs keep"
+        guard points.count > 1 else {
+            return ChartCommentary(
+                title: title,
+                body: "At these assumptions every strategy weighting lands in essentially the same place, so there is no trade-off curve to plot.")
+        }
+        let body = "Each point is a different strategy weighting. Moving down and to the left lowers your lifetime tax; moving up and to the right leaves more after-tax money to your heirs. The highlighted point is your current selection."
+        return ChartCommentary(title: title, body: body)
+    }
+}
