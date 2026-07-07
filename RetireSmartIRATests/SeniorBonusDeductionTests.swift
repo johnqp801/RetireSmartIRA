@@ -138,7 +138,9 @@ struct SeniorBonusDeductionTests {
         // MAGI $50K is below the $75K single phaseout threshold → full $6,000 bonus.
         #expect(abs(dm.seniorBonusDeductionAmount - 6_000) < 1)
 
-        let itemizedWithoutBonus = dm.baseItemizedDeductions + dm.scenarioCharitableDeductions
+        // Use the post-floor charitable amount: the 2026 OBBBA 0.5%-of-AGI floor reduces the
+        // deductible charitable, but the senior bonus must still ride on top of the itemized total.
+        let itemizedWithoutBonus = dm.baseItemizedDeductions + dm.deductibleCharitableDeductions
         let expectedEffective = itemizedWithoutBonus + dm.seniorBonusDeductionAmount
 
         #expect(dm.scenarioEffectiveItemize == true)

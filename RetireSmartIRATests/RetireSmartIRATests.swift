@@ -3602,7 +3602,9 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         ]
         let baseItemized = dm.totalItemizedDeductions
         dm.cashDonationAmount = 10_000
-        #expect(isClose(dm.totalItemizedDeductions, baseItemized + 10_000))
+        // 2026 OBBBA 0.5%-of-AGI floor on itemized charitable: AGI $80k → $400 floored,
+        // so $9,600 of the $10,000 gift is deductible on the itemized path.
+        #expect(isClose(dm.totalItemizedDeductions, baseItemized + 9_600))
     }
 
     @Test("Stock donation (long-term) adds FMV to itemized deductions")

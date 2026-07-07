@@ -47,6 +47,8 @@
   "nonItemizerCashCharitableCapSingle": 1000,
   "nonItemizerCashCharitableCapMFJ": 2000,
   "nonItemizerCashCharitableFirstYear": 2026,
+  "itemizedCharitableAGIFloorRate": 0.005,
+  "itemizedCharitableAGIFloorFirstYear": 2026,
   "saltBaseCap": 10000,
   "saltInflationRate": 0.0,
   "saltBaseYear": 2017,

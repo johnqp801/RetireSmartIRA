@@ -40,6 +40,12 @@ struct TaxYearConfig: Codable {
     let nonItemizerCashCharitableCapMFJ: Double
     let nonItemizerCashCharitableFirstYear: Int
 
+    // MARK: - OBBBA 0.5% AGI Floor on Itemized Charitable (IRC §170(b)(1), 2026+)
+    // For itemizers, only charitable gifts exceeding this fraction of the contribution base (AGI)
+    // are deductible. Federal provision; applied to the federal itemized total, not AGI or state.
+    let itemizedCharitableAGIFloorRate: Double
+    let itemizedCharitableAGIFloorFirstYear: Int
+
     // MARK: - SALT Cap (OBBBA 2025-2029)
     let saltBaseCap: Double
     let saltInflationRate: Double
@@ -237,6 +243,7 @@ struct TaxYearConfig: Codable {
         seniorBonusFirstYear: 2025, seniorBonusLastYear: 2028,
         nonItemizerCashCharitableCapSingle: 1000, nonItemizerCashCharitableCapMFJ: 2000,
         nonItemizerCashCharitableFirstYear: 2026,
+        itemizedCharitableAGIFloorRate: 0.005, itemizedCharitableAGIFloorFirstYear: 2026,
         saltBaseCap: 40000, saltInflationRate: 0.01, saltBaseYear: 2025,
         saltPhaseoutBaseThreshold: 500000, saltPhaseoutRate: 0.30, saltFloor: 10000,
         saltExpandedFirstYear: 2025, saltExpandedLastYear: 2029, saltDefaultCap: 10000,

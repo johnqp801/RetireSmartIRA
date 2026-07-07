@@ -1854,13 +1854,28 @@ class DataManager {
         return total
     }
 
-    /// Total itemized deductions: base entries + charitable from Tax Planning
-    /// + the OBBBA Senior Bonus. The senior bonus is available whether the
-    /// taxpayer itemizes or takes the standard deduction (per IRC § 151(d)),
-    /// so it must be added here too, not just embedded in `standardDeductionAmount`
+    /// OBBBA 0.5%-of-AGI floor on itemized charitable contributions (IRC §170(b)(1), tax years
+    /// beginning after 2025). The "contribution base" is AGI. Charitable gifts below this amount
+    /// are nondeductible on the itemized path. Zero before the effective year.
+    var charitableAGIFloor: Double {
+        let cfg = TaxCalculationEngine.config
+        guard currentYear >= cfg.itemizedCharitableAGIFloorFirstYear else { return 0 }
+        return cfg.itemizedCharitableAGIFloorRate * max(0, federalAGI.value)
+    }
+
+    /// Charitable contributions actually deductible on the itemized path after applying the OBBBA
+    /// 0.5%-of-AGI floor. Only the portion of gifts exceeding the floor is deductible.
+    var deductibleCharitableDeductions: Double {
+        max(0, scenarioCharitableDeductions - charitableAGIFloor)
+    }
+
+    /// Total itemized deductions: base entries + post-floor charitable from Tax Planning
+    /// + the OBBBA Senior Bonus. Charitable is floored at 0.5% of AGI (2026+). The senior bonus
+    /// is available whether the taxpayer itemizes or takes the standard deduction (per IRC
+    /// § 151(d)), so it must be added here too, not just embedded in `standardDeductionAmount`
     /// — otherwise itemizing 65+ filers would silently lose it.
     var totalItemizedDeductions: Double {
-        baseItemizedDeductions + scenarioCharitableDeductions + seniorBonusDeductionAmount
+        baseItemizedDeductions + deductibleCharitableDeductions + seniorBonusDeductionAmount
     }
 
     /// Auto-recommended deduction type (whichever is higher)
