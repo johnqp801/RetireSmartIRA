@@ -53,3 +53,14 @@ extension ConversionLadderChart {
         return ChartCommentary(title: title, body: body)
     }
 }
+
+extension ThresholdMapChart {
+    var commentary: ChartCommentary {
+        let title = "Income vs tax cliffs by year"
+        let base = "This plots each year's income against the thresholds it has to navigate. Toggle between Medicare and subsidy cliffs, which track your MAGI, and federal income-tax brackets, which track your taxable income."
+        let note = (magiLines.isEmpty && bracketLines.isEmpty)
+            ? ""
+            : " Staying just under a line keeps you out of a higher Medicare premium tier, a lost subsidy, or a higher bracket for that year."
+        return ChartCommentary(title: title, body: base + note)
+    }
+}

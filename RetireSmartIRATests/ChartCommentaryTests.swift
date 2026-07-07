@@ -76,4 +76,22 @@ struct ChartCommentaryTests {
         #expect(c.body.contains("$"))
         #expect(c.body.contains("2 years"))
     }
+
+    // MARK: - ThresholdMapChart
+
+    @Test("threshold commentary: title + base mentions medicare and brackets")
+    func thresholdBase() {
+        let c = ThresholdMapChart(path: [], magiLines: [], bracketLines: []).commentary
+        #expect(c.title == "Income vs tax cliffs by year")
+        #expect(c.body.lowercased().contains("medicare"))
+        #expect(c.body.lowercased().contains("bracket"))
+        #expect(!c.body.contains("\u{2014}"))
+    }
+
+    @Test("threshold commentary adds the stay-under note when lines are present")
+    func thresholdLines() {
+        let line = ThresholdMapChart.Line(id: "irmaa1", label: "IRMAA tier 1", value: 206_000)
+        let c = ThresholdMapChart(path: [], magiLines: [line], bracketLines: []).commentary
+        #expect(c.body.lowercased().contains("under a line"))
+    }
 }
