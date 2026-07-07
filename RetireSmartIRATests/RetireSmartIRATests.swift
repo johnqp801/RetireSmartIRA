@@ -4282,18 +4282,20 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(dm.cashDonationTaxSavings > 0)
     }
 
-    @Test("Cash donation savings is zero when standard deduction still wins")
-    func savingsZeroWhenStandardWins() {
+    @Test("Standard-deduction filer's cash gift saves tax via the OBBBA §170(p) deduction (2026+)")
+    func savingsFromNonItemizerCashDeductionWhenStandardWins() {
         let dm = makeDM(birthYear: 1970, state: .florida)
         dm.incomeSources = [
             IncomeSource(name: "Pension", type: .pension, annualAmount: 80_000)
         ]
-        // No other itemized deductions: $1K cash alone << $16,100 standard
+        // No other itemized deductions: $1K cash alone << $16,100 standard, so the standard
+        // deduction still wins. Before 2026 this produced zero savings, but from 2026 the OBBBA
+        // non-itemizer cash-charitable deduction (§170(p)) lets a standard-deduction filer deduct
+        // the $1,000 on top of the standard deduction. Taxable income $63,900 → $62,900, both in
+        // the 22% bracket, so the marginal saving is exactly $1,000 × 22% = $220.
         dm.cashDonationAmount = 1_000
         dm.deductionOverride = nil
-        // Without cash, standard wins. With cash, standard still wins.
-        // So cash donation provides zero marginal tax savings.
-        #expect(dm.cashDonationTaxSavings == 0)
+        #expect(abs(dm.cashDonationTaxSavings - 220) < 1)
     }
 
     @Test("Cash donation savings equals tax difference with vs without")
