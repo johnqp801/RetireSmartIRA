@@ -4,6 +4,16 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-07: Charitable AGI ceilings (30% LT stock / 60% cash) built — completes the itemized-charitable stack
+
+**Trigger:** the OBBBA 2026 coverage audit (`reference/2026-07-07-obbba-2026-coverage-audit.md`) flagged as its top gap (G1, HIGH) that itemized charitable was uncapped — the app's own stock-donation feature could over-deduct a large long-term gift (e.g. $60k stock on $150k AGI: law allows $45k this year, app deducted $60k), understating tax.
+
+**Decision (user-chosen: build it):** Model the AGI ceilings on the itemized path: long-term appreciated stock (FMV) limited to 30% of AGI; cash + short-term/basis stock to 60% of AGI. `DataManager.ceilingLimitedCharitable` applies them, feeding the existing `deductibleCharitableDeductions` so the ceilings run BEFORE the 0.5% floor. `totalItemizedDeductions` was left textually untouched (routes through the charitable helper) specifically to avoid colliding with the concurrent §68-cap session. Config rates `charitableCashAGICeilingRate` (0.60) / `charitableLTStockAGICeilingRate` (0.30) — no year gate (ceilings are longstanding; the 60% cash limit was made permanent by OBBBA). Itemized-breakdown UI split into an "AGI Ceiling" line + a "0.5% AGI Floor" line so it foots.
+
+**Simplifications (disclosed in code):** the 5-year carryforward of excess and the cross-category overall-60% interaction are not modeled (excess is treated as not-deductible this year — conservative).
+
+**State:** TDD, 7-test `CharitableAGICeilingTests`. Built on a branch off `main`, HELD unmerged while the §68 "35% cap" session was concurrently editing the same files; after that session merged (`11cf855`), rebased onto it (config/JSON conflicts resolved, order-of-ops verified correct without engine changes, one fallback arg-order fixup), full suite green **1203**, merged `main` (`45fff75`). Federal single-year only. Not in the shipped 2.0.1/build 59 — rides 2.0.2/build 60 with the rest of the charitable stack. Remaining audit gaps: QBI §199A (MED-LOW), HSA-on-bronze content, estate disclosure (both LOW).
+
 ## 2026-07-07: OBBBA §68 overall itemized-deduction limitation (2/37 rule) built — the "35% cap" that was filed
 
 **Decision (user-directed):** Built the 2/37 rule that was *filed* in the entry below (`task_bf6c96bd`). §68 as amended by OBBBA caps the tax value of itemized deductions for top-bracket taxpayers, TY 2026+. **Rationale:** without it the app overstated itemized-deduction value (understated tax) for filers with taxable income above the 37% threshold (~$640,600 single / $768,700 MFJ, 2026) — a narrow but real slice.
