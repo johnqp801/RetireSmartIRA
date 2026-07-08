@@ -1863,10 +1863,34 @@ class DataManager {
         return cfg.itemizedCharitableAGIFloorRate * max(0, federalAGI.value)
     }
 
-    /// Charitable contributions actually deductible on the itemized path after applying the OBBBA
-    /// 0.5%-of-AGI floor. Only the portion of gifts exceeding the floor is deductible.
+    /// Charitable gifts after the AGI ceilings but BEFORE the 0.5% floor: long-term appreciated
+    /// property (donated stock at FMV) is limited to 30% of AGI; cash and short-term/basis-valued
+    /// gifts to 60% of AGI. Excess over a ceiling is not deductible this year (it would carry
+    /// forward up to 5 years — not modeled). The cross-category overall-60% interaction is also a
+    /// simplification. Federal itemized path only.
+    var ceilingLimitedCharitable: Double {
+        let cfg = TaxCalculationEngine.config
+        let agi = max(0, federalAGI.value)
+        var deductible = 0.0
+        var sixtyPercentBucket = max(0, cashDonationAmount)
+        if stockDonationEnabled {
+            if scenarioStockIsLongTerm {
+                // Long-term appreciated stock at FMV: its own 30%-of-AGI ceiling.
+                deductible += min(max(0, stockCurrentValue), cfg.charitableLTStockAGICeilingRate * agi)
+            } else {
+                // Short-term / non-appreciated stock deducts at basis, in the 60% bucket.
+                sixtyPercentBucket += max(0, stockPurchasePrice)
+            }
+        }
+        deductible += min(sixtyPercentBucket, cfg.charitableCashAGICeilingRate * agi)
+        return deductible
+    }
+
+    /// Charitable contributions actually deductible on the itemized path after applying the AGI
+    /// ceilings (30% LT stock / 60% cash) and then the OBBBA 0.5%-of-AGI floor. Only the portion
+    /// of ceiling-limited gifts exceeding the floor is deductible.
     var deductibleCharitableDeductions: Double {
-        max(0, scenarioCharitableDeductions - charitableAGIFloor)
+        max(0, ceilingLimitedCharitable - charitableAGIFloor)
     }
 
     /// Total itemized deductions: base entries + post-floor charitable from Tax Planning
