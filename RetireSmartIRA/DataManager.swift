@@ -1892,9 +1892,43 @@ class DataManager {
         }
     }
 
-    /// The deduction amount actually applied to income
+    /// The taxable-income threshold at which the top (37%) ordinary bracket begins, for the
+    /// current filing status. Read from the bundled brackets (top ordinary bracket = highest
+    /// threshold). Used by the OBBBA overall itemized-deduction limitation.
+    private var topOrdinaryBracketThreshold: Double {
+        let cfg = TaxCalculationEngine.config
+        let brackets = filingStatus == .marriedFilingJointly
+            ? cfg.federalBracketsMFJ
+            : cfg.federalBracketsSingle
+        return brackets.map(\.threshold).max() ?? 0
+    }
+
+    /// OBBBA overall limitation on itemized deductions (IRC §68 as amended, tax years beginning
+    /// after 2025). When the taxpayer itemizes and their taxable income BEFORE the itemized
+    /// deduction exceeds the 37%-bracket threshold, the itemized total is reduced by 2/37 of the
+    /// lesser of (a) the itemized deductions or (b) the excess of that income over the threshold.
+    /// Net effect caps the marginal benefit near 35 cents per dollar. Applied AFTER all other
+    /// floors/phaseouts (including the 0.5% charitable AGI floor, already baked into
+    /// `totalItemizedDeductions`). Federal only; does not change AGI or state. Zero when not
+    /// itemizing, before the effective year, or at/below the 37% threshold.
+    var itemizedOverallLimitationReduction: Double {
+        guard scenarioEffectiveItemize else { return 0 }
+        let cfg = TaxCalculationEngine.config
+        guard currentYear >= cfg.itemizedOverallLimitationFirstYear else { return 0 }
+        // Taxable income before the itemized deduction = gross − above-the-line deductions.
+        // (On the itemized path the non-itemizer cash-charitable deduction is zero.)
+        let incomeBeforeItemized = max(0, scenarioGrossIncome - totalAboveTheLineDeductions)
+        let excess = max(0, incomeBeforeItemized - topOrdinaryBracketThreshold)
+        let base = min(totalItemizedDeductions, excess)
+        return cfg.itemizedOverallLimitationRate * base
+    }
+
+    /// The deduction amount actually applied to income. On the itemized path, the OBBBA §68
+    /// overall limitation (2/37 rule) is subtracted from the itemized total.
     var effectiveDeductionAmount: Double {
-        scenarioEffectiveItemize ? totalItemizedDeductions : standardDeductionAmount
+        scenarioEffectiveItemize
+            ? totalItemizedDeductions - itemizedOverallLimitationReduction
+            : standardDeductionAmount
     }
 
     /// State-specific itemized deductions: removes SALT (can't deduct state tax on state return),

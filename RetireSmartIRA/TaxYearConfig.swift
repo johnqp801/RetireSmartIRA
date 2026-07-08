@@ -46,6 +46,16 @@ struct TaxYearConfig: Codable {
     let itemizedCharitableAGIFloorRate: Double
     let itemizedCharitableAGIFloorFirstYear: Int
 
+    // MARK: - OBBBA Overall Limitation on Itemized Deductions (IRC §68 as amended, 2026+)
+    // For taxpayers whose taxable income BEFORE the itemized deduction exceeds the 37%-bracket
+    // threshold, itemized deductions are reduced by this rate (2/37) times the lesser of (a) the
+    // itemized deductions or (b) the excess of that income over the threshold. Net effect caps the
+    // marginal benefit near 35 cents per dollar. Applied AFTER all other floors/phaseouts (including
+    // the 0.5% charitable AGI floor). Federal only; does not affect AGI or state. The 37%-bracket
+    // threshold is read from federalBracketsSingle/MFJ (the top ordinary bracket).
+    let itemizedOverallLimitationRate: Double
+    let itemizedOverallLimitationFirstYear: Int
+
     // MARK: - SALT Cap (OBBBA 2025-2029)
     let saltBaseCap: Double
     let saltInflationRate: Double
@@ -244,6 +254,7 @@ struct TaxYearConfig: Codable {
         nonItemizerCashCharitableCapSingle: 1000, nonItemizerCashCharitableCapMFJ: 2000,
         nonItemizerCashCharitableFirstYear: 2026,
         itemizedCharitableAGIFloorRate: 0.005, itemizedCharitableAGIFloorFirstYear: 2026,
+        itemizedOverallLimitationRate: 2.0 / 37.0, itemizedOverallLimitationFirstYear: 2026,
         saltBaseCap: 40000, saltInflationRate: 0.01, saltBaseYear: 2025,
         saltPhaseoutBaseThreshold: 500000, saltPhaseoutRate: 0.30, saltFloor: 10000,
         saltExpandedFirstYear: 2025, saltExpandedLastYear: 2029, saltDefaultCap: 10000,
