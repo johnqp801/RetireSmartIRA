@@ -49,6 +49,8 @@
   "nonItemizerCashCharitableFirstYear": 2026,
   "itemizedCharitableAGIFloorRate": 0.005,
   "itemizedCharitableAGIFloorFirstYear": 2026,
+  "itemizedOverallLimitationRate": 0.05405405405405406,
+  "itemizedOverallLimitationFirstYear": 2026,
   "saltBaseCap": 40000,
   "saltInflationRate": 0.01,
   "saltBaseYear": 2025,
