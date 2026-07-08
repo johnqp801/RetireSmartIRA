@@ -1,0 +1,27 @@
+# Session 2026-07-08 — Bogleheads exchange, article hardening, Kotlikoff, optimizer "go-big" finding
+
+Continues the 2026-07-07 charitable-deductions session. Content-marketing + engine-validation day; no app code merged to `main` (two engine changes are running in separate sessions — see below). `main` @ `3570047`.
+
+## 1. Bogleheads case study + arcticpineapplecorp reply
+John posted the inherited-IRA article's case study (stripped down) to Bogleheads and drew a substantive critique from arcticpineapplecorp (~19k posts). Core valid catch: the post computed taxable income as gross − standard deduction, skipping the SS worksheet ($77,700 was wrong). Rebuilt + verified the whole model → [reference/2026-07-08-inherited-ira-drawdown-model.md](../reference/2026-07-08-inherited-ira-drawdown-model.md) has every number, the Perplexity scorecard, and the SS-torpedo decomposition.
+- Two errors caught in MY OWN first drafts before posting: (a) "marginal 16.3%" (it's blended; true marginal in the SS phase-in zone is 22.2%); (b) "zone exhausts after $40k" (it's ~$17k). Both fixed.
+- Perplexity review: right on the marginal/blended point, WRONG on the Single Life factor (said 17.7; actual 20.4, verified vs `RMDCalculationEngine.swift:55` + Pub 590-B), half-right on terminal-wealth fragility (ran it — direction never flips).
+- **Framing decision (John's, refined together):** post as a newcomer being tested, not a peer scoring points — reframed "two things on your numbers" as a reconciliation journey, and "here's where you win one" as fully conceding point #4. Do NOT link the app on Bogleheads (strict self-promotion rules); even if later asked "how'd you model this," ceiling is "a model I've been building for years," not a link. Final reply posted 2026-07-08 (John's edits on top of the draft; all numbers verified pre-post).
+
+## 2. Inherited-IRA article hardening (website repo, PR #6)
+Post-publication hardening prompted by the thread. `retiresmartira-website` PR #6 (branch `article/inherited-ira-hardening`), one file: the article page. Five edits — RBD assumption stated in the worked example; "total withdrawn identical" → "ignoring investment growth" + fair-comparison nuance; IRMAA spike quantified ($12k+/couple); new SS-income-mix paragraph (phase-in torpedo + 2025-2028 senior deduction); **CTA corrected** from "compares inherited IRA drawdown schedules" (false) to "projects inherited IRA RMDs year by year" (verified true). Rendered + verified locally (12/12 content checks, no console errors). NOT merged — John merges; Vercel deploys. Detail in that repo's memory.
+
+## 3. CTA-accuracy code audit → multi-year inherited-IRA limitation (task filed)
+Verifying the CTA surfaced a real gap: single-year engine models inherited IRAs correctly (`RMDCalculationEngine.calculateInheritedIRARMD`, `RMDCalculatorView.swift:1313` shows the year-by-year schedule), but the **Multi-Year engine folds inherited traditional into the regular bucket** (`MultiYearInputAdapter.swift:95-96`) and applies only owner uniform-table RMDs — missing the years-1-9 single-life RMDs and the year-10 forced drain → understates future tax/IRMAA for inherited-IRA holders. Filed as spawned task **task_7c045c0a** (2.1). Now running in a separate local session.
+
+## 4. Kotlikoff "bracket-filling is wrong" article + empirical optimizer finding
+Read larrykotlikoff.substack.com/p/federal-bracket-filling-to-roth-convert. His critique of bracket-filling (ignores SS taxation, IRMAA, state tax) is essentially the app's design doc — the optimizer minimizes LIFETIME tax (not bracket-fill) and already models all three plus ACA/NIIT.
+- **Empirical test (diagnostic, not kept in suite):** ran a Kotlikoff-shaped profile ($2M trad / $2M taxable, 62, single, OR) through `MultiYearTaxStrategyEngine`. Result: the optimizer **goes aggressive, not bracket-hugging** — year 1 converts $400k (35% bracket), years 67/68 convert $445k/$495k, total ~$2.5M, drains trad to $0. BUT the **$500k/year `cliffCandidates` cap is binding** (`OptimizationEngine.swift:128`, `let cap = 500_000`) — it can't propose Kotlikoff's single-year $810k blitz, so it spreads aggression across ~8 years and caps at the 35% bracket (never 37%). Plausibly benign-or-better for a lifetime-tax objective; a 2.x revisit candidate, not a bug. Diagnostic test code is worth re-adding as a proper `MultiYearReferenceScenariosTests` "Kotlikoff go-big" regression (locks in "we don't bracket-hug") once the inherited-IRA session lands (avoids test-file churn).
+- **Kotlikoff's "Claude fails at tax math" segment** = validation of the app's architecture decision: deterministic engine, LLM never touches numbers (same principle as the chart-commentary-deterministic decision). Positioning line already earned.
+
+## Open / next
+- Merge website PR #6 (John). Merge/close the two running engine sessions (task_7c045c0a inherited multi-year; the earlier 35%-cap already merged). 
+- Reframe the Tim/2.1 "selectable objective" debt: Kotlikoff makes the case that bracket-filling is the naive heuristic and lifetime-tax-min (the app's fixed objective) is defensible → build bracket-filling as a COMPARISON/explanation view ("here's what bracket-filling would do vs what the optimizer found"), not as an alternative objective. Cheaper + more honest. See decisions/log.md 2026-07-08.
+- Consider raising/removing the $500k/yr conversion-candidate cap for very large balances (2.x).
+
+See [[optimizer-objective-not-selectable]], [[v2-status]].

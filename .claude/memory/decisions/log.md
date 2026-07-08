@@ -4,6 +4,20 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-08: Bracket-filling → build as a COMPARISON view, not a selectable objective (Tim/2.1 debt reframed)
+
+**Trigger:** Kotlikoff's "Federal Bracket-Filling to Roth Convert" (substack) argues bracket-filling is the naive Wall-Street heuristic because it ignores SS taxation, IRMAA, and state tax; his alternative is global lifetime-tax/consumption optimization. That's essentially the app's existing design — the optimizer minimizes LIFETIME tax and already models SS taxability, IRMAA (2-yr lag), state, ACA, and NIIT.
+
+**Decision:** Recast the long-standing "we promised Tim a selectable objective / bracket-smoothing" debt ([[optimizer-objective-not-selectable]]). Rather than build bracket-filling as an alternative *objective* to optimize toward (optimizing for a heuristic a serious economist calls catastrophic), build it as a **comparison / explanation view**: "here's what naive bracket-filling would do, here's what the optimizer found, here's the gap." Cheaper, more honest, and turns the critique into a selling point. Not yet scheduled; candidate for 2.x.
+
+**Rationale:** bracket-filling deserves to exist in the product as the thing we beat, not the thing we chase.
+
+## 2026-07-08: Optimizer confirmed "go-big," not bracket-hugging; $500k/yr candidate cap is a known boundary
+
+**Trigger:** empirical diagnostic (Kotlikoff-shaped profile: $2M trad / $2M taxable, 62, single, OR) through `MultiYearTaxStrategyEngine`.
+
+**Finding (verified, not a decision to change anything yet):** the optimizer goes aggressive — year-1 conversion $400k into the 35% bracket, later years $445k/$495k, ~$2.5M total, trad fully drained. It does NOT bracket-hug. The `cliffCandidates` `cap = 500_000` (`OptimizationEngine.swift:128`) is binding, so it can't propose a single-year >$500k "blitz" like Kotlikoff's $810k year-1; it spreads aggression across ~8 years and stays ≤35% (never 37%). **Decision: leave as-is for now** — plausibly benign or better for a lifetime-tax objective (spreading to stay ≤35% likely beats blitzing into 37%). Flagged as a 2.x revisit (raise/remove the cap for very large balances) and as a candidate `MultiYearReferenceScenariosTests` regression ("we don't bracket-hug") to add once the inherited-IRA multi-year session (task_7c045c0a) lands. Detail: reference/2026-07-08-inherited-ira-drawdown-model.md + the 2026-07-08 session note.
+
 ## 2026-07-07: Charitable AGI ceilings (30% LT stock / 60% cash) built — completes the itemized-charitable stack
 
 **Trigger:** the OBBBA 2026 coverage audit (`reference/2026-07-07-obbba-2026-coverage-audit.md`) flagged as its top gap (G1, HIGH) that itemized charitable was uncapped — the app's own stock-donation feature could over-deduct a large long-term gift (e.g. $60k stock on $150k AGI: law allows $45k this year, app deducted $60k), understating tax.
