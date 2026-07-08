@@ -24,9 +24,12 @@ struct BalancesChart: Equatable, Sendable {
         let highByYear = Dictionary((optimistic ?? []).map { ($0.year, $0.endOfYearBalances.total) },
                                     uniquingKeysWith: { first, _ in first })
         self.points = path.map { rec in
+            // Inherited balances display inside the trad/Roth series (they lived in those
+            // buckets before the 2.1 inherited split), keeping the stack consistent with
+            // the .total band.
             Point(id: rec.year, year: rec.year,
-                  traditional: rec.endOfYearBalances.traditional,
-                  roth: rec.endOfYearBalances.roth,
+                  traditional: rec.endOfYearBalances.traditional + rec.endOfYearBalances.inheritedTraditional,
+                  roth: rec.endOfYearBalances.roth + rec.endOfYearBalances.inheritedRoth,
                   taxable: rec.endOfYearBalances.taxable,
                   totalLow: lowByYear[rec.year],
                   totalHigh: highByYear[rec.year])

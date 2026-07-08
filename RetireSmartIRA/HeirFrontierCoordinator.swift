@@ -40,8 +40,11 @@ struct HeirFrontierCoordinator {
 
             let terminalTrad = result.recommendedPath.last.map {
                 $0.endOfYearBalances.primaryTraditional + $0.endOfYearBalances.spouseTraditional
+                    + $0.endOfYearBalances.inheritedTraditional
             } ?? 0
-            let terminalRoth = result.recommendedPath.last?.endOfYearBalances.roth ?? 0
+            let terminalRoth = result.recommendedPath.last.map {
+                $0.endOfYearBalances.roth + $0.endOfYearBalances.inheritedRoth
+            } ?? 0
             let terminalTaxable = result.recommendedPath.last?.endOfYearBalances.taxable ?? 0
 
             let heirTax = LegacyPlanningEngine.heirTaxOnInheritedTraditional(

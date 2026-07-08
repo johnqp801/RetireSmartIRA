@@ -202,8 +202,11 @@ struct OptimizationEngine {
         rate: Double
     ) -> Double {
         guard let last = path.last else { return 0 }
+        // Inherited traditional still at horizon end (lifetime-stretch EDB cases; non-EDB
+        // accounts drain within 10 years) is pre-tax money like the owner buckets.
         let trad = last.endOfYearBalances.primaryTraditional
                  + last.endOfYearBalances.spouseTraditional
+                 + last.endOfYearBalances.inheritedTraditional
         return trad * rate
     }
 
@@ -243,6 +246,7 @@ struct OptimizationEngine {
         }
         let trad = last.endOfYearBalances.primaryTraditional
                  + last.endOfYearBalances.spouseTraditional
+                 + last.endOfYearBalances.inheritedTraditional
         // Match optimize()'s horizonYears (endYear - baseYear + 1) exactly, so this helper and the
         // optimizer's totalObjectiveCost discount the terminal tax over the same number of years.
         let horizonYears = max(0, last.year - baseYear + 1)
@@ -275,6 +279,7 @@ struct OptimizationEngine {
         guard let last = path.last else { return 0 }
         let trad = last.endOfYearBalances.primaryTraditional
                  + last.endOfYearBalances.spouseTraditional
+                 + last.endOfYearBalances.inheritedTraditional
         return LegacyPlanningEngine.heirTaxOnInheritedTraditional(
             balance: trad,
             heirSalary: inputs.heirSalary,

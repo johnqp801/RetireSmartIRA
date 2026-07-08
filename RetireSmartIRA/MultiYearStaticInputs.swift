@@ -20,6 +20,13 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     // startingBalances.taxable so legacy callers/tests are unchanged.
     let taxableAccounts: [TaxableAccountInput]
 
+    // Inherited IRAs with complete beneficiary metadata (2.1). Each gets its own engine
+    // bucket driven by RMDCalculationEngine's beneficiary schedule (single-life RMDs when
+    // the decedent died on/after RBD, forced full drain by year 10 for non-EDBs, tax-free
+    // drain for inherited Roth). Inherited accounts missing metadata stay rolled into the
+    // owner buckets by the adapter (legacy fallback).
+    let inheritedAccounts: [InheritedAccountInput]
+
     // Scenario planning base year (year 0 of the projection). Defaults to the current
     // calendar year so production/existing callers are unchanged, but is injectable so a
     // saved or future-dated scenario projects from a fixed year and tests are deterministic
@@ -128,10 +135,12 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         year1SpouseWithdrawal: Double = 0,
         year1PrimaryQCD: Double = 0,
         year1SpouseQCD: Double = 0,
-        taxableAccounts: [TaxableAccountInput] = []
+        taxableAccounts: [TaxableAccountInput] = [],
+        inheritedAccounts: [InheritedAccountInput] = []
     ) {
         self.startingBalances = startingBalances
         self.taxableAccounts = taxableAccounts
+        self.inheritedAccounts = inheritedAccounts
         self.baseYear = baseYear
         self.primaryCurrentAge = primaryCurrentAge
         self.spouseCurrentAge = spouseCurrentAge
@@ -204,7 +213,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             year1SpouseWithdrawal: year1SpouseWithdrawal,
             year1PrimaryQCD: year1PrimaryQCD,
             year1SpouseQCD: year1SpouseQCD,
-            taxableAccounts: taxableAccounts
+            taxableAccounts: taxableAccounts,
+            inheritedAccounts: inheritedAccounts
         )
     }
 }
