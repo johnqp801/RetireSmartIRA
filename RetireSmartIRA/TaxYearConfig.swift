@@ -46,6 +46,13 @@ struct TaxYearConfig: Codable {
     let itemizedCharitableAGIFloorRate: Double
     let itemizedCharitableAGIFloorFirstYear: Int
 
+    // MARK: - Charitable AGI Ceilings (longstanding; 60% cash made permanent by OBBBA)
+    // Itemized charitable is limited by contribution base (AGI): long-term appreciated property
+    // (donated stock at FMV) to 30% of AGI; cash and short-term/basis-valued gifts to 60% of AGI.
+    // Applied before the 0.5% floor. Excess would carry forward 5 years (not modeled).
+    let charitableCashAGICeilingRate: Double
+    let charitableLTStockAGICeilingRate: Double
+
     // MARK: - OBBBA Overall Limitation on Itemized Deductions (IRC §68 as amended, 2026+)
     // For taxpayers whose taxable income BEFORE the itemized deduction exceeds the 37%-bracket
     // threshold, itemized deductions are reduced by this rate (2/37) times the lesser of (a) the
@@ -254,6 +261,7 @@ struct TaxYearConfig: Codable {
         nonItemizerCashCharitableCapSingle: 1000, nonItemizerCashCharitableCapMFJ: 2000,
         nonItemizerCashCharitableFirstYear: 2026,
         itemizedCharitableAGIFloorRate: 0.005, itemizedCharitableAGIFloorFirstYear: 2026,
+        charitableCashAGICeilingRate: 0.60, charitableLTStockAGICeilingRate: 0.30,
         itemizedOverallLimitationRate: 2.0 / 37.0, itemizedOverallLimitationFirstYear: 2026,
         saltBaseCap: 40000, saltInflationRate: 0.01, saltBaseYear: 2025,
         saltPhaseoutBaseThreshold: 500000, saltPhaseoutRate: 0.30, saltFloor: 10000,

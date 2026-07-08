@@ -1284,12 +1284,18 @@ struct DashboardView: View {
                 if dataManager.cashDonationAmount > 0 {
                     breakdownDetailRow("Cash Donations", value: dataManager.cashDonationAmount)
                 }
-                // OBBBA 0.5%-of-AGI floor on itemized charitable (2026+): only the portion of
-                // gifts above the floor is deductible. Mirrors the medical-expense floor display.
-                if dataManager.charitableAGIFloor > 0 {
-                    breakdownDetailRow("0.5% AGI Floor",
-                                       value: -(dataManager.scenarioCharitableDeductions - dataManager.deductibleCharitableDeductions),
-                                       color: Color.Semantic.red)
+                // Charitable AGI ceilings (30% long-term stock / 60% cash) apply first, then the
+                // OBBBA 0.5% floor. Each disallowed piece gets its own line so the total foots.
+                let ceilingDisallowed = dataManager.scenarioCharitableDeductions - dataManager.ceilingLimitedCharitable
+                if ceilingDisallowed > 0.5 {
+                    breakdownDetailRow("AGI Ceiling (30% stock / 60% cash)",
+                                       value: -ceilingDisallowed, color: Color.Semantic.red)
+                }
+                let floorDisallowed = dataManager.ceilingLimitedCharitable - dataManager.deductibleCharitableDeductions
+                if floorDisallowed > 0.5 {
+                    breakdownDetailRow("0.5% AGI Floor", value: -floorDisallowed, color: Color.Semantic.red)
+                }
+                if ceilingDisallowed > 0.5 || floorDisallowed > 0.5 {
                     breakdownDetailRow("Deductible Charitable", value: dataManager.deductibleCharitableDeductions, isBold: true)
                 }
             }
