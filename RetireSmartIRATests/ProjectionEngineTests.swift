@@ -1154,4 +1154,18 @@ struct ProjectionEngineTests {
         )
         #expect(years[0].taxBreakdown.niit == 0)
     }
+
+    @Test("Lifetime tax total moves by exactly the year's NIIT (counted once, not in federal)")
+    func niitCountedOnceInTotal() {
+        let inputs = makeInputs(currentAge: 66, traditional: 0, pensionIncome: 300_000, netInvestmentIncome: 50_000)
+        let years = ProjectionEngine().project(
+            inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []]
+        )
+        let y = years[0]
+        // total == its components incl. niit; federal itself must NOT contain niit.
+        #expect(abs(y.taxBreakdown.total
+            - (y.taxBreakdown.federal + y.taxBreakdown.state + y.taxBreakdown.irmaa
+               + y.taxBreakdown.acaPremiumImpact + y.taxBreakdown.niit)) < 0.001)
+        #expect(y.taxBreakdown.niit > 0)
+    }
 }
