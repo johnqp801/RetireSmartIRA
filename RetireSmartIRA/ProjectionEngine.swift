@@ -782,7 +782,7 @@ struct ProjectionEngine {
             var taxFundingGain = 0.0   // realized LTCG from selling buckets to PAY the tax bill
 
             if assumptions.taxPaymentSource == .taxableThenGrossUp {
-                let nonFedState = max(0, taxBreakdown.total - federalTax - stateTax) // irmaa+aca, NOT recomputed
+                let nonFedState = max(0, taxBreakdown.total - federalTax - stateTax) // irmaa+aca+niit, NOT recomputed
                 let baseTotalTax = federalTax + stateTax + nonFedState
 
                 // Incremental fed+state tax created by (a) realized gains from tax-funding bucket
