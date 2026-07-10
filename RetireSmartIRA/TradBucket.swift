@@ -27,6 +27,13 @@ struct TradBucket: Equatable, Sendable {
         ira -= min(rest, max(0, ira))
     }
 
+    /// Debit `amount` from the IRA portion ONLY (never the 401(k)). Clamps at 0.
+    /// Used for QCDs, which may be sourced only from IRAs.
+    mutating func debitIRA(_ amount: Double) {
+        let a = max(0, amount)
+        ira -= min(a, max(0, ira))
+    }
+
     /// Apply a growth factor to both portions.
     mutating func grow(_ factor: Double) {
         ira *= factor
