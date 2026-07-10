@@ -106,19 +106,33 @@ enum MultiYearInputAdapter {
         func hasOwnBucket(_ account: IRAAccount) -> Bool {
             !(account.accountType.isInherited && InheritedAccountInput(account: account) != nil)
         }
-        let primaryTraditional = allAccounts
-            .filter { $0.accountType.isTraditionalType && $0.owner == .primary && hasOwnBucket($0) }
-            .reduce(0.0) { $0 + $1.balance }
-        let spouseTraditional = allAccounts
-            .filter { $0.accountType.isTraditionalType && $0.owner == .spouse && hasOwnBucket($0) }
-            .reduce(0.0) { $0 + $1.balance }
+        // 401(k) is matched on the exact type (no inherited-401k AccountType exists).
+        // IRA is matched on "traditional-type but not 401k" so metadata-less inherited
+        // traditional IRAs (no own InheritedAccountInput bucket) still land in the legacy
+        // owner IRA rollup instead of being silently dropped — matching pre-split behavior.
+        func tradSum(is401k: Bool, _ who: Owner) -> Double {
+            allAccounts
+                .filter {
+                    $0.accountType.isTraditionalType
+                        && ($0.accountType == .traditional401k) == is401k
+                        && $0.owner == who
+                        && hasOwnBucket($0)
+                }
+                .reduce(0.0) { $0 + $1.balance }
+        }
+        let primaryTraditionalIRA  = tradSum(is401k: false, .primary)
+        let primaryTraditional401k = tradSum(is401k: true,  .primary)
+        let spouseTraditionalIRA   = tradSum(is401k: false, .spouse)
+        let spouseTraditional401k  = tradSum(is401k: true,  .spouse)
         let roth = allAccounts
             .filter { $0.accountType.isRothType && hasOwnBucket($0) }
             .reduce(0.0) { $0 + $1.balance }
 
         let snapshot = AccountSnapshot(
-            primaryTraditional: primaryTraditional,
-            spouseTraditional: spouseTraditional,
+            primaryTraditionalIRA: primaryTraditionalIRA,
+            primaryTraditional401k: primaryTraditional401k,
+            spouseTraditionalIRA: spouseTraditionalIRA,
+            spouseTraditional401k: spouseTraditional401k,
             roth: roth,
             taxable: currentTaxableBalance,
             hsa: currentHSABalance,

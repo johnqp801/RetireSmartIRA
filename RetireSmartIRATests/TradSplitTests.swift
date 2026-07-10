@@ -46,4 +46,32 @@ struct TradSplitTests {
         #expect(back == s)
         #expect(back.primaryTraditional401k == 200_000)
     }
+
+    // MARK: - Adapter fixture
+
+    /// Build a DataManager whose accounts include one primary traditional IRA ($300k)
+    /// and one primary traditional 401(k) ($200k), for exercising the adapter's split.
+    private func makeDMForSplit() -> DataManager {
+        let dm = DataManager(skipPersistence: true)
+        dm.iraAccounts = [
+            IRAAccount(name: "Primary Trad IRA", accountType: .traditionalIRA, balance: 300_000, owner: .primary),
+            IRAAccount(name: "Primary Trad 401k", accountType: .traditional401k, balance: 200_000, owner: .primary),
+        ]
+        return dm
+    }
+
+    @Test("Adapter splits owner traditional into IRA vs 401k per spouse")
+    func adapterSplitsIRAvs401k() {
+        // Build a DataManager with a primary traditional IRA + primary 401(k).
+        let dm = makeDMForSplit()
+        let inputs = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
+        )
+        #expect(inputs.startingBalances.primaryTraditionalIRA == 300_000)
+        #expect(inputs.startingBalances.primaryTraditional401k == 200_000)
+        // Combined is unchanged from the pre-split behavior:
+        #expect(inputs.startingBalances.primaryTraditional == 500_000)
+    }
 }
