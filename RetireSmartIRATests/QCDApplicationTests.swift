@@ -16,4 +16,26 @@ struct QCDApplicationTests {
         #expect(b.ira == 0)
         #expect(b.k401 == 50_000)
     }
+
+    /// Make a DataManager with no persistence and a known primary birth date (Jan 1 of the
+    /// given year). Mirrors MultiYearInputAdapterTests.makeDataManager's fixture pattern.
+    private func makeDMForQCD(primaryBornJan1 year: Int) -> DataManager {
+        let dm = DataManager(skipPersistence: true)
+        var c = DateComponents()
+        c.year = year; c.month = 1; c.day = 1
+        dm.birthDate = Calendar.current.date(from: c)!
+        return dm
+    }
+
+    @Test("Adapter threads primary/spouse birthDate into inputs")
+    func adapterThreadsBirthDate() {
+        let dm = makeDMForQCD(primaryBornJan1: 1953)
+        let inputs = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
+        )
+        let year = Calendar.current.component(.year, from: inputs.primaryBirthDate)
+        #expect(year == 1953)
+    }
 }

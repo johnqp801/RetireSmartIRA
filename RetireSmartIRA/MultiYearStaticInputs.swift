@@ -47,6 +47,11 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     let primaryBirthYear: Int                    // for FRA calculation
     let spouseBirthYear: Int?
 
+    // Full birth dates (month-precise) for QCD 70½ eligibility. The `...BirthYear` Ints above
+    // stay for RMD-age bracketing (year-of-birth based); these are ADDED, not a replacement.
+    let primaryBirthDate: Date
+    let spouseBirthDate: Date?
+
     // Income sources (pre-retirement / wage if still working)
     let primaryWageIncome: Double
     let spouseWageIncome: Double
@@ -126,6 +131,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         spouseExpectedBenefitAtFRA: Double?,
         primaryBirthYear: Int,
         spouseBirthYear: Int?,
+        primaryBirthDate: Date = Date(timeIntervalSince1970: 0),
+        spouseBirthDate: Date? = nil,
         primaryWageIncome: Double,
         spouseWageIncome: Double,
         primaryPensionIncome: Double,
@@ -168,6 +175,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.spouseExpectedBenefitAtFRA = spouseExpectedBenefitAtFRA
         self.primaryBirthYear = primaryBirthYear
         self.spouseBirthYear = spouseBirthYear
+        self.primaryBirthDate = primaryBirthDate
+        self.spouseBirthDate = spouseBirthDate
         self.primaryWageIncome = primaryWageIncome
         self.spouseWageIncome = spouseWageIncome
         self.primaryPensionIncome = primaryPensionIncome
@@ -210,6 +219,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             spouseExpectedBenefitAtFRA: spouseExpectedBenefitAtFRA,
             primaryBirthYear: primaryBirthYear,
             spouseBirthYear: spouseBirthYear,
+            primaryBirthDate: primaryBirthDate,
+            spouseBirthDate: spouseBirthDate,
             primaryWageIncome: primaryWageIncome,
             spouseWageIncome: spouseWageIncome,
             primaryPensionIncome: primaryPensionIncome,

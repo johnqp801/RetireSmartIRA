@@ -33,6 +33,8 @@
 //    spouseExpectedBenefitAtFRA  = dataManager.spouseSSBenefit?.benefitAtFRA         (default 0)
 //    primaryBirthYear           = dataManager.birthYear
 //    spouseBirthYear            = dataManager.spouseBirthYear
+//    primaryBirthDate           = dataManager.birthDate        (month-precise, QCD 70½ only)
+//    spouseBirthDate            = dataManager.spouseBirthDate  (nil when !enableSpouse)
 //
 //  Income (derived from incomeSources array by IncomeType):
 //    wage income            = IncomeType.consulting ("Employment/Other Income") filtered by owner
@@ -257,6 +259,8 @@ enum MultiYearInputAdapter {
             spouseExpectedBenefitAtFRA: spouseBenefit,
             primaryBirthYear: dataManager.birthYear,
             spouseBirthYear: dataManager.enableSpouse ? dataManager.spouseBirthYear : nil,
+            primaryBirthDate: dataManager.birthDate,
+            spouseBirthDate: dataManager.enableSpouse ? dataManager.spouseBirthDate : nil,
             primaryWageIncome: primaryWage,
             spouseWageIncome: spouseWage,
             primaryPensionIncome: primaryPension,
