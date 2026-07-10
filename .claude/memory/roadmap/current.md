@@ -1,6 +1,22 @@
 # Current Release Roadmap
 
-**Last updated:** 2026-07-06
+**Last updated:** 2026-07-09
+
+---
+
+## 🧱 STAGED for V2.0.2 / build 60 (NOT yet cut — all engine work on `main` @ origin)
+
+**Status (2026-07-09):** `main` (`1680e80`) carries a full stack of correctness fixes built AFTER 2.0.1 was submitted, none of which are in the shipped build 59. When ready to ship: version bump 2.0.1→2.0.2, `CURRENT_PROJECT_VERSION` 59→**60**, release notes (2-3 options per CLAUDE.md), archive+submit both platforms. No blockers — just the App Store submission dance whenever John has time.
+
+**In build 60 (all merged + full-suite green, 1,211 tests):**
+- OBBBA non-itemizer cash charitable deduction §170(p) ($1,000/$2,000)
+- 0.5% AGI floor on itemized charitable §170(b)(1)
+- 30%/60% charitable AGI ceilings (LT stock / cash)
+- §68 overall itemized-deduction cap (2/37 rule, 37%-bracket)
+- **Inherited-IRA multi-year modeling** — MERGED 2026-07-09 (`1680e80`, task_7c045c0a). ProjectionEngine now gives inherited accounts their own buckets with the correct beneficiary schedule (single-life RMDs / year-10 drain / tax-free inherited Roth) via the shared `RMDCalculationEngine`; forced trad distributions hit AGI/SS/state/gross-up; inherited buckets never conversion/auto-fund sources. New `InheritedAccountInput`; `AccountSnapshot` gained `inheritedTraditional`/`inheritedRoth`. Session note: `sessions/2026-07-08-inherited-ira-multiyear-engine.md`.
+- 2.0.2 chart caption/popover consolidation (filed chip; may or may not be done — check).
+
+**Also parked for a future build:** the senior-bonus itemize fix (`f88966b`) is already in build 59; the above are the net-new items.
 
 ---
 
