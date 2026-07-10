@@ -4,6 +4,19 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-10: BUILD selectable conversion approaches (reverses 2026-07-08) + V2.1 scoping
+
+**Trigger:** Fred Lucha (tester) asked, in his own words, for exactly the selectable objective promised to Tim ("convert the most while staying in 22%" / "without triggering IRMAA"), plus he observed the optimizer drains the whole traditional IRA pre-RMD. Competitive research (2026-07-09) confirmed selectable bracket/IRMAA conversion goals are TABLE STAKES among serious multi-year planners (Boldin, Pralana, RightCapital, ProjectionLab) and that Kitces / the Bogleheads consensus legitimize bracket-fill as a real (IRMAA/SS/state-adjusted) strategy — only Kotlikoff (who sells the competitor) calls it a "rule of dumb."
+
+**Decision (reverses 2026-07-08):** Build the alternatives as **co-equal, user-selectable "conversion approaches"**, not merely a comparison foil. The 2026-07-08 "comparison view only" call was made on Kotlikoff's argument alone, before the market-parity + Kitces/Bogleheads evidence and before Fred's second data point. Terminology fix (per review): only minimize-lifetime-tax is an *objective*; fill-to-bracket and stay-under-IRMAA are deterministic *policies*. Central structural principle: model charitable **intent** separately from **funding method** (cash/itemized vs QCD) to prevent double-counting. Recurring QCD (IRA-only) + %-of-RMD intent + QCD-aware conversion room are in scope (QCD modeling is table stakes; %-of-RMD and surfaced QCD-opens-room are differentiators).
+
+**Scoping (after two external reviews + a 5-thread source reconciliation):**
+- **Minimum core 2.1.0**: Phase 0 NIIT foundational fix → Phase 1 charitable-intent + recurring QCD → Phase 2 selectable approaches + three-way comparison + path-level dollar consequences. **Full itemized (cash charitable + SALT), the per-conversion finite-difference decomposition, and the carryforward ledger defer to 2.1.1.** Rationale: verification exposed more engine work than assumed (NIIT absent from the multi-year engine; owner IRA/401(k) lumped so QCD can't yet be IRA-restricted; deterministic bracket-fill needs root-finding), so ship a leaner, lower-risk core first.
+- **NIIT is a pre-existing gap**: the multi-year `ProjectionEngine` never calls `calculateNIIT()`, so shipped multi-year totals omit NIIT — fix as a standalone Phase 0 correctness commit.
+- **Carryforward**: disclosed in 2.1.0 (non-QCD cash is intent-only, not deducted until 2.1.1), simple 5-year ledger in 2.1.1.
+
+**Spec:** `docs/superpowers/specs/2026-07-10-selectable-conversion-approaches-charitable-modeling-design.md` (branch `2.1/selectable-conversion-approaches`, commit `26d391c`). Verified code facts + competitive research in `reference/2026-07-10-*`. See [[optimizer-objective-not-selectable]].
+
 ## 2026-07-08: Bracket-filling → build as a COMPARISON view, not a selectable objective (Tim/2.1 debt reframed)
 
 **Trigger:** Kotlikoff's "Federal Bracket-Filling to Roth Convert" (substack) argues bracket-filling is the naive Wall-Street heuristic because it ignores SS taxation, IRMAA, and state tax; his alternative is global lifetime-tax/consumption optimization. That's essentially the app's existing design — the optimizer minimizes LIFETIME tax and already models SS taxability, IRMAA (2-yr lag), state, ACA, and NIIT.
