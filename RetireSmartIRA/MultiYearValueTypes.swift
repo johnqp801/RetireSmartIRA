@@ -14,17 +14,34 @@ struct TaxBreakdown: Codable, Equatable, Sendable {
     let state: Double
     let irmaa: Double
     let acaPremiumImpact: Double  // negative = subsidy savings, positive = cliff cost
+    let niit: Double              // 3.8% net investment income tax — its OWN channel, never folded into `federal`
 
-    init(federal: Double, state: Double, irmaa: Double, acaPremiumImpact: Double) {
+    init(federal: Double, state: Double, irmaa: Double, acaPremiumImpact: Double, niit: Double = 0) {
         self.federal = federal
         self.state = state
         self.irmaa = irmaa
         self.acaPremiumImpact = acaPremiumImpact
+        self.niit = niit
     }
 
-    var total: Double { federal + state + irmaa + acaPremiumImpact }
+    private enum CodingKeys: String, CodingKey {
+        case federal, state, irmaa, acaPremiumImpact, niit
+    }
 
-    static let zero = TaxBreakdown(federal: 0, state: 0, irmaa: 0, acaPremiumImpact: 0)
+    // Custom decode so results persisted before the niit channel existed still load (niit -> 0).
+    // encode(to:) stays synthesized.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        federal = try c.decode(Double.self, forKey: .federal)
+        state = try c.decode(Double.self, forKey: .state)
+        irmaa = try c.decode(Double.self, forKey: .irmaa)
+        acaPremiumImpact = try c.decode(Double.self, forKey: .acaPremiumImpact)
+        niit = try c.decodeIfPresent(Double.self, forKey: .niit) ?? 0
+    }
+
+    var total: Double { federal + state + irmaa + acaPremiumImpact + niit }
+
+    static let zero = TaxBreakdown(federal: 0, state: 0, irmaa: 0, acaPremiumImpact: 0, niit: 0)
 }
 
 // MARK: - ConstraintHit
