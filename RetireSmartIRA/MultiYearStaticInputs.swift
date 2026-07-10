@@ -108,6 +108,11 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     let year1PrimaryQCD: Double               // qualified charitable distribution, default 0
     let year1SpouseQCD: Double                // default 0
 
+    // The household's recurring charitable-giving plan (intent + QCD funding method). Carried
+    // here for Phase 1c to consume; NOT applied by ProjectionEngine in Phase 1b (mirrors the
+    // carried-but-unapplied year1 QCD fields).
+    let charitableGivingPlan: CharitableGivingPlan
+
     init(
         startingBalances: AccountSnapshot,
         baseYear: Int = Calendar.current.component(.year, from: Date()),
@@ -145,6 +150,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         year1SpouseWithdrawal: Double = 0,
         year1PrimaryQCD: Double = 0,
         year1SpouseQCD: Double = 0,
+        charitableGivingPlan: CharitableGivingPlan = .none,
         taxableAccounts: [TaxableAccountInput] = [],
         inheritedAccounts: [InheritedAccountInput] = []
     ) {
@@ -186,6 +192,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.year1SpouseWithdrawal = year1SpouseWithdrawal
         self.year1PrimaryQCD = year1PrimaryQCD
         self.year1SpouseQCD = year1SpouseQCD
+        self.charitableGivingPlan = charitableGivingPlan
     }
 
     /// Returns a copy with the named spouse's claim age replaced (used by SSClaimNudge).
@@ -227,6 +234,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             year1SpouseWithdrawal: year1SpouseWithdrawal,
             year1PrimaryQCD: year1PrimaryQCD,
             year1SpouseQCD: year1SpouseQCD,
+            charitableGivingPlan: charitableGivingPlan,
             taxableAccounts: taxableAccounts,
             inheritedAccounts: inheritedAccounts
         )

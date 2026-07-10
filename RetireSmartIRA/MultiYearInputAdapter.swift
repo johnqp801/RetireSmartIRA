@@ -234,6 +234,14 @@ enum MultiYearInputAdapter {
         // MARK: State (2-letter postal abbreviation)
         let stateAbbrev = dataManager.selectedState.abbreviation
 
+        // Seed the recurring giving plan from the single-year total giving (QCD + cash charitable).
+        // Default funding is qcdFirst; fixed target held in real terms. NOT gated by excludeYear1Overrides —
+        // this is a persistent household intent, not a Year-1 override.
+        let givingPlan = CharitableGivingPlan(
+            intent: .fixedAnnualAmount(dataManager.scenarioTotalCharitable),
+            funding: .qcdFirst,
+            maintainRealValue: true)
+
         return MultiYearStaticInputs(
             startingBalances: snapshot,
             // Use DataManager's planning year as the projection base year so the engine respects
@@ -275,6 +283,7 @@ enum MultiYearInputAdapter {
             year1SpouseWithdrawal: spouseWithdrawal,
             year1PrimaryQCD: primaryQCD,
             year1SpouseQCD: spouseQCD,
+            charitableGivingPlan: givingPlan,
             taxableAccounts: taxableInputs,
             inheritedAccounts: inheritedInputs
         )
