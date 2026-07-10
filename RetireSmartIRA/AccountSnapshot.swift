@@ -20,22 +20,30 @@
 import Foundation
 
 struct AccountSnapshot: Codable, Equatable, Sendable {
-    let primaryTraditional: Double  // trad IRA + 401k (primary's own accounts)
-    let spouseTraditional: Double   // trad IRA + 401k (spouse's own accounts)
+    let primaryTraditionalIRA: Double
+    let primaryTraditional401k: Double
+    let spouseTraditionalIRA: Double
+    let spouseTraditional401k: Double
     let roth: Double                // sum of roth IRA + roth 401k (both spouses)
-    let taxable: Double             // user-input balance, not modeled as AccountType in 1.9
-    let hsa: Double                 // user-input balance, not modeled as AccountType in 1.9
-    // Inherited accounts with complete beneficiary metadata are tracked as their own
-    // buckets so the engine can apply beneficiary distribution rules (single-life RMDs,
-    // 10-year drain) instead of the owner's uniform table. Inherited accounts MISSING
-    // metadata still roll into the owner buckets above (legacy fallback).
+    let taxable: Double
+    let hsa: Double
     let inheritedTraditional: Double
     let inheritedRoth: Double
 
-    init(primaryTraditional: Double, spouseTraditional: Double, roth: Double, taxable: Double, hsa: Double,
+    // Combined owner traditional per spouse (IRA + 401k). Preserves the pre-split API for
+    // all existing consumers (RMD basis, snapshots, tests). Tax/RMD math uses these totals.
+    var primaryTraditional: Double { primaryTraditionalIRA + primaryTraditional401k }
+    var spouseTraditional: Double { spouseTraditionalIRA + spouseTraditional401k }
+
+    /// Full-split memberwise init (used by the adapter with real IRA/401k balances).
+    init(primaryTraditionalIRA: Double, primaryTraditional401k: Double,
+         spouseTraditionalIRA: Double, spouseTraditional401k: Double,
+         roth: Double, taxable: Double, hsa: Double,
          inheritedTraditional: Double = 0, inheritedRoth: Double = 0) {
-        self.primaryTraditional = primaryTraditional
-        self.spouseTraditional = spouseTraditional
+        self.primaryTraditionalIRA = primaryTraditionalIRA
+        self.primaryTraditional401k = primaryTraditional401k
+        self.spouseTraditionalIRA = spouseTraditionalIRA
+        self.spouseTraditional401k = spouseTraditional401k
         self.roth = roth
         self.taxable = taxable
         self.hsa = hsa
@@ -43,25 +51,70 @@ struct AccountSnapshot: Codable, Equatable, Sendable {
         self.inheritedRoth = inheritedRoth
     }
 
-    /// Convenience initializer for single-filer / pre-split contexts.
-    /// All trad goes to the primary's bucket; spouse's stays at 0.
+    /// Backward-compat init: callers that don't know the IRA/401k split route the combined
+    /// per-spouse balance to the IRA portion (k401 = 0). Behavior-neutral for all tax/RMD math.
+    init(primaryTraditional: Double, spouseTraditional: Double, roth: Double, taxable: Double, hsa: Double,
+         inheritedTraditional: Double = 0, inheritedRoth: Double = 0) {
+        self.init(primaryTraditionalIRA: primaryTraditional, primaryTraditional401k: 0,
+                  spouseTraditionalIRA: spouseTraditional, spouseTraditional401k: 0,
+                  roth: roth, taxable: taxable, hsa: hsa,
+                  inheritedTraditional: inheritedTraditional, inheritedRoth: inheritedRoth)
+    }
+
+    /// Convenience for single-filer / pre-split contexts. All trad to the primary IRA bucket.
     init(traditional: Double, roth: Double, taxable: Double, hsa: Double,
          inheritedTraditional: Double = 0, inheritedRoth: Double = 0) {
-        self.init(
-            primaryTraditional: traditional,
-            spouseTraditional: 0,
-            roth: roth,
-            taxable: taxable,
-            hsa: hsa,
-            inheritedTraditional: inheritedTraditional,
-            inheritedRoth: inheritedRoth
-        )
+        self.init(primaryTraditional: traditional, spouseTraditional: 0,
+                  roth: roth, taxable: taxable, hsa: hsa,
+                  inheritedTraditional: inheritedTraditional, inheritedRoth: inheritedRoth)
     }
 
     /// Sum of both spouses' OWN traditional balances (inherited excluded).
     var traditional: Double { primaryTraditional + spouseTraditional }
-
     var total: Double { traditional + roth + taxable + hsa + inheritedTraditional + inheritedRoth }
 
-    static let zero = AccountSnapshot(primaryTraditional: 0, spouseTraditional: 0, roth: 0, taxable: 0, hsa: 0)
+    static let zero = AccountSnapshot(primaryTraditionalIRA: 0, primaryTraditional401k: 0,
+                                      spouseTraditionalIRA: 0, spouseTraditional401k: 0,
+                                      roth: 0, taxable: 0, hsa: 0)
+
+    private enum CodingKeys: String, CodingKey {
+        case primaryTraditionalIRA, primaryTraditional401k, spouseTraditionalIRA, spouseTraditional401k
+        case primaryTraditional, spouseTraditional  // legacy keys (pre-split persisted data)
+        case roth, taxable, hsa, inheritedTraditional, inheritedRoth
+    }
+
+    // Custom decode: new split keys if present, else fall back to legacy combined keys
+    // (route to the IRA portion). Custom encode: always write the split keys.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let ira = try c.decodeIfPresent(Double.self, forKey: .primaryTraditionalIRA) {
+            primaryTraditionalIRA = ira
+            primaryTraditional401k = try c.decodeIfPresent(Double.self, forKey: .primaryTraditional401k) ?? 0
+            spouseTraditionalIRA = try c.decodeIfPresent(Double.self, forKey: .spouseTraditionalIRA) ?? 0
+            spouseTraditional401k = try c.decodeIfPresent(Double.self, forKey: .spouseTraditional401k) ?? 0
+        } else {
+            primaryTraditionalIRA = try c.decodeIfPresent(Double.self, forKey: .primaryTraditional) ?? 0
+            primaryTraditional401k = 0
+            spouseTraditionalIRA = try c.decodeIfPresent(Double.self, forKey: .spouseTraditional) ?? 0
+            spouseTraditional401k = 0
+        }
+        roth = try c.decode(Double.self, forKey: .roth)
+        taxable = try c.decode(Double.self, forKey: .taxable)
+        hsa = try c.decode(Double.self, forKey: .hsa)
+        inheritedTraditional = try c.decodeIfPresent(Double.self, forKey: .inheritedTraditional) ?? 0
+        inheritedRoth = try c.decodeIfPresent(Double.self, forKey: .inheritedRoth) ?? 0
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(primaryTraditionalIRA, forKey: .primaryTraditionalIRA)
+        try c.encode(primaryTraditional401k, forKey: .primaryTraditional401k)
+        try c.encode(spouseTraditionalIRA, forKey: .spouseTraditionalIRA)
+        try c.encode(spouseTraditional401k, forKey: .spouseTraditional401k)
+        try c.encode(roth, forKey: .roth)
+        try c.encode(taxable, forKey: .taxable)
+        try c.encode(hsa, forKey: .hsa)
+        try c.encode(inheritedTraditional, forKey: .inheritedTraditional)
+        try c.encode(inheritedRoth, forKey: .inheritedRoth)
+    }
 }
