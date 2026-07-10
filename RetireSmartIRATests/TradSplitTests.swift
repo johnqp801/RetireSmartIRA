@@ -74,4 +74,37 @@ struct TradSplitTests {
         // Combined is unchanged from the pre-split behavior:
         #expect(inputs.startingBalances.primaryTraditional == 500_000)
     }
+
+    // MARK: - TradBucket
+
+    @Test("TradBucket.debit depletes 401k first, then IRA, clamped")
+    func tradBucketDebitOrder() {
+        var b = TradBucket(ira: 100_000, k401: 50_000)
+        b.debit(30_000)                       // all from 401k
+        #expect(b.k401 == 20_000)
+        #expect(b.ira == 100_000)
+        b.debit(40_000)                       // 20k from 401k, 20k from IRA
+        #expect(b.k401 == 0)
+        #expect(b.ira == 80_000)
+        b.debit(1_000_000)                    // over-withdraw: clamps at 0, never negative
+        #expect(b.k401 == 0)
+        #expect(b.ira == 0)
+    }
+
+    @Test("TradBucket.grow scales both portions; total sums them")
+    func tradBucketGrowAndTotal() {
+        var b = TradBucket(ira: 100_000, k401: 100_000)
+        #expect(b.total == 200_000)
+        b.grow(1.06)
+        #expect(abs(b.ira - 106_000) < 0.001)
+        #expect(abs(b.k401 - 106_000) < 0.001)
+    }
+
+    @Test("TradBucket.credit401k adds to the 401k portion only")
+    func tradBucketCredit401k() {
+        var b = TradBucket(ira: 10, k401: 20)
+        b.credit401k(5)
+        #expect(b.k401 == 25)
+        #expect(b.ira == 10)
+    }
 }
