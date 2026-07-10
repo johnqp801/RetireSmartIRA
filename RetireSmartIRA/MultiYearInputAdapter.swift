@@ -187,6 +187,8 @@ enum MultiYearInputAdapter {
         let spouseOther: Double
         let primaryPreferential: Double
         let spousePreferential: Double
+        let primaryNII: Double
+        let spouseNII: Double
         if accountsSupersedeIncome {
             primaryOther = sources
                 .filter { $0.owner == .primary && Self.isNonInvestmentOrdinary(type: $0.type) }
@@ -197,11 +199,15 @@ enum MultiYearInputAdapter {
                 : 0
             primaryPreferential = 0
             spousePreferential = 0
+            primaryNII = 0
+            spouseNII = 0
         } else {
             primaryOther = Self.primaryOtherOrdinaryIncome(from: sources)
             spouseOther = Self.spouseOtherOrdinaryIncome(from: sources, enableSpouse: dataManager.enableSpouse)
             primaryPreferential = Self.primaryPreferentialIncome(from: sources)
             spousePreferential = Self.spousePreferentialIncome(from: sources, enableSpouse: dataManager.enableSpouse)
+            primaryNII = Self.primaryNetInvestmentIncome(from: sources)
+            spouseNII = Self.spouseNetInvestmentIncome(from: sources, enableSpouse: dataManager.enableSpouse)
         }
 
         // MARK: ACA / Medicare
@@ -237,6 +243,8 @@ enum MultiYearInputAdapter {
             spouseOtherOrdinaryIncome: spouseOther,
             primaryPreferentialIncome: primaryPreferential,
             spousePreferentialIncome: spousePreferential,
+            primaryNetInvestmentIncome: primaryNII,
+            spouseNetInvestmentIncome: spouseNII,
             acaEnrolled: acaEnrolled,
             acaHouseholdSize: acaSize,
             primaryMedicareEnrollmentAge: primaryMedAge,
@@ -309,6 +317,26 @@ enum MultiYearInputAdapter {
         guard enableSpouse else { return 0 }
         return sources
             .filter { $0.owner == .spouse && Self.isPreferential(type: $0.type) }
+            .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Sum of primary-owner NIIT-qualifying investment income (dividends, qualified
+    /// dividends, interest, short + long cap gains). Mirrors the single-year
+    /// `scenarioNetInvestmentIncome` allowlist (`TaxCalculationEngine.niitQualifyingTypes`)
+    /// so multi-year NIIT is derived identically — deliberately NOT the lumped
+    /// `otherOrdinaryIncome`, which also contains state refunds / "other".
+    /// `internal` (not `private`) so the derivation is unit-testable.
+    static func primaryNetInvestmentIncome(from sources: [IncomeSource]) -> Double {
+        sources
+            .filter { $0.owner == .primary && TaxCalculationEngine.niitQualifyingTypes.contains($0.type) }
+            .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Same, for spouse owner. Returns 0 when spouse is not enabled.
+    static func spouseNetInvestmentIncome(from sources: [IncomeSource], enableSpouse: Bool) -> Double {
+        guard enableSpouse else { return 0 }
+        return sources
+            .filter { $0.owner == .spouse && TaxCalculationEngine.niitQualifyingTypes.contains($0.type) }
             .reduce(0.0) { $0 + $1.annualAmount }
     }
 

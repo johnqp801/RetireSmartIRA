@@ -72,6 +72,14 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     let primaryPreferentialIncome: Double
     let spousePreferentialIncome: Double
 
+    // NIIT-qualifying net investment income from the user's stated income sources
+    // (dividends, qualified dividends, interest, short + long cap gains). Used ONLY to
+    // compute NIIT (§ ProjectionEngine); it does not feed AGI (the same dollars already
+    // reach AGI via otherOrdinaryIncome / preferentialIncome / account income). Excludes
+    // state refunds and "other". Mirrors TaxCalculationEngine.niitQualifyingTypes.
+    let primaryNetInvestmentIncome: Double
+    let spouseNetInvestmentIncome: Double
+
     // ACA / Medicare context
     let acaEnrolled: Bool
     let acaHouseholdSize: Int
@@ -121,6 +129,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         spouseOtherOrdinaryIncome: Double = 0,    // NEW — see field comment above
         primaryPreferentialIncome: Double = 0,    // qualified dividends + LTCG (preferential rate)
         spousePreferentialIncome: Double = 0,
+        primaryNetInvestmentIncome: Double = 0,
+        spouseNetInvestmentIncome: Double = 0,
         acaEnrolled: Bool,
         acaHouseholdSize: Int,
         primaryMedicareEnrollmentAge: Int,
@@ -160,6 +170,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.spouseOtherOrdinaryIncome = spouseOtherOrdinaryIncome
         self.primaryPreferentialIncome = primaryPreferentialIncome
         self.spousePreferentialIncome = spousePreferentialIncome
+        self.primaryNetInvestmentIncome = primaryNetInvestmentIncome
+        self.spouseNetInvestmentIncome = spouseNetInvestmentIncome
         self.acaEnrolled = acaEnrolled
         self.acaHouseholdSize = acaHouseholdSize
         self.primaryMedicareEnrollmentAge = primaryMedicareEnrollmentAge
@@ -199,6 +211,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             spouseOtherOrdinaryIncome: spouseOtherOrdinaryIncome,
             primaryPreferentialIncome: primaryPreferentialIncome,
             spousePreferentialIncome: spousePreferentialIncome,
+            primaryNetInvestmentIncome: primaryNetInvestmentIncome,
+            spouseNetInvestmentIncome: spouseNetInvestmentIncome,
             acaEnrolled: acaEnrolled,
             acaHouseholdSize: acaHouseholdSize,
             primaryMedicareEnrollmentAge: primaryMedicareEnrollmentAge,

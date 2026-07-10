@@ -27,4 +27,26 @@ struct NIITMultiYearTests {
         #expect(decoded.niit == 0)
         #expect(decoded.total == 1_000)
     }
+
+    @Test("Adapter NII helper sums only NIIT-qualifying investment types")
+    func adapterNIIHelperAllowlist() {
+        // owner defaults to .primary on IncomeSource (same construction the single-year tests use)
+        let sources: [IncomeSource] = [
+            IncomeSource(name: "Interest",        type: .interest,           annualAmount: 5_000),
+            IncomeSource(name: "Ord Dividends",   type: .dividends,          annualAmount: 3_000),
+            IncomeSource(name: "Qual Dividends",  type: .qualifiedDividends, annualAmount: 4_000),
+            IncomeSource(name: "LT Gains",        type: .capitalGainsLong,   annualAmount: 6_000),
+            IncomeSource(name: "ST Gains",        type: .capitalGainsShort,  annualAmount: 2_000),
+            IncomeSource(name: "State Refund",    type: .stateTaxRefund,     annualAmount: 1_000), // NOT NII
+            IncomeSource(name: "Pension",         type: .pension,            annualAmount: 30_000) // NOT NII
+        ]
+        let nii = MultiYearInputAdapter.primaryNetInvestmentIncome(from: sources)
+        #expect(nii == 20_000) // 5000+3000+4000+6000+2000; excludes state refund + pension
+    }
+
+    @Test("Adapter NII helper returns 0 for spouse when spouse disabled")
+    func adapterNIISpouseDisabled() {
+        let sources = [IncomeSource(name: "Interest", type: .interest, annualAmount: 5_000)]
+        #expect(MultiYearInputAdapter.spouseNetInvestmentIncome(from: sources, enableSpouse: false) == 0)
+    }
 }
