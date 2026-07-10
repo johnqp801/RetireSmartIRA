@@ -129,8 +129,14 @@ struct ProjectionEngine {
 
         // Mutable state that evolves year-over-year.
         // Bug D fix: split trad into per-spouse buckets so RMDs can be computed independently.
-        var primaryTrad = inputs.startingBalances.primaryTraditional
-        var spouseTrad = inputs.startingBalances.spouseTraditional
+        // Phase 1a: each spouse's bucket is itself split into IRA vs 401(k) portions
+        // (TradBucket), so QCD sourcing (a later Phase-1 task) can be restricted to IRA only.
+        // Non-QCD debits deplete 401(k) first, preserving IRA. All tax/AGI/RMD math below
+        // uses `.total`, so this split is behavior-neutral for v2.0/Phase 1a.
+        var primary = TradBucket(ira: inputs.startingBalances.primaryTraditionalIRA,
+                                 k401: inputs.startingBalances.primaryTraditional401k)
+        var spouse = TradBucket(ira: inputs.startingBalances.spouseTraditionalIRA,
+                                k401: inputs.startingBalances.spouseTraditional401k)
         var roth = inputs.startingBalances.roth
         // V2.0 first-class taxable accounts: model per-account buckets instead of one scalar.
         // When no accounts were supplied, synthesize a single legacy-equivalent bucket from
@@ -216,8 +222,8 @@ struct ProjectionEngine {
             // Per IRS Pub 590-B, the RMD basis is the prior-year-end balance, which
             // equals the beginning of the current year's loop — before any explicit
             // Roth conversions, withdrawals, or contributions are applied.
-            let startOfYearPrimaryTrad = primaryTrad
-            let startOfYearSpouseTrad = spouseTrad
+            let startOfYearPrimaryTrad = primary.total
+            let startOfYearSpouseTrad = spouse.total
 
             // Required RMD for each spouse, computed from the start-of-year balance per IRS
             // Pub 590-B. Computed BEFORE any actions so Roth conversions cannot consume the
@@ -263,30 +269,30 @@ struct ProjectionEngine {
                     // consume the dollars Step 3 must distribute as the RMD. (Conservative when
                     // an explicit trad withdrawal in the same year also satisfies the RMD — a
                     // combination the optimizer does not emit; documented v2.0 simplification.)
-                    let primaryConvertible = max(0, primaryTrad - primaryRequiredRMD)
-                    let spouseConvertible = max(0, spouseTrad - spouseRequiredRMD)
+                    let primaryConvertible = max(0, primary.total - primaryRequiredRMD)
+                    let spouseConvertible = max(0, spouse.total - spouseRequiredRMD)
                     var remaining = amount
                     if primaryIsOlderOrSingle {
                         let fromPrimary = min(remaining, primaryConvertible)
-                        primaryTrad -= fromPrimary
+                        primary.debit(fromPrimary)
                         roth += fromPrimary
                         explicitRothConversions += fromPrimary
                         remaining -= fromPrimary
                         if remaining > 0 {
                             let fromSpouse = min(remaining, spouseConvertible)
-                            spouseTrad -= fromSpouse
+                            spouse.debit(fromSpouse)
                             roth += fromSpouse
                             explicitRothConversions += fromSpouse
                         }
                     } else {
                         let fromSpouse = min(remaining, spouseConvertible)
-                        spouseTrad -= fromSpouse
+                        spouse.debit(fromSpouse)
                         roth += fromSpouse
                         explicitRothConversions += fromSpouse
                         remaining -= fromSpouse
                         if remaining > 0 {
                             let fromPrimary = min(remaining, primaryConvertible)
-                            primaryTrad -= fromPrimary
+                            primary.debit(fromPrimary)
                             roth += fromPrimary
                             explicitRothConversions += fromPrimary
                         }
@@ -296,23 +302,23 @@ struct ProjectionEngine {
                     // Draw from OLDER spouse's bucket first, then younger.
                     var remaining = amount
                     if primaryIsOlderOrSingle {
-                        let fromPrimary = min(remaining, max(0, primaryTrad))
-                        primaryTrad -= fromPrimary
+                        let fromPrimary = min(remaining, max(0, primary.total))
+                        primary.debit(fromPrimary)
                         explicitPrimaryTradWithdrawals += fromPrimary
                         remaining -= fromPrimary
                         if remaining > 0 {
-                            let fromSpouse = min(remaining, max(0, spouseTrad))
-                            spouseTrad -= fromSpouse
+                            let fromSpouse = min(remaining, max(0, spouse.total))
+                            spouse.debit(fromSpouse)
                             explicitSpouseTradWithdrawals += fromSpouse
                         }
                     } else {
-                        let fromSpouse = min(remaining, max(0, spouseTrad))
-                        spouseTrad -= fromSpouse
+                        let fromSpouse = min(remaining, max(0, spouse.total))
+                        spouse.debit(fromSpouse)
                         explicitSpouseTradWithdrawals += fromSpouse
                         remaining -= fromSpouse
                         if remaining > 0 {
-                            let fromPrimary = min(remaining, max(0, primaryTrad))
-                            primaryTrad -= fromPrimary
+                            let fromPrimary = min(remaining, max(0, primary.total))
+                            primary.debit(fromPrimary)
                             explicitPrimaryTradWithdrawals += fromPrimary
                         }
                     }
@@ -341,7 +347,7 @@ struct ProjectionEngine {
                     // Funded by selling taxable buckets; realized gain feeds preferential income.
                     let s = TaxableAccountEngine.sell(amount: amount, from: &buckets, forTaxes: false)
                     explicitTaxableGain += s.realizedGain
-                    primaryTrad += s.raised
+                    primary.credit401k(s.raised)
                     // Pre-tax 401k contribution: reduces AGI (treated like HSA as above-the-line deduction)
                     aboveTheLineDeductions += s.raised
 
@@ -415,16 +421,16 @@ struct ProjectionEngine {
             // least the required RMD, so the shortfall withdrawal below always fully succeeds.
             let primaryRmdShortfall = max(0, primaryRequiredRMD - explicitPrimaryTradWithdrawals)
             if primaryRmdShortfall > 0 {
-                let withdrawal = min(primaryRmdShortfall, primaryTrad)
-                primaryTrad -= withdrawal
+                let withdrawal = min(primaryRmdShortfall, primary.total)
+                primary.debit(withdrawal)
                 autoImposedRMD += withdrawal
             }
 
             // Spouse's RMD (if applicable; required amount precomputed above).
             let spouseRmdShortfall = max(0, spouseRequiredRMD - explicitSpouseTradWithdrawals)
             if spouseRmdShortfall > 0 {
-                let withdrawal = min(spouseRmdShortfall, spouseTrad)
-                spouseTrad -= withdrawal
+                let withdrawal = min(spouseRmdShortfall, spouse.total)
+                spouse.debit(withdrawal)
                 autoImposedRMD += withdrawal
             }
 
@@ -506,8 +512,8 @@ struct ProjectionEngine {
                 var scratchTaxable = totalTaxableBalance()
                 let (tradWD, taxableWD, remaining) = autoFundExpenses(
                     shortfall: expenseShortfall,
-                    primaryTrad: &primaryTrad,
-                    spouseTrad: &spouseTrad,
+                    primary: &primary,
+                    spouse: &spouse,
                     taxableBalance: &scratchTaxable,
                     roth: &roth,
                     rule: assumptions.withdrawalOrderingRule,
@@ -531,8 +537,8 @@ struct ProjectionEngine {
             // Step 5: Apply growth to remaining balances
             // ─────────────────────────────────────────
             let growthFactor = 1.0 + assumptions.investmentGrowthRate
-            primaryTrad *= growthFactor
-            spouseTrad *= growthFactor
+            primary.grow(growthFactor)
+            spouse.grow(growthFactor)
             roth *= growthFactor
             hsa *= growthFactor
             for i in inheritedBalances.indices {
@@ -814,7 +820,7 @@ struct ProjectionEngine {
                 // rather than by re-selling the bucket. The reported total tax is still exact (recomputed
                 // with saleGain folded in); only the funding source of the gain-on-gain sliver is
                 // approximate. Re-selling within the iteration is a v2.1 refinement.
-                let availableTrad = max(0, primaryTrad + spouseTrad)
+                let availableTrad = max(0, primary.total + spouse.total)
                 let sellTarget = baseTotalTax + incrementalTax(saleGain: 0, dW: 0)
                 let applied = TaxableAccountEngine.sell(amount: sellTarget, from: &buckets, forTaxes: true)
                 let saleCash = applied.raised
@@ -842,11 +848,11 @@ struct ProjectionEngine {
                 if dW > 0 {
                     var remaining = dW
                     if primaryIsOlderOrSingle {
-                        let fromP = min(remaining, max(0, primaryTrad)); primaryTrad -= fromP; remaining -= fromP
-                        spouseTrad -= min(remaining, max(0, spouseTrad))
+                        let fromP = min(remaining, max(0, primary.total)); primary.debit(fromP); remaining -= fromP
+                        let fromS = min(remaining, max(0, spouse.total)); spouse.debit(fromS)
                     } else {
-                        let fromS = min(remaining, max(0, spouseTrad)); spouseTrad -= fromS; remaining -= fromS
-                        primaryTrad -= min(remaining, max(0, primaryTrad))
+                        let fromS = min(remaining, max(0, spouse.total)); spouse.debit(fromS); remaining -= fromS
+                        let fromP = min(remaining, max(0, primary.total)); primary.debit(fromP)
                     }
                 }
 
@@ -879,8 +885,10 @@ struct ProjectionEngine {
             _ = max(0, taxBreakdownFinal.total)
 
             let snapshot = AccountSnapshot(
-                primaryTraditional: max(0, primaryTrad),
-                spouseTraditional: max(0, spouseTrad),
+                primaryTraditionalIRA: max(0, primary.ira),
+                primaryTraditional401k: max(0, primary.k401),
+                spouseTraditionalIRA: max(0, spouse.ira),
+                spouseTraditional401k: max(0, spouse.k401),
                 roth: max(0, roth),
                 taxable: max(0, totalTaxableBalance()),
                 hsa: max(0, hsa),
@@ -974,13 +982,14 @@ struct ProjectionEngine {
 
     /// Auto-fund the expense shortfall from account buckets per the withdrawal ordering rule.
     /// Returns (totalTradWithdrawn, taxableWithdrawn, remainingShortfall).
-    /// Mutates primaryTrad, spouseTrad, taxableBalance, and roth directly. The caller realizes the
+    /// Mutates primary, spouse, taxableBalance, and roth directly. The caller realizes the
     /// taxableBalance decrement against the per-account buckets (so basis/gain are tracked there).
-    /// When drawing from trad, uses older-spouse-first order (primaryIsOlderOrSingle).
+    /// When drawing from trad, uses older-spouse-first order (primaryIsOlderOrSingle); each
+    /// spouse's TradBucket.debit depletes 401(k) before IRA.
     private func autoFundExpenses(
         shortfall: Double,
-        primaryTrad: inout Double,
-        spouseTrad: inout Double,
+        primary: inout TradBucket,
+        spouse: inout TradBucket,
         taxableBalance: inout Double,
         roth: inout Double,
         rule: WithdrawalOrderingRule,
@@ -995,24 +1004,24 @@ struct ProjectionEngine {
             var toWithdraw = amount
             var withdrawn = 0.0
             if primaryIsOlderOrSingle {
-                let fromPrimary = min(toWithdraw, max(0, primaryTrad))
-                primaryTrad -= fromPrimary; withdrawn += fromPrimary; toWithdraw -= fromPrimary
+                let fromPrimary = min(toWithdraw, max(0, primary.total))
+                primary.debit(fromPrimary); withdrawn += fromPrimary; toWithdraw -= fromPrimary
                 if toWithdraw > 0 {
-                    let fromSpouse = min(toWithdraw, max(0, spouseTrad))
-                    spouseTrad -= fromSpouse; withdrawn += fromSpouse
+                    let fromSpouse = min(toWithdraw, max(0, spouse.total))
+                    spouse.debit(fromSpouse); withdrawn += fromSpouse
                 }
             } else {
-                let fromSpouse = min(toWithdraw, max(0, spouseTrad))
-                spouseTrad -= fromSpouse; withdrawn += fromSpouse; toWithdraw -= fromSpouse
+                let fromSpouse = min(toWithdraw, max(0, spouse.total))
+                spouse.debit(fromSpouse); withdrawn += fromSpouse; toWithdraw -= fromSpouse
                 if toWithdraw > 0 {
-                    let fromPrimary = min(toWithdraw, max(0, primaryTrad))
-                    primaryTrad -= fromPrimary; withdrawn += fromPrimary
+                    let fromPrimary = min(toWithdraw, max(0, primary.total))
+                    primary.debit(fromPrimary); withdrawn += fromPrimary
                 }
             }
             return withdrawn
         }
 
-        let combinedTrad = primaryTrad + spouseTrad
+        let combinedTrad = primary.total + spouse.total
 
         switch rule {
         case .taxEfficient, .preserveRoth:
@@ -1066,7 +1075,7 @@ struct ProjectionEngine {
                 taxableBalance -= extraTaxable; remaining -= extraTaxable
             }
             if remaining > 0 {
-                let extraTrad = withdrawFromTrad(min(remaining, max(0, primaryTrad + spouseTrad)))
+                let extraTrad = withdrawFromTrad(min(remaining, max(0, primary.total + spouse.total)))
                 tradWithdrawn += extraTrad; remaining -= extraTrad
             }
 

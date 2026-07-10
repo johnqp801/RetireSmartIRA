@@ -107,4 +107,91 @@ struct TradSplitTests {
         #expect(b.k401 == 25)
         #expect(b.ira == 10)
     }
+
+    // MARK: - ProjectionEngine behavior-preservation
+
+    private var baseYear: Int { Calendar.current.component(.year, from: Date()) }
+
+    @Test("Split trad yields identical projection as the equivalent all-IRA pool")
+    func splitProjectionMatchesCombined() {
+        // Same $1M combined, one as all-IRA, one split 600k IRA / 400k 401k.
+        let allIRA = MultiYearStaticInputs.forSplitTest(primaryIRA: 1_000_000, primary401k: 0)
+        let split   = MultiYearStaticInputs.forSplitTest(primaryIRA: 600_000, primary401k: 400_000)
+        let engine = ProjectionEngine()
+        let a = engine.project(inputs: allIRA, assumptions: MultiYearStaticInputs.splitTestAssumptions(),
+                               actionsPerYear: [baseYear: [.rothConversion(amount: 100_000)]])
+        let b = engine.project(inputs: split, assumptions: MultiYearStaticInputs.splitTestAssumptions(),
+                               actionsPerYear: [baseYear: [.rothConversion(amount: 100_000)]])
+        #expect(a.count == b.count)
+        for (ya, yb) in zip(a, b) {
+            #expect(abs(ya.taxBreakdown.total - yb.taxBreakdown.total) < 0.01)
+            #expect(abs(ya.agi - yb.agi) < 0.01)
+            #expect(abs(ya.endOfYearBalances.primaryTraditional - yb.endOfYearBalances.primaryTraditional) < 0.01)
+        }
+        // 401k-first: the $100k conversion (and any traditional gross-up funding the tax bill,
+        // since this fixture has no taxable bucket to sell) draws from the 401(k) portion before
+        // touching the IRA. So the 401k's *fraction* of its starting balance remaining should be
+        // strictly less than the IRA's fraction of its starting balance remaining (401k depleted
+        // relatively more) — a tight, sub-vacuous ordering check. Pre-fix, the legacy scalar
+        // snapshot always reports 401k == 0 regardless of draw order, which would trivially
+        // satisfy a loose "401k < starting401k" check but fail this ratio comparison the moment
+        // the IRA is untouched (ira fraction remaining == 1.0 > 401k fraction remaining).
+        let ira401kAfter = b[0].endOfYearBalances
+        let k401FractionRemaining = ira401kAfter.primaryTraditional401k / (400_000 * 1.06)
+        let iraFractionRemaining = ira401kAfter.primaryTraditionalIRA / (600_000 * 1.06)
+        #expect(k401FractionRemaining < iraFractionRemaining)
+        // And the IRA must be fully untouched by the $100k conversion itself: the only debits
+        // against this fixture are the conversion and a possible tax gross-up, both 401k-first,
+        // so IRA can only be touched once the 401k ($400k, grown) is fully exhausted — it isn't
+        // here, so IRA should still equal its full starting balance grown by one year.
+        #expect(abs(ira401kAfter.primaryTraditionalIRA - 600_000 * 1.06) < 0.01)
+    }
+}
+
+extension MultiYearStaticInputs {
+    /// Test-only fixture mirroring `ProjectionEngineTests.makeInputs`'s defaults (single filer,
+    /// age 65, no expenses/wage/pension income, CA), but with an explicit IRA/401k split on the
+    /// primary's traditional balance instead of the collapsed scalar.
+    static func forSplitTest(primaryIRA: Double, primary401k: Double) -> MultiYearStaticInputs {
+        MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(
+                primaryTraditionalIRA: primaryIRA, primaryTraditional401k: primary401k,
+                spouseTraditionalIRA: 0, spouseTraditional401k: 0,
+                roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 66,
+            spouseCurrentAge: nil,
+            filingStatus: .single,
+            state: "CA",
+            primarySSClaimAge: 67,
+            spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 3_000,
+            spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 66,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0,
+            spouseWageIncome: 0,
+            primaryPensionIncome: 0,
+            spousePensionIncome: 0,
+            acaEnrolled: false,
+            acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65,
+            spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0
+        )
+    }
+
+    /// Test-only fixture mirroring `ProjectionEngineTests.makeAssumptions`'s defaults.
+    static func splitTestAssumptions() -> MultiYearAssumptions {
+        MultiYearAssumptions(
+            horizonEndAge: 95,
+            horizonEndAgeSpouse: nil,
+            cpiRate: 0.025,
+            investmentGrowthRate: 0.06,
+            withdrawalOrderingRule: .taxEfficient,
+            stressTestEnabled: false,
+            perYearExpenseOverrides: [:],
+            currentTaxableBalance: 0,
+            currentHSABalance: 0
+        )
+    }
 }
