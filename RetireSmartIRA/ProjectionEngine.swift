@@ -53,6 +53,15 @@
 //    to the taxable bucket. Tax is computed on the full AGI (including the entire RMD).
 //    The year's total tax is then debited from taxable (Step 7).
 //
+//  Inherited-IRA buckets (2.1):
+//    inputs.inheritedAccounts get their own per-account balances. Each year the
+//    beneficiary schedule (RMDCalculationEngine.calculateInheritedIRARMD) forces a
+//    distribution from the start-of-year balance: single-life RMDs when the decedent
+//    died on/after RBD, full drain in the 10-year-deadline year for non-EDBs, tax-free
+//    for inherited Roth. Forced trad distributions join totalTradWithdrawals (AGI,
+//    taxable SS, state tax, gross-up); forced cash funds expenses first and any excess
+//    is deposited to taxable. Conversions and auto-funding never touch these buckets.
+//
 //  Action clamping (v2.0):
 //    Every explicit LeverAction is clamped to its source-bucket balance at the time
 //    it executes. This prevents the optimizer from minting phantom wealth by testing
@@ -150,6 +159,17 @@ struct ProjectionEngine {
         var hsa = inputs.startingBalances.hsa
         // Sum of all taxable-bucket balances. Replaces every read of the old `taxable` scalar.
         func totalTaxableBalance() -> Double { buckets.reduce(0) { $0 + $1.balance } }
+
+        // Inherited-IRA buckets (2.1): per-account running balances, parallel to
+        // inputs.inheritedAccounts. Each year the beneficiary schedule (via
+        // RMDCalculationEngine) forces a distribution from the start-of-year balance:
+        // single-life RMDs when the decedent died on/after RBD, the full remaining
+        // balance in the 10-year-deadline year for non-EDBs, tax-free for inherited
+        // Roth. These buckets are never sources for Roth conversions, explicit
+        // withdrawals, or expense auto-funding (non-spouse beneficiaries cannot
+        // convert; voluntary early drawdown is a future lever), so the forced income
+        // is baseline income in every optimizer candidate by construction.
+        var inheritedBalances: [Double] = inputs.inheritedAccounts.map { $0.balance }
 
         // Deposit already-taxed cash (excess RMD, spendable surplus) into the first
         // expense-available bucket, raising both balance and basis by the same amount (no gain
@@ -408,6 +428,26 @@ struct ProjectionEngine {
                 autoImposedRMD += withdrawal
             }
 
+            // Forced inherited-IRA distributions (beneficiary schedule). Start-of-year
+            // balances are the basis, consistent with the Pub 590-B prior-year-end
+            // convention used for owner RMDs above. Actions in Step 1 never touch these
+            // buckets, so the balances here still equal start-of-year values.
+            // Traditional distributions are ordinary income (joined to
+            // totalTradWithdrawals below); Roth distributions are tax-free cash.
+            var inheritedTradDistributions = 0.0
+            var inheritedRothDistributions = 0.0
+            for i in inputs.inheritedAccounts.indices {
+                let dist = inputs.inheritedAccounts[i].requiredDistribution(
+                    forYear: year, balance: inheritedBalances[i])
+                guard dist > 0 else { continue }
+                inheritedBalances[i] -= dist
+                if inputs.inheritedAccounts[i].isRoth {
+                    inheritedRothDistributions += dist
+                } else {
+                    inheritedTradDistributions += dist
+                }
+            }
+
             // ─────────────────────────────────────────
             // Step 4: Compute expenses and auto-funding
             // ─────────────────────────────────────────
@@ -440,7 +480,12 @@ struct ProjectionEngine {
             var autoFundedTradWithdrawals = 0.0
             // RMD cash already extracted from trad; subtract from shortfall before auto-funding.
             // If RMD exceeds the full expense need, the gross excess is deposited to taxable (Approach A).
-            let rmdCashAvailable = autoImposedRMD + explicitTradWithdrawals  // total trad drawn so far
+            // Forced inherited distributions (trad AND Roth) join this pool: like owner RMD
+            // cash they fund expenses first, and any excess flows to taxable via the
+            // rmdExcess deposit below, so a year-10 drain becomes taxable wealth instead
+            // of leaking out of the projection.
+            let rmdCashAvailable = autoImposedRMD + explicitTradWithdrawals
+                + inheritedTradDistributions + inheritedRothDistributions  // total forced cash so far
             // Explicit taxable/Roth withdrawals also provide spendable cash (already pulled from
             // those buckets in Step 1). Their surplus is not redeposited in v2.0 (only RMD surplus is).
             let explicitNonTradCash = explicitTaxableWithdrawals + explicitRothWithdrawals
@@ -476,7 +521,11 @@ struct ProjectionEngine {
                 _ = remaining  // v2.0: assume solvent, ignore any residual
             }
 
+            // Inherited traditional distributions ride with totalTradWithdrawals so AGI,
+            // taxable-SS, state retirement-income bucketing, and the tax gross-up all
+            // treat them as the ordinary pre-tax income they are.
             let totalTradWithdrawals = explicitTradWithdrawals + autoImposedRMD + autoFundedTradWithdrawals
+                + inheritedTradDistributions
 
             // ─────────────────────────────────────────
             // Step 5: Apply growth to remaining balances
@@ -486,6 +535,9 @@ struct ProjectionEngine {
             spouseTrad *= growthFactor
             roth *= growthFactor
             hsa *= growthFactor
+            for i in inheritedBalances.indices {
+                inheritedBalances[i] = max(0, inheritedBalances[i]) * growthFactor
+            }
 
             // Per-account taxable growth: each bucket appreciates at its own appreciationRate
             // (basis unchanged by appreciation). Walled accounts (not available for expenses) have
@@ -814,7 +866,13 @@ struct ProjectionEngine {
                 spouseTraditional: max(0, spouseTrad),
                 roth: max(0, roth),
                 taxable: max(0, totalTaxableBalance()),
-                hsa: max(0, hsa)
+                hsa: max(0, hsa),
+                inheritedTraditional: inputs.inheritedAccounts.indices
+                    .filter { !inputs.inheritedAccounts[$0].isRoth }
+                    .reduce(0.0) { $0 + max(0, inheritedBalances[$1]) },
+                inheritedRoth: inputs.inheritedAccounts.indices
+                    .filter { inputs.inheritedAccounts[$0].isRoth }
+                    .reduce(0.0) { $0 + max(0, inheritedBalances[$1]) }
             )
 
             // Build the combined actions list: explicit user actions + auto-imposed RMD (if any)
@@ -823,6 +881,12 @@ struct ProjectionEngine {
             var allActions = actions
             if autoImposedRMD > 0 {
                 allActions.append(.traditionalWithdrawal(amount: autoImposedRMD))
+            }
+            if inheritedTradDistributions > 0 {
+                allActions.append(.traditionalWithdrawal(amount: inheritedTradDistributions))
+            }
+            if inheritedRothDistributions > 0 {
+                allActions.append(.rothWithdrawal(amount: inheritedRothDistributions))
             }
             if grossUpWithdrawal > 0 {
                 allActions.append(.traditionalWithdrawal(amount: grossUpWithdrawal))
@@ -839,7 +903,11 @@ struct ProjectionEngine {
                 actions: allActions,
                 medicareEnrolledCount: medicareEnrolledCount,
                 underfunded: underfundedTax > 0 ? underfundedTax : nil,
-                rmd: primaryRequiredRMD + spouseRequiredRMD
+                // Inherited traditional distributions are required minimum distributions
+                // too; include them so forced income is visible without digging through
+                // the bundled actions. (Inherited Roth drains are forced but tax-free,
+                // so they are reported via the .rothWithdrawal action instead.)
+                rmd: primaryRequiredRMD + spouseRequiredRMD + inheritedTradDistributions
             ))
 
             // Advance ages for next iteration

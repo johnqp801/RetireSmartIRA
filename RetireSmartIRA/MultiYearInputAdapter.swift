@@ -16,6 +16,9 @@
 //    roth               = iraAccounts filtered by .accountType.isRothType (both spouses combined)
 //    taxable            = assumptions.currentTaxableBalance (no AccountType for taxable in 1.9)
 //    hsa                = assumptions.currentHSABalance (no AccountType for HSA in 1.9)
+//    inheritedAccounts  = inherited accounts WITH complete beneficiary metadata (own engine
+//                         buckets, beneficiary distribution schedule); metadata-incomplete
+//                         inherited accounts remain in the owner roll-ups above
 //
 //  Demographics:
 //    primaryCurrentAge   = dataManager.currentAge        (currentYear - birthYear)
@@ -92,17 +95,25 @@ enum MultiYearInputAdapter {
         // MARK: Account Buckets
         // Roll up the 6 1.9 AccountType cases. Traditional buckets are split by owner so the
         // engine can compute per-spouse RMDs independently (Bug D fix — per-spouse tracking).
-        // AccountType.isTraditionalType covers .traditionalIRA, .traditional401k, .inheritedTraditionalIRA
-        // AccountType.isRothType covers .rothIRA, .roth401k, .inheritedRothIRA
+        //
+        // Inherited accounts (2.1): an inherited account with complete beneficiary metadata
+        // becomes its own InheritedAccountInput bucket so the engine applies the beneficiary
+        // schedule (single-life RMDs / 10-year drain) instead of the owner's uniform table.
+        // Inherited accounts MISSING metadata keep the legacy roll-up below (owner bucket,
+        // uniform-table RMDs) so their balance is never dropped.
         let allAccounts = dataManager.iraAccounts
+        let inheritedInputs = allAccounts.compactMap(InheritedAccountInput.init(account:))
+        func hasOwnBucket(_ account: IRAAccount) -> Bool {
+            !(account.accountType.isInherited && InheritedAccountInput(account: account) != nil)
+        }
         let primaryTraditional = allAccounts
-            .filter { $0.accountType.isTraditionalType && $0.owner == .primary }
+            .filter { $0.accountType.isTraditionalType && $0.owner == .primary && hasOwnBucket($0) }
             .reduce(0.0) { $0 + $1.balance }
         let spouseTraditional = allAccounts
-            .filter { $0.accountType.isTraditionalType && $0.owner == .spouse }
+            .filter { $0.accountType.isTraditionalType && $0.owner == .spouse && hasOwnBucket($0) }
             .reduce(0.0) { $0 + $1.balance }
         let roth = allAccounts
-            .filter { $0.accountType.isRothType }
+            .filter { $0.accountType.isRothType && hasOwnBucket($0) }
             .reduce(0.0) { $0 + $1.balance }
 
         let snapshot = AccountSnapshot(
@@ -110,7 +121,9 @@ enum MultiYearInputAdapter {
             spouseTraditional: spouseTraditional,
             roth: roth,
             taxable: currentTaxableBalance,
-            hsa: currentHSABalance
+            hsa: currentHSABalance,
+            inheritedTraditional: inheritedInputs.filter { !$0.isRoth }.reduce(0.0) { $0 + $1.balance },
+            inheritedRoth: inheritedInputs.filter { $0.isRoth }.reduce(0.0) { $0 + $1.balance }
         )
 
         // MARK: Demographics
@@ -240,7 +253,8 @@ enum MultiYearInputAdapter {
             year1SpouseWithdrawal: spouseWithdrawal,
             year1PrimaryQCD: primaryQCD,
             year1SpouseQCD: spouseQCD,
-            taxableAccounts: taxableInputs
+            taxableAccounts: taxableInputs,
+            inheritedAccounts: inheritedInputs
         )
     }
 

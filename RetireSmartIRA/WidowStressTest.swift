@@ -121,7 +121,10 @@ struct WidowStressTest {
                 // single-filer tax bracket, leading to bracket overruns). Acceptable for v2.0
                 // as a "worst case" stress estimate. v2.1 should apply a 0.8 multiplier (or
                 // surface the multiplier to the user as a tunable assumption).
-                baselineAnnualExpenses: inputs.baselineAnnualExpenses
+                baselineAnnualExpenses: inputs.baselineAnnualExpenses,
+                // Survivor keeps any inherited IRAs; their beneficiary schedule is
+                // unchanged by the spouse's death.
+                inheritedAccounts: inputs.inheritedAccounts
             )
         } else {
             // Deceased = primary. Surviving "primary" of widow scenario uses original
@@ -158,7 +161,10 @@ struct WidowStressTest {
                 // single-filer tax bracket, leading to bracket overruns). Acceptable for v2.0
                 // as a "worst case" stress estimate. v2.1 should apply a 0.8 multiplier (or
                 // surface the multiplier to the user as a tunable assumption).
-                baselineAnnualExpenses: inputs.baselineAnnualExpenses
+                baselineAnnualExpenses: inputs.baselineAnnualExpenses,
+                // Survivor keeps any inherited IRAs; their beneficiary schedule is
+                // unchanged by the spouse's death.
+                inheritedAccounts: inputs.inheritedAccounts
             )
         }
     }

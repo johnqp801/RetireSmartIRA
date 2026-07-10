@@ -45,8 +45,12 @@ struct PlanComparison: Equatable, Sendable {
         func endingTrad(_ p: [YearRecommendation]) -> Double {
             guard let last = p.last else { return 0 }
             return last.endOfYearBalances.primaryTraditional + last.endOfYearBalances.spouseTraditional
+                + last.endOfYearBalances.inheritedTraditional
         }
-        func endingRoth(_ p: [YearRecommendation]) -> Double { p.last?.endOfYearBalances.roth ?? 0 }
+        func endingRoth(_ p: [YearRecommendation]) -> Double {
+            guard let last = p.last else { return 0 }
+            return last.endOfYearBalances.roth + last.endOfYearBalances.inheritedRoth
+        }
         func endingTaxable(_ p: [YearRecommendation]) -> Double { p.last?.endOfYearBalances.taxable ?? 0 }
         func heirsKeep(_ p: [YearRecommendation]) -> Double {
             let trad = endingTrad(p)

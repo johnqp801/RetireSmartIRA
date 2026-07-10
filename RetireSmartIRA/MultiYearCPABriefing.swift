@@ -130,7 +130,8 @@ enum MultiYearCPABriefingHTML {
             <tr><td>\(r.year)</td><td>\(age)</td><td>\(s(r.agi))</td><td>\(s(r.taxableIncome))</td>\
             <td>\(s(r.taxBreakdown.federal))</td><td>\(s(r.taxBreakdown.state))</td>\
             <td>\(s(r.taxBreakdown.irmaa))</td><td>\(s(r.rmd))</td><td>\(s(conv))</td>\
-            <td>\(s(r.endOfYearBalances.traditional))</td><td>\(s(r.endOfYearBalances.roth))</td>\
+            <td>\(s(r.endOfYearBalances.traditional + r.endOfYearBalances.inheritedTraditional))</td>\
+            <td>\(s(r.endOfYearBalances.roth + r.endOfYearBalances.inheritedRoth))</td>\
             <td>\(s(r.endOfYearBalances.taxable))</td></tr>
             """
         }
