@@ -25,7 +25,8 @@ struct ProjectionEngineTests {
         ssClaimAge: Int = 67,
         expectedBenefitAtFRA: Double = 3_000,  // monthly
         filingStatus: FilingStatus = .single,
-        state: String = "CA"
+        state: String = "CA",
+        netInvestmentIncome: Double = 0
     ) -> MultiYearStaticInputs {
         MultiYearStaticInputs(
             startingBalances: AccountSnapshot(traditional: traditional, roth: roth, taxable: taxable, hsa: hsa),
@@ -43,6 +44,7 @@ struct ProjectionEngineTests {
             spouseWageIncome: 0,
             primaryPensionIncome: pensionIncome,
             spousePensionIncome: 0,
+            primaryNetInvestmentIncome: netInvestmentIncome,
             acaEnrolled: false,
             acaHouseholdSize: 1,
             primaryMedicareEnrollmentAge: 65,
@@ -1119,5 +1121,37 @@ struct ProjectionEngineTests {
                 "Total auto RMD must equal sum of independent per-spouse RMDs: expected \(expectedTotal), got \(autoTotal)")
         // AGI should reflect the combined RMD
         #expect(years[0].agi >= expectedTotal - 1.0)
+    }
+
+    // MARK: NIIT (Phase 0/3)
+
+    @Test("NIIT applies when AGI over threshold and NII present")
+    func niitAppliesOverThreshold() {
+        // Pension pushes AGI to ~300k (> 200k single threshold); NII = 50k.
+        // Taxable NII = min(50k, AGI - 200k) = 50k -> tax = 50k * 0.038 = 1_900.
+        let inputs = makeInputs(currentAge: 66, traditional: 0, pensionIncome: 300_000, netInvestmentIncome: 50_000)
+        let years = ProjectionEngine().project(
+            inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []]
+        )
+        #expect(abs(years[0].taxBreakdown.niit - 1_900) < 1.0)
+        #expect(years[0].taxBreakdown.total > years[0].taxBreakdown.federal) // niit is additive to the total
+    }
+
+    @Test("NIIT is zero when AGI below threshold")
+    func niitZeroBelowThreshold() {
+        let inputs = makeInputs(currentAge: 66, traditional: 0, pensionIncome: 120_000, netInvestmentIncome: 50_000)
+        let years = ProjectionEngine().project(
+            inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []]
+        )
+        #expect(years[0].taxBreakdown.niit == 0)
+    }
+
+    @Test("NIIT is zero when no investment income (backward compat)")
+    func niitZeroNoNII() {
+        let inputs = makeInputs(currentAge: 66, traditional: 0, pensionIncome: 300_000, netInvestmentIncome: 0)
+        let years = ProjectionEngine().project(
+            inputs: inputs, assumptions: makeAssumptions(), actionsPerYear: [baseYear: []]
+        )
+        #expect(years[0].taxBreakdown.niit == 0)
     }
 }

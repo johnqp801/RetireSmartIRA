@@ -611,6 +611,21 @@ struct ProjectionEngine {
                 - aboveTheLineDeductions
             )
 
+            // NIIT (3.8%): net investment income = the user's stated NIIT-qualifying income
+            // (mirrored from single-year) + the taxable account's investment throw-off this year
+            // (ordinary + preferential) + realized sale gains. MAGI ~= AGI for retirees, exactly as
+            // the single-year engine does (DataManager.scenarioNIIT passes estimatedAGI as MAGI).
+            let netInvestmentIncome = inputs.primaryNetInvestmentIncome
+                + inputs.spouseNetInvestmentIncome
+                + accountOrdinaryIncome
+                + acctIncome.preferential
+                + realizedSaleGains
+            let niitTax = TaxCalculationEngine.calculateNIIT(
+                nii: netInvestmentIncome,
+                magi: federalAGI,
+                filingStatus: inputs.filingStatus
+            ).annualNIITax
+
             // ACA / IRMAA MAGI = federalAGI + tax-exempt interest + non-taxable SS.
             // non-taxable SS = grossSS - taxableSS; tax-exempt interest = muni income on taxable
             // accounts (V2.0: now modeled per-account instead of the old hardcoded 0).
@@ -731,14 +746,15 @@ struct ProjectionEngine {
                 federal: federalTax,
                 state: stateTax,
                 irmaa: irmaaCost,
-                acaPremiumImpact: acaPremiumImpact
+                acaPremiumImpact: acaPremiumImpact,
+                niit: niitTax
             )
 
             // ─────────────────────────────────────────
             // Step 7: Debit year's total tax from the taxable bucket,
             //         with optional gross-up from traditional when taxable is short.
             // ─────────────────────────────────────────
-            // taxBreakdown.total = federal + state + irmaa + acaPremiumImpact.
+            // taxBreakdown.total = federal + state + irmaa + acaPremiumImpact + niit.
             // acaPremiumImpact is negative for subsidy savings (reduces net cost), positive
             // for an ACA cliff penalty (increases net cost). Using taxBreakdown.total correctly
             // nets these out. max(0, ...) guards against the edge case where a large ACA subsidy
@@ -854,7 +870,8 @@ struct ProjectionEngine {
                 federal: fedTax,
                 state: stTax,
                 irmaa: taxBreakdown.irmaa,
-                acaPremiumImpact: taxBreakdown.acaPremiumImpact)
+                acaPremiumImpact: taxBreakdown.acaPremiumImpact,
+                niit: taxBreakdown.niit)
 
             // The bucket sales above raised cash to pay the tax; that cash leaves the household as the
             // tax payment. Any tax not covered by sales/gross-up (underfunded) is assumed paid from an
