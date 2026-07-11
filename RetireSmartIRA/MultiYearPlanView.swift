@@ -138,15 +138,10 @@ struct MultiYearPlanView: View {
                             .font(.callout).foregroundStyle(.orange)
                             .padding().background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
                     }
-                    if let baseline = manager.baselineProjection, !baseline.isEmpty {
-                        PlanComparisonView(comparison: PlanComparison(
-                            plan: activePath,
-                            doingNothing: baseline,
-                            heirSalary: dataManager.legacyHeirEstimatedSalary,
-                            heirFilingStatus: dataManager.legacyHeirFilingStatus,
-                            heirDrawdownYears: dataManager.legacyDrawdownYears,
-                            pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
-                            cpiRate: manager.assumptions.cpiRate),
+                    if let cmp = manager.approachComparison {
+                        ApproachComparisonView(
+                            comparison: cmp,
+                            effectiveHeirWeight: legacyEnabled ? manager.selectedHeirWeight : 0,
                             units: units,
                             showHeirs: legacyEnabled)
                     }
