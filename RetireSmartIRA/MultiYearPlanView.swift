@@ -111,6 +111,22 @@ struct MultiYearPlanView: View {
                 }
                 .font(.callout)
 
+                ConversionApproachSection(
+                    approach: Binding(get: { manager.assumptions.conversionApproach },
+                                      set: { manager.assumptions.conversionApproach = $0 }),
+                    effectiveHeirWeight: legacyEnabled ? manager.selectedHeirWeight : 0,
+                    brackets: dataManager.filingStatus == .marriedFilingJointly
+                        ? TaxCalculationEngine.config.toTaxBrackets().federalMarried
+                        : TaxCalculationEngine.config.toTaxBrackets().federalSingle,
+                    irmaaTiers: TaxCalculationEngine.config.toIRMAATiers(),
+                    filingStatus: dataManager.filingStatus,
+                    baselineOrdinaryIncome: manager.baselineProjection?.first.map { $0.taxableIncome - $0.taxablePreferential },
+                    baselineMAGI: manager.baselineProjection?.first?.magi,
+                    cliffBuffer: Binding(get: { manager.assumptions.cliffBuffer },
+                                        set: { manager.assumptions.cliffBuffer = $0 }),
+                    givingAmount: dataManager.scenarioTotalCharitable,
+                    onChange: { recomputeAll() })
+
                 if manager.isComputing && manager.currentResult == nil {
                     ProgressView("Computing your plan…").frame(maxWidth: .infinity).padding()
                 } else if activePath.isEmpty {
