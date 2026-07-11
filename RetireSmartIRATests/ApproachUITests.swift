@@ -33,3 +33,39 @@ struct ApproachUITests {
         #expect(decoded.conversionApproach == .recommendedTaxMin)
     }
 }
+
+extension ApproachUITests {
+    /// Mirrors ManagerHeirFrontierTests' setup: a fresh non-persisting DataManager attached to a
+    /// fresh MultiYearStrategyManager, so an off-main compute has real inputs to run against.
+    static func makeAttachedManager() -> (MultiYearStrategyManager, DataManager) {
+        let dm = DataManager(skipPersistence: true)
+        let mgr = MultiYearStrategyManager()
+        mgr.attach(dataManager: dm, scenarioStateManager: dm.scenario)
+        return (mgr, dm)
+    }
+
+    /// Polls the manager's published comparison until the detached compute lands, mirroring the
+    /// deadline-poll pattern ManagerHeirFrontierTests uses for computeHeirFrontier.
+    static func settle(_ manager: MultiYearStrategyManager) async {
+        let deadline = Date().addingTimeInterval(20)
+        while manager.approachComparison == nil && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+    }
+
+    @Test("computeApproachComparison publishes a comparison for the selected approach")
+    func managerComputesComparison() async {
+        // dm must stay alive for the test's duration: MultiYearStrategyManager holds it via a weak
+        // reference (mirrors production ownership, where a view's @StateObject DataManager outlives
+        // the manager), so discarding it to `_` here would deallocate it before the detached compute
+        // runs and the manager's `guard let dataManager` would silently no-op forever.
+        let (manager, dm) = ApproachUITests.makeAttachedManager()
+        _ = dm
+        manager.assumptions.conversionApproach = PersistedConversionApproach(.fillToBracket(rate: 0.24))
+        manager.computeApproachComparison()
+        await ApproachUITests.settle(manager)
+        #expect(manager.approachComparison != nil)
+        #expect(manager.approachComparison?.selectedApproach == .fillToBracket(rate: 0.24))
+        #expect(manager.approachComparison?.collapsesToTwoColumns == false)
+    }
+}

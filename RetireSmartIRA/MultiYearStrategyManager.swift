@@ -30,6 +30,9 @@ final class MultiYearStrategyManager: ObservableObject {
     @Published private(set) var isComputingFrontier: Bool = false
     @Published var selectedHeirWeight: Double = 0   // 0 = owner-optimal (today's recommendation)
     private var frontierWorkTask: Task<HeirFrontierResult, Never>?
+    @Published private(set) var approachComparison: ApproachComparison?
+    @Published private(set) var isComputingComparison: Bool = false
+    private var comparisonWorkTask: Task<ApproachComparison, Never>?
 
     // MARK: - Internal state
 
@@ -84,6 +87,7 @@ final class MultiYearStrategyManager: ObservableObject {
         debounceTask?.cancel()
         engineWorkTask?.cancel()
         frontierWorkTask?.cancel()
+        comparisonWorkTask?.cancel()
     }
 
     /// Wire upstream dependencies post-init. StateObject construction can't
@@ -281,6 +285,34 @@ final class MultiYearStrategyManager: ObservableObject {
             guard let self, !Task.isCancelled, !work.isCancelled else { return }
             self.heirFrontier = result
             if self.isComputingFrontier { self.isComputingFrontier = false }
+        }
+    }
+
+    /// Compute the three-way approach comparison off the main actor and publish it. Mirrors
+    /// computeHeirFrontier's cadence: cold-start spinner, silent refresh thereafter.
+    func computeApproachComparison() {
+        guard let dataManager, let scenarioStateManager else { return }
+        let assumptions = self.assumptions
+        let configProvider = self.configProvider
+        let approach = assumptions.conversionApproach.toApproach()
+        let heirWeight = dataManager.enableLegacyPlanning ? selectedHeirWeight : 0
+        let inputs = MultiYearInputAdapter.build(
+            from: dataManager, scenarioState: scenarioStateManager,
+            assumptions: assumptions, excludeYear1Overrides: false)
+        if approachComparison == nil { isComputingComparison = true }
+        comparisonWorkTask?.cancel()
+        let work = Task.detached(priority: .utility) {
+            ApproachComparisonCoordinator().compare(
+                inputs: inputs, assumptions: assumptions,
+                selectedApproach: approach, heirWeight: heirWeight,
+                configProvider: configProvider)
+        }
+        comparisonWorkTask = work
+        Task { @MainActor [weak self] in
+            let result = await work.value
+            guard let self, !Task.isCancelled, !work.isCancelled else { return }
+            self.approachComparison = result
+            if self.isComputingComparison { self.isComputingComparison = false }
         }
     }
 
