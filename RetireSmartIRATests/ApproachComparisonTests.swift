@@ -86,3 +86,27 @@ extension ApproachComparisonTests {
         )
     }
 }
+
+extension ApproachComparisonTests {
+    @Test("PlanPathMetrics matches PlanComparison's own derivations on the same path")
+    func planPathMetricsAgreeWithPlanComparison() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let base = inputs.baseYear
+        let path = ProjectionEngine().project(inputs: inputs, assumptions: asmp, actionsPerYear: [base: []])
+
+        let pc = PlanComparison(plan: path, doingNothing: path,
+                                heirSalary: inputs.heirSalary,
+                                heirFilingStatus: inputs.heirFilingStatus,
+                                heirDrawdownYears: inputs.heirDrawdownYears)
+
+        #expect(PlanPathMetrics.lifetimeTax(path) == pc.lifetimeTax.plan)
+        #expect(PlanPathMetrics.endingTraditional(path) == pc.endingTraditional.plan)
+        #expect(PlanPathMetrics.endingRoth(path) == pc.endingRoth.plan)
+        #expect(PlanPathMetrics.endingTaxable(path) == pc.endingTaxable.plan)
+        #expect(PlanPathMetrics.peakForcedRMD(path) == pc.peakForcedRMD.plan)
+        #expect(PlanPathMetrics.heirsKeep(path, heirSalary: inputs.heirSalary,
+                                          heirFilingStatus: inputs.heirFilingStatus,
+                                          heirDrawdownYears: inputs.heirDrawdownYears) == pc.heirsKeep.plan)
+    }
+}

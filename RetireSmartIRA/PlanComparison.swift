@@ -39,48 +39,30 @@ struct PlanComparison: Equatable, Sendable {
          pvRealDiscountRate: Double = 0,
          cpiRate: Double = 0) {
 
-        func lifetimeTax(_ p: [YearRecommendation]) -> Double {
-            p.reduce(0) { $0 + $1.taxBreakdown.total }
-        }
-        func endingTrad(_ p: [YearRecommendation]) -> Double {
-            guard let last = p.last else { return 0 }
-            return last.endOfYearBalances.primaryTraditional + last.endOfYearBalances.spouseTraditional
-                + last.endOfYearBalances.inheritedTraditional
-        }
-        func endingRoth(_ p: [YearRecommendation]) -> Double {
-            guard let last = p.last else { return 0 }
-            return last.endOfYearBalances.roth + last.endOfYearBalances.inheritedRoth
-        }
-        func endingTaxable(_ p: [YearRecommendation]) -> Double { p.last?.endOfYearBalances.taxable ?? 0 }
-        func heirsKeep(_ p: [YearRecommendation]) -> Double {
-            let trad = endingTrad(p)
-            let heirTax = LegacyPlanningEngine.heirTaxOnInheritedTraditional(
-                balance: trad, heirSalary: heirSalary,
-                heirFilingStatus: heirFilingStatus, drawdownYears: heirDrawdownYears)
-            return HeirValue.afterTaxToHeirs(
-                roth: endingRoth(p), traditional: trad,
-                taxable: endingTaxable(p), heirTaxOnTraditional: heirTax)
-        }
-        func peakRMD(_ p: [YearRecommendation]) -> Double { p.map(\.rmd).max() ?? 0 }
-
         // Per-year discounted lifetime tax (each year discounted to the base year).
         let baseYear = plan.first?.year ?? doingNothing.first?.year ?? 0
-        func lifetimeTaxPV(_ p: [YearRecommendation]) -> Double {
-            p.reduce(0) {
-                $0 + EngineMath.realPresentValue($1.taxBreakdown.total,
-                                                 yearsFromBase: $1.year - baseYear,
-                                                 cpiRate: cpiRate, realDiscountRate: pvRealDiscountRate)
-            }
-        }
         let lastYear = plan.last?.year ?? doingNothing.last?.year ?? baseYear
 
-        self.lifetimeTax = Pair(plan: lifetimeTax(plan), doingNothing: lifetimeTax(doingNothing))
-        self.endingTraditional = Pair(plan: endingTrad(plan), doingNothing: endingTrad(doingNothing))
-        self.endingRoth = Pair(plan: endingRoth(plan), doingNothing: endingRoth(doingNothing))
-        self.endingTaxable = Pair(plan: endingTaxable(plan), doingNothing: endingTaxable(doingNothing))
-        self.heirsKeep = Pair(plan: heirsKeep(plan), doingNothing: heirsKeep(doingNothing))
-        self.peakForcedRMD = Pair(plan: peakRMD(plan), doingNothing: peakRMD(doingNothing))
-        self.lifetimeTaxPV = Pair(plan: lifetimeTaxPV(plan), doingNothing: lifetimeTaxPV(doingNothing))
+        self.lifetimeTax = Pair(plan: PlanPathMetrics.lifetimeTax(plan),
+                                doingNothing: PlanPathMetrics.lifetimeTax(doingNothing))
+        self.endingTraditional = Pair(plan: PlanPathMetrics.endingTraditional(plan),
+                                      doingNothing: PlanPathMetrics.endingTraditional(doingNothing))
+        self.endingRoth = Pair(plan: PlanPathMetrics.endingRoth(plan),
+                               doingNothing: PlanPathMetrics.endingRoth(doingNothing))
+        self.endingTaxable = Pair(plan: PlanPathMetrics.endingTaxable(plan),
+                                  doingNothing: PlanPathMetrics.endingTaxable(doingNothing))
+        self.heirsKeep = Pair(plan: PlanPathMetrics.heirsKeep(plan, heirSalary: heirSalary,
+                                                              heirFilingStatus: heirFilingStatus,
+                                                              heirDrawdownYears: heirDrawdownYears),
+                              doingNothing: PlanPathMetrics.heirsKeep(doingNothing, heirSalary: heirSalary,
+                                                                      heirFilingStatus: heirFilingStatus,
+                                                                      heirDrawdownYears: heirDrawdownYears))
+        self.peakForcedRMD = Pair(plan: PlanPathMetrics.peakForcedRMD(plan),
+                                  doingNothing: PlanPathMetrics.peakForcedRMD(doingNothing))
+        self.lifetimeTaxPV = Pair(plan: PlanPathMetrics.lifetimeTaxPV(plan, baseYear: baseYear,
+                                                                      cpiRate: cpiRate, pvRealDiscountRate: pvRealDiscountRate),
+                                  doingNothing: PlanPathMetrics.lifetimeTaxPV(doingNothing, baseYear: baseYear,
+                                                                             cpiRate: cpiRate, pvRealDiscountRate: pvRealDiscountRate))
         self.terminalPVFactor = EngineMath.realPresentValue(1.0, yearsFromBase: lastYear - baseYear,
                                                             cpiRate: cpiRate, realDiscountRate: pvRealDiscountRate)
     }
