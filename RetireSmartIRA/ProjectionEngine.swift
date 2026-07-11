@@ -951,7 +951,7 @@ struct ProjectionEngine {
                 irmaaMagi: irmaaMagiValue,
                 taxableIncome: reportedTaxableIncome,
                 taxablePreferential: reportedTaxablePreferential,
-                magi: federalAGI + magiAddback,
+                magi: federalAGI + magiAddback,   // pre-gross-up AGI intentionally (mirrors irmaaMagi); do NOT change to reportedAGI
                 taxBreakdown: taxBreakdownFinal,
                 endOfYearBalances: snapshot,
                 actions: allActions,
