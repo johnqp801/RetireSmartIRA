@@ -202,3 +202,31 @@ extension ApproachComparisonTests {
         #expect(cmp.selected == cmp.recommended)   // identical column when collapsed
     }
 }
+
+extension ApproachComparisonTests {
+    @Test("CPA briefing summarizes selected-vs-recommended deltas")
+    func cpaBriefingApproachDelta() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let cmp = ApproachComparisonCoordinator().compare(
+            inputs: inputs, assumptions: asmp,
+            selectedApproach: .fillToBracket(rate: 0.24), heirWeight: 0)
+
+        let s = MultiYearCPABriefing.approachDeltaSummary(cmp)
+        #expect(s.deltaLifetimeTax == cmp.selected.lifetimeTaxNominal - cmp.recommended.lifetimeTaxNominal)
+        #expect(s.deltaPeakConversion == cmp.selected.peakAnnualRothConversion - cmp.recommended.peakAnnualRothConversion)
+    }
+
+    @Test("Approach delta summary is all zero when the selected approach is the recommended plan")
+    func cpaBriefingApproachDeltaZeroWhenCollapsed() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let cmp = ApproachComparisonCoordinator().compare(
+            inputs: inputs, assumptions: asmp,
+            selectedApproach: .recommendedTaxMin, heirWeight: 0)
+        let s = MultiYearCPABriefing.approachDeltaSummary(cmp)
+        #expect(s.deltaLifetimeTax == 0)
+        #expect(s.deltaPeakConversion == 0)
+        #expect(s.deltaMedicareCost == 0)
+    }
+}

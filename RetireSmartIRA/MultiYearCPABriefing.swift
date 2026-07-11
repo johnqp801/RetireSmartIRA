@@ -182,3 +182,25 @@ enum MultiYearCPABriefingHTML {
 
     private static func footer() -> String { "</body></html>" }
 }
+
+/// Selected-approach vs Recommended-plan summary for the CPA briefing header (Phase 2b).
+/// Wiring this into the rendered HTML briefing body is a Phase 2c concern.
+enum MultiYearCPABriefing {
+    struct ApproachDeltaSummary: Equatable, Sendable {
+        let deltaLifetimeTax: Double
+        let deltaPeakConversion: Double
+        let deltaMedicareCost: Double
+    }
+
+    /// Selected-approach vs Recommended-plan deltas for the CPA briefing header. Zero across the
+    /// board when the selected approach IS the recommended plan (collapsed comparison).
+    static func approachDeltaSummary(_ cmp: ApproachComparison) -> ApproachDeltaSummary {
+        func medicare(_ col: ApproachColumn) -> Double {
+            col.path.reduce(0) { $0 + $1.taxBreakdown.irmaa }
+        }
+        return ApproachDeltaSummary(
+            deltaLifetimeTax: cmp.selected.lifetimeTaxNominal - cmp.recommended.lifetimeTaxNominal,
+            deltaPeakConversion: cmp.selected.peakAnnualRothConversion - cmp.recommended.peakAnnualRothConversion,
+            deltaMedicareCost: medicare(cmp.selected) - medicare(cmp.recommended))
+    }
+}
