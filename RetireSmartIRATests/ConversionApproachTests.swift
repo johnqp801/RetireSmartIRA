@@ -86,4 +86,33 @@ struct ConversionApproachTests {
         #expect(years[0].magi > 0)   // populated even pre-Medicare (unlike irmaaMagi which may be nil)
         #expect(years[0].irmaaMagi == nil)  // age 60 primary, no spouse: pre-IRMAA-window
     }
+
+    // MARK: - ConversionLadder bisection (pure root-finder, no engine coupling)
+
+    @Test("bisection finds the largest X with a monotone f(X) at or below target")
+    func bisectionMonotone() {
+        // f(x) = x (identity). target 100_000 -> ~100_000.
+        let x = ConversionLadder.largestConversionBelow(target: 100_000, upperBound: 500_000, tolerance: 1) { $0 }
+        #expect(abs(x - 100_000) < 2)
+    }
+
+    @Test("bisection returns 0 when f(0) already exceeds target")
+    func bisectionAlreadyOver() {
+        let x = ConversionLadder.largestConversionBelow(target: 50_000, upperBound: 500_000) { $0 + 60_000 }
+        #expect(x == 0)
+    }
+
+    @Test("bisection returns upperBound when f never reaches target")
+    func bisectionNeverReaches() {
+        let x = ConversionLadder.largestConversionBelow(target: 1_000_000, upperBound: 200_000) { $0 }
+        #expect(x == 200_000)
+    }
+
+    @Test("bisection handles a kinked-but-monotone f (flat then rising)")
+    func bisectionKinked() {
+        // f flat at 40k for x<=50k (e.g. SS torpedo saturates), then rises.
+        let f: (Double) -> Double = { $0 <= 50_000 ? 40_000 : 40_000 + ($0 - 50_000) }
+        let x = ConversionLadder.largestConversionBelow(target: 60_000, upperBound: 500_000, tolerance: 1, evaluate: f)
+        #expect(abs(x - 70_000) < 2) // 40k + (x-50k) = 60k -> x = 70k
+    }
 }
