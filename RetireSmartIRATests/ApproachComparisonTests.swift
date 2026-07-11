@@ -110,3 +110,30 @@ extension ApproachComparisonTests {
                                           heirDrawdownYears: inputs.heirDrawdownYears) == pc.heirsKeep.plan)
     }
 }
+
+extension ApproachComparisonTests {
+    @Test("ConsequenceDeltas subtract channel sums and reconcile with the total")
+    func consequenceDeltasReconcile() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let base = inputs.baseYear
+        let noConv = ProjectionEngine().project(inputs: inputs, assumptions: asmp,
+                                                actionsPerYear: [base: []])
+        let selected = OptimizationEngine().optimize(inputs: inputs, assumptions: asmp,
+                                                     approach: .fillToBracket(rate: 0.24)).recommendedPath
+
+        let d = ConsequenceDeltas(selected: selected, noConversion: noConv)
+
+        func channelSum(_ p: [YearRecommendation], _ kp: KeyPath<TaxBreakdown, Double>) -> Double {
+            p.reduce(0) { $0 + $1.taxBreakdown[keyPath: kp] }
+        }
+        #expect(abs(d.federal - (channelSum(selected, \.federal) - channelSum(noConv, \.federal))) < 0.01)
+        #expect(abs(d.niit   - (channelSum(selected, \.niit)    - channelSum(noConv, \.niit)))    < 0.01)
+        // Channel deltas reconcile with the total delta (no double-count, NIIT counted once).
+        let totalDelta = channelSum(selected, \.federal) + channelSum(selected, \.state)
+            + channelSum(selected, \.irmaa) + channelSum(selected, \.acaPremiumImpact) + channelSum(selected, \.niit)
+            - (channelSum(noConv, \.federal) + channelSum(noConv, \.state)
+               + channelSum(noConv, \.irmaa) + channelSum(noConv, \.acaPremiumImpact) + channelSum(noConv, \.niit))
+        #expect(abs(d.total - totalDelta) < 1.0)
+    }
+}
