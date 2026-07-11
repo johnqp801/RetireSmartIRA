@@ -69,3 +69,34 @@ extension ApproachUITests {
         #expect(manager.approachComparison?.collapsesToTwoColumns == false)
     }
 }
+
+extension ApproachUITests {
+    @Test("Anchor label is objective-based and never says 'Recommended'")
+    func anchorLabelObjectiveBased() {
+        #expect(ApproachUILogic.anchorLabel(effectiveHeirWeight: 0) == "Minimize lifetime tax")
+        #expect(ApproachUILogic.anchorLabel(effectiveHeirWeight: 0.25) == "Optimize tax + legacy")
+        #expect(!ApproachUILogic.anchorLabel(effectiveHeirWeight: 0).contains("Recommend"))
+        #expect(ApproachUILogic.columnLabel(.fillToBracket(rate: 0.24), effectiveHeirWeight: 0) == "Fill to 24% bracket")
+        #expect(ApproachUILogic.columnLabel(.limitToIRMAA(tier: 2, buffer: 5000), effectiveHeirWeight: 0) == "Limit to IRMAA tier 2")
+    }
+
+    @Test("Baseline-above-target is detected")
+    func baselineTargetStatus() {
+        #expect(ApproachUILogic.bracketStatus(bracketTopOrdinaryIncome: 100_000, baselineOrdinaryIncome: 120_000) == .exceededByBaseline)
+        #expect(ApproachUILogic.bracketStatus(bracketTopOrdinaryIncome: 200_000, baselineOrdinaryIncome: 120_000) == .reachable)
+    }
+
+    @Test("Active path follows the deterministic approach, else the frontier/current path")
+    func activePathSelection() {
+        let fallback = [YearRecommendation]()   // empty stand-in
+        #expect(ApproachUILogic.activePath(selected: .recommendedTaxMin, comparison: nil, frontierOrCurrent: fallback).isEmpty)
+        // deterministic with no comparison yet falls back
+        #expect(ApproachUILogic.activePath(selected: .fillToBracket(rate: 0.24), comparison: nil, frontierOrCurrent: fallback).isEmpty)
+    }
+
+    @Test("Editing Year-1 reverts a deterministic approach to the objective optimizer")
+    func year1RevertRule() {
+        #expect(ApproachUILogic.approachAfterYear1Edit(.fillToBracket(rate: 0.24)) == .recommendedTaxMin)
+        #expect(ApproachUILogic.approachAfterYear1Edit(.recommendedTaxMin) == .recommendedTaxMin)
+    }
+}
