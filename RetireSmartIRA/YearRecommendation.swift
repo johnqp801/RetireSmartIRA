@@ -13,6 +13,12 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     let acaMagi: Double?      // nil when ACA-irrelevant (post-65)
     let irmaaMagi: Double?    // nil when IRMAA-irrelevant (pre-Medicare)
     let taxableIncome: Double
+    /// The preferential-rate portion (LTCG + qualified dividends + realized gains) of taxableIncome.
+    /// ordinaryTaxable == taxableIncome - taxablePreferential.
+    let taxablePreferential: Double
+    /// IRMAA/ACA-style MAGI (federal AGI + non-taxable SS + tax-exempt interest), populated EVERY
+    /// year — unlike `irmaaMagi`/`acaMagi` which are nil outside their relevance windows.
+    let magi: Double
     let taxBreakdown: TaxBreakdown
     let endOfYearBalances: AccountSnapshot
     let actions: [LeverAction]
@@ -36,6 +42,8 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         acaMagi: Double?,
         irmaaMagi: Double?,
         taxableIncome: Double,
+        taxablePreferential: Double = 0,
+        magi: Double = 0,
         taxBreakdown: TaxBreakdown,
         endOfYearBalances: AccountSnapshot,
         actions: [LeverAction],
@@ -48,6 +56,8 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         self.acaMagi = acaMagi
         self.irmaaMagi = irmaaMagi
         self.taxableIncome = taxableIncome
+        self.taxablePreferential = taxablePreferential
+        self.magi = magi
         self.taxBreakdown = taxBreakdown
         self.endOfYearBalances = endOfYearBalances
         self.actions = actions

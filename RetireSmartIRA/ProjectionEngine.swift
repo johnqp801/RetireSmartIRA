@@ -948,6 +948,8 @@ struct ProjectionEngine {
                 acaMagi: acaMagiValue,
                 irmaaMagi: irmaaMagiValue,
                 taxableIncome: reportedTaxableIncome,
+                taxablePreferential: taxablePreferential,
+                magi: federalAGI + magiAddback,
                 taxBreakdown: taxBreakdownFinal,
                 endOfYearBalances: snapshot,
                 actions: allActions,
