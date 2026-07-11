@@ -961,7 +961,8 @@ struct ProjectionEngine {
                 // too; include them so forced income is visible without digging through
                 // the bundled actions. (Inherited Roth drains are forced but tax-free,
                 // so they are reported via the .rothWithdrawal action instead.)
-                rmd: primaryRequiredRMD + spouseRequiredRMD + inheritedTradDistributions
+                rmd: primaryRequiredRMD + spouseRequiredRMD + inheritedTradDistributions,
+                taxableSocialSecurity: taxableSS
             ))
 
             // Advance ages for next iteration

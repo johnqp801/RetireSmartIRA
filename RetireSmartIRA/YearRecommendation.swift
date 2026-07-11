@@ -35,6 +35,10 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     /// 0 before RMD age. Surfaced separately so the UI can show forced income without
     /// digging it out of the bundled `.traditionalWithdrawal` actions.
     let rmd: Double
+    /// Social Security dollars included in taxable income this year (0 when no SS collected or
+    /// none is taxable at this provisional-income level). Surfaced so the comparison layer can
+    /// flag "SS taxation increased" without recomputing provisional income.
+    let taxableSocialSecurity: Double
 
     init(
         year: Int,
@@ -49,7 +53,8 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         actions: [LeverAction],
         medicareEnrolledCount: Int = 0,
         underfunded: Double? = nil,
-        rmd: Double = 0
+        rmd: Double = 0,
+        taxableSocialSecurity: Double = 0
     ) {
         self.year = year
         self.agi = agi
@@ -64,5 +69,6 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         self.medicareEnrolledCount = medicareEnrolledCount
         self.underfunded = underfunded
         self.rmd = rmd
+        self.taxableSocialSecurity = taxableSocialSecurity
     }
 }
