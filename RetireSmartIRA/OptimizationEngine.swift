@@ -305,8 +305,18 @@ struct OptimizationEngine {
         inputs: MultiYearStaticInputs,
         assumptions: MultiYearAssumptions,
         configProvider: TaxYearConfigProvider = .current,
-        heirWeight: Double = 0
+        heirWeight: Double = 0,
+        approach: ConversionApproach = .recommendedTaxMin
     ) -> Result {
+        switch approach {
+        case .recommendedTaxMin:
+            break   // fall through to the existing greedy body below (unchanged)
+        case .fillToBracket, .limitToIRMAA:
+            return runDeterministicLadder(approach: approach, inputs: inputs,
+                                          assumptions: assumptions, configProvider: configProvider,
+                                          heirWeight: heirWeight)
+        }
+
         let baseYear = inputs.baseYear
 
         // H3: the household horizon runs to the LATER of each spouse's endpoint, so a younger
@@ -545,5 +555,91 @@ struct OptimizationEngine {
                                                 selfRate: assumptions.terminalLiquidationTaxRate,
                                                 heirWeight: heirWeight))
         )
+    }
+
+    // MARK: - Deterministic ladders (.fillToBracket / .limitToIRMAA)
+
+    /// Deterministic per-year ladder: for each year, bisect the conversion that lands at the
+    /// approach's target (ordinary bracket top, or the IRMAA tier ceiling), lock it, and move on.
+    /// A single forward pass — each year's landing depends only on years <= Y.
+    private func runDeterministicLadder(
+        approach: ConversionApproach,
+        inputs: MultiYearStaticInputs,
+        assumptions: MultiYearAssumptions,
+        configProvider: TaxYearConfigProvider,
+        heirWeight: Double
+    ) -> Result {
+        let baseYear = inputs.baseYear
+        let primaryEndYear = baseYear + (assumptions.horizonEndAge - inputs.primaryCurrentAge)
+        let spouseEndYear: Int = {
+            guard let spouseAge = inputs.spouseCurrentAge else { return primaryEndYear }
+            return baseYear + (assumptions.horizonEndAge(for: .spouse) - spouseAge)
+        }()
+        let endYear = max(primaryEndYear, spouseEndYear)
+        guard endYear >= baseYear else { return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0) }
+
+        var locked: [Int: [LeverAction]] = Dictionary(uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) })
+        // Preserve the pinned Year-1 conversion, consistent with the greedy path.
+        let year1Roth = inputs.year1PrimaryRothConversion + inputs.year1SpouseRothConversion
+        let hasYear1Pin = year1Roth > 0
+        if hasYear1Pin { locked[baseYear] = [.rothConversion(amount: year1Roth)] }
+
+        let upperBoundCap = min(inputs.startingBalances.traditional, 500_000.0)
+
+        for Y in baseYear...endYear {
+            if Task.isCancelled { return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0) }
+            if Y == baseYear && hasYear1Pin { continue }   // respect the Year-1 pin
+
+            // f(x): land-point for year Y with conversion x this year (years < Y already locked;
+            // years > Y don't affect year Y). Returns the metric this approach root-finds on.
+            func landPoint(_ x: Double) -> Double {
+                var trial = locked
+                trial[Y] = x > 0 ? [.rothConversion(amount: x)] : []
+                let path = ProjectionEngine(configProvider: configProvider).project(
+                    inputs: inputs, assumptions: assumptions, actionsPerYear: trial)
+                let rec = path[Y - baseYear]
+                switch approach {
+                case .fillToBracket:   return rec.taxableIncome - rec.taxablePreferential   // ordinary income
+                case .limitToIRMAA:    return rec.magi
+                case .recommendedTaxMin: return 0
+                }
+            }
+
+            let target: Double = {
+                let cfg = configProvider.config(forYear: Y)
+                switch approach {
+                case .fillToBracket(let rate):
+                    let brackets = cfg.toTaxBrackets()
+                    let arr = inputs.filingStatus == .single ? brackets.federalSingle : brackets.federalMarried
+                    // top of the bracket at `rate` = the NEXT bracket's threshold.
+                    if let i = arr.firstIndex(where: { abs($0.rate - rate) < 1e-9 }), i + 1 < arr.count {
+                        return arr[i + 1].threshold
+                    }
+                    return .greatestFiniteMagnitude   // rate not found this year -> no cap (convert nothing extra)
+                case .limitToIRMAA(let tier, let buffer):
+                    let tiers = cfg.toIRMAATiers()
+                    guard tier >= 0 && tier < tiers.count else { return .greatestFiniteMagnitude }
+                    let threshold = inputs.filingStatus == .single ? tiers[tier].singleThreshold : tiers[tier].mfjThreshold
+                    return threshold - buffer
+                case .recommendedTaxMin: return 0
+                }
+            }()
+
+            let x = ConversionLadder.largestConversionBelow(target: target, upperBound: upperBoundCap, evaluate: landPoint)
+            locked[Y] = x > 0 ? [.rothConversion(amount: x)] : []
+        }
+
+        let finalPath = ProjectionEngine(configProvider: configProvider).project(
+            inputs: inputs, assumptions: assumptions, actionsPerYear: locked)
+        let hits = ConstraintAcceptor().detect(path: finalPath, filingStatus: inputs.filingStatus,
+                                                householdSize: inputs.acaHouseholdSize, configProvider: configProvider)
+        return Result(
+            recommendedPath: finalPath,
+            tradeOffsAccepted: hits,   // report the crossings the chosen approach lands on (advisory)
+            totalObjectiveCost: Self.objectiveCost(
+                path: finalPath, baseYear: baseYear, horizonYears: endYear - baseYear + 1,
+                rate: assumptions.pvRealDiscountRate,
+                terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
+                                                selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight)))
     }
 }

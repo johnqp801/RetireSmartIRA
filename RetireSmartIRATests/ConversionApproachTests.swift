@@ -115,4 +115,59 @@ struct ConversionApproachTests {
         let x = ConversionLadder.largestConversionBelow(target: 60_000, upperBound: 500_000, tolerance: 1, evaluate: f)
         #expect(abs(x - 70_000) < 2) // 40k + (x-50k) = 60k -> x = 70k
     }
+
+    // MARK: - End-to-end: optimize(approach:) deterministic ladders
+
+    /// Top of the ordinary bracket at `rate` = the NEXT bracket's threshold, read the same way
+    /// the engine reads it (configProvider.config(forYear:).toTaxBrackets()).
+    private static func bracketTop(rate: Double, filingStatus: FilingStatus, year: Int) -> Double {
+        let cfg = TaxYearConfigProvider.current.config(forYear: year)
+        let brackets = cfg.toTaxBrackets()
+        let arr = filingStatus == .single ? brackets.federalSingle : brackets.federalMarried
+        guard let i = arr.firstIndex(where: { abs($0.rate - rate) < 1e-9 }), i + 1 < arr.count else {
+            return .greatestFiniteMagnitude
+        }
+        return arr[i + 1].threshold
+    }
+
+    /// IRMAA tier threshold, read the same way the engine reads it (configProvider.config(forYear:).toIRMAATiers()).
+    private static func irmaaTierThreshold(tier: Int, filingStatus: FilingStatus, year: Int) -> Double {
+        let cfg = TaxYearConfigProvider.current.config(forYear: year)
+        let tiers = cfg.toIRMAATiers()
+        guard tier >= 0 && tier < tiers.count else { return .greatestFiniteMagnitude }
+        return filingStatus == .single ? tiers[tier].singleThreshold : tiers[tier].mfjThreshold
+    }
+
+    @Test("fillToBracket lands ordinary taxable income at or below the chosen bracket top")
+    func fillToBracketLandsAtTop() {
+        let inputs = ConversionApproachTests.makeInputs(traditional: 3_000_000, filingStatus: .single) // large trad so the bracket binds
+        let result = OptimizationEngine().optimize(inputs: inputs, assumptions: ConversionApproachTests.makeAssumptions(),
+                                                   approach: .fillToBracket(rate: 0.22))
+        let y0 = result.recommendedPath[0]
+        let top22 = ConversionApproachTests.bracketTop(rate: 0.22, filingStatus: .single, year: y0.year)
+        let ordinary = y0.taxableIncome - y0.taxablePreferential
+        #expect(ordinary <= top22 + 1)          // did not overshoot the 22% top
+        #expect(ordinary >= top22 - 5_000)      // filled close to it (converted meaningfully)
+    }
+
+    @Test("limitToIRMAA keeps MAGI at or below the tier ceiling every year")
+    func limitToIRMAAKeepsMagiUnderTier() {
+        let inputs = ConversionApproachTests.makeInputs(traditional: 3_000_000, filingStatus: .single)
+        let buffer = 2_000.0
+        let result = OptimizationEngine().optimize(inputs: inputs, assumptions: ConversionApproachTests.makeAssumptions(),
+                                                   approach: .limitToIRMAA(tier: 1, buffer: buffer))
+        let y0 = result.recommendedPath[0]
+        let tier1 = ConversionApproachTests.irmaaTierThreshold(tier: 1, filingStatus: .single, year: y0.year)
+        #expect(y0.magi <= tier1 - buffer + 1)  // stayed under the tier-1 ceiling minus buffer
+    }
+
+    @Test("recommendedTaxMin is unchanged by adding the approach parameter")
+    func recommendedTaxMinUnchanged() {
+        let inputs = ConversionApproachTests.makeInputs(traditional: 1_000_000)
+        let a = OptimizationEngine().optimize(inputs: inputs, assumptions: ConversionApproachTests.makeAssumptions())
+        let b = OptimizationEngine().optimize(inputs: inputs, assumptions: ConversionApproachTests.makeAssumptions(),
+                                              approach: .recommendedTaxMin)
+        #expect(abs(a.totalObjectiveCost - b.totalObjectiveCost) < 0.01)
+        #expect(a.recommendedPath.count == b.recommendedPath.count)
+    }
 }
