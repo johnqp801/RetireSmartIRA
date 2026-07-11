@@ -18,14 +18,24 @@ struct MultiYearPlanView: View {
     // trade-off (frontier + "what heirs keep") is hidden and the plan follows the owner-optimal path.
     private var legacyEnabled: Bool { dataManager.enableLegacyPlanning }
 
-    // Selected weight's path (drives summary + ladder). Falls back to currentResult. When legacy
-    // planning is off, the heir-weighted frontier path is ignored so the view shows owner-optimal.
+    // Selected weight's path (drives summary + ladder), then filtered through the selected
+    // conversion approach: when a deterministic approach (fill-to-bracket / limit-to-IRMAA) is
+    // chosen, the whole tab (summary, ladder, balances, threshold map, CPA briefing) reads that
+    // approach's path from the comparison instead of the objective-optimizer path. Falls back to
+    // currentResult. When legacy planning is off, the heir-weighted frontier path is ignored so the
+    // view shows owner-optimal.
     private var activePath: [YearRecommendation] {
-        if legacyEnabled,
-           let p = manager.heirFrontier?.points.first(where: { $0.weight == manager.selectedHeirWeight })?.recommendedPath, !p.isEmpty {
-            return p
-        }
-        return manager.currentResult?.recommendedPath ?? []
+        let base: [YearRecommendation] = {
+            if legacyEnabled,
+               let p = manager.heirFrontier?.points.first(where: { $0.weight == manager.selectedHeirWeight })?.recommendedPath, !p.isEmpty {
+                return p
+            }
+            return manager.currentResult?.recommendedPath ?? []
+        }()
+        return ApproachUILogic.activePath(
+            selected: manager.assumptions.conversionApproach.toApproach(),
+            comparison: manager.approachComparison,
+            frontierOrCurrent: base)
     }
 
     // Ladder rows with IRMAA attributed to conversions only: each year's surcharge minus the
@@ -99,7 +109,7 @@ struct MultiYearPlanView: View {
 
                 Year1EditorView(
                     year1RothConversion: year1RothBinding,
-                    plannedYear1: manager.currentResult.map { year1Roth($0) } ?? 0,
+                    plannedYear1: activePath.first.map { year1Roth(actions: $0.actions) } ?? 0,
                     status: offPlanStatus,
                     onCommit: { onYear1Edited() },
                     onResetToOptimal: { resetYear1ToOptimal() })
@@ -313,7 +323,15 @@ struct MultiYearPlanView: View {
     }
 
     private func year1Roth(_ result: MultiYearStrategyResult) -> Double {
-        (result.recommendedPath.first?.actions ?? []).reduce(0.0) { acc, act in
+        year1Roth(actions: result.recommendedPath.first?.actions ?? [])
+    }
+
+    // Sums Year-1 Roth conversion actions from an arbitrary action list. Used to feed the Year-1
+    // editor from activePath (which, while a deterministic approach is selected, is the approach's
+    // path from the comparison rather than manager.currentResult), so the field reflects whichever
+    // path is actually driving the tab.
+    private func year1Roth(actions: [LeverAction]) -> Double {
+        actions.reduce(0.0) { acc, act in
             if case let .rothConversion(amount) = act { return acc + amount }
             return acc
         }
@@ -332,6 +350,14 @@ struct MultiYearPlanView: View {
     }
 
     private func onYear1Edited() {
+        // Editing Year-1 directly is only meaningful against the objective optimizer's own path —
+        // a deterministic approach (fill-to-bracket / limit-to-IRMAA) computes its own Year-1, so a
+        // manual edit reverts the selection back to the optimizer (picker snaps to segment 1 via the
+        // same conversionApproach binding) before the edit takes effect.
+        if manager.assumptions.conversionApproach != .recommendedTaxMin {
+            manager.assumptions.conversionApproach = PersistedConversionApproach(
+                ApproachUILogic.approachAfterYear1Edit(manager.assumptions.conversionApproach.toApproach()))
+        }
         manager.recompute(reason: .overridesChanged)   // current-only; optimal is cached
     }
 

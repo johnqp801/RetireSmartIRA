@@ -100,3 +100,15 @@ extension ApproachUITests {
         #expect(ApproachUILogic.approachAfterYear1Edit(.recommendedTaxMin) == .recommendedTaxMin)
     }
 }
+
+extension ApproachUITests {
+    @Test("Editing Year-1 while a deterministic approach is selected reverts the persisted approach")
+    func year1EditRevertsPersistedApproach() {
+        var a = MultiYearAssumptions.default
+        a.conversionApproach = PersistedConversionApproach(.limitToIRMAA(tier: 2, buffer: 5_000))
+        // The view's onYear1Edited applies ApproachUILogic.approachAfterYear1Edit to the persisted value.
+        a.conversionApproach = PersistedConversionApproach(
+            ApproachUILogic.approachAfterYear1Edit(a.conversionApproach.toApproach()))
+        #expect(a.conversionApproach == .recommendedTaxMin)
+    }
+}
