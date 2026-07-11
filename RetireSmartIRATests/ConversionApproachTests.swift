@@ -134,8 +134,8 @@ struct ConversionApproachTests {
     private static func irmaaTierThreshold(tier: Int, filingStatus: FilingStatus, year: Int) -> Double {
         let cfg = TaxYearConfigProvider.current.config(forYear: year)
         let tiers = cfg.toIRMAATiers()
-        guard tier >= 0 && tier < tiers.count else { return .greatestFiniteMagnitude }
-        return filingStatus == .single ? tiers[tier].singleThreshold : tiers[tier].mfjThreshold
+        guard let tierEntry = tiers.first(where: { $0.tier == tier }) else { return .greatestFiniteMagnitude }
+        return filingStatus == .single ? tierEntry.singleThreshold : tierEntry.mfjThreshold
     }
 
     @Test("fillToBracket lands ordinary taxable income at or below the chosen bracket top")

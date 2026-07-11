@@ -618,8 +618,8 @@ struct OptimizationEngine {
                     return .greatestFiniteMagnitude   // rate not found this year -> no cap (convert nothing extra)
                 case .limitToIRMAA(let tier, let buffer):
                     let tiers = cfg.toIRMAATiers()
-                    guard tier >= 0 && tier < tiers.count else { return .greatestFiniteMagnitude }
-                    let threshold = inputs.filingStatus == .single ? tiers[tier].singleThreshold : tiers[tier].mfjThreshold
+                    guard let tierEntry = tiers.first(where: { $0.tier == tier }) else { return .greatestFiniteMagnitude }
+                    let threshold = inputs.filingStatus == .single ? tierEntry.singleThreshold : tierEntry.mfjThreshold
                     return threshold - buffer
                 case .recommendedTaxMin: return 0
                 }
