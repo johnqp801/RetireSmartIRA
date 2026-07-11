@@ -376,14 +376,8 @@ final class MultiYearStrategyManager: ObservableObject {
         for inputs: MultiYearStaticInputs,
         assumptions: MultiYearAssumptions
     ) -> [Int: [LeverAction]] {
-        let baseYear = inputs.baseYear
-        let primaryEndYear = baseYear + (assumptions.horizonEndAge - inputs.primaryCurrentAge)
-        let spouseEndYear: Int = {
-            guard let spouseAge = inputs.spouseCurrentAge else { return primaryEndYear }
-            return baseYear + (assumptions.horizonEndAge(for: .spouse) - spouseAge)
-        }()
-        let endYear = max(primaryEndYear, spouseEndYear)
-        guard endYear >= baseYear else { return [:] }
-        return Dictionary(uniqueKeysWithValues: (baseYear...endYear).map { ($0, []) })
+        // Delegates to the canonical shared helper so the no-conversion horizon derivation never
+        // drifts from ApproachComparisonCoordinator's baseline path.
+        ApproachComparisonCoordinator.emptyActionsMap(inputs: inputs, assumptions: assumptions)
     }
 }

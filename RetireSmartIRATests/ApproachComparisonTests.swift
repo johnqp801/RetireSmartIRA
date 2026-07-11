@@ -170,3 +170,35 @@ extension ApproachComparisonTests {
                                           capGainBracketAffected: false, niitIncreased: false))
     }
 }
+
+extension ApproachComparisonTests {
+    @Test("Coordinator runs the three paths; deterministic approach differs from no-conversion")
+    func coordinatorProducesThreeColumns() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let cmp = ApproachComparisonCoordinator().compare(
+            inputs: inputs, assumptions: asmp,
+            selectedApproach: .fillToBracket(rate: 0.24), heirWeight: 0)
+
+        #expect(!cmp.collapsesToTwoColumns)                             // selected != recommendedTaxMin
+        #expect(cmp.selected.path.count == cmp.noAdditionalConversions.path.count)
+        // Filling to 24% converts more than doing nothing → less ending traditional.
+        #expect(cmp.selected.endingTraditional <= cmp.noAdditionalConversions.endingTraditional)
+        // Deltas are wired to selected-vs-noConversion.
+        let expected = ConsequenceDeltas(selected: cmp.selected.path,
+                                         noConversion: cmp.noAdditionalConversions.path)
+        #expect(cmp.deltas == expected)
+    }
+
+    @Test("Selected == recommendedTaxMin collapses to two columns and does not run the optimizer twice")
+    func recommendedApproachCollapses() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let cmp = ApproachComparisonCoordinator().compare(
+            inputs: inputs, assumptions: asmp,
+            selectedApproach: .recommendedTaxMin, heirWeight: 0)
+
+        #expect(cmp.collapsesToTwoColumns)
+        #expect(cmp.selected == cmp.recommended)   // identical column when collapsed
+    }
+}
