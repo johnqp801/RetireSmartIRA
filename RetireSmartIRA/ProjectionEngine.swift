@@ -810,6 +810,7 @@ struct ProjectionEngine {
             var stTax = stateTax
             var reportedAGI = federalAGI
             var reportedTaxableIncome = taxableIncome
+            var reportedTaxablePreferential = taxablePreferential
             var taxFundingGain = 0.0   // realized LTCG from selling buckets to PAY the tax bill
 
             if assumptions.taxPaymentSource == .taxableThenGrossUp {
@@ -885,10 +886,11 @@ struct ProjectionEngine {
                 if saleGain > 0 || dW > 0 {
                     reportedTaxableIncome = max(0, taxableIncome + dW)
                     reportedAGI = federalAGI + dW + saleGain
+                    reportedTaxablePreferential = min(taxablePreferential + saleGain, reportedTaxableIncome)
                     fedTax = TaxCalculationEngine.calculateFederalTax(
                         income: reportedTaxableIncome, filingStatus: inputs.filingStatus,
                         brackets: brackets,
-                        preferentialIncome: min(taxablePreferential + saleGain, reportedTaxableIncome))
+                        preferentialIncome: reportedTaxablePreferential)
                     stTax = computeStateTax(
                         federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
@@ -948,7 +950,7 @@ struct ProjectionEngine {
                 acaMagi: acaMagiValue,
                 irmaaMagi: irmaaMagiValue,
                 taxableIncome: reportedTaxableIncome,
-                taxablePreferential: taxablePreferential,
+                taxablePreferential: reportedTaxablePreferential,
                 magi: federalAGI + magiAddback,
                 taxBreakdown: taxBreakdownFinal,
                 endOfYearBalances: snapshot,
