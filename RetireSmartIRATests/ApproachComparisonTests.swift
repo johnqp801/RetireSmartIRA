@@ -137,3 +137,36 @@ extension ApproachComparisonTests {
         #expect(abs(d.total - totalDelta) < 1.0)
     }
 }
+
+extension ApproachComparisonTests {
+    @Test("ConsequenceFlags trip when the selected approach pushes past baseline thresholds")
+    func consequenceFlagsTrip() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let base = inputs.baseYear
+        let noConv = ProjectionEngine().project(inputs: inputs, assumptions: asmp,
+                                                actionsPerYear: [base: []])
+        let selected = OptimizationEngine().optimize(inputs: inputs, assumptions: asmp,
+                                                     approach: .fillToBracket(rate: 0.24)).recommendedPath
+
+        let flags = ConsequenceFlags(selected: selected, noConversion: noConv,
+                                     filingStatus: inputs.filingStatus, configProvider: .current)
+
+        // A fill-to-24% ladder on an SS household raises ordinary income and SS inclusion.
+        #expect(flags.ordinaryBracketCrossed || flags.ssTaxationIncreased)
+    }
+
+    @Test("ConsequenceFlags are all false when selected == no-conversion baseline")
+    func consequenceFlagsAllFalseWhenIdentical() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity()
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        let base = inputs.baseYear
+        let noConv = ProjectionEngine().project(inputs: inputs, assumptions: asmp,
+                                                actionsPerYear: [base: []])
+        let flags = ConsequenceFlags(selected: noConv, noConversion: noConv,
+                                     filingStatus: inputs.filingStatus, configProvider: .current)
+        #expect(flags == ConsequenceFlags(ssTaxationIncreased: false, irmaaTierCrossed: false,
+                                          acaCliffCrossed: false, ordinaryBracketCrossed: false,
+                                          capGainBracketAffected: false, niitIncreased: false))
+    }
+}
