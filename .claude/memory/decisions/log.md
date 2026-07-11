@@ -4,6 +4,19 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-11: Phase 2c UI decisions — no "Recommended" label; selected approach is the active plan
+
+**Context:** Brainstormed the Phase 2c (SwiftUI) design for the conversion-approach UI. Decisions locked with the user via the visual companion + terminal.
+
+**Decisions:**
+1. **No "Recommended" anywhere — the app does not make recommendations** (companion tool, not advisor). The anchor comparison column + the picker's first segment are labeled by the objective the engine actually optimized, **dynamically on the Legacy Planning setting**: "Minimize lifetime tax" (legacy off / heir weight 0) vs "Optimize tax + legacy" (legacy on). Supersedes the frozen 2026-07-10 spec's "Recommended plan" label while preserving its reasoning (never imply heir weight = 0; never call the legacy-on anchor "tax-minimizing"). Rationale: "Recommended" is advice framing the product avoids; "minimize lifetime tax" alone is inaccurate when the legacy-aware objective is in force.
+2. **Three-way comparison REPLACES the two-way `PlanComparisonView`** as the tab's single comparison block (three-column table). The `PlanComparison` model stays (CPA briefing + TaxImpactChart still use it).
+3. **Selected approach becomes the ACTIVE PLAN everywhere** (charts, balances, Year-1 levers, CPA briefing), not just a comparison lens.
+4. **Year-1 rule = mutual exclusion:** a deterministic approach and a manual Year-1 Roth override cannot both hold; editing Year-1 reverts the approach to the objective optimizer (`.recommendedTaxMin`) with the override applied (existing off-plan/"Custom" state).
+5. **Giving = light refinement only** (surface the already-seeded charitable amount + funding QCD-first + cash-not-deducted disclosure); no new giving data model in 2.1.0.
+
+**Spec:** `docs/superpowers/specs/2026-07-11-v2.1.0-phase2c-approach-ui-design.md`.
+
 ## 2026-07-10: BUILD selectable conversion approaches (reverses 2026-07-08) + V2.1 scoping
 
 **Trigger:** Fred Lucha (tester) asked, in his own words, for exactly the selectable objective promised to Tim ("convert the most while staying in 22%" / "without triggering IRMAA"), plus he observed the optimizer drains the whole traditional IRA pre-RMD. Competitive research (2026-07-09) confirmed selectable bracket/IRMAA conversion goals are TABLE STAKES among serious multi-year planners (Boldin, Pralana, RightCapital, ProjectionLab) and that Kitces / the Bogleheads consensus legitimize bracket-fill as a real (IRMAA/SS/state-adjusted) strategy — only Kotlikoff (who sells the competitor) calls it a "rule of dumb."
