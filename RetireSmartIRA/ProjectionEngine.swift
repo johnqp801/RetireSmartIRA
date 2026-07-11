@@ -414,12 +414,37 @@ struct ProjectionEngine {
             //
             // Excess-RMD: if combined RMD > expense need, the gross excess is deposited
             // to the taxable bucket (Approach A). Tax is computed on the full AGI.
+
+            // ─── QCD application (Phase 1c) ───
+            // QCDs come from the IRA, count toward the RMD, and are excluded from AGI. Computed
+            // here (after RMD is known, before the RMD is force-distributed) so they reduce the
+            // taxable RMD. The QCD money leaves the household (to charity); it is not reinvested.
+            var primaryQCD = 0.0
+            var spouseQCD = 0.0
+            if inputs.charitableGivingPlan.hasGiving {
+                let yearsFromBase = max(0, year - scenarioBaseYear)
+                let inflationFactor = pow(1.0 + assumptions.cpiRate, Double(yearsFromBase))
+                let qcdLimit = configProvider.config(forYear: year).qcdAnnualLimit
+                let primaryEligible = QCDPlanner.isEligible(birthDate: inputs.primaryBirthDate, byEndOf: year)
+                let spouseEligible = inputs.spouseBirthDate.map { QCDPlanner.isEligible(birthDate: $0, byEndOf: year) } ?? false
+                let q = QCDPlanner.plan(
+                    inputs.charitableGivingPlan,
+                    primaryRMD: primaryRequiredRMD, spouseRMD: spouseRequiredRMD,
+                    primaryIRA: primary.ira, spouseIRA: spouse.ira,
+                    primaryEligible: primaryEligible, spouseEligible: spouseEligible,
+                    qcdLimit: qcdLimit, inflationFactor: inflationFactor)
+                primaryQCD = q.primaryQCD
+                spouseQCD = q.spouseQCD
+                primary.debitIRA(primaryQCD)   // IRA-only; leaves the household to charity
+                spouse.debitIRA(spouseQCD)
+            }
+
             var autoImposedRMD = 0.0
 
             // Primary's RMD (required amount precomputed above from the start-of-year balance).
             // Because conversions were reserved against it in Step 1, the bucket still holds at
             // least the required RMD, so the shortfall withdrawal below always fully succeeds.
-            let primaryRmdShortfall = max(0, primaryRequiredRMD - explicitPrimaryTradWithdrawals)
+            let primaryRmdShortfall = max(0, primaryRequiredRMD - explicitPrimaryTradWithdrawals - primaryQCD)
             if primaryRmdShortfall > 0 {
                 let withdrawal = min(primaryRmdShortfall, primary.total)
                 primary.debit(withdrawal)
@@ -427,7 +452,7 @@ struct ProjectionEngine {
             }
 
             // Spouse's RMD (if applicable; required amount precomputed above).
-            let spouseRmdShortfall = max(0, spouseRequiredRMD - explicitSpouseTradWithdrawals)
+            let spouseRmdShortfall = max(0, spouseRequiredRMD - explicitSpouseTradWithdrawals - spouseQCD)
             if spouseRmdShortfall > 0 {
                 let withdrawal = min(spouseRmdShortfall, spouse.total)
                 spouse.debit(withdrawal)

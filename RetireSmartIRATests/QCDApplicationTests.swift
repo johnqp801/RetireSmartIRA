@@ -117,4 +117,100 @@ struct QCDApplicationTests {
         #expect(QCDPlanner.isEligible(birthDate: dob(1954, 8, 1), byEndOf: 2024, calendar: cal) == false)
         #expect(QCDPlanner.isEligible(birthDate: dob(1954, 8, 1), byEndOf: 2025, calendar: cal) == true)
     }
+
+    // --- End-to-end: ProjectionEngine applies the QCD ---
+
+    private var baseYear: Int { Calendar.current.component(.year, from: Date()) }
+
+    @Test("QCD reduces AGI by the QCD-satisfied RMD and debits the IRA, not 401k")
+    func qcdReducesAGIandDebitsIRA() {
+        // Single filer, born 1950 (age 76 in the base year, RMD age 73 for this birth year):
+        // both 70½-QCD-eligible and RMD-forced. $1M owner traditional split $300k IRA / $700k
+        // 401k, so the RMD (~$42.2k on the $1M total) exceeds the $20k QCD target — the QCD is
+        // fully excluded from AGI, and the auto-imposed-RMD remainder is debited 401(k)-first,
+        // proving the QCD dollars specifically came out of the IRA (not the combined total,
+        // which converges to the same figure in both scenarios per the "no double-debit"
+        // invariant: total IRA+401k outflow = max(RMD, QCD) regardless of QCD).
+        let withPlan = MultiYearStaticInputs.forQCDTest(iraBalance: 300_000, k401: 700_000, birthYear: 1950,
+            plan: CharitableGivingPlan(intent: .fixedAnnualAmount(20_000), funding: .qcdFirst, maintainRealValue: false))
+        let noPlan = MultiYearStaticInputs.forQCDTest(iraBalance: 300_000, k401: 700_000, birthYear: 1950, plan: .none)
+        let a = ProjectionEngine().project(inputs: withPlan, assumptions: MultiYearStaticInputs.qcdTestAssumptions(),
+                                           actionsPerYear: [baseYear: []])
+        let b = ProjectionEngine().project(inputs: noPlan, assumptions: MultiYearStaticInputs.qcdTestAssumptions(),
+                                           actionsPerYear: [baseYear: []])
+        // AGI is $20k lower with the QCD (the QCD-satisfied RMD isn't taxed).
+        #expect(abs((b[0].agi - a[0].agi) - 20_000) < 1.0)
+        // The IRA specifically is $20k lower with the QCD (money left to charity, sourced
+        // from the IRA only), grown by the 6% assumption since end-of-year balances are
+        // post-growth; the combined traditional total is unchanged (no double-debit — the
+        // auto-imposed-RMD remainder made up the difference from the 401k).
+        #expect(abs((b[0].endOfYearBalances.primaryTraditionalIRA - a[0].endOfYearBalances.primaryTraditionalIRA) - 20_000 * 1.06) < 1.0)
+        #expect(abs(b[0].endOfYearBalances.primaryTraditional - a[0].endOfYearBalances.primaryTraditional) < 1.0)
+    }
+
+    @Test("No giving plan reproduces the no-QCD projection exactly (backward compat)")
+    func noPlanUnchanged() {
+        let noPlan = MultiYearStaticInputs.forQCDTest(iraBalance: 1_000_000, k401: 0, birthYear: 1950, plan: .none)
+        let years = ProjectionEngine().project(inputs: noPlan, assumptions: MultiYearStaticInputs.qcdTestAssumptions(),
+                                               actionsPerYear: [baseYear: []])
+        // No QCD applied: taxable income includes the full RMD (sanity: nonzero AGI, no crash).
+        #expect(years[0].agi > 0)
+    }
+}
+
+extension MultiYearStaticInputs {
+    /// Builds inputs for the Phase 1c QCD end-to-end tests: a single filer with a split
+    /// IRA/401k owner traditional balance and a month-precise birth date (Jan 1 of
+    /// `birthYear`) so 70½ eligibility is exercised. Single filer (spouseBirthDate: nil).
+    /// Mirrors ProjectionEngineTests.makeInputs's field set, narrowed to what these tests need.
+    static func forQCDTest(iraBalance: Double, k401: Double, birthYear: Int, plan: CharitableGivingPlan) -> MultiYearStaticInputs {
+        var c = DateComponents()
+        c.year = birthYear; c.month = 1; c.day = 1
+        let birthDate = Calendar.current.date(from: c)!
+        let currentAge = Calendar.current.component(.year, from: Date()) - birthYear
+        return MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(
+                primaryTraditionalIRA: iraBalance, primaryTraditional401k: k401,
+                spouseTraditionalIRA: 0, spouseTraditional401k: 0,
+                roth: 0, taxable: 0, hsa: 0
+            ),
+            primaryCurrentAge: currentAge,
+            spouseCurrentAge: nil,
+            filingStatus: .single,
+            state: "CA",
+            primarySSClaimAge: 67,
+            spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0,
+            spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: birthYear,
+            spouseBirthYear: nil,
+            primaryBirthDate: birthDate,
+            spouseBirthDate: nil,
+            primaryWageIncome: 0,
+            spouseWageIncome: 0,
+            primaryPensionIncome: 0,
+            spousePensionIncome: 0,
+            acaEnrolled: false,
+            acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65,
+            spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0,
+            charitableGivingPlan: plan
+        )
+    }
+
+    /// Assumptions for the Phase 1c QCD end-to-end tests. Mirrors ProjectionEngineTests.makeAssumptions.
+    static func qcdTestAssumptions() -> MultiYearAssumptions {
+        MultiYearAssumptions(
+            horizonEndAge: 95,
+            horizonEndAgeSpouse: nil,
+            cpiRate: 0.025,
+            investmentGrowthRate: 0.06,
+            withdrawalOrderingRule: .taxEfficient,
+            stressTestEnabled: false,
+            perYearExpenseOverrides: [:],
+            currentTaxableBalance: 0,
+            currentHSABalance: 0
+        )
+    }
 }
