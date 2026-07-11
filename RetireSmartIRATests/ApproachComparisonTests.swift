@@ -230,3 +230,91 @@ extension ApproachComparisonTests {
         #expect(s.deltaMedicareCost == 0)
     }
 }
+
+extension ApproachComparisonTests {
+    /// Regression for the Phase 2b coordinator bug: `ApproachComparisonCoordinator.compare(...)`
+    /// built `ConsequenceFlags` without threading `inputs.acaHouseholdSize`, so it silently used
+    /// the `householdSize: Int = 1` default. Household size 1 has the LOWEST FPL and therefore
+    /// the lowest 400%-FPL cliff MAGI, so an MFJ household (size 2) sitting between the size-1
+    /// and size-2 cliffs got a false-positive `acaCliffCrossed`. This constructs the exact band
+    /// using the live config's real FPL/cliff numbers (no fabricated tax figures) and checks the
+    /// flag both ways: false at the real household size 2, true at the old buggy default of 1 —
+    /// proving the band itself is a genuine false positive, not just a threshold nudge.
+    @Test("ACA cliff flag is household-size aware: MFJ between the size-1 and size-2 cliffs is NOT flagged")
+    func acaCliffFlagRespectsHouseholdSize() {
+        let configProvider = TaxYearConfigProvider.current
+        let year = Calendar.current.component(.year, from: Date())
+        let config = configProvider.config(forYear: year)
+        let acaConfig = config.acaSubsidy2026
+        let fpl = acaConfig.fpl2026.householdSizeToFPL
+        let cliffFplPercent = acaConfig.applicableFigures.first { $0.applicableFigure >= 1.0 }!.fplPercent
+        let size1Cliff = fpl["1"]! * cliffFplPercent / 100
+        let size2Cliff = fpl["2"]! * cliffFplPercent / 100
+        #expect(size2Cliff > size1Cliff)   // sanity: size-2 FPL (and cliff) is higher than size-1
+
+        let baselineMagi = size1Cliff - 5_000               // under both cliffs
+        let selectedMagi = (size1Cliff + size2Cliff) / 2    // over the size-1 cliff, under size-2
+
+        func makeYear(magi: Double) -> YearRecommendation {
+            YearRecommendation(year: year, agi: magi, acaMagi: magi, irmaaMagi: nil,
+                               taxableIncome: magi, taxBreakdown: .zero,
+                               endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
+                               actions: [])
+        }
+        let baseline = [makeYear(magi: baselineMagi)]
+        let selected = [makeYear(magi: selectedMagi)]
+
+        // Real household size (2, MFJ): the household is genuinely still under its cliff.
+        let atRealHouseholdSize = ConsequenceFlags(selected: selected, noConversion: baseline,
+                                                    filingStatus: .marriedFilingJointly,
+                                                    configProvider: configProvider, householdSize: 2)
+        #expect(!atRealHouseholdSize.acaCliffCrossed)
+
+        // Old buggy default (1): the same MAGIs false-positive because size-1's cliff is lower.
+        let atDefaultHouseholdSize = ConsequenceFlags(selected: selected, noConversion: baseline,
+                                                       filingStatus: .marriedFilingJointly,
+                                                       configProvider: configProvider)
+        #expect(atDefaultHouseholdSize.acaCliffCrossed)
+    }
+
+    @Test("ApproachComparisonCoordinator threads the household's real ACA household size into ConsequenceFlags")
+    func coordinatorThreadsRealHouseholdSize() {
+        // A married couple enrolled in ACA coverage pre-Medicare, household size 2. Regardless of
+        // the specific dollar amounts this run produces, the coordinator must build ConsequenceFlags
+        // using inputs.acaHouseholdSize, not the ConsequenceFlags default of 1.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 900_000, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 60,
+            spouseCurrentAge: 58,
+            filingStatus: .marriedFilingJointly,
+            state: "CA",
+            primarySSClaimAge: 67,
+            spouseSSClaimAge: 67,
+            primaryExpectedBenefitAtFRA: 0,
+            spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: Calendar.current.component(.year, from: Date()) - 60,
+            spouseBirthYear: Calendar.current.component(.year, from: Date()) - 58,
+            primaryWageIncome: 0,
+            spouseWageIncome: 0,
+            primaryPensionIncome: 0,
+            spousePensionIncome: 0,
+            acaEnrolled: true,
+            acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65,
+            spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 60_000
+        )
+        let asmp = ApproachComparisonTests.makeAssumptions()
+
+        let cmp = ApproachComparisonCoordinator().compare(
+            inputs: inputs, assumptions: asmp,
+            selectedApproach: .fillToBracket(rate: 0.24), heirWeight: 0)
+
+        // Recompute flags directly at both household sizes on the SAME paths the coordinator
+        // produced, to confirm which one the coordinator's flags actually match.
+        let expectedAtRealSize = ConsequenceFlags(selected: cmp.selected.path, noConversion: cmp.noAdditionalConversions.path,
+                                                   filingStatus: inputs.filingStatus, configProvider: .current,
+                                                   householdSize: inputs.acaHouseholdSize)
+        #expect(cmp.flags == expectedAtRealSize)
+    }
+}

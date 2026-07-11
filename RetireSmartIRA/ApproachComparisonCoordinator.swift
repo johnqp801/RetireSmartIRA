@@ -57,6 +57,7 @@ struct ApproachComparisonCoordinator {
             noAdditionalConversions: ApproachColumn.make(path: noConvPath, inputs: inputs, assumptions: assumptions),
             deltas: ConsequenceDeltas(selected: selectedPath, noConversion: noConvPath),
             flags: ConsequenceFlags(selected: selectedPath, noConversion: noConvPath,
-                                    filingStatus: inputs.filingStatus, configProvider: configProvider))
+                                    filingStatus: inputs.filingStatus, configProvider: configProvider,
+                                    householdSize: inputs.acaHouseholdSize))
     }
 }
