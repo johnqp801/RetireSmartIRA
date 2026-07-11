@@ -39,6 +39,9 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     var pvRealDiscountRate: Double = 0.03
     /// Where conversion/year tax is paid from. Default brakes over-conversion (C3).
     var taxPaymentSource: TaxPaymentSource = .taxableThenGrossUp
+    /// User-selected conversion approach for the multi-year optimizer (Phase 2c). Default is the
+    /// existing greedy lifetime-tax minimizer, so behavior is unchanged unless the user opts in.
+    var conversionApproach: PersistedConversionApproach = .recommendedTaxMin
 
     init(
         horizonEndAge: Int = 95,
@@ -56,7 +59,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         dismissedInsightKeys: Set<String> = [],
         assumptionsConfirmed: Bool = false,
         pvRealDiscountRate: Double = 0.03,
-        taxPaymentSource: TaxPaymentSource = .taxableThenGrossUp
+        taxPaymentSource: TaxPaymentSource = .taxableThenGrossUp,
+        conversionApproach: PersistedConversionApproach = .recommendedTaxMin
     ) {
         self.horizonEndAge = horizonEndAge
         self.horizonEndAgeSpouse = horizonEndAgeSpouse
@@ -74,6 +78,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.assumptionsConfirmed = assumptionsConfirmed
         self.pvRealDiscountRate = pvRealDiscountRate
         self.taxPaymentSource = taxPaymentSource
+        self.conversionApproach = conversionApproach
     }
 
     // Explicit init(from:) for backward compatibility — older saves that lack
@@ -96,6 +101,7 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.assumptionsConfirmed = try c.decodeIfPresent(Bool.self, forKey: .assumptionsConfirmed) ?? false
         self.pvRealDiscountRate = try c.decodeIfPresent(Double.self, forKey: .pvRealDiscountRate) ?? 0.03
         self.taxPaymentSource = try c.decodeIfPresent(TaxPaymentSource.self, forKey: .taxPaymentSource) ?? .taxableThenGrossUp
+        self.conversionApproach = try c.decodeIfPresent(PersistedConversionApproach.self, forKey: .conversionApproach) ?? .recommendedTaxMin
     }
 
     static let `default` = MultiYearAssumptions()
