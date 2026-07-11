@@ -112,3 +112,48 @@ extension ApproachUITests {
         #expect(a.conversionApproach == .recommendedTaxMin)
     }
 }
+
+extension ApproachUITests {
+    /// Mirrors MultiYearPlanView.makeBriefingModel()'s approachSummary derivation (Task 7): built
+    /// from a real ApproachComparisonCoordinator run (via manager.computeApproachComparison(), same
+    /// as production), then a hand-built CPABriefingModel carries it into the HTML builder. The rest
+    /// of the model uses minimal stand-in path data — there's no live view here to supply activePath
+    /// — since only the leading approach section is under test.
+    static func renderBriefingHTML(manager: MultiYearStrategyManager) -> String {
+        let path = [YearRecommendation(
+            year: 2026, agi: 120_000, acaMagi: nil, irmaaMagi: 120_000, taxableIncome: 95_000,
+            taxBreakdown: TaxBreakdown(federal: 18_000, state: 4_000, irmaa: 0, acaPremiumImpact: 0),
+            endOfYearBalances: AccountSnapshot(traditional: 800_000, roth: 200_000, taxable: 300_000, hsa: 0),
+            actions: [.rothConversion(amount: 60_000)], rmd: 0)]
+        let approachSummary: CPABriefingModel.ApproachSummary? = {
+            guard let cmp = manager.approachComparison, !cmp.collapsesToTwoColumns else { return nil }
+            return CPABriefingModel.ApproachSummary(
+                selectedLabel: ApproachUILogic.columnLabel(cmp.selectedApproach, effectiveHeirWeight: 0),
+                anchorLabel: ApproachUILogic.anchorLabel(effectiveHeirWeight: 0),
+                deltas: MultiYearCPABriefing.approachDeltaSummary(cmp),
+                niitIncreased: cmp.flags.niitIncreased)
+        }()
+        let model = CPABriefingModel(
+            preparedFor: "Test", taxYear: 2026, filingStatusLabel: "Single", stateLabel: "CA",
+            primaryBirthYear: 1960, summary: PlanSummary(path: path),
+            comparison: PlanComparison(plan: path, doingNothing: path, heirSalary: 0,
+                                       heirFilingStatus: .single, heirDrawdownYears: 10),
+            yearRows: path, frontier: nil, includeHeirs: false,
+            assumptions: manager.assumptions, limitations: V2Disclosures.limitations,
+            positioning: V2Disclosures.positioning, approachSummary: approachSummary)
+        return MultiYearCPABriefingHTML.build(model)
+    }
+
+    @Test("CPA briefing leads with the selected approach label and its deltas; never says 'Recommended'")
+    func cpaBriefingLeadsWithApproach() async {
+        // dm must stay alive for the test's duration (see managerComputesComparison above).
+        let (manager, dm) = ApproachUITests.makeAttachedManager()
+        _ = dm
+        manager.assumptions.conversionApproach = PersistedConversionApproach(.fillToBracket(rate: 0.24))
+        manager.computeApproachComparison()
+        await ApproachUITests.settle(manager)
+        let html = ApproachUITests.renderBriefingHTML(manager: manager)
+        #expect(html.contains("Fill to 24% bracket"))
+        #expect(!html.contains("Recommended plan"))
+    }
+}

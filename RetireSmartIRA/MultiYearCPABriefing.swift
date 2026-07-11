@@ -17,6 +17,43 @@ struct CPABriefingModel: Equatable, Sendable {
     let assumptions: MultiYearAssumptions
     let limitations: [String]
     let positioning: String
+    /// Phase 2c: the selected-approach summary for the briefing's leading section. `nil` when no
+    /// comparison has been computed yet, or when the selected approach IS the objective optimizer
+    /// (collapsed — the briefing then reads exactly like today's single-plan document, unchanged).
+    let approachSummary: ApproachSummary?
+
+    struct ApproachSummary: Equatable, Sendable {
+        let selectedLabel: String
+        let anchorLabel: String
+        let deltas: MultiYearCPABriefing.ApproachDeltaSummary
+        /// Mirrors ApproachComparisonView's NIIT flag wording — only asserted when actually true for
+        /// this comparison (selected vs. the no-additional-conversions baseline).
+        let niitIncreased: Bool
+    }
+
+    // Explicit memberwise init (rather than the synthesized one) so approachSummary can default to
+    // nil: every pre-Phase-2c call site (production and MultiYearCPABriefingTests) omits it and
+    // keeps building today's single-plan briefing unchanged.
+    init(preparedFor: String, taxYear: Int, filingStatusLabel: String, stateLabel: String,
+         primaryBirthYear: Int, summary: PlanSummary, comparison: PlanComparison,
+         yearRows: [YearRecommendation], frontier: HeirFrontierResult?, includeHeirs: Bool,
+         assumptions: MultiYearAssumptions, limitations: [String], positioning: String,
+         approachSummary: ApproachSummary? = nil) {
+        self.preparedFor = preparedFor
+        self.taxYear = taxYear
+        self.filingStatusLabel = filingStatusLabel
+        self.stateLabel = stateLabel
+        self.primaryBirthYear = primaryBirthYear
+        self.summary = summary
+        self.comparison = comparison
+        self.yearRows = yearRows
+        self.frontier = frontier
+        self.includeHeirs = includeHeirs
+        self.assumptions = assumptions
+        self.limitations = limitations
+        self.positioning = positioning
+        self.approachSummary = approachSummary
+    }
 }
 
 /// Builds the CPA briefing as a self-contained HTML document for the shared PDF render backend.
@@ -28,6 +65,8 @@ enum MultiYearCPABriefingHTML {
         return f
     }()
     private static func fmt(_ v: Double) -> String { currency.string(from: NSNumber(value: v)) ?? "$0" }
+    /// Currency with an explicit "+" for positive deltas (fmt already renders negatives with "-").
+    private static func signedFmt(_ v: Double) -> String { v > 0 ? "+\(fmt(v))" : fmt(v) }
     private static func pct(_ v: Double) -> String { String(format: "%.1f%%", v * 100) }
     private static func esc(_ s: String) -> String {
         s.replacingOccurrences(of: "&", with: "&amp;")
@@ -39,6 +78,7 @@ enum MultiYearCPABriefingHTML {
 
     static func build(_ m: CPABriefingModel) -> String {
         var h = header(m)
+        h += approachSection(m)
         h += execSummary(m)
         h += comparisonSection(m)
         h += ladderSection(m)
@@ -69,6 +109,34 @@ enum MultiYearCPABriefingHTML {
         <h1>Multi-Year Roth Conversion Plan</h1>
         <div class="sub">Prepared for \(esc(m.preparedFor)) &middot; \(esc(m.filingStatusLabel)) &middot; \(esc(m.stateLabel)) &middot; Plan base year \(m.taxYear) &middot; \(date)</div>
         <div class="note">\(esc(m.positioning))</div>
+        """
+    }
+
+    /// Phase 2c leading section: renders only when a comparison has been computed AND the selected
+    /// approach differs from the objective optimizer (m.approachSummary is nil in both the
+    /// not-yet-computed and collapsed-to-anchor cases), so a briefing where the user never touches
+    /// the approach picker reads exactly like today's single-plan document.
+    private static func approachSection(_ m: CPABriefingModel) -> String {
+        guard let s = m.approachSummary else { return "" }
+        let d = s.deltas
+        let niitNote = s.niitIncreased
+            ? "<li>NIIT increased because MAGI crossed the threshold and the household has net investment income.</li>"
+            : ""
+        return """
+        <h2>Selected conversion approach</h2>
+        <table>
+        <tr><td>Selected approach</td><td>\(esc(s.selectedLabel))</td></tr>
+        <tr><td>Compared against</td><td>\(esc(s.anchorLabel))</td></tr>
+        <tr><td>Lifetime tax vs. \(esc(s.anchorLabel))</td><td>\(signedFmt(d.deltaLifetimeTax))</td></tr>
+        <tr><td>Peak annual Roth conversion vs. \(esc(s.anchorLabel))</td><td>\(signedFmt(d.deltaPeakConversion))</td></tr>
+        <tr><td>Medicare (IRMAA) cost vs. \(esc(s.anchorLabel))</td><td>\(signedFmt(d.deltaMedicareCost))</td></tr>
+        </table>
+        <ul>
+        <li>\(esc(s.anchorLabel)) reflects the objective the engine optimized for and is not labeled as a recommended choice among the approaches shown.</li>
+        \(niitNote)
+        <li>The owner-vs-heirs trade-off chart applies only to \(esc(s.anchorLabel)); it is not recomputed for the selected approach.</li>
+        <li>Cash charitable giving beyond any qualified charitable distribution (QCD) is not modeled as a tax deduction in this plan.</li>
+        </ul>
         """
     }
 

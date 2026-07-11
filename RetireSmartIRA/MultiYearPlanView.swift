@@ -236,6 +236,11 @@ struct MultiYearPlanView: View {
             // refresh the heir frontier (at .utility, so it yields to the UI) and persist. Skip the
             // heavy 6-weight optimize entirely when legacy planning is off (heir view is hidden).
             if legacyEnabled { manager.computeHeirFrontier() }
+            // Refresh the three-way approach comparison too (same cadence as the frontier). Not
+            // gated by legacyEnabled: the comparison always covers the selected/anchor/no-conversion
+            // columns; computeApproachComparison() itself folds in the heir weight only when legacy
+            // planning is on.
+            manager.computeApproachComparison()
             dataManager.saveAllData()
         }
         // The Profile "Consider Legacy Planning" toggle gates the heir trade-off here too. Turning it
@@ -244,6 +249,11 @@ struct MultiYearPlanView: View {
             if enabled { manager.computeHeirFrontier() }
         }
         .onChange(of: manager.assumptions.dismissedInsightKeys) { dataManager.saveAllData() }
+        // Switching the selected approach should refresh the comparison promptly rather than waiting
+        // on the next settled plan compute (the picker's own onChange already recomputes the plan via
+        // recomputeAll(), but that recompute may not touch currentResult's identity if the underlying
+        // plan happens not to change, so the comparison needs its own trigger here).
+        .onChange(of: manager.assumptions.conversionApproach) { manager.computeApproachComparison() }
         .sheet(isPresented: $showingAdvanced) {
             AdvancedAssumptionsSheet(
                 assumptions: Binding(get: { manager.assumptions }, set: { manager.assumptions = $0 }),
@@ -263,6 +273,20 @@ struct MultiYearPlanView: View {
     // persists once per settled compute (see performCompute), so editing stays snappy.
     private func recomputeAll() {
         manager.recompute(reason: .assumptionsChanged)
+    }
+
+    // Builds the CPA briefing's leading approach-summary section from the live comparison. Nil when
+    // no comparison has been computed yet, or when the selected approach IS the objective optimizer
+    // (collapsed — ApproachComparison.collapsesToTwoColumns), so the briefing omits the section
+    // entirely and reads exactly like today's single-plan document.
+    private var briefingApproachSummary: CPABriefingModel.ApproachSummary? {
+        guard let cmp = manager.approachComparison, !cmp.collapsesToTwoColumns else { return nil }
+        let heirWeight = legacyEnabled ? manager.selectedHeirWeight : 0
+        return CPABriefingModel.ApproachSummary(
+            selectedLabel: ApproachUILogic.columnLabel(cmp.selectedApproach, effectiveHeirWeight: heirWeight),
+            anchorLabel: ApproachUILogic.anchorLabel(effectiveHeirWeight: heirWeight),
+            deltas: MultiYearCPABriefing.approachDeltaSummary(cmp),
+            niitIncreased: cmp.flags.niitIncreased)
     }
 
     private func makeBriefingModel() -> CPABriefingModel {
@@ -286,7 +310,8 @@ struct MultiYearPlanView: View {
             includeHeirs: legacyEnabled,
             assumptions: manager.assumptions,
             limitations: V2Disclosures.limitations,
-            positioning: V2Disclosures.positioning)
+            positioning: V2Disclosures.positioning,
+            approachSummary: briefingApproachSummary)
     }
 
     private func exportBriefing() {
