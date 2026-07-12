@@ -14,6 +14,7 @@ enum QCDPlanner {
     struct YearlyQCD: Equatable, Sendable {
         var primaryQCD: Double
         var spouseQCD: Double
+        var target: Double = 0
         var total: Double { primaryQCD + spouseQCD }
     }
 
@@ -31,7 +32,7 @@ enum QCDPlanner {
         primaryEligible: Bool, spouseEligible: Bool,
         qcdLimit: Double, inflationFactor: Double
     ) -> YearlyQCD {
-        guard plan.hasGiving else { return YearlyQCD(primaryQCD: 0, spouseQCD: 0) }
+        guard plan.hasGiving else { return YearlyQCD(primaryQCD: 0, spouseQCD: 0, target: 0) }
 
         // 1. Year's giving target.
         let target: Double
@@ -41,7 +42,7 @@ enum QCDPlanner {
         case .percentOfRMD(let fraction):
             target = max(0, fraction) * max(0, primaryRMD + spouseRMD)
         }
-        guard target > 0 else { return YearlyQCD(primaryQCD: 0, spouseQCD: 0) }
+        guard target > 0 else { return YearlyQCD(primaryQCD: 0, spouseQCD: 0, target: 0) }
 
         // 2. Amount to route through QCDs (remainder of the target would be cash — not modeled here).
         let qcdBudget: Double
@@ -55,7 +56,7 @@ enum QCDPlanner {
         let primaryQCD = primaryEligible ? min(qcdBudget, qcdLimit, max(0, primaryIRA)) : 0
         let remaining = max(0, qcdBudget - primaryQCD)
         let spouseQCD = spouseEligible ? min(remaining, qcdLimit, max(0, spouseIRA)) : 0
-        return YearlyQCD(primaryQCD: primaryQCD, spouseQCD: spouseQCD)
+        return YearlyQCD(primaryQCD: primaryQCD, spouseQCD: spouseQCD, target: target)
     }
 
     /// Month-precise: has the person reached age 70½ by Dec 31 of `year`?
