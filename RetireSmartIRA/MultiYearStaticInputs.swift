@@ -118,6 +118,12 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     // carried-but-unapplied year1 QCD fields).
     let charitableGivingPlan: CharitableGivingPlan
 
+    // Itemizable deductions carried from the single-year scenario (flat nominal). SALT here is
+    // property + other non-income-tax SALT; the state INCOME tax is computed per year in the engine.
+    let carriedMortgageAndOtherItemized: Double
+    let carriedPropertyAndOtherSALT: Double
+    let carriedGrossMedicalExpenses: Double
+
     init(
         startingBalances: AccountSnapshot,
         baseYear: Int = Calendar.current.component(.year, from: Date()),
@@ -158,6 +164,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         year1PrimaryQCD: Double = 0,
         year1SpouseQCD: Double = 0,
         charitableGivingPlan: CharitableGivingPlan = .none,
+        carriedMortgageAndOtherItemized: Double = 0,
+        carriedPropertyAndOtherSALT: Double = 0,
+        carriedGrossMedicalExpenses: Double = 0,
         taxableAccounts: [TaxableAccountInput] = [],
         inheritedAccounts: [InheritedAccountInput] = []
     ) {
@@ -202,6 +211,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.year1PrimaryQCD = year1PrimaryQCD
         self.year1SpouseQCD = year1SpouseQCD
         self.charitableGivingPlan = charitableGivingPlan
+        self.carriedMortgageAndOtherItemized = carriedMortgageAndOtherItemized
+        self.carriedPropertyAndOtherSALT = carriedPropertyAndOtherSALT
+        self.carriedGrossMedicalExpenses = carriedGrossMedicalExpenses
     }
 
     /// Returns a copy with the named spouse's claim age replaced (used by SSClaimNudge).
@@ -246,6 +258,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             year1PrimaryQCD: year1PrimaryQCD,
             year1SpouseQCD: year1SpouseQCD,
             charitableGivingPlan: charitableGivingPlan,
+            carriedMortgageAndOtherItemized: carriedMortgageAndOtherItemized,
+            carriedPropertyAndOtherSALT: carriedPropertyAndOtherSALT,
+            carriedGrossMedicalExpenses: carriedGrossMedicalExpenses,
             taxableAccounts: taxableAccounts,
             inheritedAccounts: inheritedAccounts
         )
