@@ -244,6 +244,29 @@ enum MultiYearInputAdapter {
             funding: .qcdFirst,
             maintainRealValue: true)
 
+        // MARK: Carried itemizable deductions (flat nominal; held constant across the projection)
+        //
+        // Mirrors DataManager.baseItemizedDeductions' nonSALTNonMedical filter (DataManager.swift
+        // ~:1841-1843) verbatim: mortgage interest + "other itemized", excluding property tax,
+        // SALT, and medical (which are carried separately below).
+        let carriedMortgageAndOther = dataManager.deductionItems
+            .filter { $0.type != .propertyTax && $0.type != .saltTax && $0.type != .medicalExpenses }
+            .reduce(0.0) { $0 + $1.annualAmount }
+
+        // carriedPropertyAndOtherSALT = property tax ONLY. DataManager's `.saltTax` deduction
+        // items are documented (IncomeSourcesView "About SALT Deductions" copy) as "additional
+        // local or city income taxes not already captured" — i.e. state/local INCOME tax, not
+        // property tax. The multi-year engine recomputes state income tax itself for each
+        // projected year (Task 6), so carrying `.saltTax`, `totalStateWithholding`,
+        // `autoEstimatedStatePayments`, or `priorYearSALTDeductible` here would double-count
+        // state income tax. Only `propertyTaxAmount` is genuinely non-income-tax SALT.
+        let carriedPropertyAndOtherSALT = dataManager.propertyTaxAmount
+
+        // Pre-floor gross medical expenses (not the AGI-floored `deductibleMedicalExpenses`) —
+        // the multi-year engine re-applies the 7.5%-of-AGI floor per projected year using each
+        // year's own AGI.
+        let carriedGrossMedicalExpenses = dataManager.totalMedicalExpenses
+
         return MultiYearStaticInputs(
             startingBalances: snapshot,
             // Use DataManager's planning year as the projection base year so the engine respects
@@ -288,6 +311,9 @@ enum MultiYearInputAdapter {
             year1PrimaryQCD: primaryQCD,
             year1SpouseQCD: spouseQCD,
             charitableGivingPlan: givingPlan,
+            carriedMortgageAndOtherItemized: carriedMortgageAndOther,
+            carriedPropertyAndOtherSALT: carriedPropertyAndOtherSALT,
+            carriedGrossMedicalExpenses: carriedGrossMedicalExpenses,
             taxableAccounts: taxableInputs,
             inheritedAccounts: inheritedInputs
         )

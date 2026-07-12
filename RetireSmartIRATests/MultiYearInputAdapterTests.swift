@@ -414,4 +414,54 @@ final class MultiYearInputAdapterTests: XCTestCase {
         XCTAssertEqual(withoutOverrides.year1PrimaryQCD, 0, accuracy: 0.01)
         XCTAssertEqual(withoutOverrides.year1SpouseQCD, 0, accuracy: 0.01)
     }
+
+    // MARK: - Task 5: carried itemizable deductions
+
+    func test_buildInputs_seedsCarriedItemizablesFromSingleYearScenario() {
+        let dm = makeDataManager()
+        dm.selectedState = .texas
+        dm.deductionItems = [
+            DeductionItem(name: "Mortgage", type: .mortgageInterest, annualAmount: 8_000),
+            DeductionItem(name: "Property Tax", type: .propertyTax, annualAmount: 6_000),
+            DeductionItem(name: "Medical", type: .medicalExpenses, annualAmount: 4_000),
+        ]
+
+        let inputs = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
+        )
+
+        XCTAssertEqual(inputs.carriedMortgageAndOtherItemized, 8_000, accuracy: 0.01,
+                       "carriedMortgageAndOtherItemized should mirror baseItemizedDeductions' nonSALTNonMedical filter")
+        XCTAssertEqual(inputs.carriedPropertyAndOtherSALT, 6_000, accuracy: 0.01,
+                       "carriedPropertyAndOtherSALT should carry property tax (non-income-tax SALT)")
+        XCTAssertEqual(inputs.carriedGrossMedicalExpenses, 4_000, accuracy: 0.01,
+                       "carriedGrossMedicalExpenses should be the pre-floor gross amount, not the AGI-floored deduction")
+    }
+
+    /// `.saltTax` deduction items represent "additional local or city income taxes not already
+    /// captured" (see IncomeSourcesView's About SALT copy) — i.e. INCOME tax, not property tax.
+    /// The multi-year engine recomputes state/local income tax per projected year (Task 6), so
+    /// carrying `.saltTax` here would double-count it. Only property tax (genuinely non-income
+    /// SALT) is carried into `carriedPropertyAndOtherSALT`.
+    func test_buildInputs_carriedSALT_excludesAdditionalSALTTax_toAvoidDoubleCountingStateIncomeTax() {
+        let dm = makeDataManager()
+        dm.selectedState = .texas
+        dm.deductionItems = [
+            DeductionItem(name: "Property Tax", type: .propertyTax, annualAmount: 6_000),
+            DeductionItem(name: "Local Income Tax", type: .saltTax, annualAmount: 3_000),
+        ]
+
+        let inputs = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
+        )
+
+        XCTAssertEqual(inputs.carriedPropertyAndOtherSALT, 6_000, accuracy: 0.01,
+                       "additionalSALTAmount (.saltTax) is income tax and must not be carried into SALT")
+        XCTAssertEqual(inputs.carriedMortgageAndOtherItemized, 0, accuracy: 0.01,
+                       "additionalSALTAmount (.saltTax) must not leak into the mortgage/other bucket either")
+    }
 }
