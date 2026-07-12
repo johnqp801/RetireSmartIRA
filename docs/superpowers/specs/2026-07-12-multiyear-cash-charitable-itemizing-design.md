@@ -50,45 +50,70 @@ These are documented limitations, surfaced to the user (Section 5) — not silen
 
 Seeded in `MultiYearInputAdapter` from the single-year `DataManager`, exactly as the
 giving plan is seeded today (`MultiYearInputAdapter.swift:239`). Held **flat nominal**
-across the horizon.
+across the horizon. Three new `Double` fields (default 0):
 
-- `mortgageInterest: Double`
-- `otherItemizedDeductions: Double` — non-charitable, non-SALT lump (whatever the
-  single-year `baseItemizedDeductions` includes beyond SALT + cash charitable, e.g.
-  the non-medical remainder).
-- `grossMedicalExpenses: Double` — pre-floor; the 7.5%-AGI floor is applied per year.
+- `carriedMortgageAndOtherItemized` — the single-year `nonSALTNonMedical` sum (mortgage
+  interest + other misc deduction items; excludes property tax, SALT, medical, charitable).
+- `carriedPropertyAndOtherSALT` — property tax + any non-income-tax SALT items. Feeds the
+  SALT total *before* the cap, alongside the per-year computed state income tax, so it
+  stays subject to the SALT cap (folding it into the line above would wrongly escape the cap).
+- `carriedGrossMedicalExpenses` — pre-floor; the 7.5%-AGI floor is applied per year.
 
 Not added:
-- **Cash charitable** — derived in-engine per year as `givingTarget − QCDs` (the engine
+- **Cash charitable** — derived in-engine per year as `givingTarget − totalQCD`. The engine
   already computes QCDs from `charitableGivingPlan`; the cash remainder is the non-QCD
-  portion of the target).
-- **SALT** — computed per year from that year's state tax, capped at that year's SALT cap;
-  the projection already produces per-year state tax (`computeStateTax`).
+  portion of the target. `QCDPlanner.plan(...)` will be extended to also return the year's
+  `target` (or `cashCharitable`) so the engine doesn't recompute it.
+- **State income tax (SALT core)** — computed per year from that year's state tax
+  (`computeStateTax`), which varies with conversions. Combined with `carriedPropertyAndOtherSALT`,
+  then capped.
 
 ### 2. Per-year deduction logic in `ProjectionEngine`
 
 Replaces the standard-only computation at `ProjectionEngine.swift:703`. For each projected
-year, compute **both** paths and take the one producing **lower federal tax**:
+year, compute **both** paths and take the one producing **lower federal tax**.
+
+**Ordering note:** the state-tax computation (`computeStateTax`, currently at :721, *after*
+federal tax) must move to *before* the deduction decision, because SALT needs that year's
+state income tax. This is safe — `computeStateTax` consumes `federalAGI` and income
+components, never federal taxable income or federal tax, so there is no circularity.
 
 - **Standard path total** = `standardDeduction(...)` (already includes the age-65
   additional deduction + OBBBA senior bonus) `+` OBBBA §170(p) non-itemizer cash deduction
-  (min of cash charitable and $1,000 single / $2,000 MFJ, below-the-line — reduces taxable
-  income, not AGI). *Decision: include the non-itemizer deduction so standard-deduction
-  years still credit small cash gifts, matching single-year and keeping the standard-vs-
-  itemized comparison honest.*
-- **Itemized path total** =
-  `SALT(capped) + mortgageInterest + otherItemizedDeductions + deductibleMedical
-   + cashCharitable(capped at 60% of AGI) + seniorBonusDeduction`
-  where `deductibleMedical = max(0, grossMedicalExpenses − 0.075 × AGI)` using **that
-  year's** AGI.
-- Selection is **per year, independent** — a big-gift year itemizes; lean years take
-  standard. That independence is what makes bunching pay off.
+  = `min(cashCharitable, cfg.nonItemizerCashCharitableCap{Single|MFJ})` for `year ≥
+  cfg.nonItemizerCashCharitableFirstYear` (below-the-line — reduces taxable income, not AGI).
+  *Decision: include the non-itemizer deduction so standard-deduction years still credit
+  small cash gifts, matching single-year and keeping the comparison honest.*
+- **Itemized path total** (mirrors single-year `totalItemizedDeductions` minus its
+  §68 reduction, then the §68 reduction applied):
+  1. `saltBeforeCap = stateIncomeTax + carriedPropertyAndOtherSALT`
+  2. `salt = min(saltBeforeCap, saltCap(year, magi: federalAGI))` — `saltCap` replicates
+     `DataManager.saltCap`: OBBBA expanded cap (base × inflation) with the MAGI phaseout
+     (`saltPhaseoutRate` over `saltPhaseoutBaseThreshold × inflation`), floored, else default cap.
+  3. `deductibleMedical = max(0, carriedGrossMedicalExpenses − cfg.medicalAGIFloorRate × AGI)`
+  4. Charitable (cash-only): `cashCeiling = min(cashCharitable, cfg.charitableCashAGICeilingRate
+     × AGI)`; `floor = (year ≥ cfg.itemizedCharitableAGIFloorFirstYear) ? cfg.itemizedCharitableAGIFloorRate
+     × AGI : 0`; `deductibleCharitable = max(0, cashCeiling − floor)`.
+  5. `itemizedBeforeLimit = salt + carriedMortgageAndOtherItemized + deductibleMedical
+     + deductibleCharitable + seniorBonusDeduction`
+  6. §68 overall limitation (`year ≥ cfg.itemizedOverallLimitationFirstYear`):
+     `excess = max(0, federalAGI − topOrdinaryBracketThreshold)`;
+     `reduction = cfg.itemizedOverallLimitationRate × min(itemizedBeforeLimit, excess)`;
+     `itemizedEffective = itemizedBeforeLimit − reduction`. (`federalAGI` here already equals
+     income net of above-the-line deductions, matching single-year's `incomeBeforeItemized`.)
+- Choose the path with lower federal tax; taxable income = `AGI − chosenDeduction` (standard
+  path subtracts std + §170(p); itemized path subtracts `itemizedEffective`). Selection is
+  **per year, independent** — a big-gift year itemizes; lean years take standard. That
+  independence is what makes bunching pay off.
 
-Reuse the single-year math where possible rather than reinventing it: the 60%-AGI
-charitable cap, the senior-bonus treatment on the itemized path, and the §170(p) cap
-mirror `DataManager.baseItemizedDeductions` / `totalItemizedDeductions` /
-`nonItemizerCharitableDeduction`. Where a shared pure helper is cleaner than duplicating
-logic across `DataManager` and `ProjectionEngine`, extract it.
+**Shared pure helper.** Extract these rules into a dependency-free
+`MultiYearItemizedDeduction` helper (static funcs over `TaxYearConfig` + scalars) rather
+than duplicating them inline. It mirrors `DataManager.saltCap` / `deductibleMedicalExpenses`
+/ `deductibleCharitableDeductions` / `itemizedOverallLimitationReduction` /
+`nonItemizerCharitableDeduction`. Parity tests assert it agrees with the single-year
+`DataManager` for identical single-year inputs. `DataManager` itself is **not** refactored
+to call the helper in this release (avoids churning single-year tests); that consolidation
+is a noted follow-up.
 
 ### 3. Inflation / limitation treatment (Tier 2 simplifications)
 
