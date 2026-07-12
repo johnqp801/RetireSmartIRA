@@ -103,16 +103,24 @@ struct ApproachComparisonView: View {
     private var consequenceStrip: some View {
         let d = comparison.deltas
         return VStack(alignment: .leading, spacing: 4) {
-            Text("What the selected approach adds vs. no added Roth conversions")
-                .font(.subheadline).foregroundStyle(.secondary)
-            HStack(spacing: 14) {
-                deltaTag("Federal", d.federal)
-                deltaTag("State", d.state)
-                deltaTag("IRMAA", d.irmaa)
-                deltaTag("ACA", d.aca)
-                deltaTag("NIIT", d.niit)
-                Spacer()
+            // Total is pinned to the header line so it stays visible; the five channel tags scroll
+            // horizontally when they can't fit (a rigid HStack of five tags + total crushed/clipped
+            // on narrow iPhone widths). Identical to the single-line layout on Mac/iPad, where the
+            // tags fit without scrolling.
+            HStack(alignment: .firstTextBaseline) {
+                Text("What the selected approach adds vs. no added Roth conversions")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
                 Text("Total \(signedDollars(d.total))").font(.callout.bold())
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    deltaTag("Federal", d.federal)
+                    deltaTag("State", d.state)
+                    deltaTag("IRMAA", d.irmaa)
+                    deltaTag("ACA", d.aca)
+                    deltaTag("NIIT", d.niit)
+                }
             }
         }
         .padding(.top, 4)
