@@ -19,6 +19,16 @@
 //  so this stays valid across tax years as configs change. Guarded by a parity test (Task 7)
 //  asserting agreement with the single-year DataManager computed vars.
 //
+//  AGI-basis note: the single `agi` argument is NET of above-the-line deductions (the engine
+//  passes `federalAGI`, satisfying §68's `incomeBeforeItemized` contract). Single-year is itself
+//  internally inconsistent — its charitable ceiling/floor and §68 use NET (federalAGI.value),
+//  but its medical floor and SALT-cap phaseout use GROSS (scenarioGrossIncome). This helper uses
+//  NET for all four. The two agree exactly whenever above-the-line deductions are 0 (the retiree
+//  target case, which the parity test pins); they diverge slightly only for working households with
+//  401k/HSA/trad-IRA contributions AND MAGI above the SALT-phaseout threshold. See the 2026-07-12
+//  session memo for the tracked follow-up (align the medical-floor/SALT-cap calls to gross if that
+//  population matters).
+//
 import Foundation
 
 enum MultiYearItemizedDeduction {
