@@ -421,6 +421,9 @@ struct ProjectionEngine {
             // taxable RMD. The QCD money leaves the household (to charity); it is not reinvested.
             var primaryQCD = 0.0
             var spouseQCD = 0.0
+            // Non-QCD giving remainder (giving target minus what was routed through QCDs), deductible
+            // as cash charitable in the deduction block below. 0 when the household has no giving plan.
+            var cashCharitable = 0.0
             if inputs.charitableGivingPlan.hasGiving {
                 let yearsFromBase = max(0, year - scenarioBaseYear)
                 let inflationFactor = pow(1.0 + assumptions.cpiRate, Double(yearsFromBase))
@@ -435,6 +438,7 @@ struct ProjectionEngine {
                     qcdLimit: qcdLimit, inflationFactor: inflationFactor)
                 primaryQCD = q.primaryQCD
                 spouseQCD = q.spouseQCD
+                cashCharitable = max(0, q.target - q.total)   // remainder of the target funded with cash
                 primary.debitIRA(primaryQCD)   // IRA-only; leaves the household to charity
                 spouse.debitIRA(spouseQCD)
             }
@@ -692,32 +696,11 @@ struct ProjectionEngine {
             // including pre-Medicare years, since they determine future-year premiums).
             irmaaMagiByYear[year] = federalAGI + magiAddback
 
-            // Standard deduction — derived from TaxCalculationEngine.config
-            let stdDed = standardDeduction(
-                filingStatus: inputs.filingStatus,
-                primaryAge: primaryAge,
-                spouseAge: spouseAge,
-                year: year,
-                federalAGI: federalAGI
-            )
-            let taxableIncome = max(0, federalAGI - stdDed)
-            // Preferential portion of taxable income (qualified dividends + LTCG), capped at
-            // taxable income. The standard deduction offsets ordinary income first, so the
-            // preferential amount stacks on top at the LTCG schedule — matching the single-year
-            // engine's calculateFederalTax(preferentialIncome:) convention.
-            let taxablePreferential = min(max(0, totalPreferentialIncome), taxableIncome)
-
-            // Federal tax — ordinary brackets on the ordinary portion, the federal LTCG schedule
-            // on the preferential portion. Brackets resolve through the per-year config provider.
-            let brackets = configProvider.config(forYear: year).toTaxBrackets()
-            let federalTax = TaxCalculationEngine.calculateFederalTax(
-                income: taxableIncome,
-                filingStatus: inputs.filingStatus,
-                brackets: brackets,
-                preferentialIncome: taxablePreferential
-            )
-
-            // State tax — build minimal income source list for retirement exemptions
+            // State tax — computed BEFORE the deduction block because the itemized path deducts state
+            // income tax (SALT). It consumes only federalAGI / income components (pension, taxable SS,
+            // traditional withdrawals) — never federal taxable income or federal tax — so the
+            // standard-vs-itemized selection can depend on it without any circularity (the selection
+            // never feeds back into it). Build a minimal income source list for retirement exemptions.
             let stateTax = computeStateTax(
                 federalAGI: federalAGI,
                 taxableSS: taxableSS,
@@ -729,6 +712,64 @@ struct ProjectionEngine {
                 spouseBirthYear: inputs.spouseBirthYear,
                 year: year
             )
+
+            // ─── Per-year standard-vs-itemized deduction selection (V2.1.1) ───
+            // Cash charitable (non-QCD giving) is deductible either below-the-line via OBBBA §170(p)
+            // on the standard path (capped) or as an itemized charitable contribution. The OBBBA senior
+            // bonus applies on BOTH paths, so it is computed once and fed into both.
+            let seniorBonus = seniorBonusDeduction(
+                filingStatus: inputs.filingStatus, primaryAge: primaryAge,
+                spouseAge: spouseAge, year: year, federalAGI: federalAGI)
+            let yearConfig = configProvider.config(forYear: year)
+
+            // Standard path: base standard deduction (already includes the senior bonus) plus the
+            // §170(p) non-itemizer cash-charitable deduction (0 before its first year or when cash is 0).
+            let stdDed = standardDeduction(
+                filingStatus: inputs.filingStatus,
+                primaryAge: primaryAge,
+                spouseAge: spouseAge,
+                year: year,
+                federalAGI: federalAGI
+            )
+            let nonItemizerCash = MultiYearItemizedDeduction.nonItemizerCashCharitable(
+                cash: cashCharitable, filingStatus: inputs.filingStatus, year: year, config: yearConfig)
+            let standardDeductionTotal = stdDed + nonItemizerCash
+
+            // Itemized path (effective total, after the OBBBA §68 overall limitation). `agi` is passed
+            // net of above-the-line deductions (the existing federalAGI already is), matching the
+            // single-year §68 `incomeBeforeItemized` contract.
+            let itemizedDeductionTotal = MultiYearItemizedDeduction.itemizedTotal(
+                stateIncomeTax: stateTax,
+                otherSALT: inputs.carriedPropertyAndOtherSALT,
+                mortgageAndOther: inputs.carriedMortgageAndOtherItemized,
+                grossMedical: inputs.carriedGrossMedicalExpenses,
+                cashCharitable: cashCharitable,
+                seniorBonus: seniorBonus,
+                agi: federalAGI,
+                filingStatus: inputs.filingStatus,
+                year: year,
+                config: yearConfig)
+
+            // Choose the path with the LOWER federal tax (compare actual tax, not deduction size —
+            // LTCG stacking means a larger deduction does not always mean less tax). The deduction
+            // offsets ordinary income first; the preferential portion stacks on top at the LTCG
+            // schedule — the same convention the single-year engine uses.
+            let brackets = yearConfig.toTaxBrackets()
+            func federalTaxFor(deduction: Double) -> Double {
+                let ti = max(0, federalAGI - deduction)
+                let pref = min(max(0, totalPreferentialIncome), ti)
+                return TaxCalculationEngine.calculateFederalTax(
+                    income: ti, filingStatus: inputs.filingStatus,
+                    brackets: brackets, preferentialIncome: pref)
+            }
+            let taxStandard = federalTaxFor(deduction: standardDeductionTotal)
+            let taxItemized = federalTaxFor(deduction: itemizedDeductionTotal)
+            // Strict `<`: on a tie the standard path wins, so a no-giving / no-itemizable year stays
+            // byte-identical to the pre-Task-6 standard-only behavior.
+            let chosenDeduction = taxItemized < taxStandard ? itemizedDeductionTotal : standardDeductionTotal
+            let taxableIncome = max(0, federalAGI - chosenDeduction)
+            let taxablePreferential = min(max(0, totalPreferentialIncome), taxableIncome)
+            let federalTax = min(taxStandard, taxItemized)
 
             // Count how many household members are enrolled in Medicare this year.
             // Single filer: 1 if primaryAge >= primaryMedicareEnrollmentAge, else 0.
