@@ -1135,12 +1135,6 @@ struct ProjectionEngine {
             if primaryAge >= 65 {
                 amount += cfg.additionalDeduction65Single
             }
-            // OBBBA Senior Bonus (2025–2028)
-            if primaryAge >= 65 && year >= cfg.seniorBonusFirstYear && year <= cfg.seniorBonusLastYear {
-                let reduction = max(0, (federalAGI - cfg.seniorBonusPhaseoutSingle) * cfg.seniorBonusPhaseoutRate)
-                let bonus = max(0, cfg.seniorBonusPerPerson - reduction)
-                amount += bonus
-            }
 
         case .marriedFilingJointly:
             amount = cfg.standardDeductionMFJ
@@ -1150,21 +1144,32 @@ struct ProjectionEngine {
             if let sAge = spouseAge, sAge >= 65 {
                 amount += cfg.additionalDeduction65MFJ
             }
-            // OBBBA Senior Bonus per qualifying senior (2025–2028)
-            if year >= cfg.seniorBonusFirstYear && year <= cfg.seniorBonusLastYear {
-                var qualifyingSeniors = 0
-                if primaryAge >= 65 { qualifyingSeniors += 1 }
-                if let sAge = spouseAge, sAge >= 65 { qualifyingSeniors += 1 }
-                if qualifyingSeniors > 0 {
-                    let totalBonusBase = cfg.seniorBonusPerPerson * Double(qualifyingSeniors)
-                    let reduction = max(0, (federalAGI - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
-                    let bonus = max(0, totalBonusBase - reduction)
-                    amount += bonus
-                }
-            }
         }
 
+        amount += seniorBonusDeduction(filingStatus: filingStatus, primaryAge: primaryAge,
+                                       spouseAge: spouseAge, year: year, federalAGI: federalAGI)
+
         return amount
+    }
+
+    /// OBBBA Senior Bonus (2025–2028), available on BOTH the standard and itemized paths.
+    /// Per qualifying senior (65+), phased out by `seniorBonusPhaseoutRate` over the
+    /// filing-status threshold. Mirrors the block previously inline in `standardDeduction`.
+    private func seniorBonusDeduction(
+        filingStatus: FilingStatus, primaryAge: Int, spouseAge: Int?,
+        year: Int, federalAGI: Double
+    ) -> Double {
+        let cfg = configProvider.config(forYear: year)
+        guard year >= cfg.seniorBonusFirstYear && year <= cfg.seniorBonusLastYear else { return 0 }
+        var qualifyingSeniors = 0
+        if primaryAge >= 65 { qualifyingSeniors += 1 }
+        if filingStatus == .marriedFilingJointly, let s = spouseAge, s >= 65 { qualifyingSeniors += 1 }
+        guard qualifyingSeniors > 0 else { return 0 }
+        let base = cfg.seniorBonusPerPerson * Double(qualifyingSeniors)
+        let threshold = filingStatus == .marriedFilingJointly
+            ? cfg.seniorBonusPhaseoutMFJ : cfg.seniorBonusPhaseoutSingle
+        let reduction = max(0, (federalAGI - threshold) * cfg.seniorBonusPhaseoutRate)
+        return max(0, base - reduction)
     }
 
     // MARK: - RMD helpers
