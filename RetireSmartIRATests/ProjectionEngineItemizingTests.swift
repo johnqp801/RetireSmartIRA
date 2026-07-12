@@ -116,12 +116,19 @@ struct ProjectionEngineItemizingTests {
         //   spread 3-yr total = 3 * tax(gives $10k)
         // Spreading caps each year's standard-path benefit at §170(p) = $1,000 (a $10k gift can't clear
         // the ~$16.1k standard deduction by itemizing), so bunching deducts far more per dollar given.
-        let t30 = project(makeInputs(pension: 250_000, plan: allCash(30_000)))[0].taxBreakdown.federal
-        let t10 = project(makeInputs(pension: 250_000, plan: allCash(10_000)))[0].taxBreakdown.federal
-        let t0 = project(makeInputs(pension: 250_000, plan: .none))[0].taxBreakdown.federal
-        let bunchTotal = t30 + 2 * t0
-        let spreadTotal = 3 * t10
-        #expect(bunchTotal <= spreadTotal)
+        let r30 = project(makeInputs(pension: 250_000, plan: allCash(30_000)))[0]
+        let r10 = project(makeInputs(pension: 250_000, plan: allCash(10_000)))[0]
+        let r0 = project(makeInputs(pension: 250_000, plan: .none))[0]
+        let bunchTotal = r30.taxBreakdown.federal + 2 * r0.taxBreakdown.federal
+        let spreadTotal = 3 * r10.taxBreakdown.federal
+        // Strictly better, not merely no-worse: the bunched year deducts far more per dollar given.
+        #expect(bunchTotal < spreadTotal)
+        // Prove the mechanism, not just the total: the $30k year genuinely ITEMIZES — its taxable
+        // income drops well past the ~$16.1k standard deduction (≈$28.75k itemized after the 0.5%-AGI
+        // floor → a >$10k drop vs. no gift), whereas each $10k spread year can't clear the standard
+        // deduction so it stays on the standard path and gets only the §170(p) $1,000 (a ~$1k drop).
+        #expect((r0.taxableIncome - r30.taxableIncome) > 10_000)
+        #expect(abs((r0.taxableIncome - r10.taxableIncome) - 1_000) < 1.0)
     }
 
     @Test("A no-giving, no-itemizable scenario is unchanged: standard path, §170(p)=0")

@@ -217,7 +217,7 @@ struct ConversionApproachSection: View {
             } else {
                 Text("No charitable giving entered.").font(.callout).foregroundStyle(.secondary)
             }
-            Text("Cash gifts beyond what QCDs cover aren't deducted in this projection (a future update adds full itemized modeling).")
+            Text("Cash gifts are deducted in the year they're made — standard vs. itemized is chosen each year using itemizable deductions carried from your current-year scenario. Charitable carryforward and AMT aren't modeled in the projection.")
                 .font(.caption2).foregroundStyle(.secondary)
         }
     }
