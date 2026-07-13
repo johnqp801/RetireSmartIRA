@@ -981,12 +981,24 @@ struct ProjectionEngine {
                 return result.annualSurchargePerPerson * Double(medicareEnrolledCount)
             }()
 
+            // A3 fix (NIIT): recompute NIIT on the post-gross-up MAGI (reportedAGI), mirroring
+            // irmaaCostFinal above. `nii` (netInvestmentIncome) is unchanged — a traditional-IRA
+            // gross-up withdrawal is ordinary income, not net investment income, so it does not
+            // belong in the NII figure itself; only the MAGI threshold test moves. `reportedAGI ==
+            // federalAGI` whenever no gross-up/tax-sale fires, so `niitFinal == taxBreakdown.niit`
+            // (byte-identical) in that case.
+            let niitFinal = TaxCalculationEngine.calculateNIIT(
+                nii: netInvestmentIncome,
+                magi: reportedAGI,
+                filingStatus: inputs.filingStatus
+            ).annualNIITax
+
             let taxBreakdownFinal = TaxBreakdown(
                 federal: fedTax,
                 state: stTax,
                 irmaa: irmaaCostFinal,
                 acaPremiumImpact: taxBreakdown.acaPremiumImpact,
-                niit: taxBreakdown.niit)
+                niit: niitFinal)
 
             // The bucket sales above raised cash to pay the tax; that cash leaves the household as the
             // tax payment. Any tax not covered by sales/gross-up (underfunded) is assumed paid from an
