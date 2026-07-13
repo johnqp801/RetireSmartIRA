@@ -38,13 +38,11 @@ enum StrategySummarySynthesizer {
     }
 
     private static func clusterRothConversions(in path: [YearRecommendation]) -> String? {
+        // Reads the EXECUTED conversion, not the REQUESTED `.rothConversion` action amount,
+        // which can exceed it once an IRA drains or an RMD reservation clamps a spouse's
+        // convertible balance (B4).
         let rothYears: [(year: Int, amount: Double)] = path.compactMap { y in
-            for action in y.actions {
-                if case .rothConversion(let amount) = action, amount > 0 {
-                    return (y.year, amount)
-                }
-            }
-            return nil
+            y.executedRothConversion > 0 ? (y.year, y.executedRothConversion) : nil
         }
         guard !rothYears.isEmpty else { return nil }
 

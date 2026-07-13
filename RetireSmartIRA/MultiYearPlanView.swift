@@ -109,7 +109,7 @@ struct MultiYearPlanView: View {
 
                 Year1EditorView(
                     year1RothConversion: year1RothBinding,
-                    plannedYear1: activePath.first.map { year1Roth(actions: $0.actions) } ?? 0,
+                    plannedYear1: activePath.first?.executedRothConversion ?? 0,
                     status: offPlanStatus,
                     onCommit: { onYear1Edited() },
                     onResetToOptimal: { resetYear1ToOptimal() })
@@ -347,19 +347,11 @@ struct MultiYearPlanView: View {
         )
     }
 
+    // Year 1's EXECUTED Roth conversion (never clamped below the request in practice, since
+    // Year 1 starts from the account's full current balance — but reading executedRothConversion
+    // keeps this consistent with every other conversion-reporting site; see B4).
     private func year1Roth(_ result: MultiYearStrategyResult) -> Double {
-        year1Roth(actions: result.recommendedPath.first?.actions ?? [])
-    }
-
-    // Sums Year-1 Roth conversion actions from an arbitrary action list. Used to feed the Year-1
-    // editor from activePath (which, while a deterministic approach is selected, is the approach's
-    // path from the comparison rather than manager.currentResult), so the field reflects whichever
-    // path is actually driving the tab.
-    private func year1Roth(actions: [LeverAction]) -> Double {
-        actions.reduce(0.0) { acc, act in
-            if case let .rothConversion(amount) = act { return acc + amount }
-            return acc
-        }
+        result.recommendedPath.first?.executedRothConversion ?? 0
     }
 
     private var offPlanStatus: OffPlanStatus? {

@@ -10,7 +10,7 @@ struct ChartCommentaryTests {
         YearRecommendation(year: year, agi: 0, acaMagi: nil, irmaaMagi: nil, taxableIncome: 0,
             taxBreakdown: TaxBreakdown(federal: tax, state: 0, irmaa: 0, acaPremiumImpact: 0),
             endOfYearBalances: AccountSnapshot(traditional: trad, roth: roth, taxable: taxable, hsa: 0),
-            actions: conv > 0 ? [.rothConversion(amount: conv)] : [])
+            actions: conv > 0 ? [.rothConversion(amount: conv)] : [], executedRothConversion: conv)
     }
 
     // MARK: - BalancesChart

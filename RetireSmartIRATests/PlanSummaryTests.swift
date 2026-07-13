@@ -10,7 +10,7 @@ struct PlanSummaryTests {
             taxBreakdown: TaxBreakdown(federal: fed, state: 0, irmaa: 0, acaPremiumImpact: 0),
             endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
             actions: conv > 0 ? [.rothConversion(amount: conv)] : [],
-            medicareEnrolledCount: 0)
+            medicareEnrolledCount: 0, executedRothConversion: conv)
     }
 
     @Test("sums lifetime tax and total conversions over the path")

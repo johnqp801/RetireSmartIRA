@@ -6,7 +6,7 @@ struct ConversionLadderChartTests {
     private func rec(_ year: Int, conv: Double) -> YearRecommendation {
         YearRecommendation(year: year, agi: 0, acaMagi: nil, irmaaMagi: nil, taxableIncome: 0,
             taxBreakdown: .zero, endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
-            actions: conv > 0 ? [.rothConversion(amount: conv)] : [])
+            actions: conv > 0 ? [.rothConversion(amount: conv)] : [], executedRothConversion: conv)
     }
 
     @Test("maps per-year conversions and reports presence")

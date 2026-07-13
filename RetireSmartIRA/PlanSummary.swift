@@ -17,10 +17,7 @@ struct PlanSummary: Equatable, Sendable {
         }
         var total = 0.0, years = 0
         for yr in path {
-            let conv = yr.actions.reduce(0.0) { acc, act in
-                if case let .rothConversion(amount) = act { return acc + amount }
-                return acc
-            }
+            let conv = yr.executedRothConversion
             if conv > 0 { total += conv; years += 1 }
         }
         self.totalConversions = total

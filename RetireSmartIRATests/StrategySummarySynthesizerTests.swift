@@ -79,7 +79,9 @@ final class StrategySummarySynthesizerTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    private func makeYearRecommendation(year: Int, actions: [LeverAction]) -> YearRecommendation {
+    private func makeYearRecommendation(
+        year: Int, actions: [LeverAction], executedRothConversion: Double = 0
+    ) -> YearRecommendation {
         YearRecommendation(
             year: year,
             agi: 80_000,
@@ -88,14 +90,15 @@ final class StrategySummarySynthesizerTests: XCTestCase {
             taxableIncome: 60_000,
             taxBreakdown: .zero,
             endOfYearBalances: .zero,
-            actions: actions
+            actions: actions,
+            executedRothConversion: executedRothConversion
         )
     }
 
     private func makePathWithRothConversions(_ entries: [(year: Int, amount: Double)]) -> [YearRecommendation] {
         entries.map { entry in
             let actions: [LeverAction] = entry.amount > 0 ? [.rothConversion(amount: entry.amount)] : []
-            return makeYearRecommendation(year: entry.year, actions: actions)
+            return makeYearRecommendation(year: entry.year, actions: actions, executedRothConversion: entry.amount)
         }
     }
 

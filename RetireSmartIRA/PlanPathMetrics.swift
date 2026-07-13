@@ -37,14 +37,12 @@ enum PlanPathMetrics {
         path.map(\.rmd).max() ?? 0
     }
 
-    /// Largest single-year total Roth conversion across the path (sum of `.rothConversion`
-    /// actions within a year, maxed across years). Used for the CPA "Δ peak conversion" figure.
+    /// Largest single-year EXECUTED Roth conversion across the path (maxed across years).
+    /// Used for the CPA "Δ peak conversion" figure. Reads `executedRothConversion`, not the
+    /// REQUESTED `.rothConversion` action amount, which can exceed it once an IRA drains or
+    /// an RMD reservation clamps a spouse's convertible balance (B4).
     static func peakAnnualRothConversion(_ path: [YearRecommendation]) -> Double {
-        path.map { year in
-            year.actions.reduce(0.0) { acc, action in
-                if case .rothConversion(let amt) = action { return acc + amt } else { return acc }
-            }
-        }.max() ?? 0
+        path.map(\.executedRothConversion).max() ?? 0
     }
 
     static func heirsKeep(_ path: [YearRecommendation], heirSalary: Double,

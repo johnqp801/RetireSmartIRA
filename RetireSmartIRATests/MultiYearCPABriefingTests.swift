@@ -8,7 +8,8 @@ struct MultiYearCPABriefingTests {
         YearRecommendation(year: year, agi: 120_000, acaMagi: nil, irmaaMagi: 120_000, taxableIncome: 95_000,
             taxBreakdown: TaxBreakdown(federal: 18_000, state: 4_000, irmaa: 1_200, acaPremiumImpact: 0),
             endOfYearBalances: AccountSnapshot(traditional: 800_000, roth: 200_000, taxable: 300_000, hsa: 0),
-            actions: conv > 0 ? [.rothConversion(amount: conv)] : [], rmd: year >= 2030 ? 40_000 : 0)
+            actions: conv > 0 ? [.rothConversion(amount: conv)] : [], rmd: year >= 2030 ? 40_000 : 0,
+            executedRothConversion: conv)
     }
 
     private func model() -> CPABriefingModel {

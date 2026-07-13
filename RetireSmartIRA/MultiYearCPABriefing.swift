@@ -174,8 +174,7 @@ enum MultiYearCPABriefingHTML {
     private static func ladderSection(_ m: CPABriefingModel) -> String {
         var rows = ""
         for r in m.yearRows {
-            let conv = r.actions.reduce(0.0) { a, act in
-                if case let .rothConversion(amount) = act { return a + amount }; return a }
+            let conv = r.executedRothConversion
             if conv > 0 { rows += "<tr><td>\(r.year)</td><td>\(fmt(conv))</td></tr>" }
         }
         if rows.isEmpty { rows = "<tr><td>-</td><td>No conversions recommended</td></tr>" }
@@ -189,8 +188,7 @@ enum MultiYearCPABriefingHTML {
         var rows = ""
         for r in m.yearRows {
             let age = r.year - m.primaryBirthYear
-            let conv = r.actions.reduce(0.0) { a, act in
-                if case let .rothConversion(amount) = act { return a + amount }; return a }
+            let conv = r.executedRothConversion
             // Compact currency (e.g. $785k, $1.5M) so the 12-column table fits portrait width
             // without wrapping each value onto two lines.
             let s = PlanSummary.shortDollars

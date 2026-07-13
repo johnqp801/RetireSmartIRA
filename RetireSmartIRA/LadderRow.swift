@@ -13,10 +13,7 @@ struct LadderRow: Identifiable, Equatable, Sendable {
 
     init(_ rec: YearRecommendation, baselineIRMAA: Double = 0) {
         self.year = rec.year
-        self.conversion = rec.actions.reduce(0.0) { acc, act in
-            if case let .rothConversion(amount) = act { return acc + amount }
-            return acc
-        }
+        self.conversion = rec.executedRothConversion
         self.agi = rec.agi
         self.irmaaSurcharge = max(0, rec.taxBreakdown.irmaa - baselineIRMAA)
     }

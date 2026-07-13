@@ -12,11 +12,7 @@ struct ConversionLadderChart: Equatable, Sendable {
 
     init(path: [YearRecommendation]) {
         let all = path.map { rec -> Point in
-            let conv = rec.actions.reduce(0.0) { acc, action in
-                if case let .rothConversion(amount) = action { return acc + amount }
-                return acc
-            }
-            return Point(id: rec.year, year: rec.year, conversion: conv)
+            Point(id: rec.year, year: rec.year, conversion: rec.executedRothConversion)
         }
         // Show only the conversion window: from the first year with a recommended
         // conversion through the last. The categorical (per-year) x-axis gives every

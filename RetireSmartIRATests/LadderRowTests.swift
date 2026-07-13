@@ -10,7 +10,8 @@ struct LadderRowTests {
             taxBreakdown: TaxBreakdown(federal: 0, state: 0, irmaa: irmaaMagi == nil ? 0 : 1, acaPremiumImpact: 0),
             endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
             actions: conv > 0 ? [.rothConversion(amount: conv)] : [],
-            medicareEnrolledCount: irmaaMagi == nil ? 0 : 1)
+            medicareEnrolledCount: irmaaMagi == nil ? 0 : 1,
+            executedRothConversion: conv)
     }
 
     @Test("row exposes year, conversion, agi and an IRMAA flag")
@@ -51,7 +52,8 @@ struct LadderRowTests {
             year: 2030, agi: 300_000, acaMagi: nil, irmaaMagi: 300_000, taxableIncome: 300_000,
             taxBreakdown: TaxBreakdown(federal: 0, state: 0, irmaa: 10_000, acaPremiumImpact: 0),
             endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
-            actions: [.rothConversion(amount: 100_000)], medicareEnrolledCount: 2)
+            actions: [.rothConversion(amount: 100_000)], medicareEnrolledCount: 2,
+            executedRothConversion: 100_000)
         let attributed = LadderRow(planYear, baselineIRMAA: 6_000)
         #expect(attributed.irmaaSurcharge == 4_000)
         #expect(attributed.hasIRMAASurcharge == true)

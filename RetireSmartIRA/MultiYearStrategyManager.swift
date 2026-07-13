@@ -212,10 +212,10 @@ final class MultiYearStrategyManager: ObservableObject {
               let optimal = engineOptimalResult,
               let firstYear = optimal.recommendedPath.first else { return }
 
-        // Sum any .rothConversion actions in Year 1.
-        let totalRoth: Double = firstYear.actions.compactMap { action -> Double? in
-            if case .rothConversion(let amount) = action { return amount } else { return nil }
-        }.reduce(0, +)
+        // Year 1's EXECUTED Roth conversion (see B4: reading executedRothConversion rather
+        // than summing requested `.rothConversion` actions keeps this consistent with every
+        // other conversion-reporting site; harmless here since Year 1 is never drained).
+        let totalRoth: Double = firstYear.executedRothConversion
 
         // Reset all six lever fields to engine optimal.
         // Engine returns combined Roth — assign to primary; spouse split is V2.1.
