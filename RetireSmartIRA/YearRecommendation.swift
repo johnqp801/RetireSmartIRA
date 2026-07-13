@@ -39,6 +39,12 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     /// none is taxable at this provisional-income level). Surfaced so the comparison layer can
     /// flag "SS taxation increased" without recomputing provisional income.
     let taxableSocialSecurity: Double
+    /// The ACTUAL traditional->Roth dollars converted this year, clamped to the balance that
+    /// was really available (per-spouse convertible amount, net of that spouse's reserved RMD).
+    /// `actions` carries the REQUESTED `.rothConversion` amount, which can exceed this once an
+    /// IRA drains — this field is the single source of truth for conversion-amount reporting
+    /// (B4 root cause 2, 2026-07-13). Defaults to 0 for back-compat with existing call sites.
+    let executedRothConversion: Double
 
     init(
         year: Int,
@@ -54,7 +60,8 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         medicareEnrolledCount: Int = 0,
         underfunded: Double? = nil,
         rmd: Double = 0,
-        taxableSocialSecurity: Double = 0
+        taxableSocialSecurity: Double = 0,
+        executedRothConversion: Double = 0
     ) {
         self.year = year
         self.agi = agi
@@ -70,5 +77,6 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         self.underfunded = underfunded
         self.rmd = rmd
         self.taxableSocialSecurity = taxableSocialSecurity
+        self.executedRothConversion = executedRothConversion
     }
 }

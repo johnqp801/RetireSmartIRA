@@ -1003,7 +1003,11 @@ struct ProjectionEngine {
                 // the bundled actions. (Inherited Roth drains are forced but tax-free,
                 // so they are reported via the .rothWithdrawal action instead.)
                 rmd: primaryRequiredRMD + spouseRequiredRMD + inheritedTradDistributions,
-                taxableSocialSecurity: taxableSS
+                taxableSocialSecurity: taxableSS,
+                // B4 root cause 2: explicitRothConversions already accumulates fromPrimary +
+                // fromSpouse from the clamping above (~:264-299) — the ACTUAL dollars moved
+                // trad->Roth this year, not the requested amount.
+                executedRothConversion: explicitRothConversions
             ))
 
             // Advance ages for next iteration
