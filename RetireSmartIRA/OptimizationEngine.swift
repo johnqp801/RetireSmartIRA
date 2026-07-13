@@ -425,6 +425,22 @@ struct OptimizationEngine {
                 )
                 let baselineRec = currentBaselinePath[yearIdx]
 
+                // B4 root cause 1 (2026-07-13 fix backlog): the traditional balance actually
+                // available to convert THIS year — prior year's end-of-year primary + spouse
+                // traditional (excludes inherited buckets, which are never a conversion source;
+                // see ProjectionEngine's rothConversion handling). For yearIdx==0 that's simply
+                // the starting balance. Reused below to cap `bestAmount` so a candidate that
+                // gets silently clamped by ProjectionEngine (e.g. testing $150K against a
+                // drained/near-drained $101K account) can never get LOCKED at its inflated
+                // nominal value — only the executed conversion should ever surface. Without
+                // this, `locked[Y]` (and everything downstream that reads `rec.actions`:
+                // PlanSummary.totalConversions, the ladder chart/rows, the CPA export, the
+                // narrative synthesizer) reports a phantom conversion that was never executed.
+                let availableTraditionalAtY: Double = yearIdx == 0
+                    ? inputs.startingBalances.traditional
+                    : currentBaselinePath[yearIdx - 1].endOfYearBalances.primaryTraditional
+                        + currentBaselinePath[yearIdx - 1].endOfYearBalances.spouseTraditional
+
                 // Generate per-year cliff candidates using the actual baseline MAGI/income for Y.
                 let cliffs = OptimizationEngine.cliffCandidates(
                     forYear: Y,
@@ -470,7 +486,12 @@ struct OptimizationEngine {
                     }
                 }
 
-                locked[Y] = (bestAmount > 0) ? [.rothConversion(amount: bestAmount)] : []
+                // Cap the LOCKED amount at what's actually available this year. The candidate
+                // sweep above is unaffected (it already selects on the real, clamped objective);
+                // this only prevents a request that ties or wins on a clamped-identical objective
+                // from being reported as a larger conversion than what will ever execute.
+                let cappedBestAmount = min(bestAmount, availableTraditionalAtY)
+                locked[Y] = (cappedBestAmount > 0) ? [.rothConversion(amount: cappedBestAmount)] : []
             }
 
             // ───── Convergence check ─────
@@ -584,26 +605,45 @@ struct OptimizationEngine {
         let hasYear1Pin = year1Roth > 0
         if hasYear1Pin { locked[baseYear] = [.rothConversion(amount: year1Roth)] }
 
-        let upperBoundCap = min(inputs.startingBalances.traditional, 500_000.0)
-
         for Y in baseYear...endYear {
             if Task.isCancelled { return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0) }
             if Y == baseYear && hasYear1Pin { continue }   // respect the Year-1 pin
 
-            // f(x): land-point for year Y with conversion x this year (years < Y already locked;
-            // years > Y don't affect year Y). Returns the metric this approach root-finds on.
-            func landPoint(_ x: Double) -> Double {
+            // f(x): project year Y with conversion x this year (years < Y already locked;
+            // years > Y don't affect year Y).
+            func projectTrial(_ x: Double) -> [YearRecommendation] {
                 var trial = locked
                 trial[Y] = x > 0 ? [.rothConversion(amount: x)] : []
-                let path = ProjectionEngine(configProvider: configProvider).project(
+                return ProjectionEngine(configProvider: configProvider).project(
                     inputs: inputs, assumptions: assumptions, actionsPerYear: trial)
-                let rec = path[Y - baseYear]
+            }
+
+            // land-point: the metric this approach root-finds on.
+            func landPoint(_ x: Double) -> Double {
+                let rec = projectTrial(x)[Y - baseYear]
                 switch approach {
                 case .fillToBracket:   return rec.taxableIncome - rec.taxablePreferential   // ordinary income
                 case .limitToIRMAA:    return rec.magi
                 case .recommendedTaxMin: return 0
                 }
             }
+
+            // B4 root cause 1 (2026-07-13 fix backlog): the traditional balance actually
+            // available to convert THIS year — the prior year's end-of-year primary + spouse
+            // traditional (excludes inherited buckets, which are never a conversion source).
+            // The OLD code capped the bisection's upperBound at the STARTING balance (a
+            // constant), so once the account drained, the search kept locking a phantom
+            // "convert up to $500K" request every remaining year (the projection silently
+            // clamped the EXECUTED conversion to $0, but the inflated locked request leaked
+            // into rec.actions and everything downstream that reads it — PlanSummary totals,
+            // the ladder chart/rows, the CPA export, the narrative synthesizer).
+            let availableTraditionalAtY: Double = Y == baseYear
+                ? inputs.startingBalances.traditional
+                : {
+                    let priorRec = projectTrial(0)[Y - baseYear - 1]
+                    return priorRec.endOfYearBalances.primaryTraditional + priorRec.endOfYearBalances.spouseTraditional
+                }()
+            let upperBoundCap = min(availableTraditionalAtY, 500_000.0)
 
             let target: Double = {
                 let cfg = configProvider.config(forYear: Y)
