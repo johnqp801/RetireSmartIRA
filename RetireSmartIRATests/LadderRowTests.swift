@@ -64,4 +64,26 @@ struct LadderRowTests {
         #expect(notTheConversion.hasIRMAASurcharge == false)
         #expect(notTheConversion.irmaaLabel == "")
     }
+
+    @Test("A4: gross-up tax-funding withdrawal is surfaced separately from the conversion")
+    func taxFundingWithdrawalSurfaced() {
+        let r = YearRecommendation(
+            year: 2029, agi: 300_000, acaMagi: nil, irmaaMagi: nil, taxableIncome: 300_000,
+            taxBreakdown: TaxBreakdown(federal: 0, state: 0, irmaa: 0, acaPremiumImpact: 0),
+            endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
+            actions: [.rothConversion(amount: 100_000)], executedRothConversion: 100_000,
+            taxFundingWithdrawal: 22_000)
+        let row = LadderRow(r)
+        #expect(row.taxFundingWithdrawal == 22_000)
+        #expect(row.hasTaxFundingWithdrawal == true)
+        #expect(row.taxFundingLabel == "IRA withdrawn to pay tax: $22k")
+    }
+
+    @Test("no gross-up: tax-funding disclosure is empty")
+    func taxFundingWithdrawalAbsent() {
+        let row = LadderRow(rec(year: 2029, agi: 60_000, conv: 0, irmaaMagi: nil, acaMagi: nil))
+        #expect(row.taxFundingWithdrawal == 0)
+        #expect(row.hasTaxFundingWithdrawal == false)
+        #expect(row.taxFundingLabel == "")
+    }
 }

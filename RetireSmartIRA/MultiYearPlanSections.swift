@@ -111,17 +111,27 @@ struct LadderListView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Modeled conversion ladder").font(.headline)
             ForEach(rows) { row in
-                HStack(spacing: 6) {
-                    Text(String(row.year)).monospacedDigit()
-                    Text(row.conversionLabel)
-                    Spacer()
-                    Text(row.agiLabel).foregroundStyle(.secondary)
-                    if row.hasIRMAASurcharge {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        Text(row.irmaaLabel).foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(String(row.year)).monospacedDigit()
+                        Text(row.conversionLabel)
+                        Spacer()
+                        Text(row.agiLabel).foregroundStyle(.secondary)
+                        if row.hasIRMAASurcharge {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                            Text(row.irmaaLabel).foregroundStyle(.orange)
+                        }
+                    }
+                    .font(.callout)
+                    // A4: when taxable funding was short, the engine took an ADDITIONAL IRA
+                    // withdrawal to pay the conversion tax — surface it so "convert $Y" is not
+                    // read as the whole IRA outflow for the year.
+                    if row.hasTaxFundingWithdrawal {
+                        Text(row.taxFundingLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .font(.callout)
             }
             if baselineIRMAAYears >= 3 {
                 Label(

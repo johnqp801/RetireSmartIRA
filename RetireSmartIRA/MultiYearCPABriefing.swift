@@ -172,15 +172,34 @@ enum MultiYearCPABriefingHTML {
     }
 
     private static func ladderSection(_ m: CPABriefingModel) -> String {
+        // A4: when a gross-up fires anywhere in the plan, add a third column disclosing the
+        // ADDITIONAL IRA withdrawal taken to pay that year's conversion tax — otherwise "convert
+        // $Y" alone understates the year's total IRA outflow. Plans with no gross-up (taxable
+        // funded the tax bill, or .external funding) render the original two-column table
+        // unchanged.
+        let anyGrossUp = m.yearRows.contains { $0.taxFundingWithdrawal > 0 }
         var rows = ""
         for r in m.yearRows {
             let conv = r.executedRothConversion
-            if conv > 0 { rows += "<tr><td>\(r.year)</td><td>\(fmt(conv))</td></tr>" }
+            guard conv > 0 else { continue }
+            if anyGrossUp {
+                let taxFunding = r.taxFundingWithdrawal > 0 ? fmt(r.taxFundingWithdrawal) : "-"
+                rows += "<tr><td>\(r.year)</td><td>\(fmt(conv))</td><td>\(taxFunding)</td></tr>"
+            } else {
+                rows += "<tr><td>\(r.year)</td><td>\(fmt(conv))</td></tr>"
+            }
         }
-        if rows.isEmpty { rows = "<tr><td>-</td><td>No conversions recommended</td></tr>" }
+        if rows.isEmpty {
+            rows = anyGrossUp
+                ? "<tr><td>-</td><td>No conversions recommended</td><td>-</td></tr>"
+                : "<tr><td>-</td><td>No conversions recommended</td></tr>"
+        }
+        let header = anyGrossUp
+            ? "<tr><th>Year</th><th>Roth conversion</th><th>IRA withdrawn to pay tax</th></tr>"
+            : "<tr><th>Year</th><th>Roth conversion</th></tr>"
         return """
         <h2>Recommended conversions by year</h2>
-        <table><tr><th>Year</th><th>Roth conversion</th></tr>\(rows)</table>
+        <table>\(header)\(rows)</table>
         """
     }
 
@@ -208,6 +227,22 @@ enum MultiYearCPABriefingHTML {
         <tr><th>Year</th><th>Age</th><th>AGI</th><th>Taxable</th><th>Fed</th><th>State</th><th>IRMAA</th><th>RMD</th><th>Conv</th><th>End Trad</th><th>End Roth</th><th>End Txbl</th></tr>
         \(rows)
         </table>
+        \(taxFundingWithdrawalNote(m))
+        """
+    }
+
+    /// A4: lists, year by year, the ADDITIONAL IRA withdrawal taken to fund that year's conversion
+    /// tax when taxable funds were short (the gross-up). Already folded into "End Trad" above, but
+    /// broken out here so total IRA outflow for the year is not read as the conversion amount alone.
+    /// Empty when no gross-up fired anywhere in the plan.
+    private static func taxFundingWithdrawalNote(_ m: CPABriefingModel) -> String {
+        let items = m.yearRows.filter { $0.taxFundingWithdrawal > 0 }
+            .map { "<li>\($0.year): IRA withdrawn to pay tax: \(fmt($0.taxFundingWithdrawal))</li>" }
+            .joined()
+        guard !items.isEmpty else { return "" }
+        return """
+        <div class="note">Additional IRA withdrawals taken to pay conversion tax (already reflected in End Trad above):
+        <ul>\(items)</ul></div>
         """
     }
 

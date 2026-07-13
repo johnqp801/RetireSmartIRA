@@ -4,12 +4,12 @@ import Testing
 
 @Suite("MultiYearCPABriefing")
 struct MultiYearCPABriefingTests {
-    private func rec(_ year: Int, conv: Double) -> YearRecommendation {
+    private func rec(_ year: Int, conv: Double, taxFundingWithdrawal: Double = 0) -> YearRecommendation {
         YearRecommendation(year: year, agi: 120_000, acaMagi: nil, irmaaMagi: 120_000, taxableIncome: 95_000,
             taxBreakdown: TaxBreakdown(federal: 18_000, state: 4_000, irmaa: 1_200, acaPremiumImpact: 0),
             endOfYearBalances: AccountSnapshot(traditional: 800_000, roth: 200_000, taxable: 300_000, hsa: 0),
             actions: conv > 0 ? [.rothConversion(amount: conv)] : [], rmd: year >= 2030 ? 40_000 : 0,
-            executedRothConversion: conv)
+            executedRothConversion: conv, taxFundingWithdrawal: taxFundingWithdrawal)
     }
 
     private func model() -> CPABriefingModel {
@@ -75,5 +75,33 @@ struct MultiYearCPABriefingTests {
             yearRows: m.yearRows, frontier: nil, includeHeirs: false,
             assumptions: m.assumptions, limitations: m.limitations, positioning: m.positioning)
         #expect(!MultiYearCPABriefingHTML.build(off).contains("What heirs keep"))
+    }
+
+    @Test("A4: gross-up IRA withdrawal is disclosed separately from the conversion amount")
+    func grossUpDisclosed() {
+        let path = [rec(2026, conv: 60_000, taxFundingWithdrawal: 22_000), rec(2027, conv: 50_000)]
+        let none = [rec(2026, conv: 0), rec(2027, conv: 0)]
+        let m = CPABriefingModel(
+            preparedFor: "Jane & John Public", taxYear: 2026,
+            filingStatusLabel: "Married Filing Jointly", stateLabel: "CA", primaryBirthYear: 1959,
+            summary: PlanSummary(path: path),
+            comparison: PlanComparison(plan: path, doingNothing: none, heirSalary: 0,
+                                       heirFilingStatus: .single, heirDrawdownYears: 10),
+            yearRows: path, frontier: nil, includeHeirs: true,
+            assumptions: MultiYearAssumptions(), limitations: V2Disclosures.limitations,
+            positioning: V2Disclosures.positioning)
+        let html = MultiYearCPABriefingHTML.build(m)
+        #expect(html.contains("IRA withdrawn to pay tax"))
+        #expect(html.contains("2026: IRA withdrawn to pay tax: $22,000"))
+        // The year with no gross-up shows a "-" placeholder in the ladder's third column, not a
+        // spurious dollar figure.
+        #expect(html.contains("<td>2027</td><td>$50,000</td><td>-</td>"))
+    }
+
+    @Test("no gross-up anywhere: ladder table stays two columns, no disclosure note")
+    func noGrossUpNoDisclosure() {
+        let html = MultiYearCPABriefingHTML.build(model())
+        #expect(!html.contains("IRA withdrawn to pay tax"))
+        #expect(html.contains("<tr><th>Year</th><th>Roth conversion</th></tr>"))
     }
 }

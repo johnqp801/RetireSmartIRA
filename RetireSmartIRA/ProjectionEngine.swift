@@ -1060,7 +1060,12 @@ struct ProjectionEngine {
                 // B4 root cause 2: explicitRothConversions already accumulates fromPrimary +
                 // fromSpouse from the clamping above (~:264-299) — the ACTUAL dollars moved
                 // trad->Roth this year, not the requested amount.
-                executedRothConversion: explicitRothConversions
+                executedRothConversion: explicitRothConversions,
+                // A4 fix: the Step-7 gross-up traditional withdrawal taken to pay this year's
+                // conversion tax when taxable funding was short. 0 when taxable covered the tax
+                // bill or under `.external` funding. Surfaced so the ladder/CPA briefing can
+                // disclose total IRA outflow separately from the conversion amount.
+                taxFundingWithdrawal: grossUpWithdrawal
             ))
 
             // Advance ages for next iteration
