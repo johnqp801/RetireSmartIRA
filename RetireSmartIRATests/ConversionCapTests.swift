@@ -122,4 +122,63 @@ struct ConversionCapTests {
             startingTraditional: inputs.startingBalances.traditional,
             label: "recommendedTaxMin")
     }
+
+    // MARK: - Fixture: MFJ/TX, $300K trad, primary age 68, horizon to 92 — reproduces
+    // the greedy `recommendedTaxMin` candidate-sweep bug pre-fix: the earlier
+    // full-drain fixture (age 60/$400K/85) hits full drain with a tie-break that
+    // happened to mask the bug, so this older/shorter-runway profile is needed to
+    // RED-exercise a late PARTIAL-drain year under the greedy path.
+
+    private static func makeInputsAge68() -> MultiYearStaticInputs {
+        let baseYear = Calendar.current.component(.year, from: Date())
+        return MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(
+                traditional: 300_000,
+                roth: 0,
+                taxable: 300_000,   // brokerage, funds expenses/taxes once trad is gone
+                hsa: 0
+            ),
+            baseYear: baseYear,
+            primaryCurrentAge: 68,
+            spouseCurrentAge: 68,
+            filingStatus: .marriedFilingJointly,
+            state: "TX",  // no state income tax to keep the test deterministic (federal-only)
+            primarySSClaimAge: 67, spouseSSClaimAge: 67,  // already claiming at 68
+            primaryExpectedBenefitAtFRA: 2_500, spouseExpectedBenefitAtFRA: 2_500,
+            primaryBirthYear: baseYear - 68,
+            spouseBirthYear: baseYear - 68,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false, acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 60_000
+        )
+    }
+
+    private static func makeAssumptionsToAge92() -> MultiYearAssumptions {
+        var a = MultiYearAssumptions.default
+        a.horizonEndAge = 92   // 24-year horizon from age 68; long runway for a late partial-drain year
+        a.stressTestEnabled = false
+        return a
+    }
+
+    @Test("recommendedTaxMin (greedy path), MFJ/TX $300K@68 to 92, never locks a conversion above the year's available traditional")
+    func recommendedTaxMinNeverLocksPhantomConversionPartialDrainProfile() {
+        let inputs = ConversionCapTests.makeInputsAge68()
+        let assumptions = ConversionCapTests.makeAssumptionsToAge92()
+
+        let result = OptimizationEngine().optimize(
+            inputs: inputs, assumptions: assumptions, approach: .recommendedTaxMin)
+
+        // Sanity: this fixture must actually reach a late PARTIAL-drain year (traditional
+        // balance near zero but not necessarily hit in an earlier full-drain year) for the
+        // invariant check below to be non-vacuous.
+        let finalTraditional = result.recommendedPath.last?.endOfYearBalances.traditional ?? -1
+        #expect(finalTraditional <= 1, "fixture should drain the IRA near zero by the end of the horizon; got \(finalTraditional)")
+
+        ConversionCapTests.assertNoPhantomConversions(
+            result.recommendedPath,
+            startingTraditional: inputs.startingBalances.traditional,
+            label: "recommendedTaxMin (MFJ/TX $300K@68→92)")
+    }
 }
