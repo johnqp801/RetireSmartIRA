@@ -690,11 +690,11 @@ struct ProjectionEngine {
             }()
             let anyInIrmaaWindow = primaryWithinIrmaaWindow || spouseWithinIrmaaWindow
 
-            let irmaaMagiValue: Double? = anyInIrmaaWindow ? federalAGI + magiAddback : nil
-
-            // Record this year's MAGI for the 2-year IRMAA lookback (stored for ALL years,
-            // including pre-Medicare years, since they determine future-year premiums).
-            irmaaMagiByYear[year] = federalAGI + magiAddback
+            // NOTE (A3 fix): the reported/stored IRMAA MAGI is finalized AFTER Step 7 below,
+            // using reportedAGI (post-gross-up) instead of federalAGI (pre-gross-up), so a
+            // conversion-tax gross-up withdrawal is correctly reflected in both this year's
+            // reported MAGI and the future-year IRMAA 2-year lookback. See `irmaaMagiByYear[year]`
+            // and the `magi`/`irmaaMagi` fields on YearRecommendation below.
 
             // State tax — computed BEFORE the deduction block because the itemized path deducts state
             // income tax (SALT). It consumes only federalAGI / income components (pension, taxable SS,
@@ -940,10 +940,51 @@ struct ProjectionEngine {
                 }
             }
 
+            // A3 fix: the IRMAA/ACA-style MAGI reported for this year — and the value recorded
+            // for the 2-year-forward IRMAA lookback — uses reportedAGI (post-gross-up: includes
+            // the grossUpWithdrawal `dW` and any tax-funding sale gain) rather than the
+            // pre-gross-up federalAGI. Previously this MAGI silently excluded `dW`, understating
+            // both the reported MAGI (it could read LOWER than `agi`/reportedAGI — INV3) and the
+            // IRMAA premium 2 years out for households that self-fund conversion taxes via a
+            // traditional withdrawal. `reportedAGI == federalAGI` whenever no gross-up/tax-sale
+            // fires, so no-gross-up profiles are byte-identical to before.
+            //
+            // Approximation kept intentionally (documented, not a full fixed-point): this MAGI is
+            // NOT fed back into sizing `dW` itself (Step 7 above still sizes the gross-up against
+            // the pre-gross-up IRMAA/ACA/NIIT figures in `nonFedState`) — only fed/state tax do
+            // that (via `incrementalTax`). So a gross-up large enough to itself cross an IRMAA/ACA
+            // tier is not additionally grossed-up for that crossing's cost; it surfaces instead as
+            // a higher reported/forward MAGI (and, 2 years later, a higher IRMAA premium) rather
+            // than a larger current-year withdrawal. A full intra-year fixed point is deferred.
+            let finalIrmaaAcaMagi = reportedAGI + magiAddback
+            let irmaaMagiValue: Double? = anyInIrmaaWindow ? finalIrmaaAcaMagi : nil
+
+            // Record this year's MAGI for the 2-year IRMAA lookback (stored for ALL years,
+            // including pre-Medicare years, since they determine future-year premiums).
+            irmaaMagiByYear[year] = finalIrmaaAcaMagi
+
+            // Re-derive the REPORTED IRMAA dollar cost from the corrected MAGI so it stays
+            // self-consistent with `irmaaMagi`/`magi` above (an independent oracle recompute of
+            // annualSurchargePerPerson × enrolled count from the reported MAGI must match the
+            // reported cost). For a genuine 2-year lookback (`irmaaMagiByYear[year - 2]` already
+            // exists from an earlier loop iteration) this is IDENTICAL to the Step 6 `irmaaCost`
+            // above — no functional change. It only differs in the ≤2-projection-year fallback
+            // window (no prior-year MAGI yet), where Step 6's `irmaaCost` used the pre-gross-up
+            // proxy for sizing (kept, per the note above) but the reported number now correctly
+            // reflects the gross-up. This does not re-loop into sizing `dW` (no new fixed point);
+            // it only affects what is REPORTED for the current year in that narrow fallback case.
+            let irmaaCostFinal: Double = {
+                guard medicareEnrolledCount > 0 else { return 0 }
+                let lookbackMagi = irmaaMagiByYear[year - 2] ?? finalIrmaaAcaMagi
+                let result = TaxCalculationEngine.calculateIRMAA(
+                    magi: lookbackMagi, filingStatus: inputs.filingStatus)
+                return result.annualSurchargePerPerson * Double(medicareEnrolledCount)
+            }()
+
             let taxBreakdownFinal = TaxBreakdown(
                 federal: fedTax,
                 state: stTax,
-                irmaa: taxBreakdown.irmaa,
+                irmaa: irmaaCostFinal,
                 acaPremiumImpact: taxBreakdown.acaPremiumImpact,
                 niit: taxBreakdown.niit)
 
@@ -992,7 +1033,7 @@ struct ProjectionEngine {
                 irmaaMagi: irmaaMagiValue,
                 taxableIncome: reportedTaxableIncome,
                 taxablePreferential: reportedTaxablePreferential,
-                magi: federalAGI + magiAddback,   // pre-gross-up AGI intentionally (mirrors irmaaMagi); do NOT change to reportedAGI
+                magi: finalIrmaaAcaMagi,   // A3 fix: post-gross-up (reportedAGI + magiAddback); mirrors irmaaMagi/irmaaMagiByYear above
                 taxBreakdown: taxBreakdownFinal,
                 endOfYearBalances: snapshot,
                 actions: allActions,
