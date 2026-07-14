@@ -185,6 +185,46 @@ final class SSCouplesStripDataManagerTests: XCTestCase {
         XCTAssertEqual(bestCell?.primaryClaimingAge, 65)
     }
 
+    /// Mirror of the primary-claimed case with roles swapped: the SPOUSE claimed in the
+    /// past and the PRIMARY is still deciding. This exercises `ssCouplesStrip()`'s own
+    /// `claimedIsPrimary` / `lockedAge` selection ternary for the spouse-claimed branch,
+    /// which the pure-engine tests bypass by hand-passing those params directly.
+    func test_ssCouplesStrip_spouseClaimedInPast_nonEmpty() {
+        let dm = DataManager()
+        dm.profile.enableSpouse = true
+        let year = dm.profile.currentYear
+
+        // Primary still deciding, currently 63.
+        dm.profile.birthDate = Calendar.current.date(from: DateComponents(year: year - 63, month: 1, day: 1))!
+        dm.primarySSBenefit = SSBenefitEstimate(
+            owner: .primary, benefitAtFRA: 2200,
+            plannedClaimingAge: 67, isAlreadyClaiming: false
+        )
+
+        // Spouse claimed 3 years ago at age 65 (now 68).
+        dm.profile.spouseBirthDate = Calendar.current.date(from: DateComponents(year: year - 68, month: 1, day: 1))!
+        dm.spouseSSBenefit = SSBenefitEstimate(
+            owner: .spouse, benefitAtFRA: 1800,
+            plannedClaimingAge: 65, isAlreadyClaiming: true, currentBenefit: 1750
+        )
+
+        // Old path: filtering the general matrix by the claimed spouse's real age is empty.
+        let matrix = dm.ssCouplesMatrix()
+        let oldFiltered = matrix.filter { $0.spouseClaimingAge == 65 }
+        XCTAssertTrue(oldFiltered.isEmpty, "Sanity check reproducing the bug via the DataManager matrix wrapper")
+
+        // New path: the dedicated strip is non-empty, pins the spouse at their real
+        // locked age (65), and varies the primary across their actionable range (63...70).
+        let strip = dm.ssCouplesStrip()
+        XCTAssertFalse(strip.isEmpty)
+        XCTAssertTrue(strip.allSatisfy { $0.spouseClaimingAge == 65 })
+        XCTAssertEqual(Set(strip.map(\.primaryClaimingAge)), Set(63...70))
+
+        let bestCell = strip.max(by: { $0.combinedLifetimeBenefit < $1.combinedLifetimeBenefit })
+        XCTAssertNotNil(bestCell)
+        XCTAssertEqual(bestCell?.spouseClaimingAge, 65)
+    }
+
     func test_ssCouplesStrip_emptyWhenSpouseHasNoData() {
         let dm = DataManager()
         dm.profile.enableSpouse = true
