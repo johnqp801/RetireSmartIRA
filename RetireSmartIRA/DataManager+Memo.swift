@@ -121,6 +121,8 @@ extension DataManager {
             h.combine(source.stateWithholding)
             h.combine(source.owner)
             h.combine(source.ssWithholdingRate)
+            h.combine(source.federalWithholdingMode)
+            h.combine(source.federalWithholdingPercent)
         }
         h.combine(incomeDeductions.deductionItems.count)
         for item in incomeDeductions.deductionItems {

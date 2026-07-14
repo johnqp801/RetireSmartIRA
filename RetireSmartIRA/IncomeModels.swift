@@ -65,23 +65,41 @@ struct IncomeSource: Identifiable, Codable {
     /// dollar amount in that case, so no user data changes silently on load.
     var ssWithholdingRate: SSWithholdingRate?
 
+    /// $/% mode for FEDERAL withholding on NON-Social-Security sources
+    /// (Alan feedback #5b). `nil` means either a Social Security source
+    /// (which always uses `ssWithholdingRate`, never this field), or a
+    /// legacy non-SS source that hasn't been touched since this feature
+    /// shipped — both resolve as `.dollars` in `effectiveFederalWithholding`,
+    /// so no user data changes silently on load.
+    var federalWithholdingMode: FederalWithholdingMode?
+
+    /// Federal withholding percentage (0-100 scale) for non-SS sources when
+    /// `federalWithholdingMode == .percent`. Ignored in `.dollars` mode and
+    /// for Social Security sources. Defaults to 0.
+    var federalWithholdingPercent: Double
+
     /// Combined federal + state withholding for this source
     var totalWithholding: Double { federalWithholding + stateWithholding }
 
-    /// Dollars actually withheld for federal tax. Resolves the SS rate to
-    /// dollars when one is set; otherwise (non-SS sources, and legacy SS
-    /// sources not yet migrated to a rate) falls back to the stored dollar
-    /// `federalWithholding`. All tax/safe-harbor/quarterly consumers should
-    /// read this property, never the raw `federalWithholding` field, for
-    /// Social Security sources.
+    /// Dollars actually withheld for federal tax. Resolution order:
+    ///   1. Social Security with a rate set: `ssWithholdingRate.fraction × amount`.
+    ///   2. Non-SS source in `.percent` mode: `(federalWithholdingPercent / 100) × amount`.
+    ///   3. Otherwise (non-SS `.dollars` mode, legacy non-SS with mode nil,
+    ///      and legacy SS sources not yet migrated to a rate): the stored
+    ///      dollar `federalWithholding`.
+    /// All tax/safe-harbor/quarterly consumers should read this property,
+    /// never the raw `federalWithholding` field.
     var effectiveFederalWithholding: Double {
         if type == .socialSecurity, let rate = ssWithholdingRate {
             return rate.fraction * max(0, annualAmount)
         }
+        if type != .socialSecurity, federalWithholdingMode == .percent {
+            return (federalWithholdingPercent / 100) * max(0, annualAmount)
+        }
         return federalWithholding
     }
 
-    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil) {
+    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil, federalWithholdingMode: FederalWithholdingMode? = nil, federalWithholdingPercent: Double = 0) {
         self.id = id
         self.name = name
         self.type = type
@@ -90,6 +108,8 @@ struct IncomeSource: Identifiable, Codable {
         self.stateWithholding = stateWithholding
         self.owner = owner
         self.ssWithholdingRate = ssWithholdingRate
+        self.federalWithholdingMode = federalWithholdingMode
+        self.federalWithholdingPercent = federalWithholdingPercent
     }
 
     // MARK: - Data Migration
@@ -140,6 +160,13 @@ struct IncomeSource: Identifiable, Codable {
         // legacy dollar value to a rate here; migration happens only when the
         // user next edits the source in AddIncomeView.
         ssWithholdingRate = try? container.decode(SSWithholdingRate.self, forKey: .ssWithholdingRate)
+
+        // LAZY migration, same pattern as ssWithholdingRate: legacy JSON has
+        // no federalWithholdingMode/federalWithholdingPercent keys, so these
+        // decode to nil / 0 and effectiveFederalWithholding falls back to the
+        // stored dollar federalWithholding — byte-identical to pre-#5b behavior.
+        federalWithholdingMode = try? container.decodeIfPresent(FederalWithholdingMode.self, forKey: .federalWithholdingMode)
+        federalWithholdingPercent = (try? container.decodeIfPresent(Double.self, forKey: .federalWithholdingPercent)) ?? 0
     }
 
     /// Sentinel prefix applied to the `name` of legacy `.rothConversion` income
@@ -149,7 +176,7 @@ struct IncomeSource: Identifiable, Codable {
     static let legacyRothConversionSentinelPrefix = "__LEGACY_ROTH_CONVERSION__::"
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate
+        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate, federalWithholdingMode, federalWithholdingPercent
     }
 
     func encode(to encoder: Encoder) throws {
@@ -162,7 +189,19 @@ struct IncomeSource: Identifiable, Codable {
         try container.encode(stateWithholding, forKey: .stateWithholding)
         try container.encode(owner, forKey: .owner)
         try container.encodeIfPresent(ssWithholdingRate, forKey: .ssWithholdingRate)
+        try container.encodeIfPresent(federalWithholdingMode, forKey: .federalWithholdingMode)
+        try container.encode(federalWithholdingPercent, forKey: .federalWithholdingPercent)
     }
+}
+
+/// $/% mode for federal withholding on NON-Social-Security income sources
+/// (Alan feedback #5b). Unlike Social Security (which is restricted to the
+/// IRS Form W-4V rate set — see `SSWithholdingRate`), other payers accept a
+/// free-form dollar election OR a percentage election, so this is a plain
+/// two-case toggle rather than a fixed rate table.
+enum FederalWithholdingMode: String, Codable {
+    case dollars
+    case percent
 }
 
 enum IncomeType: String, Codable, CaseIterable {
