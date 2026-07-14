@@ -41,15 +41,12 @@ struct SSClaimingOptimizerView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Cumulative chart with all 3 key scenarios (62, FRA, 70)
-                    let filteredData = chartData.filter { point in
-                        point.scenarioLabel.contains("62") ||
-                        point.scenarioLabel.contains("FRA") ||
-                        point.scenarioLabel.contains("67") ||
-                        point.scenarioLabel.contains("70")
-                    }
+                    // SSCumulativeBenefitsChart selects and filters to its own
+                    // key-age lines internally (62, FRA, 70) via
+                    // SSCumulativeChartColors.displayLines, so the full
+                    // chartData is passed through unfiltered here.
                     SSCumulativeBenefitsChart(
-                        chartData: filteredData,
+                        chartData: chartData,
                         lifeExpectancy: lifeExpectancy,
                         breakEvenComparisons: breakEvens,
                         highlightClaimingAge: nil

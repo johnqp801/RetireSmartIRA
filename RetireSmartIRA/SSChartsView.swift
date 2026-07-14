@@ -9,6 +9,90 @@
 import SwiftUI
 import Charts
 
+// MARK: - Cumulative Benefits Chart Line Selection
+
+/// Pure, testable logic that decides which claim-age lines the Cumulative
+/// Benefits chart plots, and which design-system color token each gets.
+///
+/// The engine computes 9 claiming scenarios (ages 62 through 70), but the
+/// locked chart palette (teal ramp + neutral grays + warm sand; see
+/// `ColorTokens+Chart.swift`) can't give 9 lines truly distinct colors.
+/// Instead this shows only the ages that matter for a claiming decision:
+/// 62, Full Retirement Age, and 70, plus the user's own planned claiming
+/// age when it's set and not already one of those three.
+enum SSCumulativeChartColors {
+
+    /// Design-system tokens available to this chart, kept as an enum (rather
+    /// than exposing `Color` directly) so tests can assert distinctness by
+    /// token identity instead of relying on `Color`'s Equatable behavior.
+    enum Token: Equatable {
+        case tealRamp1
+        case heroTeal
+        case callout
+        case gray3
+
+        var color: Color {
+            switch self {
+            case .tealRamp1: return Color.Chart.tealRamp1
+            case .heroTeal: return Color.Chart.heroTeal
+            case .callout: return Color.Chart.callout
+            case .gray3: return Color.Chart.gray3
+            }
+        }
+    }
+
+    /// One claim-age line to display: its scenario label (as produced by
+    /// `SSCalculationEngine.claimingScenarios`), its color token, and
+    /// whether it represents the user's own planned claiming age.
+    struct DisplayLine: Equatable {
+        let label: String
+        let token: Token
+        let isPlanned: Bool
+
+        var color: Color { token.color }
+    }
+
+    /// Selects the claim-age lines to plot and assigns each a distinct color.
+    ///
+    /// Always includes "Claim at 62", the FRA line (matched by the
+    /// "(FRA)" suffix -- FRA varies by birth year, so this is never
+    /// hardcoded to 66 or 67), and "Claim at 70" -- in that order, when
+    /// present in `availableLabels`. Also includes the user's planned
+    /// claiming age when it's set and its label isn't already one of
+    /// those three.
+    ///
+    /// - Parameters:
+    ///   - availableLabels: scenario labels actually present in the chart
+    ///     data (normally all of ages 62 through 70).
+    ///   - plannedAge: the user's planned claiming age, if any.
+    /// - Returns: an ordered list of lines to display, each with a distinct color token.
+    static func displayLines(availableLabels: [String], plannedAge: Int?) -> [DisplayLine] {
+        var lines: [DisplayLine] = []
+
+        if let label62 = matchingLabel(forAge: 62, in: availableLabels) {
+            lines.append(DisplayLine(label: label62, token: .tealRamp1, isPlanned: plannedAge == 62))
+        }
+        if let fraLabel = availableLabels.first(where: { $0.hasSuffix("(FRA)") }) {
+            let plannedIsFRA = plannedAge.map { matchingLabel(forAge: $0, in: availableLabels) == fraLabel } ?? false
+            lines.append(DisplayLine(label: fraLabel, token: .heroTeal, isPlanned: plannedIsFRA))
+        }
+        if let label70 = matchingLabel(forAge: 70, in: availableLabels) {
+            lines.append(DisplayLine(label: label70, token: .callout, isPlanned: plannedAge == 70))
+        }
+        if let plannedAge,
+           let plannedLabel = matchingLabel(forAge: plannedAge, in: availableLabels),
+           !lines.contains(where: { $0.label == plannedLabel }) {
+            lines.append(DisplayLine(label: plannedLabel, token: .gray3, isPlanned: true))
+        }
+
+        return lines
+    }
+
+    private static func matchingLabel(forAge age: Int, in labels: [String]) -> String? {
+        labels.first { $0 == "Claim at \(age)" || $0 == "Claim at \(age) (FRA)" }
+    }
+}
+
 // MARK: - Cumulative Benefits Chart
 
 struct SSCumulativeBenefitsChart: View {
@@ -16,8 +100,6 @@ struct SSCumulativeBenefitsChart: View {
     let lifeExpectancy: Int
     let breakEvenComparisons: [SSBreakEvenComparison]
     let highlightClaimingAge: Int?
-
-    private let scenarioColors: [String: Color] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -43,20 +125,13 @@ struct SSCumulativeBenefitsChart: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    private var colorScale: KeyValuePairs<String, Color> {
-        [
-            "Claim at 62": Color.Chart.tealRamp1,
-            "Claim at 63": Color.Chart.tealRamp2,
-            "Claim at 64": Color.Chart.tealRamp2,
-            "Claim at 65": Color.Chart.tealRamp3,
-            "Claim at 66": Color.Chart.tealRamp4,
-            "Claim at 66 (FRA)": Color.Chart.tealRamp4,
-            "Claim at 67": Color.Chart.tealRamp5,
-            "Claim at 67 (FRA)": Color.Chart.tealRamp5,
-            "Claim at 68": Color.Chart.tealRamp5,
-            "Claim at 69": Color.Chart.tealRamp6,
-            "Claim at 70": Color.Chart.tealRamp6,
-        ]
+    /// The key claim-age lines to display (62, FRA, 70, plus the user's
+    /// planned age when distinct) with their assigned color tokens. Both
+    /// `chart` (data filter + color scale) and `legend` derive from this
+    /// single source of truth so they can't drift apart.
+    private var displayLines: [SSCumulativeChartColors.DisplayLine] {
+        let availableLabels = Array(Set(chartData.map(\.scenarioLabel)))
+        return SSCumulativeChartColors.displayLines(availableLabels: availableLabels, plannedAge: highlightClaimingAge)
     }
 
     /// Break-even ages that are non-nil, pre-filtered for the chart
@@ -70,14 +145,18 @@ struct SSCumulativeBenefitsChart: View {
     }
 
     private var chart: some View {
-        Chart {
-            ForEach(chartData.filter { $0.age >= 62 && $0.age <= maxChartAge }) { point in
+        let lines = displayLines
+        let displayedLabels = Set(lines.map(\.label))
+        let plannedLabels = Set(lines.filter(\.isPlanned).map(\.label))
+
+        return Chart {
+            ForEach(chartData.filter { $0.age >= 62 && $0.age <= maxChartAge && displayedLabels.contains($0.scenarioLabel) }) { point in
                 LineMark(
                     x: .value("Age", point.age),
                     y: .value("Cumulative", point.cumulativeAmount)
                 )
                 .foregroundStyle(by: .value("Strategy", point.scenarioLabel))
-                .lineStyle(StrokeStyle(lineWidth: 2.5))
+                .lineStyle(StrokeStyle(lineWidth: plannedLabels.contains(point.scenarioLabel) ? 3.5 : 2.5))
             }
 
             lifeExpectancyRule
@@ -86,7 +165,7 @@ struct SSCumulativeBenefitsChart: View {
                 breakEvenRule(age: beAge)
             }
         }
-        .chartForegroundStyleScale(colorScale)
+        .chartForegroundStyleScale(domain: lines.map(\.label), range: lines.map(\.color))
         .chartXScale(domain: 62...maxChartAge)
         .chartXAxis { xAxisContent }
         .chartYAxis { yAxisContent }
@@ -147,23 +226,27 @@ struct SSCumulativeBenefitsChart: View {
     }
 
     private var legend: some View {
-        let labels: [(String, Color)] = [
-            ("Claim at 62", Color.Chart.tealRamp1),
-            ("Claim at 67", Color.Chart.tealRamp5),
-            ("Claim at 70", Color.Chart.tealRamp6),
-        ]
+        let lines = displayLines
         return HStack(spacing: 16) {
-            ForEach(labels, id: \.0) { label, color in
+            ForEach(lines, id: \.label) { line in
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(color)
-                        .frame(width: 8, height: 8)
-                    Text(label)
+                        .fill(line.color)
+                        .frame(width: line.isPlanned ? 10 : 8, height: line.isPlanned ? 10 : 8)
+                    Text(legendText(for: line))
                         .font(.caption)
+                        .fontWeight(line.isPlanned ? .semibold : .regular)
                         .foregroundStyle(.secondary)
                 }
             }
         }
+    }
+
+    /// Decorates the planned-age line's legend entry so "your plan" reads
+    /// as special, without altering the underlying scenario label used to
+    /// match chart data.
+    private func legendText(for line: SSCumulativeChartColors.DisplayLine) -> String {
+        line.isPlanned ? "\(line.label) (your plan)" : line.label
     }
 
     private func chartYAxisLabel(_ value: Double) -> String {
