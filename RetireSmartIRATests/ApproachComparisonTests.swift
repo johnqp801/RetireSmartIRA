@@ -213,7 +213,9 @@ extension ApproachComparisonTests {
             selectedApproach: .fillToBracket(rate: 0.24), heirWeight: 0)
 
         let s = MultiYearCPABriefing.approachDeltaSummary(cmp)
-        #expect(s.deltaLifetimeTax == cmp.selected.lifetimeTaxNominal - cmp.recommended.lifetimeTaxNominal)
+        // B2 fix: the CPA delta is present-value (what the anchor's "Minimize lifetime tax"
+        // approach actually minimizes), not the nominal undiscounted sum. See ComparisonDisplayTests.
+        #expect(s.deltaLifetimeTax == cmp.selected.lifetimeTaxPV - cmp.recommended.lifetimeTaxPV)
         #expect(s.deltaPeakConversion == cmp.selected.peakAnnualRothConversion - cmp.recommended.peakAnnualRothConversion)
     }
 

@@ -13,6 +13,10 @@ struct ApproachComparisonView: View {
 
     private var titleSuffix: String { units == .presentValue ? " (present value)" : "" }
     private var rmdLabel: String { units == .presentValue ? "Peak forced RMD (nominal)" : "Peak forced RMD" }
+    /// The lifetime-tax row always shows present value (see `ApproachUILogic.displayedLifetimeTax`),
+    /// independent of the units toggle above, so it's labeled explicitly whenever the toggle itself
+    /// reads "Future $" — otherwise the figure wouldn't match what the rest of the table implies.
+    private var lifetimeTaxLabel: String { units == .presentValue ? "Lifetime tax" : "Lifetime tax (present value)" }
 
     /// Columns to render, left to right. The selected column is dropped when it IS the anchor
     /// (`collapsesToTwoColumns`), since showing it twice would just repeat the same numbers.
@@ -46,7 +50,7 @@ struct ApproachComparisonView: View {
                         Text(col.label).font(.caption.bold()).gridColumnAlignment(.trailing)
                     }
                 }
-                metricRow("Lifetime tax") { lifetimeTax($0) }
+                metricRow(lifetimeTaxLabel) { lifetimeTax($0) }
                 metricRow("Ending traditional IRA") { terminal($0.endingTraditional, $0) }
                 metricRow("Ending Roth IRA") { terminal($0.endingRoth, $0) }
                 if showHeirs {
@@ -65,14 +69,17 @@ struct ApproachComparisonView: View {
 
     private var selectedVsAnchorHeadline: String {
         let d = deltaSummary
+        // The lifetime-tax delta is PV (matching the row above and what the optimizer actually
+        // minimizes); peak conversion and Medicare cost are nominal sums, so the PV figure is
+        // called out explicitly to avoid implying all three share a basis.
         return "vs. \(ApproachUILogic.anchorLabel(effectiveHeirWeight: effectiveHeirWeight)): "
-            + "\(signedDollars(d.deltaLifetimeTax)) lifetime tax, "
+            + "\(signedDollars(d.deltaLifetimeTax)) lifetime tax (PV), "
             + "\(signedDollars(d.deltaPeakConversion)) peak conversion, "
             + "\(signedDollars(d.deltaMedicareCost)) Medicare cost"
     }
 
     private func lifetimeTax(_ col: ApproachColumn) -> Double {
-        units == .presentValue ? col.lifetimeTaxPV : col.lifetimeTaxNominal
+        ApproachUILogic.displayedLifetimeTax(col)
     }
 
     /// Scales a terminal (ending-balance) figure for the chosen display units, mirroring

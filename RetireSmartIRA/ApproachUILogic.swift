@@ -40,4 +40,19 @@ enum ApproachUILogic {
     static func approachAfterYear1Edit(_ selected: ConversionApproach) -> ConversionApproach {
         .recommendedTaxMin
     }
+
+    /// The "Lifetime tax" figure shown in the approach-comparison table (and its selected-vs-anchor
+    /// headline delta): ALWAYS present value, regardless of the nominal/present-value display
+    /// toggle that governs the other rows (ending balances, etc.).
+    ///
+    /// Nominal is the wrong basis for comparing approaches here: "Minimize lifetime tax" optimizes
+    /// a present-value objective, not the nominal undiscounted sum, so a front-loaded approach
+    /// (e.g. "Fill to bracket") can show a LOWER nominal total while the minimize approach is
+    /// genuinely lower on the objective it minimizes (same dollars, different time-weighting).
+    /// Displaying nominal there reads as "the minimize option doesn't minimize" (B2). Present value
+    /// is the one basis on which the comparison's own claim ("this approach minimizes lifetime
+    /// tax") is actually true, so it's shown unconditionally rather than toggled.
+    static func displayedLifetimeTax(_ column: ApproachColumn) -> Double {
+        column.lifetimeTaxPV
+    }
 }

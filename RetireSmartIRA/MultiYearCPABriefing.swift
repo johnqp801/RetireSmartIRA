@@ -127,7 +127,7 @@ enum MultiYearCPABriefingHTML {
         <table>
         <tr><td>Selected approach</td><td>\(esc(s.selectedLabel))</td></tr>
         <tr><td>Compared against</td><td>\(esc(s.anchorLabel))</td></tr>
-        <tr><td>Lifetime tax vs. \(esc(s.anchorLabel))</td><td>\(signedFmt(d.deltaLifetimeTax))</td></tr>
+        <tr><td>Lifetime tax vs. \(esc(s.anchorLabel)) (present value)</td><td>\(signedFmt(d.deltaLifetimeTax))</td></tr>
         <tr><td>Peak annual Roth conversion vs. \(esc(s.anchorLabel))</td><td>\(signedFmt(d.deltaPeakConversion))</td></tr>
         <tr><td>Medicare (IRMAA) cost vs. \(esc(s.anchorLabel))</td><td>\(signedFmt(d.deltaMedicareCost))</td></tr>
         </table>
@@ -296,12 +296,18 @@ enum MultiYearCPABriefing {
 
     /// Selected-approach vs Recommended-plan deltas for the CPA briefing header. Zero across the
     /// board when the selected approach IS the recommended plan (collapsed comparison).
+    ///
+    /// `deltaLifetimeTax` uses PRESENT VALUE (`ApproachUILogic.displayedLifetimeTax`), matching the
+    /// on-screen "Lifetime tax" row and headline (B2): the anchor approach ("Minimize lifetime
+    /// tax") optimizes a present-value objective, so comparing on the nominal undiscounted sum can
+    /// show it as WORSE than a front-loaded approach even when it minimizes the thing it claims to.
     static func approachDeltaSummary(_ cmp: ApproachComparison) -> ApproachDeltaSummary {
         func medicare(_ col: ApproachColumn) -> Double {
             col.path.reduce(0) { $0 + $1.taxBreakdown.irmaa }
         }
         return ApproachDeltaSummary(
-            deltaLifetimeTax: cmp.selected.lifetimeTaxNominal - cmp.recommended.lifetimeTaxNominal,
+            deltaLifetimeTax: ApproachUILogic.displayedLifetimeTax(cmp.selected)
+                - ApproachUILogic.displayedLifetimeTax(cmp.recommended),
             deltaPeakConversion: cmp.selected.peakAnnualRothConversion - cmp.recommended.peakAnnualRothConversion,
             deltaMedicareCost: medicare(cmp.selected) - medicare(cmp.recommended))
     }
