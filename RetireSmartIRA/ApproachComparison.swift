@@ -10,6 +10,10 @@ struct ApproachColumn: Equatable, Sendable {
     let endingRoth: Double
     let endingTaxable: Double
     let heirsKeep: Double
+    /// Estimated tax still owed on the traditional IRA left at the end of the horizon (the heir tax
+    /// folded into `heirsKeep`). Zero when the approach fully drains the IRA. Shown so the deferred
+    /// tax an approach leaves behind is visible next to the in-horizon `lifetimeTaxPV` it paid.
+    let deferredTaxOnRemainingIRA: Double
     let peakForcedRMD: Double
     let peakAnnualRothConversion: Double
     let terminalPVFactor: Double
@@ -36,6 +40,9 @@ extension ApproachColumn {
             heirsKeep: PlanPathMetrics.heirsKeep(path, heirSalary: inputs.heirSalary,
                                                  heirFilingStatus: inputs.heirFilingStatus,
                                                  heirDrawdownYears: inputs.heirDrawdownYears),
+            deferredTaxOnRemainingIRA: PlanPathMetrics.deferredTaxOnRemainingTraditional(
+                path, heirSalary: inputs.heirSalary,
+                heirFilingStatus: inputs.heirFilingStatus, heirDrawdownYears: inputs.heirDrawdownYears),
             peakForcedRMD: PlanPathMetrics.peakForcedRMD(path),
             peakAnnualRothConversion: PlanPathMetrics.peakAnnualRothConversion(path),
             terminalPVFactor: terminalPVFactor,

@@ -45,14 +45,23 @@ enum PlanPathMetrics {
         path.map(\.executedRothConversion).max() ?? 0
     }
 
+    /// Estimated deferred tax on the traditional IRA still remaining at the end of the horizon —
+    /// the heir tax already folded into `heirsKeep`. Surfaced so the comparison can show the tax
+    /// the in-horizon "Lifetime tax" figure does NOT capture: an approach that leaves a residual
+    /// IRA defers this tax rather than paying it during the plan, so it looks cheaper than it is.
+    static func deferredTaxOnRemainingTraditional(_ path: [YearRecommendation], heirSalary: Double,
+                                                  heirFilingStatus: FilingStatus, heirDrawdownYears: Int) -> Double {
+        LegacyPlanningEngine.heirTaxOnInheritedTraditional(
+            balance: endingTraditional(path), heirSalary: heirSalary,
+            heirFilingStatus: heirFilingStatus, drawdownYears: heirDrawdownYears)
+    }
+
     static func heirsKeep(_ path: [YearRecommendation], heirSalary: Double,
                           heirFilingStatus: FilingStatus, heirDrawdownYears: Int) -> Double {
-        let trad = endingTraditional(path)
-        let heirTax = LegacyPlanningEngine.heirTaxOnInheritedTraditional(
-            balance: trad, heirSalary: heirSalary,
-            heirFilingStatus: heirFilingStatus, drawdownYears: heirDrawdownYears)
+        let heirTax = deferredTaxOnRemainingTraditional(
+            path, heirSalary: heirSalary, heirFilingStatus: heirFilingStatus, heirDrawdownYears: heirDrawdownYears)
         return HeirValue.afterTaxToHeirs(
-            roth: endingRoth(path), traditional: trad,
+            roth: endingRoth(path), traditional: endingTraditional(path),
             taxable: endingTaxable(path), heirTaxOnTraditional: heirTax)
     }
 }

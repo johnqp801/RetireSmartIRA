@@ -25,6 +25,28 @@ struct ApproachComparisonTests {
         #expect(noConv[0].taxableSocialSecurity >= 0)
         #expect(withConv[0].taxableSocialSecurity >= noConv[0].taxableSocialSecurity)
     }
+
+    // B2: the comparison's "Lifetime tax" shows only tax PAID in-horizon, so an approach that
+    // leaves a residual traditional IRA looks cheaper than one that drains it. The column must
+    // also surface the DEFERRED tax on that leftover IRA — exactly the heir tax already subtracted
+    // inside heirsKeep — so the hidden liability is visible next to the paid tax.
+    @Test("B2: ApproachColumn surfaces deferred tax on the remaining IRA, reconciling ending balances to heirsKeep")
+    func deferredTaxOnRemainingIRA() {
+        let inputs = ApproachComparisonTests.makeInputsWithSocialSecurity(traditional: 1_500_000)
+        let asmp = ApproachComparisonTests.makeAssumptions()
+        // No-conversion path never drains the traditional IRA, so a large residual remains and
+        // carries a real deferred tax the in-horizon "Lifetime tax" figure never shows.
+        let path = ProjectionEngine().project(
+            inputs: inputs, assumptions: asmp,
+            actionsPerYear: ApproachComparisonCoordinator.emptyActionsMap(inputs: inputs, assumptions: asmp))
+        let col = ApproachColumn.make(path: path, inputs: inputs, assumptions: asmp)
+        #expect(col.endingTraditional > 1.0)
+        #expect(col.deferredTaxOnRemainingIRA > 1.0)
+        // Deferred tax IS the heir tax folded into heirsKeep: gross ending wealth minus the
+        // deferred tax reconciles exactly to heirsKeep.
+        let grossEnding = col.endingRoth + col.endingTaxable + col.endingTraditional
+        #expect(abs((grossEnding - col.deferredTaxOnRemainingIRA) - col.heirsKeep) < 1.0)
+    }
 }
 
 extension ApproachComparisonTests {
