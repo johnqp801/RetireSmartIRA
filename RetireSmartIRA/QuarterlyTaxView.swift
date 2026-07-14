@@ -311,7 +311,7 @@ struct QuarterlyTaxView: View {
 
     @ViewBuilder
     private var withholdingBreakdown: some View {
-        let sourcesWithWithholding = dataManager.incomeSources.filter { $0.federalWithholding > 0 || $0.stateWithholding > 0 }
+        let sourcesWithWithholding = dataManager.incomeSources.filter { $0.effectiveFederalWithholding > 0 || $0.stateWithholding > 0 }
 
         if !sourcesWithWithholding.isEmpty {
             VStack(alignment: .leading, spacing: 16) {
@@ -330,8 +330,8 @@ struct QuarterlyTaxView: View {
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
-                                if source.federalWithholding > 0 {
-                                    Text("Fed \(source.federalWithholding, format: .currency(code: "USD"))")
+                                if source.effectiveFederalWithholding > 0 {
+                                    Text("Fed \(source.effectiveFederalWithholding, format: .currency(code: "USD"))")
                                         .font(.callout)
                                         .fontWeight(.semibold)
                                         .foregroundStyle(Color.UI.textPrimary)

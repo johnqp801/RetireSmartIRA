@@ -7,6 +7,48 @@
 
 import Foundation
 
+/// Social Security federal withholding rate, per IRS Form W-4V. These are
+/// the ONLY federal withholding rates SSA will accept for Social Security
+/// benefits — there is no free-form dollar election, unlike W-2 withholding.
+enum SSWithholdingRate: String, Codable, CaseIterable {
+    case none
+    case seven
+    case ten
+    case twelve
+    case twentyTwo
+
+    /// Fraction of the gross SS benefit withheld for federal tax.
+    var fraction: Double {
+        switch self {
+        case .none: return 0
+        case .seven: return 0.07
+        case .ten: return 0.10
+        case .twelve: return 0.12
+        case .twentyTwo: return 0.22
+        }
+    }
+
+    /// User-facing picker label.
+    var label: String {
+        switch self {
+        case .none: return "None"
+        case .seven: return "7%"
+        case .ten: return "10%"
+        case .twelve: return "12%"
+        case .twentyTwo: return "22%"
+        }
+    }
+
+    /// Snaps an arbitrary withholding fraction (e.g. a legacy dollar
+    /// withholding ÷ annual benefit) to the nearest IRS-legal W-4V rate.
+    /// Used only as a one-time starting suggestion when a user edits a
+    /// legacy Social Security source that has a stored dollar withholding
+    /// but no rate yet — never applied silently on load.
+    static func nearest(toFraction fraction: Double) -> SSWithholdingRate {
+        allCases.min(by: { abs($0.fraction - fraction) < abs($1.fraction - fraction) }) ?? .none
+    }
+}
+
 struct IncomeSource: Identifiable, Codable {
     let id: UUID
     var name: String
@@ -16,10 +58,30 @@ struct IncomeSource: Identifiable, Codable {
     var stateWithholding: Double
     var owner: Owner
 
+    /// Social Security federal withholding rate (IRS Form W-4V: 7/10/12/22%).
+    /// Only meaningful when `type == .socialSecurity`. `nil` means either a
+    /// non-SS source, or a legacy SS source that hasn't been migrated to a
+    /// rate yet — `effectiveFederalWithholding` falls back to the stored
+    /// dollar amount in that case, so no user data changes silently on load.
+    var ssWithholdingRate: SSWithholdingRate?
+
     /// Combined federal + state withholding for this source
     var totalWithholding: Double { federalWithholding + stateWithholding }
 
-    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary) {
+    /// Dollars actually withheld for federal tax. Resolves the SS rate to
+    /// dollars when one is set; otherwise (non-SS sources, and legacy SS
+    /// sources not yet migrated to a rate) falls back to the stored dollar
+    /// `federalWithholding`. All tax/safe-harbor/quarterly consumers should
+    /// read this property, never the raw `federalWithholding` field, for
+    /// Social Security sources.
+    var effectiveFederalWithholding: Double {
+        if type == .socialSecurity, let rate = ssWithholdingRate {
+            return rate.fraction * max(0, annualAmount)
+        }
+        return federalWithholding
+    }
+
+    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil) {
         self.id = id
         self.name = name
         self.type = type
@@ -27,6 +89,7 @@ struct IncomeSource: Identifiable, Codable {
         self.federalWithholding = federalWithholding
         self.stateWithholding = stateWithholding
         self.owner = owner
+        self.ssWithholdingRate = ssWithholdingRate
     }
 
     // MARK: - Data Migration
@@ -70,6 +133,13 @@ struct IncomeSource: Identifiable, Codable {
             federalWithholding = legacy
             stateWithholding = 0
         }
+
+        // LAZY migration: legacy JSON has no ssWithholdingRate key at all, so
+        // this decodes to nil. That is deliberate — see the property doc on
+        // `ssWithholdingRate` / `effectiveFederalWithholding`. Do NOT snap a
+        // legacy dollar value to a rate here; migration happens only when the
+        // user next edits the source in AddIncomeView.
+        ssWithholdingRate = try? container.decode(SSWithholdingRate.self, forKey: .ssWithholdingRate)
     }
 
     /// Sentinel prefix applied to the `name` of legacy `.rothConversion` income
@@ -79,7 +149,7 @@ struct IncomeSource: Identifiable, Codable {
     static let legacyRothConversionSentinelPrefix = "__LEGACY_ROTH_CONVERSION__::"
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding
+        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate
     }
 
     func encode(to encoder: Encoder) throws {
@@ -91,6 +161,7 @@ struct IncomeSource: Identifiable, Codable {
         try container.encode(federalWithholding, forKey: .federalWithholding)
         try container.encode(stateWithholding, forKey: .stateWithholding)
         try container.encode(owner, forKey: .owner)
+        try container.encodeIfPresent(ssWithholdingRate, forKey: .ssWithholdingRate)
     }
 }
 

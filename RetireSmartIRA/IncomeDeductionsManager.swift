@@ -33,7 +33,7 @@ class IncomeDeductionsManager {
     }
 
     var totalFederalWithholding: Double {
-        incomeSources.reduce(0) { $0 + $1.federalWithholding }
+        incomeSources.reduce(0) { $0 + $1.effectiveFederalWithholding }
     }
 
     var totalStateWithholding: Double {

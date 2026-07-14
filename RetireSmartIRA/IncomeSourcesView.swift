@@ -610,13 +610,13 @@ struct IncomeSourcesView: View {
                         .fontWeight(.bold)
                 }
 
-                if source.federalWithholding > 0 || source.stateWithholding > 0 {
+                if source.effectiveFederalWithholding > 0 || source.stateWithholding > 0 {
                     HStack(spacing: 8) {
                         Text("Withholding:")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        if source.federalWithholding > 0 {
-                            Text("Fed \(source.federalWithholding, format: .currency(code: "USD"))")
+                        if source.effectiveFederalWithholding > 0 {
+                            Text("Fed \(source.effectiveFederalWithholding, format: .currency(code: "USD"))")
                                 .font(.caption)
                                 .fontWeight(.medium)
                         }
@@ -683,6 +683,9 @@ struct IncomeSourcesView: View {
         @State private var stateWithholding: String
         @State private var owner: Owner
         @State private var showDeleteConfirmation = false
+        /// Social Security federal withholding is a rate (IRS Form W-4V), not
+        /// a free-form dollar entry. Only read/written when incomeType == .socialSecurity.
+        @State private var ssWithholdingRate: SSWithholdingRate
 
         init(incomeToEdit: IncomeSource? = nil) {
             self.incomeToEdit = incomeToEdit
@@ -692,6 +695,31 @@ struct IncomeSourcesView: View {
             _federalWithholding = State(initialValue: incomeToEdit?.federalWithholding.formatted() ?? "")
             _stateWithholding = State(initialValue: incomeToEdit?.stateWithholding.formatted() ?? "")
             _owner = State(initialValue: incomeToEdit?.owner ?? .primary)
+
+            // Migration + initial rate selection for the SS withholding picker.
+            // - Modern SS source (rate already set): use it as-is.
+            // - Legacy SS source (rate nil, dollar withholding stored): suggest
+            //   the nearest legal rate as a starting point — never applied
+            //   silently, only pre-selected for the user to confirm/change.
+            // - New source or non-SS source being edited: default to .none.
+            if let editing = incomeToEdit, editing.type == .socialSecurity {
+                if let rate = editing.ssWithholdingRate {
+                    _ssWithholdingRate = State(initialValue: rate)
+                } else {
+                    let legacyFraction = editing.annualAmount > 0 ? editing.federalWithholding / editing.annualAmount : 0
+                    _ssWithholdingRate = State(initialValue: SSWithholdingRate.nearest(toFraction: legacyFraction))
+                }
+            } else {
+                _ssWithholdingRate = State(initialValue: .none)
+            }
+        }
+
+        /// True when editing an existing Social Security source that has a
+        /// legacy dollar withholding but no rate saved yet. Drives the
+        /// one-time migration caption in the picker section.
+        private var isUnmigratedLegacySSSource: Bool {
+            guard let editing = incomeToEdit else { return false }
+            return editing.type == .socialSecurity && editing.ssWithholdingRate == nil && editing.federalWithholding > 0
         }
 
         /// Dynamic state-treatment hint for Military Retirement, based on the user's
@@ -743,10 +771,24 @@ struct IncomeSourcesView: View {
                             .keyboardType(.decimalPad)
                             #endif
 
-                        TextField("Annual Federal Withholding (W-2 Box 2, optional)", text: $federalWithholding)
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
+                        if incomeType == .socialSecurity {
+                            Picker("Federal Withholding", selection: $ssWithholdingRate) {
+                                ForEach(SSWithholdingRate.allCases, id: \.self) { rate in
+                                    Text(rate.label).tag(rate)
+                                }
+                            }
+
+                            Text(isUnmigratedLegacySSSource
+                                 ? "Social Security federal withholding is now a percentage (IRS Form W-4V: 7, 10, 12, or 22%). We picked the closest match to your prior amount. Review and save to confirm."
+                                 : "Social Security federal withholding is a percentage (IRS Form W-4V: 7, 10, 12, or 22%).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            TextField("Annual Federal Withholding (W-2 Box 2, optional)", text: $federalWithholding)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                        }
 
                         TextField("Annual State Withholding (W-2 Box 17, optional)", text: $stateWithholding)
                             #if os(iOS)
@@ -916,19 +958,36 @@ struct IncomeSourcesView: View {
             let cleanFederal = federalWithholding.replacingOccurrences(of: ",", with: "")
             let cleanState = stateWithholding.replacingOccurrences(of: ",", with: "")
             guard let amount = Double(cleanAmount) else { return }
-            let fedWH = Double(cleanFederal) ?? 0
             let stateWH = Double(cleanState) ?? 0
+
+            // Social Security federal withholding is a rate (Form W-4V), not a
+            // free-form dollar entry. Saving an SS source sets ssWithholdingRate
+            // as the source of truth going forward, and mirrors the resolved
+            // dollar amount into federalWithholding so any as-yet-unrouted
+            // reader still sees an accurate figure. Non-SS sources are
+            // untouched: dollar entry, ssWithholdingRate stays nil.
+            let fedWH: Double
+            let ssRate: SSWithholdingRate?
+            if incomeType == .socialSecurity {
+                ssRate = ssWithholdingRate
+                fedWH = ssWithholdingRate.fraction * amount
+            } else {
+                ssRate = nil
+                fedWH = Double(cleanFederal) ?? 0
+            }
 
             if let existing = incomeToEdit,
                let index = dataManager.incomeSources.firstIndex(where: { $0.id == existing.id }) {
                 dataManager.incomeSources[index] = IncomeSource(
                     id: existing.id, name: name, type: incomeType,
-                    annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner
+                    annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
+                    ssWithholdingRate: ssRate
                 )
             } else {
                 dataManager.incomeSources.append(IncomeSource(
                     name: name, type: incomeType,
-                    annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner
+                    annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
+                    ssWithholdingRate: ssRate
                 ))
             }
             dataManager.saveAllData()
