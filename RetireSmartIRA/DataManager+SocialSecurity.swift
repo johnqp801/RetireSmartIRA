@@ -202,6 +202,37 @@ extension DataManager {
         )
     }
 
+    /// Build the couples claiming strip for when exactly one spouse has already
+    /// claimed (or is otherwise locked in) and the other is still deciding. Unlike
+    /// `ssCouplesMatrix()`, which drops a claimed spouse's real claiming age from the
+    /// matrix once it's in the past, this holds that spouse fixed at their true locked
+    /// age and only varies the deciding spouse. Returns [] if either spouse lacks SS
+    /// data, or if it isn't exactly the one-claimed/one-planning case (use
+    /// `ssCouplesMatrix()` for both-claimed or both-planning).
+    func ssCouplesStrip() -> [SSCouplesMatrixCell] {
+        guard let pBenefit = primarySSBenefit, pBenefit.benefitAtFRA > 0,
+              let sBenefit = spouseSSBenefit, sBenefit.benefitAtFRA > 0 else { return [] }
+
+        let primaryClaimed = pBenefit.isAlreadyClaiming || currentAge >= pBenefit.plannedClaimingAge
+        let spouseClaimed = sBenefit.isAlreadyClaiming || spouseCurrentAge >= sBenefit.plannedClaimingAge
+
+        // Only meaningful when exactly one spouse has claimed.
+        guard primaryClaimed != spouseClaimed else { return [] }
+
+        let lockedAge = primaryClaimed ? pBenefit.plannedClaimingAge : sBenefit.plannedClaimingAge
+        let decidingCurrentAge = primaryClaimed ? spouseCurrentAge : currentAge
+
+        return SSCalculationEngine.couplesStrip(
+            primaryPIA: pBenefit.benefitAtFRA, primaryBirthYear: birthYear,
+            primaryLifeExpectancy: ssWhatIfParams.primaryLifeExpectancy,
+            spousePIA: sBenefit.benefitAtFRA, spouseBirthYear: spouseBirthYear,
+            spouseLifeExpectancy: ssWhatIfParams.spouseLifeExpectancy,
+            claimedIsPrimary: primaryClaimed, lockedAge: lockedAge, decidingCurrentAge: decidingCurrentAge,
+            colaRate: ssWhatIfParams.colaRate,
+            discountRate: ssWhatIfParams.discountRate
+        )
+    }
+
     /// Get the highest-lifetime couples strategy
     func ssCouplesTopStrategy() -> SSCouplesTopStrategy? {
         let matrix = ssCouplesMatrix()

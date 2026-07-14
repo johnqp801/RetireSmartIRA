@@ -107,17 +107,19 @@ struct SSCouplesStrategyView: View {
         }
     }
 
-    /// Filter the full matrix to just the row/column for the claimed spouse's age
+    /// The deciding spouse's strip of claiming-age options, with the claimed spouse held
+    /// fixed at their true locked claiming age. Uses a dedicated engine strip
+    /// (`ssCouplesStrip()`) rather than filtering the general matrix — the general
+    /// matrix clamps each spouse's minimum age to their current age, so a spouse who
+    /// claimed in the past drops out of it entirely and filtering by their real age
+    /// returns nothing.
     private var filteredStripCells: [SSCouplesMatrixCell] {
-        if primaryHasClaimed {
-            // Primary claimed — filter to their claiming age, vary spouse age
-            return matrix.filter { $0.primaryClaimingAge == claimedSpouseAge }
-                .sorted { $0.spouseClaimingAge < $1.spouseClaimingAge }
-        } else {
-            // Spouse claimed — filter to their claiming age, vary primary age
-            return matrix.filter { $0.spouseClaimingAge == claimedSpouseAge }
-                .sorted { $0.primaryClaimingAge < $1.primaryClaimingAge }
-        }
+        dataManager.ssCouplesStrip()
+            .sorted {
+                primaryHasClaimed
+                    ? $0.spouseClaimingAge < $1.spouseClaimingAge
+                    : $0.primaryClaimingAge < $1.primaryClaimingAge
+            }
     }
 
     /// Best cell from the filtered strip
@@ -1142,6 +1144,8 @@ struct SSCouplesStrategyView: View {
                 .padding(.top, 4)
 
                 applyStrategyButton(primaryAge: best.primaryClaimingAge, spouseAge: best.spouseClaimingAge)
+            } else {
+                InlineHint("\(decidingSpouseName)'s Social Security benefit estimate is missing or incomplete, so no claiming-age recommendation can be calculated yet. Enter their benefit estimates to see options here.")
             }
         }
         .padding()
@@ -1164,67 +1168,71 @@ struct SSCouplesStrategyView: View {
             Text("\(decidingSpouseName)'s Claiming Age Options")
                 .font(.headline)
 
-            valuationToggle
+            if cells.isEmpty {
+                InlineHint("\(decidingSpouseName)'s Social Security benefit estimate is missing or incomplete, so claiming-age options can't be calculated yet. Enter their benefit estimates to see this table.")
+            } else {
+                valuationToggle
 
-            Text("Tap any cell to see details. \(claimedSpouseName) is locked at age \(claimedSpouseAge).")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("Tap any cell to see details. \(claimedSpouseName) is locked at age \(claimedSpouseAge).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            // Strip grid: header row + single data row
-            VStack(spacing: 2) {
-                // Header — deciding spouse's ages
-                HStack(spacing: 3) {
-                    Text("Age")
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .frame(width: 28, height: 24)
-                    ForEach(cells, id: \.id) { cell in
-                        let age = primaryHasClaimed ? cell.spouseClaimingAge : cell.primaryClaimingAge
-                        Text("\(age)")
+                // Strip grid: header row + single data row
+                VStack(spacing: 2) {
+                    // Header — deciding spouse's ages
+                    HStack(spacing: 3) {
+                        Text("Age")
                             .font(.caption2)
                             .fontWeight(.medium)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 24)
+                            .frame(width: 28, height: 24)
+                        ForEach(cells, id: \.id) { cell in
+                            let age = primaryHasClaimed ? cell.spouseClaimingAge : cell.primaryClaimingAge
+                            Text("\(age)")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 24)
+                        }
                     }
-                }
 
-                // Data row — combined lifetime values
-                HStack(spacing: 3) {
-                    Image(systemName: "dollarsign.circle")
-                        .font(.caption2)
-                        .frame(width: 28, height: 48)
-                        .foregroundStyle(.secondary)
-                    ForEach(cells, id: \.id) { cell in
-                        let decidingAge = primaryHasClaimed ? cell.spouseClaimingAge : cell.primaryClaimingAge
-                        let isCurrent = decidingAge == currentDecidingAge
-                        stripCellView(cell: cell, minVal: minVal, maxVal: maxVal, isCurrent: isCurrent)
-                    }
-                }
-
-                // Monthly benefit row
-                HStack(spacing: 3) {
-                    Text("/mo")
-                        .font(.system(size: 8))
-                        .frame(width: 28, height: 32)
-                        .foregroundStyle(.secondary)
-                    ForEach(cells, id: \.id) { cell in
-                        let decidingMonthly = primaryHasClaimed ? cell.spouseMonthly : cell.primaryMonthly
-                        Text(SSCalculationEngine.formatCurrency(decidingMonthly))
-                            .font(.system(size: 8))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 32)
+                    // Data row — combined lifetime values
+                    HStack(spacing: 3) {
+                        Image(systemName: "dollarsign.circle")
+                            .font(.caption2)
+                            .frame(width: 28, height: 48)
                             .foregroundStyle(.secondary)
+                        ForEach(cells, id: \.id) { cell in
+                            let decidingAge = primaryHasClaimed ? cell.spouseClaimingAge : cell.primaryClaimingAge
+                            let isCurrent = decidingAge == currentDecidingAge
+                            stripCellView(cell: cell, minVal: minVal, maxVal: maxVal, isCurrent: isCurrent)
+                        }
+                    }
+
+                    // Monthly benefit row
+                    HStack(spacing: 3) {
+                        Text("/mo")
+                            .font(.system(size: 8))
+                            .frame(width: 28, height: 32)
+                            .foregroundStyle(.secondary)
+                        ForEach(cells, id: \.id) { cell in
+                            let decidingMonthly = primaryHasClaimed ? cell.spouseMonthly : cell.primaryMonthly
+                            Text(SSCalculationEngine.formatCurrency(decidingMonthly))
+                                .font(.system(size: 8))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 32)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-            }
 
-            // Legend
-            HStack(spacing: 16) {
-                legendItem(color: Color.UI.brandTeal, label: "Highest lifetime")
-                legendItem(color: Color.UI.brandTeal, label: "Current plan")
-                legendItem(color: Color.Chart.callout, label: "Selected")
+                // Legend
+                HStack(spacing: 16) {
+                    legendItem(color: Color.UI.brandTeal, label: "Highest lifetime")
+                    legendItem(color: Color.UI.brandTeal, label: "Current plan")
+                    legendItem(color: Color.Chart.callout, label: "Selected")
+                }
+                .padding(.top, 4)
             }
-            .padding(.top, 4)
         }
         .padding()
         .background(Color(PlatformColor.systemBackground))

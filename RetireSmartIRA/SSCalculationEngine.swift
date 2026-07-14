@@ -593,6 +593,101 @@ struct SSCalculationEngine {
         return cells
     }
 
+    /// Build a 1-D "strip" of combined lifetime benefits for the case where one spouse
+    /// has already locked in their claiming age (already claiming, or effectively
+    /// claimed because their current age has passed their planned claiming age) and the
+    /// other spouse is still deciding.
+    ///
+    /// `couplesMatrix` clamps EACH spouse's minimum age to `max(62, min(70, currentAge))`
+    /// to drop unactionable past strategies. That works fine when both spouses are still
+    /// deciding, but it also silently drops the claimed spouse's real locked age once
+    /// they're past it — so filtering the general matrix down to "the claimed spouse's
+    /// row/column" can return nothing at all. This function instead holds the claimed
+    /// spouse fixed at their true `lockedAge` and only varies the deciding spouse across
+    /// their actionable future range. It reuses the exact same per-cell math as
+    /// `couplesMatrix` (`benefitAtAge`, `spousalBenefit`, `survivorBenefit`,
+    /// `couplesLifetimeBenefit`) so the resulting numbers are consistent with the full matrix.
+    ///
+    /// - Parameters:
+    ///   - claimedIsPrimary: `true` if the primary is the spouse who has already claimed.
+    ///   - lockedAge: The claimed spouse's real (locked) claiming age.
+    ///   - decidingCurrentAge: The deciding spouse's current age. Their strip range starts
+    ///     at `max(62, min(70, decidingCurrentAge))` and always runs through 70.
+    static func couplesStrip(
+        primaryPIA: Double, primaryBirthYear: Int, primaryLifeExpectancy: Int,
+        spousePIA: Double, spouseBirthYear: Int, spouseLifeExpectancy: Int,
+        claimedIsPrimary: Bool, lockedAge: Int, decidingCurrentAge: Int,
+        colaRate: Double = 2.5, discountRate: Double = 0
+    ) -> [SSCouplesMatrixCell] {
+        let primaryFRA = fullRetirementAge(birthYear: primaryBirthYear)
+        let spouseFRA = fullRetirementAge(birthYear: spouseBirthYear)
+
+        let decidingMinAge = max(62, min(70, decidingCurrentAge))
+
+        var cells: [SSCouplesMatrixCell] = []
+        var bestLifetime = -Double.infinity
+        var bestIndex = -1
+
+        for decidingAge in decidingMinAge...70 {
+            let pAge = claimedIsPrimary ? lockedAge : decidingAge
+            let sAge = claimedIsPrimary ? decidingAge : lockedAge
+
+            let pOwnMonthly = benefitAtAge(claimingAge: pAge, pia: primaryPIA,
+                                            fraYears: primaryFRA.years, fraMonths: primaryFRA.months)
+            let sOwnMonthly = benefitAtAge(claimingAge: sAge, pia: spousePIA,
+                                            fraYears: spouseFRA.years, fraMonths: spouseFRA.months)
+
+            // Spousal top-up (deemed filing): each spouse may get a boost from the other's record
+            let sWithSpousal = spousalBenefit(workerPIA: primaryPIA, spouseOwnPIA: spousePIA,
+                                               spouseClaimingAge: sAge, spouseBirthYear: spouseBirthYear)
+            let pWithSpousal = spousalBenefit(workerPIA: spousePIA, spouseOwnPIA: primaryPIA,
+                                               spouseClaimingAge: pAge, spouseBirthYear: primaryBirthYear)
+
+            let pMonthly = max(pOwnMonthly, pWithSpousal)
+            let sMonthly = max(sOwnMonthly, sWithSpousal)
+
+            let survivorIfPrimaryDies = survivorBenefit(
+                survivorOwnBenefit: sMonthly, deceasedActualBenefit: pMonthly,
+                deceasedPIA: primaryPIA)
+            let survivorIfSpouseDies = survivorBenefit(
+                survivorOwnBenefit: pMonthly, deceasedActualBenefit: sMonthly,
+                deceasedPIA: spousePIA)
+
+            let combined = couplesLifetimeBenefit(
+                primaryMonthly: pMonthly, primaryClaimAge: pAge, primaryLifeExp: primaryLifeExpectancy,
+                spouseMonthly: sMonthly, spouseClaimAge: sAge, spouseLifeExp: spouseLifeExpectancy,
+                primaryOwnMonthly: pOwnMonthly, spouseOwnMonthly: sOwnMonthly,
+                survivorIfPrimaryDies: survivorIfPrimaryDies,
+                survivorIfSpouseDies: survivorIfSpouseDies,
+                colaRate: colaRate, discountRate: discountRate
+            )
+
+            cells.append(SSCouplesMatrixCell(
+                primaryClaimingAge: pAge,
+                spouseClaimingAge: sAge,
+                primaryMonthly: pMonthly,
+                spouseMonthly: sMonthly,
+                primaryOwnMonthly: pOwnMonthly,
+                spouseOwnMonthly: sOwnMonthly,
+                combinedLifetimeBenefit: combined,
+                survivorBenefitIfPrimaryDies: survivorIfPrimaryDies,
+                survivorBenefitIfSpouseDies: survivorIfSpouseDies,
+                isHighestLifetime: false
+            ))
+
+            if combined > bestLifetime {
+                bestLifetime = combined
+                bestIndex = cells.count - 1
+            }
+        }
+
+        if bestIndex >= 0 {
+            cells[bestIndex].isHighestLifetime = true
+        }
+
+        return cells
+    }
+
     /// Compute household lifetime benefit across both-alive and survivor phases.
     /// Weights both death orderings by 50/50 for a balanced estimate.
     /// When discountRate > 0, applies present-value discounting relative to age 62.
