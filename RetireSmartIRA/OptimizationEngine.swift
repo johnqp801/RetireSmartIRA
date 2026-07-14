@@ -319,13 +319,13 @@ struct OptimizationEngine {
     ) -> Result {
         switch approach {
         case .recommendedTaxMin:
-            // A5 (keep-best-of-candidates): the greedy minimizer does not always minimize its own
-            // objective — on ~1/3 of profiles a deterministic fill-to-bracket / limit-to-IRMAA
+            // A5 + I3 (keep-best-of-candidates): the greedy minimizer does not always minimize its
+            // own objective — on ~1/3 of profiles a deterministic fill-to-bracket / limit-to-IRMAA
             // ladder scores a LOWER objective (worst observed: MFJ/age63/$6M/CA, greedy $442k / 14%
-            // worse). Compute the greedy path, then (at heirWeight 0 — A5's scope, which includes
-            // the heir-frontier λ=0 endpoint; other λ keep the greedy heir-weighted path) also
-            // score the deterministic candidate ladders under the IDENTICAL objective and return
-            // the lowest, so "Minimize lifetime tax" can never be dominated on its own terms.
+            // worse). Compute the greedy path, then — at EVERY heir weight (I3: not only λ=0, so the
+            // heir-frontier's "toward heirs" points are de-dominated too) — score the deterministic
+            // candidate ladders under the IDENTICAL λ-weighted objective and return the lowest, so
+            // neither "Minimize lifetime tax" nor any frontier point can be dominated on its terms.
             let greedy = runGreedy(inputs: inputs, assumptions: assumptions,
                                    configProvider: configProvider, heirWeight: heirWeight)
             return keepBestOfCandidates(greedy: greedy.result, greedyConverged: greedy.converged,
@@ -632,17 +632,19 @@ struct OptimizationEngine {
     // lowest. Greedy is kept on ties — only a STRICTLY lower candidate substitutes — so this is a
     // pure no-op whenever the greedy already had the minimum objective.
     //
-    // Scope / gating: A5 targets `.recommendedTaxMin` at `heirWeight == 0` (the default "Minimize
-    // lifetime tax" recommendation and the heir-frontier λ=0 endpoint — the regime the INV13
-    // sweep found dominated). For λ > 0 the greedy heir-weighted path is returned unchanged, which
-    // also keeps the 6-point frontier cheap (only its λ=0 point runs the candidate ladders).
+    // Scope (I3): de-domination applies at EVERY heir weight, not only `heirWeight == 0`. The
+    // greedy heir-weighted path is dominated on the same ~1/3 of profiles at λ > 0 as at λ = 0, so
+    // gating this to λ = 0 left the heir-frontier's "toward heirs" points (λ > 0) using the raw,
+    // frequently-dominated greedy path — making the "Owner vs heirs" curve non-monotone / backwards
+    // (a "10% toward heirs" point costing MORE owner tax AND leaving heirs LESS). Scoring every
+    // frontier point under its OWN λ-weighted objective restores a proper (non-dominated) frontier.
     //
     // Perf gate: run the candidate ladders ONLY when the greedy did NOT converge. A converged
     // greedy is a fixed point, and every INV13-dominated profile ties to the non-convergence log,
     // so this skips the 12 extra ladders on the common (convergent) case — including the live
-    // tab's cold-start — while still fixing the dominated (non-convergent) profiles. Measured:
-    // converged cold-start stays at the ~1.6s baseline; only non-convergent recomputes pay the
-    // candidate cost.
+    // tab's cold-start — while still fixing the dominated (non-convergent) profiles at each weight.
+    // Measured: converged cold-start stays at the ~1.6s baseline; only non-convergent recomputes
+    // pay the candidate cost, so the frontier only pays it for the points that were actually wrong.
     private func keepBestOfCandidates(
         greedy: Result,
         greedyConverged: Bool,
@@ -651,7 +653,6 @@ struct OptimizationEngine {
         configProvider: TaxYearConfigProvider,
         heirWeight: Double
     ) -> Result {
-        guard heirWeight == 0 else { return greedy }
         guard !greedyConverged else { return greedy }
         // A cancelled / empty-horizon greedy Result carries objective 0 with an empty path; don't
         // run (or be beaten by) candidates in that case.

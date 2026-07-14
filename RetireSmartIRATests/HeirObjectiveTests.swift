@@ -188,6 +188,58 @@ struct HeirObjectiveTests {
         #expect(abs(r.points[0].pvDiscountFactor - expected) < 1e-6)
     }
 
+    // MARK: I3 — heir-frontier de-domination holds at EVERY weight (not only λ=0)
+
+    // A5 de-dominates `.recommendedTaxMin` only at heirWeight == 0, so the heir-frontier's
+    // λ>0 points return the raw (often dominated) greedy path — the "toward heirs" rows come
+    // out worse on BOTH axes. The guarantee "recommendedTaxMin is never beaten by a selectable
+    // approach on its own λ-weighted objective" must hold for every frontier weight.
+    @Test("I3: recommendedTaxMin is not dominated by a fill-to-bracket candidate at heir weight > 0")
+    func taxMinNotDominatedAtPositiveHeirWeight() {
+        // MFJ / age 63 / $6M / CA — the profile A5 documents as greedy-non-convergent and dominated.
+        let inputs = MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 6_000_000, roth: 0, taxable: 0, hsa: 0),
+            baseYear: 2026,
+            primaryCurrentAge: 63,
+            spouseCurrentAge: 63,
+            filingStatus: .marriedFilingJointly,
+            state: "CA",
+            primarySSClaimAge: 70,
+            spouseSSClaimAge: 70,
+            primaryExpectedBenefitAtFRA: 0,
+            spouseExpectedBenefitAtFRA: 0,
+            primaryBirthYear: 2026 - 63,
+            spouseBirthYear: 2026 - 63,
+            primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 0, spousePensionIncome: 0,
+            acaEnrolled: false,
+            acaHouseholdSize: 2,
+            primaryMedicareEnrollmentAge: 65,
+            spouseMedicareEnrollmentAge: 65,
+            baselineAnnualExpenses: 0,
+            heirSalary: 200_000,
+            heirFilingStatus: .single,
+            heirDrawdownYears: 10
+        )
+        let a = MultiYearAssumptions(
+            horizonEndAge: 95, horizonEndAgeSpouse: 95,
+            cpiRate: 0.025, investmentGrowthRate: 0.06,
+            withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
+            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+        let w = 0.10
+        let engine = OptimizationEngine()
+        let taxMin = engine.optimize(inputs: inputs, assumptions: a, configProvider: provider,
+                                     heirWeight: w, approach: .recommendedTaxMin)
+        let brackets = provider.config(forYear: 2026).toTaxBrackets().federalMarried
+        let rates = Array(Set(brackets.map { $0.rate })).sorted()
+        for rate in rates {
+            let cand = engine.optimize(inputs: inputs, assumptions: a, configProvider: provider,
+                                       heirWeight: w, approach: .fillToBracket(rate: rate))
+            #expect(taxMin.totalObjectiveCost <= cand.totalObjectiveCost + 1.0,
+                    "at w=\(w), taxMin objective \(taxMin.totalObjectiveCost) is dominated by fill-to-\(rate) \(cand.totalObjectiveCost)")
+        }
+    }
+
     // MARK: Task 7 — cross-view consistency
 
     @Test("Task7: frontier heir tax matches the single-year Legacy Impact primitive")
