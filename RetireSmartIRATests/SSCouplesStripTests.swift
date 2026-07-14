@@ -175,6 +175,14 @@ final class SSCouplesStripDataManagerTests: XCTestCase {
         XCTAssertFalse(strip.isEmpty)
         XCTAssertTrue(strip.allSatisfy { $0.primaryClaimingAge == 65 })
         XCTAssertEqual(Set(strip.map(\.spouseClaimingAge)), Set(63...70))
+
+        // SocialSecurityPlannerView.couplesStripBestCell selects the best strip cell via
+        // `.max(by: combinedLifetimeBenefit)`. Confirm that main-tab usage yields a real
+        // (non-nil) cell with the claimed spouse still locked at their true age. This is
+        // the exact call that used to return nil and blank the top-level SS tab.
+        let bestCell = strip.max(by: { $0.combinedLifetimeBenefit < $1.combinedLifetimeBenefit })
+        XCTAssertNotNil(bestCell)
+        XCTAssertEqual(bestCell?.primaryClaimingAge, 65)
     }
 
     func test_ssCouplesStrip_emptyWhenSpouseHasNoData() {

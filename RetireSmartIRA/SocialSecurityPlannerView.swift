@@ -980,6 +980,10 @@ struct SocialSecurityPlannerView: View {
                     .foregroundStyle(Color.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
+            } else if oneClaimedOnePlanning {
+                // One spouse claimed, but the strip is empty (e.g. the deciding spouse's
+                // FRA benefit estimate is missing). Explain rather than render nothing.
+                InlineHint("\(decidingSpouseName)'s Social Security benefit estimate is missing or incomplete, so no claiming-age comparison can be calculated yet. Enter their benefit estimates to see the couples recommendation here.")
             } else if let rec = dataManager.ssCouplesTopStrategy() {
                 // Both planning — show full matrix best
                 let primaryName = dataManager.userName.isEmpty ? "You" : dataManager.userName
@@ -1601,27 +1605,15 @@ struct SocialSecurityPlannerView: View {
         }
     }
 
-    /// The claimed spouse's actual claiming age (for filtering the matrix)
-    private var claimedSpouseActualAge: Int {
-        if primaryEffectivelyClaimed {
-            return dataManager.primarySSBenefit?.plannedClaimingAge ?? 67
-        } else {
-            return dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67
-        }
-    }
-
-    /// Best cell from the filtered 1×9 strip (locked to claimed spouse's actual age)
+    /// Best cell from the one-claimed strip (claimed spouse held at their true locked age).
+    /// Uses the dedicated `ssCouplesStrip()` engine strip rather than filtering the general
+    /// `ssCouplesMatrix()`: that matrix clamps each spouse's minimum age to their current
+    /// age, so once the claimed spouse is past their locked age (the whole premise of the
+    /// one-claimed case) that age is absent from the matrix and the old filter returned nil,
+    /// blanking the recommendation block on the main Social Security tab.
     private var couplesStripBestCell: SSCouplesMatrixCell? {
-        let matrix = dataManager.ssCouplesMatrix()
-        let filtered: [SSCouplesMatrixCell]
-        if primaryEffectivelyClaimed {
-            // Lock primary's age, vary spouse
-            filtered = matrix.filter { $0.primaryClaimingAge == claimedSpouseActualAge }
-        } else {
-            // Lock spouse's age, vary primary
-            filtered = matrix.filter { $0.spouseClaimingAge == claimedSpouseActualAge }
-        }
-        return filtered.max(by: { $0.combinedLifetimeBenefit < $1.combinedLifetimeBenefit })
+        dataManager.ssCouplesStrip()
+            .max(by: { $0.combinedLifetimeBenefit < $1.combinedLifetimeBenefit })
     }
 
     /// The name of the spouse who has already claimed
