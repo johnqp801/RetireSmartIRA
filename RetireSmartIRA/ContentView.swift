@@ -190,6 +190,7 @@ struct ContentView: View {
             WidthAwareContainer {
                 ipadDetailView
             }
+            .dismissableKeyboard()
         }
         .onChange(of: sidebarSelection) { _, newValue in
             if let newValue { selectedTab = newValue }
@@ -286,6 +287,7 @@ struct ContentView: View {
                 }
                 .tag(8)
         }
+        .dismissableKeyboard()
     }
 }
 

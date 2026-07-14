@@ -894,6 +894,7 @@ struct IncomeSourcesView: View {
                             .disabled(name.isEmpty || annualAmount.isEmpty)
                     }
                 }
+                .dismissableKeyboard()
                 .alert("Delete Income Source", isPresented: $showDeleteConfirmation) {
                     Button("Delete", role: .destructive) {
                         if let source = incomeToEdit,
@@ -1035,6 +1036,7 @@ struct IncomeSourcesView: View {
                             .disabled(name.isEmpty || annualAmount.isEmpty)
                     }
                 }
+                .dismissableKeyboard()
                 .alert("Delete Deduction", isPresented: $showDeleteConfirmation) {
                     Button("Delete", role: .destructive) {
                         if let item = deductionToEdit,

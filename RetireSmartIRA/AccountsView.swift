@@ -420,6 +420,7 @@ struct AddAccountView: View {
                     .disabled(name.isEmpty || balance.isEmpty)
                 }
             }
+            .dismissableKeyboard()
             .alert("Delete Account", isPresented: $showDeleteConfirmation) {
                 Button("Delete", role: .destructive) {
                     if let account = accountToEdit,

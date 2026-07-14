@@ -102,6 +102,7 @@ struct SSDataEntryView: View {
                 }
             }
             .onAppear { loadExistingData() }
+            .dismissableKeyboard()
             #if os(iOS)
             .fileImporter(
                 isPresented: $showXMLImporter,
