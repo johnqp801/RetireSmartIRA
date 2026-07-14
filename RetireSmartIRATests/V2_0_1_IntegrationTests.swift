@@ -37,7 +37,13 @@ final class V2_0_1_IntegrationTests: XCTestCase {
         manager.assumptions.assumptionsConfirmed = true
 
         manager.recompute(reason: .appLaunch)
-        try await waitFor(condition: { !manager.isComputing }, timeout: 5.0)
+        // A5 (keep-best-of-candidates): this $1.5M profile is NON-convergent, so the cold-start
+        // recompute runs the greedy PLUS the deterministic candidate ladders for BOTH the current
+        // and engine-optimal inputs (~2.5s each in DEBUG, ~2x = ~5s). This is a DEBUG smoke test;
+        // the authoritative cold-start perf gate is MultiYearStrategyManagerPerfTests (3000ms,
+        // which passes), and the shipped Release build runs each optimize sub-second (~4x faster
+        // than DEBUG). Loosen the wall-clock wait so this load check isn't a flaky perf gate.
+        try await waitFor(condition: { !manager.isComputing }, timeout: 15.0)
 
         XCTAssertNotNil(manager.engineOptimalResult)
         XCTAssertNotNil(manager.baselineProjection)

@@ -85,6 +85,15 @@ struct OptimizationEngine {
         let totalObjectiveCost: Double
     }
 
+    /// runGreedy's output plus whether its fixed-point iteration converged. A5 uses `converged`
+    /// to gate the (expensive) keep-best candidate sweep: a converged greedy is a fixed point and
+    /// the INV13-dominated profiles all tie to the non-convergence log, so candidates only run
+    /// when the greedy did NOT converge.
+    private struct GreedyOutcome {
+        let result: Result
+        let converged: Bool
+    }
+
     // MARK: - Candidate conversion amounts
     //
     // Fixed nominal amounts covering the typical bracket-filling targets:
@@ -310,13 +319,33 @@ struct OptimizationEngine {
     ) -> Result {
         switch approach {
         case .recommendedTaxMin:
-            break   // fall through to the existing greedy body below (unchanged)
+            // A5 (keep-best-of-candidates): the greedy minimizer does not always minimize its own
+            // objective — on ~1/3 of profiles a deterministic fill-to-bracket / limit-to-IRMAA
+            // ladder scores a LOWER objective (worst observed: MFJ/age63/$6M/CA, greedy $442k / 14%
+            // worse). Compute the greedy path, then (at heirWeight 0 — A5's scope, which includes
+            // the heir-frontier λ=0 endpoint; other λ keep the greedy heir-weighted path) also
+            // score the deterministic candidate ladders under the IDENTICAL objective and return
+            // the lowest, so "Minimize lifetime tax" can never be dominated on its own terms.
+            let greedy = runGreedy(inputs: inputs, assumptions: assumptions,
+                                   configProvider: configProvider, heirWeight: heirWeight)
+            return keepBestOfCandidates(greedy: greedy.result, greedyConverged: greedy.converged,
+                                        inputs: inputs, assumptions: assumptions,
+                                        configProvider: configProvider, heirWeight: heirWeight)
         case .fillToBracket, .limitToIRMAA:
             return runDeterministicLadder(approach: approach, inputs: inputs,
                                           assumptions: assumptions, configProvider: configProvider,
                                           heirWeight: heirWeight)
         }
+    }
 
+    // MARK: - Greedy lifetime-tax minimizer (the existing forward fixed-point body)
+
+    private func runGreedy(
+        inputs: MultiYearStaticInputs,
+        assumptions: MultiYearAssumptions,
+        configProvider: TaxYearConfigProvider,
+        heirWeight: Double
+    ) -> GreedyOutcome {
         let baseYear = inputs.baseYear
 
         // H3: the household horizon runs to the LATER of each spouse's endpoint, so a younger
@@ -335,7 +364,7 @@ struct OptimizationEngine {
 
         // Empty horizon (e.g., horizonEndAge < currentAge): return empty result
         guard horizonYears > 0 else {
-            return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0)
+            return GreedyOutcome(result: Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0), converged: true)
         }
 
         // ───────────────────────────────────────────────────────────
@@ -396,13 +425,13 @@ struct OptimizationEngine {
             // Cooperative cancellation (M8): when the manager cancels a superseded compute
             // (rapid slider changes), bail out of the expensive candidate sweep instead of
             // running it to completion. The caller discards a cancelled result.
-            if Task.isCancelled { return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0) }
+            if Task.isCancelled { return GreedyOutcome(result: Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0), converged: true) }
             iteration += 1
             let previousLocked = locked
 
             // ───── Inner forward greedy pass ─────
             for yearIdx in 0..<horizonYears {
-                if Task.isCancelled { return Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0) }
+                if Task.isCancelled { return GreedyOutcome(result: Result(recommendedPath: [], tradeOffsAccepted: [], totalObjectiveCost: 0), converged: true) }
                 let Y = baseYear + yearIdx
 
                 // Plan B Phase 1: if user has pinned Year 1 actions, skip optimization
@@ -524,58 +553,152 @@ struct OptimizationEngine {
             inputs: inputs, assumptions: assumptions, actionsPerYear: finalActions
         )
 
-        // ───────────────────────────────────────────────────────────
-        // Constraint acceptance rationale (objective includes terminal tax,
-        // matching the inner-loop comparison)
-        // ───────────────────────────────────────────────────────────
+        // Constraint acceptance rationale (objective includes terminal tax, matching the
+        // inner-loop comparison). Shared with keep-best so a promoted deterministic path carries
+        // the same annotated hits.
+        let acceptedHits = computeAcceptedHits(
+            forPath: finalPath, inputs: inputs, assumptions: assumptions,
+            configProvider: configProvider, heirWeight: heirWeight)
+
+        return GreedyOutcome(
+            result: Result(
+                recommendedPath: finalPath,
+                tradeOffsAccepted: acceptedHits,
+                totalObjectiveCost: Self.objectiveCost(
+                    path: finalPath, baseYear: baseYear, horizonYears: horizonYears,
+                    rate: assumptions.pvRealDiscountRate,
+                    terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
+                                                    selfRate: assumptions.terminalLiquidationTaxRate,
+                                                    heirWeight: heirWeight))
+            ),
+            converged: converged
+        )
+    }
+
+    // MARK: - Constraint-acceptance annotation (shared by greedy and keep-best)
+    //
+    // Detect the path's IRMAA/ACA/bracket crossings and accept each whose lifetime savings vs the
+    // no-conversion baseline covers its cost, attaching the acceptance rationale. This is the
+    // `recommendedTaxMin` contract for `tradeOffsAccepted`; a deterministic candidate promoted to
+    // recommendedTaxMin (keep-best) must carry the SAME annotated hits, since
+    // runDeterministicLadder's own `tradeOffsAccepted` are raw advisory crossings with no rationale.
+    private func computeAcceptedHits(
+        forPath finalPath: [YearRecommendation],
+        inputs: MultiYearStaticInputs,
+        assumptions: MultiYearAssumptions,
+        configProvider: TaxYearConfigProvider,
+        heirWeight: Double
+    ) -> [ConstraintHit] {
+        guard let first = finalPath.first, let last = finalPath.last else { return [] }
+        let baseYear = first.year
+        let endYear = last.year
+        let horizonYears = endYear - baseYear + 1
 
         let hits = ConstraintAcceptor().detect(
-            path: finalPath,
-            filingStatus: inputs.filingStatus,
-            householdSize: inputs.acaHouseholdSize,
-            configProvider: configProvider
-        )
+            path: finalPath, filingStatus: inputs.filingStatus,
+            householdSize: inputs.acaHouseholdSize, configProvider: configProvider)
 
         let baselineActions = Dictionary(
-            uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) }
-        )
+            uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) })
         let baselinePath = ProjectionEngine(configProvider: configProvider).project(
-            inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions
-        )
+            inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions)
         let rRate = assumptions.pvRealDiscountRate
-        let baselineLifetimeTax = Self.objectiveCost(
+        let baselineObjective = Self.objectiveCost(
             path: baselinePath, baseYear: baseYear, horizonYears: horizonYears, rate: rRate,
-            terminalTax: blendedTerminalTax(baselinePath, inputs: inputs, selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
-        let currentLifetimeTax = Self.objectiveCost(
+            terminalTax: blendedTerminalTax(baselinePath, inputs: inputs,
+                                            selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
+        let currentObjective = Self.objectiveCost(
             path: finalPath, baseYear: baseYear, horizonYears: horizonYears, rate: rRate,
-            terminalTax: blendedTerminalTax(finalPath, inputs: inputs, selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
-        let lifetimeSavings = baselineLifetimeTax - currentLifetimeTax
+            terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
+                                            selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
+        let lifetimeSavings = baselineObjective - currentObjective
 
-        var acceptedHits: [ConstraintHit] = []
+        var accepted: [ConstraintHit] = []
         for hit in hits {
             guard lifetimeSavings >= hit.cost else { continue }
             let rationale = ConstraintAcceptor().formatAcceptanceRationale(
-                lifetimeSavings: lifetimeSavings,
-                constraintCost: hit.cost
-            )
-            acceptedHits.append(ConstraintHit(
-                year: hit.year,
-                type: hit.type,
-                cost: hit.cost,
-                acceptanceRationale: rationale
-            ))
+                lifetimeSavings: lifetimeSavings, constraintCost: hit.cost)
+            accepted.append(ConstraintHit(year: hit.year, type: hit.type, cost: hit.cost,
+                                          acceptanceRationale: rationale))
+        }
+        return accepted
+    }
+
+    // MARK: - Keep-best-of-candidates (A5)
+    //
+    // Given the greedy `.recommendedTaxMin` Result, score the deterministic candidate ladders
+    // (fill-to-bracket at every federal rate in the config; limit-to-IRMAA at every tier) under
+    // the SAME heir-weighted objective the greedy's `totalObjectiveCost` uses, and return the
+    // lowest. Greedy is kept on ties — only a STRICTLY lower candidate substitutes — so this is a
+    // pure no-op whenever the greedy already had the minimum objective.
+    //
+    // Scope / gating: A5 targets `.recommendedTaxMin` at `heirWeight == 0` (the default "Minimize
+    // lifetime tax" recommendation and the heir-frontier λ=0 endpoint — the regime the INV13
+    // sweep found dominated). For λ > 0 the greedy heir-weighted path is returned unchanged, which
+    // also keeps the 6-point frontier cheap (only its λ=0 point runs the candidate ladders).
+    //
+    // Perf gate: run the candidate ladders ONLY when the greedy did NOT converge. A converged
+    // greedy is a fixed point, and every INV13-dominated profile ties to the non-convergence log,
+    // so this skips the 12 extra ladders on the common (convergent) case — including the live
+    // tab's cold-start — while still fixing the dominated (non-convergent) profiles. Measured:
+    // converged cold-start stays at the ~1.6s baseline; only non-convergent recomputes pay the
+    // candidate cost.
+    private func keepBestOfCandidates(
+        greedy: Result,
+        greedyConverged: Bool,
+        inputs: MultiYearStaticInputs,
+        assumptions: MultiYearAssumptions,
+        configProvider: TaxYearConfigProvider,
+        heirWeight: Double
+    ) -> Result {
+        guard heirWeight == 0 else { return greedy }
+        guard !greedyConverged else { return greedy }
+        // A cancelled / empty-horizon greedy Result carries objective 0 with an empty path; don't
+        // run (or be beaten by) candidates in that case.
+        guard !greedy.recommendedPath.isEmpty, !Task.isCancelled else { return greedy }
+
+        let cfg = configProvider.config(forYear: inputs.baseYear)
+        let brackets = cfg.toTaxBrackets()
+        let bracketArray = inputs.filingStatus == .single ? brackets.federalSingle : brackets.federalMarried
+        // Score EVERY federal rate the user can pick, low brackets included. A consistent fill-to-12%
+        // is frequently the tax-optimal strategy for modest-balance retirees, and the greedy's
+        // year-by-year myopia routinely MISSES it (measured: a $1M MFJ/SS household — greedy
+        // objective $154.5k vs fill-12 $110.5k, greedy 28% worse). Dropping low-rate candidates
+        // would leave recommendedTaxMin dominated by an approach the user could select, so the full
+        // set is required for the "never dominated" guarantee. Perf is bounded by the non-
+        // convergence gate above (this only runs on non-convergent profiles) and Release speed.
+        let rates = Array(Set(bracketArray.map { $0.rate })).sorted()
+
+        var candidateApproaches: [ConversionApproach] = rates.map { .fillToBracket(rate: $0) }
+        for tier in cfg.toIRMAATiers().map({ $0.tier }).sorted() where tier > 0 {
+            candidateApproaches.append(.limitToIRMAA(tier: tier, buffer: assumptions.cliffBuffer))
         }
 
+        var best = greedy
+        var substituted = false
+        for candidateApproach in candidateApproaches {
+            if Task.isCancelled { return best }
+            let candidate = runDeterministicLadder(
+                approach: candidateApproach, inputs: inputs, assumptions: assumptions,
+                configProvider: configProvider, heirWeight: heirWeight)
+            // Keep the incumbent on ties (strict `<`): greedy wins a tie against every candidate,
+            // and the first-encountered candidate wins a tie against later ones (stable order).
+            if !candidate.recommendedPath.isEmpty && candidate.totalObjectiveCost < best.totalObjectiveCost {
+                best = candidate
+                substituted = true
+            }
+        }
+        guard substituted else { return greedy }
+
+        // A deterministic candidate won. Re-annotate its accepted hits via the recommendedTaxMin
+        // acceptance logic so the promoted path carries the same rationale contract as the greedy
+        // path (runDeterministicLadder's `tradeOffsAccepted` are raw advisory crossings).
         return Result(
-            recommendedPath: finalPath,
-            tradeOffsAccepted: acceptedHits,
-            totalObjectiveCost: Self.objectiveCost(
-                path: finalPath, baseYear: baseYear, horizonYears: horizonYears,
-                rate: assumptions.pvRealDiscountRate,
-                terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
-                                                selfRate: assumptions.terminalLiquidationTaxRate,
-                                                heirWeight: heirWeight))
-        )
+            recommendedPath: best.recommendedPath,
+            tradeOffsAccepted: computeAcceptedHits(
+                forPath: best.recommendedPath, inputs: inputs, assumptions: assumptions,
+                configProvider: configProvider, heirWeight: heirWeight),
+            totalObjectiveCost: best.totalObjectiveCost)
     }
 
     // MARK: - Deterministic ladders (.fillToBracket / .limitToIRMAA)

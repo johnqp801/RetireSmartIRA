@@ -64,11 +64,18 @@ struct RothLadderHandComputedTests {
             "Pre-SS cumulative conversions should be $560K-$950K (hand-computed lower, actual upper); got \(preSSConversions)")
     }
 
-    @Test("Conversions taper or stop after SS starts")
+    @Test("Post-SS conversions stay in the low bracket (no over-conversion into 22%+)")
     func conversionsTaperAfterSS() {
-        // Same profile as above. Once SS starts at age 67 (year 7), additional
-        // conversions push into 22%+ brackets, so the optimizer should converge
-        // to $0 or much smaller amounts in those years.
+        // Same profile as above. The ORIGINAL premise here was that post-SS conversions should
+        // "taper to ~$0" because additional conversion pushes into 22%+. A5 (keep-best-of-
+        // candidates) corrected recommendedTaxMin to the true objective minimum, which for this
+        // household is a SUSTAINED fill-to-12% every year: SS is only partly taxable and the 12%
+        // bracket still has room, so it is cheaper to keep filling 12% post-SS than to defer into
+        // future RMDs. Measured objective: greedy $154.5k → fill-12 $110.5k (greedy was 28% worse),
+        // so the greedy "taper" was myopia, not optimality. The conversions therefore do NOT taper;
+        // they continue at the 12% ceiling (~$300K across years 7-12). What the optimizer must NOT
+        // do is over-convert into 22%+ — assert that instead: recommendedTaxMin's objective beats
+        // every higher-bracket fill, i.e. the low-bracket discipline is genuinely optimal here.
         let inputs = MultiYearStaticInputs(
             startingBalances: AccountSnapshot(
                 traditional: 1_000_000,
@@ -94,17 +101,26 @@ struct RothLadderHandComputedTests {
         assumptions.horizonEndAge = 90
         assumptions.stressTestEnabled = false
 
-        let result = OptimizationEngine().optimize(inputs: inputs, assumptions: assumptions)
+        let engine = OptimizationEngine()
+        let result = engine.optimize(inputs: inputs, assumptions: assumptions)
 
-        // Years 7-12 (ages 67-72, post-SS pre-RMD)
+        // The optimal recommendation must NOT over-convert into higher brackets: its lifetime-tax
+        // objective beats (or ties) every higher-bracket fill. This is the corrected form of the
+        // original "don't push into 22%+" intent — for this household the low-bracket fill wins.
+        for rate in [0.22, 0.24, 0.32] {
+            let higher = engine.optimize(inputs: inputs, assumptions: assumptions,
+                                         approach: .fillToBracket(rate: rate)).totalObjectiveCost
+            #expect(result.totalObjectiveCost <= higher + 1.0,
+                "recommendedTaxMin should not be beaten by the more aggressive fill-to-\(rate) here")
+        }
+
+        // Sanity: post-SS conversions are a bounded, sustained low-bracket fill (not exploding and
+        // not the old near-zero taper). Years 7-12 (ages 67-72, post-SS pre-RMD).
         let postSSConversions = result.recommendedPath[7..<min(13, result.recommendedPath.count)]
             .flatMap { $0.actions }
             .compactMap { if case .rothConversion(let a) = $0 { return a } else { return nil } }
             .reduce(0.0, +)
-
-        // Conversions should drop dramatically — at most $200K total across 6 years
-        // (vs. $560K+ in just the first 7 years).
-        #expect(postSSConversions <= 200_000,
-            "Post-SS conversions should taper; expected ≤$200K across 6 years, got \(postSSConversions)")
+        #expect(postSSConversions > 0 && postSSConversions <= 500_000,
+            "Post-SS conversions should be a bounded 12%-bracket fill; got \(postSSConversions)")
     }
 }
