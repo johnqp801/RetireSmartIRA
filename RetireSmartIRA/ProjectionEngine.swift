@@ -706,6 +706,7 @@ struct ProjectionEngine {
                 taxableSS: taxableSS,
                 pensionIncome: pensionIncome,
                 totalTradWithdrawals: totalTradWithdrawals,
+                explicitRothConversions: explicitRothConversions,
                 filingStatus: inputs.filingStatus,
                 usState: usState,
                 primaryAge: primaryAge,
@@ -869,7 +870,8 @@ struct ProjectionEngine {
                                                                      max(0, taxableIncome + dW))) - federalTax
                     let st = computeStateTax(
                         federalAGI: federalAGI + dW + max(0, saleGain), taxableSS: taxableSS, pensionIncome: pensionIncome,
-                        totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
+                        totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
+                        filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
                         year: year) - stateTax
                     return max(0, fed) + max(0, st)
@@ -934,7 +936,8 @@ struct ProjectionEngine {
                         preferentialIncome: reportedTaxablePreferential)
                     stTax = computeStateTax(
                         federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
-                        totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
+                        totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
+                        filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year)
                     underfundedTax = max(0, (fedTax + stTax + nonFedState) - saleCash - dW)
                 }
@@ -1296,6 +1299,7 @@ struct ProjectionEngine {
         taxableSS: Double,
         pensionIncome: Double,
         totalTradWithdrawals: Double,
+        explicitRothConversions: Double,
         filingStatus: FilingStatus,
         usState: USState,
         primaryAge: Int,
@@ -1321,6 +1325,10 @@ struct ProjectionEngine {
         }
 
         let hasSpouse = spouseBirthYear != nil
+        // Forward the year's Roth conversion so states that exempt conversions for eligible
+        // owners (PA/IL/MS) correctly subtract it. Multi-year uses gross-up funding, not
+        // conversion withholding, so the withholding amount is 0 (the full conversion is exempt
+        // where the state exempts it). Inert for states with no conversion exemption. (I1)
         return TaxCalculationEngine.calculateStateTax(
             income: federalAGI,
             forState: usState,
@@ -1330,7 +1338,9 @@ struct ProjectionEngine {
             currentAge: primaryAge,
             enableSpouse: hasSpouse,
             spouseBirthYear: spouseBirthYear ?? 0,
-            currentYear: year
+            currentYear: year,
+            scenarioRothConversionAmount: explicitRothConversions,
+            scenarioRothConversionWithholdingAmount: 0
         )
     }
 }

@@ -102,6 +102,22 @@ struct ProjectionEngineTests {
         #expect(abs(years[0].endOfYearBalances.roth - 159_000) < 1.0)
     }
 
+    @Test("PA resident 59½+: Roth conversion is exempt from PA state tax (multi-year)")
+    func paConversionExemptFromMultiYearStateTax() {
+        // Pennsylvania does not tax Roth conversions once the owner has reached 59½.
+        // A 62-year-old PA resident converting $100k with no other PA-taxable income
+        // should owe ~$0 PA state tax on the conversion. The single-year engine already
+        // exempts it; the multi-year projection must too (I1).
+        let inputs = makeInputs(currentAge: 62, traditional: 1_000_000, state: "PA")
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 100_000)]]
+        )
+        #expect(years[0].taxBreakdown.state < 1.0)
+    }
+
     @Test("Multi-year horizon: growth compounds")
     func multiYearCompoundsGrowth() {
         let inputs = makeInputs(traditional: 100_000)
