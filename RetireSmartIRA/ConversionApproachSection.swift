@@ -108,13 +108,15 @@ struct ConversionApproachSection: View {
 
     private var fillToBracketChips: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Converts until ordinary taxable income reaches the top of the chosen bracket.")
+            Text("Converts until ordinary taxable income (not total AGI) reaches the top of the chosen bracket.")
                 .font(.caption).foregroundStyle(.secondary)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(Array(brackets.enumerated()), id: \.offset) { index, bracket in
                     bracketChip(bracket, ceiling: index + 1 < brackets.count ? brackets[index + 1].threshold : nil)
                 }
             }
+            Text("AGI can be higher than the bracket top: qualified dividends and capital gains stack on top of ordinary income and are taxed separately.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
