@@ -8,6 +8,28 @@
 
 import SwiftUI
 
+/// Pure, testable heat-map color bucketing for the couples claiming-age matrix.
+///
+/// Maps a cell's `combinedLifetimeBenefit`, normalized across the matrix's
+/// ACTUAL min/max, into one of three ordered teal-ramp buckets: lightest
+/// (bottom third — weakest strategies), mid, darkest (top third — strongest
+/// strategies). A degenerate matrix (min == max, e.g. every cell tied) falls
+/// back to the mid bucket rather than dividing by zero or defaulting to gray.
+enum SSCouplesMatrixColor {
+    static func color(for value: Double, min matrixMin: Double, max matrixMax: Double) -> Color {
+        guard matrixMax > matrixMin else { return Color.Chart.tealRamp3 }
+        let normalized = Swift.min(Swift.max((value - matrixMin) / (matrixMax - matrixMin), 0), 1)
+        switch normalized {
+        case ..<(1.0 / 3.0):
+            return Color.Chart.tealRamp5
+        case ..<(2.0 / 3.0):
+            return Color.Chart.tealRamp3
+        default:
+            return Color.Chart.tealRamp1
+        }
+    }
+}
+
 struct SSCouplesStrategyView: View {
     @Environment(DataManager.self) var dataManager
     @Environment(\.dismiss) private var dismiss
@@ -904,7 +926,6 @@ struct SSCouplesStrategyView: View {
         let sAges = Array(spouseMin...70)
         let maxVal = matrix.map(\.combinedLifetimeBenefit).max() ?? 1
         let minVal = matrix.map(\.combinedLifetimeBenefit).min() ?? 0
-        let range = maxVal - minVal
 
         let currentPrimaryAge = dataManager.primarySSBenefit?.plannedClaimingAge ?? 67
         let currentSpouseAge = dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67
@@ -938,7 +959,8 @@ struct SSCouplesStrategyView: View {
                         if let cell = cell {
                             matrixCellView(
                                 cell: cell,
-                                intensity: range > 0 ? (cell.combinedLifetimeBenefit - minVal) / range : 0.5,
+                                minVal: minVal,
+                                maxVal: maxVal,
                                 isCurrent: pAge == currentPrimaryAge && sAge == currentSpouseAge
                             )
                         }
@@ -948,7 +970,7 @@ struct SSCouplesStrategyView: View {
         }
     }
 
-    private func matrixCellView(cell: SSCouplesMatrixCell, intensity: Double, isCurrent: Bool) -> some View {
+    private func matrixCellView(cell: SSCouplesMatrixCell, minVal: Double, maxVal: Double, isCurrent: Bool) -> some View {
         let abbreviated = abbreviatedCurrency(cell.combinedLifetimeBenefit)
         let isSelected = selectedCell?.primaryClaimingAge == cell.primaryClaimingAge &&
                          selectedCell?.spouseClaimingAge == cell.spouseClaimingAge
@@ -956,7 +978,7 @@ struct SSCouplesStrategyView: View {
             .font(.system(size: 9))
             .frame(maxWidth: .infinity)
             .frame(height: 32)
-            .background(cellColor(intensity: intensity, isHighestLifetime: cell.isHighestLifetime))
+            .background(cellColor(value: cell.combinedLifetimeBenefit, min: minVal, max: maxVal, isHighestLifetime: cell.isHighestLifetime))
             .clipShape(RoundedRectangle(cornerRadius: 3))
             .overlay(
                 RoundedRectangle(cornerRadius: 3)
@@ -972,17 +994,16 @@ struct SSCouplesStrategyView: View {
             }
     }
 
-    private func cellColor(intensity: Double, isHighestLifetime: Bool) -> Color {
+    private func cellColor(value: Double, min matrixMin: Double, max matrixMax: Double, isHighestLifetime: Bool) -> Color {
         if isHighestLifetime {
             return Color.UI.brandTeal.opacity(0.30)
         }
-        // Sequential heatmap: brand-teal opacity ramp (low intensity → near-clear,
-        // high intensity → ~80% of the highest-cell opacity). Spec §5 forbids
-        // semantic green/red gradients in charts; the brand-teal-opacity ramp
-        // gives an ordered "more = darker" visual without bleeding semantic
-        // meaning into chart chrome.
-        let clamped = min(max(intensity, 0), 1)
-        return Color.UI.brandTeal.opacity(0.04 + clamped * 0.20)
+        // 3-color sequential heatmap (worst/mid/best thirds of the matrix's
+        // actual value range) using the app's teal chart ramp. Spec §5 forbids
+        // semantic green/red gradients in charts; the ordered teal ramp gives
+        // a clear "more = darker" visual without bleeding semantic meaning
+        // into chart chrome. See SSCouplesMatrixColor for the pure mapping.
+        return SSCouplesMatrixColor.color(for: value, min: matrixMin, max: matrixMax)
     }
 
     private func abbreviatedCurrency(_ value: Double) -> String {
@@ -1134,7 +1155,6 @@ struct SSCouplesStrategyView: View {
         let cells = filteredStripCells
         let maxVal = cells.map(\.combinedLifetimeBenefit).max() ?? 1
         let minVal = cells.map(\.combinedLifetimeBenefit).min() ?? 0
-        let range = maxVal - minVal
 
         let currentDecidingAge = primaryHasClaimed
             ? (dataManager.spouseSSBenefit?.plannedClaimingAge ?? 67)
@@ -1175,10 +1195,9 @@ struct SSCouplesStrategyView: View {
                         .frame(width: 28, height: 48)
                         .foregroundStyle(.secondary)
                     ForEach(cells, id: \.id) { cell in
-                        let intensity = range > 0 ? (cell.combinedLifetimeBenefit - minVal) / range : 0.5
                         let decidingAge = primaryHasClaimed ? cell.spouseClaimingAge : cell.primaryClaimingAge
                         let isCurrent = decidingAge == currentDecidingAge
-                        stripCellView(cell: cell, intensity: intensity, isCurrent: isCurrent)
+                        stripCellView(cell: cell, minVal: minVal, maxVal: maxVal, isCurrent: isCurrent)
                     }
                 }
 
@@ -1213,7 +1232,7 @@ struct SSCouplesStrategyView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 
-    private func stripCellView(cell: SSCouplesMatrixCell, intensity: Double, isCurrent: Bool) -> some View {
+    private func stripCellView(cell: SSCouplesMatrixCell, minVal: Double, maxVal: Double, isCurrent: Bool) -> some View {
         let abbreviated = abbreviatedCurrency(cell.combinedLifetimeBenefit)
         let isSelected = selectedCell?.primaryClaimingAge == cell.primaryClaimingAge &&
                          selectedCell?.spouseClaimingAge == cell.spouseClaimingAge
@@ -1226,7 +1245,7 @@ struct SSCouplesStrategyView: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 48)
-        .background(cellColor(intensity: intensity, isHighestLifetime: isBest))
+        .background(cellColor(value: cell.combinedLifetimeBenefit, min: minVal, max: maxVal, isHighestLifetime: isBest))
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .overlay(
             RoundedRectangle(cornerRadius: 5)
