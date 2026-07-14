@@ -45,11 +45,13 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     /// IRA drains — this field is the single source of truth for conversion-amount reporting
     /// (B4 root cause 2, 2026-07-13). Defaults to 0 for back-compat with existing call sites.
     let executedRothConversion: Double
-    /// The ADDITIONAL traditional-IRA withdrawal taken to pay this year's conversion tax when the
-    /// taxable bucket was short (the Step-7 gross-up, `.taxableThenGrossUp`). 0 when taxable funds
-    /// covered the tax bill in full, or when `.external` funding is in effect. Surfaced so the UI
-    /// can disclose total IRA outflow separately from the conversion amount itself — "convert $Y"
-    /// alone understates total IRA depletion when a gross-up fires (A4, 2026-07-13).
+    /// The ADDITIONAL traditional-IRA withdrawal taken to pay this year's total tax bill (federal +
+    /// state + IRMAA + ACA + NIIT, across pension/RMD/SS/wages/conversion) when the taxable bucket
+    /// was short (the Step-7 gross-up, `.taxableThenGrossUp`). Not conversion-tax-only — a year with
+    /// zero conversion can still have a gross-up. 0 when taxable funds covered the tax bill in full,
+    /// or when `.external` funding is in effect. Surfaced so the UI can disclose total IRA outflow
+    /// separately from the conversion amount itself — "convert $Y" alone understates total IRA
+    /// depletion when a gross-up fires (A4, 2026-07-13).
     let taxFundingWithdrawal: Double
 
     init(

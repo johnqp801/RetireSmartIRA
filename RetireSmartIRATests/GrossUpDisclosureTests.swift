@@ -13,11 +13,26 @@ struct GrossUpDisclosureTests {
     private func inputs(trad: Double, taxable: Double) -> MultiYearStaticInputs {
         MultiYearStaticInputs(
             startingBalances: AccountSnapshot(traditional: trad, roth: 0, taxable: taxable, hsa: 0),
-            baseYear: 2026, primaryCurrentAge: 66, spouseCurrentAge: nil, filingStatus: .single, state: "CA",
+            baseYear: 2026, primaryCurrentAge: 66, spouseCurrentAge: nil, filingStatus: .single, state: "TX",
             primarySSClaimAge: 70, spouseSSClaimAge: nil, primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
             primaryBirthYear: 1960, spouseBirthYear: nil, primaryWageIncome: 0, spouseWageIncome: 0,
             primaryPensionIncome: 0, spousePensionIncome: 0, acaEnrolled: false, acaHouseholdSize: 1,
             primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil, baselineAnnualExpenses: 0,
+            heirSalary: 75_000, heirFilingStatus: .single, heirDrawdownYears: 10)
+    }
+
+    /// Pinned-tax fixture for a zero-conversion year with a real tax bill: age 76 (RMDs active),
+    /// large pension, gross-up funding, no conversion actions anywhere. Proves taxFundingWithdrawal
+    /// is scoped to the WHOLE year's tax bill (federal + state + IRMAA + ACA + NIIT on
+    /// pension/RMD/SS/wages), not conversion tax only — the reviewer's core finding on A4.
+    private func noConversionInputs() -> MultiYearStaticInputs {
+        MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 3_000_000, roth: 0, taxable: 0, hsa: 0),
+            baseYear: 2026, primaryCurrentAge: 76, spouseCurrentAge: nil, filingStatus: .single, state: "TX",
+            primarySSClaimAge: 70, spouseSSClaimAge: nil, primaryExpectedBenefitAtFRA: 0, spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1950, spouseBirthYear: nil, primaryWageIncome: 0, spouseWageIncome: 0,
+            primaryPensionIncome: 300_000, spousePensionIncome: 0, acaEnrolled: false, acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil, baselineAnnualExpenses: 400_000,
             heirSalary: 75_000, heirFilingStatus: .single, heirDrawdownYears: 10)
     }
     private func assumptions(_ src: TaxPaymentSource) -> MultiYearAssumptions {
@@ -56,5 +71,15 @@ struct GrossUpDisclosureTests {
             inputs: inputs(trad: 1_000_000, taxable: 0), assumptions: assumptions(.taxableThenGrossUp),
             actionsPerYear: [2026: []])
         #expect(p[0].taxFundingWithdrawal == 0)
+    }
+
+    @Test("taxFundingWithdrawal is > 0 in a zero-conversion year with a large pension tax bill — the field funds the WHOLE year's tax, not conversion tax only")
+    func grossUpFiresWithZeroConversion() {
+        let p = ProjectionEngine(configProvider: provider).project(
+            inputs: noConversionInputs(), assumptions: assumptions(.taxableThenGrossUp),
+            actionsPerYear: [2026: []])
+        let rec = p[0]
+        #expect(rec.executedRothConversion == 0)
+        #expect(rec.taxFundingWithdrawal > 0)
     }
 }

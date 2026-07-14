@@ -10,8 +10,9 @@ struct LadderRow: Identifiable, Equatable, Sendable {
     /// minus the no-conversion baseline's IRMAA for the same year, floored at 0. A year whose
     /// surcharge the user's other income would trigger anyway shows 0 here (not flagged).
     let irmaaSurcharge: Double
-    /// A4: the ADDITIONAL traditional-IRA withdrawal taken to pay this year's conversion tax when
-    /// taxable funds were short (the gross-up). 0 when taxable covered the tax bill in full.
+    /// A4: the ADDITIONAL traditional-IRA withdrawal taken to pay this year's total tax bill when
+    /// taxable funds were short (the gross-up) — not conversion-tax-only; a zero-conversion year can
+    /// still have a gross-up. 0 when taxable covered the tax bill in full.
     /// Surfaced so "convert $Y" is not read as the whole IRA outflow for the year.
     let taxFundingWithdrawal: Double
 

@@ -231,9 +231,10 @@ enum MultiYearCPABriefingHTML {
         """
     }
 
-    /// A4: lists, year by year, the ADDITIONAL IRA withdrawal taken to fund that year's conversion
-    /// tax when taxable funds were short (the gross-up). Already folded into "End Trad" above, but
-    /// broken out here so total IRA outflow for the year is not read as the conversion amount alone.
+    /// A4: lists, year by year, the ADDITIONAL IRA withdrawal taken to fund that year's total tax
+    /// bill when taxable funds were short (the gross-up) — not conversion-tax-only; a zero-conversion
+    /// year can still show a gross-up. Already folded into "End Trad" above, but broken out here so
+    /// total IRA outflow for the year is not read as the conversion amount alone.
     /// Empty when no gross-up fired anywhere in the plan.
     private static func taxFundingWithdrawalNote(_ m: CPABriefingModel) -> String {
         let items = m.yearRows.filter { $0.taxFundingWithdrawal > 0 }
@@ -241,7 +242,7 @@ enum MultiYearCPABriefingHTML {
             .joined()
         guard !items.isEmpty else { return "" }
         return """
-        <div class="note">Additional IRA withdrawals taken to pay conversion tax (already reflected in End Trad above):
+        <div class="note">Additional IRA withdrawals taken to pay the year's tax (already reflected in End Trad above):
         <ul>\(items)</ul></div>
         """
     }
