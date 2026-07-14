@@ -288,6 +288,10 @@ struct SettingsView: View {
                 TabPurposeChip(purpose: .inputs)
             }
         }
+        // Directly attach the keyboard-dismiss accessory to this form's own
+        // NavigationStack so the numeric birth-year fields are covered even if a
+        // TabView-ancestor toolbar would not propagate here (Alan feedback #1).
+        .dismissableKeyboard()
         .onChange(of: dataManager.birthDate) { dataManager.saveAllData() }
         .onChange(of: dataManager.filingStatus) { dataManager.saveAllData() }
         .onChange(of: dataManager.selectedState) { dataManager.saveAllData() }
