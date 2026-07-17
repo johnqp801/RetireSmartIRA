@@ -486,19 +486,13 @@ struct ProjectionEngine {
             // ─────────────────────────────────────────
             // Step 4: Compute expenses and auto-funding
             // ─────────────────────────────────────────
-            let annualExpenses: Double = {
-                if let ov = assumptions.perYearOverrides[year]?.livingExpenses,
-                   let oneTime = ov.oneTimeAmount {
-                    let yearsFromBase = max(0, year - scenarioBaseYear)
-                    let base = inputs.baselineAnnualExpenses * pow(1.0 + assumptions.cpiRate, Double(yearsFromBase))
-                    return max(0, base + oneTime)
-                }
-                // H4: inflate the baseline (stated in today's dollars) by CPI so expenses stay
-                // consistent with COLA-adjusted Social Security. Without this, flat-nominal
-                // expenses understated late-horizon withdrawals and overstated end balances.
-                let yearsFromBase = max(0, year - scenarioBaseYear)
-                return inputs.baselineAnnualExpenses * pow(1.0 + assumptions.cpiRate, Double(yearsFromBase))
-            }()
+            // H4: inflate the baseline (stated in today's dollars) by CPI so expenses stay
+            // consistent with COLA-adjusted Social Security. Per-year recurring anchors and
+            // one-time adjustments (2.1.2) layer on top via ExpenseResolution.
+            let annualExpenses = ExpenseResolution.expense(
+                year: year, baseYear: scenarioBaseYear,
+                baselineAnnualExpenses: inputs.baselineAnnualExpenses,
+                cpiRate: assumptions.cpiRate, overrides: assumptions.perYearOverrides)
 
             let wageIncome = inputs.primaryWageIncome + inputs.spouseWageIncome
             let pensionIncome = inputs.primaryPensionIncome + inputs.spousePensionIncome
