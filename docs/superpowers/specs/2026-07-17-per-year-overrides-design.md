@@ -14,7 +14,7 @@ The Multi-Year plan projects every future year forward from the user's Year-1 in
 Alan's request decomposes into three parts:
 
 1. **See** future-year projections (income, taxes, RMD). **Already exists** — the Multi-Year tab renders these per year across the whole horizon. This is a discoverability matter, not a missing feature.
-2. **Enter** future expenses. Engine already supports a per-year expense map; only the editing UI is missing.
+2. **Enter** future expenses. The engine already supports **single-year absolute** overrides (`perYearExpenseOverrides`), so that slice is UI-only — but the **recurring-anchor** behavior in this design is **new engine work** (see §8), not just a UI over an existing capability.
 3. **Enter** future income (wages, pension, other). **Does not exist** — no per-year income model. This is the larger, still-required piece.
 
 **This release addresses part 2 (per-year expense entry), with the full model designed so income slots in later.** The per-year edit affordances make the projection rows more interactive, but 2.1.2 adds **no dedicated discoverability feature** for part 1 — surfacing "the tab already projects your future years" (onboarding / a nudge) remains a **separate open item**. **Future-year income entry (part 3) remains necessary to satisfy Alan's complete request** and is called out again in Scope.
@@ -75,13 +75,15 @@ Example: legacy $120k over an original baseline of $100k → `oneTimeAmount = $2
 
 **Where it runs:** computing `originalBaseline(Y)` needs `baselineAnnualExpenses`, `cpiRate`, **and** `baseYear`. `MultiYearAssumptions` (home of the override map) has the first two but not `baseYear` (it comes from the inputs / plan base year). Migration therefore runs at a **load-time upgrade step that has access to all three**, not as a bare `Codable` decode. Until that step runs, a decoded plan is not yet in the new representation — the upgrade step is the single point that rewrites legacy → new.
 
+**Idempotent and atomic.** The upgrade converts legacy → delta **only** when the plan is still at the pre-feature schema, and **sets the new schema version only after conversion succeeds**. Reopening an already-upgraded plan (schema already current) is a **no-op** — the legacy-to-delta subtraction must never run twice (a second pass would subtract the baseline again and corrupt the values). If conversion fails partway, the plan is left at the old schema unchanged (retry-safe), never half-converted. Test: **upgrading an already-upgraded plan produces no further change.**
+
 **Test with materially different values** (legacy ≫ baseline, legacy ≪ baseline, and multiple legacy years at once) — a round-trip test alone would not catch the double-count.
 
 ### Persistence version
 
 - The **new app reads legacy plans** (via the upgrade step above) and reads its own new format.
-- Migration is **one-way**: once a plan is saved in the new `perYearOverrides` shape, an **older app version can no longer read the per-year overrides** (its decoder expects `perYearExpenseOverrides`). This is acceptable for a single-user app that updates in place, but is stated explicitly so it's a conscious choice.
-- Add a **schema version marker** to the persisted plan (e.g. `perYearOverridesSchema = 1`) so future migrations can branch on version rather than sniffing keys, and so an older app can at least detect (and safely ignore) an unreadable newer block instead of failing to load the whole plan.
+- Migration is **one-way**, and **downgrading to an older app version is unsupported and may lose per-year overrides.** Once a plan is saved in the new `perYearOverrides` shape, an already-released older app cannot recognize it — its decoder expects `perYearExpenseOverrides`, so it will load the plan **without** the per-year overrides and, if it saves again, **discard** them. Acceptable for a single-user app that updates in place, but stated explicitly.
+- Add a **schema version marker** to the persisted plan (e.g. `perYearOverridesSchema = 1`). This protects **current and future** migrations (they branch on version rather than sniff keys); it does **not** help already-released versions, which were never programmed to look for it.
 - Decode is defensive: a missing/legacy key path yields no overrides (never a decode failure), matching the existing `decodeIfPresent` pattern used elsewhere in the models.
 
 ---
@@ -131,7 +133,7 @@ The Multi-Year projection already lists every year (the ladder / projection rows
 - **Explicit edit affordance** on each year row (an edit icon / "Customize" control) — never a hidden tap, which would repeat the discoverability problem this feature partly addresses.
 - A row shows a **badge only when it has a real override** (see Empty records below) — not merely because a dictionary entry exists.
 - The control opens a **`YearDetailEditor`** sheet for that year. For living expenses it shows:
-  - the **effective projected value, read-only**, as reference — defined as the baseline **incorporating earlier recurring anchors but excluding this year's own one-time adjustment** (the "what this year would be without a one-time change" figure), labeled with the year and a today's-dollars caption for anchoring;
+  - a **read-only reference value** labeled **"Projected before this year's adjustments"** — the baseline that incorporates **earlier** recurring anchors but **excludes both** of *this* year's own overrides (its recurring level and its one-time amount). It is the "what this year would be if you cleared this year's edits" figure, with a today's-dollars caption for anchoring. (This year's saved recurring level and one-time amount are shown in their editable fields below, not folded into the reference.)
   - two **clearly-labeled** override inputs, e.g. **"Ongoing annual expenses beginning in {year}"** (the recurring level) and **"One-time adjustment in {year} (+/−)"** (the one-time amount) — so a one-time entry is never misread as "the total for the year";
   - a note that a **negative** one-time adjustment is allowed (the resolved expense is floored at $0);
   - a **Clear** action.
@@ -168,6 +170,7 @@ Adding the recurring / one-time model is **new projection semantics, new persist
 - Legacy `[Int: Double]` → additive delta via `legacy − originalBaseline(Y)`, verified with **materially different** values: legacy ≫ baseline (double-count would be caught), legacy ≪ baseline, and a legacy value equal to the baseline (→ `oneTimeAmount == 0`).
 - **Multiple** legacy years migrate together, each preserved.
 - The migrated plan's **computed expenses equal the pre-migration computed expenses** (behavior-preserving assertion on the resolved values, not just the stored representation).
+- **Idempotency:** upgrading an already-upgraded plan produces **no further change** (the legacy-to-delta subtraction never runs twice).
 - New-model encode/decode round-trip; defensive decode of a plan with no override block.
 
 **Resolution semantics:**
