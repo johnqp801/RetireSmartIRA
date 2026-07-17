@@ -67,6 +67,80 @@ struct HeirFrontierCoordinator {
                 recommendedPath: result.recommendedPath)
         }
 
-        return HeirFrontierResult(points: points)
+        return HeirFrontierResult(points: Self.paretoRepair(points))
+    }
+
+    /// Near-tie cushion (dollars). Domination/monotonicity are only enforced beyond this, so
+    /// floating-point noise never triggers a spurious repair. Matches the audit harness's ε.
+    static let repairEpsilon = 1.0
+
+    /// Cross-λ Pareto repair. The optimizer runs independently at each preset weight, and on
+    /// non-convergent profiles (iteration cap) a higher-heir-weight point can plot MORE owner tax
+    /// AND FEWER heir dollars than a lower-weight point — a strictly dominated, economically
+    /// nonsensical frontier point. Per-λ de-domination (`keepBestOfCandidates`) can't see this
+    /// because it never compares across weights.
+    ///
+    /// Since every point's `recommendedPath` is a plan the household could actually choose, the
+    /// honest fix is: any dominated weight adopts a genuinely-better sibling's outcome (keeping its
+    /// own weight label). Two passes on the display axes (owner lifetime tax ↓, heirs-keep ↑):
+    ///   1. Domination pull-up (to a fixed point): a point dominated by a sibling takes that
+    ///      sibling's economics + path.
+    ///   2. Monotonicity pull-up: scanning ascending weight, a point whose heirs-keep dips below the
+    ///      previous weight's takes the previous weight's plan.
+    /// Both only ever copy an already-plotted, non-dominated, achievable outcome, so the result is a
+    /// proper non-dominated + monotone trade-off. A no-op on already-clean frontiers (the common case)
+    /// — leaning-toward-heirs weights that can't beat a lower weight simply collapse onto it, which
+    /// the presentation surfaces as "no meaningful owner-vs-heir tradeoff."
+    static func paretoRepair(_ points: [FrontierPoint]) -> [FrontierPoint] {
+        guard points.count > 1 else { return points }
+        let eps = repairEpsilon
+
+        // j dominates i: no worse on both axes, strictly better on at least one (ε-cushioned).
+        func dominates(_ j: FrontierPoint, _ i: FrontierPoint) -> Bool {
+            let noWorseTax = j.ownerLifetimeTaxToday <= i.ownerLifetimeTaxToday + eps
+            let noWorseHeirs = j.heirAfterTaxInheritanceToday >= i.heirAfterTaxInheritanceToday - eps
+            let strictlyBetter = j.ownerLifetimeTaxToday < i.ownerLifetimeTaxToday - eps
+                || j.heirAfterTaxInheritanceToday > i.heirAfterTaxInheritanceToday + eps
+            return noWorseTax && noWorseHeirs && strictlyBetter
+        }
+        // A new point at `weight`'s label carrying `src`'s economics + path.
+        func adopt(weight: Double, from src: FrontierPoint) -> FrontierPoint {
+            FrontierPoint(
+                weight: weight,
+                ownerLifetimeTaxToday: src.ownerLifetimeTaxToday,
+                heirAfterTaxInheritanceToday: src.heirAfterTaxInheritanceToday,
+                heirTaxToday: src.heirTaxToday,
+                pvDiscountFactor: src.pvDiscountFactor,
+                recommendedPath: src.recommendedPath)
+        }
+
+        var pts = points
+
+        // Pass 1 — domination pull-up. Bounded fixed-point: each replacement moves a point to a
+        // strictly-better sibling outcome from the fixed original pool, so it converges well within
+        // count² iterations.
+        var changed = true
+        var iterations = 0
+        while changed && iterations < pts.count * pts.count {
+            changed = false
+            iterations += 1
+            for i in pts.indices {
+                if let dominator = pts.first(where: { $0.weight != pts[i].weight && dominates($0, pts[i]) }) {
+                    pts[i] = adopt(weight: pts[i].weight, from: dominator)
+                    changed = true
+                }
+            }
+        }
+
+        // Pass 2 — monotonicity pull-up across ascending weight.
+        let order = pts.indices.sorted { pts[$0].weight < pts[$1].weight }
+        for k in 1..<order.count {
+            let cur = order[k], prev = order[k - 1]
+            if pts[cur].heirAfterTaxInheritanceToday < pts[prev].heirAfterTaxInheritanceToday - eps {
+                pts[cur] = adopt(weight: pts[cur].weight, from: pts[prev])
+            }
+        }
+
+        return pts
     }
 }
