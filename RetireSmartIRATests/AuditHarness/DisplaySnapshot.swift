@@ -52,6 +52,29 @@ struct DisplaySnapshot: Codable {
     let balances: BalancesSnapshot       // §5
     let cliffmap: CliffMapSnapshot       // §6
     let cpa: CPASnapshot                 // §7
+    /// Additive (Task 4). Canonical per-year figures from the active path that the property
+    /// oracle needs but no display surface renders directly. Extends Task 3's contract additively.
+    let pathAudit: ActivePathAuditSnapshot
+}
+
+/// §4/§6 support — per-year canonical figures from the active `[YearRecommendation]` path.
+/// Added in Task 4 so the oracle can check `magi.geAGI` against the always-populated canonical
+/// `.magi`/`.agi` (NOT the display fallback `cliffmap.magiPoints`, which per spec §6 can be
+/// < agi in gross-up years), and `ladder.noPhantom` against the executed conversion vs. the
+/// start-of-year OWN traditional balance (excludes inherited; inherited IRAs are not convertible).
+struct ActivePathAuditSnapshot: Codable {
+    let years: [Int]
+    /// Canonical `YearRecommendation.magi` (post-gross-up, populated every year).
+    let magiByYear: [Double]
+    /// `YearRecommendation.agi`.
+    let agiByYear: [Double]
+    /// `YearRecommendation.executedRothConversion` over the FULL (unwindowed) path.
+    let executedRothConversionByYear: [Double]
+    /// `endOfYearBalances.traditional` (own primary+spouse traditional; EXCLUDES inheritedTraditional),
+    /// full path. Prior year's value is the current year's start-of-year convertible-traditional proxy.
+    let ownTraditionalEndByYear: [Double]
+    /// `inputs.startingBalances.traditional` — own traditional at the start of the first horizon year.
+    let startOwnTraditional: Double
 }
 
 // §1 ─ comparison.*
@@ -419,6 +442,15 @@ extension DisplaySnapshot {
                 $0.endOfYearBalances.roth + $0.endOfYearBalances.inheritedRoth },
             yearByYearEndTaxable: activePath.map { $0.endOfYearBalances.taxable })
 
+        // ── pathAudit assemble ── (canonical per-year figures for the property oracle, Task 4)
+        let pathAuditSnap = ActivePathAuditSnapshot(
+            years: activePath.map(\.year),
+            magiByYear: activePath.map(\.magi),
+            agiByYear: activePath.map(\.agi),
+            executedRothConversionByYear: activePath.map(\.executedRothConversion),
+            ownTraditionalEndByYear: activePath.map { $0.endOfYearBalances.traditional },
+            startOwnTraditional: inputs.startingBalances.traditional)
+
         return DisplaySnapshot(
             profileID: profile.id,
             comparison: comparisonSnap,
@@ -427,6 +459,7 @@ extension DisplaySnapshot {
             ladder: ladderSnap,
             balances: balancesSnap,
             cliffmap: cliffmapSnap,
-            cpa: cpaSnap)
+            cpa: cpaSnap,
+            pathAudit: pathAuditSnap)
     }
 }
