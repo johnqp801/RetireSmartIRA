@@ -610,7 +610,7 @@ struct IncomeSourcesView: View {
                         .fontWeight(.bold)
                 }
 
-                if source.effectiveFederalWithholding > 0 || source.stateWithholding > 0 {
+                if source.effectiveFederalWithholding > 0 || source.effectiveStateWithholding > 0 {
                     HStack(spacing: 8) {
                         Text("Withholding:")
                             .font(.caption)
@@ -620,8 +620,8 @@ struct IncomeSourcesView: View {
                                 .font(.caption)
                                 .fontWeight(.medium)
                         }
-                        if source.stateWithholding > 0 {
-                            Text("State \(source.stateWithholding, format: .currency(code: "USD"))")
+                        if source.effectiveStateWithholding > 0 {
+                            Text("State \(source.effectiveStateWithholding, format: .currency(code: "USD"))")
                                 .font(.caption)
                                 .fontWeight(.medium)
                         }
@@ -690,6 +690,10 @@ struct IncomeSourcesView: View {
         /// $/% mode for federal withholding on non-SS sources (Alan feedback #5b).
         /// Only read/written when incomeType != .socialSecurity.
         @State private var federalWithholdingMode: FederalWithholdingMode
+        /// $/% mode for STATE withholding (Alan 2nd-round feedback). Applies to every
+        /// source type (no state W-4V), so it is read/written regardless of incomeType.
+        @State private var stateWithholdingMode: FederalWithholdingMode
+        @State private var stateWithholdingPercent: String
 
         init(incomeToEdit: IncomeSource? = nil) {
             self.incomeToEdit = incomeToEdit
@@ -699,6 +703,10 @@ struct IncomeSourcesView: View {
             _federalWithholding = State(initialValue: incomeToEdit?.federalWithholding.formatted() ?? "")
             _federalWithholdingPercent = State(initialValue: incomeToEdit.map { $0.federalWithholdingPercent == 0 ? "" : $0.federalWithholdingPercent.formatted() } ?? "")
             _stateWithholding = State(initialValue: incomeToEdit?.stateWithholding.formatted() ?? "")
+            _stateWithholdingPercent = State(initialValue: incomeToEdit.map { $0.stateWithholdingPercent == 0 ? "" : $0.stateWithholdingPercent.formatted() } ?? "")
+            // State withholding defaults to $ (W-2 Box 17 is a dollar figure); percent is opt-in.
+            // Legacy/new sources open in .dollars so nothing is silently reinterpreted.
+            _stateWithholdingMode = State(initialValue: incomeToEdit?.stateWithholdingMode ?? .dollars)
             _owner = State(initialValue: incomeToEdit?.owner ?? .primary)
 
             // Migration + initial rate selection for the SS withholding picker.
@@ -820,10 +828,23 @@ struct IncomeSourcesView: View {
                             }
                         }
 
-                        TextField("Annual State Withholding (W-2 Box 17, optional)", text: $stateWithholding)
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
+                        Picker("State Withholding Entry", selection: $stateWithholdingMode) {
+                            Text("$").tag(FederalWithholdingMode.dollars)
+                            Text("%").tag(FederalWithholdingMode.percent)
+                        }
+                        .pickerStyle(.segmented)
+
+                        if stateWithholdingMode == .percent {
+                            TextField("State Withholding %", text: $stateWithholdingPercent)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                        } else {
+                            TextField("Annual State Withholding (W-2 Box 17, optional)", text: $stateWithholding)
+                                #if os(iOS)
+                                .keyboardType(.decimalPad)
+                                #endif
+                        }
 
                         Picker("Owner", selection: $owner) {
                             ForEach(Owner.allCases, id: \.self) { owner in
@@ -988,8 +1009,24 @@ struct IncomeSourcesView: View {
             let cleanFederal = federalWithholding.replacingOccurrences(of: ",", with: "")
             let cleanFederalPercent = federalWithholdingPercent.replacingOccurrences(of: ",", with: "")
             let cleanState = stateWithholding.replacingOccurrences(of: ",", with: "")
+            let cleanStatePercent = stateWithholdingPercent.replacingOccurrences(of: ",", with: "")
             guard let amount = Double(cleanAmount) else { return }
-            let stateWH = Double(cleanState) ?? 0
+
+            // State withholding $/% (Alan 2nd-round). Applies to every type (no state W-4V).
+            // In .percent mode the entered percent is the source of truth and mirrors its
+            // resolved dollars into stateWithholding for any as-yet-unrouted reader; in
+            // .dollars mode behavior is byte-identical to before this feature.
+            let stMode: FederalWithholdingMode? = stateWithholdingMode
+            let stateWH: Double
+            let statePercent: Double
+            if stateWithholdingMode == .percent {
+                let p = Double(cleanStatePercent) ?? 0
+                statePercent = p
+                stateWH = (p / 100) * max(0, amount)
+            } else {
+                statePercent = 0
+                stateWH = Double(cleanState) ?? 0
+            }
 
             // Social Security federal withholding is a rate (Form W-4V), not a
             // free-form dollar entry. Saving an SS source sets ssWithholdingRate
@@ -1027,13 +1064,15 @@ struct IncomeSourcesView: View {
                 dataManager.incomeSources[index] = IncomeSource(
                     id: existing.id, name: name, type: incomeType,
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
-                    ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent
+                    ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
+                    stateWithholdingMode: stMode, stateWithholdingPercent: statePercent
                 )
             } else {
                 dataManager.incomeSources.append(IncomeSource(
                     name: name, type: incomeType,
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
-                    ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent
+                    ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
+                    stateWithholdingMode: stMode, stateWithholdingPercent: statePercent
                 ))
             }
             dataManager.saveAllData()
