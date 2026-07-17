@@ -19,7 +19,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     var investmentGrowthRate: Double             // e.g., 0.06 = 6% nominal
     var withdrawalOrderingRule: WithdrawalOrderingRule
     var stressTestEnabled: Bool
-    var perYearExpenseOverrides: [Int: Double]   // year -> override expense amount
+    var perYearOverrides: [Int: YearOverride]    // year -> per-field overrides (living expenses, etc.)
+    var perYearOverridesSchema: Int              // 0 = pre-feature/legacy, 1 = migrated
     var currentTaxableBalance: Double            // user-input, not in 1.9 AccountType
     var currentHSABalance: Double                // user-input, not in 1.9 AccountType
     /// Baseline annual living expenses in today's dollars. Default $60K.
@@ -50,7 +51,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         investmentGrowthRate: Double = 0.06,
         withdrawalOrderingRule: WithdrawalOrderingRule = .taxEfficient,
         stressTestEnabled: Bool = true,
-        perYearExpenseOverrides: [Int: Double] = [:],
+        perYearOverrides: [Int: YearOverride] = [:],
+        perYearOverridesSchema: Int = 1,
         currentTaxableBalance: Double = 0,
         currentHSABalance: Double = 0,
         baselineAnnualExpenses: Double = 120_000,
@@ -68,7 +70,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.investmentGrowthRate = investmentGrowthRate
         self.withdrawalOrderingRule = withdrawalOrderingRule
         self.stressTestEnabled = stressTestEnabled
-        self.perYearExpenseOverrides = perYearExpenseOverrides
+        self.perYearOverrides = perYearOverrides
+        self.perYearOverridesSchema = perYearOverridesSchema
         self.currentTaxableBalance = currentTaxableBalance
         self.currentHSABalance = currentHSABalance
         self.baselineAnnualExpenses = baselineAnnualExpenses
@@ -91,7 +94,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.investmentGrowthRate = try c.decode(Double.self, forKey: .investmentGrowthRate)
         self.withdrawalOrderingRule = try c.decode(WithdrawalOrderingRule.self, forKey: .withdrawalOrderingRule)
         self.stressTestEnabled = try c.decode(Bool.self, forKey: .stressTestEnabled)
-        self.perYearExpenseOverrides = try c.decode([Int: Double].self, forKey: .perYearExpenseOverrides)
+        self.perYearOverrides = (try? c.decodeIfPresent([Int: YearOverride].self, forKey: .perYearOverrides)) ?? [:]
+        self.perYearOverridesSchema = (try? c.decodeIfPresent(Int.self, forKey: .perYearOverridesSchema)) ?? 0
         self.currentTaxableBalance = try c.decode(Double.self, forKey: .currentTaxableBalance)
         self.currentHSABalance = try c.decode(Double.self, forKey: .currentHSABalance)
         self.baselineAnnualExpenses = try c.decodeIfPresent(Double.self, forKey: .baselineAnnualExpenses) ?? 120_000

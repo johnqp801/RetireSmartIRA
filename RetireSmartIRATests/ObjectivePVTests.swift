@@ -19,7 +19,7 @@ struct ObjectivePVTests {
     private func assumptions(pv: Double) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0.06, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 1_000_000, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 1_000_000, currentHSABalance: 0)
         a.pvRealDiscountRate = pv; return a
     }
     private func totalConverted(_ r: OptimizationEngine.Result) -> Double {

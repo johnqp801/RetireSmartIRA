@@ -65,7 +65,7 @@ struct ProjectionEngineTests {
             investmentGrowthRate: growth,
             withdrawalOrderingRule: rule,
             stressTestEnabled: false,
-            perYearExpenseOverrides: [:],
+            perYearOverrides: [:],
             currentTaxableBalance: 0,
             currentHSABalance: 0
         )
@@ -166,7 +166,9 @@ struct ProjectionEngineTests {
     @Test("Per-year expense override: drives auto-funded withdrawals")
     func perYearExpenseOverrideDrivesAutoFunding() {
         var assumptions = makeAssumptions()
-        assumptions.perYearExpenseOverrides = [baseYear: 120_000]
+        // baselineExpenses is 0 in this fixture, so an additive oneTimeAmount of 120K
+        // reproduces the old absolute-override value of 120K exactly.
+        assumptions.perYearOverrides = [baseYear: YearOverride(livingExpenses: FieldOverride(oneTimeAmount: 120_000))]
         let inputs = makeInputs(
             currentAge: 67,
             traditional: 1_000_000,

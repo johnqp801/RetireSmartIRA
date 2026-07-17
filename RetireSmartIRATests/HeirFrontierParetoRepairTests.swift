@@ -82,7 +82,7 @@ struct HeirFrontierParetoRepairTests {
             horizonEndAge: horizonEndAge, horizonEndAgeSpouse: nil,
             cpiRate: 0.025, investmentGrowthRate: 0.06,
             withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
     }
 
     @Test("single-c3-nj-shorthorizon frontier has no dominated points")

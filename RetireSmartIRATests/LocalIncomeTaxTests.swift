@@ -78,7 +78,7 @@ struct LocalIncomeTaxTests {
             let a = MultiYearAssumptions(
                 horizonEndAge: 67, horizonEndAgeSpouse: nil, cpiRate: 0, investmentGrowthRate: 0.06,
                 withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-                perYearExpenseOverrides: [:], currentTaxableBalance: 300_000, currentHSABalance: 0)
+                perYearOverrides: [:], currentTaxableBalance: 300_000, currentHSABalance: 0)
             let baseYear = Calendar.current.component(.year, from: Date())
             let years = ProjectionEngine().project(
                 inputs: inputs, assumptions: a,

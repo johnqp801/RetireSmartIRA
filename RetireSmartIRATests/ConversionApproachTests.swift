@@ -65,7 +65,7 @@ struct ConversionApproachTests {
             investmentGrowthRate: growth,
             withdrawalOrderingRule: rule,
             stressTestEnabled: false,
-            perYearExpenseOverrides: [:],
+            perYearOverrides: [:],
             currentTaxableBalance: 0,
             currentHSABalance: 0
         )

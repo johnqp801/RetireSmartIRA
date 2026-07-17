@@ -487,8 +487,11 @@ struct ProjectionEngine {
             // Step 4: Compute expenses and auto-funding
             // ─────────────────────────────────────────
             let annualExpenses: Double = {
-                if let override = assumptions.perYearExpenseOverrides[year] {
-                    return override   // explicit nominal value for this year
+                if let ov = assumptions.perYearOverrides[year]?.livingExpenses,
+                   let oneTime = ov.oneTimeAmount {
+                    let yearsFromBase = max(0, year - scenarioBaseYear)
+                    let base = inputs.baselineAnnualExpenses * pow(1.0 + assumptions.cpiRate, Double(yearsFromBase))
+                    return max(0, base + oneTime)
                 }
                 // H4: inflate the baseline (stated in today's dollars) by CPI so expenses stay
                 // consistent with COLA-adjusted Social Security. Without this, flat-nominal

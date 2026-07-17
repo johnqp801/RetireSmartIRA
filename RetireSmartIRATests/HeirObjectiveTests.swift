@@ -60,7 +60,7 @@ struct HeirObjectiveTests {
             investmentGrowthRate: 0.0,
             withdrawalOrderingRule: .taxEfficient,
             stressTestEnabled: false,
-            perYearExpenseOverrides: [:],
+            perYearOverrides: [:],
             currentTaxableBalance: 0,
             currentHSABalance: 0
         )
@@ -225,7 +225,7 @@ struct HeirObjectiveTests {
             horizonEndAge: 95, horizonEndAgeSpouse: 95,
             cpiRate: 0.025, investmentGrowthRate: 0.06,
             withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
         let w = 0.10
         let engine = OptimizationEngine()
         let taxMin = engine.optimize(inputs: inputs, assumptions: a, configProvider: provider,

@@ -62,7 +62,7 @@ struct RealismRegressionTests {
             investmentGrowthRate: 0.06,
             withdrawalOrderingRule: .taxEfficient,
             stressTestEnabled: false,
-            perYearExpenseOverrides: [:],
+            perYearOverrides: [:],
             currentTaxableBalance: 0,
             currentHSABalance: 0)
     }

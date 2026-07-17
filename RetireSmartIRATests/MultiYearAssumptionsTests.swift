@@ -28,8 +28,8 @@ final class MultiYearAssumptionsTests: XCTestCase {
         XCTAssertNil(MultiYearAssumptions.default.horizonEndAgeSpouse)
     }
 
-    func test_default_perYearExpenseOverrides_isEmpty() {
-        XCTAssertTrue(MultiYearAssumptions.default.perYearExpenseOverrides.isEmpty)
+    func test_default_perYearOverrides_isEmpty() {
+        XCTAssertTrue(MultiYearAssumptions.default.perYearOverrides.isEmpty)
     }
 
     func test_default_currentTaxableBalance_isZero() {
@@ -45,7 +45,10 @@ final class MultiYearAssumptionsTests: XCTestCase {
         assumptions.cpiRate = 0.03
         assumptions.investmentGrowthRate = 0.05
         assumptions.horizonEndAgeSpouse = 92
-        assumptions.perYearExpenseOverrides = [2027: 120_000, 2030: 150_000]
+        assumptions.perYearOverrides = [
+            2027: YearOverride(livingExpenses: FieldOverride(oneTimeAmount: 120_000)),
+            2030: YearOverride(livingExpenses: FieldOverride(oneTimeAmount: 150_000))
+        ]
         assumptions.currentTaxableBalance = 25_000
         assumptions.currentHSABalance = 8_000
 
@@ -91,6 +94,8 @@ final class MultiYearAssumptionsTests: XCTestCase {
         XCTAssertEqual(decoded.dismissedInsightKeys, [], "Should default to empty set when missing from old saves")
         XCTAssertEqual(decoded.horizonEndAge, 95)
         XCTAssertEqual(decoded.cpiRate, 0.025)
+        XCTAssertTrue(decoded.perYearOverrides.isEmpty, "Old-key blob should decode to empty perYearOverrides")
+        XCTAssertEqual(decoded.perYearOverridesSchema, 0, "Legacy blob (no schema key) should mark schema 0 so migration runs")
     }
 
     func testMultiYearAssumptions_RoundTrip_NewFields() throws {
