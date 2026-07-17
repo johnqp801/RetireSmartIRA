@@ -232,6 +232,14 @@ struct OptimizationEngine {
         path.reduce(0.0) { $0 + EngineMath.presentValue($1.taxBreakdown.total, yearsFromBase: $1.year - baseYear, realDiscountRate: rate) }
     }
 
+    /// Nominal (undiscounted) sum of a path's in-horizon tax — the actual tax dollars paid across
+    /// the horizon, excluding any terminal-liquidation hypothetical. This is the user-facing
+    /// "lifetime tax paid" figure (e.g. the survivor-penalty banner), as distinct from the
+    /// growth-discounted `totalObjectiveCost` the optimizer ranks on.
+    static func nominalLifetimeTax(_ path: [YearRecommendation]) -> Double {
+        path.reduce(0.0) { $0 + $1.taxBreakdown.total }
+    }
+
     /// Single source of truth for the full objective: discounted in-horizon tax PLUS the terminal
     /// tax discounted by the FULL horizon length (`horizonYears == endYear - baseYear + 1`; the
     /// terminal balance is liquidated at the end of the last horizon year). Every site that ranks
