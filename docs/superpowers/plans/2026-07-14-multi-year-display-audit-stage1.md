@@ -174,33 +174,45 @@ func deferredTaxReconciles() {
 - Consumes: `AuditProfile`, `DisplaySnapshot`, `InvariantViolation`.
 - Produces: `struct AuditPacket: Codable { let profileId: String; let inputsSummary: [String: String]; let snapshot: DisplaySnapshot; let violations: [InvariantViolation] }` and `enum AuditPacketWriter { static func write(_ packets: [AuditPacket], to dir: URL) throws }`. Stage 2 (separate plan) consumes these packets.
 
+**GATE POLICY (revised 2026-07-16 — human decision after Task 4 surfaced a verified engine bug):** the plan originally specified `#expect(allViolations.isEmpty)` ("on this fixed-fix branch, no invariant may fire"). That assumption is FALSE: the `frontier.nonDominated` invariant fires materially on exactly 3 catalog profiles (`mfj-b6-ca-verylarge-old`, `single-c3-nj-shorthorizon`, `mfj-c3-il-shorthorizon`) because the heir-frontier optimizer does not enforce cross-λ Pareto non-domination (see memory `frontier-cross-lambda-domination`; separate engine backlog item). Decision: **baseline/pinned-set gate** — hard-gate the 5 clean invariants (any violation fails the build), and for `frontier.nonDominated` assert the offender set equals EXACTLY the known baseline of 3, so a NEW regression (a 4th offender) OR a partial engine fix (a baseline profile stops firing) both trip the gate and force a conscious, reviewed update. Also pin each baseline offender's approximate magnitude (owner-tax and heirs deltas, within a tolerance) so a silent shrink-to-immaterial does not slip through undetected.
+
 - [ ] **Step 1: Write the failing test.**
 
 ```swift
-@Test("gate: every catalog profile snapshots, and packets are written")
+@Test("gate: every catalog profile snapshots, packets are written, and only the known frontier baseline fires")
 func gateRunsAndWritesPackets() throws {
     let provider = TaxYearConfigProvider.fixed(TaxYearConfig.loadOrFallback(forYear: 2026))
     var packets: [AuditPacket] = []
-    var allViolations: [InvariantViolation] = []
+    var allViolations: [(profileId: String, v: InvariantViolation)] = []
     for p in AuditProfiles.all {
         let snap = DisplaySnapshot.capture(p, provider: provider)
         let v = DisplayInvariants.check(p, snap, provider: provider)
-        allViolations += v
+        allViolations += v.map { (p.id, $0) }
         packets.append(AuditPacket(profileId: p.id, inputsSummary: p.summary, snapshot: snap, violations: v))
     }
     let dir = URL(fileURLWithPath: "RetireSmartIRATests/AuditHarness/packets", isDirectory: true)
     try AuditPacketWriter.write(packets, to: dir)
     #expect(packets.count == AuditProfiles.all.count)
-    // HARD GATE: on this fixed-fix branch, no invariant may fire.
-    #expect(allViolations.isEmpty, "display invariant violations: \(allViolations)")
+
+    // HARD GATE A: the 5 clean invariants must never fire on this branch.
+    let nonFrontier = allViolations.filter { $0.v.key != "frontier.nonDominated" }
+    #expect(nonFrontier.isEmpty, "unexpected non-frontier violations: \(nonFrontier)")
+
+    // HARD GATE B: frontier.nonDominated offender SET must equal exactly the known baseline.
+    // A new offender OR a baseline profile that stops firing both fail here (baseline/pinned-set gate).
+    let frontierOffenders = Set(allViolations.filter { $0.v.key == "frontier.nonDominated" }.map { $0.profileId })
+    let baseline: Set<String> = ["mfj-b6-ca-verylarge-old", "single-c3-nj-shorthorizon", "mfj-c3-il-shorthorizon"]
+    #expect(frontierOffenders == baseline, "frontier offender set drifted from baseline: got \(frontierOffenders)")
 }
 ```
+
+An additional focused test pins the approximate per-profile magnitude of the worst dominated point for each baseline offender (owner-tax delta and heirs delta, each within a generous tolerance, e.g. ±10%), so a silent shrink toward immaterial trips the gate and forces a conscious update. Reference magnitudes (today's dollars, worst dominated point vs the λ=0 point): `mfj-b6-ca-verylarge-old` ≈ +$14,295 tax / −$191,285 heirs; `single-c3-nj-shorthorizon` ≈ +$33,408 / −$33,328; `mfj-c3-il-shorthorizon` ≈ +$141,358 / −$59,683.
 
 - [ ] **Step 2: Run to verify it fails.** Expected: FAIL (`AuditPacket`/`AuditPacketWriter`/`p.summary` undefined).
 
 - [ ] **Step 3: Implement packet + writer.** Add `AuditProfile.summary: [String: String]` (state, filing, age, trad, approach, heirWeight). `AuditPacketWriter.write` creates `dir` and writes one `<profileId>.json` per packet via `JSONEncoder` (`.prettyPrinted`, `.sortedKeys`). Add the packets dir to `.gitignore`.
 
-- [ ] **Step 4: Run to verify it passes.** Expected: PASS on this branch (all fixes present → `allViolations` empty). Then confirm the harness *reproduces findings on main*: check out `main` into a scratch worktree, run the same suite, and confirm `state.paConversionExempt`, `frontier.nonDominated`, and `comparison.deferredReconciliation` (absent on main — no deferred row) fire. Note the result in the commit message; do not commit the scratch run.
+- [ ] **Step 4: Run to verify it passes.** Expected: PASS on this branch — the 5 clean invariants do not fire, and the `frontier.nonDominated` offender set matches the pinned baseline of 3 (per the revised gate policy above), so both hard gates are green. Then confirm the harness *reproduces findings on main*: check out `main` into a scratch worktree, run the same suite, and confirm the extra findings the I1/I3/B2 fixes address fire on main (`state.paConversionExempt` from the unfixed PA conversion tax; additional/worse `frontier.nonDominated` offenders beyond the 3-profile baseline; and note `comparison.deferredReconciliation` is inapplicable on main since the deferred-tax row does not exist there). Because the gate is a pinned-set assertion (not `isEmpty`), on main the frontier offender set will differ from this branch's baseline and the gate will fail — that is the harness correctly reproducing the finding. Note the result in the commit message; do not commit the scratch run.
 
 - [ ] **Step 5: Run the full macOS suite** to confirm no regressions: `xcodebuild test -project RetireSmartIRA.xcodeproj -scheme RetireSmartIRA -destination 'platform=macOS'`. Expected: all green.
 
