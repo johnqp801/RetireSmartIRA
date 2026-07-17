@@ -22,6 +22,20 @@ struct AuditProfile {
     let assumptions: MultiYearAssumptions
     let approach: ConversionApproach
     let heirWeight: Double
+
+    /// Human-readable inputs digest for the Stage-2 audit packet (deterministic; no Date()/RNG).
+    /// Keys: state, filing, age, trad, approach, heirWeight. Values are plain strings so the
+    /// packet's `inputsSummary` reads cleanly in JSON without decoding the full `MultiYearStaticInputs`.
+    var summary: [String: String] {
+        [
+            "state": inputs.state,
+            "filing": String(describing: inputs.filingStatus),
+            "age": String(inputs.primaryCurrentAge),
+            "trad": String(inputs.startingBalances.traditional),
+            "approach": String(describing: approach),
+            "heirWeight": String(heirWeight),
+        ]
+    }
 }
 
 enum AuditProfiles {
