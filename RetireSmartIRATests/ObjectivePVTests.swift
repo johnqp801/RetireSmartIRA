@@ -26,15 +26,24 @@ struct ObjectivePVTests {
         r.recommendedPath.reduce(0.0) { acc, yr in acc + yr.actions.reduce(0.0) { a, act in
             if case let .rothConversion(amount) = act { return a + amount }; return a } }
     }
-    @Test("higher discount rate converts no more than a near-zero rate") func lessAggressive() {
+    // The objective discounts ALL tax flows at the investment growth rate; pvRealDiscountRate is
+    // DISPLAY-ONLY. Under uniform growth, minimizing growth-discounted tax is equivalent to
+    // maximizing the terminal after-tax estate, so recommendations must be INVARIANT to the
+    // display knob — this pins that contract.
+    @Test("pvRealDiscountRate is display-only: recommendations are invariant to it")
+    func displayKnobDoesNotChangeRecommendations() {
         let r0 = OptimizationEngine().optimize(inputs: inputs(), assumptions: assumptions(pv: 0.0001), configProvider: provider)
         let r3 = OptimizationEngine().optimize(inputs: inputs(), assumptions: assumptions(pv: 0.05), configProvider: provider)
-        #expect(totalConverted(r3) <= totalConverted(r0) + 1.0)
+        #expect(abs(totalConverted(r3) - totalConverted(r0)) < 1.0)
+        #expect(abs(r3.totalObjectiveCost - r0.totalObjectiveCost) < 0.01)
     }
 
-    // Review finding #2: computeObjectiveCost (used by SSClaimNudge) must discount the terminal tax
-    // over the SAME horizon as the optimizer's totalObjectiveCost: yearsFromBase == last.year - baseYear + 1.
-    @Test("computeObjectiveCost discounts terminal tax over the full horizon (last.year - baseYear + 1)")
+    // Review finding #2 (horizon length) + wealth-consistency: computeObjectiveCost (used by
+    // SSClaimNudge) must discount BOTH the in-horizon tax and the terminal tax at the INVESTMENT
+    // GROWTH RATE, over the SAME horizon as the optimizer's totalObjectiveCost
+    // (yearsFromBase == last.year - baseYear + 1). Any slower discount mis-prices a tax flow by
+    // ((1+g)/(1+d))^t — the asymmetry behind the λ=0 full-drain / flat-frontier pathologies.
+    @Test("computeObjectiveCost discounts all tax at the growth rate over the full horizon")
     func computeObjectiveCostTerminalDiscount() {
         func yr(_ year: Int, tax: Double, trad: Double) -> YearRecommendation {
             YearRecommendation(year: year, agi: 0, acaMagi: nil, irmaaMagi: nil, taxableIncome: 0,
@@ -43,14 +52,17 @@ struct ObjectivePVTests {
                 actions: [])
         }
         let path = [yr(2026, tax: 10_000, trad: 0), yr(2027, tax: 10_000, trad: 1_000_000)]
-        let rate = 0.03, rateLiq = 0.22, baseYear = 2026
+        let growth = 0.06, rateLiq = 0.22, baseYear = 2026
         let got = OptimizationEngine.computeObjectiveCost(
-            path: path, terminalLiquidationTaxRate: rateLiq, baseYear: baseYear, pvRealDiscountRate: rate)
-        let inHorizon = OptimizationEngine.discountedInHorizon(path, baseYear: baseYear, rate: rate)
-        // terminal discounted over 2 years (2027 - 2026 + 1), NOT 1 (the old off-by-one)
-        let correct = inHorizon + EngineMath.presentValue(1_000_000 * rateLiq, yearsFromBase: 2, realDiscountRate: rate)
-        let offByOne = inHorizon + EngineMath.presentValue(1_000_000 * rateLiq, yearsFromBase: 1, realDiscountRate: rate)
+            path: path, terminalLiquidationTaxRate: rateLiq, baseYear: baseYear,
+            investmentGrowthRate: growth)
+        let inHorizon = OptimizationEngine.discountedInHorizon(path, baseYear: baseYear, rate: growth)
+        // terminal at the GROWTH rate over 2 years (2027 - 2026 + 1), NOT 1 (the old off-by-one)
+        let correct = inHorizon + EngineMath.presentValue(1_000_000 * rateLiq, yearsFromBase: 2, realDiscountRate: growth)
+        let offByOne = inHorizon + EngineMath.presentValue(1_000_000 * rateLiq, yearsFromBase: 1, realDiscountRate: growth)
+        let slowRate = inHorizon + EngineMath.presentValue(1_000_000 * rateLiq, yearsFromBase: 2, realDiscountRate: 0.03)
         #expect(abs(got - correct) < 0.01)
         #expect(abs(got - offByOne) > 1.0)
+        #expect(abs(got - slowRate) > 1.0)
     }
 }

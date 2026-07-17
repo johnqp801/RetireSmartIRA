@@ -32,6 +32,8 @@ struct AdvancedAssumptionsSheet: View {
                         .font(.caption).foregroundStyle(.secondary)
                     percentStepper("Present-value discount rate",
                                    $assumptions.pvRealDiscountRate, maxPercent: 8)
+                    Text("Used when displaying amounts in present-value terms. Does not change the recommended plan.")
+                        .font(.caption).foregroundStyle(.secondary)
                     Picker("Withdrawal order", selection: $assumptions.withdrawalOrderingRule) {
                         ForEach(WithdrawalOrderingRule.allCases, id: \.self) { rule in
                             Text(rule.displayName).tag(rule)

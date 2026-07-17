@@ -122,11 +122,14 @@ struct OptimizerKeepBestTests {
         assertNeverDominated(inputs, "single/age63/$1.8M/PA")
     }
 
-    /// Behavior preservation: on a profile where the greedy is already optimal (strictly beats
-    /// every deterministic candidate by ~$15k), keep-best is a no-op — the greedy path is
-    /// returned unchanged (keep greedy on `<=`; only a STRICTLY lower candidate substitutes).
-    /// single/age68/$1.8M/CA is a known greedy-wins profile from the INV13 sweep space.
-    @Test("Greedy-wins profile: keep-best is a no-op (greedy strictly beats all candidates)")
+    /// A5 guarantee on a strong-greedy profile: recommendedTaxMin is never dominated by ANY
+    /// user-selectable deterministic candidate (`taxMin <= cand` for all). Under the pre-2026-07-17
+    /// objective this profile's greedy STRICTLY beat every ladder (~$15k margin) and the test
+    /// asserted strict `<`; the wealth-consistent objective (all tax flows discounted at the
+    /// growth rate) moved the optimum onto a deterministic ladder, so recommendedTaxMin now TIES
+    /// the best candidate exactly (equality = the same plan, which is precisely the never-dominated
+    /// contract at work). Ties keep the incumbent greedy per keep-best's `<` substitution rule.
+    @Test("Strong-greedy profile: recommendedTaxMin is never dominated by any candidate")
     func greedyWinsProfileIsNoOp() {
         let inputs = Self.makeSweepInputs(filing: .single, primaryAge: 68,
                                           spouseAge: nil, traditional: 1_800_000, state: "CA")
@@ -134,19 +137,16 @@ struct OptimizerKeepBestTests {
         let engine = OptimizationEngine()
         let taxMin = engine.optimize(inputs: inputs, assumptions: asmp,
                                      heirWeight: 0, approach: .recommendedTaxMin).totalObjectiveCost
-        // Greedy STRICTLY beats every candidate → keep-best returned the greedy path unchanged
-        // (had a candidate merely tied, keep-on-`<=` would still hold greedy; strict win proves
-        // no substitution occurred).
         for rate in Self.federalRates {
             let cand = engine.optimize(inputs: inputs, assumptions: asmp,
                                        heirWeight: 0, approach: .fillToBracket(rate: rate)).totalObjectiveCost
-            #expect(taxMin < cand, "greedy should strictly win vs fillToBracket(\(rate))")
+            #expect(taxMin <= cand + 0.01, "recommendedTaxMin must not be dominated by fillToBracket(\(rate))")
         }
         for tier in Self.irmaaTiers {
             let cand = engine.optimize(inputs: inputs, assumptions: asmp,
                                        heirWeight: 0,
                                        approach: .limitToIRMAA(tier: tier, buffer: Self.cliffBuffer)).totalObjectiveCost
-            #expect(taxMin < cand, "greedy should strictly win vs limitToIRMAA(tier \(tier))")
+            #expect(taxMin <= cand + 0.01, "recommendedTaxMin must not be dominated by limitToIRMAA(tier \(tier))")
         }
     }
 

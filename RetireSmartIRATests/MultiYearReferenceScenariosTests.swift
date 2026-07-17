@@ -112,11 +112,17 @@ struct MultiYearReferenceScenariosTests {
         // Widow penalty: surviving spouse pays single-filer rates → meaningful positive delta.
         // Re-baselined 2026-06 (>$50K → >$40K): H3 extended the MFJ baseline horizon to the
         // younger spouse (age 65 → 26y vs the primary's 24y), raising the baseline objective and
-        // shrinking the delta to ~$43K. KNOWN INTERACTION: the widow (survivor) variant still
-        // uses the primary's horizon, so baseline/widow horizons are mismatched — the H7 widow
-        // rework should run the survivor to their own life expectancy.
-        #expect(result.widowStressDelta.delta > 40_000,
-            "Widow penalty should be a meaningful positive delta (>$40K); got \(result.widowStressDelta.delta)")
+        // shrinking the delta to ~$43K. Re-baselined 2026-07-17 (>$40K → >$30K): the objective now
+        // discounts all tax flows at the growth rate (wealth-consistent objective), so this
+        // objective-space delta — concentrated in late (widow) years — discounts more heavily,
+        // landing ~$34K. NOTE the delta is an OBJECTIVE difference (growth-discounted), not a
+        // nominal tax sum; whether the survivor banner should display a nominal-dollar delta is a
+        // §8-5 PV-vs-nominal display-definition question for the v2.2 audit-harness display spec.
+        // KNOWN INTERACTION: the widow (survivor) variant still uses the primary's horizon, so
+        // baseline/widow horizons are mismatched — the H7 widow rework should run the survivor to
+        // their own life expectancy.
+        #expect(result.widowStressDelta.delta > 30_000,
+            "Widow penalty should be a meaningful positive delta (>$30K); got \(result.widowStressDelta.delta)")
         #expect(result.widowStressDelta.delta < 1_000_000,
             "Widow penalty sanity bound; got \(result.widowStressDelta.delta)")
         #expect(result.widowStressDelta.scenarioLifetimeTax > result.widowStressDelta.baselineLifetimeTax)

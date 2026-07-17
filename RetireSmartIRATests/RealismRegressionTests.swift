@@ -69,29 +69,30 @@ struct RealismRegressionTests {
 
     // MARK: - Brake test
 
-    // SHELVED 2026-07-12 (V2.1.1). This guard passed only incidentally: it used California, whose
-    // NON-deductible (pre-2.1.1) state income tax added just enough cost to hold termTrad marginally
-    // above zero. Investigation (all states TX/CA/FL/NY, taxable $0–$1M, and a SS+pension case) showed
-    // the λ=0 optimizer fully drains the IRA in EVERY regime — the C3 gross-up + PV brake reduces the
-    // RATE of over-conversion but never PREVENTS full drain. V2.1.1 correctly makes state income tax a
-    // deductible SALT itemizable, so CA joined every other state at termTrad=0, un-masking this
-    // pre-existing behavior. The premise below ("the brake prevents full drain at constrained
-    // liquidity") is therefore empirically false. Re-enable only after the over-conversion brake is
-    // strengthened to genuinely preserve traditional balance at λ=0. See the 2026-07-12 session memo.
-    @Test("constrained liquidity: traditional is no longer fully drained",
-          .disabled("Pre-existing realism limitation un-masked by V2.1.1 SALT itemizing; brake does not prevent full drain at λ=0 in any regime — see 2026-07-12 memo. Re-enable when the C3/PV brake is strengthened."))
+    // SHELVED 2026-07-12, RE-ENABLED 2026-07-17. The original λ=0 full-drain came from the
+    // objective's growth-vs-discount asymmetry: tax flows were discounted at pvRealDiscountRate
+    // (3%) while the balances they act on compound at investmentGrowthRate (6%), inflating the
+    // effective terminal rate by (1.06/1.03)^H ≈ 2.05× (0.22 → ~0.45), so converting even at
+    // 32–37% "beat" holding — full drain in every regime (the old CA pass was a knife-edge
+    // state-tax coincidence, un-masked by V2.1.1 SALT itemizing). The objective now discounts ALL
+    // tax flows at the growth rate (wealth-consistent: minimizing growth-discounted tax ≡
+    // maximizing the terminal after-tax estate), so the effective terminal rate is the rate itself
+    // and conversion stops at brackets below it — draining into 32–37% is genuinely suboptimal.
+    @Test("constrained liquidity: traditional is no longer fully drained")
     func brakeStopsDrain() {
         // $1.5M trad, only $50K taxable — not enough to fund large Roth conversion taxes
         // without drawing extra from the IRA itself. The C3 gross-up is a real cost that
         // should make fully draining the IRA suboptimal when liquidity is constrained.
-        let r = HeirFrontierCoordinator().computeFrontier(
+        //
+        // Calls optimize() DIRECTLY (not computeFrontier): this pins the OPTIMIZER's λ=0
+        // behavior. Going through the frontier would let the cross-λ Pareto repair swap a
+        // non-drained sibling path into the λ=0 slot and mask a drain in the raw optimizer.
+        let result = OptimizationEngine().optimize(
             inputs: inputs(trad: 1_500_000, taxable: 50_000, heirSalary: 75_000),
             assumptions: assumptions(),
-            configProvider: provider)
-
-        // Weight == 0 means λ=0 (owner-only objective, maximum conversion pressure)
-        let baselinePath = r.points.first(where: { $0.weight == 0 })!.recommendedPath
-        let last = baselinePath.last!
+            configProvider: provider,
+            heirWeight: 0)
+        let last = result.recommendedPath.last!
         let termTrad = last.endOfYearBalances.primaryTraditional + last.endOfYearBalances.spouseTraditional
         // DO NOT lower this threshold or delete this test if it fails.
         // A failure means the C3 brake + PV discount is not strong enough — report it.
@@ -144,5 +145,42 @@ struct RealismRegressionTests {
             #expect(sorted[k].heirAfterTaxInheritanceToday >= sorted[k - 1].heirAfterTaxInheritanceToday - eps,
                     "heirs-keep dropped from weight \(sorted[k - 1].weight) to \(sorted[k].weight)")
         }
+    }
+
+    // MARK: - Frontier opens test
+
+    @Test("high-rate heir: leaning toward heirs genuinely leaves them more")
+    func frontierOpensForHighRateHeir() {
+        // $1.5M trad, $50K taxable, heir earning $250K (marginal ~35% on inherited-trad drawdown).
+        // The owner's terminal self-liquidation rate is 22%, so the owner-optimal (λ=0) plan should
+        // stop converting at brackets ≤22%, while the heir-optimal (λ=1) plan should keep converting
+        // through brackets below the heir's ~35% — converting at 24–32% costs the owner less than it
+        // saves the heir. Those are DIFFERENT plans, so the frontier must open: heirs keep strictly
+        // more at λ=1 than at λ=0. This is the directional replacement for the old abs(spread) check
+        // (which passed on a backwards frontier) and fails while the terminal-tax growth-vs-discount
+        // asymmetry pushes every weight to the same full-drain corner.
+        let r = HeirFrontierCoordinator().computeFrontier(
+            inputs: inputs(trad: 1_500_000, taxable: 50_000, heirSalary: 250_000),
+            assumptions: assumptions(),
+            configProvider: provider)
+        let byWeight = r.points.sorted { $0.weight < $1.weight }
+        let ownerOptimal = byWeight.first!
+        let heirOptimal = byWeight.last!
+        #expect(heirOptimal.heirAfterTaxInheritanceToday > ownerOptimal.heirAfterTaxInheritanceToday + 1_000,
+                "with heir marginal rate well above the owner's terminal rate the frontier should open; λ=0 heirs=\(ownerOptimal.heirAfterTaxInheritanceToday), λ=1 heirs=\(heirOptimal.heirAfterTaxInheritanceToday)")
+    }
+
+    // Same heir, ample taxable liquidity: with no C3 gross-up cascade the conversion cost is close
+    // to the sticker bracket rate, so the heir-favoring trade-off is unambiguous — a companion to
+    // the liquidity-CONSTRAINED case above, guarding the frontier's opening in the easy regime too.
+    @Test("liquidity-rich high-rate heir: the frontier opens")
+    func frontierOpensLiquidityRich() {
+        let r = HeirFrontierCoordinator().computeFrontier(
+            inputs: inputs(trad: 1_500_000, taxable: 750_000, heirSalary: 250_000),
+            assumptions: assumptions(),
+            configProvider: provider)
+        let byWeight = r.points.sorted { $0.weight < $1.weight }
+        #expect(byWeight.last!.heirAfterTaxInheritanceToday > byWeight.first!.heirAfterTaxInheritanceToday + 1_000,
+                "λ=0 heirs=\(byWeight.first!.heirAfterTaxInheritanceToday), λ=1 heirs=\(byWeight.last!.heirAfterTaxInheritanceToday)")
     }
 }
