@@ -41,15 +41,14 @@ enum AuditCaptureCache {
         all.first { $0.profile.id == id }?.snapshot
     }
 
-    /// CANONICAL frontier baseline — the 3 profiles known to carry a materially dominated
-    /// heir-frontier point on this branch. HARD GATE B (offender SET == this), the magnitude-pin
-    /// iteration, and the catalog-wide frontier pin all read this ONE source, so there is a single
-    /// place to edit if the engine backlog item (`frontier-cross-lambda-domination`) is fixed.
-    static let frontierBaseline: Set<String> = [
-        "mfj-b6-ca-verylarge-old",
-        "single-c3-nj-shorthorizon",
-        "mfj-c3-il-shorthorizon",
-    ]
+    /// CANONICAL frontier baseline — profiles expected to carry a materially dominated
+    /// heir-frontier point. NOW EMPTY: the engine backlog item `frontier-cross-lambda-domination`
+    /// was fixed 2026-07-17 (25f47f5 cross-λ Pareto repair + 900ba6d wealth-consistent objective),
+    /// eliminating all three former offenders (mfj-b6-ca-verylarge-old, single-c3-nj-shorthorizon,
+    /// mfj-c3-il-shorthorizon). HARD GATE B now asserts the offender set is EMPTY, so ANY dominated
+    /// frontier point is a regression. If a future change legitimately reintroduces a known offender,
+    /// re-add its id here (and re-pin its magnitude) rather than weakening the gate.
+    static let frontierBaseline: Set<String> = []
 
     /// True when the heavy full-catalog harness tests should run. They iterate all 27 profiles
     /// (~one shared capture pass, several minutes), so they are OPT-IN via `RUN_AUDIT_HARNESS`.

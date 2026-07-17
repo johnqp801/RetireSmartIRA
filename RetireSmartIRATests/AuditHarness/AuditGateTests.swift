@@ -81,84 +81,18 @@ struct AuditGateTests {
         let nonFrontier = allViolations.filter { $0.v.key != "frontier.nonDominated" }
         #expect(nonFrontier.isEmpty, "unexpected non-frontier violations: \(nonFrontier)")
 
-        // HARD GATE B: frontier.nonDominated offender SET must equal exactly the known baseline.
+        // HARD GATE B: no profile may carry a frontier.nonDominated violation. The 3 former
+        // offenders were fixed 2026-07-17 (see AuditCaptureCache.frontierBaseline), so the offender
+        // set must now be EMPTY — any member is a regression. frontierBaseline is retained as the
+        // single source of truth (empty today) so a legitimately-reintroduced known offender can be
+        // whitelisted there rather than by weakening this assertion.
         let frontierOffenders = Set(allViolations.filter { $0.v.key == "frontier.nonDominated" }.map { $0.profileId })
         #expect(frontierOffenders == AuditCaptureCache.frontierBaseline,
-                "frontier offender set drifted from baseline: got \(frontierOffenders). If you fixed the engine, shrink the baseline set in AuditCaptureCache.frontierBaseline + re-pin magnitudes here; see memory `frontier-cross-lambda-domination`.")
+                "frontier offender set drifted from baseline: got \(frontierOffenders), expected \(AuditCaptureCache.frontierBaseline). A non-empty set means the engine regressed and is plotting dominated heir-frontier points; see memory `frontier-cross-lambda-domination`.")
     }
 
-    // MARK: - Magnitude pin
-
-    /// Reference magnitude of the worst dominated point (vs the λ=0 point) for each baseline
-    /// offender, in today's dollars: (ownerTaxDelta, heirsDelta). Derived from the captured
-    /// frontier exactly as HARD GATE B / the oracle's dominance check does (no engine re-run).
-    /// A silent shrink toward immaterial trips the ±10% band. Keys MUST match
-    /// `AuditCaptureCache.frontierBaseline`; the test iterates the canonical baseline and looks up
-    /// here, so a stray/missing key surfaces immediately.
-    private static let referenceMagnitudes: [String: (ownerTaxDelta: Double, heirsDelta: Double)] = [
-        "mfj-b6-ca-verylarge-old": (ownerTaxDelta: 14_295, heirsDelta: -191_285),
-        "single-c3-nj-shorthorizon": (ownerTaxDelta: 33_408, heirsDelta: -33_328),
-        "mfj-c3-il-shorthorizon": (ownerTaxDelta: 141_358, heirsDelta: -59_683),
-    ]
-
-    /// Worst dominated point for a captured frontier, measured against the λ=0 (weight 0) point.
-    /// "Dominated" uses the SAME ε-cushioned Pareto rule as `DisplayInvariants.frontierNonDominated`.
-    /// Returns the (ownerTaxDelta, heirsDelta) of the dominated point whose owner-tax delta from the
-    /// λ=0 point is the largest (the "worst" one the finding narrates). nil if no dominated point
-    /// (e.g. an offender flagged by the monotonicity clause alone, with no strictly-dominated point).
-    private static func worstDominatedDelta(_ snap: DisplaySnapshot) -> (ownerTaxDelta: Double, heirsDelta: Double)? {
-        let eps = DisplayInvariants.epsilon
-        let pts = snap.frontier.points
-        guard let lambda0 = pts.first(where: { $0.weight == 0.0 }) else { return nil }
-
-        func isDominated(_ pi: FrontierPointSnapshot) -> Bool {
-            for pj in pts where pj.weight != pi.weight {
-                let jNoWorseTax = pj.ownerLifetimeTaxToday <= pi.ownerLifetimeTaxToday + eps
-                let jNoWorseHeirs = pj.heirsKeepToday >= pi.heirsKeepToday - eps
-                let jStrictlyBetter = pj.ownerLifetimeTaxToday < pi.ownerLifetimeTaxToday - eps
-                    || pj.heirsKeepToday > pi.heirsKeepToday + eps
-                if jNoWorseTax && jNoWorseHeirs && jStrictlyBetter { return true }
-            }
-            return false
-        }
-
-        let dominated = pts.filter(isDominated)
-        guard let worst = dominated.max(by: {
-            ($0.ownerLifetimeTaxToday - lambda0.ownerLifetimeTaxToday)
-                < ($1.ownerLifetimeTaxToday - lambda0.ownerLifetimeTaxToday)
-        }) else { return nil }
-
-        return (ownerTaxDelta: worst.ownerLifetimeTaxToday - lambda0.ownerLifetimeTaxToday,
-                heirsDelta: worst.heirsKeepToday - lambda0.heirsKeepToday)
-    }
-
-    @Test("gate: each baseline frontier offender's worst-dominated magnitude stays within tolerance",
-          .enabled(if: AuditCaptureCache.runFullHarness,
-                   "set RUN_AUDIT_HARNESS=1 to run the full 27-profile display gate"))
-    func baselineOffenderMagnitudesArePinned() throws {
-        let tolerance = 0.10   // ±10% band per the revised gate policy
-        for id in AuditCaptureCache.frontierBaseline.sorted() {
-            guard let snap = AuditCaptureCache.snapshot(for: id) else {
-                Issue.record("baseline profile \(id) missing from catalog")
-                continue
-            }
-            guard let delta = Self.worstDominatedDelta(snap) else {
-                // DOCUMENTED SKIP: this offender is flagged by the monotonicity clause alone (no
-                // strictly-dominated point to measure), so there is no magnitude to pin. Today's 3
-                // baseline profiles all have a dominated point, so this branch is not taken; it
-                // guards against a future engine change shifting an offender to monotonicity-only.
-                continue
-            }
-            guard let ref = Self.referenceMagnitudes[id] else {
-                Issue.record("\(id): no reference magnitude pinned")
-                continue
-            }
-            let taxOK = abs(delta.ownerTaxDelta - ref.ownerTaxDelta) <= abs(ref.ownerTaxDelta) * tolerance
-            let heirsOK = abs(delta.heirsDelta - ref.heirsDelta) <= abs(ref.heirsDelta) * tolerance
-            #expect(taxOK,
-                    "\(id): owner-tax delta \(delta.ownerTaxDelta) drifted from reference \(ref.ownerTaxDelta) (±\(tolerance*100)%)")
-            #expect(heirsOK,
-                    "\(id): heirs delta \(delta.heirsDelta) drifted from reference \(ref.heirsDelta) (±\(tolerance*100)%)")
-        }
-    }
+    // The per-offender worst-dominated magnitude pin was removed 2026-07-17: with the frontier now
+    // guaranteed non-dominated, there is no offender magnitude to pin, and HARD GATE B (offender set
+    // must be empty) fully covers regression detection. Restore it alongside a non-empty
+    // frontierBaseline if a known offender is ever legitimately reintroduced.
 }

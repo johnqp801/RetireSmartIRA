@@ -68,11 +68,13 @@ struct DisplayInvariantsTests {
     // baseline so a NEW offender (regression) or a later engine fix (fewer offenders) both trip
     // this test and force a conscious update. Task 5's standing gate must decide policy (fix the
     // engine, or allowlist these) before frontier.nonDominated can be a hard build gate.
-    @Test("heir-frontier domination finding is confined to the three known regimes",
+    @Test("heir-frontier is non-dominated across the whole catalog (no offenders)",
           .enabled(if: AuditCaptureCache.runFullHarness,
                    "set RUN_AUDIT_HARNESS=1 to run the full 27-profile catalog invariant sweep"))
     func frontierFindingIsPinned() {
-        // Structured offender set (profile id per violation), NOT a detail-string parse.
+        // Structured offender set (profile id per violation), NOT a detail-string parse. Since the
+        // 2026-07-17 fixes (Pareto repair + wealth-consistent objective) `frontierBaseline` is empty,
+        // so this asserts the whole catalog is domination-free; any offender is a regression.
         let offenderIDs = Set(catalogViolations()
             .filter { $0.v.key == "frontier.nonDominated" }
             .map { $0.profileId })
