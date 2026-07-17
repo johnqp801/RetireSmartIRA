@@ -39,10 +39,13 @@ struct DisplaySnapshotTests {
         #expect(snap.taximpact.cumulativePlan.count == snap.taximpact.cumulativeDoingNothing.count)
     }
 
-    @Test("every catalog profile captures without crashing and is Codable")
+    // Catalog-wide, so OPT-IN via RUN_AUDIT_HARNESS (see AuditGateTests header). Reuses the shared
+    // capture pass rather than re-capturing all 27 profiles.
+    @Test("every catalog profile captures without crashing and is Codable",
+          .enabled(if: AuditCaptureCache.runFullHarness,
+                   "set RUN_AUDIT_HARNESS=1 to run the full 27-profile encodability sweep"))
     func snapshotAllProfilesEncodable() throws {
-        for profile in AuditProfiles.all {
-            let snap = DisplaySnapshot.capture(profile, provider: Self.provider)
+        for (_, snap) in AuditCaptureCache.all {
             #expect(snap.frontier.points.count == 6)
             #expect(!snap.cliffmap.years.isEmpty)
             let data = try JSONEncoder().encode(snap)

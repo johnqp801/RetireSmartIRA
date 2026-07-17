@@ -32,29 +32,31 @@ struct DisplayInvariantsTests {
         #expect(!violations.contains { $0.key == "comparison.deferredReconciliation" })
     }
 
-    /// Run the whole catalog once and bucket every violation by invariant key.
-    private func catalogViolationsByKey() -> [String: [InvariantViolation]] {
-        var byKey: [String: [InvariantViolation]] = [:]
-        for p in AuditProfiles.all {
-            let snap = DisplaySnapshot.capture(p, provider: Self.provider)
-            for v in DisplayInvariants.check(p, snap, provider: Self.provider) {
-                byKey[v.key, default: []].append(v)
-            }
+    /// Run every catalog invariant off the SHARED capture pass and bucket violations by key,
+    /// tagged with their originating profile id. Reuses `AuditCaptureCache.all` (one 27-profile
+    /// capture shared across the whole harness) rather than re-capturing.
+    private func catalogViolations() -> [(profileId: String, v: InvariantViolation)] {
+        var out: [(profileId: String, v: InvariantViolation)] = []
+        for (p, snap) in AuditCaptureCache.all {
+            out += DisplayInvariants.check(p, snap, provider: AuditCaptureCache.provider()).map { (p.id, $0) }
         }
-        return byKey
+        return out
     }
 
     // Five of the six invariants (heir reconciliation, no-phantom conversion, MAGI ≥ AGI, balance
     // non-negativity, state-conversion exemption) must hold across the ENTIRE catalog on this
-    // (I1/I3/B2-fixed) branch. A regression in any of them fails here immediately.
-    @Test("reconciliation / phantom / magi / balances / state invariants are catalog-clean")
+    // (I1/I3/B2-fixed) branch. A regression in any of them fails here immediately. Catalog-wide, so
+    // OPT-IN via RUN_AUDIT_HARNESS (see AuditGateTests header).
+    @Test("reconciliation / phantom / magi / balances / state invariants are catalog-clean",
+          .enabled(if: AuditCaptureCache.runFullHarness,
+                   "set RUN_AUDIT_HARNESS=1 to run the full 27-profile catalog invariant sweep"))
     func fiveInvariantsAreClean() {
-        let byKey = catalogViolationsByKey()
+        let all = catalogViolations()
         for key in ["comparison.deferredReconciliation", "ladder.noPhantom", "magi.geAGI",
                     "balances.nonNegative", "state.paConversionExempt"] {
-            let fired = byKey[key] ?? []
+            let fired = all.filter { $0.v.key == key }
             #expect(fired.isEmpty,
-                    Comment(rawValue: "\(key) fired:\n" + fired.map(\.detail).joined(separator: "\n")))
+                    Comment(rawValue: "\(key) fired:\n" + fired.map { $0.v.detail }.joined(separator: "\n")))
         }
     }
 
@@ -66,15 +68,15 @@ struct DisplayInvariantsTests {
     // baseline so a NEW offender (regression) or a later engine fix (fewer offenders) both trip
     // this test and force a conscious update. Task 5's standing gate must decide policy (fix the
     // engine, or allowlist these) before frontier.nonDominated can be a hard build gate.
-    @Test("heir-frontier domination finding is confined to the three known regimes")
+    @Test("heir-frontier domination finding is confined to the three known regimes",
+          .enabled(if: AuditCaptureCache.runFullHarness,
+                   "set RUN_AUDIT_HARNESS=1 to run the full 27-profile catalog invariant sweep"))
     func frontierFindingIsPinned() {
-        let byKey = catalogViolationsByKey()
-        let offenderIDs = Set((byKey["frontier.nonDominated"] ?? []).compactMap {
-            $0.detail.split(separator: ":", maxSplits: 1).first.map(String.init)
-        })
-        #expect(offenderIDs == ["mfj-b6-ca-verylarge-old",
-                                "single-c3-nj-shorthorizon",
-                                "mfj-c3-il-shorthorizon"],
+        // Structured offender set (profile id per violation), NOT a detail-string parse.
+        let offenderIDs = Set(catalogViolations()
+            .filter { $0.v.key == "frontier.nonDominated" }
+            .map { $0.profileId })
+        #expect(offenderIDs == AuditCaptureCache.frontierBaseline,
                 Comment(rawValue: "frontier.nonDominated offender set changed: \(offenderIDs.sorted())"))
     }
 
