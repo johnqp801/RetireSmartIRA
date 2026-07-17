@@ -50,6 +50,10 @@ class DataManager {
         get { profile.selectedState }
         set { profile.selectedState = newValue }
     }
+    var localIncomeTaxRate: Double {
+        get { profile.localIncomeTaxRate }
+        set { profile.localIncomeTaxRate = newValue }
+    }
     var userName: String {
         get { profile.userName }
         set { profile.userName = newValue }
@@ -530,7 +534,10 @@ class DataManager {
     /// `income` is post-state-deduction income (state taxable income before retirement exemptions).
     /// `taxableSocialSecurity` is the SS amount included in income (to correctly subtract for SS-exempt states).
     func calculateStateTax(income: Double, forState state: USState, filingStatus: FilingStatus = .single, taxableSocialSecurity: Double = 0, scenarioRetirementDistributions: Double = 0, scenarioRothConversionAmount: Double = 0, scenarioRothConversionWithholdingAmount: Double = 0, postExemptionDeduction: Double = 0) -> Double {
-        TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction)
+        // Apply the user's local/city income tax rate ONLY to their own state — a cross-state
+        // comparison (a hypothetical other state) must not inherit the home locality's rate.
+        let localRate = (state == selectedState) ? localIncomeTaxRate : 0
+        return TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction, localIncomeTaxRate: localRate)
     }
 
     /// Sum of scenario-level retirement-distribution income subject to state-level

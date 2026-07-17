@@ -92,6 +92,7 @@ extension DataManager {
         h.combine(profile.planYear)
         h.combine(profile.filingStatus)
         h.combine(profile.selectedState)
+        h.combine(profile.localIncomeTaxRate)
         h.combine(profile.enableSpouse)
         h.combine(profile.plannedMedicareStartAge)
         h.combine(profile.hasQualifiedEmployerCoverageForMedicare)

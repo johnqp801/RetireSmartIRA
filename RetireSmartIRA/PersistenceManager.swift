@@ -19,6 +19,7 @@ struct PersistenceManager {
         static let spouseBirthYear = "spouseBirthYear" // legacy migration
         static let filingStatus = "filingStatus"
         static let selectedState = "selectedState"
+        static let localIncomeTaxRate = "localIncomeTaxRate"
         static let planYear = "planYear"
         static let spouseName = "spouseName"
         static let enableSpouse = "enableSpouse"
@@ -117,6 +118,10 @@ struct PersistenceManager {
         if let raw = defaults.string(forKey: StorageKey.selectedState),
            let state = USState(rawValue: raw) {
             dm.selectedState = state
+        }
+        // Local/city income tax rate (absent for pre-feature installs → stays 0).
+        if defaults.object(forKey: StorageKey.localIncomeTaxRate) != nil {
+            dm.localIncomeTaxRate = defaults.double(forKey: StorageKey.localIncomeTaxRate)
         }
         // Plan year — persisted so year-specific labels stay stable across
         // calendar rollover. If missing (pre-1.7.2 install), default to the
@@ -454,6 +459,7 @@ struct PersistenceManager {
         defaults.set(dm.birthDate.timeIntervalSince1970, forKey: StorageKey.birthDate)
         defaults.set(dm.filingStatus.rawValue, forKey: StorageKey.filingStatus)
         defaults.set(dm.selectedState.rawValue, forKey: StorageKey.selectedState)
+        defaults.set(dm.localIncomeTaxRate, forKey: StorageKey.localIncomeTaxRate)
         defaults.set(dm.planYear, forKey: StorageKey.planYear)
         defaults.set(dm.spouseName, forKey: StorageKey.spouseName)
         defaults.set(dm.userName, forKey: StorageKey.userName)

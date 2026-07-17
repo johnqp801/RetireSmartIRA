@@ -37,6 +37,10 @@ class ProfileManager {
     var priorPlanYear: Int { planYear - 1 }
     var filingStatus: FilingStatus = .single
     var selectedState: USState = .california
+    /// User-entered local/city income tax rate (fraction, e.g. 0.0388 for NYC ~3.88%).
+    /// Applied to the state-taxable income base and folded into the state tax figure.
+    /// Default 0 (no local income tax) keeps every existing result unchanged.
+    var localIncomeTaxRate: Double = 0
     var userName: String = ""
     var spouseName: String = ""
     var spouseBirthDate: Date = {

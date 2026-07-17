@@ -711,7 +711,8 @@ struct ProjectionEngine {
                 usState: usState,
                 primaryAge: primaryAge,
                 spouseBirthYear: inputs.spouseBirthYear,
-                year: year
+                year: year,
+                localIncomeTaxRate: inputs.localIncomeTaxRate
             )
 
             // ─── Per-year standard-vs-itemized deduction selection (V2.1.1) ───
@@ -873,7 +874,7 @@ struct ProjectionEngine {
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
                         filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
-                        year: year) - stateTax
+                        year: year, localIncomeTaxRate: inputs.localIncomeTaxRate) - stateTax
                     return max(0, fed) + max(0, st)
                 }
 
@@ -938,7 +939,7 @@ struct ProjectionEngine {
                         federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
                         filingStatus: inputs.filingStatus,
-                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year)
+                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year, localIncomeTaxRate: inputs.localIncomeTaxRate)
                     underfundedTax = max(0, (fedTax + stTax + nonFedState) - saleCash - dW)
                 }
             }
@@ -1304,7 +1305,8 @@ struct ProjectionEngine {
         usState: USState,
         primaryAge: Int,
         spouseBirthYear: Int?,
-        year: Int
+        year: Int,
+        localIncomeTaxRate: Double
     ) -> Double {
         // Build a minimal income source list so retirement exemptions can be applied.
         // StateTaxData uses .pension and .rmd types for exemption bucketing.
@@ -1340,7 +1342,8 @@ struct ProjectionEngine {
             spouseBirthYear: spouseBirthYear ?? 0,
             currentYear: year,
             scenarioRothConversionAmount: explicitRothConversions,
-            scenarioRothConversionWithholdingAmount: 0
+            scenarioRothConversionWithholdingAmount: 0,
+            localIncomeTaxRate: localIncomeTaxRate
         )
     }
 }

@@ -350,7 +350,8 @@ struct TaxCalculationEngine {
         scenarioRetirementDistributions: Double = 0,
         scenarioRothConversionAmount: Double = 0,
         scenarioRothConversionWithholdingAmount: Double = 0,
-        postExemptionDeduction: Double = 0
+        postExemptionDeduction: Double = 0,
+        localIncomeTaxRate: Double = 0
     ) -> Double {
         let config = StateTaxData.config(for: state)
         let spouseAge = currentYear - spouseBirthYear
@@ -379,7 +380,7 @@ struct TaxCalculationEngine {
         var tax: Double
         switch config.taxSystem {
         case .noIncomeTax, .specialLimited:
-            return 0
+            tax = 0
         case .flat(let rate):
             tax = max(0, adjustedIncome) * rate
         case .progressive(let single, let married):
@@ -391,7 +392,13 @@ struct TaxCalculationEngine {
             tax -= californiaExemptionCredits(filingStatus: filingStatus, agi: adjustedIncome, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear)
         }
 
-        return max(0, tax)
+        // User-entered local/city income tax (Alan 2nd-round). A flat rate on the same
+        // state-taxable base (after retirement exclusions + deductions), folded into the
+        // returned state figure. Applies regardless of the state's own income-tax system
+        // (e.g. a locality in a no-state-income-tax state). Rate 0 → byte-identical to before.
+        let localTax = max(0, adjustedIncome) * max(0, localIncomeTaxRate)
+
+        return max(0, tax) + localTax
     }
 
     // MARK: - California Exemption Credits

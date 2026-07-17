@@ -276,6 +276,7 @@ enum MultiYearInputAdapter {
             spouseCurrentAge: spouseAge,
             filingStatus: dataManager.filingStatus,
             state: stateAbbrev,
+            localIncomeTaxRate: dataManager.localIncomeTaxRate,
             primarySSClaimAge: primaryClaimAge,
             spouseSSClaimAge: spouseClaimAge,
             primaryExpectedBenefitAtFRA: primaryBenefit,
