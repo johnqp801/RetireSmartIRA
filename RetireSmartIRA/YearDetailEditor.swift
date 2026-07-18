@@ -58,7 +58,7 @@ struct YearDetailEditor: View {
                 oneTimeField
                 clearSection
             }
-            .navigationTitle("Year \(model.year)")
+            .navigationTitle("Year \(String(model.year))")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -86,7 +86,7 @@ struct YearDetailEditor: View {
     @ViewBuilder
     private var recurringField: some View {
         Section {
-            TextField("Ongoing annual expenses beginning in \(model.year)", text: $model.recurringText)
+            TextField("Ongoing annual expenses beginning in \(String(model.year))", text: $model.recurringText)
                 #if os(iOS)
                 .keyboardType(.decimalPad)
                 #endif
@@ -96,7 +96,7 @@ struct YearDetailEditor: View {
     @ViewBuilder
     private var oneTimeField: some View {
         Section {
-            TextField("One-time adjustment in \(model.year) (+/\u{2212})", text: $model.oneTimeText)
+            TextField("One-time adjustment in \(String(model.year)) (+/\u{2212})", text: $model.oneTimeText)
                 #if os(iOS)
                 .keyboardType(.numbersAndPunctuation)
                 #endif
