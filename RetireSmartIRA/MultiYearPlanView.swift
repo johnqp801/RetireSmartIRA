@@ -411,10 +411,14 @@ struct MultiYearPlanView: View {
 
     // Writes the edited override (nil clears it) and prunes empty entries so the map never carries
     // dead keys — the row badge and downstream expense resolution both key off pruned() results.
+    // A per-year expense is an assumption-level input (like baselineAnnualExpenses), so it must go
+    // through recomputeAll() — not the current-only .overridesChanged path — so both the
+    // recommended (engine-optimal) ladder and the do-nothing baseline pick up the new expense
+    // instead of going stale (final-review I-1).
     private func saveOverride(_ resulting: YearOverride?, forYear year: Int) {
         manager.assumptions.perYearOverrides[year] = resulting
         manager.assumptions.perYearOverrides = manager.assumptions.perYearOverrides.pruned()
-        manager.recompute(reason: .overridesChanged)
+        recomputeAll()
     }
 
     /// One-way dismissal binding backed by the manager's dismissed-insight keys, which are

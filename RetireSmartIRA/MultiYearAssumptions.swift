@@ -47,6 +47,14 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     /// `upgradedOverrides(...)` can migrate it into `perYearOverrides`. Never re-persisted —
     /// excluded from `CodingKeys` for encode, so synthesized `encode(to:)` skips it (default
     /// value + no matching case = excluded from synthesis). Cleared to `[:]` once migrated.
+    ///
+    /// Equatable-safety invariant: this property still participates in the synthesized
+    /// `Equatable` conformance above. That's safe only because it is transiently non-empty for
+    /// the narrow window between decode and the load-time upgrade (`PersistenceManager.loadAll`
+    /// now runs `upgradedOverrides(...)` immediately after decode — see final-review I-2) and
+    /// because no production code compares two `MultiYearAssumptions` values for equality. Tests
+    /// that do (e.g. idempotency checks) only ever compare already-upgraded (schema-1, therefore
+    /// empty-legacy-map) instances.
     var legacyExpenseOverrides: [Int: Double] = [:]
 
     private enum CodingKeys: String, CodingKey {
