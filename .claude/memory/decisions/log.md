@@ -4,6 +4,12 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-17 (late): Display-trust fixes + SS data-loss guard; PV default
+
+**Decisions:** (1) Multi-Year displays DEFAULT to Present value (resolves B5 units-mixing + C6; the always-PV "Lifetime tax" row keeps its B2 protection; CPA export prints lifetime tax in labeled PV). (2) Assumptions recompute is VALUE-BASED (view observes manager.assumptions via engineRelevantChanged; UI-only state excluded) after the Advanced sheet's onDisappear/onCommit was live-proven not to fire on macOS — the architectural fix over a fourth spot patch. (3) saveSSData must NEVER remove stored keys on nil memory (nil = not-loaded/never-entered, not user-deleted); injectable defaults for tests.
+
+**Rationale:** live audit of a real household (ChatGPT cross-review validated the nominal-vs-PV catch: +$4.4M nominal was +$1.0M PV) plus a real data-loss event tonight (taxable-account edit + SS entries from a 2.1.1 session were lost; forensics showed the remove-on-nil save pattern makes any failed load destructive). Merged to main d607e59; suite 1,403+503 green.
+
 ## 2026-07-17: V2.1.2 scope — engine batch + four Alan/Fred-driven items
 
 **Decision:** V2.1.2 (branch `fix/multiyear-state-tax-heir-frontier`) ships the engine batch already on the branch — I1 (PA/IL/MS conversion state tax), I3 (heir-frontier de-domination), B2 (deferred-tax-on-remaining-IRA row), the cross-λ Pareto repair (25f47f5), the wealth-consistent objective (900ba6d: all tax flows discount at the growth rate — cures λ=0 over-conversion + opens the heir frontier), and the widow-banner nominal-tax fix (7a08419) — PLUS four newly-approved user-driven items:
