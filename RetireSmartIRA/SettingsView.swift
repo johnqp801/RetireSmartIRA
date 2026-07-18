@@ -68,6 +68,8 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                localIncomeTaxField
             }
 
             Section("Spouse Configuration") {
@@ -361,6 +363,37 @@ struct SettingsView: View {
     }
 
     // MARK: - State Picker
+
+    /// The local/city income tax rate exposed to the UI as a PERCENT (the model stores a
+    /// fraction). Rounded to 3 decimals on read so the field shows "3.88", not float noise.
+    private var localIncomeTaxPercent: Binding<Double> {
+        Binding(
+            get: { (dataManager.localIncomeTaxRate * 100 * 1000).rounded() / 1000 },
+            set: {
+                dataManager.localIncomeTaxRate = max(0, $0) / 100
+                dataManager.saveAllData()   // persist here (keeps the Form's onChange chain short)
+            }
+        )
+    }
+
+    /// Extracted to keep the main Form body small enough for the SwiftUI type-checker.
+    @ViewBuilder
+    private var localIncomeTaxField: some View {
+        LabeledContent("Local / city income tax") {
+            HStack(spacing: 2) {
+                TextField("0", value: localIncomeTaxPercent, format: .number)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                    #if os(iOS)
+                    .keyboardType(.decimalPad)
+                    #endif
+                Text("%").foregroundStyle(.secondary)
+            }
+        }
+        Text("Optional. A local/city income tax rate (e.g. New York City ~3.88%). Applied to your state-taxable income; leave 0 if none.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
 
     /// Searchable list of all 50 states + DC for state of residence selection.
     private var statePickerView: some View {

@@ -94,7 +94,7 @@ struct SSClaimNudge {
             )
             let candidateObjective = OptimizationEngine.computeObjectiveCost(
                 path: candidatePath, terminalLiquidationTaxRate: assumptions.terminalLiquidationTaxRate,
-                baseYear: inputs.baseYear, pvRealDiscountRate: assumptions.pvRealDiscountRate
+                baseYear: inputs.baseYear, investmentGrowthRate: assumptions.investmentGrowthRate
             )
             let savings = baselineObj - candidateObjective  // positive = savings
 
@@ -121,7 +121,7 @@ struct SSClaimNudge {
                 )
                 let candidateObjective = OptimizationEngine.computeObjectiveCost(
                     path: candidatePath, terminalLiquidationTaxRate: assumptions.terminalLiquidationTaxRate,
-                    baseYear: inputs.baseYear, pvRealDiscountRate: assumptions.pvRealDiscountRate
+                    baseYear: inputs.baseYear, investmentGrowthRate: assumptions.investmentGrowthRate
                 )
                 let savings = baselineObj - candidateObjective
 

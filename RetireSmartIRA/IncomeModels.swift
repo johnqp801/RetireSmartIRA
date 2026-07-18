@@ -78,6 +78,17 @@ struct IncomeSource: Identifiable, Codable {
     /// for Social Security sources. Defaults to 0.
     var federalWithholdingPercent: Double
 
+    /// $/% mode for STATE withholding (Alan 2nd-round feedback). Reuses the same
+    /// `FederalWithholdingMode` $/% enum. `nil` means a legacy source that
+    /// predates this feature — resolves as `.dollars` in `effectiveStateWithholding`,
+    /// so no user data changes silently on load. Unlike federal, there is no state
+    /// W-4V rate set, so this percent applies to ALL types including Social Security.
+    var stateWithholdingMode: FederalWithholdingMode?
+
+    /// State withholding percentage (0-100 scale) when `stateWithholdingMode == .percent`.
+    /// Ignored in `.dollars` mode. Defaults to 0.
+    var stateWithholdingPercent: Double
+
     /// Combined federal + state withholding for this source
     var totalWithholding: Double { federalWithholding + stateWithholding }
 
@@ -99,7 +110,19 @@ struct IncomeSource: Identifiable, Codable {
         return federalWithholding
     }
 
-    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil, federalWithholdingMode: FederalWithholdingMode? = nil, federalWithholdingPercent: Double = 0) {
+    /// Dollars actually withheld for STATE tax. In `.percent` mode:
+    /// `(stateWithholdingPercent / 100) × amount` (applies to every source type,
+    /// including Social Security — there is no state W-4V restriction). Otherwise
+    /// (`.dollars` mode, or legacy mode `nil`): the stored dollar `stateWithholding`.
+    /// All state-tax/safe-harbor/quarterly consumers should read this, never the raw field.
+    var effectiveStateWithholding: Double {
+        if stateWithholdingMode == .percent {
+            return (stateWithholdingPercent / 100) * max(0, annualAmount)
+        }
+        return stateWithholding
+    }
+
+    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil, federalWithholdingMode: FederalWithholdingMode? = nil, federalWithholdingPercent: Double = 0, stateWithholdingMode: FederalWithholdingMode? = nil, stateWithholdingPercent: Double = 0) {
         self.id = id
         self.name = name
         self.type = type
@@ -110,6 +133,8 @@ struct IncomeSource: Identifiable, Codable {
         self.ssWithholdingRate = ssWithholdingRate
         self.federalWithholdingMode = federalWithholdingMode
         self.federalWithholdingPercent = federalWithholdingPercent
+        self.stateWithholdingMode = stateWithholdingMode
+        self.stateWithholdingPercent = stateWithholdingPercent
     }
 
     // MARK: - Data Migration
@@ -167,6 +192,12 @@ struct IncomeSource: Identifiable, Codable {
         // stored dollar federalWithholding — byte-identical to pre-#5b behavior.
         federalWithholdingMode = try? container.decodeIfPresent(FederalWithholdingMode.self, forKey: .federalWithholdingMode)
         federalWithholdingPercent = (try? container.decodeIfPresent(Double.self, forKey: .federalWithholdingPercent)) ?? 0
+
+        // LAZY migration, same pattern: legacy JSON has no state $/% keys, so these
+        // decode to nil / 0 and effectiveStateWithholding falls back to the stored
+        // dollar stateWithholding — byte-identical to pre-feature behavior.
+        stateWithholdingMode = try? container.decodeIfPresent(FederalWithholdingMode.self, forKey: .stateWithholdingMode)
+        stateWithholdingPercent = (try? container.decodeIfPresent(Double.self, forKey: .stateWithholdingPercent)) ?? 0
     }
 
     /// Sentinel prefix applied to the `name` of legacy `.rothConversion` income
@@ -176,7 +207,7 @@ struct IncomeSource: Identifiable, Codable {
     static let legacyRothConversionSentinelPrefix = "__LEGACY_ROTH_CONVERSION__::"
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate, federalWithholdingMode, federalWithholdingPercent
+        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate, federalWithholdingMode, federalWithholdingPercent, stateWithholdingMode, stateWithholdingPercent
     }
 
     func encode(to encoder: Encoder) throws {
@@ -191,6 +222,8 @@ struct IncomeSource: Identifiable, Codable {
         try container.encodeIfPresent(ssWithholdingRate, forKey: .ssWithholdingRate)
         try container.encodeIfPresent(federalWithholdingMode, forKey: .federalWithholdingMode)
         try container.encode(federalWithholdingPercent, forKey: .federalWithholdingPercent)
+        try container.encodeIfPresent(stateWithholdingMode, forKey: .stateWithholdingMode)
+        try container.encode(stateWithholdingPercent, forKey: .stateWithholdingPercent)
     }
 }
 

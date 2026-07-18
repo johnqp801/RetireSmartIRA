@@ -19,6 +19,7 @@ struct PersistenceManager {
         static let spouseBirthYear = "spouseBirthYear" // legacy migration
         static let filingStatus = "filingStatus"
         static let selectedState = "selectedState"
+        static let localIncomeTaxRate = "localIncomeTaxRate"
         static let planYear = "planYear"
         static let spouseName = "spouseName"
         static let enableSpouse = "enableSpouse"
@@ -117,6 +118,10 @@ struct PersistenceManager {
         if let raw = defaults.string(forKey: StorageKey.selectedState),
            let state = USState(rawValue: raw) {
             dm.selectedState = state
+        }
+        // Local/city income tax rate (absent for pre-feature installs → stays 0).
+        if defaults.object(forKey: StorageKey.localIncomeTaxRate) != nil {
+            dm.localIncomeTaxRate = defaults.double(forKey: StorageKey.localIncomeTaxRate)
         }
         // Plan year — persisted so year-specific labels stay stable across
         // calendar rollover. If missing (pre-1.7.2 install), default to the
@@ -377,7 +382,18 @@ struct PersistenceManager {
         // Multi-Year Plan assumptions (Codable blob; missing key leaves the default)
         if let data = defaults.data(forKey: StorageKey.multiYearAssumptions),
            let decoded = try? JSONDecoder().decode(MultiYearAssumptions.self, from: data) {
-            dm.multiYearAssumptions = decoded
+            // Eager load-time migration (final-review I-2): a schema-0 plan's legacy expense map
+            // must be folded into perYearOverrides HERE, not only lazily in
+            // MultiYearStrategyManager.attach(). Otherwise a schema-0 plan carrying a non-empty
+            // legacy map could be re-persisted (saveAll is called from ~70 sites, many outside the
+            // Multi-Year tab) with schema still 0 and no legacy key in the encoded blob — since
+            // encode(to:) never writes legacyExpenseOverrides — silently erasing it. Upgrading
+            // eagerly makes the in-memory copy schema-1 before any save can happen; attach()'s own
+            // upgrade call then becomes a harmless no-op (upgradedOverrides is idempotent).
+            dm.multiYearAssumptions = decoded.upgradedOverrides(
+                baselineAnnualExpenses: decoded.baselineAnnualExpenses,
+                cpiRate: decoded.cpiRate,
+                baseYear: dm.currentYear)
         }
 
         // Taxable accounts (decoded AFTER assumptions so the legacy-balance migration
@@ -454,6 +470,7 @@ struct PersistenceManager {
         defaults.set(dm.birthDate.timeIntervalSince1970, forKey: StorageKey.birthDate)
         defaults.set(dm.filingStatus.rawValue, forKey: StorageKey.filingStatus)
         defaults.set(dm.selectedState.rawValue, forKey: StorageKey.selectedState)
+        defaults.set(dm.localIncomeTaxRate, forKey: StorageKey.localIncomeTaxRate)
         defaults.set(dm.planYear, forKey: StorageKey.planYear)
         defaults.set(dm.spouseName, forKey: StorageKey.spouseName)
         defaults.set(dm.userName, forKey: StorageKey.userName)

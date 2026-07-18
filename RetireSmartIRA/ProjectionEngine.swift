@@ -486,16 +486,13 @@ struct ProjectionEngine {
             // ─────────────────────────────────────────
             // Step 4: Compute expenses and auto-funding
             // ─────────────────────────────────────────
-            let annualExpenses: Double = {
-                if let override = assumptions.perYearExpenseOverrides[year] {
-                    return override   // explicit nominal value for this year
-                }
-                // H4: inflate the baseline (stated in today's dollars) by CPI so expenses stay
-                // consistent with COLA-adjusted Social Security. Without this, flat-nominal
-                // expenses understated late-horizon withdrawals and overstated end balances.
-                let yearsFromBase = max(0, year - scenarioBaseYear)
-                return inputs.baselineAnnualExpenses * pow(1.0 + assumptions.cpiRate, Double(yearsFromBase))
-            }()
+            // H4: inflate the baseline (stated in today's dollars) by CPI so expenses stay
+            // consistent with COLA-adjusted Social Security. Per-year recurring anchors and
+            // one-time adjustments (2.1.2) layer on top via ExpenseResolution.
+            let annualExpenses = ExpenseResolution.expense(
+                year: year, baseYear: scenarioBaseYear,
+                baselineAnnualExpenses: inputs.baselineAnnualExpenses,
+                cpiRate: assumptions.cpiRate, overrides: assumptions.perYearOverrides)
 
             let wageIncome = inputs.primaryWageIncome + inputs.spouseWageIncome
             let pensionIncome = inputs.primaryPensionIncome + inputs.spousePensionIncome
@@ -706,11 +703,13 @@ struct ProjectionEngine {
                 taxableSS: taxableSS,
                 pensionIncome: pensionIncome,
                 totalTradWithdrawals: totalTradWithdrawals,
+                explicitRothConversions: explicitRothConversions,
                 filingStatus: inputs.filingStatus,
                 usState: usState,
                 primaryAge: primaryAge,
                 spouseBirthYear: inputs.spouseBirthYear,
-                year: year
+                year: year,
+                localIncomeTaxRate: inputs.localIncomeTaxRate
             )
 
             // ─── Per-year standard-vs-itemized deduction selection (V2.1.1) ───
@@ -869,9 +868,10 @@ struct ProjectionEngine {
                                                                      max(0, taxableIncome + dW))) - federalTax
                     let st = computeStateTax(
                         federalAGI: federalAGI + dW + max(0, saleGain), taxableSS: taxableSS, pensionIncome: pensionIncome,
-                        totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
+                        totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
+                        filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
-                        year: year) - stateTax
+                        year: year, localIncomeTaxRate: inputs.localIncomeTaxRate) - stateTax
                     return max(0, fed) + max(0, st)
                 }
 
@@ -934,8 +934,9 @@ struct ProjectionEngine {
                         preferentialIncome: reportedTaxablePreferential)
                     stTax = computeStateTax(
                         federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
-                        totalTradWithdrawals: totalTradWithdrawals + dW, filingStatus: inputs.filingStatus,
-                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year)
+                        totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
+                        filingStatus: inputs.filingStatus,
+                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year, localIncomeTaxRate: inputs.localIncomeTaxRate)
                     underfundedTax = max(0, (fedTax + stTax + nonFedState) - saleCash - dW)
                 }
             }
@@ -1296,11 +1297,13 @@ struct ProjectionEngine {
         taxableSS: Double,
         pensionIncome: Double,
         totalTradWithdrawals: Double,
+        explicitRothConversions: Double,
         filingStatus: FilingStatus,
         usState: USState,
         primaryAge: Int,
         spouseBirthYear: Int?,
-        year: Int
+        year: Int,
+        localIncomeTaxRate: Double
     ) -> Double {
         // Build a minimal income source list so retirement exemptions can be applied.
         // StateTaxData uses .pension and .rmd types for exemption bucketing.
@@ -1321,6 +1324,10 @@ struct ProjectionEngine {
         }
 
         let hasSpouse = spouseBirthYear != nil
+        // Forward the year's Roth conversion so states that exempt conversions for eligible
+        // owners (PA/IL/MS) correctly subtract it. Multi-year uses gross-up funding, not
+        // conversion withholding, so the withholding amount is 0 (the full conversion is exempt
+        // where the state exempts it). Inert for states with no conversion exemption. (I1)
         return TaxCalculationEngine.calculateStateTax(
             income: federalAGI,
             forState: usState,
@@ -1330,7 +1337,10 @@ struct ProjectionEngine {
             currentAge: primaryAge,
             enableSpouse: hasSpouse,
             spouseBirthYear: spouseBirthYear ?? 0,
-            currentYear: year
+            currentYear: year,
+            scenarioRothConversionAmount: explicitRothConversions,
+            scenarioRothConversionWithholdingAmount: 0,
+            localIncomeTaxRate: localIncomeTaxRate
         )
     }
 }

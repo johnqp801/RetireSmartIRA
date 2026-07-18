@@ -91,7 +91,7 @@ struct MultiYearGivingIntegrationTests {
         MultiYearAssumptions(
             horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0.025,
             investmentGrowthRate: 0.06, withdrawalOrderingRule: .taxEfficient,
-            stressTestEnabled: false, perYearExpenseOverrides: [:],
+            stressTestEnabled: false, perYearOverrides: [:],
             currentTaxableBalance: 0, currentHSABalance: 0,
             baselineAnnualExpenses: 0, taxPaymentSource: .external
         )
@@ -102,7 +102,7 @@ struct MultiYearGivingIntegrationTests {
         MultiYearAssumptions(
             horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0.025,
             investmentGrowthRate: 0.06, withdrawalOrderingRule: .taxEfficient,
-            stressTestEnabled: false, perYearExpenseOverrides: [:],
+            stressTestEnabled: false, perYearOverrides: [:],
             currentTaxableBalance: 0, currentHSABalance: 0
         )
     }

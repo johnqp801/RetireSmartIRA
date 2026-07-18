@@ -50,7 +50,7 @@ struct RMDPopulationTests {
     private func assumptions() -> MultiYearAssumptions {
         MultiYearAssumptions(horizonEndAge: 80, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 5_000_000, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 5_000_000, currentHSABalance: 0)
     }
     private func emptyActions(_ inp: MultiYearStaticInputs, _ a: MultiYearAssumptions) -> [Int: [LeverAction]] {
         var m: [Int: [LeverAction]] = [:]

@@ -65,7 +65,7 @@ struct ProjectionEngineTests {
             investmentGrowthRate: growth,
             withdrawalOrderingRule: rule,
             stressTestEnabled: false,
-            perYearExpenseOverrides: [:],
+            perYearOverrides: [:],
             currentTaxableBalance: 0,
             currentHSABalance: 0
         )
@@ -100,6 +100,22 @@ struct ProjectionEngineTests {
         // After conversion: trad 950K, roth 150K. After 6% growth: trad 1,007K, roth 159K.
         #expect(abs(years[0].endOfYearBalances.traditional - 1_007_000) < 1.0)
         #expect(abs(years[0].endOfYearBalances.roth - 159_000) < 1.0)
+    }
+
+    @Test("PA resident 59½+: Roth conversion is exempt from PA state tax (multi-year)")
+    func paConversionExemptFromMultiYearStateTax() {
+        // Pennsylvania does not tax Roth conversions once the owner has reached 59½.
+        // A 62-year-old PA resident converting $100k with no other PA-taxable income
+        // should owe ~$0 PA state tax on the conversion. The single-year engine already
+        // exempts it; the multi-year projection must too (I1).
+        let inputs = makeInputs(currentAge: 62, traditional: 1_000_000, state: "PA")
+        let engine = ProjectionEngine()
+        let years = engine.project(
+            inputs: inputs,
+            assumptions: makeAssumptions(),
+            actionsPerYear: [baseYear: [.rothConversion(amount: 100_000)]]
+        )
+        #expect(years[0].taxBreakdown.state < 1.0)
     }
 
     @Test("Multi-year horizon: growth compounds")
@@ -150,7 +166,9 @@ struct ProjectionEngineTests {
     @Test("Per-year expense override: drives auto-funded withdrawals")
     func perYearExpenseOverrideDrivesAutoFunding() {
         var assumptions = makeAssumptions()
-        assumptions.perYearExpenseOverrides = [baseYear: 120_000]
+        // baselineExpenses is 0 in this fixture, so an additive oneTimeAmount of 120K
+        // reproduces the old absolute-override value of 120K exactly.
+        assumptions.perYearOverrides = [baseYear: YearOverride(livingExpenses: FieldOverride(oneTimeAmount: 120_000))]
         let inputs = makeInputs(
             currentAge: 67,
             traditional: 1_000_000,

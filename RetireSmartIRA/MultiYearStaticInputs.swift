@@ -38,6 +38,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     let spouseCurrentAge: Int?      // nil = single filer
     let filingStatus: FilingStatus  // existing 1.9 enum
     let state: String               // 2-letter postal code (e.g., "CA")
+    let localIncomeTaxRate: Double   // user-entered local/city income tax rate (fraction); 0 = none
 
     // SS inputs
     let primarySSClaimAge: Int                   // 62-70
@@ -131,6 +132,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         spouseCurrentAge: Int?,
         filingStatus: FilingStatus,
         state: String,
+        localIncomeTaxRate: Double = 0,
         primarySSClaimAge: Int,
         spouseSSClaimAge: Int?,
         primaryExpectedBenefitAtFRA: Double,
@@ -178,6 +180,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.spouseCurrentAge = spouseCurrentAge
         self.filingStatus = filingStatus
         self.state = state
+        self.localIncomeTaxRate = localIncomeTaxRate
         self.primarySSClaimAge = primarySSClaimAge
         self.spouseSSClaimAge = spouseSSClaimAge
         self.primaryExpectedBenefitAtFRA = primaryExpectedBenefitAtFRA
@@ -225,6 +228,7 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             spouseCurrentAge: spouseCurrentAge,
             filingStatus: filingStatus,
             state: state,
+            localIncomeTaxRate: localIncomeTaxRate,
             primarySSClaimAge: spouse == .primary ? age : primarySSClaimAge,
             spouseSSClaimAge: spouse == .spouse ? age : spouseSSClaimAge,
             primaryExpectedBenefitAtFRA: primaryExpectedBenefitAtFRA,

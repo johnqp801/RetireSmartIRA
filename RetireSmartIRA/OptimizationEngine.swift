@@ -232,27 +232,48 @@ struct OptimizationEngine {
         path.reduce(0.0) { $0 + EngineMath.presentValue($1.taxBreakdown.total, yearsFromBase: $1.year - baseYear, realDiscountRate: rate) }
     }
 
-    /// Single source of truth for the full PV objective: discounted in-horizon tax PLUS the
-    /// terminal tax discounted by the FULL horizon length (`horizonYears == endYear - baseYear + 1`;
-    /// the terminal balance is liquidated at the end of the last horizon year). Every site that
-    /// ranks a path — the candidate sweep, the constraint-acceptance baseline/current comparison,
-    /// the final Result, and `computeObjectiveCost` — MUST go through this so the optimizer's
-    /// ranking and the wrappers (SSClaimNudge) never diverge on the terminal discount period.
+    /// Nominal (undiscounted) sum of a path's in-horizon tax — the actual tax dollars paid across
+    /// the horizon, excluding any terminal-liquidation hypothetical. This is the user-facing
+    /// "lifetime tax paid" figure (e.g. the survivor-penalty banner), as distinct from the
+    /// growth-discounted `totalObjectiveCost` the optimizer ranks on.
+    static func nominalLifetimeTax(_ path: [YearRecommendation]) -> Double {
+        path.reduce(0.0) { $0 + $1.taxBreakdown.total }
+    }
+
+    /// Single source of truth for the full objective: discounted in-horizon tax PLUS the terminal
+    /// tax discounted by the FULL horizon length (`horizonYears == endYear - baseYear + 1`; the
+    /// terminal balance is liquidated at the end of the last horizon year). Every site that ranks
+    /// a path — the candidate sweep, the constraint-acceptance baseline/current comparison, the
+    /// final Result, and `computeObjectiveCost` — MUST go through this so the optimizer's ranking
+    /// and the wrappers (SSClaimNudge) never diverge on the discount scheme.
+    ///
+    /// EVERY tax flow (in-horizon and terminal) is discounted at `discountRate` — the INVESTMENT
+    /// GROWTH RATE, not `pvRealDiscountRate` (which is DISPLAY-ONLY). Rationale: every tax dollar
+    /// paid in year t is a dollar that would otherwise have stayed invested compounding at g, so
+    /// under uniform growth, minimizing Σ tax_t·(1+g)^−t (+ terminal·(1+g)^−H) is mathematically
+    /// equivalent to maximizing the terminal after-tax estate — "minimize lifetime tax" and
+    /// "maximize what's left" agree. Discounting any flow at a slower rate d mis-prices it by
+    /// ((1+g)/(1+d))^t: at the old 6%-growth / 3%-discount defaults over 25 years the terminal
+    /// penalty inflated ≈2.05× (a 22% terminal rate scored as ~45%, a ~35% heir rate as ~72%),
+    /// making "convert everything, even at 37%" look tax-minimal (the λ=0 full-drain pathology),
+    /// and the same skew on the in-horizon side under-priced early conversion tax, pushing every
+    /// heir weight into the same over-converted corner (the flat/dominated frontier). With the
+    /// consistent growth-rate discount the objective reproduces the correct rule — convert exactly
+    /// while the effective current marginal rate (brackets + IRMAA + gross-up) is below the
+    /// terminal (self or heir) rate — so the heir frontier opens where a genuine trade-off exists.
     static func objectiveCost(path: [YearRecommendation], baseYear: Int, horizonYears: Int,
-                              rate: Double, terminalTax: Double) -> Double {
-        discountedInHorizon(path, baseYear: baseYear, rate: rate)
-            + EngineMath.presentValue(terminalTax, yearsFromBase: horizonYears, realDiscountRate: rate)
+                              terminalTax: Double, discountRate: Double) -> Double {
+        discountedInHorizon(path, baseYear: baseYear, rate: discountRate)
+            + EngineMath.presentValue(terminalTax, yearsFromBase: horizonYears, realDiscountRate: discountRate)
     }
 
     static func computeObjectiveCost(
         path: [YearRecommendation],
         terminalLiquidationTaxRate: Double,
         baseYear: Int,
-        pvRealDiscountRate: Double
+        investmentGrowthRate: Double
     ) -> Double {
-        guard let last = path.last else {
-            return discountedInHorizon(path, baseYear: baseYear, rate: pvRealDiscountRate)
-        }
+        guard let last = path.last else { return 0 }
         let trad = last.endOfYearBalances.primaryTraditional
                  + last.endOfYearBalances.spouseTraditional
                  + last.endOfYearBalances.inheritedTraditional
@@ -260,7 +281,8 @@ struct OptimizationEngine {
         // optimizer's totalObjectiveCost discount the terminal tax over the same number of years.
         let horizonYears = max(0, last.year - baseYear + 1)
         return objectiveCost(path: path, baseYear: baseYear, horizonYears: horizonYears,
-                             rate: pvRealDiscountRate, terminalTax: trad * terminalLiquidationTaxRate)
+                             terminalTax: trad * terminalLiquidationTaxRate,
+                             discountRate: investmentGrowthRate)
     }
 
     // MARK: - Heir-weighted objective (owner-vs-heirs trade-off)
@@ -319,13 +341,13 @@ struct OptimizationEngine {
     ) -> Result {
         switch approach {
         case .recommendedTaxMin:
-            // A5 (keep-best-of-candidates): the greedy minimizer does not always minimize its own
-            // objective — on ~1/3 of profiles a deterministic fill-to-bracket / limit-to-IRMAA
+            // A5 + I3 (keep-best-of-candidates): the greedy minimizer does not always minimize its
+            // own objective — on ~1/3 of profiles a deterministic fill-to-bracket / limit-to-IRMAA
             // ladder scores a LOWER objective (worst observed: MFJ/age63/$6M/CA, greedy $442k / 14%
-            // worse). Compute the greedy path, then (at heirWeight 0 — A5's scope, which includes
-            // the heir-frontier λ=0 endpoint; other λ keep the greedy heir-weighted path) also
-            // score the deterministic candidate ladders under the IDENTICAL objective and return
-            // the lowest, so "Minimize lifetime tax" can never be dominated on its own terms.
+            // worse). Compute the greedy path, then — at EVERY heir weight (I3: not only λ=0, so the
+            // heir-frontier's "toward heirs" points are de-dominated too) — score the deterministic
+            // candidate ladders under the IDENTICAL λ-weighted objective and return the lowest, so
+            // neither "Minimize lifetime tax" nor any frontier point can be dominated on its terms.
             let greedy = runGreedy(inputs: inputs, assumptions: assumptions,
                                    configProvider: configProvider, heirWeight: heirWeight)
             return keepBestOfCandidates(greedy: greedy.result, greedyConverged: greedy.converged,
@@ -502,12 +524,12 @@ struct OptimizationEngine {
                     let path = ProjectionEngine(configProvider: configProvider).project(
                         inputs: inputs, assumptions: assumptions, actionsPerYear: trialActions
                     )
-                    let r = assumptions.pvRealDiscountRate
                     let objective = Self.objectiveCost(
-                        path: path, baseYear: baseYear, horizonYears: horizonYears, rate: r,
+                        path: path, baseYear: baseYear, horizonYears: horizonYears,
                         terminalTax: blendedTerminalTax(path, inputs: inputs,
                                                         selfRate: assumptions.terminalLiquidationTaxRate,
-                                                        heirWeight: heirWeight))
+                                                        heirWeight: heirWeight),
+                        discountRate: assumptions.investmentGrowthRate)
 
                     if objective < bestObjective {
                         bestObjective = objective
@@ -566,10 +588,10 @@ struct OptimizationEngine {
                 tradeOffsAccepted: acceptedHits,
                 totalObjectiveCost: Self.objectiveCost(
                     path: finalPath, baseYear: baseYear, horizonYears: horizonYears,
-                    rate: assumptions.pvRealDiscountRate,
                     terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
                                                     selfRate: assumptions.terminalLiquidationTaxRate,
-                                                    heirWeight: heirWeight))
+                                                    heirWeight: heirWeight),
+                    discountRate: assumptions.investmentGrowthRate)
             ),
             converged: converged
         )
@@ -602,15 +624,16 @@ struct OptimizationEngine {
             uniqueKeysWithValues: (baseYear...endYear).map { ($0, [LeverAction]()) })
         let baselinePath = ProjectionEngine(configProvider: configProvider).project(
             inputs: inputs, assumptions: assumptions, actionsPerYear: baselineActions)
-        let rRate = assumptions.pvRealDiscountRate
         let baselineObjective = Self.objectiveCost(
-            path: baselinePath, baseYear: baseYear, horizonYears: horizonYears, rate: rRate,
+            path: baselinePath, baseYear: baseYear, horizonYears: horizonYears,
             terminalTax: blendedTerminalTax(baselinePath, inputs: inputs,
-                                            selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
+                                            selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight),
+            discountRate: assumptions.investmentGrowthRate)
         let currentObjective = Self.objectiveCost(
-            path: finalPath, baseYear: baseYear, horizonYears: horizonYears, rate: rRate,
+            path: finalPath, baseYear: baseYear, horizonYears: horizonYears,
             terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
-                                            selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight))
+                                            selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight),
+            discountRate: assumptions.investmentGrowthRate)
         let lifetimeSavings = baselineObjective - currentObjective
 
         var accepted: [ConstraintHit] = []
@@ -632,17 +655,19 @@ struct OptimizationEngine {
     // lowest. Greedy is kept on ties — only a STRICTLY lower candidate substitutes — so this is a
     // pure no-op whenever the greedy already had the minimum objective.
     //
-    // Scope / gating: A5 targets `.recommendedTaxMin` at `heirWeight == 0` (the default "Minimize
-    // lifetime tax" recommendation and the heir-frontier λ=0 endpoint — the regime the INV13
-    // sweep found dominated). For λ > 0 the greedy heir-weighted path is returned unchanged, which
-    // also keeps the 6-point frontier cheap (only its λ=0 point runs the candidate ladders).
+    // Scope (I3): de-domination applies at EVERY heir weight, not only `heirWeight == 0`. The
+    // greedy heir-weighted path is dominated on the same ~1/3 of profiles at λ > 0 as at λ = 0, so
+    // gating this to λ = 0 left the heir-frontier's "toward heirs" points (λ > 0) using the raw,
+    // frequently-dominated greedy path — making the "Owner vs heirs" curve non-monotone / backwards
+    // (a "10% toward heirs" point costing MORE owner tax AND leaving heirs LESS). Scoring every
+    // frontier point under its OWN λ-weighted objective restores a proper (non-dominated) frontier.
     //
     // Perf gate: run the candidate ladders ONLY when the greedy did NOT converge. A converged
     // greedy is a fixed point, and every INV13-dominated profile ties to the non-convergence log,
     // so this skips the 12 extra ladders on the common (convergent) case — including the live
-    // tab's cold-start — while still fixing the dominated (non-convergent) profiles. Measured:
-    // converged cold-start stays at the ~1.6s baseline; only non-convergent recomputes pay the
-    // candidate cost.
+    // tab's cold-start — while still fixing the dominated (non-convergent) profiles at each weight.
+    // Measured: converged cold-start stays at the ~1.6s baseline; only non-convergent recomputes
+    // pay the candidate cost, so the frontier only pays it for the points that were actually wrong.
     private func keepBestOfCandidates(
         greedy: Result,
         greedyConverged: Bool,
@@ -651,7 +676,6 @@ struct OptimizationEngine {
         configProvider: TaxYearConfigProvider,
         heirWeight: Double
     ) -> Result {
-        guard heirWeight == 0 else { return greedy }
         guard !greedyConverged else { return greedy }
         // A cancelled / empty-horizon greedy Result carries objective 0 with an empty path; don't
         // run (or be beaten by) candidates in that case.
@@ -801,8 +825,8 @@ struct OptimizationEngine {
             tradeOffsAccepted: hits,   // report the crossings the chosen approach lands on (advisory)
             totalObjectiveCost: Self.objectiveCost(
                 path: finalPath, baseYear: baseYear, horizonYears: endYear - baseYear + 1,
-                rate: assumptions.pvRealDiscountRate,
                 terminalTax: blendedTerminalTax(finalPath, inputs: inputs,
-                                                selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight)))
+                                                selfRate: assumptions.terminalLiquidationTaxRate, heirWeight: heirWeight),
+                discountRate: assumptions.investmentGrowthRate))
     }
 }

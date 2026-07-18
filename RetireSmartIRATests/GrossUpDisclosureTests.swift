@@ -38,7 +38,7 @@ struct GrossUpDisclosureTests {
     private func assumptions(_ src: TaxPaymentSource) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
         a.taxPaymentSource = src; return a
     }
 

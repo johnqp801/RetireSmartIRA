@@ -22,7 +22,7 @@ struct FrontierPathRetentionTests {
             baselineAnnualExpenses: 0, heirSalary: 150_000, heirFilingStatus: .single, heirDrawdownYears: 10)
         let a = MultiYearAssumptions(horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
         let r = HeirFrontierCoordinator().computeFrontier(inputs: inputs, assumptions: a, configProvider: provider)
         for p in r.points {
             #expect(!p.recommendedPath.isEmpty)

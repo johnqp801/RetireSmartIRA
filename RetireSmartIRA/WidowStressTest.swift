@@ -13,25 +13,24 @@
 //  a two-segment projection (MFJ up to widow year, single thereafter).
 //
 //  Algorithm:
-//    1. Run baseline (MFJ throughout) → baselineObjective = Result.totalObjectiveCost
-//       (or use injected baselineObjective when provided by coordinator — see below)
+//    1. Resolve the baseline (MFJ throughout) optimized path — injected by the coordinator when
+//       available, else computed here.
 //    2. Build widow variant: filingStatus → .single, deceased spouse's SS/wage/pension
-//       zeroed out, surviving spouse inherits all balances.
-//    3. Run widow on OptimizationEngine → widowObjective = Result.totalObjectiveCost
-//    4. Return TaxImpact(baselineObjective, widowObjective)
-//       where delta = widowObjective - baselineObjective (positive = widow pays more)
+//       zeroed out, surviving spouse inherits all balances; optimize it.
+//    3. Return TaxImpact(baselineNominalTax, widowNominalTax), delta = widow − baseline > 0.
 //
-//  Both objectives include in-horizon tax AND terminal liquidation tax, matching
-//  exactly what OptimizationEngine.optimize() minimizes. Using totalObjectiveCost
-//  (rather than summing taxBreakdown.total manually) avoids Terminal Tax Illusion
-//  regression where wrapper deltas were inconsistent with optimizer ranking.
+//  Both figures are the NOMINAL in-horizon tax actually paid (Σ taxBreakdown.total over each
+//  scenario's horizon) — the "$X more in lifetime tax" the banner shows. This is deliberately
+//  NOT totalObjectiveCost: the objective is growth-discounted and folds in a terminal-liquidation
+//  hypothetical, which is right for RANKING plans but wrong as a user-facing tax-paid amount
+//  (changed 2026-07-17; the wealth-consistent objective made that mismatch material — the old
+//  displayed figure was a discounted objective value labeled as nominal lifetime tax).
 //
 //  Single-filer inputs (no spouse): returns TaxImpact(0, 0) — no widow penalty applies.
 //
-//  Performance optimization: accepts optional baselinePath and baselineObjective parameters.
-//  When both are provided (injected by MultiYearTaxStrategyEngine), the internal baseline
-//  computation is skipped. When either is nil, the baseline is computed internally
-//  (preserves existing behavior for standalone callers / unit tests).
+//  Performance optimization: accepts an optional baselinePath (injected by
+//  MultiYearTaxStrategyEngine) so the baseline optimize() is skipped; nil recomputes it. The
+//  baselineObjective parameter is retained for call-site symmetry but no longer read.
 //
 
 import Foundation
@@ -56,24 +55,30 @@ struct WidowStressTest {
 
         let engine = OptimizationEngine()
 
-        // Baseline: use injected path/objective when both provided; otherwise compute.
-        let baselineObj: Double
-        if let injectedPath = baselinePath, let injectedObj = baselineObjective {
-            _ = injectedPath  // path itself isn't used here, only the cost — but keep parameter for symmetry
-            baselineObj = injectedObj
+        // The banner reports "$X more in lifetime tax," so both figures are the NOMINAL in-horizon
+        // tax actually paid over each scenario's horizon (sum of taxBreakdown.total), NOT the
+        // optimizer's growth-discounted `totalObjectiveCost`. The optimizer still RANKS on the
+        // objective (which folds in the terminal-liquidation hypothetical and discounts at the
+        // growth rate); that quantity is meaningful for choosing a plan but not as a user-facing
+        // "lifetime tax paid" dollar amount. `baselineObjective` is retained in the signature for
+        // the coordinator's injection path but is no longer the displayed figure.
+        _ = baselineObjective
+
+        // Baseline: use the injected optimized path when provided; otherwise compute it.
+        let baselinePathResolved: [YearRecommendation]
+        if let injectedPath = baselinePath {
+            baselinePathResolved = injectedPath
         } else {
-            let baseline = engine.optimize(inputs: inputs, assumptions: assumptions, configProvider: configProvider)
-            baselineObj = baseline.totalObjectiveCost
+            baselinePathResolved = engine.optimize(inputs: inputs, assumptions: assumptions, configProvider: configProvider).recommendedPath
         }
 
         // Widow variant (v2.0 simplification: single-filer from year 0)
         let widowInputs = makeWidowVariant(inputs: inputs)
-        let widow = engine.optimize(inputs: widowInputs, assumptions: assumptions, configProvider: configProvider)
-        let widowObjective = widow.totalObjectiveCost
+        let widowPath = engine.optimize(inputs: widowInputs, assumptions: assumptions, configProvider: configProvider).recommendedPath
 
         return TaxImpact(
-            baselineLifetimeTax: baselineObj,
-            scenarioLifetimeTax: widowObjective
+            baselineLifetimeTax: OptimizationEngine.nominalLifetimeTax(baselinePathResolved),
+            scenarioLifetimeTax: OptimizationEngine.nominalLifetimeTax(widowPath)
         )
     }
 
@@ -85,7 +90,8 @@ struct WidowStressTest {
     ///
     /// v2.0: single-filer rates from year 0.
     /// v2.1 will model widow-from-widowhoodAge with mid-projection filing-status switch.
-    private func makeWidowVariant(inputs: MultiYearStaticInputs) -> MultiYearStaticInputs {
+    /// Internal (not private) so tests can reconstruct the exact widow scenario the banner reports.
+    func makeWidowVariant(inputs: MultiYearStaticInputs) -> MultiYearStaticInputs {
         let primaryBenefit = inputs.primaryExpectedBenefitAtFRA
         let spouseBenefit = inputs.spouseExpectedBenefitAtFRA ?? 0
 

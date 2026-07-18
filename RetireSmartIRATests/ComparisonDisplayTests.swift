@@ -33,11 +33,13 @@ struct ComparisonDisplayTests {
     private static func fillToBracketColumn() -> ApproachColumn {
         ApproachColumn(lifetimeTaxNominal: 718_000, lifetimeTaxPV: 640_000,
                        endingTraditional: 0, endingRoth: 0, endingTaxable: 0, heirsKeep: 0,
+                       deferredTaxOnRemainingIRA: 0,
                        peakForcedRMD: 0, peakAnnualRothConversion: 0, terminalPVFactor: 1, path: [])
     }
     private static func minimizeLifetimeTaxColumn() -> ApproachColumn {
         ApproachColumn(lifetimeTaxNominal: 755_000, lifetimeTaxPV: 590_000,
                        endingTraditional: 0, endingRoth: 0, endingTaxable: 0, heirsKeep: 0,
+                       deferredTaxOnRemainingIRA: 0,
                        peakForcedRMD: 0, peakAnnualRothConversion: 0, terminalPVFactor: 1, path: [])
     }
 

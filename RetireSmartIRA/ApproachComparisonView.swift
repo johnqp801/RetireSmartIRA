@@ -51,6 +51,7 @@ struct ApproachComparisonView: View {
                     }
                 }
                 metricRow(lifetimeTaxLabel) { lifetimeTax($0) }
+                metricRow("Deferred tax on remaining IRA") { terminal($0.deferredTaxOnRemainingIRA, $0) }
                 metricRow("Ending traditional IRA") { terminal($0.endingTraditional, $0) }
                 metricRow("Ending Roth IRA") { terminal($0.endingRoth, $0) }
                 if showHeirs {

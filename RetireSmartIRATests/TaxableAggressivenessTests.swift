@@ -18,7 +18,7 @@ struct TaxableAggressivenessTests {
     private func assumptions() -> MultiYearAssumptions {
         MultiYearAssumptions(horizonEndAge: 90, horizonEndAgeSpouse: nil, cpiRate: 0.02,
             investmentGrowthRate: 0.05, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
     }
     private func totalConverted(_ r: OptimizationEngine.Result) -> Double {
         r.recommendedPath.reduce(0) { acc, yr in acc + yr.actions.reduce(0) { a, act in

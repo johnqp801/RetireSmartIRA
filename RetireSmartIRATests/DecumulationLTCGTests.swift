@@ -46,7 +46,7 @@ struct DecumulationLTCGTests {
         MultiYearAssumptions(
             horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0.0,
             investmentGrowthRate: 0.0, withdrawalOrderingRule: .taxEfficient,
-            stressTestEnabled: false, perYearExpenseOverrides: [:],
+            stressTestEnabled: false, perYearOverrides: [:],
             currentTaxableBalance: 0, currentHSABalance: 0)
     }
 

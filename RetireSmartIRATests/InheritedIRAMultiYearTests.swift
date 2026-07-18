@@ -64,7 +64,7 @@ struct InheritedIRAMultiYearTests {
             investmentGrowthRate: growth,
             withdrawalOrderingRule: .taxEfficient,
             stressTestEnabled: false,
-            perYearExpenseOverrides: [:],
+            perYearOverrides: [:],
             currentTaxableBalance: 0,
             currentHSABalance: 0
         )

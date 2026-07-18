@@ -37,7 +37,7 @@ class IncomeDeductionsManager {
     }
 
     var totalStateWithholding: Double {
-        incomeSources.reduce(0) { $0 + $1.stateWithholding }
+        incomeSources.reduce(0) { $0 + $1.effectiveStateWithholding }
     }
 
     var totalWithholding: Double {

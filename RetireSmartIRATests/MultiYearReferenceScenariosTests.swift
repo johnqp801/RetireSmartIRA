@@ -110,13 +110,16 @@ struct MultiYearReferenceScenariosTests {
         let result = MultiYearTaxStrategyEngine().compute(inputs: inputs, assumptions: assumptions)
 
         // Widow penalty: surviving spouse pays single-filer rates → meaningful positive delta.
-        // Re-baselined 2026-06 (>$50K → >$40K): H3 extended the MFJ baseline horizon to the
-        // younger spouse (age 65 → 26y vs the primary's 24y), raising the baseline objective and
-        // shrinking the delta to ~$43K. KNOWN INTERACTION: the widow (survivor) variant still
-        // uses the primary's horizon, so baseline/widow horizons are mismatched — the H7 widow
-        // rework should run the survivor to their own life expectancy.
-        #expect(result.widowStressDelta.delta > 40_000,
-            "Widow penalty should be a meaningful positive delta (>$40K); got \(result.widowStressDelta.delta)")
+        // The delta is now the NOMINAL in-horizon tax difference actually paid (widow − baseline),
+        // matching the "$X more in lifetime tax" banner (changed 2026-07-17; previously it was a
+        // growth-discounted objective difference, which resolved the §8-5 PV-vs-nominal display
+        // question the wealth-consistent objective had surfaced). Nominal ≈ $132K here (baseline
+        // ~$430K, widow ~$562K), floored well below at $100K. KNOWN INTERACTION: the widow variant
+        // still uses the survivor's own horizon while the baseline runs the couple's longer
+        // horizon, so the two sums span different lengths — the H7 widow rework should reconcile
+        // this by running both to the survivor's life expectancy.
+        #expect(result.widowStressDelta.delta > 100_000,
+            "Widow penalty should be a meaningful positive nominal delta (>$100K); got \(result.widowStressDelta.delta)")
         #expect(result.widowStressDelta.delta < 1_000_000,
             "Widow penalty sanity bound; got \(result.widowStressDelta.delta)")
         #expect(result.widowStressDelta.scenarioLifetimeTax > result.widowStressDelta.baselineLifetimeTax)

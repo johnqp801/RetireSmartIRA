@@ -19,7 +19,7 @@ struct ProjectionEngineTaxableTests {
     private func assumptions() -> MultiYearAssumptions {
         MultiYearAssumptions(horizonEndAge: 67, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
-            perYearExpenseOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
+            perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
     }
     private func acct(bal: Double, basis: Double, ordYield: Double = 0, muni: Double = 0) -> TaxableAccountInput {
         TaxableAccountInput(balance: bal, costBasis: basis, protectedAmount: 0, appreciationRate: 0,

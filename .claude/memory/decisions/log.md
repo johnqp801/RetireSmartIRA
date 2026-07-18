@@ -4,6 +4,16 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-17: V2.1.2 scope — engine batch + four Alan/Fred-driven items
+
+**Decision:** V2.1.2 (branch `fix/multiyear-state-tax-heir-frontier`) ships the engine batch already on the branch — I1 (PA/IL/MS conversion state tax), I3 (heir-frontier de-domination), B2 (deferred-tax-on-remaining-IRA row), the cross-λ Pareto repair (25f47f5), the wealth-consistent objective (900ba6d: all tax flows discount at the growth rate — cures λ=0 over-conversion + opens the heir frontier), and the widow-banner nominal-tax fix (7a08419) — PLUS four newly-approved user-driven items:
+1. **State withholding as a percent** (Alan #2) — mirror the 3 federal withholding fields (`stateWithholdingMode`/`Percent`/`effectiveStateWithholding`) for state; `stateWithholding` is currently a flat `Double`.
+2. **Phantom-conversion + gross-up disclosure** (B4 + A4) — stop the ladder/CPA export showing never-executed conversions after the IRA drains (cap `upperBoundCap` at current-year convertible trad + route consumers to an `executedRothConversion`), and disclose the gross-up IRA withdrawal taken to pay conversion tax. Fixes the CPA report Fred reviews.
+3. **Local/city income tax** (Alan #1, backlog E9) — add a local income-tax line to the engine (e.g. NYC 3.88%); today only the itemized SALT deduction exists.
+4. **Per-year expense override UI** (Alan #3a) — expose UI writing the existing `perYearExpenseOverrides` (engine already reads it at `ProjectionEngine.swift:490`).
+
+**Rationale:** Alan's items were verified-real gaps he reported and never got a reply; B4/A4 fix a correctness/credibility bug in the artifact Fred reviews; all four fit a coherent "accuracy + user-requested refinements" release without the v2.2-sized decumulation workflow. **Explicitly deferred to v2.2:** Fred's full recommend/commit/explain + withdrawal-ordering vision, and per-year INCOME overrides + Scenarios↔Multi-Year integration. Release verified live in the demo profile 2026-07-17 (moderate conversion ladder, clean frontier, coherent charts) before this scope was set.
+
 ## 2026-07-11: Phase 2c UI decisions — no "Recommended" label; selected approach is the active plan
 
 **Context:** Brainstormed the Phase 2c (SwiftUI) design for the conversion-approach UI. Decisions locked with the user via the visual companion + terminal.
