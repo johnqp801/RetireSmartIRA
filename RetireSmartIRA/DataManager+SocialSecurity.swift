@@ -55,36 +55,34 @@ extension DataManager {
         }
     }
 
-    func saveSSData() {
+    /// DATA-LOSS GUARD (2026-07-17): a nil in-memory value must NEVER remove the stored value.
+    /// No UI sets these fields to nil — nil only means "not loaded yet" or "never entered". The
+    /// old `removeObject` branches meant one failed/absent load followed by any auto-save
+    /// (saveAllData fires from dozens of onChange hooks) permanently erased the user's Social
+    /// Security data. A save writes what it has and leaves alone what it doesn't.
+    /// `defaults` is injectable for tests; nil resolves to the app's store.
+    func saveSSData(defaults injected: UserDefaults? = nil) {
         #if DEBUG
-        let defaults = DemoProfile.defaults
+        let defaults = injected ?? DemoProfile.defaults
         #else
-        let defaults = UserDefaults.standard
+        let defaults = injected ?? UserDefaults.standard
         #endif
 
         if let benefit = primarySSBenefit,
            let data = try? JSONEncoder().encode(benefit) {
             defaults.set(data, forKey: SSStorageKey.primarySSBenefit)
-        } else {
-            defaults.removeObject(forKey: SSStorageKey.primarySSBenefit)
         }
         if let benefit = spouseSSBenefit,
            let data = try? JSONEncoder().encode(benefit) {
             defaults.set(data, forKey: SSStorageKey.spouseSSBenefit)
-        } else {
-            defaults.removeObject(forKey: SSStorageKey.spouseSSBenefit)
         }
         if let history = primaryEarningsHistory,
            let data = try? JSONEncoder().encode(history) {
             defaults.set(data, forKey: SSStorageKey.primaryEarningsHistory)
-        } else {
-            defaults.removeObject(forKey: SSStorageKey.primaryEarningsHistory)
         }
         if let history = spouseEarningsHistory,
            let data = try? JSONEncoder().encode(history) {
             defaults.set(data, forKey: SSStorageKey.spouseEarningsHistory)
-        } else {
-            defaults.removeObject(forKey: SSStorageKey.spouseEarningsHistory)
         }
         if let data = try? JSONEncoder().encode(ssWhatIfParams) {
             defaults.set(data, forKey: SSStorageKey.ssWhatIfParams)

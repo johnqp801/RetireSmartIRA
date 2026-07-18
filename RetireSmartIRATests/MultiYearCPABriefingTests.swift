@@ -104,4 +104,46 @@ struct MultiYearCPABriefingTests {
         #expect(!html.contains("IRA withdrawn to pay tax"))
         #expect(html.contains("<tr><th>Year</th><th>Roth conversion</th></tr>"))
     }
+
+    // B5 parity: the on-screen compare table defaults to present value, so the CPA export's
+    // lifetime-tax figures must be present value too (labeled), not the nominal sum — otherwise
+    // the same "Lifetime tax" label shows two different numbers across the two surfaces.
+    @Test("exec summary and comparison print lifetime tax in labeled present value")
+    func lifetimeTaxIsPresentValueLabeled() {
+        // Build with a real discount so nominal and PV genuinely differ (the shared model()
+        // fixture defaults both rates to 0, which would make the PV assertions vacuous).
+        let path = [rec(2026, conv: 60_000), rec(2027, conv: 50_000), rec(2030, conv: 0)]
+        let none = [rec(2026, conv: 0), rec(2027, conv: 0), rec(2030, conv: 0)]
+        let base = model()
+        let m = CPABriefingModel(
+            preparedFor: base.preparedFor, taxYear: base.taxYear,
+            filingStatusLabel: base.filingStatusLabel, stateLabel: base.stateLabel,
+            primaryBirthYear: base.primaryBirthYear,
+            summary: PlanSummary(path: path, pvRealDiscountRate: 0.03, cpiRate: 0.025),
+            comparison: PlanComparison(plan: path, doingNothing: none, heirSalary: 0,
+                                       heirFilingStatus: .single, heirDrawdownYears: 10,
+                                       pvRealDiscountRate: 0.03, cpiRate: 0.025),
+            yearRows: path, frontier: nil, includeHeirs: true,
+            assumptions: MultiYearAssumptions(), limitations: base.limitations,
+            positioning: base.positioning)
+        let html = MultiYearCPABriefingHTML.build(m)
+
+        // Multi-year path with a nonzero discount rate: nominal and PV must differ, or the
+        // assertion below would be vacuous.
+        #expect(abs(m.summary.lifetimeTax - m.summary.lifetimeTaxPV) > 1.0)
+
+        #expect(html.contains("Projected lifetime tax (plan, present value)"))
+        #expect(html.contains("Projected lifetime tax (doing nothing, present value)"))
+        #expect(html.contains("Lifetime tax (present value)"))
+        // The PV figures are the ones printed.
+        #expect(html.contains(MultiYearCPABriefingHTML.fmtForTest(m.summary.lifetimeTaxPV)))
+        #expect(html.contains(MultiYearCPABriefingHTML.fmtForTest(m.comparison.lifetimeTaxPV.doingNothing)))
+    }
+
+    // Product decision 2026-07-17: Multi-Year displays default to Present value so the compare
+    // table is unit-consistent on first view (the Future-$ toggle remains available).
+    @Test("Multi-Year display units default to present value")
+    func defaultUnitsIsPresentValue() {
+        #expect(MultiYearPlanView.defaultUnits == .presentValue)
+    }
 }

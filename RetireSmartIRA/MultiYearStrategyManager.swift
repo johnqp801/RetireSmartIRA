@@ -174,6 +174,23 @@ final class MultiYearStrategyManager: ObservableObject {
 
     // MARK: - Public API
 
+    /// True when an assumptions edit changed something the engine (or the PV figures its results
+    /// carry) actually reads — i.e. anything EXCEPT pure UI state (dismissed insight banners,
+    /// the onboarding confirmation flag). The view observes the assumptions VALUE with this
+    /// predicate and recomputes on engine-relevant changes, so invalidation no longer depends on
+    /// per-callsite lifecycle hooks (an Advanced-sheet edit went stale when the sheet's
+    /// .onDisappear/onCommit failed to fire on macOS dismissal — live-reproduced 2026-07-17).
+    /// UI-only mutations (dismissing a banner) must NOT burn a multi-second engine run.
+    static func engineRelevantChanged(_ old: MultiYearAssumptions, _ new: MultiYearAssumptions) -> Bool {
+        func normalized(_ a: MultiYearAssumptions) -> MultiYearAssumptions {
+            var c = a
+            c.dismissedInsightKeys = []
+            c.assumptionsConfirmed = false
+            return c
+        }
+        return normalized(old) != normalized(new)
+    }
+
     func recompute(reason: RecomputeReason) {
         recomputeCount += 1
         // Mark optimal-cache dirty if assumptions or static inputs changed.
