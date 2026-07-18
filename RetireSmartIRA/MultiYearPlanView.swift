@@ -5,7 +5,11 @@ struct MultiYearPlanView: View {
     @Environment(\.horizontalSizeClass) private var hSizeClass
     @StateObject private var manager = MultiYearStrategyManager()
     @State private var attached = false
-    @State private var units: DisplayUnits = .todaysDollars
+    /// Product decision 2026-07-17 (B5/C6): default to Present value so the compare table is
+    /// unit-consistent on first view — the always-PV "Lifetime tax" row (B2) then matches the
+    /// wealth rows. "Future $" (.todaysDollars, a legacy case name for nominal) stays available.
+    static let defaultUnits: DisplayUnits = .presentValue
+    @State private var units: DisplayUnits = MultiYearPlanView.defaultUnits
     @State private var showingAdvanced = false
     @State private var isGeneratingPDF = false
     // Identifiable wrapper around the tapped year so `.sheet(item:)` recreates `YearDetailEditor`
@@ -257,6 +261,16 @@ struct MultiYearPlanView: View {
             if enabled { manager.computeHeirFrontier() }
         }
         .onChange(of: manager.assumptions.dismissedInsightKeys) { dataManager.saveAllData() }
+        // Central invalidation: recompute whenever an ENGINE-RELEVANT assumptions field changes,
+        // regardless of which control edited it. The per-callsite onCommit hooks remain as
+        // redundancy, but this value-based trigger is the one that cannot be skipped — the
+        // Advanced sheet's .onDisappear/onCommit did not fire reliably on macOS dismissal,
+        // leaving the plan/optimal/comparison silently stale after a terminal-rate edit
+        // (live-reproduced 2026-07-17). recompute()'s 500ms debounce coalesces storms; UI-only
+        // state (banner dismissals, onboarding confirmation) is excluded by the predicate.
+        .onChange(of: manager.assumptions) { old, new in
+            if MultiYearStrategyManager.engineRelevantChanged(old, new) { recomputeAll() }
+        }
         // Switching the selected approach should refresh the comparison promptly rather than waiting
         // on the next settled plan compute (the picker's own onChange already recomputes the plan via
         // recomputeAll(), but that recompute may not touch currentResult's identity if the underlying

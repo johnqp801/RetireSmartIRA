@@ -75,6 +75,8 @@ enum MultiYearCPABriefingHTML {
     }
     /// Exposed only so the test can compare against the same escaping the builder applies.
     static func escapeForTest(_ s: String) -> String { esc(s) }
+    /// Exposed only so the test can compare against the same currency formatting the builder applies.
+    static func fmtForTest(_ v: Double) -> String { fmt(v) }
 
     static func build(_ m: CPABriefingModel) -> String {
         var h = header(m)
@@ -140,15 +142,18 @@ enum MultiYearCPABriefingHTML {
         """
     }
 
+    // B5 parity: lifetime-tax figures print in PRESENT VALUE (labeled), matching the on-screen
+    // compare table's default and the always-PV "Lifetime tax" row (B2). Other figures stay
+    // nominal per the note below.
     private static func execSummary(_ m: CPABriefingModel) -> String {
-        let savings = m.comparison.lifetimeTax.doingNothing - m.comparison.lifetimeTax.plan
+        let savings = m.comparison.lifetimeTaxPV.doingNothing - m.comparison.lifetimeTaxPV.plan
         return """
         <h2>Executive summary</h2>
         <table>
         <tr><td>Recommended Roth conversions</td><td>\(fmt(m.summary.totalConversions)) over \(m.summary.conversionYears) year(s)</td></tr>
-        <tr><td>Projected lifetime tax (plan)</td><td>\(fmt(m.summary.lifetimeTax))</td></tr>
-        <tr><td>Projected lifetime tax (doing nothing)</td><td>\(fmt(m.comparison.lifetimeTax.doingNothing))</td></tr>
-        <tr><td>Lifetime tax difference</td><td>\(fmt(savings))</td></tr>
+        <tr><td>Projected lifetime tax (plan, present value)</td><td>\(fmt(m.summary.lifetimeTaxPV))</td></tr>
+        <tr><td>Projected lifetime tax (doing nothing, present value)</td><td>\(fmt(m.comparison.lifetimeTaxPV.doingNothing))</td></tr>
+        <tr><td>Lifetime tax difference (present value)</td><td>\(fmt(savings))</td></tr>
         </table>
         <div class="note">Figures are nominal (future dollars) unless stated otherwise.</div>
         """
@@ -162,7 +167,7 @@ enum MultiYearCPABriefingHTML {
         <h2>Your plan vs. doing nothing</h2>
         <table>
         <tr><th>Metric</th><th>Your plan</th><th>Doing nothing</th></tr>
-        \(row("Lifetime tax", m.comparison.lifetimeTax))
+        \(row("Lifetime tax (present value)", m.comparison.lifetimeTaxPV))
         \(row("Ending traditional IRA", m.comparison.endingTraditional))
         \(row("Ending Roth IRA", m.comparison.endingRoth))
         \(m.includeHeirs ? row("What heirs keep", m.comparison.heirsKeep) : "")
