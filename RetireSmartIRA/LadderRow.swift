@@ -27,6 +27,11 @@ struct LadderRow: Identifiable, Equatable, Sendable {
     var hasIRMAASurcharge: Bool { irmaaSurcharge > 0 }
     var hasTaxFundingWithdrawal: Bool { taxFundingWithdrawal > 0 }
 
+    /// True when `year` carries a real (non-empty) override — drives the row badge.
+    static func hasOverride(year: Int, overrides: [Int: YearOverride]) -> Bool {
+        overrides[year]?.pruned != nil
+    }
+
     var conversionLabel: String { conversion > 0 ? "convert \(PlanSummary.shortDollars(conversion))" : "no conversion" }
     var agiLabel: String { "AGI \(PlanSummary.shortDollars(agi))" }
     /// Compact "IRMAA +$Xk" tag for the conversion-attributable surcharge, empty when there is none.

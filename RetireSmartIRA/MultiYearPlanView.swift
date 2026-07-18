@@ -8,6 +8,12 @@ struct MultiYearPlanView: View {
     @State private var units: DisplayUnits = .todaysDollars
     @State private var showingAdvanced = false
     @State private var isGeneratingPDF = false
+    // Identifiable wrapper around the tapped year so `.sheet(item:)` recreates `YearDetailEditor`
+    // (and its `@State` edit model) fresh for each distinct year — plain `.sheet(isPresented:)`
+    // would reuse the same view instance and stale @State across different years (the known
+    // @State-in-init gotcha).
+    private struct EditingYear: Identifiable { let year: Int; var id: Int { year } }
+    @State private var editingYear: EditingYear?
     #if canImport(UIKit)
     @State private var briefingPDF: Data?
     @State private var showBriefingShare = false
@@ -177,7 +183,9 @@ struct MultiYearPlanView: View {
                     if ladderRows.contains(where: { $0.conversion > 0 }) {
                         ConversionLadderChartView(model: ConversionLadderChart(path: activePath))
                     }
-                    LadderListView(rows: ladderRows, baselineIRMAAYears: baselineIRMAAYears)
+                    LadderListView(rows: ladderRows, baselineIRMAAYears: baselineIRMAAYears,
+                                   overrides: manager.assumptions.perYearOverrides,
+                                   onEditYear: { editingYear = EditingYear(year: $0) })
                     BalancesChartView(model: BalancesChart(
                         path: activePath,
                         pessimistic: manager.currentResult?.sensitivityBands.pessimistic,
@@ -259,6 +267,13 @@ struct MultiYearPlanView: View {
                 assumptions: Binding(get: { manager.assumptions }, set: { manager.assumptions = $0 }),
                 spouseEnabled: dataManager.enableSpouse,
                 onCommit: { recomputeAll() })
+        }
+        .sheet(item: $editingYear) { editing in
+            YearDetailEditor(
+                year: editing.year,
+                existing: manager.assumptions.perYearOverrides[editing.year],
+                projectedBeforeThisYear: projectedBefore(editing.year),
+                onSave: { saveOverride($0, forYear: editing.year) })
         }
         #if canImport(UIKit)
         .sheet(isPresented: $showBriefingShare) {
@@ -380,6 +395,26 @@ struct MultiYearPlanView: View {
 
     private func resetYear1ToOptimal() {
         manager.resetYear1ToEngineOptimal()            // writes the shared levers + recomputes current
+    }
+
+    // "Projected before this year's adjustments" — resolves the expense with THIS year's own
+    // override stripped, so the reference value reflects only earlier recurring anchors (not the
+    // very edit the user is about to make).
+    private func projectedBefore(_ year: Int) -> Double {
+        var stripped = manager.assumptions.perYearOverrides
+        stripped[year] = nil
+        return ExpenseResolution.expense(
+            year: year, baseYear: dataManager.currentYear,
+            baselineAnnualExpenses: manager.assumptions.baselineAnnualExpenses,
+            cpiRate: manager.assumptions.cpiRate, overrides: stripped)
+    }
+
+    // Writes the edited override (nil clears it) and prunes empty entries so the map never carries
+    // dead keys — the row badge and downstream expense resolution both key off pruned() results.
+    private func saveOverride(_ resulting: YearOverride?, forYear year: Int) {
+        manager.assumptions.perYearOverrides[year] = resulting
+        manager.assumptions.perYearOverrides = manager.assumptions.perYearOverrides.pruned()
+        manager.recompute(reason: .overridesChanged)
     }
 
     /// One-way dismissal binding backed by the manager's dismissed-insight keys, which are

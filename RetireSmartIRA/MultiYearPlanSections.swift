@@ -105,33 +105,17 @@ struct LadderListView: View {
     /// How many years the no-conversion baseline pays IRMAA on its own. Drives a clarifying note
     /// when your income triggers IRMAA in far more years than the conversions add to.
     var baselineIRMAAYears: Int = 0
+    /// Per-year living-expense overrides — read only to decide whether a row's badge shows.
+    var overrides: [Int: YearOverride] = [:]
+    /// Invoked with `row.year` when the row's edit control is tapped.
+    var onEditYear: (Int) -> Void = { _ in }
     private var anyIRMAA: Bool { rows.contains(where: \.hasIRMAASurcharge) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Modeled conversion ladder").font(.headline)
             ForEach(rows) { row in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(String(row.year)).monospacedDigit()
-                        Text(row.conversionLabel)
-                        Spacer()
-                        Text(row.agiLabel).foregroundStyle(.secondary)
-                        if row.hasIRMAASurcharge {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                            Text(row.irmaaLabel).foregroundStyle(.orange)
-                        }
-                    }
-                    .font(.callout)
-                    // A4: when taxable funding was short, the engine took an ADDITIONAL IRA
-                    // withdrawal to pay the conversion tax — surface it so "convert $Y" is not
-                    // read as the whole IRA outflow for the year.
-                    if row.hasTaxFundingWithdrawal {
-                        Text(row.taxFundingLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                ladderRow(row)
             }
             if baselineIRMAAYears >= 3 {
                 Label(
@@ -151,5 +135,45 @@ struct LadderListView: View {
             }
         }
         .padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    // Extracted from `body` so the type-checker isn't asked to solve one giant ForEach closure
+    // (precedent: SettingsView.localIncomeTaxField) — keeps the per-row edit control + badge cheap
+    // to add without a "unable to type-check in reasonable time" regression.
+    @ViewBuilder
+    private func ladderRow(_ row: LadderRow) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text(String(row.year)).monospacedDigit()
+                Text(row.conversionLabel)
+                if LadderRow.hasOverride(year: row.year, overrides: overrides) {
+                    Image(systemName: "pencil.circle.fill")
+                        .foregroundStyle(.blue)
+                        .accessibilityLabel("Customized")
+                }
+                Spacer()
+                Text(row.agiLabel).foregroundStyle(.secondary)
+                if row.hasIRMAASurcharge {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    Text(row.irmaaLabel).foregroundStyle(.orange)
+                }
+                Button {
+                    onEditYear(row.year)
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Edit \(String(row.year))")
+            }
+            .font(.callout)
+            // A4: when taxable funding was short, the engine took an ADDITIONAL IRA
+            // withdrawal to pay the conversion tax — surface it so "convert $Y" is not
+            // read as the whole IRA outflow for the year.
+            if row.hasTaxFundingWithdrawal {
+                Text(row.taxFundingLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
