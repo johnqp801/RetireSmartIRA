@@ -43,6 +43,22 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     /// User-selected conversion approach for the multi-year optimizer (Phase 2c). Default is the
     /// existing greedy lifetime-tax minimizer, so behavior is unchanged unless the user opts in.
     var conversionApproach: PersistedConversionApproach = .recommendedTaxMin
+    /// Transient: the OLD (pre-2.1.2) legacy expense-override map, decoded only so
+    /// `upgradedOverrides(...)` can migrate it into `perYearOverrides`. Never re-persisted —
+    /// excluded from `CodingKeys` for encode, so synthesized `encode(to:)` skips it (default
+    /// value + no matching case = excluded from synthesis). Cleared to `[:]` once migrated.
+    var legacyExpenseOverrides: [Int: Double] = [:]
+
+    private enum CodingKeys: String, CodingKey {
+        case horizonEndAge, horizonEndAgeSpouse, cpiRate, investmentGrowthRate
+        case withdrawalOrderingRule, stressTestEnabled
+        case perYearOverrides, perYearOverridesSchema
+        case currentTaxableBalance, currentHSABalance, baselineAnnualExpenses
+        case terminalLiquidationTaxRate, cliffBuffer, dismissedInsightKeys
+        case assumptionsConfirmed, pvRealDiscountRate, taxPaymentSource, conversionApproach
+        /// OLD key, decode-only (see `legacyExpenseOverrides` above) — never encoded.
+        case perYearExpenseOverrides
+    }
 
     init(
         horizonEndAge: Int = 95,
@@ -92,12 +108,12 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.horizonEndAgeSpouse = try c.decodeIfPresent(Int.self, forKey: .horizonEndAgeSpouse)
         self.cpiRate = try c.decode(Double.self, forKey: .cpiRate)
         self.investmentGrowthRate = try c.decode(Double.self, forKey: .investmentGrowthRate)
-        self.withdrawalOrderingRule = try c.decode(WithdrawalOrderingRule.self, forKey: .withdrawalOrderingRule)
-        self.stressTestEnabled = try c.decode(Bool.self, forKey: .stressTestEnabled)
+        self.withdrawalOrderingRule = try c.decodeIfPresent(WithdrawalOrderingRule.self, forKey: .withdrawalOrderingRule) ?? .taxEfficient
+        self.stressTestEnabled = try c.decodeIfPresent(Bool.self, forKey: .stressTestEnabled) ?? true
         self.perYearOverrides = (try? c.decodeIfPresent([Int: YearOverride].self, forKey: .perYearOverrides)) ?? [:]
         self.perYearOverridesSchema = (try? c.decodeIfPresent(Int.self, forKey: .perYearOverridesSchema)) ?? 0
-        self.currentTaxableBalance = try c.decode(Double.self, forKey: .currentTaxableBalance)
-        self.currentHSABalance = try c.decode(Double.self, forKey: .currentHSABalance)
+        self.currentTaxableBalance = try c.decodeIfPresent(Double.self, forKey: .currentTaxableBalance) ?? 0
+        self.currentHSABalance = try c.decodeIfPresent(Double.self, forKey: .currentHSABalance) ?? 0
         self.baselineAnnualExpenses = try c.decodeIfPresent(Double.self, forKey: .baselineAnnualExpenses) ?? 120_000
         self.terminalLiquidationTaxRate = try c.decode(Double.self, forKey: .terminalLiquidationTaxRate)
         self.cliffBuffer = try c.decode(Double.self, forKey: .cliffBuffer)
@@ -106,6 +122,33 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.pvRealDiscountRate = try c.decodeIfPresent(Double.self, forKey: .pvRealDiscountRate) ?? 0.03
         self.taxPaymentSource = try c.decodeIfPresent(TaxPaymentSource.self, forKey: .taxPaymentSource) ?? .taxableThenGrossUp
         self.conversionApproach = try c.decodeIfPresent(PersistedConversionApproach.self, forKey: .conversionApproach) ?? .recommendedTaxMin
+        self.legacyExpenseOverrides = (try? c.decodeIfPresent([Int: Double].self, forKey: .perYearExpenseOverrides)) ?? [:]
+    }
+
+    // Explicit encode(to:) — required because CodingKeys carries the decode-only
+    // `perYearExpenseOverrides` case (no matching stored property), which disables
+    // synthesis. `legacyExpenseOverrides` is deliberately NOT written here: it is
+    // transient and must never re-persist.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(horizonEndAge, forKey: .horizonEndAge)
+        try c.encodeIfPresent(horizonEndAgeSpouse, forKey: .horizonEndAgeSpouse)
+        try c.encode(cpiRate, forKey: .cpiRate)
+        try c.encode(investmentGrowthRate, forKey: .investmentGrowthRate)
+        try c.encode(withdrawalOrderingRule, forKey: .withdrawalOrderingRule)
+        try c.encode(stressTestEnabled, forKey: .stressTestEnabled)
+        try c.encode(perYearOverrides, forKey: .perYearOverrides)
+        try c.encode(perYearOverridesSchema, forKey: .perYearOverridesSchema)
+        try c.encode(currentTaxableBalance, forKey: .currentTaxableBalance)
+        try c.encode(currentHSABalance, forKey: .currentHSABalance)
+        try c.encode(baselineAnnualExpenses, forKey: .baselineAnnualExpenses)
+        try c.encode(terminalLiquidationTaxRate, forKey: .terminalLiquidationTaxRate)
+        try c.encode(cliffBuffer, forKey: .cliffBuffer)
+        try c.encode(dismissedInsightKeys, forKey: .dismissedInsightKeys)
+        try c.encode(assumptionsConfirmed, forKey: .assumptionsConfirmed)
+        try c.encode(pvRealDiscountRate, forKey: .pvRealDiscountRate)
+        try c.encode(taxPaymentSource, forKey: .taxPaymentSource)
+        try c.encode(conversionApproach, forKey: .conversionApproach)
     }
 
     static let `default` = MultiYearAssumptions()
@@ -115,5 +158,19 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         case .primary: return horizonEndAge
         case .spouse:  return horizonEndAgeSpouse ?? horizonEndAge
         }
+    }
+
+    /// Idempotent, atomic upgrade: a schema-0 plan migrates its legacy expense map into the additive
+    /// model and stamps schema 1; a schema-1 plan is returned unchanged (never migrates twice).
+    func upgradedOverrides(baselineAnnualExpenses: Double, cpiRate: Double, baseYear: Int) -> MultiYearAssumptions {
+        guard perYearOverridesSchema < 1 else { return self }
+        var copy = self
+        let migrated = PerYearOverrideMigration.migrate(
+            legacyExpenseOverrides: legacyExpenseOverrides,
+            baselineAnnualExpenses: baselineAnnualExpenses, cpiRate: cpiRate, baseYear: baseYear)
+        copy.perYearOverrides = perYearOverrides.merging(migrated) { _, new in new }.pruned()
+        copy.legacyExpenseOverrides = [:]
+        copy.perYearOverridesSchema = 1
+        return copy
     }
 }

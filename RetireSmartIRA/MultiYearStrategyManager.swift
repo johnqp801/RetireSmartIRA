@@ -107,7 +107,13 @@ final class MultiYearStrategyManager: ObservableObject {
         self.dataManager = dataManager
 
         // Restore persisted assumptions for this scenario (dismissed banners, horizon, balances, ...).
-        self.assumptions = dataManager.multiYearAssumptions
+        // Idempotent, atomic load-time migration: a schema-0 plan's legacy expense map is folded
+        // into perYearOverrides and stamped schema 1; a schema-1 plan passes through unchanged.
+        // The didSet on `assumptions` below persists the upgraded value back to dataManager.
+        self.assumptions = dataManager.multiYearAssumptions.upgradedOverrides(
+            baselineAnnualExpenses: dataManager.multiYearAssumptions.baselineAnnualExpenses,
+            cpiRate: dataManager.multiYearAssumptions.cpiRate,
+            baseYear: dataManager.currentYear)
 
         self.scenarioStateManager = scenarioStateManager
 
