@@ -62,9 +62,11 @@ struct Year1EditorView: View {
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 guard !Task.isCancelled else { return }
                 // Editing to the plan's own Year-1 amount clears the override (follow the plan);
-                // any other value is an explicit override. This also makes the on-appear sync
-                // (text := plannedYear1) a no-op rather than a spurious override.
-                let target = abs(parsed - plannedYear1) < 1 ? 0 : parsed
+                // any other value is an explicit override. See Year1OverrideCommit.
+                let target = Year1OverrideCommit.target(
+                    parsed: parsed,
+                    plannedYear1: plannedYear1,
+                    currentOverride: year1RothConversion)
                 guard year1RothConversion != target else { return }
                 year1RothConversion = target
                 onCommit()
