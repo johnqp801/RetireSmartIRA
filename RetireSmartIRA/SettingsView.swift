@@ -328,6 +328,10 @@ struct SettingsView: View {
         // NavigationStack so the numeric birth-year fields are covered even if a
         // TabView-ancestor toolbar would not propagate here (Alan feedback #1).
         .dismissableKeyboard()
+        // Trailing-aligned numeric fields here are pre-filled (local/city rate shows "0"),
+        // so a tap lands left of the digits and the next keystroke would insert IN FRONT
+        // of the value: typing 3 into "0" gives 30%. See CaretAtEnd.swift.
+        .caretAtEndOnFocus()
         .onChange(of: dataManager.birthDate) { dataManager.saveAllData() }
         .onChange(of: dataManager.filingStatus) { dataManager.saveAllData() }
         .onChange(of: dataManager.selectedState) { dataManager.saveAllData() }
