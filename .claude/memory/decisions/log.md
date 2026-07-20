@@ -4,6 +4,14 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-19: Right-justify the caret in pre-filled numeric fields (Alan-confirmed)
+
+**Decision:** ship the caret-at-end fix in the next release. Alan reported "no decimal point on the number pad, cannot enter 3.88 percent." That did NOT reproduce (decimal key present and working, 3.88 stores as `0.0388`, Done accessory present). The real defect is that the caret lands at position 0 in trailing-aligned pre-filled numeric fields, so the first keystroke inserts in FRONT of the existing value: typing 8 into a field showing 3 committed `0.83` (83%), silently and with no validation, straight into the state tax calculation. John emailed Alan the workaround (tap far right, delete, retype) plus the planned fix; Alan replied "Looks good, so lets proceed with that plan" 2026-07-19.
+
+**Rationale:** entry was never actually blocked — a user who repositions the caret can enter 3.88 fine — but nobody should have to know that, and the silent 10x-wrong-rate failure mode is the real risk. Built as `.caretAtEndOnFocus()` (`df39ae2`, branch `fix/numeric-caret-at-end`), a screen-level modifier mirroring the existing `.dismissableKeyboard()`, applied to SettingsView only. Verified on iPhone 17 sim against the stored plist value rather than screenshots, after the simulator produced three separate display artifacts during this investigation.
+
+**Open:** whether to roll the modifier out to the other pre-filled numeric screens (Accounts, SS data entry, Quarterly prior-year figures) — one line each, but it changes typing behavior in fields users have muscle memory for. Also unfixed: clearing the local tax field leaves the stale value in the model.
+
 ## 2026-07-17 (late): Display-trust fixes + SS data-loss guard; PV default
 
 **Decisions:** (1) Multi-Year displays DEFAULT to Present value (resolves B5 units-mixing + C6; the always-PV "Lifetime tax" row keeps its B2 protection; CPA export prints lifetime tax in labeled PV). (2) Assumptions recompute is VALUE-BASED (view observes manager.assumptions via engineRelevantChanged; UI-only state excluded) after the Advanced sheet's onDisappear/onCommit was live-proven not to fire on macOS — the architectural fix over a fourth spot patch. (3) saveSSData must NEVER remove stored keys on nil memory (nil = not-loaded/never-entered, not user-deleted); injectable defaults for tests.
