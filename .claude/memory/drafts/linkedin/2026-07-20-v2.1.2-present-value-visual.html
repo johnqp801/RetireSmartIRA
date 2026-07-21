@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1350px; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    background: #F5F6F4;
+    color: #12262B;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: 1080px; height: 1350px;
+    padding: 84px 96px 72px;
+    display: flex; flex-direction: column;
+  }
+  .wordmark {
+    font-size: 27px; font-weight: 700; letter-spacing: 0.01em;
+    color: #2A6B7C;
+  }
+  .title {
+    margin-top: 34px;
+    font-size: 86px; font-weight: 700; line-height: 0.99;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    margin-top: 26px; font-size: 32px; font-weight: 400;
+    color: #5C6663; line-height: 1.34; max-width: 810px;
+  }
+  .plot {
+    flex: 1;
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: 150px;
+    padding-bottom: 4px;
+  }
+  .col { display: flex; flex-direction: column; align-items: center; width: 250px; }
+  .valzone { height: 104px; display: flex; align-items: flex-end; }
+  .value { font-size: 76px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .bar { width: 250px; border-radius: 10px 10px 0 0; margin-top: 22px; }
+  .barGray { background: #AAB2AD; }
+  .barTeal { background: #2A6B7C; }
+  .capzone { height: 104px; padding-top: 24px; }
+  .caplabel { font-size: 33px; font-weight: 500; }
+  .capsub { margin-top: 8px; font-size: 23px; font-weight: 400; color: #6B7370; }
+  .tealtag { margin-top: 8px; font-size: 22px; font-weight: 600; color: #2A6B7C; }
+  .rule { height: 2px; background: #D8DCD7; margin: 22px 0 26px; }
+  .footer { font-size: 24px; font-weight: 400; color: #6B7370; line-height: 1.42; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="wordmark">RetireSmartIRA</div>
+    <div class="title">Same plan.<br>Two units.</div>
+    <div class="subtitle">One retirement plan, valued two ways. The benefit left to heirs, in future dollars and in today's dollars.</div>
+
+    <div class="plot">
+      <div class="col">
+        <div class="valzone"><span class="value" style="color:#7C847F;">$4.4M</span></div>
+        <div class="bar barGray" style="height:500px;"></div>
+        <div class="capzone">
+          <div class="caplabel" style="color:#7C847F;">Future dollars</div>
+          <div class="capsub">across decades</div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="valzone"><span class="value" style="color:#2A6B7C;">$1.0M</span></div>
+        <div class="bar barTeal" style="height:114px;"></div>
+        <div class="capzone">
+          <div class="caplabel" style="color:#2A6B7C;">Today's dollars</div>
+          <div class="tealtag">The number the app shows first</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+    <div class="footer">One modeled household: married filing jointly, about $8M in a traditional IRA. Real RetireSmartIRA output. Present value now shown by default.</div>
+  </div>
+</body>
+</html>

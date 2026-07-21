@@ -4,6 +4,12 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-20: First 2.1.2 LinkedIn post — present-value angle, wording locked + visual built
+
+**Decision:** the first LinkedIn post for the 2.1.2 push leads with the present-value contrast ($4.4M future vs $1.0M today's dollars) and makes transparency the spine (showing the smaller number is itself the trust proof). Widow-penalty angle HELD for the unsent WSJ pitch. Wording locked at `drafts/linkedin/2026-07-20-v2.1.2-present-value-post.md`; two-panel visual (gray $4.4M bar vs BrandTeal #2A6B7C $1.0M bar, magnitude-scaled, 1080x1350 @2x) at `drafts/linkedin/2026-07-20-v2.1.2-present-value-visual.{png,html}`.
+
+**Rationale:** all four external models (Claude Home, ChatGPT, Perplexity, Gemini) independently picked present-value as strongest for LinkedIn and independently said hold the widow penalty for WSJ. Per the accuracy rule I reconciled their drafts against source and CUT three fabrications before locking: a false "published on HumbleDollar" claim (that was an unrelated forum reply; the $30k ACA/IRMAA article is still in Fred review, unpublished), "two years building" (first commit Feb 2026), and "25 years enterprise software" (unverified; only sourced bio phrase is "an earlier career"). John cleared the real household figures for publication with context. Open, John's call: link in-body (better conversion, Claude's lean) vs first comment (better reach).
+
 ## 2026-07-19: Right-justify the caret in pre-filled numeric fields (Alan-confirmed)
 
 **Decision:** ship the caret-at-end fix in the next release. Alan reported "no decimal point on the number pad, cannot enter 3.88 percent." That did NOT reproduce (decimal key present and working, 3.88 stores as `0.0388`, Done accessory present). The real defect is that the caret lands at position 0 in trailing-aligned pre-filled numeric fields, so the first keystroke inserts in FRONT of the existing value: typing 8 into a field showing 3 committed `0.83` (83%), silently and with no validation, straight into the state tax calculation. John emailed Alan the workaround (tap far right, delete, retype) plus the planned fix; Alan replied "Looks good, so lets proceed with that plan" 2026-07-19.
