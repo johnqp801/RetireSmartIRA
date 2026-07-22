@@ -4,6 +4,14 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-22: What actually drives App Store downloads (attribution finding)
+
+**Finding (John's own source attribution in App Store Connect):** the two clear first-time-download spikes on the Jan–Jul 2026 chart line up with specific channels. **Apr 21 spike = the LinkedIn "I recently formed Alamo Ventures Group" post**, which used an actual APP SCREENSHOT and got 91 reactions / 18 comments. **Jul 4 spike = a HumbleDollar article/placement** (earned media). The austere present-value two-bar CONCEPT graphic post (7 reactions / 1 comment) produced no comparable spike.
+
+**Lesson:** reactions ≠ downloads, and the proven download drivers are (1) product-forward LinkedIn posts that SHOW the app UI, and (2) third-party editorial placements. An abstract concept chart can be "clean" and still not convert. This REVERSES Claude's earlier "the chart is the argument, skip the screenshot" recommendation (spec 2026-07-21 §6) — the screenshot post drove installs, not just claps.
+
+**Implications:** (a) future LinkedIn posts should feature real app screenshots (present-value toggle, ladder, couples heat-map); (b) the present-value landing page hero should likely swap the abstract bars for a real screenshot of the present-value toggle before deploy; (c) the WSJ widow-penalty pitch and HumbleDollar-type placements are the highest-leverage install channels and should be prioritized over polishing concept posts. **Open:** locate/record the HumbleDollar article that drove the Jul 4 spike (memory only has a Jul 11 HumbleDollar forum REPLY, not an article) so more like it can be pursued — it is a real press asset.
+
 ## 2026-07-20: First 2.1.2 LinkedIn post — present-value angle, wording locked + visual built
 
 **Decision:** the first LinkedIn post for the 2.1.2 push leads with the present-value contrast ($4.4M future vs $1.0M today's dollars) and makes transparency the spine (showing the smaller number is itself the trust proof). Widow-penalty angle HELD for the unsent WSJ pitch. Wording locked at `drafts/linkedin/2026-07-20-v2.1.2-present-value-post.md`; two-panel visual (gray $4.4M bar vs BrandTeal #2A6B7C $1.0M bar, magnitude-scaled, 1080x1350 @2x) at `drafts/linkedin/2026-07-20-v2.1.2-present-value-visual.{png,html}`.
