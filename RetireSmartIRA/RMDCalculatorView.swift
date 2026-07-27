@@ -751,7 +751,7 @@ struct RMDCalculatorView: View {
         // --- Build per-year data points — strictly within the picker window ---
         for yearOffset in 0..<projectionYears {
             let projectedYear = dataManager.currentYear + yearOffset
-            let label = "'\(String(projectedYear).suffix(2))"
+            let label = Self.chartYearLabel(projectedYear)
 
             // Regular IRA/401(k) RMDs
             var regularRMD: Double = 0
@@ -814,6 +814,52 @@ struct RMDCalculatorView: View {
                 : "You"
             return (account.name, deadline, ownerLabel)
         }
+    }
+
+    /// Compact two-digit year label the projection chart's bars are keyed by (2029 -> '29).
+    static func chartYearLabel(_ year: Int) -> String {
+        "'\(String(year).suffix(2))"
+    }
+
+    /// The years that get an x-axis label on the projection chart.
+    ///
+    /// The chart plots a String category on x, and a category axis labels *every*
+    /// bar unless it is handed an explicit subset — which turned the 20/30/40-year
+    /// horizons into an unreadable smear of digits.  Thin down to round calendar
+    /// years so the axis reads the way the drawdown charts below it already do.
+    ///
+    /// The step is always smaller than the window, so the result is never empty
+    /// for a positive horizon.
+    static func projectionAxisYears(currentYear: Int, projectionYears: Int) -> [Int] {
+        guard projectionYears > 0 else { return [] }
+
+        let step: Int
+        switch projectionYears {
+        case ...6:  step = 1     // 5-year window: every year
+        case ...16: step = 2     // 10/15-year windows: every other year
+        case ...32: step = 5     // 20/30-year windows: half-decades
+        default:    step = 10    // 40-year window: decades
+        }
+
+        let labeled = (0..<projectionYears)
+            .map { currentYear + $0 }
+            .filter { $0 % step == 0 }
+
+        // Swift Charts centers a category label under its bar, so a label on the
+        // last bar overhangs the plot's trailing edge and renders as "…".  Drop it.
+        // Only an issue when we're thinning — step-1 windows have bars wide enough
+        // to carry the label.
+        guard step > 1 else { return labeled }
+        let trimmed = labeled.filter { $0 != currentYear + projectionYears - 1 }
+        return trimmed.isEmpty ? labeled : trimmed
+    }
+
+    /// The subset of bar categories that get an x-axis label.
+    private var chartXAxisLabels: [String] {
+        Self.projectionAxisYears(
+            currentYear: dataManager.currentYear,
+            projectionYears: projectionYears
+        ).map(Self.chartYearLabel)
     }
 
     /// Formats Y-axis labels compactly ($5K, $150K, etc.)
@@ -912,7 +958,7 @@ struct RMDCalculatorView: View {
                         }
                     }
                     .chartXAxis {
-                        AxisMarks { value in
+                        AxisMarks(values: chartXAxisLabels) { value in
                             AxisValueLabel {
                                 if let label = value.as(String.self) {
                                     Text(label).font(.caption2)
