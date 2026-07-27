@@ -12,7 +12,16 @@ struct RMDCalculationEngine {
 
     // MARK: - Core RMD
 
+    /// Youngest age in the IRS Uniform Lifetime Table below.
+    static let uniformLifetimeTableStartAge = 70
+
     static func calculateRMD(for age: Int, balance: Double) -> Double {
+        // No RMD is ever required below the table's start age.  Without this
+        // floor an age the table doesn't cover falls through to the
+        // past-the-table `?? 2.0` divisor and returns *half the balance* — how a
+        // spouse-owned account with no spouse configured (age reported as 0)
+        // displayed a $450,000 "required withdrawal" on a $900,000 IRA.
+        guard age >= uniformLifetimeTableStartAge else { return 0 }
         let divisor = lifeExpectancyFactor(for: age)
         return balance / divisor
     }

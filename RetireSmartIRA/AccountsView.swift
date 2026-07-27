@@ -271,9 +271,18 @@ struct AddAccountView: View {
 
                     TextField("Institution (optional)", text: $institution)
 
+                    // Retirement accounts have exactly one owner, and "Spouse"
+                    // only means something once a spouse is configured — see
+                    // Owner.retirementOwnerOptions.
                     Picker("Owner", selection: $owner) {
-                        ForEach(Owner.allCases, id: \.self) { owner in
-                            Text(owner.rawValue).tag(owner)
+                        ForEach(
+                            Owner.retirementOwnerOptions(
+                                enableSpouse: dataManager.enableSpouse,
+                                including: owner
+                            ),
+                            id: \.self
+                        ) { option in
+                            Text(option.rawValue).tag(option)
                         }
                     }
                 }

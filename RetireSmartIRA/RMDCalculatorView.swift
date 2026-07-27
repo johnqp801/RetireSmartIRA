@@ -655,47 +655,68 @@ struct RMDCalculatorView: View {
                 ForEach(dataManager.iraAccounts.filter {
                     $0.accountType == .traditionalIRA || $0.accountType == .traditional401k
                 }) { account in
-                    let ownerAge = accountOwnerAge(for: account)
-                    let ownerRMDAge = accountOwnerRMDAge(for: account)
-                    let ownerRMDRequired = ownerAge >= ownerRMDAge
+                    let ownerContext = Self.ownerRMDContext(
+                        owner: account.owner,
+                        enableSpouse: dataManager.enableSpouse,
+                        primaryAge: dataManager.currentAge,
+                        primaryRMDAge: dataManager.rmdAge,
+                        spouseAge: dataManager.spouseCurrentAge,
+                        spouseRMDAge: dataManager.spouseRmdAge
+                    )
 
-                    if ownerRMDRequired {
+                    if let ownerContext, ownerContext.age >= ownerContext.rmdAge {
                         let accountRMD = dataManager.calculateRMD(
-                            for: ownerAge,
+                            for: ownerContext.age,
                             balance: account.balance
                         )
 
                         AccountRMDRow(
                             accountName: account.name,
-                            ownerLabel: dataManager.enableSpouse ? account.owner.rawValue : nil,
+                            ownerLabel: accountOwnerLabel(for: account),
                             balance: account.balance,
                             rmd: accountRMD
                         )
                     } else {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(account.name)
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                HStack(spacing: 4) {
-                                    Text(account.accountType.rawValue)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    if dataManager.enableSpouse {
-                                        Text("·")
-                                            .foregroundStyle(.secondary)
-                                        Text(account.owner.rawValue)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(account.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    HStack(spacing: 4) {
+                                        Text(account.accountType.rawValue)
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
+                                        if let ownerLabel = accountOwnerLabel(for: account) {
+                                            Text("·")
+                                                .foregroundStyle(.secondary)
+                                            Text(ownerLabel)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
                                     }
                                 }
+
+                                Spacer()
+
+                                Text(account.balance, format: .currency(code: "USD"))
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
                             }
 
-                            Spacer()
-
-                            Text(account.balance, format: .currency(code: "USD"))
-                                .font(.callout)
-                                .fontWeight(.semibold)
+                            // The account names an owner who isn't set up, so there are
+                            // no ages to price its RMD against and it sits outside every
+                            // household total.  Say so rather than leaving it looking fine.
+                            if ownerContext == nil {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(Color.Chart.callout)
+                                    Text("Turn on Enable Spouse in My Profile to include this account's RMD.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
                     }
                 }
@@ -1151,8 +1172,23 @@ struct RMDCalculatorView: View {
                 let spouseLabel = dataManager.spouseName.isEmpty ? "Spouse" : dataManager.spouseName
 
                 if showSpouse {
+                    // The combined table is ~560pt wide and overflows an iPhone by
+                    // nearly half, hiding the spouse's balance/RMD and the household
+                    // total off the right edge.  Say so, and leave the scroll bar on:
+                    // with no affordance at all it reads as "the spouse isn't included."
+                    if horizontalSizeClass == .compact {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.left.and.right")
+                                .font(.caption2)
+                            Text("Swipe the table sideways for \(spouseLabel)'s columns and the household total.")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 2)
+                    }
+
                     // Horizontal scroll for combined table on narrower screens
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal, showsIndicators: true) {
                         VStack(alignment: .leading, spacing: 0) {
                             // Combined header row
                             HStack(spacing: 0) {
@@ -1968,6 +2004,42 @@ struct RMDCalculatorView: View {
     }
 
     /// Returns the current age of the account's owner.
+    /// The ages needed to price an account's RMD, or nil when the account names
+    /// an owner who has no configured profile.
+    ///
+    /// A spouse-owned account with Enable Spouse off has no spouse ages to use:
+    /// `spouseCurrentAge` and `spouseRmdAge` both report 0, `0 >= 0` reads as
+    /// "RMD required", and the balance gets priced off the Uniform Lifetime
+    /// Table's past-the-end 2.0 divisor — half the balance.  Returning nil makes
+    /// the screen show no RMD and explain why instead.
+    ///
+    /// Joint accounts price off the primary, matching where their balance is
+    /// counted in `AccountsManager.primaryTraditionalIRABalance`.
+    static func ownerRMDContext(
+        owner: Owner,
+        enableSpouse: Bool,
+        primaryAge: Int,
+        primaryRMDAge: Int,
+        spouseAge: Int,
+        spouseRMDAge: Int
+    ) -> (age: Int, rmdAge: Int)? {
+        switch owner {
+        case .primary, .joint:
+            return (age: primaryAge, rmdAge: primaryRMDAge)
+        case .spouse:
+            guard enableSpouse else { return nil }
+            return (age: spouseAge, rmdAge: spouseRMDAge)
+        }
+    }
+
+    /// Owner caption for an account row, shown whenever it carries information —
+    /// that is, for any non-primary owner even when no spouse is configured, so
+    /// an orphaned account is never mistaken for the user's own.
+    private func accountOwnerLabel(for account: IRAAccount) -> String? {
+        if account.owner != .primary { return account.owner.rawValue }
+        return dataManager.enableSpouse ? account.owner.rawValue : nil
+    }
+
     private func accountOwnerAge(for account: IRAAccount) -> Int {
         switch account.owner {
         case .spouse:

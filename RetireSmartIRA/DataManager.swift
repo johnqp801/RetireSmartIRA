@@ -438,6 +438,14 @@ class DataManager {
     var primaryInheritedRothBalance: Double { accounts.primaryInheritedRothBalance }
     var spouseInheritedRothBalance: Double { accounts.spouseInheritedRothBalance(enableSpouse: enableSpouse) }
     var totalInheritedBalance: Double { accounts.totalInheritedBalance }
+
+    // Spouse teardown (forwarding to AccountsManager)
+    func spouseAndJointAccountSummary() -> (count: Int, balance: Double) {
+        accounts.spouseAndJointAccountSummary()
+    }
+    func reassignSpouseAndJointAccountsToPrimary() {
+        accounts.reassignSpouseAndJointAccountsToPrimary()
+    }
     var inheritedAccounts: [IRAAccount] { accounts.inheritedAccounts }
     var hasInheritedAccounts: Bool { accounts.hasInheritedAccounts }
 

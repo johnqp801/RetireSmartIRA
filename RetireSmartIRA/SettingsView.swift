@@ -13,6 +13,25 @@ struct SettingsView: View {
     @State private var showTermsOfUse = false
     @State private var showPrivacyPolicy = false
     @State private var showSources = false
+    @State private var showSpouseTeardownConfirm = false
+
+    /// Turning Enable Spouse off would strand any spouse- or joint-owned account:
+    /// its owner would no longer exist, so it drops out of every household total
+    /// and has no ages to price an RMD against.  Rather than block the toggle or
+    /// make the user delete accounts, confirm and hand them to the primary.
+    private var enableSpouseBinding: Binding<Bool> {
+        Binding(
+            get: { dataManager.enableSpouse },
+            set: { newValue in
+                if !newValue && dataManager.spouseAndJointAccountSummary().count > 0 {
+                    showSpouseTeardownConfirm = true   // stays on until confirmed
+                } else {
+                    dataManager.enableSpouse = newValue
+                    dataManager.saveAllData()
+                }
+            }
+        )
+    }
 
     /// Date range for the birth date picker (1920 to today)
     private var birthDateRange: ClosedRange<Date> {
@@ -73,7 +92,22 @@ struct SettingsView: View {
             }
 
             Section("Spouse Configuration") {
-                Toggle("Enable Spouse", isOn: $dataManager.enableSpouse)
+                Toggle("Enable Spouse", isOn: enableSpouseBinding)
+                    .confirmationDialog(
+                        "Reassign spouse accounts?",
+                        isPresented: $showSpouseTeardownConfirm,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Reassign to Me") {
+                            dataManager.reassignSpouseAndJointAccountsToPrimary()
+                            dataManager.enableSpouse = false
+                            dataManager.saveAllData()
+                        }
+                        Button("Cancel", role: .cancel) { }
+                    } message: {
+                        let summary = dataManager.spouseAndJointAccountSummary()
+                        Text("\(summary.count) account\(summary.count == 1 ? "" : "s") totaling \(summary.balance, format: .currency(code: "USD")) \(summary.count == 1 ? "is" : "are") owned by your spouse. Turning off Enable Spouse will transfer \(summary.count == 1 ? "it" : "them") to you so \(summary.count == 1 ? "it stays" : "they stay") in your totals. Nothing is deleted.")
+                    }
 
                 if dataManager.enableSpouse {
                     LabeledContent("Spouse Name") {

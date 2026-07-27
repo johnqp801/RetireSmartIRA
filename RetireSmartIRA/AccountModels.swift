@@ -11,6 +11,23 @@ enum Owner: String, Codable, CaseIterable {
     case primary = "You"
     case spouse = "Spouse"
     case joint = "Joint"
+
+    /// Owners selectable for a retirement account.
+    ///
+    /// An IRA is an *Individual* Retirement Arrangement — it has exactly one
+    /// owner under IRS rules — so `.joint` is never offered here, and `.spouse`
+    /// is offered only once a spouse is actually configured.  Picking an owner
+    /// who doesn't exist leaves the account priced off a profile with no ages,
+    /// which is how a $900,000 IRA once displayed a $450,000 RMD.
+    ///
+    /// `current` is always included so opening an account saved under the old
+    /// rules neither blanks the picker nor silently rewrites its owner.
+    static func retirementOwnerOptions(enableSpouse: Bool, including current: Owner) -> [Owner] {
+        var options: [Owner] = [.primary]
+        if enableSpouse { options.append(.spouse) }
+        if !options.contains(current) { options.append(current) }
+        return options
+    }
 }
 
 struct IRAAccount: Identifiable, Codable {

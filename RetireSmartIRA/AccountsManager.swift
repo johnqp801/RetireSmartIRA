@@ -35,16 +35,58 @@ class AccountsManager {
 
     // MARK: - Balance by Owner (primary — no enableSpouse guard needed)
 
+    /// Owners whose balances belong to the primary for per-owner math.
+    ///
+    /// `.joint` is folded in here deliberately.  An IRA has exactly one owner
+    /// under IRS rules, so the Owner picker no longer offers Joint for
+    /// retirement accounts — but installs in the field already hold joint IRAs,
+    /// and a joint account that belongs to no per-owner bucket is counted by
+    /// `totalTraditionalIRABalance` while being silently dropped from
+    /// `calculateCombinedRMD()`.  Understating a required withdrawal carries a
+    /// 25% excise penalty, so those dollars are priced off the primary rather
+    /// than disappearing.
+    private static let primaryOwners: Set<Owner> = [.primary, .joint]
+
     var primaryTraditionalIRABalance: Double {
         iraAccounts
-            .filter { ($0.accountType == .traditionalIRA || $0.accountType == .traditional401k) && $0.owner == .primary }
+            .filter { ($0.accountType == .traditionalIRA || $0.accountType == .traditional401k) && Self.primaryOwners.contains($0.owner) }
             .reduce(0) { $0 + $1.balance }
     }
 
     var primaryRothBalance: Double {
         iraAccounts
-            .filter { ($0.accountType == .rothIRA || $0.accountType == .roth401k) && $0.owner == .primary }
+            .filter { ($0.accountType == .rothIRA || $0.accountType == .roth401k) && Self.primaryOwners.contains($0.owner) }
             .reduce(0) { $0 + $1.balance }
+    }
+
+    // MARK: - Spouse Teardown
+
+    /// Accounts that need a configured spouse to be priced correctly.
+    ///
+    /// Drives the confirmation shown when Enable Spouse is switched off, so the
+    /// user is told exactly what is affected instead of silently losing the
+    /// balances from every household total.
+    func spouseAndJointAccountSummary() -> (count: Int, balance: Double) {
+        let iras = iraAccounts.filter { $0.owner != .primary }
+        let taxables = taxableAccounts.filter { $0.owner != .primary }
+        return (
+            count: iras.count + taxables.count,
+            balance: iras.reduce(0) { $0 + $1.balance } + taxables.reduce(0) { $0 + $1.balance }
+        )
+    }
+
+    /// Hands spouse- and joint-owned accounts to the primary.
+    ///
+    /// Used when Enable Spouse is switched off, so no account is ever left
+    /// pointing at an owner who no longer exists.  Reassigns rather than
+    /// deletes: turning off a setting must never destroy account data.
+    func reassignSpouseAndJointAccountsToPrimary() {
+        for index in iraAccounts.indices where iraAccounts[index].owner != .primary {
+            iraAccounts[index].owner = .primary
+        }
+        for index in taxableAccounts.indices where taxableAccounts[index].owner != .primary {
+            taxableAccounts[index].owner = .primary
+        }
     }
 
     // MARK: - Balance by Owner (spouse — requires enableSpouse check by caller)
