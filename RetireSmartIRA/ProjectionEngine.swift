@@ -210,6 +210,11 @@ struct ProjectionEngine {
 
         var results: [YearRecommendation] = []
 
+        // V2.3: once any year cannot fund its tax, every later year's opening balances
+        // descend from a state the household could not actually have reached, so those
+        // years are reported as unreliable rather than as valid recommendations.
+        var sawInfeasibleYear = false
+
         // IRMAA uses a 2-year MAGI lookback (CMS): the premium in year Y is determined by
         // year Y-2 MAGI. Record every projected year's MAGI so a conversion at (e.g.) 63
         // correctly raises the age-65 premium — the exact pre-Medicare planning window.
@@ -873,6 +878,10 @@ struct ProjectionEngine {
             // position the user actually holds.
             var grossUpWithdrawal = 0.0
             var underfundedTax = 0.0
+            // V2.3: true when the gross-up fixed point below was CLAMPED by available
+            // traditional assets, i.e. the household genuinely ran out of money. This is
+            // the insolvency signal; a nonzero `underfundedTax` on its own is not.
+            var assetsExhausted = false
             var fedTax = federalTax
             var stTax = stateTax
             var reportedAGI = federalAGI
@@ -979,15 +988,33 @@ struct ProjectionEngine {
                         rothConversionWithholding: federalWithheld,
                         filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year, localIncomeTaxRate: inputs.localIncomeTaxRate)
-                    // V2.3: withheld dollars are already remitted, so they are not a funding
-                    // shortfall. Measure the shortfall against the same un-netted target the
-                    // cascade was sized from: federal net of withholding (never below zero, so
-                    // an overpayment cannot cancel state/IRMAA/NIIT/ACA), plus everything else
-                    // in full. `federalWithheld == 0` in every non-withholding mode, so this
-                    // reduces to the previous expression exactly.
-                    underfundedTax = max(0, (max(0, fedTax - federalWithheld) + stTax + nonFedState)
-                                            - saleCash - dW)
                 }
+
+                // V2.3: withheld dollars are already remitted, so they are not a funding
+                // shortfall. Measure the shortfall against the same un-netted target the
+                // cascade was sized from: federal net of withholding (never below zero, so
+                // an overpayment cannot cancel state/IRMAA/NIIT/ACA), plus everything else
+                // in full. `federalWithheld == 0` in every non-withholding mode, so this
+                // reduces to the previous expression exactly.
+                //
+                // Measured OUTSIDE the recompute branch above. When the household has no
+                // traditional assets left at all (for example a conversion that consumed the
+                // whole IRA), the fixed point clamps to dW == 0 and no bucket sale happens, so
+                // the branch never runs. Leaving the measurement inside it reported a shortfall
+                // of zero for the single most insolvent case there is. Whenever either the sale
+                // or the gross-up fired, fedTax/stTax have already been recomputed and this is
+                // byte-identical to measuring it inside the branch; when neither fired, the only
+                // way to reach a nonzero result is an empty traditional balance, because any
+                // positive `availableTrad` against a positive shortfall forces dW > 0.
+                underfundedTax = max(0, (max(0, fedTax - federalWithheld) + stTax + nonFedState)
+                                        - saleCash - dW)
+                // A residual shortfall is only genuine insolvency when the gross-up was
+                // CLAMPED by available traditional assets. The fixed point above runs at
+                // most 3 iterations and stops at a $1.00 tolerance, so a converged year
+                // routinely leaves a small residue (measured in the hundreds of dollars on
+                // comfortably funded plans). Gating on `underfundedTax > 0` would call
+                // those years infeasible. Assets exhausted, not residue, is the signal.
+                assetsExhausted = dW >= availableTrad - 0.01
             }
 
             // A federal overpayment returns to the taxable bucket. Growth was applied in
@@ -1097,6 +1124,15 @@ struct ProjectionEngine {
                 allActions.append(.traditionalWithdrawal(amount: grossUpWithdrawal))
             }
 
+            // V2.3 infeasibility gate. Both conditions are required:
+            //   `> 1.0`        matches the gross-up fixed point's own convergence tolerance,
+            //                  so sub-dollar arithmetic noise never trips the flag;
+            //   assetsExhausted distinguishes genuine insolvency (the gross-up was clamped by
+            //                  available traditional assets) from convergence residue on a
+            //                  comfortably funded year.
+            // Held in one local so the flag and the propagation tracker below can never drift.
+            let yearIsInfeasible = underfundedTax > 1.0 && assetsExhausted
+
             results.append(YearRecommendation(
                 year: year,
                 agi: reportedAGI,
@@ -1124,8 +1160,15 @@ struct ProjectionEngine {
                 // conversion tax when taxable funding was short. 0 when taxable covered the tax
                 // bill or under `.external` funding. Surfaced so the ladder/CPA briefing can
                 // disclose total IRA outflow separately from the conversion amount.
-                taxFundingWithdrawal: grossUpWithdrawal
+                taxFundingWithdrawal: grossUpWithdrawal,
+                isInfeasible: yearIsInfeasible,
+                // An EARLIER year failed. Read before the tracker is updated below, so a year
+                // that is itself the first failure reports isInfeasible == true and
+                // dependsOnInfeasibleYear == false.
+                dependsOnInfeasibleYear: sawInfeasibleYear
             ))
+
+            if yearIsInfeasible { sawInfeasibleYear = true }
 
             // Advance ages for next iteration
             primaryAge += 1
