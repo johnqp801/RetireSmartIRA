@@ -1008,13 +1008,23 @@ struct ProjectionEngine {
                 // positive `availableTrad` against a positive shortfall forces dW > 0.
                 underfundedTax = max(0, (max(0, fedTax - federalWithheld) + stTax + nonFedState)
                                         - saleCash - dW)
-                // A residual shortfall is only genuine insolvency when the gross-up was
-                // CLAMPED by available traditional assets. The fixed point above runs at
-                // most 3 iterations and stops at a $1.00 tolerance, so a converged year
-                // routinely leaves a small residue (measured in the hundreds of dollars on
-                // comfortably funded plans). Gating on `underfundedTax > 0` would call
-                // those years infeasible. Assets exhausted, not residue, is the signal.
-                assetsExhausted = dW >= availableTrad - 0.01
+                // A residual shortfall is only genuine insolvency when BOTH funding sources
+                // are gone: the gross-up was CLAMPED by available traditional assets AND no
+                // taxable balance remains to sell. The fixed point above runs at most 3
+                // iterations and stops at a $1.00 tolerance, so a converged year routinely
+                // leaves a small residue (measured in the hundreds of dollars on comfortably
+                // funded plans). Gating on `underfundedTax > 0` would call those years
+                // infeasible. Assets exhausted, not residue, is the signal.
+                //
+                // The traditional half alone is NOT sufficient: it is vacuously true whenever
+                // `availableTrad == 0` (dW clamps to 0, so `0 >= -0.01`), which is exactly the
+                // flagship V2.3 shape of converting the whole IRA and funding the tax from a
+                // brokerage account. Such a household can hold millions in taxable assets and
+                // still trip the traditional test, and the Phase 1 gain-on-gain sliver above
+                // supplies the small `underfundedTax` needed to complete the gate. Requiring
+                // the taxable balance to be gone too matches what `isInfeasible` documents:
+                // the requirement exceeded available taxable PLUS traditional assets.
+                assetsExhausted = dW >= availableTrad - 0.01 && totalTaxableBalance() <= 0.01
             }
 
             // A federal overpayment returns to the taxable bucket. Growth was applied in
