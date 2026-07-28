@@ -18,6 +18,9 @@ struct MultiYearTaxFundingCard: View {
     @Binding var assumptions: MultiYearAssumptions
     /// Youngest household member's age, for the under-59.5 disclosure.
     let youngestAge: Int
+    /// Household's tax state, for the PA Ans 274 note. Deliberately not defaulted: a
+    /// default would let a new call site drop the note without a compile error.
+    let state: USState
 
     /// The elected rate is FEDERAL ONLY. Everything else in the bill still funds through
     /// the shortfall cascade, so the user must not read the elected percentage as covering
@@ -42,19 +45,38 @@ struct MultiYearTaxFundingCard: View {
         youngestAge < 60 && mode.canTouchIRADollarsForTax
     }
 
+    /// Every option the user can pick, each paired with the copy that states its FULL
+    /// funding order. The view renders ALL of these at once, so this is also what a test
+    /// reads to prove the cascade is visible at decision time rather than only after the
+    /// choice is made. A plain `Picker` in a `Form` renders as a pop-up menu on macOS and a
+    /// push list on iOS, both of which show `displayName` alone.
+    var optionRows: [(mode: RothTaxFundingMode, title: String, subtitle: String)] {
+        RothTaxFundingMode.allCases.map { ($0, $0.displayName, $0.fundingSubtitle) }
+    }
+
+    /// PA DOR Answer 274: the conversion exemption covers only what actually lands in the
+    /// Roth, so electing withholding creates PA tax. Gated exactly like the single-year
+    /// `RothConversionWithholdingCard`: withholding elected AND the household is in PA.
+    var showsPennsylvaniaNote: Bool {
+        mode.usesCustodialWithholding && state == .pennsylvania
+    }
+
+    static let pennsylvaniaNote =
+        "Pennsylvania note: Roth conversions are normally PA-exempt, but PA DOR Answer 274 requires the full pre-tax balance to land in the Roth. The withheld portion is treated as a PA-taxable distribution, so this plan's state tax reflects it."
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Pay conversion tax by", selection: $assumptions.rothTaxFundingMode) {
-                ForEach(RothTaxFundingMode.allCases, id: \.self) { m in
-                    Text(m.displayName).tag(m)
+            Text("Pay conversion tax by")
+                .font(.subheadline.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+
+            // Selectable rows rather than a Picker: each option must state its own funding
+            // order while the user is choosing, not after.
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(optionRows, id: \.mode) { row in
+                    optionRow(row)
                 }
             }
-            .accessibilityLabel("Pay conversion tax by")
-
-            Text(mode.fundingSubtitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
 
             if mode.usesCustodialWithholding {
                 HStack {
@@ -76,6 +98,9 @@ struct MultiYearTaxFundingCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if showsPennsylvaniaNote {
+                disclosure(Self.pennsylvaniaNote)
+            }
             if showsIRAFundingDisclosure {
                 disclosure(V2Disclosures.edSlottIRAFunding)
             }
@@ -83,6 +108,35 @@ struct MultiYearTaxFundingCard: View {
                 disclosure(V2Disclosures.earlyDistributionNotModeled)
             }
         }
+    }
+
+    @ViewBuilder
+    private func optionRow(_ row: (mode: RothTaxFundingMode, title: String, subtitle: String)) -> some View {
+        let isSelected = row.mode == mode
+        Button {
+            assumptions.rothTaxFundingMode = row.mode
+        } label: {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.title)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                    Text(row.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(row.title). \(row.subtitle)")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     private func disclosure(_ text: String) -> some View {

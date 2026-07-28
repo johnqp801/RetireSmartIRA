@@ -65,6 +65,11 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         case assumptionsConfirmed, pvRealDiscountRate, rothTaxFundingMode, federalWithholdingRate, conversionApproach
         /// OLD key, decode-only (see `legacyExpenseOverrides` above) — never encoded.
         case perYearExpenseOverrides
+        /// OLD key, decode-only: pre-V2.3 builds persisted the funding mode under the
+        /// property's former name `taxPaymentSource`. Real archived files carry THIS
+        /// spelling, so the rename migration is dead code without it. Never encoded
+        /// (see `encode(to:)`), same pattern as `perYearExpenseOverrides` above.
+        case taxPaymentSource
     }
 
     init(
@@ -136,10 +141,11 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.legacyExpenseOverrides = (try? c.decodeIfPresent([Int: Double].self, forKey: .perYearExpenseOverrides)) ?? [:]
     }
 
-    // Explicit encode(to:) — required because CodingKeys carries the decode-only
-    // `perYearExpenseOverrides` case (no matching stored property), which disables
-    // synthesis. `legacyExpenseOverrides` is deliberately NOT written here: it is
-    // transient and must never re-persist.
+    // Explicit encode(to:) is required because CodingKeys carries decode-only cases
+    // (`perYearExpenseOverrides`, `taxPaymentSource`) with no matching stored property,
+    // which disables synthesis. `legacyExpenseOverrides` is deliberately NOT written
+    // here: it is transient and must never re-persist. The legacy funding key is likewise
+    // never written back: saving rewrites the plan under `rothTaxFundingMode`.
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(horizonEndAge, forKey: .horizonEndAge)
@@ -199,20 +205,34 @@ enum MultiYearAssumptionsMigration {
     /// Not thread-safe; decoding happens on the main actor in this app.
     nonisolated(unsafe) static var lastUnknownFundingModeRawValue: String?
 
-    static func decodeFundingMode(
+    /// Reads the stored raw value from the CURRENT key, falling back to the pre-V2.3 key
+    /// that real archived files carry. Without the fallback the whole legacy mapping below
+    /// is unreachable: an old `"taxPaymentSource":"external"` plan would silently decode as
+    /// account-funded, changing the projection with no signal.
+    private static func rawFundingValue(
         from container: KeyedDecodingContainer<MultiYearAssumptions.CodingKeys>
-    ) -> RothTaxFundingMode {
+    ) -> String? {
         // Note: `try? container.decodeIfPresent(...)` flattens with the target's own
         // Optional (SE-0230), so a two-step `guard let raw = try? ..., let stored = raw`
         // does not compile here (raw is already the unwrapped String, not String?).
-        // do/catch keeps "key missing" and "decode error" both routing to the safe default.
-        let raw: String?
-        do {
-            raw = try container.decodeIfPresent(String.self, forKey: .rothTaxFundingMode)
-        } catch {
-            raw = nil
+        // do/catch keeps "key missing" and "decode error" both routing to the next key,
+        // and finally to the safe default.
+        for key in [MultiYearAssumptions.CodingKeys.rothTaxFundingMode, .taxPaymentSource] {
+            let raw: String?
+            do {
+                raw = try container.decodeIfPresent(String.self, forKey: key)
+            } catch {
+                raw = nil
+            }
+            if let raw { return raw }
         }
-        guard let stored = raw else {
+        return nil
+    }
+
+    static func decodeFundingMode(
+        from container: KeyedDecodingContainer<MultiYearAssumptions.CodingKeys>
+    ) -> RothTaxFundingMode {
+        guard let stored = rawFundingValue(from: container) else {
             return .fundedFromAccounts          // field absent: existing default, safe
         }
         if let known = RothTaxFundingMode(rawValue: stored) {

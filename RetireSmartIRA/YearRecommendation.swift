@@ -47,9 +47,9 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     let executedRothConversion: Double
     /// The ADDITIONAL traditional-IRA withdrawal taken to pay this year's total tax bill (federal +
     /// state + IRMAA + ACA + NIIT, across pension/RMD/SS/wages/conversion) when the taxable bucket
-    /// was short (the Step-7 gross-up, `.taxableThenGrossUp`). Not conversion-tax-only — a year with
+    /// was short (the Step-7 gross-up, `.fundedFromAccounts`). Not conversion-tax-only: a year with
     /// zero conversion can still have a gross-up. 0 when taxable funds covered the tax bill in full,
-    /// or when `.external` funding is in effect. Surfaced so the UI can disclose total IRA outflow
+    /// or when `.paidFromOutsideMoney` funding is in effect. Surfaced so the UI can disclose total IRA outflow
     /// separately from the conversion amount itself — "convert $Y" alone understates total IRA
     /// depletion when a gross-up fires (A4, 2026-07-13).
     let taxFundingWithdrawal: Double

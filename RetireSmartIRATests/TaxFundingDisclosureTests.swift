@@ -77,12 +77,37 @@ struct MultiYearTaxFundingCardTests {
             .lowercased().contains("outside this plan"))
     }
 
+    @Test("The picker shows EVERY option's funding order, not just the selected one")
+    func allSubtitlesAreVisibleAtDecisionTime() {
+        // A bare Picker in a Form renders as a macOS pop-up menu / iOS push list showing
+        // `displayName` alone, so the user chooses "Withhold from conversion" without ever
+        // reading that the remainder comes from taxable assets and then the IRA. The card
+        // therefore renders one row per mode, each carrying its own subtitle.
+        var a = MultiYearAssumptions()
+        a.rothTaxFundingMode = .paidFromOutsideMoney       // selection must not matter
+        let card = MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: 70,
+                                           state: .california)
+        let rows = card.optionRows
+        #expect(rows.count == RothTaxFundingMode.allCases.count)
+        for mode in RothTaxFundingMode.allCases {
+            let row = rows.first { $0.mode == mode }
+            #expect(row != nil, "\(mode) must be offered")
+            #expect(row?.title == mode.displayName)
+            // The UNSELECTED options carry their cascade copy too, which is the whole point.
+            #expect(row?.subtitle == mode.fundingSubtitle)
+            #expect(row?.subtitle.isEmpty == false)
+        }
+        // Distinct copy per option: a shared subtitle would defeat the purpose.
+        #expect(Set(rows.map(\.subtitle)).count == rows.count)
+    }
+
     @Test("Under-59.5 warning shows only when IRA dollars can pay the tax")
     func earlyWarningTriggers() {
         func card(_ mode: RothTaxFundingMode, age: Int) -> MultiYearTaxFundingCard {
             var a = MultiYearAssumptions()
             a.rothTaxFundingMode = mode
-            return MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: age)
+            return MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: age,
+                                           state: .california)
         }
         #expect(card(.withheldFromConversion, age: 55).showsEarlyDistributionWarning)
         #expect(card(.fundedFromAccounts, age: 55).showsEarlyDistributionWarning)
@@ -97,9 +122,36 @@ struct MultiYearTaxFundingCardTests {
         for mode in RothTaxFundingMode.allCases {
             var a = MultiYearAssumptions()
             a.rothTaxFundingMode = mode
-            _ = MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: 55).body
+            for state in [USState.california, .pennsylvania] {
+                _ = MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: 55,
+                                            state: state).body
+            }
         }
         #expect(true)
+    }
+
+    @Test("PA note appears only for a Pennsylvania household electing withholding")
+    func pennsylvaniaNoteGate() {
+        func card(_ mode: RothTaxFundingMode, _ state: USState) -> MultiYearTaxFundingCard {
+            var a = MultiYearAssumptions()
+            a.rothTaxFundingMode = mode
+            return MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: 70, state: state)
+        }
+        // Task 5 made the withheld portion PA-taxable in the engine; this screen has to say so.
+        #expect(card(.withheldFromConversion, .pennsylvania).showsPennsylvaniaNote)
+        // No withholding means the full pre-tax balance lands in the Roth: still PA-exempt.
+        #expect(card(.fundedFromAccounts, .pennsylvania).showsPennsylvaniaNote == false)
+        #expect(card(.paidFromOutsideMoney, .pennsylvania).showsPennsylvaniaNote == false)
+        #expect(card(.withheldFromConversion, .california).showsPennsylvaniaNote == false)
+    }
+
+    @Test("PA note names the rule and the withheld portion")
+    func pennsylvaniaNoteCopy() {
+        let text = MultiYearTaxFundingCard.pennsylvaniaNote
+        #expect(text.contains("Pennsylvania"))
+        #expect(text.contains("274"), "cites the same PA DOR answer as the single-year card")
+        #expect(text.lowercased().contains("withheld portion"))
+        #expect(text.contains("\u{2014}") == false, "no em dash")
     }
 
     @Test("Ed Slott disclosure shows for BOTH IRA-touching modes, not just one")
@@ -107,7 +159,8 @@ struct MultiYearTaxFundingCardTests {
         func card(_ mode: RothTaxFundingMode) -> MultiYearTaxFundingCard {
             var a = MultiYearAssumptions()
             a.rothTaxFundingMode = mode
-            return MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: 70)
+            return MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: 70,
+                                           state: .california)
         }
         // Withholding still spends IRA dollars on tax, so it needs the disclosure just as
         // much as the explicit account-funded mode. Dropping either one defeats the feature.

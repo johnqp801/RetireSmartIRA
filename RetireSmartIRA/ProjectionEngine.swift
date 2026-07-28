@@ -875,11 +875,12 @@ struct ProjectionEngine {
             // nets these out. max(0, ...) guards against the edge case where a large ACA subsidy
             // makes total negative — a positive subsidy cash-flow, not a debit.
             //
-            // .taxableThenGrossUp (default): pay tax from taxable; if short, fund the gap by
+            // .fundedFromAccounts (default): pay tax from taxable; if short, fund the gap by
             //   an additional traditional withdrawal grossed-up for the federal+state tax that
             //   withdrawal itself creates (3-iteration fixed-point). IRMAA/ACA are NOT
             //   recomputed for the gross-up withdrawal (documented approximation).
-            // .external: any shortfall after taxable is silently absorbed (legacy behavior).
+            // .paidFromOutsideMoney: any shortfall after taxable is absorbed by untracked
+            //   outside funds (the pre-V2.3 `.external` behavior).
             //
             // This step closes the phantom-wealth gap: the previous engine reported taxBreakdown
             // but never debited any account, so projected end-of-horizon wealth was overstated
@@ -1206,7 +1207,7 @@ struct ProjectionEngine {
                 executedRothConversion: explicitRothConversions,
                 // A4 fix: the Step-7 gross-up traditional withdrawal taken to pay this year's
                 // conversion tax when taxable funding was short. 0 when taxable covered the tax
-                // bill or under `.external` funding. Surfaced so the ladder/CPA briefing can
+                // bill or under `.paidFromOutsideMoney` funding. Surfaced so the ladder/CPA briefing can
                 // disclose total IRA outflow separately from the conversion amount.
                 taxFundingWithdrawal: grossUpWithdrawal,
                 isInfeasible: yearIsInfeasible,

@@ -294,6 +294,7 @@ struct MultiYearPlanView: View {
                 assumptions: Binding(get: { manager.assumptions }, set: { manager.assumptions = $0 }),
                 spouseEnabled: dataManager.enableSpouse,
                 youngestAge: youngestHouseholdAge,
+                state: dataManager.selectedState,
                 onCommit: { recomputeAll() })
         }
         .sheet(item: $editingYear) { editing in

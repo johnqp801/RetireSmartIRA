@@ -98,6 +98,44 @@ struct MultiYearCPABriefingTests {
         #expect(html.contains("<td>2027</td><td>$50,000</td><td>-</td>"))
     }
 
+    /// V2.3: the funding mode is the setting that decides whether IRA dollars pay the tax and
+    /// whether the Roth receives gross or net. An Assumptions section that omits it leaves the
+    /// CPA reconciling gross conversion rows against a net Roth column with no explanation.
+    @Test("Assumptions name the funding mode, and the withholding rate when elected")
+    func assumptionsNameFundingMode() {
+        func html(_ mode: RothTaxFundingMode, rate: Double = 0.24) -> String {
+            var a = MultiYearAssumptions()
+            a.rothTaxFundingMode = mode
+            a.federalWithholdingRate = rate
+            let base = model()
+            return MultiYearCPABriefingHTML.build(CPABriefingModel(
+                preparedFor: base.preparedFor, taxYear: base.taxYear,
+                filingStatusLabel: base.filingStatusLabel, stateLabel: base.stateLabel,
+                primaryBirthYear: base.primaryBirthYear, summary: base.summary,
+                comparison: base.comparison, yearRows: base.yearRows, frontier: nil,
+                includeHeirs: base.includeHeirs, assumptions: a,
+                limitations: base.limitations, positioning: base.positioning))
+        }
+
+        let withheld = html(.withheldFromConversion, rate: 0.22)
+        #expect(withheld.contains("How the tax is paid"))
+        #expect(withheld.contains(RothTaxFundingMode.withheldFromConversion.displayName))
+        #expect(withheld.contains("Elected federal withholding rate"))
+        #expect(withheld.contains("22.0%"))
+        // Gross conversions are printed above; the CPA needs the reconciliation stated.
+        #expect(withheld.contains("GROSS"))
+
+        let accounts = html(.fundedFromAccounts)
+        #expect(accounts.contains("How the tax is paid"))
+        #expect(accounts.contains(RothTaxFundingMode.fundedFromAccounts.displayName))
+        // No withholding elected: no rate row, and no gross-vs-net reconciliation to make.
+        #expect(!accounts.contains("Elected federal withholding rate"))
+
+        let outside = html(.paidFromOutsideMoney)
+        #expect(outside.contains(RothTaxFundingMode.paidFromOutsideMoney.displayName))
+        #expect(!outside.contains("Elected federal withholding rate"))
+    }
+
     @Test("no gross-up anywhere: ladder table stays two columns, no disclosure note")
     func noGrossUpNoDisclosure() {
         let html = MultiYearCPABriefingHTML.build(model())

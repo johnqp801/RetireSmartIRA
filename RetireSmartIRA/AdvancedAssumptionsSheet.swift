@@ -9,6 +9,8 @@ struct AdvancedAssumptionsSheet: View {
     /// Youngest household member's age, so the funding card can decide whether the
     /// under-59.5 early-distribution disclosure applies.
     let youngestAge: Int
+    /// Household's tax state, so the funding card can show the PA Ans 274 note.
+    let state: USState
     var onCommit: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -44,7 +46,9 @@ struct AdvancedAssumptionsSheet: View {
                     }
                 }
                 Section("Paying the tax") {
-                    MultiYearTaxFundingCard(assumptions: $assumptions, youngestAge: youngestAge)
+                    MultiYearTaxFundingCard(assumptions: $assumptions,
+                                            youngestAge: youngestAge,
+                                            state: state)
                 }
             }
             .navigationTitle("Advanced assumptions")

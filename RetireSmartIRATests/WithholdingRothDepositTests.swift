@@ -33,10 +33,11 @@ struct WithholdingRothDepositTests {
         )
     }
 
-    private func assumptions(_ mode: RothTaxFundingMode, rate: Double) -> MultiYearAssumptions {
+    private func assumptions(_ mode: RothTaxFundingMode, rate: Double,
+                             growth: Double = 0) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(
             horizonEndAge: 67, horizonEndAgeSpouse: nil, cpiRate: 0,
-            investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient,
+            investmentGrowthRate: growth, withdrawalOrderingRule: .taxEfficient,
             stressTestEnabled: false, perYearOverrides: [:],
             currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0)
         a.rothTaxFundingMode = mode
@@ -46,10 +47,11 @@ struct WithholdingRothDepositTests {
 
     private func runYear(_ mode: RothTaxFundingMode, rate: Double = 0.22,
                          state: String = "FL", trad: Double = 500_000,
-                         taxable: Double = 300_000) -> YearRecommendation {
+                         taxable: Double = 300_000,
+                         growth: Double = 0) -> YearRecommendation {
         ProjectionEngine(configProvider: provider).project(
             inputs: inputs(state: state, trad: trad, taxable: taxable),
-            assumptions: assumptions(mode, rate: rate),
+            assumptions: assumptions(mode, rate: rate, growth: growth),
             actionsPerYear: [2026: [.rothConversion(amount: 100_000)]]
         ).first!
     }
@@ -71,6 +73,19 @@ struct WithholdingRothDepositTests {
     func rothReceivesGrossWhenPaidFromOutsideMoney() {
         let y = runYear(.paidFromOutsideMoney)
         #expect(abs(y.endOfYearBalances.roth - 100_000) < 1.0)
+    }
+
+    @Test("Withheld dollars are removed BEFORE growth, so they never compound")
+    func withheldRemovedBeforeGrowth() {
+        // Every other test here runs at 0% growth, which cannot tell the two orderings
+        // apart. At 5%: withholding first gives 78,000 * 1.05 = 81,900; deducting after
+        // growth would give 105,000 - 22,000 = 83,000, a phantom year of compounding on
+        // dollars the custodian already sent to the IRS.
+        let y = runYear(.withheldFromConversion, rate: 0.22, growth: 0.05)
+        #expect(abs(y.endOfYearBalances.roth - 81_900) < 1.0,
+                "net deposit must be grown exactly one year, not the gross")
+        #expect(abs(y.endOfYearBalances.roth - 83_000) > 1.0,
+                "withheld dollars must not earn a year of growth before leaving")
     }
 
     @Test("Executed conversion still reports the GROSS distribution")

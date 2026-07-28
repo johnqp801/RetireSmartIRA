@@ -219,8 +219,8 @@ enum MultiYearCPABriefingHTML {
         // A4: when a gross-up fires anywhere in the plan, add a third column disclosing the
         // ADDITIONAL IRA withdrawal taken to pay that year's conversion tax — otherwise "convert
         // $Y" alone understates the year's total IRA outflow. Plans with no gross-up (taxable
-        // funded the tax bill, or .external funding) render the original two-column table
-        // unchanged.
+        // funded the tax bill, or .paidFromOutsideMoney funding) render the original
+        // two-column table unchanged.
         let anyGrossUp = m.yearRows.contains { $0.taxFundingWithdrawal > 0 }
         var rows = ""
         for r in m.yearRows {
@@ -305,6 +305,17 @@ enum MultiYearCPABriefingHTML {
 
     private static func assumptionsSection(_ m: CPABriefingModel) -> String {
         let a = m.assumptions
+        // V2.3: the funding mode changes the projection materially (whether IRA dollars pay
+        // the tax, and whether the Roth receives gross or net), so a CPA reading this needs
+        // it named. Under withholding the conversion column above is GROSS while the Roth
+        // column reflects the withholding haircut; the note reconciles the two.
+        let fundingRow = "<tr><td>How the tax is paid</td><td>\(esc(a.rothTaxFundingMode.displayName))</td></tr>"
+        let withholdingRows = a.rothTaxFundingMode.usesCustodialWithholding
+            ? """
+            <tr><td>Elected federal withholding rate</td><td>\(pct(a.federalWithholdingRate))</td></tr>
+            <tr><td>Roth deposit under withholding</td><td>Gross conversion less the withheld federal tax</td></tr>
+            """
+            : ""
         return """
         <h2>Assumptions</h2>
         <table>
@@ -313,7 +324,12 @@ enum MultiYearCPABriefingHTML {
         <tr><td>Future tax rate on leftover traditional IRA</td><td>\(pct(a.terminalLiquidationTaxRate))</td></tr>
         <tr><td>Plan through age</td><td>\(a.horizonEndAge)</td></tr>
         <tr><td>Withdrawal order</td><td>\(esc(a.withdrawalOrderingRule.displayName))</td></tr>
+        \(fundingRow)
+        \(withholdingRows)
         </table>
+        \(a.rothTaxFundingMode.usesCustodialWithholding
+            ? "<div class=\"note\">Conversion amounts shown throughout this document are GROSS distributions from the traditional IRA. Under a withholding election the custodian remits the elected federal rate to the IRS, so the amount deposited to the Roth is the gross less that withholding.</div>"
+            : "")
         """
     }
 
