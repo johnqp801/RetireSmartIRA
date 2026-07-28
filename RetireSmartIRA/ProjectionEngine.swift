@@ -378,6 +378,16 @@ struct ProjectionEngine {
                 ? explicitRothConversions * assumptions.federalWithholdingRate
                 : 0
 
+            // The custodian remits the withheld dollars to the IRS, so they never reach the
+            // Roth. Step 1 above already credited the FULL gross to `roth` (matching the full
+            // gross the traditional bucket gave up); this removes only the part that did not
+            // arrive. Income is unaffected: the gross is taxable either way, and the withheld
+            // dollars are already inside it. `federalWithheld` is 0 in every non-withholding
+            // mode, so this is a no-op there.
+            if federalWithheld > 0 {
+                roth = max(0, roth - federalWithheld)
+            }
+
             // ─────────────────────────────────────────
             // Step 2: Compute SS income for this year
             // ─────────────────────────────────────────
@@ -720,6 +730,7 @@ struct ProjectionEngine {
                 pensionIncome: pensionIncome,
                 totalTradWithdrawals: totalTradWithdrawals,
                 explicitRothConversions: explicitRothConversions,
+                rothConversionWithholding: federalWithheld,
                 filingStatus: inputs.filingStatus,
                 usState: usState,
                 primaryAge: primaryAge,
@@ -898,6 +909,7 @@ struct ProjectionEngine {
                     let st = computeStateTax(
                         federalAGI: federalAGI + dW + max(0, saleGain), taxableSS: taxableSS, pensionIncome: pensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
+                        rothConversionWithholding: federalWithheld,
                         filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
                         year: year, localIncomeTaxRate: inputs.localIncomeTaxRate) - stateTax
@@ -964,6 +976,7 @@ struct ProjectionEngine {
                     stTax = computeStateTax(
                         federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
+                        rothConversionWithholding: federalWithheld,
                         filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year, localIncomeTaxRate: inputs.localIncomeTaxRate)
                     // V2.3: withheld dollars are already remitted, so they are not a funding
@@ -1343,6 +1356,7 @@ struct ProjectionEngine {
         pensionIncome: Double,
         totalTradWithdrawals: Double,
         explicitRothConversions: Double,
+        rothConversionWithholding: Double,
         filingStatus: FilingStatus,
         usState: USState,
         primaryAge: Int,
@@ -1370,9 +1384,13 @@ struct ProjectionEngine {
 
         let hasSpouse = spouseBirthYear != nil
         // Forward the year's Roth conversion so states that exempt conversions for eligible
-        // owners (PA/IL/MS) correctly subtract it. Multi-year uses gross-up funding, not
-        // conversion withholding, so the withholding amount is 0 (the full conversion is exempt
-        // where the state exempts it). Inert for states with no conversion exemption. (I1)
+        // owners (PA/IL/MS) correctly subtract it. V2.3: multi-year can now elect custodial
+        // withholding, so the withheld amount is forwarded rather than hardcoded to 0. Under
+        // PA DOR Ans 274 the exemption reaches only the portion actually deposited into the
+        // Roth, which makes the withheld portion PA-taxable; the shared single-year logic in
+        // TaxCalculationEngine.applyRetirementExemptions implements that rule. The amount is 0
+        // in every non-withholding mode, reproducing the prior behavior exactly. Inert for
+        // states with no conversion exemption. (I1, extended V2.3)
         return TaxCalculationEngine.calculateStateTax(
             income: federalAGI,
             forState: usState,
@@ -1384,7 +1402,7 @@ struct ProjectionEngine {
             spouseBirthYear: spouseBirthYear ?? 0,
             currentYear: year,
             scenarioRothConversionAmount: explicitRothConversions,
-            scenarioRothConversionWithholdingAmount: 0,
+            scenarioRothConversionWithholdingAmount: rothConversionWithholding,
             localIncomeTaxRate: localIncomeTaxRate
         )
     }
