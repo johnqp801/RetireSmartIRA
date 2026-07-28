@@ -21,6 +21,12 @@ struct ACAMagiGrossUpTests {
 
     private var provider: TaxYearConfigProvider { .fixed(TaxYearConfig.loadOrFallback(forYear: 2026)) }
 
+    /// The only 2026 income in this scenario: no wages, no pension, no SS benefit (all
+    /// zeroed below), and no taxable-account interest (starting taxable balance is 0). So
+    /// pre-gross-up federal AGI -- and pre-gross-up ACA MAGI, since the addback (non-taxable
+    /// SS + tax-exempt interest) is also 0 here -- is exactly this conversion amount.
+    private let rothConversionAmount = 80_000.0
+
     /// Age-60 single filer, ACA enrolled, no taxable assets at all. The conversion tax
     /// therefore cannot be funded from taxable and must come from a grossed-up
     /// traditional withdrawal, which is exactly the condition under test.
@@ -48,7 +54,7 @@ struct ACAMagiGrossUpTests {
         a.rothTaxFundingMode = .fundedFromAccounts   // no taxable, so tax forces a gross-up
         return ProjectionEngine(configProvider: provider).project(
             inputs: inputs, assumptions: a,
-            actionsPerYear: [2026: [.rothConversion(amount: 80_000)]]).first!
+            actionsPerYear: [2026: [.rothConversion(amount: rothConversionAmount)]]).first!
     }
 
     @Test("A gross-up fires in this scenario (guards the test's premise)")
@@ -75,5 +81,17 @@ struct ACAMagiGrossUpTests {
         let aca = try #require(y.acaMagi)
         // `magi` was already corrected post-gross-up by the A3 fix; acaMagi shares its basis.
         #expect(abs(aca - y.magi) < 1.0)
+    }
+
+    @Test("ACA MAGI equals the pre-gross-up base plus the actual gross-up withdrawal")
+    func acaMagiPinsGrossUpMagnitude() throws {
+        let y = runPreMedicare()
+        let aca = try #require(y.acaMagi)
+        // Pins the dollar amount, not just the shape: this scenario's pre-gross-up ACA MAGI
+        // is exactly `rothConversionAmount` (see its doc comment), so the reported acaMagi
+        // must be that base plus whatever gross-up withdrawal the cascade actually took --
+        // not merely >= some AGI (acaMagiIncludesGrossUp) or == some other field (acaAgreesWithMagi).
+        #expect(abs(aca - (rothConversionAmount + y.taxFundingWithdrawal)) < 1.0,
+                "ACA MAGI must equal the pre-gross-up base plus the actual gross-up withdrawal")
     }
 }
