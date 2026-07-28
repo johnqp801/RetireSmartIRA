@@ -131,6 +131,12 @@ struct WithholdingReconciliationTests {
                                conversion: 200_000, trad: 600_000, taxable: 0)
         #expect(separate.taxFundingWithdrawal - y.taxFundingWithdrawal >= 20_000 - 1.0,
                 "withholding of 20,000 must shrink the cascade by at least that much")
+        // Pins the withholding netting in underfundedTax. Without it this scenario
+        // reports a phantom shortfall of roughly the withheld amount (measured ~20,166
+        // reverted, ~167 correct), which a later task would turn into a false
+        // infeasible-year flag.
+        #expect((y.underfunded ?? 0) < 1_000,
+                "withheld dollars must not be counted as an unfunded shortfall")
     }
 
     @Test("Outside-money mode never pulls a tax-funding withdrawal")
