@@ -53,6 +53,18 @@ struct YearRecommendation: Codable, Equatable, Sendable {
     /// separately from the conversion amount itself — "convert $Y" alone understates total IRA
     /// depletion when a gross-up fires (A4, 2026-07-13).
     let taxFundingWithdrawal: Double
+    /// True when this year's converged tax requirement exceeded available taxable +
+    /// traditional assets. The requested conversion is PRESERVED as requested (V2.3 does
+    /// not auto-reduce it, which would require solving conversion and funding jointly),
+    /// but the year must not be presented as a funded recommendation.
+    let isInfeasible: Bool
+    /// True when an EARLIER year in this projection was infeasible, so this year's opening
+    /// balances descend from a state the household could not actually have reached.
+    let dependsOnInfeasibleYear: Bool
+
+    /// A year is presentable as a funded recommendation only when it is neither infeasible
+    /// itself nor downstream of an infeasible year.
+    var isFullyFunded: Bool { !isInfeasible && !dependsOnInfeasibleYear }
 
     init(
         year: Int,
@@ -70,7 +82,9 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         rmd: Double = 0,
         taxableSocialSecurity: Double = 0,
         executedRothConversion: Double = 0,
-        taxFundingWithdrawal: Double = 0
+        taxFundingWithdrawal: Double = 0,
+        isInfeasible: Bool = false,
+        dependsOnInfeasibleYear: Bool = false
     ) {
         self.year = year
         self.agi = agi
@@ -88,5 +102,7 @@ struct YearRecommendation: Codable, Equatable, Sendable {
         self.taxableSocialSecurity = taxableSocialSecurity
         self.executedRothConversion = executedRothConversion
         self.taxFundingWithdrawal = taxFundingWithdrawal
+        self.isInfeasible = isInfeasible
+        self.dependsOnInfeasibleYear = dependsOnInfeasibleYear
     }
 }
