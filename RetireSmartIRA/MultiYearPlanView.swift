@@ -28,6 +28,15 @@ struct MultiYearPlanView: View {
     // trade-off (frontier + "what heirs keep") is hidden and the plan follows the owner-optimal path.
     private var legacyEnabled: Bool { dataManager.enableLegacyPlanning }
 
+    /// Youngest household member's age. The under-59.5 early-distribution exposure belongs
+    /// to whichever member is younger, so a 62/55 couple must still see the warning; the
+    /// spouse age is only meaningful when a spouse is enabled.
+    private var youngestHouseholdAge: Int {
+        dataManager.enableSpouse
+            ? min(dataManager.currentAge, dataManager.spouseCurrentAge)
+            : dataManager.currentAge
+    }
+
     // Selected weight's path (drives summary + ladder), then filtered through the selected
     // conversion approach: when a deterministic approach (fill-to-bracket / limit-to-IRMAA) is
     // chosen, the whole tab (summary, ladder, balances, threshold map, CPA briefing) reads that
@@ -105,6 +114,7 @@ struct MultiYearPlanView: View {
                 }
                 ConversionWindowBanner(yearsBeforeFirstRMD: manager.yearsBeforeFirstRMD,
                                        dismissed: dismissBinding("conversionWindow"))
+                TaxFundingShortfallBanner(years: activePath)
 
                 AssumptionsStripView(
                     taxableSummary: (dataManager.taxableAccounts.count,
@@ -280,6 +290,7 @@ struct MultiYearPlanView: View {
             AdvancedAssumptionsSheet(
                 assumptions: Binding(get: { manager.assumptions }, set: { manager.assumptions = $0 }),
                 spouseEnabled: dataManager.enableSpouse,
+                youngestAge: youngestHouseholdAge,
                 onCommit: { recomputeAll() })
         }
         .sheet(item: $editingYear) { editing in

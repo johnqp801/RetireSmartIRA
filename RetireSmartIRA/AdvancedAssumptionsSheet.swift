@@ -6,6 +6,9 @@ import SwiftUI
 struct AdvancedAssumptionsSheet: View {
     @Binding var assumptions: MultiYearAssumptions
     let spouseEnabled: Bool
+    /// Youngest household member's age, so the funding card can decide whether the
+    /// under-59.5 early-distribution disclosure applies.
+    let youngestAge: Int
     var onCommit: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -39,6 +42,9 @@ struct AdvancedAssumptionsSheet: View {
                             Text(rule.displayName).tag(rule)
                         }
                     }
+                }
+                Section("Paying the tax") {
+                    MultiYearTaxFundingCard(assumptions: $assumptions, youngestAge: youngestAge)
                 }
             }
             .navigationTitle("Advanced assumptions")

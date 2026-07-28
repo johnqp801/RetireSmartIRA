@@ -17,10 +17,10 @@ struct AdvancedAssumptionsSheetTests {
     func build() {
         _ = AdvancedAssumptionsSheet(
             assumptions: .constant(MultiYearAssumptions()),
-            spouseEnabled: true, onCommit: {}).body
+            spouseEnabled: true, youngestAge: 55, onCommit: {}).body
         _ = AdvancedAssumptionsSheet(
             assumptions: .constant(MultiYearAssumptions()),
-            spouseEnabled: false, onCommit: {}).body
+            spouseEnabled: false, youngestAge: 67, onCommit: {}).body
         #expect(true)
     }
 }
