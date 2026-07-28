@@ -40,14 +40,9 @@ struct RothConversionWithholdingCard: View {
         isWithheldMode && dataManager.selectedState == .pennsylvania
     }
 
-    /// Standard federal withholding-rate choices. Map to the marginal brackets
-    /// that 2026 retirees most commonly fall into. Brokerages (Fidelity,
-    /// Schwab, Vanguard) typically accept any whole-percent value, but
-    /// these correspond to the 2026 bracket edges.
-    private let rateOptions: [(label: String, rate: Double)] = [
-        ("10%", 0.10), ("12%", 0.12), ("22%", 0.22), ("24%", 0.24),
-        ("32%", 0.32), ("35%", 0.35), ("37%", 0.37)
-    ]
+    /// Federal withholding-rate choices, owned by the domain layer so this card and
+    /// the multi-year funding card cannot drift. See `FederalWithholdingRates`.
+    private var rateOptions: [(label: String, rate: Double)] { FederalWithholdingRates.options }
 
     var body: some View {
         @Bindable var dm = dataManager
