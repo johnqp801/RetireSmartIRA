@@ -64,12 +64,16 @@ struct InfeasibleYearPresentationTests {
         #expect(text.contains("\u{2014}") == false, "no em dash")
     }
 
-    @Test("An infeasible year is excluded from unqualified lifetime comparison")
-    func excludedFromComparison() {
-        let years = [makeYear(2029), makeYear(2030, shortfall: 8_420, infeasible: true)]
-        #expect(years.allSatisfy(\.isFullyFunded) == false,
-                "a plan containing an infeasible year is not fully funded")
-        #expect(years.filter(\.isFullyFunded).count == 1)
+    @Test("The explanation claims no exclusion from comparison, because none happens")
+    func explanationPromisesNoExclusion() {
+        // The optimizer ranks candidates on objective cost alone and reads none of the
+        // feasibility flags, so an infeasible strategy is NOT dropped from lifetime
+        // comparisons. This copy is user facing and must not promise behavior that does
+        // not exist. If exclusion is ever implemented, delete this test with the fix.
+        let text = V2Disclosures.infeasibleYearExplanation(shortfall: 8_420)
+        #expect(text.lowercased().contains("excluded") == false)
+        #expect(text.lowercased().contains("comparison") == false)
+        #expect(text.hasSuffix("Later years that build on this year's balances are not reliable."))
     }
 
     // MARK: - Per-row presentation (LadderRow drives the year table)
@@ -126,8 +130,9 @@ struct InfeasibleYearPresentationTests {
         // 2031 and 2032 failed outright; 2033 only inherited. 2032 must NOT be double counted.
         #expect(s.infeasibleYears == [2031, 2032])
         #expect(s.dependentOnlyYears == [2033])
-        #expect(s.headline.contains("2"), "the headline must carry the count of failed years")
-        #expect(s.detail.contains("1"), "the detail must carry the count of inherited years")
+        // Pin the copy itself. `contains("2")` would pass on any string holding that digit.
+        #expect(s.headline == "Not fully funded: 2 years cannot pay their modeled tax")
+        #expect(s.detail == "The plan totals above include tax that available assets could not cover, so they do not describe an outcome this household can reach. 1 later year did not fail on its own but builds on balances the household could never have held, so its figures are not reliable either.")
     }
 
     @Test("A fully funded plan produces no headline")
@@ -147,10 +152,16 @@ struct InfeasibleYearPresentationTests {
             + " " + V2Disclosures.dependsOnInfeasibleYearExplanation
         // Both treatments appear in the same scroll view, so no substantial sentence may
         // appear in both. Short fragments are excluded so shared words do not trip this.
-        let sentences = rowCopy.split(separator: ".")
+        let allSentences = rowCopy.split(separator: ".")
             .map { String($0).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
-            .filter { $0.count > 25 }
+            .filter { $0.isEmpty == false }
+        let sentences = allSentences.filter { $0.count > 25 }
         #expect(sentences.isEmpty == false, "guard against an empty comparison passing vacuously")
+        // The length filter currently drops nothing. Pin that, so a future short duplicated
+        // fragment cannot be silently filtered out of the comparison and slip through.
+        let dropped = allSentences.filter { $0.count <= 25 }
+        #expect(sentences.count == allSentences.count,
+                "these sentences were dropped by the length filter and are no longer guarded against duplication: \(dropped)")
         for sentence in sentences {
             #expect(banner.contains(sentence) == false,
                     "plan-level headline repeats a row sentence: \(sentence)")

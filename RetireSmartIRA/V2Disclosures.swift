@@ -34,9 +34,17 @@ enum V2Disclosures {
         "If you are under 59 and a half, dollars withheld from a conversion or withdrawn to pay tax may be treated as an early distribution and subject to a 10% additional tax. This app does not model that additional tax, so both the tax shown and the withdrawal needed to pay it may be understated. Consult a tax professional before electing withholding or funding tax from an IRA under age 59 and a half."
 
     /// Explains an infeasible year: the amount, what the engine did, and what it means.
+    ///
+    /// Deliberately claims NOTHING about comparison or ranking. The optimizer's candidate
+    /// selection (`OptimizationEngine.keepBestOfCandidates`) ranks purely on objective cost
+    /// and reads none of `isInfeasible`, `dependsOnInfeasibleYear`, `isFullyFunded`, or
+    /// `underfunded`, so an infeasible strategy is NOT excluded from lifetime comparisons.
+    /// Actually excluding it would change which candidate is returned and move every
+    /// downstream figure, so it is a separate cycle. Until it exists, this copy must not
+    /// promise it. Every clause below is independently verified against the engine.
     static func infeasibleYearExplanation(shortfall: Double) -> String {
         let amount = shortfall.formatted(.number.precision(.fractionLength(0)))
-        return "Tax funding shortfall: $\(amount). Available taxable and IRA assets were not enough to fund this year's modeled tax. The requested conversion was not reduced, so this year is shown as requested for diagnosis rather than as a funded recommendation. Later years that build on this year's balances are not reliable, and this strategy is excluded from lifetime comparisons until it can be funded."
+        return "Tax funding shortfall: $\(amount). Available taxable and IRA assets were not enough to fund this year's modeled tax. The requested conversion was not reduced, so this year is shown as requested for diagnosis rather than as a funded recommendation. Later years that build on this year's balances are not reliable."
     }
 
     /// Shown on a year that did NOT fail on its own but whose opening balances descend from a
