@@ -7,11 +7,6 @@
 
 import Foundation
 
-enum TaxPaymentSource: String, Codable, Sendable {
-    case taxableThenGrossUp   // pay from taxable; shortfall pulled from traditional (taxed)
-    case external             // legacy: tax assumed paid from outside funds (for tests/back-compat)
-}
-
 struct MultiYearAssumptions: Codable, Equatable, Sendable {
     var horizonEndAge: Int                       // primary spouse / single, default 95
     var horizonEndAgeSpouse: Int?                // override for second spouse, optional
@@ -38,8 +33,12 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     /// Real discount rate for the heir-frontier present-value display toggle (display-only;
     /// does NOT affect optimization). Default 3% real.
     var pvRealDiscountRate: Double = 0.03
-    /// Where conversion/year tax is paid from. Default brakes over-conversion (C3).
-    var taxPaymentSource: TaxPaymentSource = .taxableThenGrossUp
+    /// How this plan funds the year's tax bill. Default preserves pre-V2.3 behavior
+    /// (taxable assets first, then a grossed-up traditional withdrawal).
+    var rothTaxFundingMode: RothTaxFundingMode = .fundedFromAccounts
+    /// Federal withholding rate elected when `rothTaxFundingMode == .withheldFromConversion`.
+    /// Ignored otherwise. Federal only, never state (see RothTaxFundingMode).
+    var federalWithholdingRate: Double = FederalWithholdingRates.defaultRate
     /// User-selected conversion approach for the multi-year optimizer (Phase 2c). Default is the
     /// existing greedy lifetime-tax minimizer, so behavior is unchanged unless the user opts in.
     var conversionApproach: PersistedConversionApproach = .recommendedTaxMin
@@ -57,13 +56,13 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
     /// empty-legacy-map) instances.
     var legacyExpenseOverrides: [Int: Double] = [:]
 
-    private enum CodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey {
         case horizonEndAge, horizonEndAgeSpouse, cpiRate, investmentGrowthRate
         case withdrawalOrderingRule, stressTestEnabled
         case perYearOverrides, perYearOverridesSchema
         case currentTaxableBalance, currentHSABalance, baselineAnnualExpenses
         case terminalLiquidationTaxRate, cliffBuffer, dismissedInsightKeys
-        case assumptionsConfirmed, pvRealDiscountRate, taxPaymentSource, conversionApproach
+        case assumptionsConfirmed, pvRealDiscountRate, rothTaxFundingMode, federalWithholdingRate, conversionApproach
         /// OLD key, decode-only (see `legacyExpenseOverrides` above) — never encoded.
         case perYearExpenseOverrides
     }
@@ -85,7 +84,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         dismissedInsightKeys: Set<String> = [],
         assumptionsConfirmed: Bool = false,
         pvRealDiscountRate: Double = 0.03,
-        taxPaymentSource: TaxPaymentSource = .taxableThenGrossUp,
+        rothTaxFundingMode: RothTaxFundingMode = .fundedFromAccounts,
+        federalWithholdingRate: Double = FederalWithholdingRates.defaultRate,
         conversionApproach: PersistedConversionApproach = .recommendedTaxMin
     ) {
         self.horizonEndAge = horizonEndAge
@@ -104,7 +104,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.dismissedInsightKeys = dismissedInsightKeys
         self.assumptionsConfirmed = assumptionsConfirmed
         self.pvRealDiscountRate = pvRealDiscountRate
-        self.taxPaymentSource = taxPaymentSource
+        self.rothTaxFundingMode = rothTaxFundingMode
+        self.federalWithholdingRate = federalWithholdingRate
         self.conversionApproach = conversionApproach
     }
 
@@ -128,7 +129,9 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         self.dismissedInsightKeys = try c.decodeIfPresent(Set<String>.self, forKey: .dismissedInsightKeys) ?? []
         self.assumptionsConfirmed = try c.decodeIfPresent(Bool.self, forKey: .assumptionsConfirmed) ?? false
         self.pvRealDiscountRate = try c.decodeIfPresent(Double.self, forKey: .pvRealDiscountRate) ?? 0.03
-        self.taxPaymentSource = try c.decodeIfPresent(TaxPaymentSource.self, forKey: .taxPaymentSource) ?? .taxableThenGrossUp
+        self.rothTaxFundingMode = MultiYearAssumptionsMigration.decodeFundingMode(from: c)
+        self.federalWithholdingRate = try c.decodeIfPresent(Double.self, forKey: .federalWithholdingRate)
+            ?? FederalWithholdingRates.defaultRate
         self.conversionApproach = try c.decodeIfPresent(PersistedConversionApproach.self, forKey: .conversionApproach) ?? .recommendedTaxMin
         self.legacyExpenseOverrides = (try? c.decodeIfPresent([Int: Double].self, forKey: .perYearExpenseOverrides)) ?? [:]
     }
@@ -155,7 +158,8 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         try c.encode(dismissedInsightKeys, forKey: .dismissedInsightKeys)
         try c.encode(assumptionsConfirmed, forKey: .assumptionsConfirmed)
         try c.encode(pvRealDiscountRate, forKey: .pvRealDiscountRate)
-        try c.encode(taxPaymentSource, forKey: .taxPaymentSource)
+        try c.encode(rothTaxFundingMode, forKey: .rothTaxFundingMode)
+        try c.encode(federalWithholdingRate, forKey: .federalWithholdingRate)
         try c.encode(conversionApproach, forKey: .conversionApproach)
     }
 
@@ -180,5 +184,46 @@ struct MultiYearAssumptions: Codable, Equatable, Sendable {
         copy.legacyExpenseOverrides = [:]
         copy.perYearOverridesSchema = 1
         return copy
+    }
+}
+
+/// V2.3 migration for the `TaxPaymentSource` -> `RothTaxFundingMode` rename.
+///
+/// A plain `decodeIfPresent(...) ?? .default` would silently reinterpret both legacy
+/// values AND any value written by a future build as the default funding strategy.
+/// Saved plans would quietly change behavior with no signal, which is worse than a
+/// loud failure. So each case is handled explicitly and unknown values are recorded.
+enum MultiYearAssumptionsMigration {
+    /// Set when decoding encounters a raw value this build does not recognize
+    /// (most likely a scenario written by a newer version). Callers may surface this.
+    /// Not thread-safe; decoding happens on the main actor in this app.
+    nonisolated(unsafe) static var lastUnknownFundingModeRawValue: String?
+
+    static func decodeFundingMode(
+        from container: KeyedDecodingContainer<MultiYearAssumptions.CodingKeys>
+    ) -> RothTaxFundingMode {
+        // Note: `try? container.decodeIfPresent(...)` flattens with the target's own
+        // Optional (SE-0230), so a two-step `guard let raw = try? ..., let stored = raw`
+        // does not compile here (raw is already the unwrapped String, not String?).
+        // do/catch keeps "key missing" and "decode error" both routing to the safe default.
+        let raw: String?
+        do {
+            raw = try container.decodeIfPresent(String.self, forKey: .rothTaxFundingMode)
+        } catch {
+            raw = nil
+        }
+        guard let stored = raw else {
+            return .fundedFromAccounts          // field absent: existing default, safe
+        }
+        if let known = RothTaxFundingMode(rawValue: stored) {
+            return known                        // current value
+        }
+        switch stored {
+        case "taxableThenGrossUp": return .fundedFromAccounts    // legacy
+        case "external":           return .paidFromOutsideMoney  // legacy
+        default:
+            lastUnknownFundingModeRawValue = stored
+            return .fundedFromAccounts
+        }
     }
 }

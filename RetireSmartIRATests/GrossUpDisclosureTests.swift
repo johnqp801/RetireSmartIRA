@@ -35,17 +35,17 @@ struct GrossUpDisclosureTests {
             primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil, baselineAnnualExpenses: 400_000,
             heirSalary: 75_000, heirFilingStatus: .single, heirDrawdownYears: 10)
     }
-    private func assumptions(_ src: TaxPaymentSource) -> MultiYearAssumptions {
+    private func assumptions(_ src: RothTaxFundingMode) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
             perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
-        a.taxPaymentSource = src; return a
+        a.rothTaxFundingMode = src; return a
     }
 
     @Test("taxFundingWithdrawal equals the gross-up traditional withdrawal when taxable is empty")
     func grossUpFundedYear() {
         let p = ProjectionEngine(configProvider: provider).project(
-            inputs: inputs(trad: 1_000_000, taxable: 0), assumptions: assumptions(.taxableThenGrossUp),
+            inputs: inputs(trad: 1_000_000, taxable: 0), assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: [2026: [.rothConversion(amount: 400_000)]])
         let rec = p[0]
         // The gross-up amount is the single traditionalWithdrawal action the engine appends for
@@ -60,7 +60,7 @@ struct GrossUpDisclosureTests {
     @Test("taxFundingWithdrawal is 0 when ample taxable funds the tax bill")
     func taxableFundedYear() {
         let p = ProjectionEngine(configProvider: provider).project(
-            inputs: inputs(trad: 1_000_000, taxable: 1_000_000), assumptions: assumptions(.taxableThenGrossUp),
+            inputs: inputs(trad: 1_000_000, taxable: 1_000_000), assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: [2026: [.rothConversion(amount: 200_000)]])
         #expect(p[0].taxFundingWithdrawal == 0)
     }
@@ -68,7 +68,7 @@ struct GrossUpDisclosureTests {
     @Test("taxFundingWithdrawal is 0 with no conversion at all")
     func noConversionYear() {
         let p = ProjectionEngine(configProvider: provider).project(
-            inputs: inputs(trad: 1_000_000, taxable: 0), assumptions: assumptions(.taxableThenGrossUp),
+            inputs: inputs(trad: 1_000_000, taxable: 0), assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: [2026: []])
         #expect(p[0].taxFundingWithdrawal == 0)
     }
@@ -76,7 +76,7 @@ struct GrossUpDisclosureTests {
     @Test("taxFundingWithdrawal is > 0 in a zero-conversion year with a large pension tax bill — the field funds the WHOLE year's tax, not conversion tax only")
     func grossUpFiresWithZeroConversion() {
         let p = ProjectionEngine(configProvider: provider).project(
-            inputs: noConversionInputs(), assumptions: assumptions(.taxableThenGrossUp),
+            inputs: noConversionInputs(), assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: [2026: []])
         let rec = p[0]
         #expect(rec.executedRothConversion == 0)

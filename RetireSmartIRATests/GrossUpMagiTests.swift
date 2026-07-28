@@ -3,7 +3,7 @@ import Foundation
 @testable import RetireSmartIRA
 
 /// A3: when the conversion tax is self-funded by a grossed-up traditional withdrawal
-/// (.taxableThenGrossUp, ProjectionEngine Step 7), that extra ordinary income (`dW`) must be
+/// (.fundedFromAccounts, ProjectionEngine Step 7), that extra ordinary income (`dW`) must be
 /// reflected in (1) the MAGI stored for the 2-year IRMAA lookback (`irmaaMagiByYear`) and
 /// (2) the reported `magi`/`irmaaMagi` fields — not just in `agi` (`reportedAGI`).
 @Suite("A3 gross-up MAGI feeds IRMAA/NIIT", .serialized)
@@ -24,17 +24,17 @@ struct GrossUpMagiTests {
             primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil, baselineAnnualExpenses: 0,
             heirSalary: 75_000, heirFilingStatus: .single, heirDrawdownYears: 10)
     }
-    private func assumptions(_ src: TaxPaymentSource) -> MultiYearAssumptions {
+    private func assumptions(_ src: RothTaxFundingMode) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(horizonEndAge: 95, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient, stressTestEnabled: false,
             perYearOverrides: [:], currentTaxableBalance: 0, currentHSABalance: 0)
-        a.taxPaymentSource = src; return a
+        a.rothTaxFundingMode = src; return a
     }
 
     @Test("gross-up-funded year: reported magi equals reported agi (no SS/muni addback)")
     func magiMatchesAgiWhenGrossUpFires() {
         let p = ProjectionEngine(configProvider: provider).project(
-            inputs: inputs(trad: 2_000_000, taxable: 0, age: 63), assumptions: assumptions(.taxableThenGrossUp),
+            inputs: inputs(trad: 2_000_000, taxable: 0, age: 63), assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: [2026: [.rothConversion(amount: 400_000)]])
         // Sanity: gross-up actually fired (an extra traditionalWithdrawal action beyond the conversion).
         let withdrawals = p[0].actions.compactMap { act -> Double? in
@@ -48,10 +48,10 @@ struct GrossUpMagiTests {
         let engine = ProjectionEngine(configProvider: provider)
         let actions: [Int: [LeverAction]] = [2026: [.rothConversion(amount: 120_000)], 2027: [], 2028: []]
         let grossUp = engine.project(
-            inputs: inputs(trad: 2_000_000, taxable: 0, age: 63), assumptions: assumptions(.taxableThenGrossUp),
+            inputs: inputs(trad: 2_000_000, taxable: 0, age: 63), assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: actions)
         let ample = engine.project(
-            inputs: inputs(trad: 2_000_000, taxable: 2_000_000, age: 63), assumptions: assumptions(.taxableThenGrossUp),
+            inputs: inputs(trad: 2_000_000, taxable: 2_000_000, age: 63), assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: actions)
         #expect(grossUp[2].medicareEnrolledCount == 1)
         #expect(grossUp[2].taxBreakdown.irmaa > ample[2].taxBreakdown.irmaa)
@@ -88,7 +88,7 @@ struct GrossUpMagiTests {
 
         let p = ProjectionEngine(configProvider: provider).project(
             inputs: niitInputs(nii: nii, trad: 2_000_000, taxable: 0, age: 63),
-            assumptions: assumptions(.taxableThenGrossUp),
+            assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: [2026: [.rothConversion(amount: conversion)]])
         let rec = p[0]
 
@@ -122,7 +122,7 @@ struct GrossUpMagiTests {
 
         let p = ProjectionEngine(configProvider: provider).project(
             inputs: niitInputs(nii: nii, trad: 2_000_000, taxable: 2_000_000, age: 63),
-            assumptions: assumptions(.taxableThenGrossUp),
+            assumptions: assumptions(.fundedFromAccounts),
             actionsPerYear: [2026: [.rothConversion(amount: conversion)]])
         let rec = p[0]
 

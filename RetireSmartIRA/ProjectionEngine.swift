@@ -853,7 +853,7 @@ struct ProjectionEngine {
             var reportedTaxablePreferential = taxablePreferential
             var taxFundingGain = 0.0   // realized LTCG from selling buckets to PAY the tax bill
 
-            if assumptions.taxPaymentSource == .taxableThenGrossUp {
+            if assumptions.rothTaxFundingMode.fundsShortfallFromAccounts {
                 let nonFedState = max(0, taxBreakdown.total - federalTax - stateTax) // irmaa+aca+niit, NOT recomputed
                 let baseTotalTax = federalTax + stateTax + nonFedState
 

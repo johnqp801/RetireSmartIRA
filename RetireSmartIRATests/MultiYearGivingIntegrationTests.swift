@@ -93,7 +93,7 @@ struct MultiYearGivingIntegrationTests {
             investmentGrowthRate: 0.06, withdrawalOrderingRule: .taxEfficient,
             stressTestEnabled: false, perYearOverrides: [:],
             currentTaxableBalance: 0, currentHSABalance: 0,
-            baselineAnnualExpenses: 0, taxPaymentSource: .external
+            baselineAnnualExpenses: 0, rothTaxFundingMode: .paidFromOutsideMoney
         )
     }
 
