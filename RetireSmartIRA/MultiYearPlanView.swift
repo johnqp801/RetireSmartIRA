@@ -114,7 +114,6 @@ struct MultiYearPlanView: View {
                 }
                 ConversionWindowBanner(yearsBeforeFirstRMD: manager.yearsBeforeFirstRMD,
                                        dismissed: dismissBinding("conversionWindow"))
-                TaxFundingShortfallBanner(years: activePath)
 
                 AssumptionsStripView(
                     taxableSummary: (dataManager.taxableAccounts.count,

@@ -102,29 +102,18 @@ struct MultiYearTaxFundingCardTests {
         #expect(true)
     }
 
-    @Test("Shortfall banner reports the ROOT infeasible year, not a downstream one")
-    func shortfallBannerPicksRootYear() {
-        func year(_ y: Int, underfunded: Double?, infeasible: Bool, dependent: Bool) -> YearRecommendation {
-            YearRecommendation(
-                year: y, agi: 100_000, acaMagi: nil, irmaaMagi: nil, taxableIncome: 80_000,
-                taxBreakdown: TaxBreakdown(federal: 10_000, state: 2_000, irmaa: 0,
-                                           acaPremiumImpact: 0, niit: 0),
-                endOfYearBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
-                actions: [],
-                underfunded: underfunded,
-                isInfeasible: infeasible,
-                dependsOnInfeasibleYear: dependent)
+    @Test("Ed Slott disclosure shows for BOTH IRA-touching modes, not just one")
+    func iraFundingDisclosureGate() {
+        func card(_ mode: RothTaxFundingMode) -> MultiYearTaxFundingCard {
+            var a = MultiYearAssumptions()
+            a.rothTaxFundingMode = mode
+            return MultiYearTaxFundingCard(assumptions: .constant(a), youngestAge: 70)
         }
-        let path = [
-            year(2030, underfunded: nil, infeasible: false, dependent: false),
-            year(2031, underfunded: 8_420, infeasible: true, dependent: false),
-            year(2032, underfunded: 500, infeasible: true, dependent: true),
-        ]
-        #expect(TaxFundingShortfallBanner.firstInfeasible(in: path)?.year == 2031)
-        // A fully funded plan must not raise the alarm.
-        #expect(TaxFundingShortfallBanner.firstInfeasible(in: [path[0]]) == nil)
-        #expect(TaxFundingShortfallBanner.firstInfeasible(in: []) == nil)
-        _ = TaxFundingShortfallBanner(years: path).body
+        // Withholding still spends IRA dollars on tax, so it needs the disclosure just as
+        // much as the explicit account-funded mode. Dropping either one defeats the feature.
+        #expect(card(.withheldFromConversion).showsIRAFundingDisclosure)
+        #expect(card(.fundedFromAccounts).showsIRAFundingDisclosure)
+        #expect(card(.paidFromOutsideMoney).showsIRAFundingDisclosure == false)
     }
 
     @Test("Withholding-only caveat names the taxes it does not cover")
@@ -134,6 +123,9 @@ struct MultiYearTaxFundingCardTests {
         #expect(text.lowercased().contains("state"))
         #expect(text.lowercased().contains("medicare"))
         #expect(text.lowercased().contains("net investment income"))
+        // ACA repayment can run to thousands of dollars and rides the same non-federal
+        // bucket as IRMAA and NIIT, so omitting it understates what withholding misses.
+        #expect(text.contains("ACA"))
         #expect(text.contains("\u{2014}") == false, "no em dash")
     }
 }

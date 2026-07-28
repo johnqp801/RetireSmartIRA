@@ -23,9 +23,16 @@ struct MultiYearTaxFundingCard: View {
     /// the shortfall cascade, so the user must not read the elected percentage as covering
     /// their whole liability.
     static let withholdingScopeNote =
-        "Withholding is federal only. State income tax, Medicare surcharges (IRMAA), and net investment income tax are not covered by it and are funded from your accounts."
+        "Withholding is federal only. State income tax, Medicare surcharges (IRMAA), net investment income tax, and any repayment of ACA premium tax credits are not covered by it and are funded from your accounts."
 
     private var mode: RothTaxFundingMode { assumptions.rothTaxFundingMode }
+
+    /// Both IRA-touching modes spend IRA dollars on tax, which is the tradeoff the
+    /// disclosure exists to name. Hoisted so the gate is pinned by a test: narrowing it
+    /// to a single mode would otherwise silently drop the disclosure from the other.
+    var showsIRAFundingDisclosure: Bool {
+        mode.canTouchIRADollarsForTax
+    }
 
     /// The 10% additional tax under section 72(t) is not modeled, so the warning has to
     /// appear whenever the selected mode could expose the household to it. Age 60 is the
@@ -69,7 +76,7 @@ struct MultiYearTaxFundingCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if mode.canTouchIRADollarsForTax {
+            if showsIRAFundingDisclosure {
                 disclosure(V2Disclosures.edSlottIRAFunding)
             }
             if showsEarlyDistributionWarning {
@@ -86,39 +93,5 @@ struct MultiYearTaxFundingCard: View {
             .padding(8)
             .background(Color.secondary.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 6))
-    }
-}
-
-/// Surfaces the first infeasible year in the displayed path. Deliberately NOT dismissible:
-/// without it the tab shows a shortfall-bearing plan as though it were funded, which is the
-/// defect V2.3's infeasible-year marking exists to fix.
-struct TaxFundingShortfallBanner: View {
-    let years: [YearRecommendation]
-
-    /// The earliest year whose own funding failed. Years that merely `dependsOnInfeasibleYear`
-    /// are downstream of this one, so reporting the root year avoids repeating the same cause.
-    static func firstInfeasible(in years: [YearRecommendation]) -> YearRecommendation? {
-        years.first { $0.isInfeasible }
-    }
-
-    var body: some View {
-        if let year = Self.firstInfeasible(in: years) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Color.Semantic.red)
-                    Text("\(String(year.year)): this year's tax cannot be funded")
-                        .font(.headline)
-                    Spacer()
-                }
-                Text(V2Disclosures.infeasibleYearExplanation(shortfall: year.underfunded ?? 0))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding()
-            .background(Color.Semantic.redTint)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
     }
 }
