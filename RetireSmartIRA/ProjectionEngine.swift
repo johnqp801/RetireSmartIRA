@@ -1024,7 +1024,17 @@ struct ProjectionEngine {
                 // supplies the small `underfundedTax` needed to complete the gate. Requiring
                 // the taxable balance to be gone too matches what `isInfeasible` documents:
                 // the requirement exceeded available taxable PLUS traditional assets.
-                assetsExhausted = dW >= availableTrad - 0.01 && totalTaxableBalance() <= 0.01
+                //
+                // The taxable half counts only SELLABLE-FOR-TAXES dollars, not the total taxable
+                // balance. It has to mirror the Phase 1 sale exactly, and that sale reaches only
+                // buckets flagged `availableForConversionTaxes`, and within those only each
+                // bucket's `availableBalance` (balance less its `protectedAmount` reserve).
+                // Counting untouchable dollars let a household hold a large walled-off brokerage
+                // account, fail to pay its tax bill, and still report as fully funded.
+                let sellableForTaxes = buckets.reduce(0) {
+                    $0 + ($1.input.availableForConversionTaxes ? $1.availableBalance : 0)
+                }
+                assetsExhausted = dW >= availableTrad - 0.01 && sellableForTaxes <= 0.01
             }
 
             // A federal overpayment returns to the taxable bucket. Growth was applied in

@@ -71,6 +71,17 @@ struct InfeasibleYearEngineTests {
             availableForConversionTaxes: true, fundingPriority: nil)
     }
 
+    /// The same large appreciated account, but walled off from conversion taxes. The tax cascade
+    /// (`TaxableAccountEngine.sell(..., forTaxes: true)`) can never touch it, so its balance is not
+    /// a funding source no matter how large it grows.
+    private func unsellableBrokerage(balance: Double) -> TaxableAccountInput {
+        TaxableAccountInput(
+            balance: balance, costBasis: 0, protectedAmount: 0, appreciationRate: 0,
+            qualifiedDividendYield: 0, ordinaryIncomeYield: 0, taxExemptYield: 0,
+            realizedLongTermGainYield: 0, availableForExpenses: true,
+            availableForConversionTaxes: false, fundingPriority: nil)
+    }
+
     private func makeAssumptions(horizonEndAge: Int) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(
             horizonEndAge: horizonEndAge, horizonEndAgeSpouse: nil, cpiRate: 0,
@@ -140,7 +151,10 @@ struct InfeasibleYearEngineTests {
         }
         // V2.3 preserves the request for diagnosis. Auto-reduction would require solving
         // conversion and funding jointly, which is out of scope.
-        #expect(first.executedRothConversion > 0)
+        // Assert the EXACT requested amount: the traditional balance equals the request here, so a
+        // `> 0` assertion would survive any amount of trimming.
+        #expect(abs(first.executedRothConversion - 60_000) < 0.01,
+                "the full requested conversion must execute, untrimmed")
     }
 
     @Test("Years after an infeasible year are marked unreliable")
@@ -236,6 +250,8 @@ struct InfeasibleYearEngineTests {
                 "the conversion must consume the entire traditional balance")
         #expect(first.endOfYearBalances.taxable > 1_000_000,
                 "the household must still hold ample liquid taxable assets")
+        #expect((first.underfunded ?? 0) > 1.0,
+                "scenario must actually reach the gate, or this test proves nothing")
         #expect(first.isInfeasible == false,
                 "a household with millions in taxable assets is not insolvent")
         #expect(years.allSatisfy { $0.dependsOnInfeasibleYear == false },
@@ -256,8 +272,42 @@ struct InfeasibleYearEngineTests {
         #expect(years.isEmpty == false)
         #expect(years.first!.endOfYearBalances.taxable > 1_000_000,
                 "the household must still hold ample liquid taxable assets")
+        #expect((years.first!.underfunded ?? 0) > 1.0,
+                "scenario must actually reach the gate, or this test proves nothing")
         #expect(years.allSatisfy { $0.isInfeasible == false },
                 "no year is insolvent while millions of taxable dollars remain")
         #expect(years.allSatisfy { $0.dependsOnInfeasibleYear == false })
+    }
+
+    /// The mirror image of the flagship shape: the whole IRA is converted AND a huge brokerage
+    /// account sits alongside it, but that account is marked unavailable for conversion taxes, so
+    /// the tax cascade cannot sell a single dollar of it. The household genuinely cannot pay, and
+    /// the year must be marked infeasible even though the raw taxable balance is $2M.
+    ///
+    /// Counting total taxable balance rather than sellable-for-taxes balance reported this year as
+    /// fully funded while roughly $55.6k of tax went unpaid.
+    @Test("A year funded only by unsellable taxable dollars IS infeasible")
+    func unsellableBrokerageCannotFundTaxesAndIsInfeasible() {
+        let years = ProjectionEngine(configProvider: provider).project(
+            inputs: makeInputs(trad: 200_000,
+                               brokerage: unsellableBrokerage(balance: 2_000_000),
+                               state: "CA"),
+            assumptions: makeAssumptions(horizonEndAge: 70),
+            actionsPerYear: [
+                2026: [.rothConversion(amount: 200_000)],
+                2027: [], 2028: [], 2029: []
+            ])
+        let first = years.first!
+        // Setup guards: the conversion drains traditional, and the untouchable balance survives
+        // intact precisely because the cascade was never allowed to sell it.
+        #expect(first.endOfYearBalances.traditional < 1.0,
+                "the conversion must consume the entire traditional balance")
+        #expect(first.endOfYearBalances.taxable > 1_000_000,
+                "the walled-off balance must still be there, unsold")
+        #expect((first.underfunded ?? 0) > 1.0,
+                "scenario must actually reach the gate, or this test proves nothing")
+        #expect(first.isInfeasible == true,
+                "dollars the tax cascade may not sell cannot fund the tax bill")
+        #expect(first.isFullyFunded == false)
     }
 }
