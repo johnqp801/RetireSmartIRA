@@ -706,7 +706,18 @@ struct ProjectionEngine {
             }()
             let anyPreMedicare = primaryPreMedicare || spousePreMedicare
 
-            let acaMagiValue: Double? = (anyPreMedicare && inputs.acaEnrolled) ? federalAGI + magiAddback : nil
+            // V2.3: WHETHER ACA MAGI applies is decided here (the pre-Medicare + enrolled
+            // checks live with the ages they test). The REPORTED value is computed after
+            // Step 7, from `finalIrmaaAcaMagi`, so it includes any gross-up withdrawal --
+            // exactly as `irmaaMagi` does (A3 fix). See `acaMagiValue` below.
+            let acaMagiApplies = anyPreMedicare && inputs.acaEnrolled
+
+            // Pre-gross-up ACA MAGI, retained ONLY for SIZING the tax-funding cascade in
+            // Step 7 (it reaches the cascade via `taxBreakdown.acaPremiumImpact` inside
+            // `nonFedState`). Sizing deliberately runs on pre-gross-up IRMAA/ACA/NIIT
+            // figures -- see the documented approximation above `finalIrmaaAcaMagi` -- so
+            // moving this one would change the fixed point, not just the reported number.
+            let acaMagiForSizing: Double? = acaMagiApplies ? federalAGI + magiAddback : nil
 
             // Bug C fix: IRMAA MAGI tracking starts from EITHER spouse reaching age 63
             // (2-year lookback). Using primary-only missed the window where only the
@@ -831,10 +842,11 @@ struct ProjectionEngine {
             }()
 
             // ACA premium impact (negative = subsidy savings)
-            // acaMagiValue is already nil when no one is pre-Medicare (Bug C fix upstream),
-            // so guarding on acaMagiValue != nil is sufficient — no separate age check needed.
+            // acaMagiForSizing is already nil when no one is pre-Medicare (Bug C fix upstream),
+            // so guarding on it being non-nil is sufficient, with no separate age check.
+            // This is the SIZING figure and stays pre-gross-up (see `acaMagiForSizing`).
             let acaPremiumImpact: Double = {
-                guard inputs.acaEnrolled, let acaMagi = acaMagiValue else { return 0 }
+                guard inputs.acaEnrolled, let acaMagi = acaMagiForSizing else { return 0 }
                 let taxConfig = configProvider.config(forYear: year)
                 let result = ACASubsidyEngine.calculateSubsidy(
                     acaMAGI: ACAMAGI(value: acaMagi),
@@ -1064,6 +1076,22 @@ struct ProjectionEngine {
             // than a larger current-year withdrawal. A full intra-year fixed point is deferred.
             let finalIrmaaAcaMagi = reportedAGI + magiAddback
             let irmaaMagiValue: Double? = anyInIrmaaWindow ? finalIrmaaAcaMagi : nil
+
+            // V2.3: the REPORTED ACA MAGI now shares `finalIrmaaAcaMagi`'s post-gross-up
+            // basis. Previously it was computed from the pre-gross-up `federalAGI` and never
+            // updated, so a pre-65 household funding its conversion tax with an extra IRA
+            // withdrawal reported an ACA MAGI BELOW its own `agi` (INV3) and, downstream, an
+            // overstated subsidy. The eligibility test itself is unchanged (`acaMagiApplies`,
+            // decided in Step 6 alongside the ages it depends on), and `reportedAGI ==
+            // federalAGI` whenever no gross-up or tax-funding sale fires, so profiles without
+            // a gross-up are byte-identical to before.
+            //
+            // Same documented approximation as IRMAA: this corrected MAGI is NOT fed back into
+            // sizing the gross-up. Step 7 still sizes the cascade against the pre-gross-up ACA
+            // figure (`acaMagiForSizing` -> `acaPremiumImpact` -> `nonFedState`), so a gross-up
+            // large enough to itself cross the 400%-FPL cliff surfaces as a higher reported MAGI
+            // rather than a larger current-year withdrawal.
+            let acaMagiValue: Double? = acaMagiApplies ? finalIrmaaAcaMagi : nil
 
             // Record this year's MAGI for the 2-year IRMAA lookback (stored for ALL years,
             // including pre-Medicare years, since they determine future-year premiums).
