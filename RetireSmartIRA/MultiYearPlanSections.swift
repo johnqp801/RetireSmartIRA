@@ -174,6 +174,22 @@ struct LadderListView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            // V2.3: without this, a year whose tax could not be funded reads exactly like a
+            // funded one and its (unpayable) figures flow into the totals unchallenged. The
+            // copy is per-year on purpose: a year that failed states its own shortfall, and a
+            // year that merely inherits an earlier failure says so instead of borrowing one.
+            if row.showsFundingWarning {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(row.isInfeasible ? Color.Semantic.red : Color.orange)
+                    Text(row.fundingWarningLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(String(row.year)): \(row.fundingWarningLabel)")
+            }
         }
     }
 }

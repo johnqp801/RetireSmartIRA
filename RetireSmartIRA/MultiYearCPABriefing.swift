@@ -54,6 +54,26 @@ struct CPABriefingModel: Equatable, Sendable {
         self.positioning = positioning
         self.approachSummary = approachSummary
     }
+
+    /// V2.3 plan-level roll-up of the per-year funding-feasibility flags, shared with the
+    /// on-screen headline so the document and the app cannot disagree about how many years
+    /// are affected.
+    var fundingFeasibility: FundingFeasibilitySummary { FundingFeasibilitySummary(path: yearRows) }
+
+    /// Per-year funding-feasibility warnings for the briefing. Empty when the plan is fully
+    /// funded. A CPA reading the briefing must not have to infer that part of the modeled tax
+    /// was never actually payable, so the failing year states its own shortfall and the fact
+    /// that the requested conversion was left unreduced, while a year that merely inherits an
+    /// earlier failure says exactly that instead of borrowing a shortfall it did not have.
+    var infeasibilityWarnings: [String] {
+        yearRows.compactMap { y in
+            guard !y.isFullyFunded else { return nil }
+            if y.isInfeasible {
+                return "\(y.year): " + V2Disclosures.infeasibleYearExplanation(shortfall: y.underfunded ?? 0)
+            }
+            return "\(y.year): " + V2Disclosures.dependsOnInfeasibleYearExplanation
+        }
+    }
 }
 
 /// Builds the CPA briefing as a self-contained HTML document for the shared PDF render backend.
@@ -82,6 +102,7 @@ enum MultiYearCPABriefingHTML {
         var h = header(m)
         h += approachSection(m)
         h += execSummary(m)
+        h += fundingFeasibilitySection(m)
         h += comparisonSection(m)
         h += ladderSection(m)
         h += yearByYearSection(m)
@@ -156,6 +177,24 @@ enum MultiYearCPABriefingHTML {
         <tr><td>Lifetime tax difference (present value)</td><td>\(fmt(savings))</td></tr>
         </table>
         <div class="note">Figures are nominal (future dollars) unless stated otherwise.</div>
+        """
+    }
+
+    /// V2.3: names the years whose modeled tax could not be funded. Structured like the
+    /// Limitations section (heading, lead note, list) but emitted immediately after the
+    /// executive summary rather than at the end of the document: the figures it qualifies are
+    /// the ones directly above it, and a CPA must not read the lifetime-tax total first and
+    /// discover only on the last page that part of it was never payable.
+    /// Empty for a fully funded plan, so an ordinary briefing is unchanged.
+    private static func fundingFeasibilitySection(_ m: CPABriefingModel) -> String {
+        let warnings = m.infeasibilityWarnings
+        guard !warnings.isEmpty else { return "" }
+        let f = m.fundingFeasibility
+        let items = warnings.map { "<li>\(esc($0))</li>" }.joined()
+        return """
+        <h2>Funding feasibility</h2>
+        <div class="note"><strong>\(esc(f.headline))</strong> \(esc(f.detail))</div>
+        <ul>\(items)</ul>
         """
     }
 

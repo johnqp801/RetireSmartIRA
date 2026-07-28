@@ -165,6 +165,10 @@ struct MultiYearPlanView: View {
                     PlanSummaryView(summary: PlanSummary(path: activePath,
                         pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
                         cpiRate: manager.assumptions.cpiRate), units: units)
+                    // V2.3: the summary above prints a lifetime-tax figure that, on an
+                    // unfundable plan, includes tax the household could never have paid. The
+                    // headline qualifies it here; the per-year detail is in the ladder below.
+                    TaxFundingFeasibilityBanner(summary: FundingFeasibilitySummary(path: activePath))
                     if dataManager.taxableAccounts.isEmpty,
                        ladderRows.contains(where: { $0.conversion > 0 }) {
                         Text("No taxable account entered. This plan assumes Roth conversion taxes must be paid from additional IRA withdrawals, which may materially change the conversion ladder.")

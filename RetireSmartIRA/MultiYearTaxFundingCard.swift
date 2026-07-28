@@ -95,3 +95,39 @@ struct MultiYearTaxFundingCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
+
+/// Plan-level headline for a plan that cannot be funded. Sits directly under the plan summary
+/// so the lifetime-tax figure is qualified where it is read, rather than leaving the user to
+/// scroll the ladder and discover the problem year by year.
+///
+/// It carries ONLY what a row cannot: the count of years that failed and the count that merely
+/// inherit the failure. The full explanation, including each year's own shortfall, lives in the
+/// ladder rows, so the two treatments never print the same sentences on one screen.
+///
+/// Deliberately NOT dismissible: without it the tab presents a shortfall-bearing plan as though
+/// it were funded, which is the defect V2.3's infeasible-year marking exists to fix.
+struct TaxFundingFeasibilityBanner: View {
+    let summary: FundingFeasibilitySummary
+
+    var body: some View {
+        if !summary.isFullyFunded {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color.Semantic.red)
+                    Text(summary.headline)
+                        .font(.headline)
+                    Spacer()
+                }
+                Text(summary.detail)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color.Semantic.redTint)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+}

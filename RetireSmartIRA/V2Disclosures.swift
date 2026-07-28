@@ -38,4 +38,11 @@ enum V2Disclosures {
         let amount = shortfall.formatted(.number.precision(.fractionLength(0)))
         return "Tax funding shortfall: $\(amount). Available taxable and IRA assets were not enough to fund this year's modeled tax. The requested conversion was not reduced, so this year is shown as requested for diagnosis rather than as a funded recommendation. Later years that build on this year's balances are not reliable, and this strategy is excluded from lifetime comparisons until it can be funded."
     }
+
+    /// Shown on a year that did NOT fail on its own but whose opening balances descend from a
+    /// year that did. Kept separate from `infeasibleYearExplanation` on purpose: collapsing the
+    /// two would either invent a shortfall this year never had, or bury a shortfall it did.
+    /// Carries no dollar amount, because nothing was short here.
+    static let dependsOnInfeasibleYearExplanation =
+        "This year builds on an earlier year whose tax could not be funded. Its opening balances come from a position the household could not actually have reached, so the figures shown here are not reliable."
 }
