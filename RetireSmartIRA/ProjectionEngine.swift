@@ -362,6 +362,22 @@ struct ProjectionEngine {
             // Combined explicit trad withdrawals for AGI
             let explicitTradWithdrawals = explicitPrimaryTradWithdrawals + explicitSpouseTradWithdrawals
 
+            // ─── V2.3: custodial federal withholding ─────────────────────────
+            // Withholding is a PAYMENT toward federal liability, not a definition of the
+            // bill. It is federal-only (matching single-year's
+            // rothConversionFederalWithholdingRate), so state/IRMAA/NIIT/ACA are never
+            // covered by it. The withheld dollars are already inside the gross conversion,
+            // so nothing is added to income here.
+            //
+            // Declared HERE, not in Step 7 where it is consumed, because it depends only on
+            // the conversion amount and the elected rate. The Step 6 state-tax call needs it
+            // (PA Ans 274 treats the withheld portion differently from the deposited
+            // portion), and that call runs before Step 7. The reconciliation locals that
+            // depend on federalTax (federalBalanceDue / federalOverpayment) stay in Step 7.
+            let federalWithheld: Double = assumptions.rothTaxFundingMode.usesCustodialWithholding
+                ? explicitRothConversions * assumptions.federalWithholdingRate
+                : 0
+
             // ─────────────────────────────────────────
             // Step 2: Compute SS income for this year
             // ─────────────────────────────────────────
@@ -853,9 +869,22 @@ struct ProjectionEngine {
             var reportedTaxablePreferential = taxablePreferential
             var taxFundingGain = 0.0   // realized LTCG from selling buckets to PAY the tax bill
 
+            // V2.3: reconcile the custodial withholding (computed in Step 1, above) against
+            // FEDERAL liability only. A federal overpayment is NOT netted against state or
+            // other liability: doing so before the fixed point would seed the gross-up with
+            // the wrong number and converge on a smaller withdrawal than the state bill
+            // actually requires. Both are 0 in every non-withholding mode, which is why the
+            // arithmetic below is byte-identical to pre-V2.3 for those modes.
+            let federalBalanceDue = max(0, federalTax - federalWithheld)
+            let federalOverpayment = max(0, federalWithheld - federalTax)
+
             if assumptions.rothTaxFundingMode.fundsShortfallFromAccounts {
                 let nonFedState = max(0, taxBreakdown.total - federalTax - stateTax) // irmaa+aca+niit, NOT recomputed
-                let baseTotalTax = federalTax + stateTax + nonFedState
+                // The cascade funds the household's ENTIRE annual liability, less only what
+                // federal withholding already remitted. Components are summed UN-NETTED:
+                // the federal portion is what remains after withholding, while state, IRMAA,
+                // NIIT and ACA are funded in full regardless of any federal overpayment.
+                let baseTotalTax = federalBalanceDue + stateTax + nonFedState
 
                 // Incremental fed+state tax created by (a) realized gains from tax-funding bucket
                 // sales (preferential) and (b) a grossed-up traditional withdrawal (ordinary). Both
@@ -937,8 +966,24 @@ struct ProjectionEngine {
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
                         filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year, localIncomeTaxRate: inputs.localIncomeTaxRate)
-                    underfundedTax = max(0, (fedTax + stTax + nonFedState) - saleCash - dW)
+                    // V2.3: withheld dollars are already remitted, so they are not a funding
+                    // shortfall. Measure the shortfall against the same un-netted target the
+                    // cascade was sized from: federal net of withholding (never below zero, so
+                    // an overpayment cannot cancel state/IRMAA/NIIT/ACA), plus everything else
+                    // in full. `federalWithheld == 0` in every non-withholding mode, so this
+                    // reduces to the previous expression exactly.
+                    underfundedTax = max(0, (max(0, fedTax - federalWithheld) + stTax + nonFedState)
+                                            - saleCash - dW)
                 }
+            }
+
+            // A federal overpayment returns to the taxable bucket. Growth was applied in
+            // Step 5, well before this point, so the credit cannot earn a phantom full year
+            // of return. Crediting it in the same projection year is a deliberate timing
+            // simplification (a real refund arrives the following April); dropping it
+            // instead would silently destroy user assets.
+            if federalOverpayment > 0 {
+                depositToBuckets(federalOverpayment)
             }
 
             // A3 fix: the IRMAA/ACA-style MAGI reported for this year — and the value recorded
