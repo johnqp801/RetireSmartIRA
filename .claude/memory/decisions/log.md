@@ -4,6 +4,15 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-28 — Aitken acceleration instead of a larger iteration budget for the gross-up
+
+**Decision:** the gross-up fixed point converges via Aitken delta-squared extrapolation after two Picard steps, rather than by raising the 3-pass budget.
+
+**Rationale:** raising the budget alone was measured at a 37% cost on the projection hot path (11.44s to 15.67s on the MFJ 35-year persona, against a 15s budget) because the loop runs per year per optimizer candidate. The tax map is piecewise linear in the withdrawal, so the extrapolation is exact between bracket boundaries: it converges in fewer evaluations than the old 3-pass loop spent, at 11.53s, while going from $13,894 of unfunded tax to under a penny.
+
+**Also decided:** V2.3 merged to `main` BEFORE this work started, so the three engine fixes branch off a V2.3 base and only one rebaseline pass is paid.
+
+---
 
 ## 2026-07-28 — Pub 915 Social Security bug fixed NOW, not deferred to a future release
 
