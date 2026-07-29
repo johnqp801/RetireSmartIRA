@@ -31,24 +31,28 @@ struct SocialSecurityGrossUpRecursionTests {
 
     private var provider: TaxYearConfigProvider { .fixed(TaxYearConfig.loadOrFallback(forYear: 2026)) }
 
-    /// Age 70, collecting Social Security, modest balances. Deliberately NOT a large
-    /// conversion: benefit taxation saturates at 85% of benefits, and above that ceiling
-    /// no amount of extra income changes anything, so a big conversion would make these
-    /// tests vacuous.
+    /// Age 63 claiming at 62: benefits are flowing AND the household is pre-Medicare, which
+    /// is the only window where ACA MAGI is reported. That matters because ACA MAGI is the
+    /// figure that must stay invariant to the benefit split -- IRMAA MAGI deliberately is not
+    /// (see IrmaaVersusAcaMagiTests), so `magi` cannot be used to recover gross benefits.
+    ///
+    /// Deliberately NOT a large conversion: benefit taxation saturates at 85% of benefits,
+    /// and above that ceiling no amount of extra income changes anything, so a big conversion
+    /// would make these tests vacuous.
     /// `ssAtFRA` is MONTHLY, in today's dollars, matching MultiYearStaticInputs.
     private func inputs(state: String, trad: Double, taxable: Double,
                         ssAtFRA: Double) -> MultiYearStaticInputs {
         MultiYearStaticInputs(
             startingBalances: AccountSnapshot(traditional: trad, roth: 0, taxable: taxable, hsa: 0),
             baseYear: 2026,
-            primaryCurrentAge: 70, spouseCurrentAge: nil,
+            primaryCurrentAge: 63, spouseCurrentAge: nil,
             filingStatus: .single, state: state,
-            primarySSClaimAge: 67, spouseSSClaimAge: nil,
+            primarySSClaimAge: 62, spouseSSClaimAge: nil,
             primaryExpectedBenefitAtFRA: ssAtFRA, spouseExpectedBenefitAtFRA: nil,
-            primaryBirthYear: 1956, spouseBirthYear: nil,
+            primaryBirthYear: 1963, spouseBirthYear: nil,
             primaryWageIncome: 0, spouseWageIncome: 0,
             primaryPensionIncome: 0, spousePensionIncome: 0,
-            acaEnrolled: false, acaHouseholdSize: 1,
+            acaEnrolled: true, acaHouseholdSize: 1,
             primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
             baselineAnnualExpenses: 0
         )
@@ -56,7 +60,7 @@ struct SocialSecurityGrossUpRecursionTests {
 
     private func assumptions(_ mode: RothTaxFundingMode) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(
-            horizonEndAge: 71, horizonEndAgeSpouse: nil, cpiRate: 0,
+            horizonEndAge: 64, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient,
             stressTestEnabled: false, perYearOverrides: [:],
             currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0)
@@ -74,11 +78,17 @@ struct SocialSecurityGrossUpRecursionTests {
         ).first!
     }
 
-    /// Gross benefits, recovered from the identity MAGI = AGI + nonTaxableSS (no
-    /// tax-exempt interest in these profiles). Taken from the outside-money run, where
-    /// no gross-up fires and the benefit split is therefore not in question.
+    /// Gross benefits, recovered from the ACA identity
+    /// `acaMagi = AGI + nonTaxableSS + taxExempt` with no tax-exempt interest in these
+    /// profiles, so `acaMagi - AGI` is the non-taxable portion and adding the taxable
+    /// portion back returns the gross.
+    ///
+    /// It must be ACA MAGI, not `magi`. IRMAA MAGI is AGI + tax-exempt interest with no
+    /// benefit add-back at all (42 U.S.C. 1395r(i)(4)), so `magi - agi` is zero here and
+    /// carries no information about the split.
     private func grossBenefits(from year: YearRecommendation) -> Double {
-        year.magi - year.agi + year.taxableSocialSecurity
+        guard let aca = year.acaMagi else { return .nan }   // surfaces as a failed expectation
+        return aca - year.agi + year.taxableSocialSecurity
     }
 
     @Test("A tax-funding withdrawal pulls more Social Security into taxation")

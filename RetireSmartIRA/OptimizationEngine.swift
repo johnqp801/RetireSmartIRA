@@ -440,6 +440,21 @@ struct OptimizationEngine {
         // in 2-3 iterations. With cap=2 we may lose one refinement pass on edge
         // cases; the #if DEBUG non-convergence log will surface them for analysis.
         // ───────────────────────────────────────────────────────────
+        // IRMAA tier thresholds per year, resolved ONCE. The dead-zone check below runs for
+        // every candidate and walks the whole path, and `config(forYear:)` returns a full
+        // TaxYearConfig by value -- resolving it inside that loop cost tens of thousands of
+        // struct copies per optimize() and pushed the manager past its compute deadline.
+        let irmaaThresholdsByYear: [Int: [Double]] = {
+            var map: [Int: [Double]] = [:]
+            for Y in baseYear...(baseYear + horizonYears) {
+                let cfg = configProvider.config(forYear: Y)
+                map[Y] = cfg.irmaaTiers
+                    .filter { $0.tier > 0 }
+                    .map { inputs.filingStatus == .single ? $0.singleThreshold : $0.mfjThreshold }
+            }
+            return map
+        }()
+
         let maxIterations = 2
         var iteration = 0
         var converged = false
@@ -534,6 +549,47 @@ struct OptimizationEngine {
                     if objective < bestObjective {
                         bestObjective = objective
                         bestAmount = amount
+                    }
+                }
+
+                // `cliffBuffer` is a safety margin below each IRMAA tier, and the objective
+                // cannot see it: the dead zone sits BELOW the threshold, so no surcharge is owed
+                // there and a candidate inside it scores as if the margin were free. The margin
+                // used to be respected by accident. `cliffCandidates` sizes a conversion assuming
+                // that converting $X raises IRMAA MAGI by $X, which held only while IRMAA MAGI
+                // wrongly carried the non-taxable Social Security add-back: that add-back fell by
+                // exactly what benefit taxation rose, cancelling the feedback. Under the statutory
+                // definition nothing cancels it, so a conversion also drags benefits into taxation
+                // and the candidate sails past its own target into the buffer it was aiming at.
+                // Measured overshoot on the MFJ reference profile: $470.
+                //
+                // Repaired AFTER the winner is chosen, not by preferring non-overshooting
+                // candidates during the sweep. A per-candidate preference changes which amount
+                // wins, which changes the next iteration's baseline, and the greedy stops
+                // converging -- it cost a full extra fixed-point pass and pushed the manager past
+                // its 5s compute deadline. This costs at most `maxDeadZoneRepairs` projections per
+                // YEAR, and only when the winner actually landed in a buffer.
+                //
+                // Each pass pulls the conversion back by the measured overshoot. The response is
+                // locally linear but steeper than 1:1, so a single pass slightly under-corrects;
+                // the loop re-measures rather than assuming a slope. If it cannot clear the zone
+                // it keeps the original amount, so this can never make a year worse.
+                if let thresholds = irmaaThresholdsByYear[Y], assumptions.cliffBuffer > 0, bestAmount > 0 {
+                    let maxDeadZoneRepairs = 3
+                    var repaired = bestAmount
+                    for _ in 0..<maxDeadZoneRepairs {
+                        var trial = locked
+                        trial[Y] = repaired > 0 ? [.rothConversion(amount: repaired)] : []
+                        let rec = ProjectionEngine(configProvider: configProvider).project(
+                            inputs: inputs, assumptions: assumptions, actionsPerYear: trial)[Y - baseYear]
+                        guard let magi = rec.irmaaMagi,
+                              let hit = thresholds.first(where: {
+                                  magi > $0 - assumptions.cliffBuffer && magi < $0
+                              })
+                        else { bestAmount = repaired; break }
+                        let overshoot = magi - (hit - assumptions.cliffBuffer)
+                        repaired = max(0, repaired - overshoot)
+                        if repaired <= 0 { break }
                     }
                 }
 

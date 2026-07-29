@@ -704,11 +704,30 @@ struct ProjectionEngine {
                 filingStatus: inputs.filingStatus
             ).annualNIITax
 
-            // ACA / IRMAA MAGI = federalAGI + tax-exempt interest + non-taxable SS.
-            // non-taxable SS = grossSS - taxableSS; tax-exempt interest = muni income on taxable
-            // accounts (V2.0: now modeled per-account instead of the old hardcoded 0).
+            // IRMAA MAGI and ACA MAGI are DIFFERENT statutory quantities, and they differ by
+            // exactly the non-taxable half of Social Security. One combined add-back was used
+            // for both, which overstated IRMAA MAGI for every household collecting benefits --
+            // by $20,704 on a $3,000/month benefit with a $30,000 conversion. The IRMAA tiers
+            // are cliffs, and the optimizer reads this same figure through `.limitToIRMAA`.
+            //
+            //   IRMAA, 42 U.S.C. 1395r(i)(4): AGI increased by tax-exempt interest (plus the
+            //     section 135/911/931/933 exclusions, none of which this engine models). The
+            //     only Social Security in IRMAA MAGI is the part already inside AGI under
+            //     section 86. There is NO benefit add-back.
+            //
+            //   ACA premium tax credit, IRC 36B(d)(2)(B): AGI increased by excluded foreign
+            //     earned income, tax-exempt interest, AND "the portion of the taxpayer's
+            //     social security benefits ... not included in gross income under section 86".
+            //
+            // The single-year engine already drew this distinction correctly
+            // (`DataManager.irmaaMagi` is AGI + tax-exempt interest; its ACA MAGI adds
+            // `nonTaxableSS`), so the two engines disagreed about what IRMAA MAGI even is.
+            //
+            // tax-exempt interest = muni income on taxable accounts (V2.0: now modeled
+            // per-account instead of the old hardcoded 0).
             let nonTaxableSS = max(0, totalGrossSSAnnual - taxableSS)
-            let magiAddback = nonTaxableSS + acctIncome.taxExempt
+            let irmaaMagiAddback = acctIncome.taxExempt
+            let acaMagiAddback = nonTaxableSS + acctIncome.taxExempt
 
             // Bug C fix: ACA MAGI is tracked when EITHER spouse is pre-Medicare.
             // Gating on primaryAge < 65 alone was incorrect for mixed-age couples where
@@ -723,16 +742,16 @@ struct ProjectionEngine {
 
             // V2.3: WHETHER ACA MAGI applies is decided here (the pre-Medicare + enrolled
             // checks live with the ages they test). The REPORTED value is computed after
-            // Step 7, from `finalIrmaaAcaMagi`, so it includes any gross-up withdrawal --
+            // Step 7, from `finalAcaMagi`, so it includes any gross-up withdrawal --
             // exactly as `irmaaMagi` does (A3 fix). See `acaMagiValue` below.
             let acaMagiApplies = anyPreMedicare && inputs.acaEnrolled
 
             // Pre-gross-up ACA MAGI, retained ONLY for SIZING the tax-funding cascade in
             // Step 7 (it reaches the cascade via `taxBreakdown.acaPremiumImpact` inside
             // `nonFedState`). Sizing deliberately runs on pre-gross-up IRMAA/ACA/NIIT
-            // figures -- see the documented approximation above `finalIrmaaAcaMagi` -- so
+            // figures -- see the documented approximation above `finalIrmaaMagi` -- so
             // moving this one would change the fixed point, not just the reported number.
-            let acaMagiForSizing: Double? = acaMagiApplies ? federalAGI + magiAddback : nil
+            let acaMagiForSizing: Double? = acaMagiApplies ? federalAGI + acaMagiAddback : nil
 
             // Bug C fix: IRMAA MAGI tracking starts from EITHER spouse reaching age 63
             // (2-year lookback). Using primary-only missed the window where only the
@@ -848,7 +867,7 @@ struct ProjectionEngine {
                 // CMS 2-year lookback: the year-Y premium is set by year Y-2 MAGI. For the
                 // first ≤2 projection years, Y-2 predates the projection, so fall back to the
                 // current year's MAGI (the best available proxy for recent income).
-                let lookbackMagi = irmaaMagiByYear[year - 2] ?? (federalAGI + magiAddback)
+                let lookbackMagi = irmaaMagiByYear[year - 2] ?? (federalAGI + irmaaMagiAddback)
                 let result = TaxCalculationEngine.calculateIRMAA(
                     magi: lookbackMagi,
                     filingStatus: inputs.filingStatus
@@ -920,15 +939,20 @@ struct ProjectionEngine {
             // in Step 7 below, so the values REPORTED for this year are settled there. They
             // start at the pre-gross-up figures and stay there whenever no gross-up fires.
             //
-            // These two must always move together. `magiAddback` carries the NON-taxable
-            // half of the benefits, so pulling `delta` more of them into taxation raises AGI
-            // by `delta` and must lower the add-back by the same `delta`. IRMAA/ACA MAGI is
-            // AGI + non-taxable SS + tax-exempt interest, which is algebraically invariant
-            // to that split: updating one without the other would leave MAGI overstated by
-            // `delta` and push households across IRMAA tiers and the ACA cliff that they
-            // never actually crossed.
+            // The ACA add-back carries the NON-taxable half of the benefits, so pulling
+            // `delta` more of them into taxation raises AGI by `delta` and must lower that
+            // add-back by the same `delta`. ACA MAGI is AGI + non-taxable SS + tax-exempt
+            // interest, which is algebraically invariant to the split; updating one without
+            // the other would leave it overstated by `delta` and push households over the
+            // ACA cliff they never actually crossed.
+            //
+            // The IRMAA add-back is tax-exempt interest ALONE and is therefore untouched by
+            // the split -- but IRMAA MAGI still moves, because AGI itself does. That is
+            // correct and is the substantive difference between the two definitions: IRMAA
+            // MAGI genuinely depends on how much of the benefit is taxable, and ACA MAGI
+            // genuinely does not.
             var reportedTaxableSS = taxableSS
-            var reportedMagiAddback = magiAddback
+            var reportedAcaMagiAddback = acaMagiAddback
 
             // V2.3: reconcile the custodial withholding (computed in Step 1, above) against
             // FEDERAL liability only. A federal overpayment is NOT netted against state or
@@ -1081,7 +1105,7 @@ struct ProjectionEngine {
                     // their previous form.
                     reportedTaxableSS = taxableSSWith(saleGain: saleGain, dW: dW)
                     let deltaSS = reportedTaxableSS - taxableSS
-                    reportedMagiAddback = max(0, magiAddback - deltaSS)
+                    reportedAcaMagiAddback = max(0, acaMagiAddback - deltaSS)
                     reportedTaxableIncome = max(0, taxableIncome + dW + deltaSS)
                     reportedAGI = federalAGI + dW + saleGain + deltaSS
                     reportedTaxablePreferential = min(taxablePreferential + saleGain, reportedTaxableIncome)
@@ -1176,16 +1200,13 @@ struct ProjectionEngine {
             // tier is not additionally grossed-up for that crossing's cost; it surfaces instead as
             // a higher reported/forward MAGI (and, 2 years later, a higher IRMAA premium) rather
             // than a larger current-year withdrawal. A full intra-year fixed point is deferred.
-            // `reportedMagiAddback` tracks `reportedAGI`: when the gross-up pulls more
-            // benefits into taxation, AGI rises by that delta and the add-back falls by it,
-            // so this total is unchanged. That invariance is the point. MAGI here is AGI +
-            // non-taxable SS + tax-exempt interest, which never depended on where the
-            // taxable/non-taxable line falls, so a correction to benefit taxation must not
-            // move IRMAA tiers or ACA eligibility at all.
-            let finalIrmaaAcaMagi = reportedAGI + reportedMagiAddback
-            let irmaaMagiValue: Double? = anyInIrmaaWindow ? finalIrmaaAcaMagi : nil
+            // IRMAA MAGI, 42 U.S.C. 1395r(i)(4): AGI plus tax-exempt interest. No benefit
+            // add-back, so this DOES move when benefit taxation changes -- through AGI, which
+            // is where the taxable portion already lives.
+            let finalIrmaaMagi = reportedAGI + irmaaMagiAddback
+            let irmaaMagiValue: Double? = anyInIrmaaWindow ? finalIrmaaMagi : nil
 
-            // V2.3: the REPORTED ACA MAGI now shares `finalIrmaaAcaMagi`'s post-gross-up
+            // V2.3: the REPORTED ACA MAGI shares the same post-gross-up AGI basis as IRMAA's
             // basis. Previously it was computed from the pre-gross-up `federalAGI` and never
             // updated, so a pre-65 household funding its conversion tax with an extra IRA
             // withdrawal reported an ACA MAGI BELOW its own `agi` (INV3) and, downstream, an
@@ -1199,11 +1220,17 @@ struct ProjectionEngine {
             // figure (`acaMagiForSizing` -> `acaPremiumImpact` -> `nonFedState`), so a gross-up
             // large enough to itself cross the 400%-FPL cliff surfaces as a higher reported MAGI
             // rather than a larger current-year withdrawal.
-            let acaMagiValue: Double? = acaMagiApplies ? finalIrmaaAcaMagi : nil
+            //
+            // `reportedAcaMagiAddback` tracks `reportedAGI`: when the gross-up pulls more
+            // benefits into taxation, AGI rises by that delta and this add-back falls by it,
+            // leaving the ACA total unchanged. That invariance is the point, and it is what
+            // separates this figure from the IRMAA one above.
+            let finalAcaMagi = reportedAGI + reportedAcaMagiAddback
+            let acaMagiValue: Double? = acaMagiApplies ? finalAcaMagi : nil
 
             // Record this year's MAGI for the 2-year IRMAA lookback (stored for ALL years,
             // including pre-Medicare years, since they determine future-year premiums).
-            irmaaMagiByYear[year] = finalIrmaaAcaMagi
+            irmaaMagiByYear[year] = finalIrmaaMagi
 
             // Re-derive the REPORTED IRMAA dollar cost from the corrected MAGI so it stays
             // self-consistent with `irmaaMagi`/`magi` above (an independent oracle recompute of
@@ -1217,7 +1244,7 @@ struct ProjectionEngine {
             // it only affects what is REPORTED for the current year in that narrow fallback case.
             let irmaaCostFinal: Double = {
                 guard medicareEnrolledCount > 0 else { return 0 }
-                let lookbackMagi = irmaaMagiByYear[year - 2] ?? finalIrmaaAcaMagi
+                let lookbackMagi = irmaaMagiByYear[year - 2] ?? finalIrmaaMagi
                 let result = TaxCalculationEngine.calculateIRMAA(
                     magi: lookbackMagi, filingStatus: inputs.filingStatus)
                 return result.annualSurchargePerPerson * Double(medicareEnrolledCount)
@@ -1296,7 +1323,7 @@ struct ProjectionEngine {
                 irmaaMagi: irmaaMagiValue,
                 taxableIncome: reportedTaxableIncome,
                 taxablePreferential: reportedTaxablePreferential,
-                magi: finalIrmaaAcaMagi,   // A3 fix: post-gross-up (reportedAGI + reportedMagiAddback); mirrors irmaaMagi/irmaaMagiByYear above
+                magi: finalIrmaaMagi,   // IRMAA basis (AGI + tax-exempt interest), post-gross-up; matches irmaaMagi/irmaaMagiByYear. ACA MAGI is reported separately in acaMagi.
                 taxBreakdown: taxBreakdownFinal,
                 endOfYearBalances: snapshot,
                 actions: allActions,
