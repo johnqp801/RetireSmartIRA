@@ -1,10 +1,40 @@
 # Current Release Roadmap
 
+**Last updated:** 2026-07-29
+
+---
+
+## LIVE: V2.3.0 (build 63 — both iOS and macOS approved & live, 2026-07-29)
+
+Submitted 2026-07-28, both platforms approved 2026-07-29. Tagged `v2.3.0-build63` (bump commit `31b0896`). Shipped as **2.3.0, not 2.2.0** — 2.2 was the display-audit harness and never shipped publicly.
+
+**Headline feature:** selectable Roth conversion tax-funding mode for Multi-Year — withhold from the conversion / pay from your accounts / pay from outside money. Honors the written commitment to customer Joan Menard. Federal withholding reconciles against federal liability only; state/IRMAA/NIIT/ACA fund through the cascade. PA DOR Ans 274 treatment of the withheld portion. Infeasible years marked and propagated.
+
+**Six engine/UX fixes rode with it:**
+- `1f006a0` **Pub 915 50%-tier** — IRC §86(a)(1) half-the-excess; taxable benefits had been overstated up to 2x for single provisional income $25k-$34k / MFJ $32k-$44k
+- `6247f01` **Gross-up convergence** — worst unfunded tax was $13,894; fixed with Aitken extrapolation at no perf cost (a bigger budget alone cost 37%)
+- `59f8f04` **SS recursion through the gross-up** — worst understatement taxable SS $11,888 / tax $4,809
+- `c5d3fcc` **Cash-flow tax funding** — unspent income now counts toward funding tax; feasibility copy rewritten to attribute the limit to the MODEL, not the household
+- `8a8f481` **IRMAA MAGI vs ACA MAGI split** — IRMAA MAGI had been overstated by the untaxed half of benefits ($20,704 at a $3,000/mo benefit); also repaired an optimizer overshoot into the cliff buffer that the fix exposed
+- `2d89141` **TAXSIM 50%-band oracle coverage** — the oracle previously had zero fixtures in the band it needed to see
+
+Plus two RMD fixes: chart x-axis label thinning, and spouse/joint account ownership (had produced a $450,000 phantom RMD).
+
+**Verified at ship:** 1,545 Swift Testing tests in 259 suites + 503 XCTest, 0 failures, TAXSIM 26/26, both platforms build, 2.3.0/63 confirmed in the built products.
+
+**Post-ship additions to `main` (test/docs only, not in build 63):** `46855fa` adds `WidowTaxArticleScenarioTests.swift`, pinning the published widow-tax article figures.
+
+**Website 2.3 update:** `/whats-new` Version 2.3 section, `/press` 2.3.0 released July 29 2026, `/accuracy` v2.3 — plus the new `/articles/widow-tax-by-the-numbers-2026`. All on local `main`, 10 commits ahead of origin, NOT yet pushed or deployed.
+
+**Next cycle candidates:** rebase the 2.2 display-audit harness onto the new `main` (its baselines moved under these engine fixes); annotate-then-rank for infeasible strategies; `acaPremiumImpactFinal` on a post-gross-up basis; per-year income entry (promised to Alan); Fred's Scenarios-withdrawal integration.
+
+---
+
 **Last updated:** 2026-07-09
 
 ---
 
-## 🧱 STAGED for V2.0.2 / build 60 (NOT yet cut — all engine work on `main` @ origin)
+## (historical) STAGED for V2.0.2 / build 60 (NOT yet cut — all engine work on `main` @ origin)
 
 **Status (2026-07-09):** `main` (`1680e80`) carries a full stack of correctness fixes built AFTER 2.0.1 was submitted, none of which are in the shipped build 59. When ready to ship: version bump 2.0.1→2.0.2, `CURRENT_PROJECT_VERSION` 59→**60**, release notes (2-3 options per CLAUDE.md), archive+submit both platforms. No blockers — just the App Store submission dance whenever John has time.
 

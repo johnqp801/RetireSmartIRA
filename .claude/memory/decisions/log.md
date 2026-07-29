@@ -4,6 +4,18 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-29 — V2.3.0 build 63 SHIPPED: both platforms approved and live
+
+**Fact:** submitted 2026-07-28, iOS and macOS both approved 2026-07-29 and live in their stores. Tagged `v2.3.0-build63` at the bump commit `31b0896`.
+
+**Shipped:** selectable Roth conversion tax-funding mode (honors the written commitment to customer Joan Menard) plus six engine/UX fixes — Pub 915 50%-tier, gross-up convergence via Aitken, Social Security recursion through the gross-up, cash-flow tax funding with rewritten feasibility copy, the IRMAA-vs-ACA MAGI split with its cliff-buffer repair, and TAXSIM 50%-band oracle coverage — and two RMD fixes (chart axis, spouse/joint ownership).
+
+**Marketing version note:** shipped as **2.3.0**, not 2.2.0. 2.2 was the display-audit harness and never shipped publicly, so the App Store jumped 2.1.2 to 2.3.0. The decision followed the approved What's New copy, which opens "2.3: Choose How You Pay Conversion Tax".
+
+**Website:** `/whats-new` Version 2.3 section, `/press` current version 2.3.0 (released July 29, 2026), `/accuracy` verification pass v2.3. On local `main`, NOT yet pushed or deployed at time of writing.
+
+---
+
 ## 2026-07-28 — Aitken acceleration instead of a larger iteration budget for the gross-up
 
 **Decision:** the gross-up fixed point converges via Aitken delta-squared extrapolation after two Picard steps, rather than by raising the 3-pass budget.
