@@ -625,7 +625,22 @@ struct ProjectionEngine {
             // bucket so it compounds instead of leaking out of the projection. Only the account-sourced
             // distributions are reinvested (wage/SS/pension surplus is consumption, not re-invested).
             let spendSurplus = max(0, passiveIncome - annualExpenses)
-            depositToBuckets(min(acctIncome.spendableCash, spendSurplus))
+            let reinvestedSurplus = min(acctIncome.spendableCash, spendSurplus)
+            depositToBuckets(reinvestedSurplus)
+
+            // The rest of the surplus is wage/SS/pension income the household did not spend
+            // and the projection does not track anywhere: it simply leaves the model. That is
+            // a defensible simplification for BALANCES, but it made the funding cascade blind
+            // to cash a real household would obviously reach for first. A $30,000 pension with
+            // no expenses and a few hundred dollars of tax was reported as unable to pay.
+            //
+            // Used only to measure whether the year's tax was actually funded, never as a
+            // funding source that moves a balance. Nothing is debited from it, because there
+            // is no balance to debit -- these dollars were already leaving the projection.
+            // That is what keeps this from changing any funded year's ending position, and
+            // `reinvestedSurplus` is excluded so dollars redeposited into a bucket are not
+            // also counted as loose cash.
+            let uncommittedIncome = max(0, spendSurplus - reinvestedSurplus)
 
             // ─────────────────────────────────────────
             // Step 6: Compute AGI and tax breakdown
@@ -1098,8 +1113,15 @@ struct ProjectionEngine {
                 // byte-identical to measuring it inside the branch; when neither fired, the only
                 // way to reach a nonzero result is an empty traditional balance, because any
                 // positive `availableTrad` against a positive shortfall forces dW > 0.
+                //
+                // `uncommittedIncome` is the household's own unspent income for the year (see
+                // Step 5). A household that takes in more than it spends pays the tax bill out
+                // of that before it is anywhere near insolvent, so leaving it out reported
+                // pension households with large Roth balances as unable to pay a few hundred
+                // dollars of tax. It is subtracted LAST, after the assets the cascade actually
+                // debited, because those really did move a balance and this did not.
                 underfundedTax = max(0, (max(0, fedTax - federalWithheld) + stTax + nonFedState)
-                                        - saleCash - dW)
+                                        - saleCash - dW - uncommittedIncome)
                 // A residual shortfall is only genuine insolvency when BOTH funding sources
                 // are gone: the gross-up was CLAMPED by available traditional assets AND no
                 // taxable balance remains to sell. The fixed point above runs at most 3

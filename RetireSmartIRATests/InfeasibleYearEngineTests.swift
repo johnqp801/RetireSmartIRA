@@ -43,8 +43,13 @@ struct InfeasibleYearEngineTests {
     /// engine in legacy mode, where the synthesized bucket's basis tracks its balance and
     /// `saleGain` is identically zero. Supplying the account explicitly with `costBasis < balance`
     /// is the only way to exercise the realized-gain tax-funding path.
+    ///
+    /// `expenses` exists so a test can cancel a pension against living costs. Unspent income
+    /// counts toward funding this year's tax, so a scenario that wants the tax to come from
+    /// ASSETS has to leave no surplus behind.
     private func makeInputs(trad: Double, brokerage: TaxableAccountInput,
-                            pension: Double = 0, state: String) -> MultiYearStaticInputs {
+                            pension: Double = 0, expenses: Double = 0,
+                            state: String) -> MultiYearStaticInputs {
         MultiYearStaticInputs(
             startingBalances: AccountSnapshot(traditional: trad, roth: 0, taxable: 0, hsa: 0),
             baseYear: 2026,
@@ -57,7 +62,7 @@ struct InfeasibleYearEngineTests {
             primaryPensionIncome: pension, spousePensionIncome: 0,
             acaEnrolled: false, acaHouseholdSize: 1,
             primaryMedicareEnrollmentAge: 65, spouseMedicareEnrollmentAge: nil,
-            baselineAnnualExpenses: 0,
+            baselineAnnualExpenses: expenses,
             taxableAccounts: [brokerage]
         )
     }
@@ -82,12 +87,12 @@ struct InfeasibleYearEngineTests {
             availableForConversionTaxes: false, fundingPriority: nil)
     }
 
-    private func makeAssumptions(horizonEndAge: Int) -> MultiYearAssumptions {
+    private func makeAssumptions(horizonEndAge: Int, expenses: Double = 0) -> MultiYearAssumptions {
         var a = MultiYearAssumptions(
             horizonEndAge: horizonEndAge, horizonEndAgeSpouse: nil, cpiRate: 0,
             investmentGrowthRate: 0, withdrawalOrderingRule: .taxEfficient,
             stressTestEnabled: false, perYearOverrides: [:],
-            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: 0)
+            currentTaxableBalance: 0, currentHSABalance: 0, baselineAnnualExpenses: expenses)
         a.rothTaxFundingMode = .fundedFromAccounts
         return a
     }
@@ -267,13 +272,19 @@ struct InfeasibleYearEngineTests {
     /// No traditional balance at all, a large appreciated brokerage account, and a pension big
     /// enough to generate a real tax bill. `availableTrad` is zero from the first year onward, so
     /// every year satisfies the traditional half of the gate on its own.
+    ///
+    /// Expenses cancel the pension exactly. Without that the household would be sitting on
+    /// $150,000 of unspent income, which now counts toward funding the tax, and the year would
+    /// never reach the gate at all -- leaving the `sellableForTaxes` half of the gate, which is
+    /// the whole point of this test, unexercised. With no surplus, the tax must come from the
+    /// brokerage, and the Phase 1 gain-on-gain sliver still lands in `underfunded`.
     @Test("A household with no traditional assets but ample taxable is NOT infeasible")
     func noTraditionalWithAmpleTaxableIsNotInfeasible() {
         let years = ProjectionEngine(configProvider: provider).project(
             inputs: makeInputs(trad: 0,
                                brokerage: appreciatedBrokerage(balance: 2_000_000),
-                               pension: 150_000, state: "CA"),
-            assumptions: makeAssumptions(horizonEndAge: 70),
+                               pension: 150_000, expenses: 150_000, state: "CA"),
+            assumptions: makeAssumptions(horizonEndAge: 70, expenses: 150_000),
             actionsPerYear: [2026: [], 2027: [], 2028: [], 2029: []])
         #expect(years.isEmpty == false)
         #expect(years.first!.endOfYearBalances.taxable > 1_000_000,

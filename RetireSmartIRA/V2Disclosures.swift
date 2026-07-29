@@ -44,7 +44,7 @@ enum V2Disclosures {
     /// promise it. Every clause below is independently verified against the engine.
     static func infeasibleYearExplanation(shortfall: Double) -> String {
         let amount = shortfall.formatted(.number.precision(.fractionLength(0)))
-        return "Tax funding shortfall: $\(amount). Available taxable and IRA assets were not enough to fund this year's modeled tax. The requested conversion was not reduced, so this year is shown as requested for diagnosis rather than as a funded recommendation. Later years that build on this year's balances are not reliable."
+        return "Tax funding not modeled: $\(amount). Taxable and IRA assets were not enough to fund this year's modeled tax, and this plan does not model paying it from Roth savings or from cash on hand. The requested conversion was not reduced, so this year is shown as requested for diagnosis rather than as a funded recommendation. Later years build on this year's balances and carry the same gap."
     }
 
     /// Shown on a year that did NOT fail on its own but whose opening balances descend from a
@@ -52,5 +52,5 @@ enum V2Disclosures {
     /// two would either invent a shortfall this year never had, or bury a shortfall it did.
     /// Carries no dollar amount, because nothing was short here.
     static let dependsOnInfeasibleYearExplanation =
-        "This year builds on an earlier year whose tax could not be funded. Its opening balances come from a position the household could not actually have reached, so the figures shown here are not reliable."
+        "This year builds on an earlier year whose tax this plan could not fund from taxable or IRA assets. Its opening balances carry that unfunded tax forward, so the figures shown here carry the same gap."
 }

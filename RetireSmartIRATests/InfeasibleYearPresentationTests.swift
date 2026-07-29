@@ -57,11 +57,19 @@ struct InfeasibleYearPresentationTests {
         let text = V2Disclosures.dependsOnInfeasibleYearExplanation
         #expect(text.lowercased().contains("earlier year"),
                 "must attribute the failure to an EARLIER year, not this one")
-        #expect(text.lowercased().contains("not reliable"),
-                "must state the consequence: this year's figures cannot be trusted")
+        #expect(text.lowercased().contains("same gap"),
+                "must state the consequence: this year's figures carry the earlier gap")
         // Collapsing the two states would mean claiming a shortfall this year did not have.
         #expect(text.contains("shortfall") == false)
         #expect(text.contains("\u{2014}") == false, "no em dash")
+        // The copy describes a limit of the MODEL, never the household's solvency. A
+        // pension household spending down a large Roth balance lands here while entirely
+        // able to pay, so any claim about what it "could have reached" is false.
+        for accusation in ["could not actually have reached", "could never have held",
+                           "household can reach", "cannot pay"] {
+            #expect(text.lowercased().contains(accusation) == false,
+                    "must not assert what the household could afford: \(accusation)")
+        }
     }
 
     @Test("The explanation claims no exclusion from comparison, because none happens")
@@ -73,7 +81,7 @@ struct InfeasibleYearPresentationTests {
         let text = V2Disclosures.infeasibleYearExplanation(shortfall: 8_420)
         #expect(text.lowercased().contains("excluded") == false)
         #expect(text.lowercased().contains("comparison") == false)
-        #expect(text.hasSuffix("Later years that build on this year's balances are not reliable."))
+        #expect(text.hasSuffix("Later years build on this year's balances and carry the same gap."))
     }
 
     // MARK: - Per-row presentation (LadderRow drives the year table)
@@ -131,8 +139,26 @@ struct InfeasibleYearPresentationTests {
         #expect(s.infeasibleYears == [2031, 2032])
         #expect(s.dependentOnlyYears == [2033])
         // Pin the copy itself. `contains("2")` would pass on any string holding that digit.
-        #expect(s.headline == "Not fully funded: 2 years cannot pay their modeled tax")
-        #expect(s.detail == "The plan totals above include tax that available assets could not cover, so they do not describe an outcome this household can reach. 1 later year did not fail on its own but builds on balances the household could never have held, so its figures are not reliable either.")
+        #expect(s.headline == "Tax funding not modeled in 2 years")
+        #expect(s.detail == "In these years the modeled tax is more than the taxable and traditional balances can cover. This plan funds tax only from those accounts, so paying from Roth savings or from cash on hand is not modeled. The totals above leave that tax unfunded. 1 later year builds on those balances, so its figures carry the same gap.")
+    }
+
+    @Test("The plan banner describes a model limit, never the household's solvency")
+    func bannerBlamesTheModelNotTheHousehold() {
+        // A household on a pension with its savings in Roth reaches these years while
+        // perfectly able to pay: the tax cascade funds only from taxable and traditional
+        // accounts. The earlier copy told such a household its plan described an outcome it
+        // could not reach and balances it could never have held. Both were false.
+        let s = FundingFeasibilitySummary(path: brokenPath)
+        let copy = (s.headline + " " + s.detail).lowercased()
+        for accusation in ["cannot pay", "could never have held", "household can reach",
+                           "could not actually have reached", "not fully funded"] {
+            #expect(copy.contains(accusation) == false,
+                    "banner must not assert what the household could afford: \(accusation)")
+        }
+        // It must still say plainly that the totals are incomplete, or the warning is toothless.
+        #expect(copy.contains("not modeled"))
+        #expect(copy.contains("unfunded"))
     }
 
     @Test("A fully funded plan produces no headline")

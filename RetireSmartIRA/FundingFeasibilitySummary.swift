@@ -30,32 +30,41 @@ struct FundingFeasibilitySummary: Equatable, Sendable {
     var isFullyFunded: Bool { infeasibleYears.isEmpty && dependentOnlyYears.isEmpty }
 
     /// Short banner headline. Empty when nothing is wrong, so the view can gate on it.
+    ///
+    /// The copy attributes the gap to what this plan MODELS, never to what the household
+    /// could afford. Those are not the same thing, and the earlier wording asserted the
+    /// second. A household living on a pension with a large Roth balance reaches these
+    /// years routinely: the tax cascade funds only from taxable and traditional accounts,
+    /// so a solvent household with its money in Roth was told its plan described an
+    /// outcome it "could never have held". Unspent income now counts toward funding the
+    /// year's tax, which removes the most common false alarm outright, but a household
+    /// spending down Roth still lands here and the copy must not accuse it of insolvency.
     var headline: String {
         guard !isFullyFunded else { return "" }
         switch infeasibleYears.count {
         case 0:
             // Defensive: downstream years without a root failure should not occur, but the
-            // plan is still not presentable as funded.
-            return "Not fully funded: this plan builds on a year whose tax could not be funded"
+            // plan still is not a complete picture.
+            return "Tax funding not modeled in an earlier year of this plan"
         case 1:
-            return "Not fully funded: 1 year cannot pay its modeled tax"
+            return "Tax funding not modeled in 1 year"
         default:
-            return "Not fully funded: \(infeasibleYears.count) years cannot pay their modeled tax"
+            return "Tax funding not modeled in \(infeasibleYears.count) years"
         }
     }
 
     /// One or two sentences of context. States what the totals mean and, separately, how many
-    /// years merely inherit the problem. The per-year detail lives in the rows, not here.
+    /// years merely inherit the gap. The per-year detail lives in the rows, not here.
     var detail: String {
         guard !isFullyFunded else { return "" }
-        let lead = "The plan totals above include tax that available assets could not cover, so they do not describe an outcome this household can reach."
+        let lead = "In these years the modeled tax is more than the taxable and traditional balances can cover. This plan funds tax only from those accounts, so paying from Roth savings or from cash on hand is not modeled. The totals above leave that tax unfunded."
         switch dependentOnlyYears.count {
         case 0:
             return lead
         case 1:
-            return lead + " 1 later year did not fail on its own but builds on balances the household could never have held, so its figures are not reliable either."
+            return lead + " 1 later year builds on those balances, so its figures carry the same gap."
         default:
-            return lead + " \(dependentOnlyYears.count) later years did not fail on their own but build on balances the household could never have held, so their figures are not reliable either."
+            return lead + " \(dependentOnlyYears.count) later years build on those balances, so their figures carry the same gap."
         }
     }
 }
