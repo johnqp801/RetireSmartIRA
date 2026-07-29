@@ -203,16 +203,21 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         #expect(isClose(taxableSS, 0))
     }
 
-    @Test("Single: $24K SS, $15K other → $2,000 taxable (50% tier)")
+    @Test("Single: $24K SS, $15K other → $1,000 taxable (50% tier)")
     func single50PercentTier() {
         let dm = makeDM()
         dm.incomeSources = [
             IncomeSource(name: "SS", type: .socialSecurity, annualAmount: 24_000),
             IncomeSource(name: "Pension", type: .pension, annualAmount: 15_000)
         ]
-        // Combined = 15,000 + 12,000 = 27,000; excess over 25,000 = 2,000
+        // IRS Pub 915 Worksheet 1 (Single): benefits $24,000, pension $15,000.
+        // Combined = 15,000 + 12,000 = 27,000; excess over 25,000 = 2,000.
+        // §86(a)(1) taxes the lesser of one-half of benefits or one-half of the excess:
+        //   min(0.5 * 24,000, 0.5 * 2,000) = min(12,000, 1,000) = 1,000.
+        // This previously pinned $2,000 — the full excess, missing §86(a)(1)(B)'s
+        // "one-half of" — which is what let the 50%-tier bug survive.
         let taxableSS = dm.calculateTaxableSocialSecurity(filingStatus: .single)
-        #expect(isClose(taxableSS, 2_000))
+        #expect(isClose(taxableSS, 1_000))
     }
 
     @Test("Single: $30K SS, $40K other → $22,350 taxable (85% tier)")

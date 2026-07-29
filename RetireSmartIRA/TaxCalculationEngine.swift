@@ -830,8 +830,15 @@ struct TaxCalculationEngine {
         if roundedCombined <= threshold1 {
             return 0.0
         } else if roundedCombined <= threshold2 {
+            // IRC §86(a)(1): gross income includes the LESSER of (A) one-half of the
+            // benefits or (B) one-half of the excess of provisional income over the
+            // base amount. Both limbs are halved — the excess in (B) just as much as
+            // the benefits in (A). Returning the full excess overstated taxable
+            // benefits by up to 2x for single filers between $25,000 and $34,000 of
+            // provisional income (MFJ $32,000-$44,000), and made taxable SS fall
+            // discontinuously as provisional income crossed the second threshold.
             let excessOverFirst = roundedCombined - threshold1
-            return min(excessOverFirst, ssIncome * 0.5)
+            return min(excessOverFirst * 0.5, ssIncome * 0.5)
         } else {
             let excessOverSecond = roundedCombined - threshold2
             // IRS Pub 915 Worksheet 1, line 14: the 50%-taxed tier is the *smaller* of

@@ -68,8 +68,9 @@ struct VADisabilityTests {
     func provisionalIncomeOnlyCountsPension() {
         // $20K pension + $30K VA Disability + $20K SS.
         // Provisional income = 20K (pension) + 0 (VA) + 0.5*20K = $30K.
-        // $30K > $25K but <= $34K (single) → taxable SS = min(30K - 25K, 20K * 0.5)
-        //   = min(5,000, 10,000) = $5,000.
+        // $30K > $25K but <= $34K (single) → 50% tier. §86(a)(1) taxes the lesser of
+        // one-half of benefits or one-half of the excess over the base amount:
+        //   min(0.5 * 20,000, 0.5 * (30,000 - 25,000)) = min(10,000, 2,500) = $2,500.
         // If VA were included: 20K + 30K + 0.5*20K = $60K > $34K → taxable SS would be
         //   min(tier1 + tier2 calculation, 20K * 0.85) ≈ $17,000 — much larger.
         let sources: [IncomeSource] = [
@@ -82,10 +83,11 @@ struct VADisabilityTests {
             additionalIncome: 0,
             incomeSources: sources
         )
-        // combined = 20K (pension) + 0.5*20K (SS) = 30K; 30K - 25K = 5K excess; taxable SS = 5K
+        // combined = 20K (pension) + 0.5*20K (SS) = 30K; excess over 25K = 5K;
+        // taxable SS = one-half of that excess = $2,500.
         #expect(
-            taxableSS == 5_000,
-            "Only pension should contribute to provisional income, not VA Disability; expected $5,000, got \(taxableSS)"
+            taxableSS == 2_500,
+            "Only pension should contribute to provisional income, not VA Disability; expected $2,500, got \(taxableSS)"
         )
     }
 
