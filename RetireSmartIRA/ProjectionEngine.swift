@@ -964,10 +964,46 @@ struct ProjectionEngine {
                 let shortfall0 = max(0, baseTotalTax - saleCash) // base tax not covered by bucket sales
                 var dW = min(shortfall0 + incrementalTax(saleGain: saleGain, dW: 0), availableTrad)
                 if shortfall0 > 0 || saleGain > 0 {
-                    for _ in 0..<3 {
-                        let next = min(shortfall0 + incrementalTax(saleGain: saleGain, dW: dW), availableTrad)
-                        if abs(next - dW) < 1.0 { dW = next; break }
-                        dW = next
+                    // Picard iteration on dW = shortfall + incrementalTax(dW). The map
+                    // contracts at the household's marginal fed+state rate, so each pass
+                    // removes only (1 - rate) of the error: a 50% marginal household
+                    // halves it per pass and needs roughly log2(shortfall) passes to
+                    // land within a dollar. The former budget of 3 passes stopped far
+                    // short of that — a $600,000 conversion in a high-tax state ended
+                    // the year with $13,894 of its own tax bill unfunded, and residues
+                    // in the hundreds were routine on ordinary plans. That residue is
+                    // not cosmetic: the withdrawal is what actually leaves the account,
+                    // so an under-converged year overstates the ending balance by the
+                    // whole shortfall and understates lifetime IRA depletion.
+                    //
+                    // Simply raising the pass budget would have cost ~37% on the
+                    // projection hot path, since this runs per year per optimizer
+                    // candidate. Instead each round takes two Picard steps and then
+                    // extrapolates with Aitken's delta-squared. Between bracket
+                    // boundaries the tax map is LINEAR in dW, and on a linear map that
+                    // extrapolation is not an approximation — it lands on the fixed
+                    // point exactly. So the common case now converges in one round (two
+                    // evaluations, fewer than the three it used to spend) and the
+                    // pathological cases still terminate.
+                    //
+                    // Aitken cannot run away here: the extrapolate is clamped back into
+                    // [0, availableTrad], and if it ever lands badly the next round's
+                    // plain Picard steps resume contracting toward the fixed point.
+                    // A residual that survives the whole budget is not swallowed; it
+                    // remains in `underfundedTax` below and is reported as
+                    // `YearRecommendation.underfunded`.
+                    func picard(_ x: Double) -> Double {
+                        min(shortfall0 + incrementalTax(saleGain: saleGain, dW: x), availableTrad)
+                    }
+                    for _ in 0..<12 {
+                        let x1 = picard(dW)
+                        if abs(x1 - dW) < 0.01 { dW = x1; break }
+                        let x2 = picard(x1)
+                        if abs(x2 - x1) < 0.01 { dW = x2; break }
+                        let denom = (x2 - x1) - (x1 - dW)
+                        guard abs(denom) > 1e-9 else { dW = x2; break }
+                        let accelerated = x2 - ((x2 - x1) * (x2 - x1)) / denom
+                        dW = min(max(0, accelerated), availableTrad)
                     }
                 } else {
                     dW = 0

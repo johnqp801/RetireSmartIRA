@@ -184,26 +184,32 @@ struct InfeasibleYearEngineTests {
         #expect(years.allSatisfy { $0.isFullyFunded })
     }
 
-    @Test("A funded gross-up year is NOT infeasible despite convergence residue")
-    func grossUpResidueIsNotInfeasible() {
-        // Ample traditional, zero taxable: this forces a large gross-up that converges
-        // with headroom to spare. The 3-iteration fixed point leaves a small residual
-        // `underfunded` that must NOT read as insolvency.
+    @Test("A funded gross-up year funds its tax completely and is NOT infeasible")
+    func grossUpYearIsFullyFundedAndFeasible() {
+        // Ample traditional, zero taxable: this forces a large gross-up with headroom to
+        // spare. This test used to assert the OPPOSITE of its last expectation — that the
+        // year carried more than $1 of `underfunded` convergence residue, which the
+        // infeasibility gate then had to look past. That residue was never a property of
+        // the household; it was the gross-up fixed point stopping after 3 passes while
+        // still thousands of dollars short (this very scenario left $4,131 of California
+        // tax unfunded). The iteration now converges, so the residue is gone at the
+        // source and the year is what it always should have been: fully funded.
         let years = ProjectionEngine(configProvider: provider).project(
             inputs: makeInputs(trad: 2_000_000, taxable: 0, state: "CA"),
             assumptions: makeAssumptions(horizonEndAge: 68),
             actionsPerYear: [2026: [.rothConversion(amount: 300_000)], 2027: []])
         let first = years.first!
         #expect(first.taxFundingWithdrawal > 0, "scenario must actually force a gross-up")
-        // The residue is what makes this test meaningful: without it, a `> 0` gate would
-        // pass here too and the test would prove nothing.
-        #expect((first.underfunded ?? 0) > 1.0,
-                "scenario must actually leave convergence residue for the gate to survive")
         #expect(first.endOfYearBalances.traditional > 1_000_000,
                 "assets must NOT have been exhausted; there is ample headroom")
+        #expect((first.underfunded ?? 0) < 1.0,
+                "a solvent household's tax bill must be funded to the dollar, not approximated")
         #expect(first.isInfeasible == false,
-                "convergence residue is not insolvency; assets were never exhausted")
+                "a fully funded year is not insolvency")
         #expect(years.allSatisfy { $0.dependsOnInfeasibleYear == false })
+        // The `assetsExhausted` half of the gate is still load-bearing and still covered:
+        // see the starved scenario, the whole-IRA conversion funded from brokerage, and
+        // the unsellable-dollars cases in this same suite.
     }
 
     @Test("A near-miss year with thin headroom is still not infeasible")
