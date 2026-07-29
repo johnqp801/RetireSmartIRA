@@ -901,6 +901,19 @@ struct ProjectionEngine {
             var reportedTaxableIncome = taxableIncome
             var reportedTaxablePreferential = taxablePreferential
             var taxFundingGain = 0.0   // realized LTCG from selling buckets to PAY the tax bill
+            // Benefit taxation depends on the tax-funding withdrawal and sale gain decided
+            // in Step 7 below, so the values REPORTED for this year are settled there. They
+            // start at the pre-gross-up figures and stay there whenever no gross-up fires.
+            //
+            // These two must always move together. `magiAddback` carries the NON-taxable
+            // half of the benefits, so pulling `delta` more of them into taxation raises AGI
+            // by `delta` and must lower the add-back by the same `delta`. IRMAA/ACA MAGI is
+            // AGI + non-taxable SS + tax-exempt interest, which is algebraically invariant
+            // to that split: updating one without the other would leave MAGI overstated by
+            // `delta` and push households across IRMAA tiers and the ACA cliff that they
+            // never actually crossed.
+            var reportedTaxableSS = taxableSS
+            var reportedMagiAddback = magiAddback
 
             // V2.3: reconcile the custodial withholding (computed in Step 1, above) against
             // FEDERAL liability only. A federal overpayment is NOT netted against state or
@@ -923,13 +936,36 @@ struct ProjectionEngine {
                 // sales (preferential) and (b) a grossed-up traditional withdrawal (ordinary). Both
                 // ride on top of the already-computed federalTax/stateTax. The gain enters as
                 // additional preferential income; dW enters as additional ordinary income + AGI.
+                // A tax-funding withdrawal is ordinary income and a tax-funding sale gain is
+                // preferential income, so both belong in the provisional-income test that
+                // decides how much Social Security is taxable. Benefit taxation was computed
+                // once from pre-gross-up income and never revisited, so the withdrawal's own
+                // effect on it was dropped: taxable benefits, AGI, and the resulting tax were
+                // all understated for households whose benefits sit below the 85% ceiling.
+                //
+                // This belongs INSIDE the fixed point, not after it. More taxable benefits
+                // means more tax, which means a larger withdrawal, which pulls in more
+                // benefits again. Above the 85% ceiling the delta is identically zero and
+                // every expression below reduces to its previous form exactly, which is why
+                // large-conversion profiles are unaffected.
+                func taxableSSWith(saleGain: Double, dW: Double) -> Double {
+                    TaxCalculationEngine.calculateTaxableSocialSecurity(
+                        filingStatus: inputs.filingStatus,
+                        additionalIncome: otherIncomeForSSTax + dW + max(0, saleGain),
+                        incomeSources: [ssIncomeSource]
+                    )
+                }
+
                 func incrementalTax(saleGain: Double, dW: Double) -> Double {
+                    let ssNow = taxableSSWith(saleGain: saleGain, dW: dW)
+                    let deltaSS = ssNow - taxableSS
+                    let income = max(0, taxableIncome + dW + deltaSS)
                     let fed = TaxCalculationEngine.calculateFederalTax(
-                        income: max(0, taxableIncome + dW), filingStatus: inputs.filingStatus,
+                        income: income, filingStatus: inputs.filingStatus,
                         brackets: brackets, preferentialIncome: min(taxablePreferential + max(0, saleGain),
-                                                                     max(0, taxableIncome + dW))) - federalTax
+                                                                     income)) - federalTax
                     let st = computeStateTax(
-                        federalAGI: federalAGI + dW + max(0, saleGain), taxableSS: taxableSS, pensionIncome: pensionIncome,
+                        federalAGI: federalAGI + dW + max(0, saleGain) + deltaSS, taxableSS: ssNow, pensionIncome: pensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
                         rothConversionWithholding: federalWithheld,
                         filingStatus: inputs.filingStatus,
@@ -1024,15 +1060,22 @@ struct ProjectionEngine {
 
                 // Recompute reported tax with the realized gain and gross-up folded in.
                 if saleGain > 0 || dW > 0 {
-                    reportedTaxableIncome = max(0, taxableIncome + dW)
-                    reportedAGI = federalAGI + dW + saleGain
+                    // Settle benefit taxation on the SAME basis the fixed point converged on,
+                    // then move AGI and the MAGI add-back together. `deltaSS` is 0 whenever
+                    // benefits are already fully taxed, leaving these lines byte-identical to
+                    // their previous form.
+                    reportedTaxableSS = taxableSSWith(saleGain: saleGain, dW: dW)
+                    let deltaSS = reportedTaxableSS - taxableSS
+                    reportedMagiAddback = max(0, magiAddback - deltaSS)
+                    reportedTaxableIncome = max(0, taxableIncome + dW + deltaSS)
+                    reportedAGI = federalAGI + dW + saleGain + deltaSS
                     reportedTaxablePreferential = min(taxablePreferential + saleGain, reportedTaxableIncome)
                     fedTax = TaxCalculationEngine.calculateFederalTax(
                         income: reportedTaxableIncome, filingStatus: inputs.filingStatus,
                         brackets: brackets,
                         preferentialIncome: reportedTaxablePreferential)
                     stTax = computeStateTax(
-                        federalAGI: reportedAGI, taxableSS: taxableSS, pensionIncome: pensionIncome,
+                        federalAGI: reportedAGI, taxableSS: reportedTaxableSS, pensionIncome: pensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
                         rothConversionWithholding: federalWithheld,
                         filingStatus: inputs.filingStatus,
@@ -1111,7 +1154,13 @@ struct ProjectionEngine {
             // tier is not additionally grossed-up for that crossing's cost; it surfaces instead as
             // a higher reported/forward MAGI (and, 2 years later, a higher IRMAA premium) rather
             // than a larger current-year withdrawal. A full intra-year fixed point is deferred.
-            let finalIrmaaAcaMagi = reportedAGI + magiAddback
+            // `reportedMagiAddback` tracks `reportedAGI`: when the gross-up pulls more
+            // benefits into taxation, AGI rises by that delta and the add-back falls by it,
+            // so this total is unchanged. That invariance is the point. MAGI here is AGI +
+            // non-taxable SS + tax-exempt interest, which never depended on where the
+            // taxable/non-taxable line falls, so a correction to benefit taxation must not
+            // move IRMAA tiers or ACA eligibility at all.
+            let finalIrmaaAcaMagi = reportedAGI + reportedMagiAddback
             let irmaaMagiValue: Double? = anyInIrmaaWindow ? finalIrmaaAcaMagi : nil
 
             // V2.3: the REPORTED ACA MAGI now shares `finalIrmaaAcaMagi`'s post-gross-up
@@ -1225,7 +1274,7 @@ struct ProjectionEngine {
                 irmaaMagi: irmaaMagiValue,
                 taxableIncome: reportedTaxableIncome,
                 taxablePreferential: reportedTaxablePreferential,
-                magi: finalIrmaaAcaMagi,   // A3 fix: post-gross-up (reportedAGI + magiAddback); mirrors irmaaMagi/irmaaMagiByYear above
+                magi: finalIrmaaAcaMagi,   // A3 fix: post-gross-up (reportedAGI + reportedMagiAddback); mirrors irmaaMagi/irmaaMagiByYear above
                 taxBreakdown: taxBreakdownFinal,
                 endOfYearBalances: snapshot,
                 actions: allActions,
@@ -1236,7 +1285,9 @@ struct ProjectionEngine {
                 // the bundled actions. (Inherited Roth drains are forced but tax-free,
                 // so they are reported via the .rothWithdrawal action instead.)
                 rmd: primaryRequiredRMD + spouseRequiredRMD + inheritedTradDistributions,
-                taxableSocialSecurity: taxableSS,
+                // Post-gross-up, matching reportedAGI: a tax-funding withdrawal raises
+                // provisional income and can pull more benefits into taxation.
+                taxableSocialSecurity: reportedTaxableSS,
                 // B4 root cause 2: explicitRothConversions already accumulates fromPrimary +
                 // fromSpouse from the clamping above (~:264-299) — the ACTUAL dollars moved
                 // trad->Roth this year, not the requested amount.
