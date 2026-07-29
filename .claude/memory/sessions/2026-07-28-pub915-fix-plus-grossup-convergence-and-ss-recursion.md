@@ -1,4 +1,4 @@
-# 2026-07-28 (session 2) — Pub 915, gross-up convergence, SS recursion, and cash-flow tax funding
+# 2026-07-28 (session 2) — Pub 915, gross-up convergence, SS recursion, cash-flow funding, IRMAA MAGI, TAXSIM band
 
 **All four fixes are DONE and MERGED TO `main`.** V2.3 was merged first, then the three ordered engine fixes, then the cash-flow/copy fix.
 
@@ -6,15 +6,17 @@
 
 ## State at end of session
 
-**All four fixes are MERGED TO `main` @ `c5d3fcc`.** Branch and worktree deleted (fast-forward merge, nothing lost).
+**All SIX fixes are MERGED TO `main` @ `2d89141`.** Branch and worktree deleted (fast-forward merge, nothing lost).
 
-- **`main` @ `c5d3fcc`**, now **37 commits ahead of `origin/main`, unpushed.**
+- **`main` @ `2d89141`**, now **39 commits ahead of `origin/main`, unpushed.**
 - Merge order: V2.3 merged first (`7fedf7f`), then the four engine/UX fixes on top:
   - `1f006a0` Pub 915 50% tier
   - `6247f01` gross-up fixed-point convergence (Aitken)
   - `59f8f04` Social Security recursion through the gross-up
   - `c5d3fcc` cash-flow tax funding + funding-feasibility copy
-- **Verification on merged `main`:** 1,540 Swift Testing tests in 258 suites + 503 XCTest, 0 failures. iOS `BUILD SUCCEEDED`.
+  - `8a8f481` IRMAA MAGI vs ACA MAGI split + cliff-buffer overshoot repair
+  - `2d89141` TAXSIM 50%-band oracle coverage
+- **Verification on merged `main`:** 1,545 Swift Testing tests in 259 suites + 503 XCTest, 0 failures. iOS `BUILD SUCCEEDED`. TAXSIM oracle 26/26.
 
 **Not yet done:** push `main`, version bump, release notes, submission.
 
@@ -122,6 +124,41 @@ Verified end to end: surplus case now 0/3 years flagged and `isFullyFunded == tr
 
 ---
 
+## 5. IRMAA MAGI vs ACA MAGI (`8a8f481`)
+
+**They are different statutory quantities and the difference is exactly the non-taxable half of Social Security.** The multi-year engine used ONE add-back for both.
+
+- **IRMAA, 42 U.S.C. §1395r(i)(4):** AGI + tax-exempt interest (+ §135/911/931/933 exclusions). **NO benefit add-back.**
+- **ACA PTC, IRC §36B(d)(2)(B):** AGI + excluded foreign earned income + tax-exempt interest + **the portion of benefits not included under §86**.
+
+IRMAA MAGI was therefore overstated by the non-taxable benefit portion for every household collecting SS: **$20,704 too high** at a $3,000/mo benefit with a $30,000 conversion; $19,472 at $4,000/mo. Not display-only — the optimizer reads it via `.limitToIRMAA`.
+
+**Corroboration:** the single-year engine already had it right (`DataManager.irmaaMagi` = `estimatedAGI + taxExemptInterestTotal`; its ACA MAGI adds `nonTaxableSS`). The two engines disagreed about what IRMAA MAGI *is*.
+
+`magiAddback` split into `irmaaMagiAddback` (tax-exempt only) and `acaMagiAddback` (+ nonTaxableSS). Only the ACA one tracks benefit taxation, so ACA MAGI stays invariant to the split while IRMAA MAGI correctly moves with it. `YearRecommendation.magi` is now the IRMAA basis.
+
+### The latent bug it exposed
+
+The optimizer's cliff candidates assume converting $X raises IRMAA MAGI by $X. **That held only because the wrong add-back cancelled the benefit-taxation feedback exactly.** Corrected, a conversion also drags benefits into taxation, so the candidate overshoots into the `cliffBuffer` dead zone it was aiming at. MFJ reference profile, year 2031: landed $213,471 against a $213,001 target, inside (213,001, 218,001). The objective cannot see this — the zone is below the threshold, so no surcharge is owed and the margin scores as free.
+
+**Fixed by post-selection repair**, not a per-candidate preference. The preference approach was tried and **rejected on evidence**: it changes which amount wins → changes the next iteration's baseline → the greedy stops converging → a full extra fixed-point pass → MultiYearStrategyManager blew its 5s compute deadline (baseline 4.111s). The repair pulls the winner back by the measured overshoot, max 3 passes, only on affected years: **4.136s vs 4.111s baseline**. Keeps the original amount if it cannot clear, so it can never make a year worse.
+
+---
+
+## 6. TAXSIM 50%-band coverage (`2d89141`)
+
+Six scenarios added (FL/CA/CO/NY/PA/NC, single + MFJ). `tools/taxsim-refresh` re-run against taxsim.nber.org with John's authorization; synthetic scenarios only.
+
+**Being in the band is not sufficient, and the first draft got this wrong.** Low provisional income usually means the standard deduction zeroes the tax, so a scenario can sit squarely in the band and return $0 either way. Of six as first written, only ONE moved federal tax past the $200 tolerance; two returned $0 tax with and without the bug. Resized so the excess is ~half of gross benefits (where the error peaks), two using filers under 65.
+
+**Verified by reintroducing the bug:** oracle drops to 21/26 with the five band scenarios failing at Δ +436/+360/+528/+530/+580. With the fix, 26/26.
+
+Three independent sources agree: hand-computed Pub 915 Worksheet 1 predicted 930/1118/1316/580/730 for scenarios 21/22/24/25/26; TAXSIM returned 940/1118/1328/600/750; the engine matches TAXSIM on all 26.
+
+Scenario 23 deliberately does NOT discriminate — it pins the benefits-cap limb (A). Scenarios 24 and 26 sit exactly ON the second threshold.
+
+---
+
 ## Why almost nothing rebaselined
 
 The earlier handoff predicted heavy rebaselining across ~13 suites. **Only one test moved.** Reason: the reference scenarios are built around large conversions and high balances, which either put benefits at the 85% ceiling (recursion delta = 0) or have ample taxable buckets so no gross-up fires. That is consistent with the narrow blast radius, not evidence the fixes are inert — the new tests prove the numbers move where they should.
@@ -130,11 +167,9 @@ The earlier handoff predicted heavy rebaselining across ~13 suites. **Only one t
 
 ## Open items
 
-- **Push `main`** — now **37 commits ahead of origin**, unpushed.
-- **Release notes** must cover V2.3 *and* all four fixes. Per CLAUDE.md: no "honesty"/"misleading" framing; "Accuracy Improvements"/"Refinements"; offer 2-3 wordings. The V2.3 MUST/MUST NOT list in the prior session note still applies, EXCEPT the Roth/HSA-only banner item, which is now fixed.
+- **Push `main`** — now **39 commits ahead of origin**, unpushed.
+- **Release notes** must cover V2.3 *and* all six fixes. Per CLAUDE.md: no "honesty"/"misleading" framing; "Accuracy Improvements"/"Refinements"; offer 2-3 wordings. The V2.3 MUST/MUST NOT list in the prior session note still applies, EXCEPT the Roth/HSA-only banner item, which is now fixed.
 - **Version bump + submission** (both platforms). Next build = max across platforms + 1; 2.1.2 shipped as build 62.
-- **TAXSIM 50%-band fixtures** — the oracle cannot see the 50% tier at all. Needs an external POST to NBER via `tools/taxsim-refresh`.
-- **`finalIrmaaAcaMagi` adds non-taxable SS to IRMAA MAGI**, but statutory IRMAA MAGI (42 U.S.C. §1395r(i)(4)) is AGI + tax-exempt interest only. Still uninvestigated.
 - **Audit harness** (`2.2/display-audit-harness`) baselines will move; rebase onto the new `main`.
 - **Annotate-then-rank** for infeasible strategies (from the V2.3 session): comparison columns are inflated by phantom funding with no feasibility marker, and `keepBestOfCandidates` ranks purely on objective cost.
 - The 2.3 worktree `.worktrees/2.3-tax-funding-mode` still exists with its gitignored SDD ledger and review diffs; branch `2.3/tax-funding-mode` is merged and could be cleaned up if the ledger is not wanted.
