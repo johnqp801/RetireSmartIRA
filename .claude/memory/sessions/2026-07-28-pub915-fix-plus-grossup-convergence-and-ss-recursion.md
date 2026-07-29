@@ -1,21 +1,22 @@
-# 2026-07-28 (session 2) — Pub 915 fixed, plus gross-up convergence and the SS recursion
+# 2026-07-28 (session 2) — Pub 915, gross-up convergence, SS recursion, and cash-flow tax funding
 
-**All three ordered engine fixes are DONE, committed, and green.** V2.3 was merged to `main` first.
+**All four fixes are DONE and MERGED TO `main`.** V2.3 was merged first, then the three ordered engine fixes, then the cash-flow/copy fix.
 
 ---
 
 ## State at end of session
 
-- **`main` @ `7fedf7f`** — V2.3 merged (fast-forward, 20 commits). Local `main` is now **33 commits ahead of `origin/main`** and unpushed.
-- **Branch `fix/ss-pub915-grossup-recursion`**, worktree `.worktrees/ss-pub915-grossup`, off `main`, **3 commits**, tree clean, NOT merged:
+**All four fixes are MERGED TO `main` @ `c5d3fcc`.** Branch and worktree deleted (fast-forward merge, nothing lost).
+
+- **`main` @ `c5d3fcc`**, now **37 commits ahead of `origin/main`, unpushed.**
+- Merge order: V2.3 merged first (`7fedf7f`), then the four engine/UX fixes on top:
   - `1f006a0` Pub 915 50% tier
-  - `6247f01` gross-up fixed-point convergence
+  - `6247f01` gross-up fixed-point convergence (Aitken)
   - `59f8f04` Social Security recursion through the gross-up
-- **Verification:** 1,535 Swift Testing tests in 257 suites + 503 XCTest, 0 failures. macOS suite green, iOS `BUILD SUCCEEDED`.
+  - `c5d3fcc` cash-flow tax funding + funding-feasibility copy
+- **Verification on merged `main`:** 1,540 Swift Testing tests in 258 suites + 503 XCTest, 0 failures. iOS `BUILD SUCCEEDED`.
 
-**Not yet done:** merge decision for the fix branch, version bump, release notes, submission. Memory index entry updated.
-
----
+**Not yet done:** push `main`, version bump, release notes, submission.
 
 ## 1. Pub 915 50%-tier (`1f006a0`)
 
@@ -84,6 +85,43 @@ MAGI = AGI + non-taxable SS + tax-exempt = (non-SS income) + gross benefits + ta
 
 ---
 
+## 4. Cash-flow tax funding + feasibility copy (`c5d3fcc`)
+
+Resolves the **Roth/HSA-only false-infeasibility** carried over from the prior session. Reproduced first, and it is worse than that note recorded.
+
+**The indefensible case:** $30,000 pension, **ZERO expenses**, $2M Roth, $585 tax. Every year flagged "cannot pay its modeled tax" while $30,000 of unspent income evaporated annually. The prior note's sharpest case had $60k expenses; removing expenses makes it worse.
+
+**Confirmed: expenses have zero effect on the gate.** Probes at $60k / $0 / $40k give byte-identical shortfalls of $585 and $1,185.
+
+**Sharpest statement of the bug:** Roth was already an acceptable source for GROCERIES but not for TAX. At $60k expenses the engine drains Roth by exactly $30,000 for living costs in the same year it declares $585 of tax unfundable.
+
+### The fix (engine)
+
+Unspent income (income less expenses, less anything reinvested into a bucket) now counts toward funding the year's tax. **Measurement only, never a source that moves a balance** — that surplus was already being discarded by the projection, so there is no balance to debit. Two consequences, both deliberate:
+- Ending positions untouched (pinned by a test asserting traditional falls by exactly conversion + gross-up).
+- Because the gate also requires `assetsExhausted`, this can only change years that were **already** flagged. Every other year is byte-identical.
+
+**This is NOT the Roth cascade the prior session warned against.** A household whose income falls short of expenses has no surplus and is still flagged; that case is handled by copy, not by raiding the balance the product exists to build.
+
+Note the prior session's blanket "do NOT extend the cascade to Roth" was reasoned from "the household would pay from pension income," which holds when surplus exists but not in the $60k-expense case where the engine is already spending Roth. The distinction now lives in the code.
+
+### The fix (copy) — chosen by John from 3 options, "model-limit, neutral"
+
+Banner was: "N years cannot pay their modeled tax" / "they do not describe an outcome this household can reach" / "balances the household could never have held". All false for a solvent household. Now:
+
+> **Tax funding not modeled in N years**
+> In these years the modeled tax is more than the taxable and traditional balances can cover. This plan funds tax only from those accounts, so paying from Roth savings or from cash on hand is not modeled. The totals above leave that tax unfunded. [N later year(s) build on those balances, so their figures carry the same gap.]
+
+Per-row explanation and the downstream-year note got the same treatment (`V2Disclosures`). **Two tests pin the ABSENCE of the accusation by phrase** ("cannot pay", "could never have held", "household can reach", "could not actually have reached", "not fully funded"), so it cannot return through an innocent rewording.
+
+### Rebaselines
+
+Three copy tests. Plus one engine test restructured, worth knowing: `noTraditionalWithAmpleTaxableIsNotInfeasible` had its $150,000 pension cancelled against $150,000 of expenses. Its whole purpose is to exercise the `sellableForTaxes` half of the gate, and with a surplus it would no longer reach the gate at all — it would have silently stopped testing anything. `makeInputs`/`makeAssumptions` in that file gained an `expenses:` parameter.
+
+Verified end to end: surplus case now 0/3 years flagged and `isFullyFunded == true`; no-surplus case still 3/3 flagged, with the new model-limit copy.
+
+---
+
 ## Why almost nothing rebaselined
 
 The earlier handoff predicted heavy rebaselining across ~13 suites. **Only one test moved.** Reason: the reference scenarios are built around large conversions and high balances, which either put benefits at the 85% ceiling (recursion delta = 0) or have ample taxable buckets so no gross-up fires. That is consistent with the narrow blast radius, not evidence the fixes are inert — the new tests prove the numbers move where they should.
@@ -92,11 +130,11 @@ The earlier handoff predicted heavy rebaselining across ~13 suites. **Only one t
 
 ## Open items
 
-- **Merge decision** for `fix/ss-pub915-grossup-recursion` (not offered yet; John chose merge-first for V2.3 only).
-- **Push `main`** — 33 commits ahead of origin, unpushed.
-- **Release notes** must now cover V2.3 *and* these three engine fixes. Per CLAUDE.md: no "honesty"/"misleading" framing; "Accuracy Improvements"/"Refinements"; offer 2-3 wordings. The V2.3 MUST/MUST NOT list is in the prior session note and still applies.
-- **TAXSIM 50%-band fixtures** (see above).
-- **`finalIrmaaAcaMagi` adds non-taxable SS to IRMAA MAGI**, but statutory IRMAA MAGI (42 U.S.C. §1395r(i)(4)) is AGI + tax-exempt interest only. Still uninvestigated, flagged in the prior session.
-- **V2.3 Roth/HSA-only banner copy fix** — still recommended before shipping V2.3 (prior session note has the detail).
-- **Audit harness** (`2.2/display-audit-harness`) baselines will move; rebase after this lands.
-- The 2.3 worktree `.worktrees/2.3-tax-funding-mode` still exists with its gitignored SDD ledger and review diffs; not removed.
+- **Push `main`** — now **37 commits ahead of origin**, unpushed.
+- **Release notes** must cover V2.3 *and* all four fixes. Per CLAUDE.md: no "honesty"/"misleading" framing; "Accuracy Improvements"/"Refinements"; offer 2-3 wordings. The V2.3 MUST/MUST NOT list in the prior session note still applies, EXCEPT the Roth/HSA-only banner item, which is now fixed.
+- **Version bump + submission** (both platforms). Next build = max across platforms + 1; 2.1.2 shipped as build 62.
+- **TAXSIM 50%-band fixtures** — the oracle cannot see the 50% tier at all. Needs an external POST to NBER via `tools/taxsim-refresh`.
+- **`finalIrmaaAcaMagi` adds non-taxable SS to IRMAA MAGI**, but statutory IRMAA MAGI (42 U.S.C. §1395r(i)(4)) is AGI + tax-exempt interest only. Still uninvestigated.
+- **Audit harness** (`2.2/display-audit-harness`) baselines will move; rebase onto the new `main`.
+- **Annotate-then-rank** for infeasible strategies (from the V2.3 session): comparison columns are inflated by phantom funding with no feasibility marker, and `keepBestOfCandidates` ranks purely on objective cost.
+- The 2.3 worktree `.worktrees/2.3-tax-funding-mode` still exists with its gitignored SDD ledger and review diffs; branch `2.3/tax-funding-mode` is merged and could be cleaned up if the ledger is not wanted.
