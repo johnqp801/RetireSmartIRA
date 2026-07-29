@@ -4,6 +4,27 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+
+## 2026-07-28 — Pub 915 Social Security bug fixed NOW, not deferred to a future release
+
+**Decision (John, explicit):** a shipped calculation error in `TaxCalculationEngine.calculateTaxableSocialSecurity` gets fixed immediately, not scheduled into a later cycle.
+
+**The error:** the 50%-tier branch (`TaxCalculationEngine.swift:834`) returns `min(excessOverFirst, ssIncome * 0.5)`. IRC 86(a)(1) makes taxable SS the lesser of one-half of benefits or **one-half of the excess** over the base amount. The halving on the excess is missing, so taxable SS is overstated by up to 2x for single filers with provisional income $25,000-$34,000 and MFJ $32,000-$44,000. The adjacent 85%-tier branch halves its band correctly, which is what makes the omission unambiguous. `RetireSmartIRATests.swift:205-215` pinned the wrong value, which is why it survived.
+
+**Rationale:** the product's entire positioning is calculation accuracy, the affected band is the mass-market retiree segment, and the fix is one line. Verified that no published article figures are affected (the widow-tax households are in the 85% tier).
+
+**Forced ordering, not optional:** Pub 915 first, then raise the gross-up iteration budget (3 is already insufficient, worst residual $8,344), then the deferred taxable-SS recursion. The Pub 915 bug makes taxable SS discontinuous at the second threshold; folding that into the fixed point produces limit cycles (67 of 28,582 profiles never converge; 0 once corrected).
+
+Full detail, worked examples, rebaseline discipline and the MAGI-invariance trap: `sessions/2026-07-28-v2.3-shipped-plus-pub915-ss-bug.md`.
+
+---
+
+## 2026-07-28 — Two RMD fixes folded into V2.3 rather than shipped separately
+
+**Decision (John):** the RMD chart x-axis fix and the spouse/joint account ownership fix, both sitting unmerged on `root-workspace`, ride with V2.3. Cherry-picked onto `2.3/tax-funding-mode`; first combined test run green (1,522 + XCTest). Verified `main` carries only docs commits since the v2.1.2-build62 ship point, so V2.3's code contents are exactly that branch.
+
+---
+
 ## 2026-07-22: What actually drives App Store downloads (attribution finding)
 
 **Finding (John's own source attribution in App Store Connect):** the two clear first-time-download spikes on the Jan–Jul 2026 chart line up with specific channels. **Apr 21 spike = the LinkedIn "I recently formed Alamo Ventures Group" post**, which used an actual APP SCREENSHOT and got 91 reactions / 18 comments. **Jul 4 spike = a HumbleDollar article/placement** (earned media). The austere present-value two-bar CONCEPT graphic post (7 reactions / 1 comment) produced no comparable spike.
@@ -44,6 +65,7 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 **Rationale:** Alan's items were verified-real gaps he reported and never got a reply; B4/A4 fix a correctness/credibility bug in the artifact Fred reviews; all four fit a coherent "accuracy + user-requested refinements" release without the v2.2-sized decumulation workflow. **Explicitly deferred to v2.2:** Fred's full recommend/commit/explain + withdrawal-ordering vision, and per-year INCOME overrides + Scenarios↔Multi-Year integration. Release verified live in the demo profile 2026-07-17 (moderate conversion ladder, clean frontier, coherent charts) before this scope was set.
 
+---
 ## 2026-07-11: Phase 2c UI decisions — no "Recommended" label; selected approach is the active plan
 
 **Context:** Brainstormed the Phase 2c (SwiftUI) design for the conversion-approach UI. Decisions locked with the user via the visual companion + terminal.
