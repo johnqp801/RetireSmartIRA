@@ -1,6 +1,6 @@
 # 2026-07-28 (session 2) — Pub 915, gross-up convergence, SS recursion, cash-flow funding, IRMAA MAGI, TAXSIM band
 
-**All four fixes are DONE and MERGED TO `main`.** V2.3 was merged first, then the three ordered engine fixes, then the cash-flow/copy fix.
+**All six fixes are DONE and MERGED TO `main`.** V2.3 was merged first, then the three ordered engine fixes, then the cash-flow/copy fix, then the IRMAA-vs-ACA MAGI split and the TAXSIM 50%-band oracle coverage.
 
 ---
 
@@ -9,7 +9,7 @@
 **All SIX fixes are MERGED TO `main` @ `2d89141`.** Branch and worktree deleted (fast-forward merge, nothing lost).
 
 - **`main` @ `2d89141`**, now **39 commits ahead of `origin/main`, unpushed.**
-- Merge order: V2.3 merged first (`7fedf7f`), then the four engine/UX fixes on top:
+- Merge order: V2.3 merged first (`7fedf7f`), then the six engine/UX fixes on top:
   - `1f006a0` Pub 915 50% tier
   - `6247f01` gross-up fixed-point convergence (Aitken)
   - `59f8f04` Social Security recursion through the gross-up
