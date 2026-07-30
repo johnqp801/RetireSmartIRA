@@ -4,6 +4,19 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-07-29 — Two pending fixes ride the NEXT release, contents still to be decided
+
+**Decision (John):** `fix/numeric-caret-at-end` and `fix/year1-override-wipe` are not shipped as a 2.3.1 on their own. They go into the next release once its scope is decided.
+
+**Both are QUEUED, not parked.** They were surfaced by a worktree cleanup pass, not by anyone remembering them, which is exactly how they missed 2.3.0: both sat unmerged AND unpushed on this laptop for 10 days. They are now pushed to origin so they cannot be lost again, and they are listed in `roadmap/current.md` under the next-release queue.
+
+- `df39ae2` **fix/numeric-caret-at-end** — caret lands at position 0 in trailing-aligned pre-filled numeric fields, so the first keystroke inserts in FRONT of the existing value. Typing `8` into a field showing `3` silently commits `0.83` (83%) as a state tax rate, with no validation. The 2026-07-19 entry above committed to shipping this "in the next release" and Alan agreed to that plan; 2.3.0 then shipped without it.
+- `3e85410` **fix/year1-override-wipe** — entering a Roth conversion on Scenarios then opening Multi-Year silently zeroed it, and the zero was persisted, so it survived relaunch.
+
+**Verified 2026-07-29 against post-2.3.0 `main`:** both cherry-pick with ZERO conflicts despite 64 commits of drift; full suite green (1,570 Swift Testing in 265 suites + 503 XCTest, TAXSIM 26/26); the Year-1 fix's own 5 tests pass; iOS BUILD SUCCEEDED. So no rework is needed when the next release is cut — two cherry-picks, bump to build 64, submit.
+
+---
+
 ## 2026-07-29 — V2.3.0 build 63 SHIPPED: both platforms approved and live
 
 **Fact:** submitted 2026-07-28, iOS and macOS both approved 2026-07-29 and live in their stores. Tagged `v2.3.0-build63` at the bump commit `31b0896`.

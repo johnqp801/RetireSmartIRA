@@ -4,6 +4,27 @@
 
 ---
 
+## QUEUED for the NEXT release (scope not yet decided)
+
+**Two verified fixes are waiting. Do not cut a release without checking this list.**
+They missed 2.3.0 because they sat unmerged AND unpushed for 10 days and nobody remembered
+them; a worktree cleanup found them, not a person. Both are now on origin.
+
+| Branch | Commit | What it fixes |
+|---|---|---|
+| `fix/numeric-caret-at-end` | `df39ae2` | Caret starts at position 0 in trailing-aligned pre-filled numeric fields, so the first keystroke inserts in FRONT. Typing `8` into a field showing `3` silently commits **0.83 (83%)** as a state tax rate. No validation. Promised to Alan 2026-07-19. |
+| `fix/year1-override-wipe` | `3e85410` | Entering a Roth conversion on Scenarios then opening Multi-Year **silently zeroed it and persisted the zero**, surviving relaunch. |
+
+**Both verified against post-2.3.0 `main` on 2026-07-29:** cherry-pick with ZERO conflicts (64 commits of
+drift), full suite green (1,570 + 503, TAXSIM 26/26), the Year-1 fix's 5 tests pass, iOS builds. When the
+next release is cut: two cherry-picks, `CURRENT_PROJECT_VERSION` 63 -> 64, submit. No rework needed.
+
+Other candidates for that release, from the 2.3.0 work: annotate-then-rank for infeasible strategies;
+`acaPremiumImpactFinal` on a post-gross-up basis; per-year income entry (promised to Alan); Fred's
+Scenarios-withdrawal integration; TAXSIM fixtures beyond the 50% band.
+
+---
+
 ## LIVE: V2.3.0 (build 63 — both iOS and macOS approved & live, 2026-07-29)
 
 Submitted 2026-07-28, both platforms approved 2026-07-29. Tagged `v2.3.0-build63` (bump commit `31b0896`). Shipped as **2.3.0, not 2.2.0** — 2.2 was the display-audit harness and never shipped publicly.
