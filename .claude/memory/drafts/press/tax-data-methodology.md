@@ -294,8 +294,9 @@ methodology above is durable; the inventory below is versioned.
 | Carried forward from prior verified release; no published TY 2026 change identified | 12 | Existing model remained directionally current; no rate-structure change observed in primary sources |
 | **Total jurisdictions modeled** | **51** | |
 
-After this verification pass, no known errors in supported state rate
-structures exist within scope (Single, MFJ, retirement-planning use).
+After this verification pass, we are not aware of any materially wrong state
+rate structure within the app's supported filing-status scope (Single, MFJ) and
+retirement-planning use.
 
 ### In-app disclosure source references (as of v1.8.5)
 

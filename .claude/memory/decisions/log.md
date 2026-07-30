@@ -87,6 +87,11 @@ Full detail, worked examples, rebaseline discipline and the MAGI-invariance trap
 **Rationale:** Alan's items were verified-real gaps he reported and never got a reply; B4/A4 fix a correctness/credibility bug in the artifact Fred reviews; all four fit a coherent "accuracy + user-requested refinements" release without the v2.2-sized decumulation workflow. **Explicitly deferred to v2.2:** Fred's full recommend/commit/explain + withdrawal-ordering vision, and per-year INCOME overrides + Scenarios↔Multi-Year integration. Release verified live in the demo profile 2026-07-17 (moderate conversion ladder, clean frontier, coherent charts) before this scope was set.
 
 ---
+## 2026-07-13: Track 2 optimizer — fix A5 now, defer A1 to its own cycle
+Decision (John): v2.1.1 Track 2 ships the **A5 fix** (greedy "Minimize lifetime tax" doesn't minimize its own objective; deterministic fill/limit heuristics beat it by up to $442k). Fix = keep-best-of-candidates: recommendedTaxMin evaluates the greedy path AND deterministic candidate ladders, returns the lowest-objective one, so "Minimize" is never dominated. **A1** (the objective over-converts / optimizes PV-tax not after-tax-wealth) is DEFERRED to its own future cycle — the principled after-tax-wealth reframe is real research/design, not safe to rush into a live-adjacent build; a quick 24%-cap heuristic would blur "Minimize" into "Fill to 24%". Rationale: A5 is a clean shippable win; A1 done right > fast.
+
+---
+
 ## 2026-07-11: Phase 2c UI decisions — no "Recommended" label; selected approach is the active plan
 
 **Context:** Brainstormed the Phase 2c (SwiftUI) design for the conversion-approach UI. Decisions locked with the user via the visual companion + terminal.
