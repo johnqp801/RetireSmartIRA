@@ -1,6 +1,12 @@
 # NY government-pension exclusion missing (found by Alan Levy, 2026-07-30)
 
-**Status:** confirmed engine gap, awaiting Alan's confirmation of his pension type. Reply sent 2026-07-30.
+**Status: CONFIRMED 2026-07-31.** Alan replied: *"I'm getting a NYC employee's pension - only Federal taxable."*
+
+A New York City employee pension is local-government pension income, so it is IT-201 **Line 26** income: fully excluded from NY State tax with no cap, and exempt from NYC tax as well because the city rate runs on the state-taxable base. His description is exactly correct.
+
+He is a live affected user, not a hypothetical. The app is currently capping his exclusion at $20,000 and taxing the remainder at NY State rates plus the 3.88% city rate he entered.
+
+It is the pension itself, not a 457 or 403(b) TDA, so the salary-reduction carve-out below does not apply to him. It still constrains the fix, because other users will have both.
 
 **Severity:** real calculation error for NYS / NYC / federal-civilian retirees. Overstates state AND city tax.
 
