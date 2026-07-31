@@ -68,7 +68,12 @@ struct ConversionTaxFundingArticleScenarioTests {
     /// while still catching a real regression, which moves these by hundreds.
     private let tolerance = 10.0
 
-    // MARK: - Persona
+    // MARK: - Persona: "Dianne"
+    //
+    // The article names her. She is an illustrative composite, not a client and
+    // not derived from any real person's data. Keep the name here in sync with
+    // the article: a reader who checks the published persona against this file
+    // should find the same household.
     //
     // SINGLE FILER, AGE 66. Past 59.5 (so no early-distribution penalty muddies
     // the comparison), before RMDs begin, and already on Medicare.
