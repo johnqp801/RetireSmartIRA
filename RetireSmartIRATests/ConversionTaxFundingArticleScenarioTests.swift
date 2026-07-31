@@ -137,6 +137,62 @@ struct ConversionTaxFundingArticleScenarioTests {
         #expect(abs(outside.endOfYearBalances.roth - funded.endOfYearBalances.roth) < 0.01)
     }
 
+    /// The article deliberately walks the headline ratio back: $1.47 is not
+    /// "47 cents burned", because the conversion is taxable however you pay for
+    /// it. Only the part ABOVE the tax you would have paid from cash is a real
+    /// incremental cost. Published as $25,111, "about 17 percent of the
+    /// conversion rather than 47".
+    ///
+    /// Measured as net wealth, not as tax, so it is not the same as the
+    /// $26,846 tax delta. The $1,735 difference is the self-caused IRMAA that
+    /// is not billed until 2028; see `irmaaIsNotFundedByTheGrossUp`.
+    @Test("The incremental cost of self-funding is $25,111, not the full gross-up")
+    func incrementalCostIsSmallerThanTheHeadlineRatio() {
+        let outside = run(state: "CA", conversion: 150_000, mode: .paidFromOutsideMoney)
+        let funded = run(state: "CA", conversion: 150_000, mode: .fundedFromAccounts)
+
+        // Paying from cash: accounts are whole, but cash left the household.
+        let outsideNetWealth = outside.endOfYearBalances.traditional
+            + outside.endOfYearBalances.roth
+            - outside.taxBreakdown.total
+        // Self-funding: nothing left from outside, so the accounts carry it all.
+        let fundedNetWealth = funded.endOfYearBalances.traditional
+            + funded.endOfYearBalances.roth
+
+        let incremental = outsideNetWealth - fundedNetWealth
+        #expect(abs(incremental - 25_111.23) < tolerance, "published: $25,111")
+
+        // Equivalent statement the article makes in prose: of the $69,751
+        // withdrawn, $44,639 is tax owed either way and the rest is the extra.
+        #expect(abs((funded.taxFundingWithdrawal - outside.taxBreakdown.total) - 25_111.23) < tolerance)
+
+        // "about 17 percent of the conversion rather than 47"
+        #expect(abs(incremental / 150_000 - 0.1674) < 0.002)
+
+        // And it is genuinely SMALLER than the tax delta, which is the point of
+        // the section. If this ever inverts, the article's framing is wrong.
+        let taxDelta = funded.taxBreakdown.total - outside.taxBreakdown.total
+        #expect(incremental < taxDelta)
+    }
+
+    /// The withholding section claims withholding is "a different trade, not a
+    /// cheaper one": its lower total tax comes from converting LESS, not from
+    /// costing less per dollar converted.
+    @Test("Withholding's lower total tax is a smaller conversion, not a discount")
+    func withholdingIsASmallerConversionNotADiscount() {
+        let withheld = run(state: "CA", conversion: 150_000, mode: .withheldFromConversion)
+        let funded = run(state: "CA", conversion: 150_000, mode: .fundedFromAccounts)
+
+        #expect(abs(withheld.taxBreakdown.total - 51_979.66) < tolerance, "published: $51,980")
+        #expect(abs(funded.taxBreakdown.total - 71_485.79) < tolerance, "published: $71,486")
+        #expect(withheld.taxBreakdown.total < funded.taxBreakdown.total,
+                "withholding really does show a lower total, which is why the section exists")
+
+        // The reason: less reaches the Roth. $114,000 against $150,000.
+        #expect(abs(withheld.endOfYearBalances.roth - 114_000) < tolerance, "published: $114,000")
+        #expect(abs(funded.endOfYearBalances.roth - 150_000) < tolerance)
+    }
+
     /// The state-tax comparison table: $1.30 in Florida against $1.47 in California.
     @Test("FL vs CA at $150k: the gap is state tax compounding through the gross-up")
     func stateComparisonFigures() {
