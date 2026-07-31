@@ -23,6 +23,25 @@
 //  household's Social Security; that cannot happen again if the composition is
 //  in the file.
 //
+//  WHAT IN THE ARTICLE IS *NOT* ENGINE OUTPUT
+//  ------------------------------------------
+//  Every dollar figure and every ratio in the article comes from this engine
+//  and is pinned below. These claims do NOT, and were written from statute or
+//  editorial judgment. If they are ever challenged, no test defends them:
+//
+//    - "At most 85 percent of a benefit is ever taxable"  -> IRC 86, statutory.
+//    - The entire under-59.5 discussion (10% additional tax, IRC 72(t)). The
+//      persona is 66, so the engine NEVER exercises the penalty path. Nothing
+//      here validates it.
+//    - "IRMAA on 2026 income is billed through 2028 premiums" -> program rule.
+//    - Withholding rates. 24% is what the MODEL elects, not a universal
+//      custodian default; real defaults vary and are often lower. The article
+//      was corrected to say so rather than implying an industry standard.
+//    - The four "what has to be true for self-funding to make sense"
+//      conditions, and all comparisons to the do-nothing alternative (future
+//      RMDs, survivor filing single, the heirs' 10-year deadline). No
+//      projection was run for any of them.
+//
 //  WHAT THE ARTICLE MAY AND MAY NOT CLAIM
 //  --------------------------------------
 //  Verified in code before drafting (2026-07-30):
@@ -249,8 +268,17 @@ struct ConversionTaxFundingArticleScenarioTests {
 
         #expect(abs(outside.taxableSocialSecurity - funded.taxableSocialSecurity) < 0.01,
                 "no feedback once benefits are saturated")
-        // 85% of the $28,000 gross benefit (a $2,500 FRA benefit claimed a year early).
         #expect(abs(funded.taxableSocialSecurity - 23_800) < tolerance)
+
+        // The article states the persona's benefit as "$28,000 a year", which
+        // is not an input: the input is $2,500/mo at FRA, and the engine applies
+        // the early-claim reduction for claiming at 66 against an FRA of 67.
+        // Recover it from the saturated figure, since at the ceiling
+        // taxableSS == 0.85 * gross. Pinned so the published persona
+        // description cannot drift from what the engine actually modeled.
+        let grossBenefit = funded.taxableSocialSecurity / 0.85
+        #expect(abs(grossBenefit - 28_000) < tolerance,
+                "published persona: $28,000 a year of Social Security")
     }
 
     /// Withholding: a 24% default election lands $30,400 in the Roth on a
