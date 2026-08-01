@@ -4,15 +4,24 @@
 **Angle:** challenge a belief, then pay it off with a counterintuitive number. John's stated requirement: the hook must "challenge or cause the reader to want to find out how it impacts them."
 **Links to:** https://www.retiresmartira.com/articles/widow-tax-by-the-numbers-2026
 
-## Visual: the arch chart
+## Visual: the arch chart, VERTICAL (use this one)
 
-`retiresmartira-website/public/articles/widow-tax-arch-chart.png`
+`2026-07-31-widow-tax-arch-vertical.png` in this folder, source `...-vertical.html` beside it.
+1080x1350, LinkedIn 4:5 portrait, rendered with `chrome --headless=new --screenshot --window-size=1080,1350`.
 
-Titled "The rate rises every time. The dollars form an arch." Three bars: +$1,850 at $90,000, +$8,470 at $180,000, and −$1,780 at $360,000, with a dashed arch overlay and the effective-rate change under each household.
+Same content as the article's `widow-tax-arch-chart.png`, laid out taller, with the app icon + wordmark and an honest provenance line: "Figures from the RetireSmartIRA projection engine using 2026 federal parameters. Illustrative households. Not personal financial advice."
 
-**Deliberate departure from the usual rule.** [[download-driver-attribution]] says product-forward posts with a real app screenshot drive installs. This post trades that for authority and article traffic, because a screenshot cannot show that the curve inverts and the chart can. Know which trade is being made.
+**A second, more designed infographic was made and rejected.** Keep the reasons, because the same generator will produce the same faults again:
+- **"(50% Increase)" was wrong.** 9.5% to 15.2% is a 60% increase, or 5.7 points. A false number in bold on a branded asset, for a brand whose whole claim is verified arithmetic.
+- **"Volunteer-validated data projections"** described something that never happened. The real provenance is stronger: engine output pinned by a regression test.
+- **Decorative mini bar charts** that corresponded to no data anywhere.
+- **Children in the $90,000 household icon**, when every profile is a retired couple on Social Security and Medicare.
+- **"ANNUAL PENALTY (Massive Increase!)" and a title reading "THE WIDOW'S TAX PENALTY"** argued against the article's own thesis, which is that the widow tax is smaller and narrower than the marketing claims. Its own bottom panel then said "THE SURPRISING DISCOUNT," so it fought itself.
+- **It lost the arch**, which is the single visual idea nobody else has and the thing the post's copy refers to.
 
-**Post it as a NATIVE IMAGE with the link in the body text.** If posted as a link, LinkedIn renders the article's OG card, not this chart, and the OG card does not carry the hook.
+**Deliberate departure from the usual rule.** [[download-driver-attribution]] says product-forward posts with a real app screenshot drive installs. This post trades that for authority and article traffic, because a screenshot cannot show that the curve inverts and the chart can.
+
+**Post it as a NATIVE IMAGE with the link in the body text.** A link post renders the article's OG card, not this chart, and the OG card does not carry the hook.
 
 ## FINAL text (John's, 2026-07-31)
 
