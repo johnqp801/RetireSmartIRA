@@ -14,27 +14,31 @@ Titled "The rate rises every time. The dollars form an arch." Three bars: +$1,85
 
 **Post it as a NATIVE IMAGE with the link in the body text.** If posted as a link, LinkedIn renders the article's OG card, not this chart, and the OG card does not carry the hook.
 
-## Draft text
+## FINAL text (John's, 2026-07-31)
 
-You've heard the widow tax gets worse the more you have. I ran the numbers on three incomes. At the highest one, it isn't a tax at all. It's a discount.
+You've heard the widow tax gets worse the more you have. I ran the numbers on three incomes through RetireSmartIRA. At the highest one, it isn't a tax at all. It's a discount.
 
-Three retired couples, run through RetireSmartIRA, looking at what actually changes for the survivor. Same event, three completely different answers.
+The chart is the finding. Two things about it surprised me.
 
-At $90,000, the survivor's yearly bill rises about $1,850. No Medicare surcharge at all. The damage comes from the Social Security torpedo, and it lands on the thinnest cushion of the three.
+The effective rate rises in all three households. Every one. It's only the dollars that arch, which means the rate everyone quotes tells you almost nothing about whether a survivor is actually okay.
 
-At $180,000, the survivor absorbs about $8,470 of added tax and Medicare surcharge. That is the difference between clearing a reduced budget and falling short.
+And the household that gets hurt worst is not the one this usually gets sold to.
 
-At $360,000, the combined tax and Medicare bill falls about $1,780. The couple had two people paying IRMAA. The survivor is one person, one tier higher, and one is cheaper than two.
+What the chart can't show is which of the three you're in, or whether anything you'd do about it would help. Only one of these bands is a place where planning changes the outcome, and it isn't the one you'd guess.
 
-Plot all three and you get an arch. It rises, peaks in the middle, and flips to a discount at the top.
+Three households worked all the way through, with the tables: https://www.retiresmartira.com/articles/widow-tax-by-the-numbers-2026
 
-The part that surprised me most: the effective rate rises in all three households. Every one. It is only the dollars that arch.
+If you've run this for your own situation, what surprised you?
 
-The tax was never the right thing to measure on its own. What decides whether a survivor is secure is whether the reduced income covers the reduced expenses, and expenses fall faster than the income headline suggests.
+**Optional closer swap, offered and undecided:** "Which of the three is closest to your household?" Anyone can answer that without owning the app, and answering it makes the reader locate themselves on the chart, which is the same step that produces a click.
 
-Full analysis with the household tables: https://www.retiresmartira.com/articles/widow-tax-by-the-numbers-2026
+## Why it got SHORTER, which was the whole point
 
-If you have run this for your own situation, what surprised you?
+The first draft explained all three households in full. Combined with a chart that already prints all three numbers, that gave away the entire finding twice and left no reason to click. John caught it: "did we answer enough of their curiosity that they think I just learned a little something and move on."
+
+The fix was to move the giveaway from *the numbers* to *one insight*. The rate-versus-dollars observation is generous enough to earn trust; the withheld part is which band is worth planning around, which is real rather than manufactured and which no chart can carry.
+
+Product name moved into the hook because shortening the body removed the only other mention.
 
 ## Notes
 
