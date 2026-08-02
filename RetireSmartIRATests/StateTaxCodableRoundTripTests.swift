@@ -47,6 +47,36 @@ struct StateTaxCodableRoundTripTests {
             #expect(decoded.matchesShape(of: original), "round trip lost \(original)")
         }
     }
+
+    @Test("StateDeduction round-trips every case")
+    func stateDeductionRoundTrips() throws {
+        let cases: [StateDeduction] = [
+            .none,
+            .conformsToFederal,
+            .fixed(single: 3_360, married: 3_360),
+            .fixed(single: 8_000, married: 16_000)
+        ]
+        for original in cases {
+            let data = try JSONEncoder().encode(original)
+            let decoded = try JSONDecoder().decode(StateDeduction.self, from: data)
+            switch (decoded, original) {
+            case (.none, .none), (.conformsToFederal, .conformsToFederal):
+                break
+            case let (.fixed(s1, m1), .fixed(s2, m2)):
+                #expect(s1 == s2 && m1 == m2)
+            default:
+                Issue.record("round trip lost \(original)")
+            }
+        }
+    }
+
+    @Test("EstimatedPaymentSchedule round-trips")
+    func estimatedScheduleRoundTrips() throws {
+        let original = EstimatedPaymentSchedule.california
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(EstimatedPaymentSchedule.self, from: data)
+        #expect(decoded == original)
+    }
 }
 
 extension StateTaxSystem {

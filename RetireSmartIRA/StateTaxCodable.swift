@@ -47,3 +47,35 @@ extension StateTaxSystem: Codable {
         }
     }
 }
+
+extension StateDeduction: Codable {
+    private enum CodingKeys: String, CodingKey { case kind, single, married }
+    private enum Kind: String, Codable { case none, conformsToFederal, fixed }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .none:
+            try c.encode(Kind.none, forKey: .kind)
+        case .conformsToFederal:
+            try c.encode(Kind.conformsToFederal, forKey: .kind)
+        case .fixed(let single, let married):
+            try c.encode(Kind.fixed, forKey: .kind)
+            try c.encode(single, forKey: .single)
+            try c.encode(married, forKey: .married)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        switch try c.decode(Kind.self, forKey: .kind) {
+        case .none: self = .none
+        case .conformsToFederal: self = .conformsToFederal
+        case .fixed:
+            self = .fixed(
+                single: try c.decode(Double.self, forKey: .single),
+                married: try c.decode(Double.self, forKey: .married)
+            )
+        }
+    }
+}

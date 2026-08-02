@@ -97,7 +97,7 @@ struct QuarterlyPayment: Identifiable, Codable {
 /// State-specific quarterly estimated tax payment percentages.
 /// Federal always uses equal quarters (25/25/25/25).
 /// California requires 30/40/0/30 (no September payment).
-struct EstimatedPaymentSchedule: Equatable, Sendable {
+struct EstimatedPaymentSchedule: Codable, Equatable, Sendable {
     let q1Pct: Double
     let q2Pct: Double
     let q3Pct: Double
