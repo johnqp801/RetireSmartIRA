@@ -418,13 +418,23 @@ struct StateTaxCodableRoundTripTests {
                 == original.pretax401kContributionsTaxableForState)
     }
 
-    @Test("Encoded JSON carries state as an abbreviation string, currentYearSafeHarborRate, and a nested verification object")
+    @Test("Encoded JSON carries state as an abbreviation string, currentYearSafeHarborRate, estimatedPaymentSchedule, safeHarborRule, and a nested verification object")
     func stateTaxConfigEncodesExpectedJSONShape() throws {
         // Every value here is deliberately NOT the declared default (state has
         // no default; 0.95 != the 0.90 default; verification is not
         // .unverified), because a field left at its default cannot be proven
         // to have survived encode/decode -- a dropped key decodes right back
         // to that same default and the assertion would pass either way.
+        //
+        // estimatedPaymentSchedule and safeHarborRule are included here for
+        // the same reason and are the highest-blast-radius fields in the
+        // whole config: 24 of 51 states set an explicit safeHarborRule (20
+        // .flatRate, plus KY .agiThreshold, CA .mirrorsFederalWithDisqualification,
+        // ID .noPenalty, one explicit .mirrorsFederal), and California alone
+        // sets a non-federal estimatedPaymentSchedule. A dropped encode line
+        // for either field falls back silently to .mirrorsFederal / .federal
+        // on decode -- exactly the default most states never override, so a
+        // fixture that left them at their defaults could not have caught it.
         let original = StateTaxConfig(
             state: .pennsylvania,
             taxSystem: .flat(rate: 0.0307),
@@ -435,6 +445,8 @@ struct StateTaxCodableRoundTripTests {
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none,
+            estimatedPaymentSchedule: .california,
+            safeHarborRule: .flatRate(1.10),
             currentYearSafeHarborRate: 0.95,
             verification: StateVerification(
                 lastVerified: "2026-08-02",
@@ -451,6 +463,16 @@ struct StateTaxCodableRoundTripTests {
         #expect(json["currentYearSafeHarborRate"] as? Double == 0.95)
         let verification = try #require(json["verification"] as? [String: Any])
         #expect(verification["lastVerified"] as? String == "2026-08-02")
+
+        let schedule = try #require(json["estimatedPaymentSchedule"] as? [String: Any])
+        #expect(schedule["q1Pct"] as? Double == 0.30)
+        #expect(schedule["q2Pct"] as? Double == 0.40)
+        #expect(schedule["q3Pct"] as? Double == 0.0)
+        #expect(schedule["q4Pct"] as? Double == 0.30)
+
+        let safeHarbor = try #require(json["safeHarborRule"] as? [String: Any])
+        #expect(safeHarbor["kind"] as? String == "flatRate")
+        #expect(safeHarbor["rate"] as? Double == 1.10)
     }
 
     @Test("Three fixtures make every pair of StateTaxConfig's five Bool fields mutually distinguishable")
