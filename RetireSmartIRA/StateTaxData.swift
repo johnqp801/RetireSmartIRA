@@ -421,6 +421,10 @@ struct StateTaxConfig {
     /// Defaults to false (federal-style: capital losses can offset other income
     /// up to $3K/year via the federal computation that flows in here).
     let capitalLossesClassIsolated: Bool
+    /// Provenance for this jurisdiction. Required by the JSON schema; defaults
+    /// to `.unverified` so existing Swift call sites compile unchanged during
+    /// the Phase 1 migration.
+    let verification: StateVerification
 
     init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
          stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
@@ -430,7 +434,8 @@ struct StateTaxConfig {
          traditionalIRAContributionsTaxableForState: Bool = false,
          otherPreTaxDeductionsTaxableForState: Bool = false,
          pretax401kContributionsTaxableForState: Bool = false,
-         capitalLossesClassIsolated: Bool = false) {
+         capitalLossesClassIsolated: Bool = false,
+         verification: StateVerification = .unverified) {
         self.state = state
         self.taxSystem = taxSystem
         self.retirementExemptions = retirementExemptions
@@ -443,6 +448,7 @@ struct StateTaxConfig {
         self.otherPreTaxDeductionsTaxableForState = otherPreTaxDeductionsTaxableForState
         self.pretax401kContributionsTaxableForState = pretax401kContributionsTaxableForState
         self.capitalLossesClassIsolated = capitalLossesClassIsolated
+        self.verification = verification
     }
 }
 

@@ -386,6 +386,168 @@ struct StateTaxCodableRoundTripTests {
             _ = try JSONDecoder().decode(RetirementIncomeExemptions.AgeTier.self, from: malformed)
         }
     }
+
+    @Test("StateTaxConfig round-trips with verification metadata")
+    func stateTaxConfigRoundTrips() throws {
+        let original = StateTaxConfig(
+            state: .iowa,
+            taxSystem: .flat(rate: 0.038),
+            retirementExemptions: RetirementIncomeExemptions(
+                socialSecurityExempt: true,
+                pensionExemption: .none,
+                iraWithdrawalExemption: .none,
+                capitalGainsTreatment: .followsFederal
+            ),
+            stateDeduction: .conformsToFederal,
+            verification: StateVerification(
+                lastVerified: "2026-08-02",
+                primarySources: ["https://revenue.iowa.gov/"],
+                billReferences: ["HF 2317 (signed 2022-03-01)"],
+                knownLimitations: ["Roth conversion income is not yet exempted."]
+            )
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(StateTaxConfig.self, from: data)
+
+        #expect(decoded.state == .iowa)
+        #expect(decoded.verification.lastVerified == "2026-08-02")
+        #expect(decoded.verification.knownLimitations.count == 1)
+        #expect(decoded.taxSystem.matchesShape(of: original.taxSystem))
+        #expect(decoded.currentYearSafeHarborRate == original.currentYearSafeHarborRate)
+        #expect(decoded.pretax401kContributionsTaxableForState
+                == original.pretax401kContributionsTaxableForState)
+    }
+
+    @Test("Encoded JSON carries state as an abbreviation string, currentYearSafeHarborRate, and a nested verification object")
+    func stateTaxConfigEncodesExpectedJSONShape() throws {
+        // Every value here is deliberately NOT the declared default (state has
+        // no default; 0.95 != the 0.90 default; verification is not
+        // .unverified), because a field left at its default cannot be proven
+        // to have survived encode/decode -- a dropped key decodes right back
+        // to that same default and the assertion would pass either way.
+        let original = StateTaxConfig(
+            state: .pennsylvania,
+            taxSystem: .flat(rate: 0.0307),
+            retirementExemptions: RetirementIncomeExemptions(
+                socialSecurityExempt: true,
+                pensionExemption: .full,
+                iraWithdrawalExemption: .full,
+                capitalGainsTreatment: .followsFederal
+            ),
+            stateDeduction: .none,
+            currentYearSafeHarborRate: 0.95,
+            verification: StateVerification(
+                lastVerified: "2026-08-02",
+                primarySources: ["https://www.revenue.pa.gov/"],
+                billReferences: [],
+                knownLimitations: []
+            )
+        )
+        let data = try JSONEncoder().encode(original)
+        let raw = try JSONSerialization.jsonObject(with: data)
+        let json = try #require(raw as? [String: Any])
+
+        #expect(json["state"] as? String == "PA")
+        #expect(json["currentYearSafeHarborRate"] as? Double == 0.95)
+        let verification = try #require(json["verification"] as? [String: Any])
+        #expect(verification["lastVerified"] as? String == "2026-08-02")
+    }
+
+    @Test("Three fixtures make every pair of StateTaxConfig's five Bool fields mutually distinguishable")
+    func stateTaxConfigBooleanKeysAreMutuallyDistinguishable() throws {
+        // StateTaxConfig has FIVE Bool fields. Two fixtures give each field
+        // only a 2-bit signature (2^2 = 4 < 5), so pigeonhole guarantees at
+        // least one pair of fields shares a value in every 2-fixture scheme --
+        // a CodingKeys label swap between that pair produces byte-identical
+        // JSON, undetectable no matter how the output is inspected (this is
+        // the same failure mode retirementExemptionsBooleanKeysAreMutuallyDistinguishable
+        // above documents for four Bools with two fixtures).
+        //
+        // Three fixtures (2^3 = 8 >= 5) give every field a unique 3-bit
+        // signature:
+        //   field                                          A      B      C
+        //   hsaContributionsTaxableForState                true   false  false
+        //   traditionalIRAContributionsTaxableForState      false  true   false
+        //   otherPreTaxDeductionsTaxableForState             false  false  true
+        //   pretax401kContributionsTaxableForState           true   true   false
+        //   capitalLossesClassIsolated                       true   false  true
+        // Every pair of fields differs in at least one fixture, so a swap
+        // between any two Bool CodingKeys changes at least one fixture's
+        // encoded output.
+        func config(hsa: Bool, ira: Bool, other: Bool, k401: Bool, capLoss: Bool) -> StateTaxConfig {
+            StateTaxConfig(
+                state: .iowa,
+                taxSystem: .flat(rate: 0.038),
+                retirementExemptions: RetirementIncomeExemptions(
+                    socialSecurityExempt: true,
+                    pensionExemption: .none,
+                    iraWithdrawalExemption: .none,
+                    capitalGainsTreatment: .followsFederal
+                ),
+                stateDeduction: .conformsToFederal,
+                hsaContributionsTaxableForState: hsa,
+                traditionalIRAContributionsTaxableForState: ira,
+                otherPreTaxDeductionsTaxableForState: other,
+                pretax401kContributionsTaxableForState: k401,
+                capitalLossesClassIsolated: capLoss
+            )
+        }
+
+        func boolsInEncodedJSON(_ config: StateTaxConfig) throws -> [String: Bool] {
+            let data = try JSONEncoder().encode(config)
+            let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+            return [
+                "hsaContributionsTaxableForState":
+                    try #require(json["hsaContributionsTaxableForState"] as? Bool),
+                "traditionalIRAContributionsTaxableForState":
+                    try #require(json["traditionalIRAContributionsTaxableForState"] as? Bool),
+                "otherPreTaxDeductionsTaxableForState":
+                    try #require(json["otherPreTaxDeductionsTaxableForState"] as? Bool),
+                "pretax401kContributionsTaxableForState":
+                    try #require(json["pretax401kContributionsTaxableForState"] as? Bool),
+                "capitalLossesClassIsolated":
+                    try #require(json["capitalLossesClassIsolated"] as? Bool)
+            ]
+        }
+
+        let a = try boolsInEncodedJSON(config(hsa: true, ira: false, other: false, k401: true, capLoss: true))
+        #expect(a["hsaContributionsTaxableForState"] == true)
+        #expect(a["traditionalIRAContributionsTaxableForState"] == false)
+        #expect(a["otherPreTaxDeductionsTaxableForState"] == false)
+        #expect(a["pretax401kContributionsTaxableForState"] == true)
+        #expect(a["capitalLossesClassIsolated"] == true)
+
+        let b = try boolsInEncodedJSON(config(hsa: false, ira: true, other: false, k401: true, capLoss: false))
+        #expect(b["hsaContributionsTaxableForState"] == false)
+        #expect(b["traditionalIRAContributionsTaxableForState"] == true)
+        #expect(b["otherPreTaxDeductionsTaxableForState"] == false)
+        #expect(b["pretax401kContributionsTaxableForState"] == true)
+        #expect(b["capitalLossesClassIsolated"] == false)
+
+        let c = try boolsInEncodedJSON(config(hsa: false, ira: false, other: true, k401: false, capLoss: true))
+        #expect(c["hsaContributionsTaxableForState"] == false)
+        #expect(c["traditionalIRAContributionsTaxableForState"] == false)
+        #expect(c["otherPreTaxDeductionsTaxableForState"] == true)
+        #expect(c["pretax401kContributionsTaxableForState"] == false)
+        #expect(c["capitalLossesClassIsolated"] == true)
+    }
+
+    @Test("Decoding an unknown state abbreviation throws a DecodingError instead of silently defaulting")
+    func stateTaxConfigDecodeThrowsOnUnknownAbbreviation() throws {
+        // Task 9's loader reads 51 real files; a typo'd abbreviation must be
+        // reportable, not silently coerced to some default state.
+        let malformed = Data("""
+        {"state": "ZZ",
+         "taxSystem": {"kind": "flat", "rate": 0.05},
+         "retirementExemptions": {"socialSecurityExempt": true,
+                                  "pensionExemption": {"kind": "none"},
+                                  "iraWithdrawalExemption": {"kind": "none"}},
+         "stateDeduction": {"kind": "none"}}
+        """.utf8)
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(StateTaxConfig.self, from: malformed)
+        }
+    }
 }
 
 extension RetirementIncomeExemptions.ExemptionLevel {

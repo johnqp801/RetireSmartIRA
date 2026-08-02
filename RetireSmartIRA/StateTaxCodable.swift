@@ -303,3 +303,71 @@ extension RetirementIncomeExemptions: Codable {
         )
     }
 }
+
+extension StateTaxConfig: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case state, taxSystem, retirementExemptions, stateDeduction
+        case estimatedPaymentSchedule, safeHarborRule, currentYearSafeHarborRate
+        case hsaContributionsTaxableForState
+        case traditionalIRAContributionsTaxableForState
+        case otherPreTaxDeductionsTaxableForState
+        case pretax401kContributionsTaxableForState
+        case capitalLossesClassIsolated
+        case verification
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(state.abbreviation, forKey: .state)
+        try c.encode(taxSystem, forKey: .taxSystem)
+        try c.encode(retirementExemptions, forKey: .retirementExemptions)
+        try c.encode(stateDeduction, forKey: .stateDeduction)
+        try c.encode(estimatedPaymentSchedule, forKey: .estimatedPaymentSchedule)
+        try c.encode(safeHarborRule, forKey: .safeHarborRule)
+        try c.encode(currentYearSafeHarborRate, forKey: .currentYearSafeHarborRate)
+        try c.encode(hsaContributionsTaxableForState, forKey: .hsaContributionsTaxableForState)
+        try c.encode(traditionalIRAContributionsTaxableForState,
+                     forKey: .traditionalIRAContributionsTaxableForState)
+        try c.encode(otherPreTaxDeductionsTaxableForState,
+                     forKey: .otherPreTaxDeductionsTaxableForState)
+        try c.encode(pretax401kContributionsTaxableForState,
+                     forKey: .pretax401kContributionsTaxableForState)
+        try c.encode(capitalLossesClassIsolated, forKey: .capitalLossesClassIsolated)
+        try c.encode(verification, forKey: .verification)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let abbreviation = try c.decode(String.self, forKey: .state)
+        guard let state = USState.allCases.first(where: { $0.abbreviation == abbreviation }) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .state, in: c,
+                debugDescription: "Unknown state abbreviation '\(abbreviation)'")
+        }
+        self.init(
+            state: state,
+            taxSystem: try c.decode(StateTaxSystem.self, forKey: .taxSystem),
+            retirementExemptions: try c.decode(RetirementIncomeExemptions.self,
+                                               forKey: .retirementExemptions),
+            stateDeduction: try c.decode(StateDeduction.self, forKey: .stateDeduction),
+            estimatedPaymentSchedule: try c.decodeIfPresent(
+                EstimatedPaymentSchedule.self, forKey: .estimatedPaymentSchedule) ?? .federal,
+            safeHarborRule: try c.decodeIfPresent(
+                StateSafeHarborRule.self, forKey: .safeHarborRule) ?? .mirrorsFederal,
+            currentYearSafeHarborRate: try c.decodeIfPresent(
+                Double.self, forKey: .currentYearSafeHarborRate) ?? 0.90,
+            hsaContributionsTaxableForState: try c.decodeIfPresent(
+                Bool.self, forKey: .hsaContributionsTaxableForState) ?? false,
+            traditionalIRAContributionsTaxableForState: try c.decodeIfPresent(
+                Bool.self, forKey: .traditionalIRAContributionsTaxableForState) ?? false,
+            otherPreTaxDeductionsTaxableForState: try c.decodeIfPresent(
+                Bool.self, forKey: .otherPreTaxDeductionsTaxableForState) ?? false,
+            pretax401kContributionsTaxableForState: try c.decodeIfPresent(
+                Bool.self, forKey: .pretax401kContributionsTaxableForState) ?? false,
+            capitalLossesClassIsolated: try c.decodeIfPresent(
+                Bool.self, forKey: .capitalLossesClassIsolated) ?? false,
+            verification: try c.decodeIfPresent(
+                StateVerification.self, forKey: .verification) ?? .unverified
+        )
+    }
+}
