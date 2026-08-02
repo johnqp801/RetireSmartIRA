@@ -249,6 +249,15 @@ extension RetirementIncomeExemptions.AgeTier: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let lowerBound = try c.decode(Int.self, forKey: .minAge)
         let upperBound = try c.decode(Int.self, forKey: .maxAge)
+        // ClosedRange's `...` traps (process crash) when lowerBound > upperBound.
+        // Task 9's loader reads real, possibly hand-edited JSON across 51
+        // jurisdictions, so malformed input must surface as a catchable
+        // decode error, not kill the app.
+        guard lowerBound <= upperBound else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .maxAge, in: c,
+                debugDescription: "AgeTier maxAge (\(upperBound)) must be >= minAge (\(lowerBound))")
+        }
         self.init(
             ageRange: lowerBound...upperBound,
             level: try c.decode(RetirementIncomeExemptions.ExemptionLevel.self, forKey: .level)

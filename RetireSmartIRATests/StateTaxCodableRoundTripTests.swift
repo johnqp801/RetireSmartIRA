@@ -178,7 +178,13 @@ struct StateTaxCodableRoundTripTests {
     @Test("RetirementIncomeExemptions round-trips with every field populated")
     func retirementExemptionsRoundTrip() throws {
         let original = RetirementIncomeExemptions(
-            socialSecurityExempt: true,
+            // false, not the true default: makes an encode-side drop of this
+            // field visible (decodeIfPresent(...) ?? true would silently
+            // "recover" a dropped key back to true, masking the loss). See
+            // retirementExemptionsEncodesExpectedJSONShape below for the
+            // general, fixture-value-independent guard against this class of
+            // bug across all nine fields.
+            socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
             exemptionAppliesPerIndividual: true,
@@ -253,6 +259,132 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.pensionAndIRAShareSingleCap == false)
         #expect(decoded.otherRetirementIncomeExclusion == false)
         #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
+    }
+
+    @Test("Encoded JSON carries all nine fields under their own keys, with the right values")
+    func retirementExemptionsEncodesExpectedJSONShape() throws {
+        // This is the general guard against the whole class of bug the two
+        // Bool-heavy findings above raised: a dropped encode() line, or two
+        // swapped CodingKeys labels, produces byte-identical JSON to the
+        // correct output whenever the two fields involved happen to share a
+        // value (all four Bools here are not forced into a single
+        // arrangement the way the round-trip fixture is). Inspecting the raw
+        // JSON dictionary directly -- independent of what init(from:) does
+        // with it -- catches a dropped field, a swapped label, and a
+        // default-masked field for all nine keys at once, regardless of
+        // fixture values.
+        let original = RetirementIncomeExemptions(
+            socialSecurityExempt: false,
+            pensionExemption: .partial(maxExempt: 65_000),
+            iraWithdrawalExemption: .partial(maxExempt: 42_000),
+            exemptionAppliesPerIndividual: true,
+            regularExemptionMinAge: 65,
+            earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
+            pensionAndIRAShareSingleCap: true,
+            otherRetirementIncomeExclusion: true,
+            capitalGainsTreatment: .taxedAsOrdinary
+        )
+        let data = try JSONEncoder().encode(original)
+        let raw = try JSONSerialization.jsonObject(with: data)
+        let json = try #require(raw as? [String: Any])
+
+        #expect(json["socialSecurityExempt"] as? Bool == false)
+        #expect(json["exemptionAppliesPerIndividual"] as? Bool == true)
+        #expect(json["regularExemptionMinAge"] as? Int == 65)
+        #expect(json["pensionAndIRAShareSingleCap"] as? Bool == true)
+        #expect(json["otherRetirementIncomeExclusion"] as? Bool == true)
+        #expect(json["capitalGainsTreatment"] as? String == "taxedAsOrdinary")
+
+        let pension = try #require(json["pensionExemption"] as? [String: Any])
+        #expect(pension["kind"] as? String == "partial")
+        #expect(pension["maxExempt"] as? Double == 65_000)
+
+        let ira = try #require(json["iraWithdrawalExemption"] as? [String: Any])
+        #expect(ira["kind"] as? String == "partial")
+        #expect(ira["maxExempt"] as? Double == 42_000)
+
+        let ageTier = try #require(json["earlyAgeTier"] as? [String: Any])
+        #expect(ageTier["minAge"] as? Int == 62)
+        #expect(ageTier["maxAge"] as? Int == 64)
+        let ageTierLevel = try #require(ageTier["level"] as? [String: Any])
+        #expect(ageTierLevel["kind"] as? String == "partial")
+        #expect(ageTierLevel["maxExempt"] as? Double == 35_000)
+    }
+
+    @Test("Two complementary Bool arrangements make every pair of the four Bool fields mutually distinguishable")
+    func retirementExemptionsBooleanKeysAreMutuallyDistinguishable() throws {
+        // retirementExemptionsEncodesExpectedJSONShape (above) proves the JSON
+        // shape for ONE fixture, but a single fixture cannot prove every pair
+        // of the four Bool fields (socialSecurityExempt,
+        // exemptionAppliesPerIndividual, pensionAndIRAShareSingleCap,
+        // otherRetirementIncomeExclusion) is protected against a swapped
+        // CodingKeys label. Bool has only two values; with four fields,
+        // pigeonhole guarantees at least one pair shares a value in any
+        // single fixture, and a swap between two same-valued fields produces
+        // BYTE-IDENTICAL JSON -- no test reading only the encoded output can
+        // detect it, no matter how it inspects that output. Confirmed
+        // empirically while building this fix: swapping
+        // pensionAndIRAShareSingleCap and otherRetirementIncomeExclusion's
+        // forKey labels (both `true` in the fixture above) left every test in
+        // this suite green, including the JSON-shape test.
+        //
+        // The two fixtures below give each of the four Bool fields a
+        // distinct 2-bit signature (one bit per fixture), so every pair of
+        // fields differs in at least one fixture:
+        //   field                            P       Q
+        //   socialSecurityExempt             false   false
+        //   exemptionAppliesPerIndividual     false   true
+        //   pensionAndIRAShareSingleCap       true    false
+        //   otherRetirementIncomeExclusion    true    true
+        // Any swap between two Bool CodingKeys changes P, Q, or both.
+        func boolsInEncodedJSON(_ ex: RetirementIncomeExemptions) throws -> [String: Bool] {
+            let data = try JSONEncoder().encode(ex)
+            let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+            return [
+                "socialSecurityExempt": try #require(json["socialSecurityExempt"] as? Bool),
+                "exemptionAppliesPerIndividual": try #require(json["exemptionAppliesPerIndividual"] as? Bool),
+                "pensionAndIRAShareSingleCap": try #require(json["pensionAndIRAShareSingleCap"] as? Bool),
+                "otherRetirementIncomeExclusion": try #require(json["otherRetirementIncomeExclusion"] as? Bool)
+            ]
+        }
+
+        let p = RetirementIncomeExemptions(
+            socialSecurityExempt: false,
+            exemptionAppliesPerIndividual: false,
+            pensionAndIRAShareSingleCap: true,
+            otherRetirementIncomeExclusion: true
+        )
+        let pJSON = try boolsInEncodedJSON(p)
+        #expect(pJSON["socialSecurityExempt"] == false)
+        #expect(pJSON["exemptionAppliesPerIndividual"] == false)
+        #expect(pJSON["pensionAndIRAShareSingleCap"] == true)
+        #expect(pJSON["otherRetirementIncomeExclusion"] == true)
+
+        let q = RetirementIncomeExemptions(
+            socialSecurityExempt: false,
+            exemptionAppliesPerIndividual: true,
+            pensionAndIRAShareSingleCap: false,
+            otherRetirementIncomeExclusion: true
+        )
+        let qJSON = try boolsInEncodedJSON(q)
+        #expect(qJSON["socialSecurityExempt"] == false)
+        #expect(qJSON["exemptionAppliesPerIndividual"] == true)
+        #expect(qJSON["pensionAndIRAShareSingleCap"] == false)
+        #expect(qJSON["otherRetirementIncomeExclusion"] == true)
+    }
+
+    @Test("AgeTier decode throws a reportable error, not a ClosedRange trap, when minAge exceeds maxAge")
+    func ageTierDecodeThrowsOnInvertedRange() throws {
+        // ClosedRange's `...` traps the process when lowerBound > upperBound.
+        // Task 9's loader reads real, possibly hand-edited JSON across 51
+        // jurisdictions, so a malformed file must fail with a catchable
+        // DecodingError rather than crash the app.
+        let malformed = Data("""
+        {"minAge": 70, "maxAge": 60, "level": {"kind": "none"}}
+        """.utf8)
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(RetirementIncomeExemptions.AgeTier.self, from: malformed)
+        }
     }
 }
 
