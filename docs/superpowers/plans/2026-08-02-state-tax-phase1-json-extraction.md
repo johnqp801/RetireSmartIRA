@@ -435,22 +435,14 @@ Append inside the suite:
         }
     }
 
-    @Test("Every StateSafeHarborRule used in the config table round-trips")
-    func allConfiguredSafeHarborRulesRoundTrip() throws {
-        for (state, config) in StateTaxData.configs2026Legacy {
-            let data = try JSONEncoder().encode(config.safeHarborRule)
-            let decoded = try JSONDecoder().decode(StateSafeHarborRule.self, from: data)
-            #expect(decoded == config.safeHarborRule, "\(state.abbreviation) safe harbor lost")
-        }
-    }
 ```
 
-The second test is the one that matters: it exercises whatever cases the real table actually uses, so an unhandled case cannot slip through.
+A companion test that exercises every safe-harbor rule the real table actually uses is added in Task 8, once `configs2026Legacy` exists. It is not written here, because writing a test and immediately commenting it out leaves dead code in the tree across three commits.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/StateTaxCodableRoundTripTests`
-Expected: FAIL to compile. Two reasons, both expected: `StateSafeHarborRule` is not `Codable`, and `configs2026Legacy` does not exist yet (it is created in Task 8). Comment out the second test until Task 8, then re-enable it.
+Expected: FAIL to compile, "instance method 'encode' requires that 'StateSafeHarborRule' conform to 'Encodable'".
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -1124,9 +1116,23 @@ Expected output: `51`
 
 Open `RetireSmartIRA.xcodeproj`, drag `Resources/StateTaxData` into the `RetireSmartIRA` target, and confirm "Create folder references" (blue folder) so the directory structure is preserved in the bundle. Verify the folder appears in Build Phases → Copy Bundle Resources.
 
-- [ ] **Step 6: Re-enable the deferred test from Task 4**
+- [ ] **Step 6: Add the table-wide safe-harbor round trip deferred from Task 4**
 
-Uncomment `allConfiguredSafeHarborRulesRoundTrip` in `StateTaxCodableRoundTripTests.swift`. It compiles now that `configs2026Legacy` exists.
+Now that `configs2026Legacy` exists, add this test inside the suite in `RetireSmartIRATests/StateTaxCodableRoundTripTests.swift`:
+
+```swift
+    @Test("Every StateSafeHarborRule used in the real config table round-trips")
+    func allConfiguredSafeHarborRulesRoundTrip() throws {
+        for (state, config) in StateTaxData.configs2026Legacy {
+            let data = try JSONEncoder().encode(config.safeHarborRule)
+            let decoded = try JSONDecoder().decode(StateSafeHarborRule.self, from: data)
+            #expect(decoded == config.safeHarborRule,
+                    "\(state.abbreviation) safe harbor rule lost in round trip")
+        }
+    }
+```
+
+This is the test that matters for safe harbor: it exercises whatever cases the real 51-jurisdiction table actually uses, so an unhandled enum case cannot slip through on a state nobody thought to hand-write a case for.
 
 Run: `xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/StateTaxCodableRoundTripTests`
 Expected: PASS, 11 tests.
