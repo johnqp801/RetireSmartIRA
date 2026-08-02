@@ -77,6 +77,22 @@ struct StateTaxCodableRoundTripTests {
         let decoded = try JSONDecoder().decode(EstimatedPaymentSchedule.self, from: data)
         #expect(decoded == original)
     }
+
+    @Test("StateSafeHarborRule round-trips every case")
+    func safeHarborRoundTrips() throws {
+        let cases: [StateSafeHarborRule] = [
+            .mirrorsFederal,
+            .flatRate(1.10),
+            .agiThreshold(threshold: 250_000, lowRate: 1.00, highRate: 1.10),
+            .mirrorsFederalWithDisqualification(disqualifyAGI: 1_000_000),
+            .noPenalty
+        ]
+        for original in cases {
+            let data = try JSONEncoder().encode(original)
+            let decoded = try JSONDecoder().decode(StateSafeHarborRule.self, from: data)
+            #expect(decoded == original, "round trip lost \(original)")
+        }
+    }
 }
 
 extension StateTaxSystem {
