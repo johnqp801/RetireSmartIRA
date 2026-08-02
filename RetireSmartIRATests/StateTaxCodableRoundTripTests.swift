@@ -24,6 +24,48 @@ struct StateTaxCodableRoundTripTests {
         #expect(unverified.lastVerified == "")
         #expect(unverified.primarySources.isEmpty)
         #expect(unverified.knownLimitations.isEmpty)
+        #expect(unverified.billReferences.isEmpty)
         #expect(unverified.isVerified == false)
+    }
+
+    @Test("StateTaxSystem round-trips every case")
+    func taxSystemRoundTrips() throws {
+        let cases: [StateTaxSystem] = [
+            .noIncomeTax,
+            .specialLimited,
+            .flat(rate: 0.038),
+            .progressive(
+                single: [TaxBracket(threshold: 0, rate: 0.052),
+                         TaxBracket(threshold: 23_000, rate: 0.0558)],
+                married: [TaxBracket(threshold: 0, rate: 0.052),
+                          TaxBracket(threshold: 46_000, rate: 0.0558)]
+            )
+        ]
+        for original in cases {
+            let data = try JSONEncoder().encode(original)
+            let decoded = try JSONDecoder().decode(StateTaxSystem.self, from: data)
+            #expect(decoded.matchesShape(of: original), "round trip lost \(original)")
+        }
+    }
+}
+
+extension StateTaxSystem {
+    /// Structural equality ignoring TaxBracket.id, which is regenerated on decode.
+    func matchesShape(of other: StateTaxSystem) -> Bool {
+        switch (self, other) {
+        case (.noIncomeTax, .noIncomeTax), (.specialLimited, .specialLimited):
+            return true
+        case let (.flat(a), .flat(b)):
+            return a == b
+        case let (.progressive(s1, m1), .progressive(s2, m2)):
+            let sameBrackets: ([TaxBracket], [TaxBracket]) -> Bool = { x, y in
+                x.count == y.count && zip(x, y).allSatisfy {
+                    $0.threshold == $1.threshold && $0.rate == $1.rate
+                }
+            }
+            return sameBrackets(s1, s2) && sameBrackets(m1, m2)
+        default:
+            return false
+        }
     }
 }
