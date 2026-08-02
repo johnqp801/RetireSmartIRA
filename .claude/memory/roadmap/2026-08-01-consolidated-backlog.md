@@ -16,7 +16,16 @@ These carry commitments, which is what separates them from everything else. Both
 | **Alan Levy** | NY government-pension exclusion, confirmed real 07-31 | 🔴 not built |
 | **Alan Levy** | Per-year income entry, "next on my list" (2026-07-18) | 🔴 not built |
 | **Steve Nicolai** | Kansas personal exemption, confirmed in writing 08-01 | 🔴 not built |
+| **Steve Nicolai** | Iowa retirement exclusion missing since TY 2023 (reported 08-02) | 🔴 not built |
 | **Steve Nicolai** | "Answers and a plan in a couple of days" on all 12 items | due ~08-03 |
+
+> **2026-08-02 — the state tax table is stale as a whole, not state by state.** Full 51-jurisdiction
+> verification done: **~29 have at least one defect**, in five distinct categories. Iowa exempts
+> **Roth conversion income** outright for 55+, so this distorts the app's core recommendation. Michigan,
+> Connecticut, Virginia and Arizona err the *dangerous* way, overstating exemptions. Nine states are blocked
+> on the per-source design (backlog item 1c), which is now a nine-state structural gap rather than a
+> two-tester courtesy. Findings, two-model confirmation plan, and Steve's F as a feature:
+> `2026-08-02-full-50-state-verification.md`. **Not yet confirmed — do not edit configs until §7 clears.**
 
 ---
 
