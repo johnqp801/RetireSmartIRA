@@ -1112,9 +1112,25 @@ ls RetireSmartIRA/Resources/StateTaxData/2026/ | wc -l
 
 Expected output: `51`
 
-- [ ] **Step 5: Add the files to the Xcode target**
+- [ ] **Step 5: Confirm the files reach the app bundle**
 
-Open `RetireSmartIRA.xcodeproj`, drag `Resources/StateTaxData` into the `RetireSmartIRA` target, and confirm "Create folder references" (blue folder) so the directory structure is preserved in the bundle. Verify the folder appears in Build Phases → Copy Bundle Resources.
+**Do not edit `project.pbxproj`.** The target uses `PBXFileSystemSynchronizedRootGroup` (objectVersion 77, Xcode 16+) on `RetireSmartIRA/` with no exception set, so files written under it should be bundled automatically with no project edit at all.
+
+Verify rather than assume. Build, then inspect the produced bundle:
+
+```bash
+xcodebuild build -scheme RetireSmartIRA -destination 'platform=macOS' -showBuildSettings 2>/dev/null | grep -m1 "BUILT_PRODUCTS_DIR"
+```
+
+Then list what actually landed:
+
+```bash
+find "$(xcodebuild build -scheme RetireSmartIRA -destination 'platform=macOS' -showBuildSettings 2>/dev/null | awk -F' = ' '/BUILT_PRODUCTS_DIR/{print $2; exit}')" -name "*.json" -path "*StateTax*" | head -5
+```
+
+Record in the report which layout appeared: nested under `StateTaxData/2026/`, or flattened. Task 9's loader resolves both, so either outcome is fine; the report just needs to say which, so the next task does not guess.
+
+If **no** JSON appears in the bundle at all, stop and report `BLOCKED`. Do not attempt a `project.pbxproj` edit. John will add the folder reference in Xcode.
 
 - [ ] **Step 6: Add the table-wide safe-harbor round trip deferred from Task 4**
 
@@ -1198,6 +1214,11 @@ Create `RetireSmartIRA/StateTaxDataLoader.swift`:
 ```swift
 import Foundation
 
+/// Anchors `Bundle(for:)` to the framework/app bundle that actually contains the
+/// resources. `Bundle.main` resolves to the test runner under xcodebuild, where
+/// the JSON is not present.
+private final class BundleMarker {}
+
 /// Loads per-jurisdiction tax configuration from bundled JSON.
 ///
 /// Replaces the hardcoded table that shipped through v2.3.0. The move exists so
@@ -1228,18 +1249,31 @@ enum StateTaxDataLoader {
     /// returned California's rules for any missing state, which produced a
     /// confident wrong number attributed to the wrong jurisdiction.
     static func load(taxYear: Int) throws -> [USState: StateTaxConfig] {
-        guard let dir = Bundle.main.url(
-            forResource: "\(taxYear)", withExtension: nil,
-            subdirectory: "StateTaxData")
-        else {
+        let bundle = Bundle(for: BundleMarker.self)
+
+        // The target uses PBXFileSystemSynchronizedRootGroup (Xcode 16+), which
+        // bundles resources automatically but may or may not preserve the
+        // StateTaxData/<year>/ directory structure. Resolve either layout rather
+        // than depending on which one Xcode produces.
+        func url(for state: USState) -> URL? {
+            bundle.url(forResource: state.abbreviation, withExtension: "json",
+                       subdirectory: "StateTaxData/\(taxYear)")
+                ?? bundle.url(forResource: "\(taxYear)", withExtension: nil,
+                              subdirectory: "StateTaxData")
+                          .map { $0.appendingPathComponent("\(state.abbreviation).json") }
+                ?? bundle.url(forResource: "statetax-\(taxYear)-\(state.abbreviation)",
+                              withExtension: "json")
+        }
+
+        guard url(for: .california) != nil else {
             throw LoadError.directoryMissing(taxYear: taxYear)
         }
 
         let decoder = JSONDecoder()
         var configs: [USState: StateTaxConfig] = [:]
         for state in USState.allCases {
-            let url = dir.appendingPathComponent("\(state.abbreviation).json")
-            guard let data = try? Data(contentsOf: url) else {
+            guard let fileURL = url(for: state),
+                  let data = try? Data(contentsOf: fileURL) else {
                 throw LoadError.fileMissing(state: state, taxYear: taxYear)
             }
             configs[state] = try decoder.decode(StateTaxConfig.self, from: data)
