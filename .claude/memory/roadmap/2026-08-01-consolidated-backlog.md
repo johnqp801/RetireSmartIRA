@@ -76,23 +76,35 @@ Next build = `CURRENT_PROJECT_VERSION` 63 → 64.
 
 ---
 
-## 5. Open items from the multi-year backlog
+## 5. Multi-year backlog — VERIFIED against `main` 2026-08-01
 
-Verify status before working any of these; several may have shipped in 2.1.1/2.1.2/2.3.0 and the backlog file is stale (A1 and D7 are marked open there but were fixed 2026-07-17 by `900ba6d`).
+The 2026-07-13 backlog file is stale. Statuses below were checked in code, not inferred.
 
-| Item | What | Confidence |
-|---|---|---|
-| **I2** | Multi-year `computeStateTax` drops `postExemptionDeduction` and other pre-`calculateStateTax` state adjustments | open, **merge into the Kansas fix** |
-| **B5** | CPA PDF "Lifetime tax" is NOMINAL while the on-screen row is PV. Same label, two bases. | open |
-| **E8** | SALT-cap MAGI-phaseout basis mismatch between single-year and multi-year | open |
-| **F-SS** | Warn when taxable SS exceeds SS-Planner benefits (data-entry error John hit himself) | open |
-| **C5** | IRMAA tier reference lines unreadable when income far exceeds thresholds | open |
-| **I3** | Heir-frontier narrative headline reconciliation (engine fixed, narrative TODO) | open |
-| **D10** | Delete orphaned `PlanComparisonView` | cleanup |
-| **D11** | Thread `configProvider` into approach chips | seam |
-| **E9** | Local/city tax dropped from multi-year projection | likely fixed in 2.1.2, verify |
-| **C6** | Charts default to nominal | likely fixed in 2.1.2, verify |
-| **B4** | Phantom $500k conversions after IRA drains | likely fixed in 2.1.1, verify |
+### Confirmed FIXED, drop them
+
+| Item | Evidence |
+|---|---|
+| **A1** over-conversion objective | `900ba6d` wealth-consistent objective, 2026-07-17 |
+| **D7** `brakeStopsDrain` | re-enabled with A1 |
+| **B2** deferred-tax row | shipped 2.1.1 |
+| **B4** phantom conversions in ladder | `LadderRow.swift:28` uses `rec.executedRothConversion` |
+| **C6** charts default to nominal | `MultiYearPlanView.swift:11` `defaultUnits = .presentValue` |
+| **E9** local/city tax dropped | `MultiYearStaticInputs.swift:41` carries `localIncomeTaxRate` |
+| **B5** CPA PDF nominal vs PV | `MultiYearCPABriefing.swift:153-177`, every row says "present value" |
+| **D10** orphaned `PlanComparisonView` | file deleted |
+| **D11** chips read global config | no `TaxCalculationEngine.config.current` in those views |
+| **I1** PA/IL/MS conversion exemption | fixed 2026-07-14 |
+
+### Confirmed STILL OPEN
+
+| Item | Verified how |
+|---|---|
+| **I2** multi-year drops `postExemptionDeduction` | the identifier appears NOWHERE in `ProjectionEngine.swift`. **Same defect as Kansas; fix together.** |
+| **E8** SALT-cap phaseout basis mismatch | single-year `DataManager.saltCap:1747` uses `scenarioGrossIncome`; multi-year `MultiYearItemizedDeduction.swift:95` passes `agi` net of above-the-line. Two surfaces disagree for anyone with above-the-line deductions. |
+| **F-SS** warn when taxable SS exceeds planner benefits | no such warning anywhere in the codebase |
+| **C5** IRMAA reference lines unreadable | no IRMAA reference-line handling in any chart view |
+| **I3** heir-frontier narrative headline | **could not confirm either way.** No narrative/headline code found in `HeirFrontierCoordinator` or `PlanPathMetrics`. Left open rather than guessed. |
+| **A2** fill-to-bracket AGI misleading | traced, NOT a bug, no action |
 
 ## 6. Engine follow-ups from the V2.3 work
 
