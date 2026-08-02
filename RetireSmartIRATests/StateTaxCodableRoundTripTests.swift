@@ -93,6 +93,69 @@ struct StateTaxCodableRoundTripTests {
             #expect(decoded == original, "round trip lost \(original)")
         }
     }
+
+    @Test("ExemptionLevel round-trips every case including NJ's stepped phaseout")
+    func exemptionLevelRoundTrips() throws {
+        let cases: [RetirementIncomeExemptions.ExemptionLevel] = [
+            .none,
+            .full,
+            .partial(maxExempt: 31_110),
+            .steppedPhaseoutByFilingStatus(
+                maxExemptSingle: 75_000,
+                maxExemptMFJ: 100_000,
+                tiers: [
+                    .init(upperBound: 100_000, mfjPercent: 1.0, singlePercent: 1.0),
+                    .init(upperBound: 125_000, mfjPercent: 0.50, singlePercent: 0.375),
+                    .init(upperBound: 150_000, mfjPercent: 0.25, singlePercent: 0.1875),
+                    .init(upperBound: .infinity, mfjPercent: 0.0, singlePercent: 0.0)
+                ]
+            )
+        ]
+        for original in cases {
+            let data = try JSONEncoder().encode(original)
+            let decoded = try JSONDecoder().decode(
+                RetirementIncomeExemptions.ExemptionLevel.self, from: data)
+            // Compare behaviorally: the exclusion each produces must match.
+            for income in [40_000.0, 90_000.0, 130_000.0, 200_000.0] {
+                for married in [true, false] {
+                    #expect(
+                        decoded.excludedAmount(eligibleIncome: 50_000,
+                                               totalGrossIncome: income,
+                                               isMarried: married,
+                                               perIndividualMultiplier: 1)
+                        == original.excludedAmount(eligibleIncome: 50_000,
+                                                   totalGrossIncome: income,
+                                                   isMarried: married,
+                                                   perIndividualMultiplier: 1),
+                        "round trip changed behavior at income \(income) married \(married)")
+                }
+            }
+            // Structural check on the tiers themselves, in addition to the
+            // behavioral check above. It is necessary: tierPercent's lookup is
+            // `tiers.first { income <= $0.upperBound } ?? tiers.last`, so the
+            // LAST tier is always selected as a fallback regardless of its own
+            // upperBound value. That makes excludedAmount() blind to corruption
+            // of the last tier's bound specifically -- a decode that silently
+            // turned .infinity into 0 would still pass every behavioral
+            // assertion above. Confirmed by mutation testing during
+            // implementation. This check closes that gap directly.
+            if case .steppedPhaseoutByFilingStatus(_, _, let originalTiers) = original,
+               case .steppedPhaseoutByFilingStatus(_, _, let decodedTiers) = decoded {
+                #expect(decodedTiers.count == originalTiers.count,
+                        "round trip changed the tier count")
+                for (o, d) in zip(originalTiers, decodedTiers) {
+                    #expect(o.upperBound.isInfinite == d.upperBound.isInfinite,
+                            "round trip changed whether a tier's upperBound is infinite")
+                    if !o.upperBound.isInfinite {
+                        #expect(o.upperBound == d.upperBound,
+                                "round trip changed a finite tier's upperBound")
+                    }
+                    #expect(o.mfjPercent == d.mfjPercent && o.singlePercent == d.singlePercent,
+                            "round trip changed a tier's percentages")
+                }
+            }
+        }
+    }
 }
 
 extension StateTaxSystem {

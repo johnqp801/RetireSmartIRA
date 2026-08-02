@@ -131,3 +131,84 @@ extension StateSafeHarborRule: Codable {
         }
     }
 }
+
+extension RetirementIncomeExemptions.PhaseoutTier: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case upperBound, mfjPercent, singlePercent
+    }
+
+    // Foundation's JSONEncoder throws on non-conforming floats by default, and
+    // NJ's open-ended cliff band uses .infinity as its upper bound. Encode it
+    // as a sentinel string so the JSON stays valid and human-readable.
+    private static let infinitySentinel = "unbounded"
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if upperBound.isInfinite {
+            try c.encode(Self.infinitySentinel, forKey: .upperBound)
+        } else {
+            try c.encode(upperBound, forKey: .upperBound)
+        }
+        try c.encode(mfjPercent, forKey: .mfjPercent)
+        try c.encode(singlePercent, forKey: .singlePercent)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let sentinel = try? c.decode(String.self, forKey: .upperBound),
+           sentinel == Self.infinitySentinel {
+            self.init(upperBound: .infinity,
+                      mfjPercent: try c.decode(Double.self, forKey: .mfjPercent),
+                      singlePercent: try c.decode(Double.self, forKey: .singlePercent))
+        } else {
+            self.init(upperBound: try c.decode(Double.self, forKey: .upperBound),
+                      mfjPercent: try c.decode(Double.self, forKey: .mfjPercent),
+                      singlePercent: try c.decode(Double.self, forKey: .singlePercent))
+        }
+    }
+}
+
+extension RetirementIncomeExemptions.ExemptionLevel: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case kind, maxExempt, maxExemptSingle, maxExemptMFJ, tiers
+    }
+    private enum Kind: String, Codable {
+        case none, full, partial, steppedPhaseoutByFilingStatus
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .none:
+            try c.encode(Kind.none, forKey: .kind)
+        case .full:
+            try c.encode(Kind.full, forKey: .kind)
+        case .partial(let maxExempt):
+            try c.encode(Kind.partial, forKey: .kind)
+            try c.encode(maxExempt, forKey: .maxExempt)
+        case .steppedPhaseoutByFilingStatus(let single, let mfj, let tiers):
+            try c.encode(Kind.steppedPhaseoutByFilingStatus, forKey: .kind)
+            try c.encode(single, forKey: .maxExemptSingle)
+            try c.encode(mfj, forKey: .maxExemptMFJ)
+            try c.encode(tiers, forKey: .tiers)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        switch try c.decode(Kind.self, forKey: .kind) {
+        case .none:
+            self = .none
+        case .full:
+            self = .full
+        case .partial:
+            self = .partial(maxExempt: try c.decode(Double.self, forKey: .maxExempt))
+        case .steppedPhaseoutByFilingStatus:
+            self = .steppedPhaseoutByFilingStatus(
+                maxExemptSingle: try c.decode(Double.self, forKey: .maxExemptSingle),
+                maxExemptMFJ: try c.decode(Double.self, forKey: .maxExemptMFJ),
+                tiers: try c.decode([RetirementIncomeExemptions.PhaseoutTier].self, forKey: .tiers)
+            )
+        }
+    }
+}
