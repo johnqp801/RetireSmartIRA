@@ -116,21 +116,32 @@ struct StateTaxCodableRoundTripTests {
             let decoded = try JSONDecoder().decode(
                 RetirementIncomeExemptions.ExemptionLevel.self, from: data)
             // Compare behaviorally: the exclusion each produces must match.
-            for income in [40_000.0, 90_000.0, 130_000.0, 200_000.0] {
-                for married in [true, false] {
-                    #expect(
-                        decoded.excludedAmount(eligibleIncome: 50_000,
-                                               totalGrossIncome: income,
-                                               isMarried: married,
-                                               perIndividualMultiplier: 1)
-                        == original.excludedAmount(eligibleIncome: 50_000,
+            // eligibleIncome includes 90_000, which sits strictly between NJ's
+            // two caps (75_000 single / 100_000 MFJ). At totalGrossIncome
+            // 40_000 or 90_000 (both within the first, 100%-retained tier),
+            // chartMax's percent >= 1.0 branch returns the cap directly, so
+            // excludedAmount clamps to min(eligibleIncome, cap). With
+            // eligibleIncome 50_000 that clamp never binds (50_000 is below
+            // both caps), so a swap of maxExemptSingle/maxExemptMFJ would be
+            // invisible; 90_000 is above the single cap and below the MFJ cap,
+            // so a swap changes the single-filer result and is caught.
+            for eligibleIncome in [50_000.0, 90_000.0] {
+                for income in [40_000.0, 90_000.0, 130_000.0, 200_000.0] {
+                    for married in [true, false] {
+                        #expect(
+                            decoded.excludedAmount(eligibleIncome: eligibleIncome,
                                                    totalGrossIncome: income,
                                                    isMarried: married,
-                                                   perIndividualMultiplier: 1),
-                        "round trip changed behavior at income \(income) married \(married)")
+                                                   perIndividualMultiplier: 1)
+                            == original.excludedAmount(eligibleIncome: eligibleIncome,
+                                                       totalGrossIncome: income,
+                                                       isMarried: married,
+                                                       perIndividualMultiplier: 1),
+                            "round trip changed behavior at eligibleIncome \(eligibleIncome) income \(income) married \(married)")
+                    }
                 }
             }
-            // Structural check on the tiers themselves, in addition to the
+            // Structural check on the caps and tiers, in addition to the
             // behavioral check above. It is necessary: tierPercent's lookup is
             // `tiers.first { income <= $0.upperBound } ?? tiers.last`, so the
             // LAST tier is always selected as a fallback regardless of its own
@@ -138,9 +149,16 @@ struct StateTaxCodableRoundTripTests {
             // of the last tier's bound specifically -- a decode that silently
             // turned .infinity into 0 would still pass every behavioral
             // assertion above. Confirmed by mutation testing during
-            // implementation. This check closes that gap directly.
-            if case .steppedPhaseoutByFilingStatus(_, _, let originalTiers) = original,
-               case .steppedPhaseoutByFilingStatus(_, _, let decodedTiers) = decoded {
+            // implementation. This check closes that gap directly. The caps
+            // are bound and compared here too (not discarded with `_, _,`)
+            // because a maxExemptSingle/maxExemptMFJ swap is a similarly quiet
+            // regression that the behavioral loop above only partially covers.
+            if case .steppedPhaseoutByFilingStatus(let originalSingle, let originalMFJ, let originalTiers) = original,
+               case .steppedPhaseoutByFilingStatus(let decodedSingle, let decodedMFJ, let decodedTiers) = decoded {
+                #expect(originalSingle == decodedSingle,
+                        "round trip changed maxExemptSingle")
+                #expect(originalMFJ == decodedMFJ,
+                        "round trip changed maxExemptMFJ")
                 #expect(decodedTiers.count == originalTiers.count,
                         "round trip changed the tier count")
                 for (o, d) in zip(originalTiers, decodedTiers) {
