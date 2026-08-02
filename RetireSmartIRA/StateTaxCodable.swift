@@ -212,3 +212,85 @@ extension RetirementIncomeExemptions.ExemptionLevel: Codable {
         }
     }
 }
+
+extension RetirementIncomeExemptions.CapGainsTreatment: Codable {
+    private enum Kind: String, Codable {
+        case followsFederal, taxedAsOrdinary, noStateTax
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .followsFederal:  try c.encode(Kind.followsFederal)
+        case .taxedAsOrdinary: try c.encode(Kind.taxedAsOrdinary)
+        case .noStateTax:      try c.encode(Kind.noStateTax)
+        }
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        switch try c.decode(Kind.self) {
+        case .followsFederal:  self = .followsFederal
+        case .taxedAsOrdinary: self = .taxedAsOrdinary
+        case .noStateTax:      self = .noStateTax
+        }
+    }
+}
+
+extension RetirementIncomeExemptions.AgeTier: Codable {
+    private enum CodingKeys: String, CodingKey { case minAge, maxAge, level }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(ageRange.lowerBound, forKey: .minAge)
+        try c.encode(ageRange.upperBound, forKey: .maxAge)
+        try c.encode(level, forKey: .level)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let lowerBound = try c.decode(Int.self, forKey: .minAge)
+        let upperBound = try c.decode(Int.self, forKey: .maxAge)
+        self.init(
+            ageRange: lowerBound...upperBound,
+            level: try c.decode(RetirementIncomeExemptions.ExemptionLevel.self, forKey: .level)
+        )
+    }
+}
+
+extension RetirementIncomeExemptions: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case socialSecurityExempt, pensionExemption, iraWithdrawalExemption
+        case exemptionAppliesPerIndividual, regularExemptionMinAge, earlyAgeTier
+        case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion
+        case capitalGainsTreatment
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(socialSecurityExempt, forKey: .socialSecurityExempt)
+        try c.encode(pensionExemption, forKey: .pensionExemption)
+        try c.encode(iraWithdrawalExemption, forKey: .iraWithdrawalExemption)
+        try c.encode(exemptionAppliesPerIndividual, forKey: .exemptionAppliesPerIndividual)
+        try c.encode(regularExemptionMinAge, forKey: .regularExemptionMinAge)
+        try c.encodeIfPresent(earlyAgeTier, forKey: .earlyAgeTier)
+        try c.encode(pensionAndIRAShareSingleCap, forKey: .pensionAndIRAShareSingleCap)
+        try c.encode(otherRetirementIncomeExclusion, forKey: .otherRetirementIncomeExclusion)
+        try c.encode(capitalGainsTreatment, forKey: .capitalGainsTreatment)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // Every field falls back to its declared default. Phase 3 adds fields;
+        // Phase 1 files must keep decoding without regeneration.
+        self.init(
+            socialSecurityExempt: try c.decodeIfPresent(Bool.self, forKey: .socialSecurityExempt) ?? true,
+            pensionExemption: try c.decodeIfPresent(ExemptionLevel.self, forKey: .pensionExemption) ?? .none,
+            iraWithdrawalExemption: try c.decodeIfPresent(ExemptionLevel.self, forKey: .iraWithdrawalExemption) ?? .none,
+            exemptionAppliesPerIndividual: try c.decodeIfPresent(Bool.self, forKey: .exemptionAppliesPerIndividual) ?? false,
+            regularExemptionMinAge: try c.decodeIfPresent(Int.self, forKey: .regularExemptionMinAge) ?? 0,
+            earlyAgeTier: try c.decodeIfPresent(AgeTier.self, forKey: .earlyAgeTier),
+            pensionAndIRAShareSingleCap: try c.decodeIfPresent(Bool.self, forKey: .pensionAndIRAShareSingleCap) ?? false,
+            otherRetirementIncomeExclusion: try c.decodeIfPresent(Bool.self, forKey: .otherRetirementIncomeExclusion) ?? false,
+            capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal
+        )
+    }
+}

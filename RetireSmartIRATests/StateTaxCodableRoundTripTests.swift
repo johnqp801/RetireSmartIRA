@@ -174,6 +174,123 @@ struct StateTaxCodableRoundTripTests {
             }
         }
     }
+
+    @Test("RetirementIncomeExemptions round-trips with every field populated")
+    func retirementExemptionsRoundTrip() throws {
+        let original = RetirementIncomeExemptions(
+            socialSecurityExempt: true,
+            pensionExemption: .partial(maxExempt: 65_000),
+            iraWithdrawalExemption: .partial(maxExempt: 42_000),
+            exemptionAppliesPerIndividual: true,
+            regularExemptionMinAge: 65,
+            earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
+            pensionAndIRAShareSingleCap: true,
+            otherRetirementIncomeExclusion: true,
+            capitalGainsTreatment: .taxedAsOrdinary
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(RetirementIncomeExemptions.self, from: data)
+
+        #expect(decoded.socialSecurityExempt == original.socialSecurityExempt)
+        #expect(decoded.exemptionAppliesPerIndividual == original.exemptionAppliesPerIndividual)
+        #expect(decoded.regularExemptionMinAge == original.regularExemptionMinAge)
+        #expect(decoded.pensionAndIRAShareSingleCap == original.pensionAndIRAShareSingleCap)
+        #expect(decoded.otherRetirementIncomeExclusion == original.otherRetirementIncomeExclusion)
+        // ExemptionLevel/CapGainsTreatment aren't Equatable in production code
+        // (same reason exemptionLevelRoundTrips above compares behaviorally),
+        // so compare structurally via the matchesShape helpers below.
+        // pensionExemption (65_000) and iraWithdrawalExemption (42_000) use
+        // distinct values so a field swap between them is visible.
+        #expect(decoded.pensionExemption.matchesShape(of: original.pensionExemption),
+                "round trip lost or corrupted pensionExemption")
+        #expect(decoded.iraWithdrawalExemption.matchesShape(of: original.iraWithdrawalExemption),
+                "round trip lost or corrupted iraWithdrawalExemption")
+        #expect(decoded.capitalGainsTreatment.matchesShape(of: original.capitalGainsTreatment),
+                "round trip lost or corrupted capitalGainsTreatment")
+
+        switch (decoded.earlyAgeTier, original.earlyAgeTier) {
+        case let (d?, o?):
+            #expect(d.ageRange == o.ageRange)
+            #expect(d.level.matchesShape(of: o.level), "round trip lost or corrupted earlyAgeTier.level")
+        case (nil, nil):
+            break
+        default:
+            Issue.record("round trip changed earlyAgeTier presence")
+        }
+    }
+
+    @Test("Decoding tolerates a file missing optional fields")
+    func retirementExemptionsDecodesSparseJSON() throws {
+        let sparse = Data("""
+        {"socialSecurityExempt": true,
+         "pensionExemption": {"kind": "none"},
+         "iraWithdrawalExemption": {"kind": "none"}}
+        """.utf8)
+        let decoded = try JSONDecoder().decode(RetirementIncomeExemptions.self, from: sparse)
+        #expect(decoded.regularExemptionMinAge == 0)
+        #expect(decoded.earlyAgeTier == nil)
+        #expect(decoded.exemptionAppliesPerIndividual == false)
+        #expect(decoded.pensionAndIRAShareSingleCap == false)
+        #expect(decoded.otherRetirementIncomeExclusion == false)
+        #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
+    }
+
+    @Test("Decoding a completely empty JSON object yields every declared default")
+    func retirementExemptionsDecodesAllDefaultsFromEmptyJSON() throws {
+        // Guards the highest-risk detail in this task: socialSecurityExempt's
+        // declared default is `true`, not `false`. This is the one case where
+        // the JSON key is genuinely absent (not merely present-and-true, as in
+        // the sparse test above), so a `?? false` typo in init(from:) would be
+        // caught here and nowhere else.
+        let empty = Data("{}".utf8)
+        let decoded = try JSONDecoder().decode(RetirementIncomeExemptions.self, from: empty)
+        #expect(decoded.socialSecurityExempt == true)
+        #expect(decoded.pensionExemption.matchesShape(of: .none))
+        #expect(decoded.iraWithdrawalExemption.matchesShape(of: .none))
+        #expect(decoded.exemptionAppliesPerIndividual == false)
+        #expect(decoded.regularExemptionMinAge == 0)
+        #expect(decoded.earlyAgeTier == nil)
+        #expect(decoded.pensionAndIRAShareSingleCap == false)
+        #expect(decoded.otherRetirementIncomeExclusion == false)
+        #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
+    }
+}
+
+extension RetirementIncomeExemptions.ExemptionLevel {
+    /// Structural equality for test assertions. ExemptionLevel does not
+    /// conform to Equatable in production code (see exemptionLevelRoundTrips
+    /// above, which compares behaviorally for the same reason).
+    func matchesShape(of other: Self) -> Bool {
+        switch (self, other) {
+        case (.none, .none), (.full, .full):
+            return true
+        case let (.partial(a), .partial(b)):
+            return a == b
+        case let (.steppedPhaseoutByFilingStatus(s1, m1, t1), .steppedPhaseoutByFilingStatus(s2, m2, t2)):
+            return s1 == s2 && m1 == m2 && t1.count == t2.count &&
+                zip(t1, t2).allSatisfy {
+                    $0.upperBound == $1.upperBound &&
+                    $0.mfjPercent == $1.mfjPercent &&
+                    $0.singlePercent == $1.singlePercent
+                }
+        default:
+            return false
+        }
+    }
+}
+
+extension RetirementIncomeExemptions.CapGainsTreatment {
+    /// Structural equality for test assertions; not Equatable in production code.
+    func matchesShape(of other: Self) -> Bool {
+        switch (self, other) {
+        case (.followsFederal, .followsFederal),
+             (.taxedAsOrdinary, .taxedAsOrdinary),
+             (.noStateTax, .noStateTax):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 extension StateTaxSystem {
