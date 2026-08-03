@@ -37,16 +37,16 @@ Phase 1 (merged, 23 commits) moved 51 jurisdictions' configs into bundled JSON n
 ## File Structure
 
 **Create:**
-- `RetireSmartIRA/StateTaxYearAvailability.swift` — which tax years are bundled, and whether a given year is extrapolated. One job: answer "do we have real law for this year".
-- `RetireSmartIRATests/GoldenScenario.swift` — the fixture type and its loader. One job: decode golden fixtures.
-- `RetireSmartIRATests/GoldenScenarioSingleYearTests.swift` — runs each scenario through the single-year path.
-- `RetireSmartIRATests/GoldenScenarioMultiYearTests.swift` — runs each scenario through the multi-year path.
-- `RetireSmartIRATests/GoldenScenarioCrossPathTests.swift` — asserts the two paths agree, with known divergences pinned.
-- `RetireSmartIRATests/GoldenScenarios/statetax-2026-<ABBR>.golden.json` — pilot fixtures for PA, IL, MS, CA, NJ.
+- `RetireSmartIRA/StateTaxYearAvailability.swift` : which tax years are bundled, and whether a given year is extrapolated. One job: answer "do we have real law for this year".
+- `RetireSmartIRATests/GoldenScenario.swift` : the fixture type and its loader. One job: decode golden fixtures.
+- `RetireSmartIRATests/GoldenScenarioSingleYearTests.swift` : runs each scenario through the single-year path.
+- `RetireSmartIRATests/GoldenScenarioMultiYearTests.swift` : runs each scenario through the multi-year path.
+- `RetireSmartIRATests/GoldenScenarioCrossPathTests.swift` : asserts the two paths agree, with known divergences pinned.
+- `RetireSmartIRATests/GoldenScenarios/statetax-2026-<ABBR>.golden.json` : pilot fixtures for PA, IL, MS, CA, NJ.
 
 **Modify:**
-- `RetireSmartIRA/StateTaxDataLoader.swift` — add year-keyed `configs(for:)`.
-- `RetireSmartIRA/StateTaxData.swift` — add `config(for:taxYear:)`.
+- `RetireSmartIRA/StateTaxDataLoader.swift` : add year-keyed `configs(for:)`.
+- `RetireSmartIRA/StateTaxData.swift` : add `config(for:taxYear:)`.
 
 ---
 
