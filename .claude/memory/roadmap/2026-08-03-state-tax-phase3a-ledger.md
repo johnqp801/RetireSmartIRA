@@ -113,3 +113,37 @@ Task 1: COMPLETE (commits 855b7c3 + fix 601a622 + hardening 00b3838, base db0977
     so NJ can be caught becoming LESS generous there but never MORE generous.
   Minor 4 noted, not worth fixing: loadBaseline() decodes the 1020-entry file 51 times
     (once per parameterized case). Suite runs in ~45 ms.
+Task 2: commits 39fefbe + fix cf680ce (base cdd66e2). Reviewed on sonnet, RE-REVIEW IN FLIGHT.
+  distributionMinAge: Int = 59 on RetirementIncomeExemptions, replacing the engine's two
+  hardcoded 59s. Decoder uses decodeIfPresent ?? 59 because the 51 JSON files do not carry
+  the key until Task 8. Suite 1,625 ST in 278 suites + 503 XCTest, correct tree.
+  Baseline held all 1,020 values, which is the inertness proof.
+
+  ** REVIEWER'S CATCH, and it is the phase's recurring shape a second time: of the TWO
+     converted sites, only ONE was guarded. Reverting `return age >= exemptions.distributionMinAge`
+     inside ageQualifiesForExemption back to a literal 59 left BOTH the mechanism tests AND
+     the 1,020-value baseline GREEN. That site is reachable only via bothSpousesQualify,
+     which is gated on `enableSpouse &&`, and every mechanism test passed enableSpouse: false.
+     It governs per-individual cap doubling for a state with regularExemptionMinAge == 0 and
+     exemptionAppliesPerIndividual == true, which is a plausible Iowa shape in Phase 5.
+     Closed by distributionMinAgeGatesPerIndividualDoubling; the fixer confirms it now fails
+     under that exact revert (2000.0 vs 0.0) while the other two stay green. **
+
+  ** QUESTION SETTLED BY EVIDENCE, worth keeping: the decoder default and the property
+     default could silently diverge. The reviewer mutated `?? 59` to `?? 60` and the BASELINE
+     gate failed 15 jurisdictions (e.g. VA "single 59, distributions only", 3192.5 vs 2502.5).
+     So the pre-existing Task 1 gate, not the new "defaults to 59" unit test, is what protects
+     that pairing. The unit test only checks the Swift memberwise default in isolation. **
+
+  Reviewer also verified independently: all six `59` occurrences in applyRetirementExemptions
+    accounted for; NY's regularExemptionMinAge: 59 (a state DATA value) correctly untouched;
+    45 existing RetirementIncomeExemptions construction sites unaffected (implicit memberwise
+    init, no explicit init); pbxproj, ProjectionEngine, baseline test and fixture all untouched.
+  Minor fixed in cf680ce: the age-60 assertion pair's comment claimed it stopped the age-56
+    pair from passing for the wrong reason. Mutation analysis showed the age-56 pair alone
+    already discriminates that case. Comment now says it documents the boundary's shape.
+  PROCESS NOTE: the fix agent returned mid-flight, having applied the edits but not committed,
+    while waiting on a background monitor it had started. Verified the tree directly rather
+    than assuming, found edits uncommitted and production source correctly restored, and
+    resumed it with an instruction to run in the foreground. Do not let subagents background
+    their own verification runs.
