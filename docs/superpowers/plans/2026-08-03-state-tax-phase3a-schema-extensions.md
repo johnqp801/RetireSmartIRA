@@ -383,7 +383,9 @@ let retirementAge = primaryAge >= 60 || (enableSpouse && spouseAge >= 60)
 
 Re-run Step 5. Expected: FAIL, naming the "single 59, distributions only" scenario for the states with a non-`.none` IRA exemption. **Revert the mutation.** Paste both transcripts and name which states failed.
 
-A second mutation, because one is not enough for a gate this load-bearing: change NJ's `regularExemptionMinAge` from `62` to `65` in `StateTaxData.swift`, re-run, expect NJ failures on the pension scenarios, revert.
+A second mutation, because one is not enough for a gate this load-bearing, and because the first only proves the ENGINE path. Mutate the DATA path: in `RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-NJ.json`, change `"regularExemptionMinAge" : 62` to `65`, re-run, expect NJ failures on the pension scenarios, revert.
+
+**Do not mutate `StateTaxData.swift`'s `configs2026Legacy` for this.** Since Phase 1 Task 11, `StateTaxData.config(for:)` reads the JSON and falls back to the legacy table only when a file fails to load, so a legacy-table edit is invisible to production and the mutation passes, proving nothing. That is a real trap: it looks like a discriminating mutation and is not.
 
 - [ ] **Step 7: Commit**
 
