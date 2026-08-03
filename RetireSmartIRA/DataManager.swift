@@ -786,8 +786,25 @@ class DataManager {
         let taxableSS = scenarioTaxableSocialSecurity
         let pensionIncome = incomeSources.filter { $0.type == .pension && ownerQualifies($0.owner) }.reduce(0) { $0 + $1.annualAmount }
         let rmdSourceIncome = incomeSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }.reduce(0) { $0 + $1.annualAmount }
-        let retirementAge = currentAge >= exemptions.distributionMinAge
-            || (enableSpouse && spouseCurrentAge >= exemptions.distributionMinAge)
+        // Mirror of TaxCalculationEngine.applyRetirementExemptions. This
+        // switches exhaustively (no `default:`), matching the phase's
+        // convention that a new ExemptionAttribution case must break
+        // compilation. In the engine that convention protects the engine
+        // itself; it does nothing for this mirror unless the mirror also
+        // switches on every case, which is why this is a switch rather than
+        // an `if` that would silently keep compiling with a case unhandled.
+        let retirementAge: Bool
+        switch exemptions.exemptionAttribution {
+        case .household:
+            retirementAge = currentAge >= exemptions.distributionMinAge
+                || (enableSpouse && spouseCurrentAge >= exemptions.distributionMinAge)
+        case .perQualifyingSpouse:
+            // Both conditions, because either alone leaks; see the engine's
+            // ownerQualifies comment for the Colorado/Georgia earlyAgeTier
+            // counterexample this closes.
+            retirementAge = currentAge >= exemptions.distributionMinAge
+                && ageQualifiesForExemption(currentAge)
+        }
         let scenarioDistroExemptable = retirementAge ? scenarioRetirementDistributionIncome : 0
         let iraIncome = rmdSourceIncome + scenarioDistroExemptable
         let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
@@ -832,30 +849,46 @@ class DataManager {
         if exemptions.pensionAndIRAShareSingleCap {
             // Shared cap (CO): pension + IRA share one annual subtraction.
             let combinedIncome = pensionIncome + iraIncome
-            let combinedExempt = effectivePensionExemption.excludedAmount(
+            let rawCombinedExempt = effectivePensionExemption.excludedAmount(
                 eligibleIncome: combinedIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
+            // Mirror of TaxCalculationEngine.applyRetirementExemptions's
+            // shared-cap branch.
+            let combinedExempt = exemptions.agiPhaseout?.reduced(
+                exclusion: rawCombinedExempt, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawCombinedExempt
             // Attribute the combined exemption to pension first, then IRA
             // (purely for display purposes — the totalExempted is what matters
             // for the tax calculation).
             pensionExemptAmt = min(pensionIncome, combinedExempt)
             iraExemptAmt = combinedExempt - pensionExemptAmt
         } else {
-            pensionExemptAmt = effectivePensionExemption.excludedAmount(
+            let rawPension = effectivePensionExemption.excludedAmount(
                 eligibleIncome: pensionIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
-            iraExemptAmt = effectiveIRAExemption.excludedAmount(
+            // Mirror of TaxCalculationEngine.applyRetirementExemptions's
+            // per-type branch: the phase-out is applied independently to the
+            // pension exclusion and to the IRA exclusion below. See
+            // StateAGIPhaseout.swift's COMPOSITION doc comment.
+            pensionExemptAmt = exemptions.agiPhaseout?.reduced(
+                exclusion: rawPension, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawPension
+
+            let rawIRA = effectiveIRAExemption.excludedAmount(
                 eligibleIncome: iraIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
+            iraExemptAmt = exemptions.agiPhaseout?.reduced(
+                exclusion: rawIRA, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawIRA
         }
 
         // Military Retirement: per-source state exemption (Task 6.3).

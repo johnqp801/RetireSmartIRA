@@ -510,6 +510,30 @@ struct StateTaxPhase3aMechanismTests {
                 """)
     }
 
+    @Test("Every jurisdiction ships distributionMinAge as 59 in Phase 3a")
+    func everyStateShipsDistributionMinAge59() throws {
+        var wrong: [String] = []
+        for state in USState.allCases {
+            let url = try StateTaxDataLoader.fileURL(for: state, taxYear: 2026)
+            let object = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: url)) as? [String: Any]
+            let exemptions = object?["retirementExemptions"] as? [String: Any]
+            // Raw keys, not decoded values, and not covered by Layer C either,
+            // which checks top-level keys only. The behavior baseline is also
+            // partial cover here: moving New York from 59 to 55 shifts no
+            // baseline value, because NY's regularExemptionMinAge of 59 makes
+            // resolveLevel return .none below 59 regardless of this gate.
+            if exemptions?["distributionMinAge"] as? Int != 59 {
+                wrong.append(state.abbreviation)
+            }
+        }
+        #expect(wrong.isEmpty,
+                """
+                Iowa moves to 55 in Phase 5a, gated by a golden scenario. \
+                Found wrong or missing: \(wrong)
+                """)
+    }
+
     // MARK: - Roth conversion exemption
 
     @Test("Pennsylvania still exempts only the net amount deposited into the Roth")

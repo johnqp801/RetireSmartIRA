@@ -16,6 +16,16 @@ import Foundation
 /// this, because no state carries a phase-out yet; each state's Phase 4 golden
 /// scenario pins its own basis and Phase 5 corrects the call site if needed.
 /// Do not read this type's existence as evidence the basis was checked.
+///
+/// COMPOSITION, NOT YET VERIFIED. In the engine's per-type branch this is
+/// applied INDEPENDENTLY to the pension exclusion and to the IRA exclusion,
+/// and `reduced` floors at zero per exclusion, so the same excess income is
+/// deducted twice against two separate exclusions. A state whose statute
+/// phases out ONE combined subtraction wants the shared-cap branch instead,
+/// or wants the reduction applied to the total. All six jurisdictions this
+/// mechanism was built for use the per-type branch, so this is where Phase 5
+/// will land. Each state's golden scenario must pin which reading its statute
+/// takes; do not assume this one.
 struct AGIPhaseout: Codable, Equatable, Sendable {
     /// Income at or below which the exclusion is unreduced, for a single filer.
     let thresholdSingle: Double
