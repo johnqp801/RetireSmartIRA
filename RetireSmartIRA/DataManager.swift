@@ -689,8 +689,28 @@ class DataManager {
     /// Returns a detailed breakdown of how state tax is calculated for a specific state.
     /// Mirrors the logic of `calculateStateTaxFromGross` but captures
     /// every intermediate value for the State Comparison detail sheet.
-    func stateTaxBreakdown(forState state: USState, filingStatus: FilingStatus) -> StateTaxBreakdown {
-        let config = StateTaxData.config(for: state)
+    ///
+    /// - Parameters:
+    ///   - configOverride: Test-only seam, mirroring
+    ///     `TaxCalculationEngine.calculateStateTax`'s parameter of the same
+    ///     name. Phase 3a's Task 6 review named the absence of this seam as
+    ///     the reason this mirror's age-gate branch was proven by nothing
+    ///     while the engine's identical branch was proven by a test.
+    ///     Production always passes nil, resolving through
+    ///     `StateTaxData.config(for:)` as before.
+    ///   - distributionComponents: Phase 3b Task 3, mirroring
+    ///     `calculateStateTax`'s parameter of the same name. Pooled with
+    ///     `RetirementDistributionComponent.resolvePooledAmount`, the same
+    ///     shared logic the engine uses, and handed to the SAME age-gate
+    ///     logic this mirror already applies to
+    ///     `scenarioRetirementDistributionIncome` -- never evaluated per
+    ///     component.
+    func stateTaxBreakdown(
+        forState state: USState, filingStatus: FilingStatus,
+        configOverride: StateTaxConfig? = nil,
+        distributionComponents: [RetirementDistributionComponent]? = nil
+    ) -> StateTaxBreakdown {
+        let config = configOverride ?? StateTaxData.config(for: state)
         let exemptions = config.retirementExemptions
 
         // Apply HSA/401(k) addbacks + IRA/Other subtractions per state conformity
@@ -805,7 +825,17 @@ class DataManager {
             retirementAge = currentAge >= exemptions.distributionMinAge
                 && ageQualifiesForExemption(currentAge)
         }
-        let scenarioDistroExemptable = retirementAge ? scenarioRetirementDistributionIncome : 0
+        // Phase 3b Task 3: pool distributionComponents (or the synthesized
+        // single .unknown component when nil) into ONE figure BEFORE the
+        // age gate, exactly reproducing scenarioRetirementDistributionIncome
+        // when nil or when the invariant holds. Mirror of
+        // TaxCalculationEngine.applyRetirementExemptions -- both call the
+        // SAME RetirementDistributionComponent.resolvePooledAmount.
+        let pooledScenarioDistribution = RetirementDistributionComponent.resolvePooledAmount(
+            components: distributionComponents,
+            scalar: scenarioRetirementDistributionIncome
+        )
+        let scenarioDistroExemptable = retirementAge ? pooledScenarioDistribution : 0
         let iraIncome = rmdSourceIncome + scenarioDistroExemptable
         let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
 

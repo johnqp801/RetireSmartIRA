@@ -348,6 +348,14 @@ struct TaxCalculationEngine {
         spouseBirthYear: Int,
         currentYear: Int,
         scenarioRetirementDistributions: Double = 0,
+        /// Phase 3b Task 3: optional, additive alongside
+        /// `scenarioRetirementDistributions`. `nil` synthesises one
+        /// `.unknown`/`.unknown` component from the scalar, which is
+        /// today's behavior exactly -- see
+        /// `RetirementDistributionComponent.resolvePooledAmount`. When
+        /// supplied, the components' amounts must sum to
+        /// `scenarioRetirementDistributions` within one cent (spec 3.4).
+        distributionComponents: [RetirementDistributionComponent]? = nil,
         scenarioRothConversionAmount: Double = 0,
         scenarioRothConversionWithholdingAmount: Double = 0,
         postExemptionDeduction: Double = 0,
@@ -371,6 +379,7 @@ struct TaxCalculationEngine {
             spouseAge: spouseAge,
             enableSpouse: enableSpouse,
             scenarioRetirementDistributions: scenarioRetirementDistributions,
+            distributionComponents: distributionComponents,
             scenarioRothConversionAmount: scenarioRothConversionAmount,
             scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount
         )
@@ -479,6 +488,11 @@ struct TaxCalculationEngine {
         spouseAge: Int,
         enableSpouse: Bool,
         scenarioRetirementDistributions: Double = 0,
+        /// Phase 3b Task 3: see `calculateStateTax`'s parameter of the same
+        /// name. Pooled with `RetirementDistributionComponent.resolvePooledAmount`
+        /// below and handed to the SAME age-gate/exemption logic the scalar
+        /// already uses -- never evaluated per component.
+        distributionComponents: [RetirementDistributionComponent]? = nil,
         scenarioRothConversionAmount: Double = 0,
         scenarioRothConversionWithholdingAmount: Double = 0
     ) -> Double {
@@ -622,7 +636,16 @@ struct TaxCalculationEngine {
             retirementAge = primaryAge >= exemptions.distributionMinAge
                 && ageQualifiesForExemption(primaryAge)
         }
-        let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
+        // Phase 3b Task 3: pool distributionComponents (or the synthesized
+        // single .unknown component when nil) into ONE figure BEFORE the
+        // age gate, exactly reproducing scenarioRetirementDistributions
+        // when nil or when the invariant holds. See
+        // RetirementDistributionComponent.resolvePooledAmount.
+        let pooledScenarioDistribution = RetirementDistributionComponent.resolvePooledAmount(
+            components: distributionComponents,
+            scalar: scenarioRetirementDistributions
+        )
+        let scenarioExemptable = retirementAge ? pooledScenarioDistribution : 0
         let iraIncome = rmdSourceIncome + scenarioExemptable
 
         if exemptions.pensionAndIRAShareSingleCap {
