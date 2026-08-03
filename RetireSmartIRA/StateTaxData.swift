@@ -187,6 +187,21 @@ struct RetirementIncomeExemptions {
     /// its own DOR-tested age rule of 65 separately), NJ (62), CO (55/65).
     var regularExemptionMinAge: Int = 0
 
+    /// Minimum age at which `scenarioRetirementDistributions` (RMDs computed
+    /// from balances, inherited-IRA RMDs, and extra withdrawals) becomes
+    /// eligible for the state's IRA exemption, and the fallback age used to
+    /// decide whether a spouse qualifies when `regularExemptionMinAge` is 0.
+    ///
+    /// 59 reproduces the constant this replaced, which was hardcoded in
+    /// `TaxCalculationEngine.applyRetirementExemptions` in two places and
+    /// therefore unreachable from config. Iowa qualifies at 55 (HF 2317), so
+    /// config alone could not fix Iowa while this was a literal. The value is
+    /// 59 rather than 59.5 because the engine works in integer ages; that
+    /// approximation predates this phase and is unchanged by it.
+    ///
+    /// Changed away from 59 only in Phase 5, gated by a golden scenario.
+    var distributionMinAge: Int = 59
+
     /// Optional reduced exemption for an early-age tier. When the taxpayer
     /// is in `tier.ageRange`, BOTH `pensionExemption` and
     /// `iraWithdrawalExemption` are temporarily replaced with `tier.level`

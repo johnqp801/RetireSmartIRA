@@ -268,7 +268,7 @@ extension RetirementIncomeExemptions.AgeTier: Codable {
 extension RetirementIncomeExemptions: Codable {
     private enum CodingKeys: String, CodingKey {
         case socialSecurityExempt, pensionExemption, iraWithdrawalExemption
-        case exemptionAppliesPerIndividual, regularExemptionMinAge, earlyAgeTier
+        case exemptionAppliesPerIndividual, regularExemptionMinAge, distributionMinAge, earlyAgeTier
         case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion
         case capitalGainsTreatment
     }
@@ -280,6 +280,7 @@ extension RetirementIncomeExemptions: Codable {
         try c.encode(iraWithdrawalExemption, forKey: .iraWithdrawalExemption)
         try c.encode(exemptionAppliesPerIndividual, forKey: .exemptionAppliesPerIndividual)
         try c.encode(regularExemptionMinAge, forKey: .regularExemptionMinAge)
+        try c.encode(distributionMinAge, forKey: .distributionMinAge)
         try c.encodeIfPresent(earlyAgeTier, forKey: .earlyAgeTier)
         try c.encode(pensionAndIRAShareSingleCap, forKey: .pensionAndIRAShareSingleCap)
         try c.encode(otherRetirementIncomeExclusion, forKey: .otherRetirementIncomeExclusion)
@@ -296,6 +297,7 @@ extension RetirementIncomeExemptions: Codable {
             iraWithdrawalExemption: try c.decodeIfPresent(ExemptionLevel.self, forKey: .iraWithdrawalExemption) ?? .none,
             exemptionAppliesPerIndividual: try c.decodeIfPresent(Bool.self, forKey: .exemptionAppliesPerIndividual) ?? false,
             regularExemptionMinAge: try c.decodeIfPresent(Int.self, forKey: .regularExemptionMinAge) ?? 0,
+            distributionMinAge: try c.decodeIfPresent(Int.self, forKey: .distributionMinAge) ?? 59,
             earlyAgeTier: try c.decodeIfPresent(AgeTier.self, forKey: .earlyAgeTier),
             pensionAndIRAShareSingleCap: try c.decodeIfPresent(Bool.self, forKey: .pensionAndIRAShareSingleCap) ?? false,
             otherRetirementIncomeExclusion: try c.decodeIfPresent(Bool.self, forKey: .otherRetirementIncomeExclusion) ?? false,

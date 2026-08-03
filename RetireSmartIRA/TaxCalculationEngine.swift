@@ -495,10 +495,8 @@ struct TaxCalculationEngine {
         // also reported Alabama's current value as $2,500, which is Arizona's;
         // Alabama is configured `.none`.
         //
-        // Still open and confirmed by the audit: this function applies a flat
-        // 59.5 baseline to `scenarioRetirementDistributions`, which is wrong for
-        // Iowa (qualifies at 55); and it cannot apply `pensionExemption` and
-        // `iraWithdrawalExemption` independently, because
+        // Still open and confirmed by the audit: this function cannot apply
+        // `pensionExemption` and `iraWithdrawalExemption` independently, because
         // `scenarioRetirementDistributions` is not split by source.
         var adjusted = income
         let exemptions = config.retirementExemptions
@@ -536,7 +534,7 @@ struct TaxCalculationEngine {
                 }
                 return false
             }
-            return age >= 59
+            return age >= exemptions.distributionMinAge
         }
 
         // Per-individual cap multiplier: when MFJ AND BOTH spouses individually
@@ -580,7 +578,8 @@ struct TaxCalculationEngine {
         //      states); user-entered `.rmd` rows are not gated because they
         //      implicitly represent retirement-age income.
         let rmdSourceIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
-        let retirementAge = primaryAge >= 59 || (enableSpouse && spouseAge >= 59)
+        let retirementAge = primaryAge >= exemptions.distributionMinAge
+            || (enableSpouse && spouseAge >= exemptions.distributionMinAge)
         let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
         let iraIncome = rmdSourceIncome + scenarioExemptable
 
