@@ -1,0 +1,20 @@
+{
+  "state": "NJ",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "age 65 single, pension inside the 100%-retention band, personal exemptions apply",
+      "source": "This 2026 fixture cites the 2025 NJ-1040 instruction booklet, the most recently published as of authorship (2026 forms are not yet released; verified by downloading the booklet, which reads '2025 Form NJ-1040' and '2025 NJ-1040 Tax Table' throughout). Line 27 Total Income = $80,000 (pension only; federalAGI is set equal to pensionIncome + iraWithdrawals so both engine paths derive the same income from this fixture). Line 28a Pension/Retirement Exclusion: eligibility requires age 62+ ('You ... were age 62 or older ... on the last day of the tax year', 1040i.pdf p.20; our filer is 65). Line 28a is the LESSER of Line A (pension income on line 20a, $80,000) and Line B, the 'Determining Your Exclusion Amount' chart (p.20: single filer, income $0-$100,000, flat $75,000) = $75,000. Line 28b Other Retirement Income Exclusion is a SEPARATE calculation, Worksheet D (p.21, titled 'Worksheet D, Other Retirement Income Exclusion', not the chart that produces 28a): Worksheet D line 3 (max exclusion $75,000 minus line 28a $75,000) is $0, so there is no unused exclusion to carry to line 28b; 28b = $0. Line 28c Total Exclusion = 75,000 + 0 = $75,000. Line 29 NJ Gross Income = 80,000 - 75,000 = $5,000. Line 13/30 Exemption Amount: $1,000 Regular (line 6, p.7) + $1,000 Senior 65+ (line 7, p.7: 'You can claim a $1,000 exemption if you were 65 or older on the last day of the tax year') = $2,000, no spouse. Line 39/42 NJ Taxable Income = 5,000 - 2,000 = $3,000. Line 43 (p.31: 'If the income on line 42 is less than $100,000, use the Tax Table on page 54. Otherwise ... Tax Rate Schedules') gives, from the 2025 NJ-1040 Tax Table (p.54-55) row 'At least 3,000 But Less Than 3,050', filing status column '1 or 3' (Single): $42.00.",
+      "sourceURL": "https://www.nj.gov/treasury/taxation/pdf/current/1040i.pdf",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 80000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 42.0
+    }
+  ]
+}

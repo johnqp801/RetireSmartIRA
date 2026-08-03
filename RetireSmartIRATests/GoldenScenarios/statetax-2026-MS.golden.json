@@ -1,0 +1,20 @@
+{
+  "state": "MS",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "retiree, qualified retirement income exempt",
+      "source": "MS Code 27-7-15(4)(l): retirement allowances, pensions, annuities, or optional retirement allowances paid by a private retirement system or plan of which the recipient was a member during employment are excluded from gross income. ((4)(j) is combat-zone hazardous-duty pay for Armed Forces members and does not apply here; (4)(k) covers government retirement systems, not this private pension/IRA household.)",
+      "sourceURL": "https://codes.findlaw.com/ms/title-27-taxation-and-finance/ms-code-sect-27-7-15.html",
+      "filingStatus": "single",
+      "primaryAge": 67,
+      "spouseAge": null,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 50000,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    }
+  ]
+}

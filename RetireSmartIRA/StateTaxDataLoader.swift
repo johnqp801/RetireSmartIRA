@@ -192,4 +192,33 @@ enum StateTaxDataLoader {
         }
         return result.configs
     }()
+
+    /// Per-tax-year memoized cache. Adding a future tax year is additive: drop
+    /// its `statetax-<year>-<ABBR>.json` files into the bundle and this resolves
+    /// them with no code change.
+    ///
+    /// Returns an EMPTY dictionary rather than throwing when a year has no
+    /// bundled data. Callers decide what that means: `StateTaxYearAvailability`
+    /// treats it as "law not available for this year", which is a disclosure
+    /// concern, not a load failure.
+    private static let yearCache = YearCache()
+
+    private final class YearCache: @unchecked Sendable {
+        private var storage: [Int: [USState: StateTaxConfig]] = [:]
+        private let lock = NSLock()
+
+        func configs(for taxYear: Int) -> [USState: StateTaxConfig] {
+            lock.lock()
+            defer { lock.unlock() }
+            if let cached = storage[taxYear] { return cached }
+            let loaded = (try? StateTaxDataLoader.load(taxYear: taxYear)) ?? [:]
+            storage[taxYear] = loaded
+            return loaded
+        }
+    }
+
+    /// Configurations for `taxYear`, or an empty dictionary if none are bundled.
+    static func configs(for taxYear: Int) -> [USState: StateTaxConfig] {
+        yearCache.configs(for: taxYear)
+    }
 }

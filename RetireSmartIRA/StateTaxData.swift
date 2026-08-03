@@ -2103,4 +2103,17 @@ struct StateTaxData {
         }
         preconditionFailure("No tax configuration for \(state.abbreviation) in either the JSON loader or the legacy table.")
     }
+
+    /// Returns the configuration for `state` in `taxYear`.
+    ///
+    /// Falls back to the 2026 table when `taxYear` has no bundled data, because
+    /// projections routinely run decades past the last year real law exists for.
+    /// That extrapolation is DISCLOSED rather than silent: see
+    /// `StateTaxYearAvailability.isExtrapolated(taxYear:)`.
+    static func config(for state: USState, taxYear: Int) -> StateTaxConfig {
+        if let config = StateTaxDataLoader.configs(for: taxYear)[state] {
+            return config
+        }
+        return config(for: state)
+    }
 }
