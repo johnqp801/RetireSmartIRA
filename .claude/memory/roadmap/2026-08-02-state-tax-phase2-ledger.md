@@ -285,3 +285,34 @@ Task 6: fix IN FLIGHT (commit b0abd9a, base 9faa066; reviewed on opus, verdict N
   5. Point sourceURL at instruction booklets, and hold the clause-by-clause discipline.
   Items 1 and 2 together account for $340.40 of the NJ gap in opposing directions; the real engine
   divergence under all that noise is $28.00.
+
+Task 6: complete (commits b0abd9a + fix 1b8b39c; first pass NEEDS WORK on opus, all findings closed)
+  CRITICAL CLOSED AND VERIFIED: NJ added to the loader and single-year pilots (NOT multi-year, so
+  the 200.40 vs 42.00 gap stays visible as the Phase 5 signal without turning this phase red).
+  Setting expectedStateTax to 99999.0 now produces EXIT=65 with a named failure; before the fix it
+  left all four suites GREEN.
+  NJ re-derived to $42.00 with full arithmetic: AGI 80,000 -> line 28a exclusion min(80,000, 75,000)
+  = 75,000 -> line 29 = 5,000 -> minus 2,000 exemptions (regular + senior 65+) -> taxable 3,000 ->
+  2025 NJ-1040 TAX TABLE row 3,000-3,050 = $42.00. Verified three ways (table row, formula, engine).
+  Fixture federalAGI set to 80,000 so it equals its components, REMOVING the $210 artifact I had
+  introduced. Gap decomposition is now two real terms and closes exactly:
+    42.00 + 129.89 (tax-funding cascade) + 28.51 (I2) = 200.40
+  Pinned test now pins OBSERVED VALUES (42.0 and 200.40469973890345) instead of an inequality, so it
+  fails the moment either side moves rather than staying armed regardless.
+  Citations corrected: Worksheet D -> line 28b, tax read from the Tax Table not the Rate Schedules,
+  sourceURL repointed at the instruction booklet.
+
+  ** THE IMPLEMENTER CORRECTED ME AGAIN, THIRD TIME THIS SESSION ON A CITATION FACT.
+     I instructed the citation to state that NJ's 2025 instructions are not published. They ARE.
+     The agent downloaded them, verified, and cited 2025 with evidence rather than repeating my
+     false claim. My three citation errors this session: MS combat-pay paragraph, IL Schedule M,
+     and this. All three were stated with full confidence. **
+
+  Concern carried forward: sourceURL uses NJ's ROLLING current/1040i.pdf path (no stable 2025
+  archive exists yet, checked, 404). It will describe 2026 content once NJ rolls it over, so it
+  needs re-verification or an archival URL when one appears.
+
+## PHASE 2 COMPLETE AND MERGED to main @ 7c6d4e6 (merge commit, 13 commits).
+  Final suite on the branch: 1,620 Swift Testing in 275 suites + 503 XCTest, 0 failures, right tree.
+  Phase 2 start baseline was 1,605 + 503. Net +15 tests, all additive. No engine or config file was
+  modified in ANY Phase 2 commit; no computed tax value changed.
