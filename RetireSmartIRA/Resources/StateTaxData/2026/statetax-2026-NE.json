@@ -19,66 +19,54 @@
     "otherRetirementIncomeExclusion" : false,
     "pensionAndIRAShareSingleCap" : false,
     "pensionExemption" : {
-      "kind" : "partial",
-      "maxExempt" : 25000
+      "kind" : "none"
     },
     "regularExemptionMinAge" : 0,
     "socialSecurityExempt" : true
   },
   "safeHarborRule" : {
-    "kind" : "flatRate",
-    "rate" : 1
+    "kind" : "mirrorsFederal"
   },
-  "state" : "ME",
+  "state" : "NE",
   "stateDeduction" : {
     "kind" : "fixed",
-    "married" : 30600,
-    "single" : 15300
+    "married" : 24000,
+    "single" : 12000
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "988698C8-F9E1-483A-9D5E-EA66DAD73834",
-        "rate" : 0.058,
+        "id" : "C4A1EC50-851A-445C-91BF-4D5D77CE4A4A",
+        "rate" : 0.0246,
         "threshold" : 0
       },
       {
-        "id" : "F165096E-4E39-4DB2-A01F-E2D3F68B38A8",
-        "rate" : 0.0675,
-        "threshold" : 54850
+        "id" : "404A6F66-4E33-4E83-9D76-B97456CCE0C2",
+        "rate" : 0.0351,
+        "threshold" : 4800
       },
       {
-        "id" : "824A2FB1-88C0-4D19-9293-7ECE3FD8F6DD",
-        "rate" : 0.0715,
-        "threshold" : 129750
-      },
-      {
-        "id" : "A2EA459F-45A9-4EF4-8A6A-7F225F78F542",
-        "rate" : 0.0915,
-        "threshold" : 1500000
+        "id" : "E26474E1-6911-45D5-B4D6-7E23C10A9F2D",
+        "rate" : 0.0455,
+        "threshold" : 36000
       }
     ],
     "single" : [
       {
-        "id" : "58737688-4BFE-43FE-9CA3-06C656962D84",
-        "rate" : 0.058,
+        "id" : "9A6D585A-DD1A-4DDE-8C3E-ECAA95F8C2F5",
+        "rate" : 0.0246,
         "threshold" : 0
       },
       {
-        "id" : "28291AB2-EB92-48BB-9355-7BEF2CD153C9",
-        "rate" : 0.0675,
-        "threshold" : 27400
+        "id" : "F38B9794-56A1-4861-961B-9D9CEDF2B302",
+        "rate" : 0.0351,
+        "threshold" : 2400
       },
       {
-        "id" : "498E1361-E70C-4AD0-98BC-667AD3F93481",
-        "rate" : 0.0715,
-        "threshold" : 64850
-      },
-      {
-        "id" : "667ABF3B-DD10-4226-80D6-13650305CA72",
-        "rate" : 0.0915,
-        "threshold" : 1000000
+        "id" : "A6B2298F-B38A-4B49-807E-9D0635DB1845",
+        "rate" : 0.0455,
+        "threshold" : 18000
       }
     ]
   },

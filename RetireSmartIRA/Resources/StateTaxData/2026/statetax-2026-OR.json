@@ -11,17 +11,15 @@
   "otherPreTaxDeductionsTaxableForState" : false,
   "pretax401kContributionsTaxableForState" : false,
   "retirementExemptions" : {
-    "capitalGainsTreatment" : "followsFederal",
+    "capitalGainsTreatment" : "taxedAsOrdinary",
     "exemptionAppliesPerIndividual" : false,
     "iraWithdrawalExemption" : {
-      "kind" : "partial",
-      "maxExempt" : 6000
+      "kind" : "none"
     },
     "otherRetirementIncomeExclusion" : false,
     "pensionAndIRAShareSingleCap" : false,
     "pensionExemption" : {
-      "kind" : "partial",
-      "maxExempt" : 6000
+      "kind" : "none"
     },
     "regularExemptionMinAge" : 0,
     "socialSecurityExempt" : true
@@ -30,66 +28,56 @@
     "kind" : "flatRate",
     "rate" : 1
   },
-  "state" : "AR",
+  "state" : "OR",
   "stateDeduction" : {
     "kind" : "fixed",
-    "married" : 4940,
-    "single" : 2470
+    "married" : 9680,
+    "single" : 4840
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "37A0B3E6-2A3D-44CF-90EF-1944DB2583CC",
-        "rate" : 0,
+        "id" : "7A997F60-A522-49FA-97CE-BD1395B5C6F1",
+        "rate" : 0.0475,
         "threshold" : 0
       },
       {
-        "id" : "0D88D4F3-7E08-4F78-BA85-007C627F483C",
-        "rate" : 0.02,
-        "threshold" : 5600
+        "id" : "E4BF7EC0-8791-4659-97C1-4512049E814F",
+        "rate" : 0.0675,
+        "threshold" : 8100
       },
       {
-        "id" : "88850129-B929-4BE0-AE02-EED9247DE477",
-        "rate" : 0.03,
-        "threshold" : 11200
+        "id" : "B17036AB-219E-466B-A5D7-81E47F7B5B23",
+        "rate" : 0.0875,
+        "threshold" : 20400
       },
       {
-        "id" : "18E3B3BD-A86C-4125-AA9F-DECA109CCAAE",
-        "rate" : 0.034,
-        "threshold" : 16000
-      },
-      {
-        "id" : "1C61D686-0F4E-47AD-93B5-2BCC5CF664CB",
-        "rate" : 0.037,
-        "threshold" : 26400
+        "id" : "B080CCDC-3E7B-40A2-8029-901F9FD9AFC5",
+        "rate" : 0.099,
+        "threshold" : 250000
       }
     ],
     "single" : [
       {
-        "id" : "E08C31AD-A4BC-4511-B2BA-A0F5915C59B4",
-        "rate" : 0,
+        "id" : "C20BD488-63B2-4486-BD39-B651521FA1EC",
+        "rate" : 0.0475,
         "threshold" : 0
       },
       {
-        "id" : "40B938A8-20D8-4179-B8E2-28689309131C",
-        "rate" : 0.02,
-        "threshold" : 5600
+        "id" : "DE3361D8-E96B-4D31-8B3C-D2862D7A0359",
+        "rate" : 0.0675,
+        "threshold" : 4050
       },
       {
-        "id" : "20AA58E5-E4B6-4864-B0E0-C3CAC139C631",
-        "rate" : 0.03,
-        "threshold" : 11200
+        "id" : "C1725447-6E4C-4147-B307-70CE0316BC36",
+        "rate" : 0.0875,
+        "threshold" : 10200
       },
       {
-        "id" : "90042FA5-C598-414F-A3A1-D9AC583601F2",
-        "rate" : 0.034,
-        "threshold" : 16000
-      },
-      {
-        "id" : "E0EB0070-5020-4427-859D-644A79AB7C44",
-        "rate" : 0.037,
-        "threshold" : 26400
+        "id" : "5DD9F1D7-961F-41D4-A907-EC7E75728393",
+        "rate" : 0.099,
+        "threshold" : 125000
       }
     ]
   },

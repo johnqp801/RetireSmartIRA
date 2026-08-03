@@ -25,48 +25,67 @@
     "socialSecurityExempt" : true
   },
   "safeHarborRule" : {
-    "kind" : "mirrorsFederal"
+    "kind" : "flatRate",
+    "rate" : 1
   },
-  "state" : "AL",
+  "state" : "WV",
   "stateDeduction" : {
-    "kind" : "fixed",
-    "married" : 8500,
-    "single" : 3000
+    "kind" : "none"
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "84E12667-7BEC-4C3E-BF62-D7B76455F12C",
-        "rate" : 0.02,
+        "id" : "AA414C33-3CCB-4FBA-9248-4D6C25EDC191",
+        "rate" : 0.0211,
         "threshold" : 0
       },
       {
-        "id" : "9FE81A18-7AF8-4C46-BFBB-F8593AC159E1",
-        "rate" : 0.04,
-        "threshold" : 1000
+        "id" : "C34CB801-4BEA-4868-961E-42FABD670DE8",
+        "rate" : 0.0281,
+        "threshold" : 10000
       },
       {
-        "id" : "6AFC163F-6661-4A90-85BC-A280885D5ED6",
-        "rate" : 0.05,
-        "threshold" : 6000
+        "id" : "E1805A2D-78D9-4F6F-9910-3482B6B78549",
+        "rate" : 0.0316,
+        "threshold" : 25000
+      },
+      {
+        "id" : "F72159F2-B737-4F23-96D6-73C9DE37D21C",
+        "rate" : 0.0422,
+        "threshold" : 40000
+      },
+      {
+        "id" : "2B7F20D5-F0BE-4C7A-8615-029D34275E95",
+        "rate" : 0.0458,
+        "threshold" : 60000
       }
     ],
     "single" : [
       {
-        "id" : "8C9D5B58-2E95-440A-8A3E-E99873930445",
-        "rate" : 0.02,
+        "id" : "0A478114-DEC0-4691-BA53-1D7710CD38E0",
+        "rate" : 0.0211,
         "threshold" : 0
       },
       {
-        "id" : "869C8577-E20C-4D25-9C62-BFA22D638175",
-        "rate" : 0.04,
-        "threshold" : 500
+        "id" : "63FDCAF1-7DEC-473C-86A2-A0A96D3D353B",
+        "rate" : 0.0281,
+        "threshold" : 10000
       },
       {
-        "id" : "78B7F827-0388-41A9-9652-FD44740549ED",
-        "rate" : 0.05,
-        "threshold" : 3000
+        "id" : "2D5A9696-B78A-4ADE-81CF-F6681CB9F584",
+        "rate" : 0.0316,
+        "threshold" : 25000
+      },
+      {
+        "id" : "F4DFB2F5-11A9-41A4-B5C0-81CDCBDFD40E",
+        "rate" : 0.0422,
+        "threshold" : 40000
+      },
+      {
+        "id" : "D863B4D5-F575-4BA4-9DE9-5E4D23614E0B",
+        "rate" : 0.0458,
+        "threshold" : 60000
       }
     ]
   },

@@ -1,6 +1,6 @@
 {
   "capitalLossesClassIsolated" : false,
-  "currentYearSafeHarborRate" : 0.8,
+  "currentYearSafeHarborRate" : 0.7,
   "estimatedPaymentSchedule" : {
     "q1Pct" : 0.25,
     "q2Pct" : 0.25,
@@ -14,12 +14,14 @@
     "capitalGainsTreatment" : "followsFederal",
     "exemptionAppliesPerIndividual" : false,
     "iraWithdrawalExemption" : {
-      "kind" : "none"
+      "kind" : "partial",
+      "maxExempt" : 10000
     },
     "otherRetirementIncomeExclusion" : false,
     "pensionAndIRAShareSingleCap" : false,
     "pensionExemption" : {
-      "kind" : "none"
+      "kind" : "partial",
+      "maxExempt" : 10000
     },
     "regularExemptionMinAge" : 0,
     "socialSecurityExempt" : true
@@ -28,34 +30,56 @@
     "kind" : "flatRate",
     "rate" : 1
   },
-  "state" : "MA",
+  "state" : "OK",
   "stateDeduction" : {
-    "kind" : "none"
+    "kind" : "fixed",
+    "married" : 27100,
+    "single" : 13550
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "58E2AAE2-0402-4486-86D5-77A170556C03",
-        "rate" : 0.05,
+        "id" : "8A04ABCF-8D22-4E34-9170-9FF30D299F9F",
+        "rate" : 0,
         "threshold" : 0
       },
       {
-        "id" : "5DFAB028-B304-4F9A-ACDA-6007588F55C6",
-        "rate" : 0.09,
-        "threshold" : 1107750
+        "id" : "C2840A96-42A2-46F5-9FD2-E3CAC0677BEE",
+        "rate" : 0.025,
+        "threshold" : 7500
+      },
+      {
+        "id" : "F0B24E83-DA71-4FE7-96FB-F06542F6C23B",
+        "rate" : 0.035,
+        "threshold" : 9800
+      },
+      {
+        "id" : "7461F249-8E3E-4111-AEEE-46F2EF72C4AB",
+        "rate" : 0.045,
+        "threshold" : 14400
       }
     ],
     "single" : [
       {
-        "id" : "E9DCFB31-8FA2-4B86-9444-5EF7E1FED534",
-        "rate" : 0.05,
+        "id" : "22B9C305-8A46-4F74-80BB-D0A3CF6A2B4A",
+        "rate" : 0,
         "threshold" : 0
       },
       {
-        "id" : "27DFACC9-E694-4BE1-97CE-992A22C44BDE",
-        "rate" : 0.09,
-        "threshold" : 1107750
+        "id" : "E76BE423-D6EC-4B2A-B4E0-069C4F1B0AC0",
+        "rate" : 0.025,
+        "threshold" : 3750
+      },
+      {
+        "id" : "F9E9EE35-A051-4E16-B7F9-69E1ED050BC2",
+        "rate" : 0.035,
+        "threshold" : 4900
+      },
+      {
+        "id" : "89E36E6C-916B-4473-AA8D-BFE71F99CC32",
+        "rate" : 0.045,
+        "threshold" : 7200
       }
     ]
   },

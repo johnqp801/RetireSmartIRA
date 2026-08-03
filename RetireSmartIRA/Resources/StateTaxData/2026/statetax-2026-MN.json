@@ -22,51 +22,61 @@
       "kind" : "none"
     },
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : false
   },
   "safeHarborRule" : {
     "kind" : "mirrorsFederal"
   },
-  "state" : "NE",
+  "state" : "MN",
   "stateDeduction" : {
     "kind" : "fixed",
-    "married" : 24000,
-    "single" : 12000
+    "married" : 30600,
+    "single" : 15300
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "D90286D0-EEE6-43FF-A1F0-AB70199201EE",
-        "rate" : 0.0246,
+        "id" : "9D186F99-C174-4516-80F3-8A0E631CC6CB",
+        "rate" : 0.0535,
         "threshold" : 0
       },
       {
-        "id" : "57687839-97D8-48E4-AA37-9FE6CD87C629",
-        "rate" : 0.0351,
-        "threshold" : 4800
+        "id" : "F9314529-AAA1-4271-B0C1-153484CE70E6",
+        "rate" : 0.068,
+        "threshold" : 48700
       },
       {
-        "id" : "3A6AD4EE-3108-4256-B871-A32E0D4E75AE",
-        "rate" : 0.0455,
-        "threshold" : 36000
+        "id" : "8ECFF1A1-8A8D-4D7B-AEBE-2208BEBE032D",
+        "rate" : 0.0785,
+        "threshold" : 193480
+      },
+      {
+        "id" : "917386E2-4B0D-4345-8081-3985D5919288",
+        "rate" : 0.0985,
+        "threshold" : 337930
       }
     ],
     "single" : [
       {
-        "id" : "E880F42F-45B3-4A4F-96A9-A925309EAAF2",
-        "rate" : 0.0246,
+        "id" : "CA5D26F1-2184-460E-A4F6-A15B32A835A4",
+        "rate" : 0.0535,
         "threshold" : 0
       },
       {
-        "id" : "C6DD9976-3BAB-48BA-91E9-7EDEC60A295F",
-        "rate" : 0.0351,
-        "threshold" : 2400
+        "id" : "66E13FD1-E3AB-47A0-9FFC-30410105EBE6",
+        "rate" : 0.068,
+        "threshold" : 33310
       },
       {
-        "id" : "98893C34-0716-4533-9BE9-624B7A0D12DD",
-        "rate" : 0.0455,
-        "threshold" : 18000
+        "id" : "45797A4A-7CEF-46C2-A05D-0FC1E412488C",
+        "rate" : 0.0785,
+        "threshold" : 109430
+      },
+      {
+        "id" : "1A67DC3B-E8D4-401D-BAB3-82D4F80CAA22",
+        "rate" : 0.0985,
+        "threshold" : 203150
       }
     ]
   },

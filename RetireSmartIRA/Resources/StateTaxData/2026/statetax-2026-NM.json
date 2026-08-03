@@ -22,40 +22,70 @@
       "kind" : "none"
     },
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : false
   },
   "safeHarborRule" : {
     "kind" : "flatRate",
     "rate" : 1
   },
-  "state" : "OH",
+  "state" : "NM",
   "stateDeduction" : {
-    "kind" : "none"
+    "kind" : "conformsToFederal"
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "E7E9BC17-C776-4D3D-9D41-C2C06D8F2C5A",
-        "rate" : 0,
+        "id" : "088266FB-3441-4FF5-9B17-107DD3422F13",
+        "rate" : 0.017,
         "threshold" : 0
       },
       {
-        "id" : "A5A316C3-565C-4CA3-8A5B-0A92744D868F",
-        "rate" : 0.0275,
-        "threshold" : 26050
+        "id" : "955B4606-FE52-40B1-A2CA-A53955610763",
+        "rate" : 0.032,
+        "threshold" : 8000
+      },
+      {
+        "id" : "5BB32126-80B3-4335-9721-E949CBF87180",
+        "rate" : 0.047,
+        "threshold" : 16000
+      },
+      {
+        "id" : "8EE5C150-5069-43CD-A78D-959D6D7CD0AE",
+        "rate" : 0.049,
+        "threshold" : 24000
+      },
+      {
+        "id" : "07447275-4E29-411B-927A-12D3251BC8CA",
+        "rate" : 0.059,
+        "threshold" : 315000
       }
     ],
     "single" : [
       {
-        "id" : "C9158F3F-7F5D-4F74-9894-D47B91158354",
-        "rate" : 0,
+        "id" : "038EE84F-F16A-457D-8DC8-FC74ADDC6E79",
+        "rate" : 0.017,
         "threshold" : 0
       },
       {
-        "id" : "FCD56930-D183-47FF-9AA2-E0BFFC8F618A",
-        "rate" : 0.0275,
-        "threshold" : 26050
+        "id" : "CEB89233-6E63-4197-8CDF-C2853205ECED",
+        "rate" : 0.032,
+        "threshold" : 5500
+      },
+      {
+        "id" : "75E0F8B0-4D7D-4CC1-8D56-0AE0D4A5286E",
+        "rate" : 0.047,
+        "threshold" : 11000
+      },
+      {
+        "id" : "3996DE75-7C10-4907-8CAE-3F098295C964",
+        "rate" : 0.049,
+        "threshold" : 16000
+      },
+      {
+        "id" : "B8F9B916-2EDE-4606-8727-D1F66EB1A262",
+        "rate" : 0.059,
+        "threshold" : 210000
       }
     ]
   },

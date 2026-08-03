@@ -1,6 +1,6 @@
 {
   "capitalLossesClassIsolated" : false,
-  "currentYearSafeHarborRate" : 0.8,
+  "currentYearSafeHarborRate" : 0.9,
   "estimatedPaymentSchedule" : {
     "q1Pct" : 0.25,
     "q2Pct" : 0.25,
@@ -25,48 +25,59 @@
     "socialSecurityExempt" : false
   },
   "safeHarborRule" : {
-    "kind" : "mirrorsFederal"
+    "kind" : "flatRate",
+    "rate" : 1
   },
-  "state" : "RI",
+  "state" : "VT",
   "stateDeduction" : {
     "kind" : "fixed",
-    "married" : 22400,
-    "single" : 11200
+    "married" : 15700,
+    "single" : 7850
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "3270D8F7-F62B-48D7-AEB5-5EDB8341DBE3",
-        "rate" : 0.0375,
+        "id" : "84F39847-D125-44C9-9877-D6BD90124A3F",
+        "rate" : 0.0335,
         "threshold" : 0
       },
       {
-        "id" : "7579B4D9-EBE5-4682-BD54-C6CCAD03425F",
-        "rate" : 0.0475,
-        "threshold" : 82050
+        "id" : "4DF1841E-1610-4D86-AEEB-7A2057204650",
+        "rate" : 0.066,
+        "threshold" : 80200
       },
       {
-        "id" : "BE61F026-C90B-4ED2-A8EF-B636E8E713E5",
-        "rate" : 0.0599,
-        "threshold" : 186450
+        "id" : "7C2A1C32-2F67-4A79-9A1E-5FA4897569D8",
+        "rate" : 0.076,
+        "threshold" : 194000
+      },
+      {
+        "id" : "334EECFA-9D23-425F-97B1-13945C3C5967",
+        "rate" : 0.0875,
+        "threshold" : 294600
       }
     ],
     "single" : [
       {
-        "id" : "10F29ACD-D677-4043-84C7-350AB2614EF4",
-        "rate" : 0.0375,
+        "id" : "8968D065-EC41-4E1A-9086-1624762EF60B",
+        "rate" : 0.0335,
         "threshold" : 0
       },
       {
-        "id" : "D7D32F84-999B-49B3-A370-BA74A9B5C843",
-        "rate" : 0.0475,
-        "threshold" : 82050
+        "id" : "18FFD939-2FA1-4071-BAFB-8D8782CDE92F",
+        "rate" : 0.066,
+        "threshold" : 47900
       },
       {
-        "id" : "C84CF642-C85B-4A95-9A6C-DA3302F9F777",
-        "rate" : 0.0599,
-        "threshold" : 186450
+        "id" : "72348AF9-A7A1-4C8E-89DC-732209613933",
+        "rate" : 0.076,
+        "threshold" : 116000
+      },
+      {
+        "id" : "DEE8F044-0A1E-4F7D-9DBB-7C23492405EE",
+        "rate" : 0.0875,
+        "threshold" : 242000
       }
     ]
   },

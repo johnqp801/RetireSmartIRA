@@ -28,64 +28,36 @@
     "kind" : "flatRate",
     "rate" : 1
   },
-  "state" : "WV",
+  "state" : "KS",
   "stateDeduction" : {
-    "kind" : "none"
+    "kind" : "fixed",
+    "married" : 8240,
+    "single" : 3605
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "1301CE69-BC50-4FD0-90B4-4B6222B3C1DE",
-        "rate" : 0.0211,
+        "id" : "8CC9BA03-F52C-40CF-AB51-01776DC88D64",
+        "rate" : 0.052,
         "threshold" : 0
       },
       {
-        "id" : "76FFF54D-B8E5-4AD5-B206-B667E331C02D",
-        "rate" : 0.0281,
-        "threshold" : 10000
-      },
-      {
-        "id" : "489B44F2-5624-4CD8-8D31-CCB55F0ECD8C",
-        "rate" : 0.0316,
-        "threshold" : 25000
-      },
-      {
-        "id" : "56EB6185-9CF5-4468-AD61-99B96C8735E4",
-        "rate" : 0.0422,
-        "threshold" : 40000
-      },
-      {
-        "id" : "9A8DA852-79F4-40CB-B8BA-3EB74296BE30",
-        "rate" : 0.0458,
-        "threshold" : 60000
+        "id" : "73A1EA35-6EFB-4448-B4A0-8C17A9DBE868",
+        "rate" : 0.0558,
+        "threshold" : 46000
       }
     ],
     "single" : [
       {
-        "id" : "7022B23F-5EF1-43D7-B705-77B24BF1C28A",
-        "rate" : 0.0211,
+        "id" : "A13FD197-B8A4-4A34-8F87-C77FD7713B40",
+        "rate" : 0.052,
         "threshold" : 0
       },
       {
-        "id" : "9FC82554-8EC5-4FE9-89C4-19FACEDEF42D",
-        "rate" : 0.0281,
-        "threshold" : 10000
-      },
-      {
-        "id" : "06213C5D-6E66-4D26-B368-CA3B762BBFC1",
-        "rate" : 0.0316,
-        "threshold" : 25000
-      },
-      {
-        "id" : "A01444BE-5FF3-45E6-B061-A189D6C751B1",
-        "rate" : 0.0422,
-        "threshold" : 40000
-      },
-      {
-        "id" : "AABA779A-8438-439B-B752-64DA119A36B0",
-        "rate" : 0.0458,
-        "threshold" : 60000
+        "id" : "762072D0-7F00-4D56-B734-D89B9DB75746",
+        "rate" : 0.0558,
+        "threshold" : 23000
       }
     ]
   },

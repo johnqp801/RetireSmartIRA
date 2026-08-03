@@ -19,64 +19,66 @@
     "otherRetirementIncomeExclusion" : false,
     "pensionAndIRAShareSingleCap" : false,
     "pensionExemption" : {
-      "kind" : "none"
+      "kind" : "partial",
+      "maxExempt" : 25000
     },
     "regularExemptionMinAge" : 0,
     "socialSecurityExempt" : true
   },
   "safeHarborRule" : {
-    "kind" : "mirrorsFederal"
+    "kind" : "flatRate",
+    "rate" : 1
   },
-  "state" : "WI",
+  "state" : "ME",
   "stateDeduction" : {
     "kind" : "fixed",
-    "married" : 9461,
-    "single" : 6702
+    "married" : 30600,
+    "single" : 15300
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "BC5AE635-DEFC-407F-99A1-5BAA34AF501E",
-        "rate" : 0.035,
+        "id" : "81757FF9-44FC-44E3-AA8A-5BDE6B5ECD34",
+        "rate" : 0.058,
         "threshold" : 0
       },
       {
-        "id" : "141238E5-52B6-49F6-BEA9-73DEFCFA0E2C",
-        "rate" : 0.044,
-        "threshold" : 19580
+        "id" : "B26B9611-82B1-43D3-A308-053BD1C4A6D4",
+        "rate" : 0.0675,
+        "threshold" : 54850
       },
       {
-        "id" : "A934145A-7739-4EE0-9E0E-EAE2945F214C",
-        "rate" : 0.053,
-        "threshold" : 67300
+        "id" : "A93D1BC1-E0E1-4A44-B967-BAE6B9A04801",
+        "rate" : 0.0715,
+        "threshold" : 129750
       },
       {
-        "id" : "0E4EC7D6-97BA-4670-A5C6-31F3306E1A5F",
-        "rate" : 0.0765,
-        "threshold" : 431060
+        "id" : "B20D8D42-32CB-480E-8BDA-26CFC6E179D0",
+        "rate" : 0.0915,
+        "threshold" : 1500000
       }
     ],
     "single" : [
       {
-        "id" : "46EAE95A-AABE-46A1-92E7-E4AB304AE7A1",
-        "rate" : 0.035,
+        "id" : "91E10925-DF09-4A6E-A700-A223A2B09A58",
+        "rate" : 0.058,
         "threshold" : 0
       },
       {
-        "id" : "E723647C-E340-4574-8FB3-8F65CC1F1744",
-        "rate" : 0.044,
-        "threshold" : 14680
+        "id" : "F3C38617-57CF-4CA5-A612-F0D79C0721C2",
+        "rate" : 0.0675,
+        "threshold" : 27400
       },
       {
-        "id" : "7D7E2052-F361-48ED-A6F2-80E607BB1B9D",
-        "rate" : 0.053,
-        "threshold" : 50480
+        "id" : "B84DDB06-203F-476D-9FB2-6CF4651D12E8",
+        "rate" : 0.0715,
+        "threshold" : 64850
       },
       {
-        "id" : "8D25627A-0434-4DBA-9D49-035EFF6FC349",
-        "rate" : 0.0765,
-        "threshold" : 323290
+        "id" : "3CAA8264-4992-42C0-8CC8-175D25C6CDAA",
+        "rate" : 0.0915,
+        "threshold" : 1000000
       }
     ]
   },

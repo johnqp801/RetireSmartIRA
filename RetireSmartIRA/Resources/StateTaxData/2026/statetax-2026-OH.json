@@ -28,36 +28,34 @@
     "kind" : "flatRate",
     "rate" : 1
   },
-  "state" : "KS",
+  "state" : "OH",
   "stateDeduction" : {
-    "kind" : "fixed",
-    "married" : 8240,
-    "single" : 3605
+    "kind" : "none"
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "48E5EDEB-6386-43CB-80ED-4AD890A27186",
-        "rate" : 0.052,
+        "id" : "F9285FC5-1690-4D77-94E8-B16AF98F5123",
+        "rate" : 0,
         "threshold" : 0
       },
       {
-        "id" : "2F6B99A9-9C3A-47D9-ACA5-22154EA74E80",
-        "rate" : 0.0558,
-        "threshold" : 46000
+        "id" : "1F534348-E46D-40E6-ACBC-D92EECF05298",
+        "rate" : 0.0275,
+        "threshold" : 26050
       }
     ],
     "single" : [
       {
-        "id" : "AC8E077C-B840-41CA-9059-75F8BA1BBD63",
-        "rate" : 0.052,
+        "id" : "A0288064-0823-4025-B4A7-15CA68C357C6",
+        "rate" : 0,
         "threshold" : 0
       },
       {
-        "id" : "2D95FEA3-C0CC-442F-8CAC-DF65201CEF37",
-        "rate" : 0.0558,
-        "threshold" : 23000
+        "id" : "ECFB0EEA-DF7C-4B9F-B320-FA5E6AE2C0C4",
+        "rate" : 0.0275,
+        "threshold" : 26050
       }
     ]
   },

@@ -14,78 +14,72 @@
     "capitalGainsTreatment" : "followsFederal",
     "exemptionAppliesPerIndividual" : false,
     "iraWithdrawalExemption" : {
-      "kind" : "none"
+      "kind" : "partial",
+      "maxExempt" : 12000
     },
     "otherRetirementIncomeExclusion" : false,
     "pensionAndIRAShareSingleCap" : false,
     "pensionExemption" : {
-      "kind" : "none"
+      "kind" : "partial",
+      "maxExempt" : 12000
     },
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : false
+    "socialSecurityExempt" : true
   },
   "safeHarborRule" : {
     "kind" : "flatRate",
     "rate" : 1
   },
-  "state" : "NM",
+  "state" : "VA",
   "stateDeduction" : {
-    "kind" : "conformsToFederal"
+    "kind" : "fixed",
+    "married" : 17500,
+    "single" : 8750
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "6C50D908-1368-4780-A493-81DD2BF92D26",
-        "rate" : 0.017,
+        "id" : "093FDEA6-8BB9-48C1-8276-EE21E6BC53A1",
+        "rate" : 0.02,
         "threshold" : 0
       },
       {
-        "id" : "A4BEB162-D0E5-4388-BF90-3BC757193E96",
-        "rate" : 0.032,
-        "threshold" : 8000
+        "id" : "19782413-402B-427D-AB51-EA5E78EB0F2F",
+        "rate" : 0.03,
+        "threshold" : 3000
       },
       {
-        "id" : "1DB6F48E-1E77-4DAF-9606-CE398482EF2F",
-        "rate" : 0.047,
-        "threshold" : 16000
+        "id" : "191CC4D1-C2CD-4906-B4E6-81910967F887",
+        "rate" : 0.05,
+        "threshold" : 5000
       },
       {
-        "id" : "BC21D017-E151-4F8A-98B8-258BB8962C5F",
-        "rate" : 0.049,
-        "threshold" : 24000
-      },
-      {
-        "id" : "8AEB8747-AC54-45D5-9A79-F6010BE579DB",
-        "rate" : 0.059,
-        "threshold" : 315000
+        "id" : "A47CCDDF-B12A-4F5B-B11E-8B1ACC2194D0",
+        "rate" : 0.0575,
+        "threshold" : 17000
       }
     ],
     "single" : [
       {
-        "id" : "FAA998FE-4EAA-4B1A-9AFC-042135783BA3",
-        "rate" : 0.017,
+        "id" : "334A1177-4BEF-44CE-B786-4E8B6A3450F1",
+        "rate" : 0.02,
         "threshold" : 0
       },
       {
-        "id" : "9F6161EF-8995-4272-B8FE-B3BC7DA8F645",
-        "rate" : 0.032,
-        "threshold" : 5500
+        "id" : "253413F2-8A1C-40C1-BB25-4DB3301E79D6",
+        "rate" : 0.03,
+        "threshold" : 3000
       },
       {
-        "id" : "F3762E5E-1EF9-4538-87FF-673AF67ECD44",
-        "rate" : 0.047,
-        "threshold" : 11000
+        "id" : "A0063FE1-F4D7-4778-8FE6-BA1167ABD88D",
+        "rate" : 0.05,
+        "threshold" : 5000
       },
       {
-        "id" : "12A04976-614E-4B0C-B801-E35135994238",
-        "rate" : 0.049,
-        "threshold" : 16000
-      },
-      {
-        "id" : "B57677E8-89C8-47D4-9166-E5E5D6353CA0",
-        "rate" : 0.059,
-        "threshold" : 210000
+        "id" : "BB823273-1274-4496-AC14-38770FF21A52",
+        "rate" : 0.0575,
+        "threshold" : 17000
       }
     ]
   },

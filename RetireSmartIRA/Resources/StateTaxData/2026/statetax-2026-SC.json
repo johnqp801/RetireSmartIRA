@@ -14,22 +14,22 @@
     "capitalGainsTreatment" : "followsFederal",
     "exemptionAppliesPerIndividual" : false,
     "iraWithdrawalExemption" : {
-      "kind" : "none"
+      "kind" : "partial",
+      "maxExempt" : 10000
     },
     "otherRetirementIncomeExclusion" : false,
     "pensionAndIRAShareSingleCap" : false,
     "pensionExemption" : {
       "kind" : "partial",
-      "maxExempt" : 4640
+      "maxExempt" : 10000
     },
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : false
+    "socialSecurityExempt" : true
   },
   "safeHarborRule" : {
-    "kind" : "flatRate",
-    "rate" : 1
+    "kind" : "mirrorsFederal"
   },
-  "state" : "MT",
+  "state" : "SC",
   "stateDeduction" : {
     "kind" : "conformsToFederal"
   },
@@ -37,26 +37,26 @@
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "51B56FAD-2A05-4AC8-A92C-BD38076C88C7",
-        "rate" : 0.047,
+        "id" : "1C27EE24-7BCB-411D-9C04-E3937B3AAB13",
+        "rate" : 0.0199,
         "threshold" : 0
       },
       {
-        "id" : "A73A883A-218E-4A42-B75B-8A1D39A97C45",
-        "rate" : 0.0565,
-        "threshold" : 95000
+        "id" : "1B495BAE-A7D0-40EE-90B5-5BFCE649D062",
+        "rate" : 0.0521,
+        "threshold" : 30000
       }
     ],
     "single" : [
       {
-        "id" : "C8FD59AB-7C7D-4DAE-9196-51F5A2D7C374",
-        "rate" : 0.047,
+        "id" : "0E6A8BB2-EF0E-4FFE-8AF5-8A974687F14D",
+        "rate" : 0.0199,
         "threshold" : 0
       },
       {
-        "id" : "C4329FEC-3D0B-43AA-A733-D4A51071CE12",
-        "rate" : 0.0565,
-        "threshold" : 47500
+        "id" : "50DF0B2F-8650-4F54-9DC5-3DF08FEBBAC9",
+        "rate" : 0.0521,
+        "threshold" : 30000
       }
     ]
   },

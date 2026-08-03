@@ -1,6 +1,6 @@
 {
   "capitalLossesClassIsolated" : false,
-  "currentYearSafeHarborRate" : 0.9,
+  "currentYearSafeHarborRate" : 0.8,
   "estimatedPaymentSchedule" : {
     "q1Pct" : 0.25,
     "q2Pct" : 0.25,
@@ -27,56 +27,46 @@
   "safeHarborRule" : {
     "kind" : "mirrorsFederal"
   },
-  "state" : "MN",
+  "state" : "RI",
   "stateDeduction" : {
     "kind" : "fixed",
-    "married" : 30600,
-    "single" : 15300
+    "married" : 22400,
+    "single" : 11200
   },
   "taxSystem" : {
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "BF216BA1-58E3-4D0E-9678-44151CC26D37",
-        "rate" : 0.0535,
+        "id" : "2849B30F-4DCE-4728-A9B5-64369C488768",
+        "rate" : 0.0375,
         "threshold" : 0
       },
       {
-        "id" : "C210265B-86CA-4B15-AD61-EF8B815942A8",
-        "rate" : 0.068,
-        "threshold" : 48700
+        "id" : "816A2C2E-40B5-4710-9B42-4F0C05D7B0E9",
+        "rate" : 0.0475,
+        "threshold" : 82050
       },
       {
-        "id" : "F454C371-EA8B-4DCC-9592-859F26C54C05",
-        "rate" : 0.0785,
-        "threshold" : 193480
-      },
-      {
-        "id" : "EA7BFF42-0423-4CB6-8B59-CDFCB18195B8",
-        "rate" : 0.0985,
-        "threshold" : 337930
+        "id" : "42E635B4-DBDA-437A-9193-F8848D66FD26",
+        "rate" : 0.0599,
+        "threshold" : 186450
       }
     ],
     "single" : [
       {
-        "id" : "F0A88AE8-02DF-45F0-874E-5BD1DD0C58AB",
-        "rate" : 0.0535,
+        "id" : "750FE7F0-E75C-43CF-B8A4-44B64DEA609C",
+        "rate" : 0.0375,
         "threshold" : 0
       },
       {
-        "id" : "320EBA38-2567-4E4A-A9AF-145B2ABC80E7",
-        "rate" : 0.068,
-        "threshold" : 33310
+        "id" : "DFD06A70-D9D6-43A6-B2D4-CB01E53CE987",
+        "rate" : 0.0475,
+        "threshold" : 82050
       },
       {
-        "id" : "8781E831-9DF2-46B2-BC62-2F90F09474CD",
-        "rate" : 0.0785,
-        "threshold" : 109430
-      },
-      {
-        "id" : "412FD88B-93F0-4759-AD5D-089F47E36C6E",
-        "rate" : 0.0985,
-        "threshold" : 203150
+        "id" : "71F4FF7C-8EAC-49C9-8FD4-C37CA43A48FA",
+        "rate" : 0.0599,
+        "threshold" : 186450
       }
     ]
   },
