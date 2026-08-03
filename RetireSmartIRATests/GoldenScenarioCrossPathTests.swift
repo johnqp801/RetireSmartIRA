@@ -26,16 +26,15 @@ import Foundation
 /// PA/IL/MS fixture where tax is actually owed. NJ is the first (and, in this
 /// phase, only) scenario with nonzero tax, and it does not agree -- see below.
 ///
-/// Two divergences are already known and are pinned as expected failures, so
-/// they stay visible and so a NEW divergence is distinguishable from them.
-/// Both are fixed in Phase 5, not here, because fixing them moves numbers.
+/// Two divergences are already known. Both are fixed in Phase 5, not here,
+/// because fixing them moves numbers.
 ///
 /// 1. ProjectionEngine.computeStateTax omits `postExemptionDeduction`
 ///    (ProjectionEngine.swift:1622-1634), so NJ's per-filer personal exemptions
-///    vanish in Multi-Year. Backlog I2. Pinned by
-///    `newJerseyPersonalExemptionDivergenceIsStillPresent` below -- but see that
-///    test's doc comment: I2 is NOT the only thing that test is observing, and
-///    fixing I2 in isolation will very likely NOT make it converge.
+///    vanish in Multi-Year. Backlog I2. This is ONE of two components of the
+///    gap `newJerseyCrossPathGapPinnedAsObserved` below records -- see that
+///    test's doc comment for the full decomposition. It is not the only
+///    component and is not even the larger one.
 /// 2. `.rmd` IncomeSource rows are ungated while `scenarioRetirementDistributions`
 ///    is gated at 59.5 (TaxCalculationEngine.swift:582-585). Multi-year synthesizes
 ///    `.rmd` rows, so an under-59.5 household gets the IRA exemption in Multi-Year
@@ -70,53 +69,100 @@ struct GoldenScenarioCrossPathTests {
         }
     }
 
-    /// Pinned as PRESENT, not as correct, and NOT as a clean measurement of I2's
-    /// isolated effect.
+    /// Pins TODAY'S OBSERVED figures, not an inequality between them.
     ///
-    /// This fixture's household has $0 taxable-account balance and $0 living
-    /// expenses (mirroring the rest of the Task 5 runner's setup), so it owes
-    /// nonzero tax with no funding source on hand. `ProjectionEngine`'s Step 7
-    /// tax-funding cascade (`ProjectionEngine.swift:966-1150`, the
-    /// `.fundedFromAccounts` default) responds by grossing up an ADDITIONAL
-    /// traditional-account withdrawal to pay the household's combined federal +
-    /// state bill, converging via a Picard/Aitken fixed point. That withdrawal is
-    /// itself NJ-taxable ordinary income, so year 1's reported state tax already
-    /// includes tax-on-the-tax-funding-withdrawal. The single-year runner has no
-    /// such mechanism at all: it is a static point calculation with no funding
-    /// step, so it cannot replicate this even in principle.
+    /// An earlier version of this test asserted `abs(single - multi) >= 0.01`
+    /// ("a divergence exists"). That is a tripwire that stays armed regardless
+    /// of WHY the two numbers differ: it would pass identically if I2 were
+    /// fixed, if the multi-year figure regressed to $50,000, or if any other
+    /// unrelated change moved either side. It cannot fail for the right
+    /// reason. Pinning the actual values closes that hole: this test now fails
+    /// the moment EITHER side moves, for any reason, which is what a Phase 2
+    /// "make every disagreement visible" test should do.
     ///
-    /// Verified by a temporary, reverted experiment (not part of this commit):
-    /// forwarding NJ's `postExemptionDeduction` inside `ProjectionEngine
-    /// .computeStateTax`, mirroring the Phase 5 fix, moved the multi-year figure
-    /// from $200.40 to $171.89 for this fixture -- still $80.11 away from the
-    /// single-year figure of $252.00, i.e. FURTHER apart in the direction I2
-    /// alone would not predict, not closer. So:
+    /// The NJ fixture's `federalAGI` is set to $80,000, equal to
+    /// `pensionIncome + iraWithdrawals`, matching the invariant Task 4
+    /// established for PA/IL/MS (`federalAGI == pensionIncome +
+    /// iraWithdrawals`). An earlier fixture set `federalAGI` to $95,000 while
+    /// pension was $80,000; the single-year runner reads `federalAGI`
+    /// directly but the multi-year runner derives its own AGI from
+    /// `pensionIncome` alone (`ProjectionEngine.swift:680-690`) and never
+    /// reads `federalAGI` at all, so that $15,000 mismatch was a FIXTURE
+    /// AUTHORING ARTIFACT, not an engine divergence, and it dominated the
+    /// gap: single-year moved from $42.00 to $252.00 (a $210.00 swing) purely
+    /// because of the AGI it was handed, while the multi-year figure could not
+    /// move at all, being blind to that field. With the fixture corrected, the
+    /// two engine entry points genuinely receive the same income, and the full
+    /// remaining gap decomposes into two real mechanisms, not three:
     ///
-    ///   - The current gap ($200.40 vs $252.00, $51.60) is I2 and the
-    ///     tax-funding cascade CONFOUNDED together, not I2 alone. Do not read
-    ///     $51.60 (or $28.00 = $2,000 x 1.4%) as "the cost of I2".
-    ///   - When Phase 5 fixes I2, this test will almost certainly KEEP PASSING
-    ///     (the two figures will still disagree), for a reason unrelated to I2.
-    ///     Do not take a continued pass after that fix as evidence I2 is still
-    ///     present, and do not delete this test on that basis alone -- diagnose
-    ///     which mechanism is firing before touching it.
-    ///   - A clean, single-variable measurement of I2 needs a multi-year fixture
-    ///     with enough taxable/spendable cash that the funding cascade never
-    ///     fires (so `dW == 0`), which no fixture in this pilot provides.
-    @Test("KNOWN DIVERGENCE, backlog I2: New Jersey personal exemptions vanish in Multi-Year")
-    func newJerseyPersonalExemptionDivergenceIsStillPresent() throws {
+    ///   single-year (form-derived, NJ-1040 for AGI $80,000):        $42.00
+    ///   + tax-funding cascade (structural, present even with I2
+    ///     fixed -- see below):                                    +$129.89
+    ///   + I2 (missing $2,000 NJ personal exemption inside the
+    ///     cascade's own recomputation):                            +$28.51
+    ///   = multi-year (observed):                                  $200.40
+    ///
+    /// The cascade term exists because this fixture's household has $0
+    /// taxable-account balance and $0 living expenses (mirroring the rest of
+    /// the Task 5 runner's setup), so it owes nonzero tax with no funding
+    /// source on hand. `ProjectionEngine`'s Step 7 tax-funding cascade
+    /// (`ProjectionEngine.swift:966-1150`, the `.fundedFromAccounts` default)
+    /// responds by grossing up an ADDITIONAL traditional-account withdrawal to
+    /// pay the household's combined federal + state bill, converging via a
+    /// Picard/Aitken fixed point. That withdrawal is itself NJ-taxable
+    /// ordinary income, so year 1's reported state tax already includes
+    /// tax-on-the-tax-funding-withdrawal. The single-year runner is a static
+    /// point calculation with no such mechanism and cannot replicate this by
+    /// construction, so it is not just "I2 missing", it is a different KIND
+    /// of calculation.
+    ///
+    /// Both terms were measured directly, not estimated. The $28.51 I2 term
+    /// came from a temporary, fully reverted local experiment: patching
+    /// `ProjectionEngine.computeStateTax` to also forward NJ's
+    /// `postExemptionDeduction` (the Phase 5 fix) moved the multi-year figure
+    /// from $200.40 to $171.89 for this fixture. `171.89 - 42.00 = 129.89` is
+    /// the cascade term (what remains even with I2 fixed); `200.40 - 171.89 =
+    /// 28.51` is I2's own contribution. The experiment never left this
+    /// session: `git checkout -- RetireSmartIRA/ProjectionEngine.swift`
+    /// restored the file and `git status`/`git diff` confirmed zero changes
+    /// before anything was committed. Phase 2 changes no computed number in
+    /// shipped code.
+    ///
+    /// Consequence for Phase 5: fixing I2 alone will move the multi-year
+    /// figure from $200.40 to roughly $171.89, NOT to $42.00. The two figures
+    /// pinned below will therefore both need to be re-measured (not
+    /// hand-predicted) after that fix lands, and this test should keep
+    /// failing on the multi-year side until the cascade term is also
+    /// addressed or the fixture is changed to avoid triggering it (for
+    /// example, giving the household enough taxable/spendable cash that
+    /// `dW == 0`). A continued failure here after Phase 5's I2 fix is
+    /// EXPECTED, not a sign the fix did not work.
+    @Test("PINNED, New Jersey single-year vs multi-year: two components, I2 is the smaller one")
+    func newJerseyCrossPathGapPinnedAsObserved() throws {
         let file = try GoldenScenario.load(abbreviation: "NJ")
         let scenario = try #require(file.scenarios.first)
         let single = GoldenScenarioSingleYearTests.singleYearStateTax(scenario, state: .newJersey)
         let multi = try #require(
             GoldenScenarioMultiYearTests.multiYearYearOneStateTax(scenario, abbreviation: "NJ"))
 
-        #expect(abs(single - multi) >= 0.01,
+        // Form-derived. Must not move: if it does, either the fixture changed
+        // or the single-year engine's NJ math changed, both of which are
+        // Phase 5+ events that deserve a fresh look, not a quiet update here.
+        #expect(abs(single - 42.0) < 0.01,
                 """
-                NJ single-year \(single) and multi-year \(multi) now agree.
-                That would mean BOTH I2 was fixed AND the tax-funding cascade
-                stopped mattering for this fixture. Read this test's doc comment
-                before deleting it: diagnose which changed, do not assume I2 alone.
+                NJ single-year moved from the form-derived $42.00 to \(single).
+                Re-derive from the NJ-1040 Tax Table before updating this pin.
+                """)
+
+        // Pinned AS OBSERVED, not as correct: this is today's multi-year
+        // output for this household, tax-funding cascade and I2 both
+        // included. See the doc comment above for the two-term decomposition.
+        #expect(abs(multi - 200.40469973890345) < 0.01,
+                """
+                NJ multi-year moved from the observed $200.40469973890345 to \(multi).
+                That means either I2 was fixed, the tax-funding cascade's sizing
+                changed, or something else in the multi-year path moved. Diagnose
+                which before updating this pin -- do not assume it was I2.
                 """)
     }
 }

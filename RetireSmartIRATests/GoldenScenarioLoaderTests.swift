@@ -5,8 +5,11 @@ import Foundation
 @Suite("Golden scenario fixtures")
 struct GoldenScenarioLoaderTests {
 
-    /// The Phase 2 pilot. Phase 4 extends this to all 51 jurisdictions.
-    static let pilot = ["PA", "IL", "MS"]
+    /// The Phase 2 pilot. Phase 4 extends this to all 51 jurisdictions. NJ is
+    /// included here (structural well-formedness only, not tax-value
+    /// assertions) so its fixture is loaded and checked by something -- it was
+    /// previously decoded by the cross-path suite but never asserted against.
+    static let pilot = ["PA", "IL", "MS", "NJ"]
 
     @Test("Every pilot fixture loads and is internally well formed",
           arguments: GoldenScenarioLoaderTests.pilot)

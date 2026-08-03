@@ -5,7 +5,7 @@ import Foundation
 @Suite("Golden scenarios, single-year path")
 struct GoldenScenarioSingleYearTests {
 
-    static let pilot = ["PA", "IL", "MS"]
+    static let pilot = ["PA", "IL", "MS", "NJ"]
 
     /// Drives `TaxCalculationEngine.calculateStateTax` directly.
     ///
