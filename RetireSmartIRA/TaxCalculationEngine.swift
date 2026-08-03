@@ -481,17 +481,25 @@ struct TaxCalculationEngine {
         scenarioRothConversionAmount: Double = 0,
         scenarioRothConversionWithholdingAmount: Double = 0
     ) -> Double {
-        // TODO(post-1.8.3): Several refinements outside this fix:
-        // - Verified-2026 exemption value updates: CO unlimited (SB25-136, currently
-        //   $24K), AL $12K age 65+ (HB388, currently $2,500), MD $40,600 age 65+
-        //   (employer pensions only, not IRA), MI $67,610/$135,220 final phase-in
-        //   (currently `.full` overstates), KY HB146 status, GA's $35K 62-64 tier.
-        // - Per-state age thresholds (NJ 62, CO pre-SB25-136 was 65) — we use a
-        //   flat 59½ baseline here for `scenarioRetirementDistributions`.
-        // - When the engine can distinguish pension vs IRA portions of
-        //   `scenarioRetirementDistributions` separately, apply pensionExemption
-        //   and iraWithdrawalExemption independently rather than reusing the
-        //   IRA-withdrawal exemption level alone.
+        // Known gaps, superseded by the 2026-08-02 full 51-jurisdiction audit.
+        // DO NOT action items from this comment. The authoritative list is
+        // docs/superpowers/specs/2026-08-02-state-tax-verification-and-maintenance-design.md,
+        // and every correction is gated on Phase 5 of that program, each backed by
+        // a golden scenario derived from the state's own published form.
+        //
+        // The prior version of this comment listed "CO unlimited (SB25-136)" as
+        // pending work. That is WRONG and acting on it would break a jurisdiction
+        // that is currently CORRECT: SB25-136 was postponed indefinitely on
+        // 2025-02-27 and never became law. Colorado's $24,000 age-65+ and $20,000
+        // age-55-to-64 tiers are right and must not be changed. The same comment
+        // also reported Alabama's current value as $2,500, which is Arizona's;
+        // Alabama is configured `.none`.
+        //
+        // Still open and confirmed by the audit: this function applies a flat
+        // 59.5 baseline to `scenarioRetirementDistributions`, which is wrong for
+        // Iowa (qualifies at 55); and it cannot apply `pensionExemption` and
+        // `iraWithdrawalExemption` independently, because
+        // `scenarioRetirementDistributions` is not split by source.
         var adjusted = income
         let exemptions = config.retirementExemptions
 

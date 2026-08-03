@@ -29,7 +29,10 @@
 //              divergence is logged as informational (not failing) because
 //              TAXSIM's state law is only coded through ~2020 and we KNOW
 //              our engine and TAXSIM disagree on several state retirement
-//              rules (PA Ans 274 conversions, CO SB25-136, AL HB388, etc.).
+//              rules (PA Ans 274 conversions, and the state-specific exemptions
+//              catalogued in the 2026-08-02 51-jurisdiction audit). Bill numbers
+//              are deliberately not cited here: the prior version named SB25-136,
+//              which never passed, so citing it propagated a false premise.
 //              The point here is to catch *gross* structural mistakes
 //              (exempt when we shouldn't / tax when we shouldn't), not
 //              line-item state liability.
