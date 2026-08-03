@@ -190,6 +190,10 @@ Inference runs on decode:
 
 `IncomeSource` **is persisted** through `PersistenceManager` and already carries migration logic for a removed enum case. Phase 3a's final review confirmed none of its five fields were persisted, which is why a renamed coding key could not orphan a decoder there. **That protection does not carry over**, and a renamed key orphaning a legacy decoder is precisely the defect that shipped on the V2.3 branch with every per-task review passing. Every new key is `decodeIfPresent` with the inference as fallback, and a test decodes a pre-3b fixture blob and asserts the computed tax is unchanged.
 
+**The two data sources get different strictness, deliberately.** Shipped state JSON is authored by us and read identically by every install, so an unrecognised value there is a build defect and must fail loudly: a silent default would turn a corrupt config into a plausible wrong tax. A user's saved data is different. `PersistenceManager.loadAll` wraps its decode in `try?`, so a single unrecognised string in one income row discards **every** stored income source. That trade is wrong in both directions: it destroys real user data to guard against a value that, being unrecognised, the app has no rule for anyway, and `.unknown` is already the migration default and already behavior-preserving.
+
+The concrete trigger is not hypothetical once the picker ships. A later phase adding a `PlanSource` case produces saves that an older build cannot read, and a user who downgrades, or restores an older install, loses their income list rather than one classification.
+
 ### 3.7 Presentation
 
 **403(b) and 457 accounts display as themselves.** The engine-level `AccountType` is unchanged for this phase, since new account types would reach RMD logic, contribution limits and the accounts UI well beyond it. But once a user classifies an account as a salary-reduction plan, the accounts list, the account detail view and the CPA briefing show that plan type. Nothing continues to call it a Traditional 401(k) after the user has said it is not one.
@@ -223,7 +227,8 @@ Alabama, Hawaii and the seven unaudited Tier-2 jurisdictions change nothing here
 | Source classified `unknown` in a state with per-source rules | Falls through to the per-state exemption, the same figure as today, with a visible limitation on the result |
 | A rule matches no income | No effect; fall through |
 | Pre-3b persisted blob | Decodes via `decodeIfPresent` with inference; computed tax unchanged |
-| Unknown `PlanStructure` or `PlanSource` string in JSON | Typed `DecodingError` naming the state, never a silent default |
+| Unknown `PlanStructure` or `PlanSource` string in **shipped state JSON** | Typed `DecodingError` naming the state, never a silent default |
+| Unknown `PlanStructure` or `PlanSource` string in a **user's saved data** | Falls back to `.unknown` and sets an observable diagnostic flag. It must NOT throw |
 | Components supplied that do not sum to the scalar within one cent | `assertionFailure` in debug; in release fall back to the scalar and set an observable diagnostic flag |
 | New York tax computed for an unclassified pension | Falls through to the capped figure, and the result carries a visible limitation wherever that figure is shown |
 

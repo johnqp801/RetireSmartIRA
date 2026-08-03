@@ -202,6 +202,8 @@ Prove case 1 discriminates by making the rule loop apply the cap per component a
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && git diff --numstat RetireSmartIRA/Resources/StateTaxData/2026/ | awk '$2 != 0 {print "DELETION in " $3}'
 ```
 
+- [ ] **Step 5a: Re-point the migration gate so it becomes load-bearing.** Task 2's `computedStateTaxUnchangedByMigration` currently proves only that decode did not corrupt OTHER fields: its reviewer mutated every decoded classification to a wrong value and the test still PASSED, because nothing consumed the fields yet. After this task New York's rule consumes them, so re-point that test at a New York pension scenario and confirm by mutation that a wrong classification now fails it. Until you do, the test's name overclaims what it guards.
+
 - [ ] **Step 6: The baseline WILL move, and only for New York.** Inspect every changed entry, confirm each is a New York row whose movement the golden scenarios explain, then regenerate the fixture in this commit with the diff pasted in your report. **This is the only task in the phase permitted to regenerate that fixture.** If any non-New-York entry moves, stop and report; that is a defect, not a correction.
 
 - [ ] **Step 7: Full suite once, then commit.**
