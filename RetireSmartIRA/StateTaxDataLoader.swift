@@ -118,8 +118,36 @@ enum StateTaxDataLoader {
     /// only evaluates once per process.
     static private(set) var legacyFallbackFired = false
 
+    /// Loads every jurisdiction for `taxYear` against `bundle`, falling
+    /// back per state to `StateTaxData.configs2026Legacy` on a load
+    /// failure. Returns the resulting dictionary plus the list of states
+    /// that needed the fallback (empty in normal operation).
+    ///
+    /// Deliberately does not call `assertionFailure` itself -- that stays
+    /// at the `configs2026` call site below, where it belongs as the loud
+    /// debug trap. This function is the fallback-assignment logic
+    /// underneath that trap, pulled out so it can be exercised directly by
+    /// a test: point it at a `taxYear` with no matching bundled files (the
+    /// same seam `throwsForUnknownYear` already uses) and confirm each
+    /// state's fallback lands on that SAME state's legacy entry, never a
+    /// different one, without ever reaching the trap.
+    static func resolveConfigs(taxYear: Int, bundle: Bundle = Bundle(for: BundleMarker.self))
+        -> (configs: [USState: StateTaxConfig], fallbackStates: [USState]) {
+        var configs: [USState: StateTaxConfig] = [:]
+        var fallbackStates: [USState] = []
+        for state in USState.allCases {
+            do {
+                configs[state] = try loadConfig(for: state, taxYear: taxYear, bundle: bundle)
+            } catch {
+                fallbackStates.append(state)
+                configs[state] = StateTaxData.configs2026Legacy[state]
+            }
+        }
+        return (configs, fallbackStates)
+    }
+
     /// Decoded once at first use. Each of the 51 jurisdictions loads
-    /// independently.
+    /// independently (see `resolveConfigs`).
     ///
     /// On a per-state load failure, the release build falls back to that
     /// SAME state's entry in `StateTaxData.configs2026Legacy` -- never a
@@ -128,27 +156,27 @@ enum StateTaxDataLoader {
     /// proved, across all 51 jurisdictions and three independent layers
     /// (numeric engine output, byte-identical re-encoding, and file key
     /// completeness), that the JSON and the legacy table produce identical
-    /// results. Falling back to legacy is therefore not a degraded guess or
-    /// a different state's rules substituted in -- it is provably the same
-    /// data by the gate's own evidence -- so a bundle failure in production
-    /// yields a correct number instead of an error screen or a crash.
+    /// results FOR TAX YEAR 2026, against `configs2026Legacy` as it exists
+    /// today. Falling back to legacy is therefore not a degraded guess or a
+    /// different state's rules substituted in -- it is provably the same
+    /// data for 2026, by that gate's own evidence -- so a bundle failure in
+    /// production yields a correct number instead of an error screen or a
+    /// crash. That proof does not extend to any other tax year: a future
+    /// phase adding, say, 2027 by copying this pattern needs its own
+    /// equivalence gate for 2027 before this fallback can be trusted on the
+    /// same reasoning.
     ///
     /// In debug builds, `assertionFailure` still traps immediately so a
     /// broken bundle is impossible to miss during development; the fallback
     /// only reaches production because `assertionFailure` compiles to a
     /// no-op there.
     static let configs2026: [USState: StateTaxConfig] = {
-        let bundle = Bundle(for: BundleMarker.self)
-        var configs: [USState: StateTaxConfig] = [:]
-        for state in USState.allCases {
-            do {
-                configs[state] = try loadConfig(for: state, taxYear: 2026, bundle: bundle)
-            } catch {
-                assertionFailure("State tax data failed to load for \(state.abbreviation): \(error)")
-                legacyFallbackFired = true
-                configs[state] = StateTaxData.configs2026Legacy[state]
-            }
+        let result = resolveConfigs(taxYear: 2026)
+        if !result.fallbackStates.isEmpty {
+            let names = result.fallbackStates.map(\.abbreviation).joined(separator: ", ")
+            assertionFailure("State tax data failed to load for \(names); fell back to configs2026Legacy for those states only.")
+            legacyFallbackFired = true
         }
-        return configs
+        return result.configs
     }()
 }

@@ -168,6 +168,42 @@ struct StateTaxJSONLoaderTests {
         // StateTaxDataLoader.configs2026's doc comment).
         #expect(StateTaxDataLoader.legacyFallbackFired == false)
     }
+
+    @Test("resolveConfigs reports no fallback states when the bundle loads cleanly")
+    func resolveConfigsNoFallbackForRealBundle() {
+        let result = StateTaxDataLoader.resolveConfigs(taxYear: 2026)
+        #expect(result.fallbackStates.isEmpty)
+        #expect(result.configs.count == 51)
+    }
+
+    @Test("resolveConfigs falls back each failing state to its OWN legacy entry, never a different state's, without touching the debug trap")
+    func resolveConfigsFallsBackPerStateToItsOwnLegacyEntry() {
+        // resolveConfigs is the fallback-assignment logic extracted out of
+        // configs2026, specifically so it can be exercised without
+        // triggering configs2026's assertionFailure, which traps the test
+        // process by design and cannot be run inside a passing test.
+        //
+        // Tax year 1999 has no bundled files for any state (same seam as
+        // throwsForUnknownYear above), so every state exercises the
+        // fallback-assignment branch here.
+        let result = StateTaxDataLoader.resolveConfigs(taxYear: 1999)
+
+        #expect(Set(result.fallbackStates) == Set(USState.allCases),
+                "expected every state to report a fallback for the nonexistent 1999 bundle")
+        #expect(result.configs.count == 51,
+                "the fallback assignment must still populate every state, not leave failures nil")
+
+        for state in USState.allCases {
+            // Decisive cross-contamination check: if the fallback ever
+            // substituted a different state's legacy entry (the exact bug
+            // this task removes from config(for:)), this would catch it,
+            // because a wrong-state entry's .state would not equal `state`.
+            #expect(result.configs[state]?.state == state,
+                    "\(state.abbreviation)'s fallback entry resolved to a different jurisdiction")
+            #expect(result.configs[state]?.verification == StateTaxData.configs2026Legacy[state]?.verification,
+                    "\(state.abbreviation)'s fallback entry did not come from its OWN legacy config")
+        }
+    }
 }
 
 // MARK: - PHASE 1 GATE, Layer A: numeric equivalence
