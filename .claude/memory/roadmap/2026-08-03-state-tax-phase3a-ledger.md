@@ -440,3 +440,27 @@ Task 7: commit 9b44664 (base 108990b). Test-only, no production diff. Suite 1,65
         mutating the mirror so the gross branch also subtracts withholding: both new cases failed,
         everything else stayed green.
   Every added test proven to discriminate by mutation, with pasted evidence.
+  REVIEW: spec OK, Approved with findings (2 Minor, both false CLAIMS rather than live bugs, and
+    both inherited from MY brief). Reviewer re-ran all five measurements itself rather than trusting
+    the table, and every result matched byte for byte. It also confirmed the crossViewMatrix default
+    (.paidFromOutside) is genuinely the pre-existing default at ScenarioStateManager.swift:47, so
+    the 15 original cases are unaltered rather than silently changed by the new dimension.
+  ** MY BRIEF TOLD THE IMPLEMENTER TO WRITE DOWN SOMETHING FALSE: that
+     personalExemptionSeniorIsPerFiler behaviorally backstops the single-vs-seniorAdditionalPerFiler
+     pigeonhole gap. It does not. That test builds StatePersonalExemption directly and calls
+     .amount(...), never touching JSONEncoder. The reviewer also checked the other candidate
+     backstop, newJerseyConfigExemptionValuesArePinned, and found it has the IDENTICAL problem: NJ's
+     real single and seniorAdditionalPerFiler are BOTH 1,000. No live bug exists, because
+     StatePersonalExemption's Codable is fully compiler-synthesized so no hand-written key swap is
+     possible. But if a hand-written encoder is ever added, matching the pattern this phase used for
+     the other two structs, nothing in the suite would catch a swap. Comment corrected. **
+  Minor, report prose only: the report said calculateStateTaxFromGross has no withholding parameter.
+    It does (DataManager.swift:597, defaulted to 0); P16's call simply omits it. Conclusion was
+    still right, justification imprecise.
+
+## TASKS 8 AND 9 MERGED, 2026-08-03
+  The plan correction at 7b85689 already moved Layer C and the per-task regenerations into Tasks 3
+  and 6, which reduced Task 8 to "regenerate and confirm the diff is empty". That is a verification
+  step, not a task, so it is folded into the phase gate rather than spending a dispatch cycle on it.
+  An EMPTY regeneration diff here is the expected outcome and is itself the evidence that every
+  earlier task regenerated correctly.
