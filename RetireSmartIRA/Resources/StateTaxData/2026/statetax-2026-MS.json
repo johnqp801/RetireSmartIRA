@@ -24,6 +24,10 @@
       "kind" : "full"
     },
     "regularExemptionMinAge" : 0,
+    "rothConversionExemption" : {
+      "minAge" : 0,
+      "withheldPortionRemainsTaxable" : false
+    },
     "socialSecurityExempt" : true
   },
   "safeHarborRule" : {

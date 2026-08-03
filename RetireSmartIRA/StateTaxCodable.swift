@@ -297,6 +297,7 @@ extension RetirementIncomeExemptions: Codable {
         case exemptionAppliesPerIndividual
         case regularExemptionMinAge, exemptionAttribution, distributionMinAge, earlyAgeTier
         case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion, agiPhaseout
+        case rothConversionExemption
         case capitalGainsTreatment
     }
 
@@ -313,6 +314,7 @@ extension RetirementIncomeExemptions: Codable {
         try c.encode(pensionAndIRAShareSingleCap, forKey: .pensionAndIRAShareSingleCap)
         try c.encode(otherRetirementIncomeExclusion, forKey: .otherRetirementIncomeExclusion)
         try c.encodeIfPresent(agiPhaseout, forKey: .agiPhaseout)
+        try c.encodeIfPresent(rothConversionExemption, forKey: .rothConversionExemption)
         try c.encode(capitalGainsTreatment, forKey: .capitalGainsTreatment)
     }
 
@@ -333,6 +335,8 @@ extension RetirementIncomeExemptions: Codable {
             pensionAndIRAShareSingleCap: try c.decodeIfPresent(Bool.self, forKey: .pensionAndIRAShareSingleCap) ?? false,
             otherRetirementIncomeExclusion: try c.decodeIfPresent(Bool.self, forKey: .otherRetirementIncomeExclusion) ?? false,
             agiPhaseout: try c.decodeIfPresent(AGIPhaseout.self, forKey: .agiPhaseout),
+            rothConversionExemption: try c.decodeIfPresent(
+                RothConversionExemption.self, forKey: .rothConversionExemption),
             capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal
         )
     }

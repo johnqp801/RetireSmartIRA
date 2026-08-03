@@ -723,34 +723,27 @@ struct TaxCalculationEngine {
             adjusted -= exemptPortion
         }
 
-        // Roth conversion exemption (v1.8.3): PA per DOR Ans 274 holds that a
-        // trustee-to-trustee Roth conversion is NOT a taxable event in PA in
-        // the conversion year. Illinois (IL Pub 120) and Mississippi (MS Code
-        // §27-7-15(4)(j)) follow the same treatment per practitioner consensus.
-        // Critically this exemption is NOT age-gated — Ans 274 imposes no
-        // retirement-age condition on the conversion itself. We therefore apply
-        // it independently of `scenarioRetirementDistributions`, which retains
-        // its 59½ gate for distributions.
+        // Roth conversion treatment, config-driven since Phase 3a. The rule
+        // and the Ans 274 withholding caveat that used to live in a
+        // `switch state` here now live on each state's config; see
+        // RothConversionExemption for the citations.
         //
-        // 1.8.4 — PA Ans 274 withholding caveat: the PA exemption applies only
-        // if the FULL pre-tax balance is deposited into the Roth. If any
-        // amount is withheld for federal tax, that withheld amount IS PA-
-        // taxable as a distribution. So in withhold mode, only the NET portion
-        // (gross minus withholding) is PA-exempt; the withheld portion stays
-        // in the state-taxable income.
-        //
-        // For IL and MS, no equivalent "full balance" requirement is documented
-        // in their guidance — practitioner consensus treats the conversion as
-        // fully exempt regardless of withholding. Keep that for now; revisit if
-        // primary source emerges.
-        switch state {
-        case .pennsylvania:
-            let netExempt = max(0, scenarioRothConversionAmount - scenarioRothConversionWithholdingAmount)
-            adjusted -= netExempt
-        case .illinois, .mississippi:
-            adjusted -= scenarioRothConversionAmount
-        default:
-            break
+        // The age gate compares against `effectiveAge`, the household maximum
+        // (`max(primaryAge, spouseAge)` when a spouse is enabled), matching
+        // every other age gate in this function. No state is age-gated in
+        // Phase 3a, so this branch is unreachable today and this choice
+        // decides nothing yet. Iowa's Phase 5a golden scenario is what will
+        // decide whether a conversion should be gated on the household
+        // maximum or on the converting owner's own age.
+        if let conversionRule = exemptions.rothConversionExemption {
+            let qualifies = conversionRule.minAge == 0
+                || effectiveAge >= conversionRule.minAge
+            if qualifies {
+                let exemptAmount = conversionRule.withheldPortionRemainsTaxable
+                    ? max(0, scenarioRothConversionAmount - scenarioRothConversionWithholdingAmount)
+                    : scenarioRothConversionAmount
+                adjusted -= exemptAmount
+            }
         }
 
         return max(0, adjusted)

@@ -509,4 +509,86 @@ struct StateTaxPhase3aMechanismTests {
                 each gated by a golden scenario. Found wrong or missing: \(wrong)
                 """)
     }
+
+    // MARK: - Roth conversion exemption
+
+    @Test("Pennsylvania still exempts only the net amount deposited into the Roth")
+    func pennsylvaniaExemptsNetOfWithholdingViaConfig() {
+        func tax(withholding: Double) -> Double {
+            TaxCalculationEngine.calculateStateTax(
+                income: 100_000, forState: .pennsylvania, filingStatus: .single,
+                taxableSocialSecurity: 0, incomeSources: [], currentAge: 62,
+                enableSpouse: false, spouseBirthYear: 1964, currentYear: 2026,
+                scenarioRothConversionAmount: 100_000,
+                scenarioRothConversionWithholdingAmount: withholding)
+        }
+        // PA rate 3.07%. Full conversion exempt when nothing is withheld.
+        #expect(tax(withholding: 0) == 0)
+        // $22,000 withheld stays PA-taxable: 22,000 x 0.0307 = 675.40.
+        #expect(abs(tax(withholding: 22_000) - 675.40) < 0.005)
+    }
+
+    @Test("Illinois and Mississippi exempt the gross conversion regardless of withholding")
+    func illinoisAndMississippiExemptGrossViaConfig() {
+        for state in [USState.illinois, USState.mississippi] {
+            let taxed = TaxCalculationEngine.calculateStateTax(
+                income: 100_000, forState: state, filingStatus: .single,
+                taxableSocialSecurity: 0, incomeSources: [], currentAge: 62,
+                enableSpouse: false, spouseBirthYear: 1964, currentYear: 2026,
+                scenarioRothConversionAmount: 100_000,
+                scenarioRothConversionWithholdingAmount: 22_000)
+            #expect(taxed == 0, "\(state.abbreviation) should exempt the gross conversion")
+        }
+    }
+
+    @Test("A conversion exemption can be age-gated, which the hardcoded switch could not express")
+    func rothConversionExemptionCanBeAgeGated() {
+        let config = Self.flatTenPercent(exemptions: RetirementIncomeExemptions(
+            socialSecurityExempt: true,
+            rothConversionExemption: RothConversionExemption(
+                minAge: 55, withheldPortionRemainsTaxable: false)))
+
+        func tax(age: Int) -> Double {
+            TaxCalculationEngine.calculateStateTax(
+                income: 100_000, forState: .iowa, filingStatus: .single,
+                taxableSocialSecurity: 0, incomeSources: [], currentAge: age,
+                enableSpouse: false, spouseBirthYear: 2026 - age, currentYear: 2026,
+                scenarioRothConversionAmount: 100_000,
+                configOverride: config)
+        }
+        #expect(tax(age: 54) == 10_000)   // below the gate, fully taxed
+        #expect(tax(age: 55) == 0)        // at the gate, exempt
+    }
+
+    @Test("Exactly PA, IL and MS carry a conversion exemption in Phase 3a")
+    func onlyThreeStatesCarryAConversionExemption() throws {
+        // Raw keys, not decoded values: `nil` is also the decode fallback for
+        // a missing key, so a decoded assertion would pass even when the key
+        // is absent from every shipped file. Same pattern as
+        // noStateShipsAnAGIPhaseoutKey and everyStateShipsHouseholdAttribution
+        // above, and onlyNewJerseyShipsAPersonalExemptionKey in
+        // StateTaxJSONEquivalenceTests.swift.
+        var withExemption: [USState: [String: Any]] = [:]
+        for state in USState.allCases {
+            let url = try StateTaxDataLoader.fileURL(for: state, taxYear: 2026)
+            let object = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: url)) as? [String: Any]
+            let exemptions = object?["retirementExemptions"] as? [String: Any]
+            if let conversion = exemptions?["rothConversionExemption"] as? [String: Any] {
+                withExemption[state] = conversion
+            }
+        }
+        #expect(Set(withExemption.keys) == Set([.pennsylvania, .illinois, .mississippi]),
+                """
+                Phase 3a moves the existing PA/IL/MS rule into config and adds no state. \
+                Iowa is Phase 5a. Found: \(withExemption.keys.map(\.abbreviation).sorted())
+                """)
+        // PA is the only one whose withheld portion stays taxable.
+        #expect(withExemption[.pennsylvania]?["withheldPortionRemainsTaxable"] as? Bool == true)
+        #expect(withExemption[.illinois]?["withheldPortionRemainsTaxable"] as? Bool == false)
+        // No state is age-gated yet, so a stray default of 59 would be visible.
+        for (state, json) in withExemption {
+            #expect(json["minAge"] as? Int == 0, "\(state.abbreviation) minAge should be 0")
+        }
+    }
 }

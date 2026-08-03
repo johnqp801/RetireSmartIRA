@@ -281,6 +281,10 @@ struct RetirementIncomeExemptions {
     /// (the default, and every state's value in Phase 3a) means no reduction.
     var agiPhaseout: AGIPhaseout? = nil
 
+    /// How the state treats Roth conversion income in the conversion year.
+    /// nil (the default) means fully taxable.
+    var rothConversionExemption: RothConversionExemption? = nil
+
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
 
@@ -699,6 +703,11 @@ struct StateTaxData {
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // IL exempts all retirement income
                 iraWithdrawalExemption: .full,
+                // IL Pub 120 / MS Code 27-7-15(4)(j) per practitioner
+                // consensus: the conversion is exempt, with no documented
+                // full-balance condition, so withholding does not reduce it.
+                rothConversionExemption: RothConversionExemption(
+                    minAge: 0, withheldPortionRemainsTaxable: false),
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none
@@ -845,6 +854,11 @@ struct StateTaxData {
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // MS exempts all retirement income
                 iraWithdrawalExemption: .full,
+                // IL Pub 120 / MS Code 27-7-15(4)(j) per practitioner
+                // consensus: the conversion is exempt, with no documented
+                // full-balance condition, so withholding does not reduce it.
+                rothConversionExemption: RothConversionExemption(
+                    minAge: 0, withheldPortionRemainsTaxable: false),
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 2_300, married: 4_600)
@@ -971,6 +985,13 @@ struct StateTaxData {
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // PA exempts all retirement income
                 iraWithdrawalExemption: .full,
+                // PA DOR Ans 274: a trustee-to-trustee conversion is not a
+                // taxable event, but only the portion actually deposited into
+                // the Roth qualifies, so federal withholding taken from the
+                // conversion stays PA-taxable. Lift-and-shift of the switch
+                // this replaces, not a Phase 3a correction.
+                rothConversionExemption: RothConversionExemption(
+                    minAge: 0, withheldPortionRemainsTaxable: true),
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none,

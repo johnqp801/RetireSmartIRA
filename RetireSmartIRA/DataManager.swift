@@ -878,23 +878,19 @@ class DataManager {
             militaryExemptAmt += (source.annualAmount - stillTaxable)
         }
 
-        // Roth conversion exemption (v1.8.3): PA/IL/MS exempt conversions per
-        // PA DOR Ans 274 + IL Pub 120 + MS Code §27-7-15(4)(j). Not age-gated.
-        // Mirrors TaxCalculationEngine.applyRetirementExemptions logic.
-        //
-        // 1.8.4 — PA Ans 274 withholding caveat: in withhold mode, the withheld
-        // portion is PA-taxable (statute requires "full balance" deposited).
-        // Only the net portion qualifies for PA's exemption. IL and MS keep
-        // full exemption regardless of withholding.
+        // Roth conversion exemption, config-driven since Phase 3a. Mirrors
+        // TaxCalculationEngine.applyRetirementExemptions logic so the
+        // breakdown totals stay consistent with the actual computed tax; see
+        // RothConversionExemption for the citations behind the rule and the
+        // Ans 274 withholding caveat.
         let conversionExemptAmt: Double = {
-            switch state {
-            case .pennsylvania:
-                return max(0, scenarioTotalRothConversion - scenarioRothConversionWithholdingAmount)
-            case .illinois, .mississippi:
-                return scenarioTotalRothConversion
-            default:
-                return 0
-            }
+            guard let conversionRule = exemptions.rothConversionExemption else { return 0 }
+            let qualifies = conversionRule.minAge == 0
+                || effectiveAge >= conversionRule.minAge
+            guard qualifies else { return 0 }
+            return conversionRule.withheldPortionRemainsTaxable
+                ? max(0, scenarioTotalRothConversion - scenarioRothConversionWithholdingAmount)
+                : scenarioTotalRothConversion
         }()
 
         // NJ-1040 Worksheet D — Other Retirement Income Exclusion. Mirrors

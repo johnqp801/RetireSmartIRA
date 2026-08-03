@@ -183,7 +183,7 @@ struct StateTaxCodableRoundTripTests {
             // "recover" a dropped key back to true, masking the loss). See
             // retirementExemptionsEncodesExpectedJSONShape below for the
             // general, fixture-value-independent guard against this class of
-            // bug across all twelve fields.
+            // bug across all thirteen fields.
             socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
@@ -196,6 +196,8 @@ struct StateTaxCodableRoundTripTests {
             otherRetirementIncomeExclusion: true,
             agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
                                      shape: .linear(perDollar: 1.6)),
+            rothConversionExemption: RothConversionExemption(
+                minAge: 55, withheldPortionRemainsTaxable: true),
             capitalGainsTreatment: .taxedAsOrdinary
         )
         let data = try JSONEncoder().encode(original)
@@ -209,6 +211,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.pensionAndIRAShareSingleCap == original.pensionAndIRAShareSingleCap)
         #expect(decoded.otherRetirementIncomeExclusion == original.otherRetirementIncomeExclusion)
         #expect(decoded.agiPhaseout == original.agiPhaseout)
+        #expect(decoded.rothConversionExemption == original.rothConversionExemption)
         // ExemptionLevel/CapGainsTreatment aren't Equatable in production code
         // (same reason exemptionLevelRoundTrips above compares behaviorally),
         // so compare structurally via the matchesShape helpers below.
@@ -229,6 +232,21 @@ struct StateTaxCodableRoundTripTests {
             break
         default:
             Issue.record("round trip changed earlyAgeTier presence")
+        }
+    }
+
+    @Test("RothConversionExemption round-trips both variants with distinct values")
+    func rothConversionExemptionRoundTrips() throws {
+        // minAge non-zero in one case and the Bool differing between them, so
+        // neither field can be dropped without a test noticing.
+        let cases = [
+            RothConversionExemption(minAge: 0, withheldPortionRemainsTaxable: true),
+            RothConversionExemption(minAge: 55, withheldPortionRemainsTaxable: false)
+        ]
+        for original in cases {
+            let decoded = try JSONDecoder().decode(
+                RothConversionExemption.self, from: JSONEncoder().encode(original))
+            #expect(decoded == original)
         }
     }
 
@@ -268,7 +286,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
     }
 
-    @Test("Encoded JSON carries all twelve fields under their own keys, with the right values")
+    @Test("Encoded JSON carries all thirteen fields under their own keys, with the right values")
     func retirementExemptionsEncodesExpectedJSONShape() throws {
         // This is the general guard against the whole class of bug the two
         // Bool-heavy findings above raised: a dropped encode() line, or two
@@ -278,7 +296,7 @@ struct StateTaxCodableRoundTripTests {
         // arrangement the way the round-trip fixture is). Inspecting the raw
         // JSON dictionary directly -- independent of what init(from:) does
         // with it -- catches a dropped field, a swapped label, and a
-        // default-masked field for all twelve keys at once, regardless of
+        // default-masked field for all thirteen keys at once, regardless of
         // fixture values.
         //
         // This fixture must be extended whenever a field is added to
@@ -300,6 +318,8 @@ struct StateTaxCodableRoundTripTests {
             otherRetirementIncomeExclusion: true,
             agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
                                      shape: .linear(perDollar: 1.6)),
+            rothConversionExemption: RothConversionExemption(
+                minAge: 55, withheldPortionRemainsTaxable: true),
             capitalGainsTreatment: .taxedAsOrdinary
         )
         let data = try JSONEncoder().encode(original)
@@ -335,6 +355,10 @@ struct StateTaxCodableRoundTripTests {
         #expect(phaseout["thresholdMFJ"] as? Double == 75_000)
         #expect((phaseout["shape"] as? [String: Any])?["kind"] as? String == "linear")
         #expect((phaseout["shape"] as? [String: Any])?["perDollar"] as? Double == 1.6)
+
+        let rothConversion = try #require(json["rothConversionExemption"] as? [String: Any])
+        #expect(rothConversion["minAge"] as? Int == 55)
+        #expect(rothConversion["withheldPortionRemainsTaxable"] as? Bool == true)
     }
 
     @Test("Two complementary Bool arrangements make every pair of the four Bool fields mutually distinguishable")
