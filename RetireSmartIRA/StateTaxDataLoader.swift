@@ -110,15 +110,45 @@ enum StateTaxDataLoader {
         return config
     }
 
-    /// Decoded once at first use.
+    /// Set to `true` if any jurisdiction's bundled JSON failed to load and
+    /// `configs2026` fell back to `StateTaxData.configs2026Legacy` for that
+    /// state. `false` in normal operation. Task 11 does not build UI for
+    /// this; it exists so a later phase can surface a load failure to the
+    /// user instead of it being invisible. Not reset once set -- `configs2026`
+    /// only evaluates once per process.
+    static private(set) var legacyFallbackFired = false
+
+    /// Decoded once at first use. Each of the 51 jurisdictions loads
+    /// independently.
+    ///
+    /// On a per-state load failure, the release build falls back to that
+    /// SAME state's entry in `StateTaxData.configs2026Legacy` -- never a
+    /// different state's data, and never an empty dictionary. This is safe
+    /// specifically because Task 10's Phase 1 gate (`StateTaxJSONEquivalenceTests`)
+    /// proved, across all 51 jurisdictions and three independent layers
+    /// (numeric engine output, byte-identical re-encoding, and file key
+    /// completeness), that the JSON and the legacy table produce identical
+    /// results. Falling back to legacy is therefore not a degraded guess or
+    /// a different state's rules substituted in -- it is provably the same
+    /// data by the gate's own evidence -- so a bundle failure in production
+    /// yields a correct number instead of an error screen or a crash.
+    ///
+    /// In debug builds, `assertionFailure` still traps immediately so a
+    /// broken bundle is impossible to miss during development; the fallback
+    /// only reaches production because `assertionFailure` compiles to a
+    /// no-op there.
     static let configs2026: [USState: StateTaxConfig] = {
-        do {
-            return try load(taxYear: 2026)
-        } catch {
-            // A missing or malformed bundle is a build defect, not a runtime
-            // condition. Fail loudly in debug; Task 11 defines release behavior.
-            assertionFailure("State tax data failed to load: \(error)")
-            return [:]
+        let bundle = Bundle(for: BundleMarker.self)
+        var configs: [USState: StateTaxConfig] = [:]
+        for state in USState.allCases {
+            do {
+                configs[state] = try loadConfig(for: state, taxYear: 2026, bundle: bundle)
+            } catch {
+                assertionFailure("State tax data failed to load for \(state.abbreviation): \(error)")
+                legacyFallbackFired = true
+                configs[state] = StateTaxData.configs2026Legacy[state]
+            }
         }
+        return configs
     }()
 }

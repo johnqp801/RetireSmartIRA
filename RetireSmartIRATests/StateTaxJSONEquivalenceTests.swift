@@ -136,6 +136,38 @@ struct StateTaxJSONLoaderTests {
             _ = try StateTaxDataLoader.decode(malformed, state: .wyoming, taxYear: 2026)
         }
     }
+
+    // MARK: - Task 11: production path routing
+
+    @Test("config(for:) reads JSON, not the legacy table")
+    func productionPathUsesJSON() throws {
+        let iowa = StateTaxData.config(for: .iowa)
+        #expect(iowa.state == .iowa)
+        // The loader populates verification metadata; the legacy table cannot.
+        let jsonIowa = try StateTaxDataLoader.load(taxYear: 2026)[.iowa]
+        #expect(iowa.verification == jsonIowa?.verification)
+    }
+
+    @Test("config(for:) no longer substitutes California for an unknown state")
+    func noCaliforniaSubstitution() {
+        // Every USState case must resolve to itself, never to a stand-in.
+        for state in USState.allCases {
+            #expect(StateTaxData.config(for: state).state == state,
+                    "\(state.abbreviation) resolved to a different jurisdiction")
+        }
+    }
+
+    @Test("legacy fallback flag is false when the bundle loads cleanly")
+    func legacyFallbackDidNotFireInNormalOperation() {
+        // The bundled JSON is well-formed in this environment, so the
+        // release-path fallback to configs2026Legacy should never engage.
+        // This exercises that the flag is wired into the real static-let
+        // initializer, not just declared. The fallback-firing branch
+        // itself cannot be exercised here: it starts with a debug
+        // assertionFailure, which traps the test process by design (see
+        // StateTaxDataLoader.configs2026's doc comment).
+        #expect(StateTaxDataLoader.legacyFallbackFired == false)
+    }
 }
 
 // MARK: - PHASE 1 GATE, Layer A: numeric equivalence

@@ -2073,11 +2073,34 @@ struct StateTaxData {
         return configs
     }()
 
-    /// Temporary during Phase 1. Task 11 replaces this with the loader.
-    static var configs2026: [USState: StateTaxConfig] { configs2026Legacy }
+    /// Production path as of Phase 1. Reads bundled JSON.
+    static var configs2026: [USState: StateTaxConfig] { StateTaxDataLoader.configs2026 }
 
-    /// Look up configuration for a state. Falls back to California if not found.
+    /// Returns the configuration for `state`.
+    ///
+    /// The previous implementation substituted California for any missing
+    /// jurisdiction, which produced a confident wrong number attributed to
+    /// the wrong state with nothing surfaced to the user. Phase 1 removes
+    /// the substitution entirely: a lookup either returns `state`'s own
+    /// configuration or fails loudly. It never returns another
+    /// jurisdiction's data.
+    ///
+    /// `StateTaxDataLoader.configs2026` already falls back to
+    /// `configs2026Legacy` per state on a load failure (see its doc
+    /// comment for why that is safe), so `configs2026[state]` below should
+    /// always succeed. The `configs2026Legacy` check and the
+    /// `preconditionFailure` beyond it guard a case that is unreachable in
+    /// practice -- both dictionaries are keyed by every case of the
+    /// `CaseIterable` USState enum and both are complete -- but they exist
+    /// so a future regression in either table fails loudly for the correct
+    /// state instead of silently substituting a different one.
     static func config(for state: USState) -> StateTaxConfig {
-        configs2026[state] ?? configs2026[.california]!
+        if let config = configs2026[state] {
+            return config
+        }
+        if let legacy = configs2026Legacy[state] {
+            return legacy
+        }
+        preconditionFailure("No tax configuration for \(state.abbreviation) in either the JSON loader or the legacy table.")
     }
 }
