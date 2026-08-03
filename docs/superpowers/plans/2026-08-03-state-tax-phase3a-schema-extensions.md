@@ -30,6 +30,24 @@
 - **To claim a test discriminates, mutate the code under test, not the expectation.** Mutating a fixture only proves the comparison is wired up. State plainly in your report which mutations you actually ran and which you did not.
 - **Fixture values must never equal the default they would fall back to**, and among N same-typed sibling fields you need enough fixtures that every field has a unique value signature (for Booleans, ceil(log2 N) fixtures). Both rules come from real defects found in Phase 1.
 
+### Standing step for Tasks 4 through 6: regenerate if the encoder's output changed
+
+The rule recorded at Task 3 generalises. End each remaining task by regenerating and reading the diff:
+
+```bash
+cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && TEST_RUNNER_STATE_TAX_GENERATE=1 xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/StateTaxDataGeneratorTests ENABLE_APP_SANDBOX=NO
+```
+
+- A field encoded with `encodeIfPresent` that is nil for all 51 states writes nothing, so the diff is empty. That is Task 4's `agiPhaseout`. Nothing to commit.
+- A field encoded unconditionally writes a new key into all 51 files even at its default. That is Task 5's `exemptionAttribution`. Commit the regenerated files with the task.
+- A field carrying a non-default value for a real state must be regenerated or that state's behavior regresses on the production path and Layer B goes red. That is Task 6's PA, IL and MS.
+
+Always run the deletion check and confirm it prints nothing:
+
+```bash
+cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git diff --numstat RetireSmartIRA/Resources/StateTaxData/2026/ | awk '$2 != 0 {print "DELETION in " $3}'
+```
+
 ### Baseline
 
 Full macOS suite on `main` @ `e540e9f` before Task 1: **1,620 Swift Testing in 275 suites + 503 XCTest, 0 failures**. Any failure after that is attributable to the change that produced it. Capture it yourself; do not take this number on faith.

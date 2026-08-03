@@ -223,3 +223,34 @@ Task 3: commits 85c996f + fix 8ae4fd7 + fix f193c54 (base ee38d37). Reviewed on 
      only nested Codable type in this schema with no dedicated round-trip test. Task 7 exists to
      close exactly this and its brief already specifies personalExemptionEncodingIsConditional.
      VERIFY Task 7 actually discriminates here rather than assuming. **
+  RE-REVIEW: spec OK, Approved with findings. Kansas experiment confirmed clean AT BLOB LEVEL,
+    not by git status: the StateTaxData tree object is identical across 8ae4fd7..46ef9ee
+    (53fae096...), as is StateTaxData.swift's blob, so no JSON byte and no Kansas entry moved.
+    The throwaway test file was never committed. Reviewer also proved the new helper is genuinely
+    config-driven, not incidentally correct, by moving NJ's shipped `single` to 5,000 and watching
+    singleYearStateTax move 42.0 -> 0.0; and proved the new pinning test discriminates by moving
+    seniorAge 65 -> 63, which NOTHING ELSE caught (all four NJ tests, the 42.0 pin and the
+    1,020-value baseline all stayed green).
+  Reviewer settled a worry I raised: the fix did NOT add a JSON dependency. njPersonalExemptions
+    already resolved through config(for:) after 8ae4fd7, so the data source was unchanged; the fix
+    only removed the state literal. Under a deliberate JSON/legacy divergence the mirror still holds
+    because BOTH sides read JSON, and Layer B goes red on the divergence (confirmed by mutation, and
+    it is a true byte comparison, not a length heuristic).
+
+  ** OPEN, CARRY TO PHASE 5a, cannot be closed now: the Fix-1 change itself is UNGUARDED.
+     Reverting GoldenScenarioSingleYearTests.swift:47 to `state == .newJersey ? ... : 0` leaves the
+     ENTIRE suite green. Reason: the PA/IL/MS golden fixtures all pin expectedStateTax 0, so an
+     exemption is numerically inert there, and NJ is computed identically by the old and new helper.
+     Proven: giving PA a $10,000/$20,000 exemption in its shipped JSON left pathsAgree("PA") and all
+     four single-year cases green. This CANNOT be guarded until a second exemption state exists with
+     a nonzero golden fixture. Phase 5a's Kansas correction is that moment: when it lands, CONFIRM
+     the guard arrives with it rather than assuming it does. **
+
+## CONTROLLER ERROR #2, same root cause as #1
+  My Bash cwd reset to the MAIN repo mid-sequence and a heredoc appended this ledger's text to a
+  NEW file at /Users/johnurban/Projects/RetireSmartIRA/.claude/memory/roadmap/ (the main repo is on
+  the article branch, where that path does not exist, so `cat >>` created it). Caught immediately,
+  file removed, main repo clean, worktree ledger unaffected.
+  RULE, now twice-earned: EVERY command in this phase begins with an explicit
+  `cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a &&`, including
+  read-only ones and heredocs. Chaining `cd X && a && b` does NOT protect a later separate call.
