@@ -36,24 +36,20 @@
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "F9285FC5-1690-4D77-94E8-B16AF98F5123",
         "rate" : 0,
         "threshold" : 0
       },
       {
-        "id" : "1F534348-E46D-40E6-ACBC-D92EECF05298",
         "rate" : 0.0275,
         "threshold" : 26050
       }
     ],
     "single" : [
       {
-        "id" : "A0288064-0823-4025-B4A7-15CA68C357C6",
         "rate" : 0,
         "threshold" : 0
       },
       {
-        "id" : "ECFB0EEA-DF7C-4B9F-B320-FA5E6AE2C0C4",
         "rate" : 0.0275,
         "threshold" : 26050
       }

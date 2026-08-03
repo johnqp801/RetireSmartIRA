@@ -37,74 +37,60 @@
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "A7C457DB-C03A-41AA-8009-4EB67DE9E1B2",
         "rate" : 0.04,
         "threshold" : 0
       },
       {
-        "id" : "3305A63F-DF27-4706-9C9C-171F2252C244",
         "rate" : 0.06,
         "threshold" : 10000
       },
       {
-        "id" : "BEDE6E8E-AE3F-42E9-904D-6DE0971008CF",
         "rate" : 0.065,
         "threshold" : 40000
       },
       {
-        "id" : "366EB8C7-B892-4E2D-9251-17CB920D4077",
         "rate" : 0.085,
         "threshold" : 60000
       },
       {
-        "id" : "CFE828D0-FF72-40E0-A39A-C576AA255F3E",
         "rate" : 0.0925,
         "threshold" : 250000
       },
       {
-        "id" : "50341DDB-563C-4C26-9B4A-2FF55B792979",
         "rate" : 0.0975,
         "threshold" : 500000
       },
       {
-        "id" : "E4A033CE-9558-4DA4-9D67-D3E788289F9C",
         "rate" : 0.1075,
         "threshold" : 1000000
       }
     ],
     "single" : [
       {
-        "id" : "064EBCB6-F5B1-4D83-8993-FDB175C2FEBD",
         "rate" : 0.04,
         "threshold" : 0
       },
       {
-        "id" : "06657114-8DF0-4E91-A76B-8F8DD91A79B5",
         "rate" : 0.06,
         "threshold" : 10000
       },
       {
-        "id" : "61EEBB15-E8ED-460C-BD70-9620DCEA2F64",
         "rate" : 0.065,
         "threshold" : 40000
       },
       {
-        "id" : "9C478F67-6183-490B-9D54-DBC0BE27879D",
         "rate" : 0.085,
         "threshold" : 60000
       },
       {
-        "id" : "737CE8E6-1986-4D7F-872F-91068038D1A9",
         "rate" : 0.0925,
         "threshold" : 250000
       },
       {
-        "id" : "44F962A6-0517-4091-B9FD-E746DA093578",
         "rate" : 0.0975,
         "threshold" : 500000
       },
       {
-        "id" : "960CE978-F8A2-4FFA-8D99-75EA7AE90EDA",
         "rate" : 0.1075,
         "threshold" : 1000000
       }

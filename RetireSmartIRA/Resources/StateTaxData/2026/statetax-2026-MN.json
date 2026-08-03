@@ -37,44 +37,36 @@
     "kind" : "progressive",
     "married" : [
       {
-        "id" : "9D186F99-C174-4516-80F3-8A0E631CC6CB",
         "rate" : 0.0535,
         "threshold" : 0
       },
       {
-        "id" : "F9314529-AAA1-4271-B0C1-153484CE70E6",
         "rate" : 0.068,
         "threshold" : 48700
       },
       {
-        "id" : "8ECFF1A1-8A8D-4D7B-AEBE-2208BEBE032D",
         "rate" : 0.0785,
         "threshold" : 193480
       },
       {
-        "id" : "917386E2-4B0D-4345-8081-3985D5919288",
         "rate" : 0.0985,
         "threshold" : 337930
       }
     ],
     "single" : [
       {
-        "id" : "CA5D26F1-2184-460E-A4F6-A15B32A835A4",
         "rate" : 0.0535,
         "threshold" : 0
       },
       {
-        "id" : "66E13FD1-E3AB-47A0-9FFC-30410105EBE6",
         "rate" : 0.068,
         "threshold" : 33310
       },
       {
-        "id" : "45797A4A-7CEF-46C2-A05D-0FC1E412488C",
         "rate" : 0.0785,
         "threshold" : 109430
       },
       {
-        "id" : "1A67DC3B-E8D4-401D-BAB3-82D4F80CAA22",
         "rate" : 0.0985,
         "threshold" : 203150
       }

@@ -11,6 +11,12 @@ struct TaxBracket: Codable, Identifiable {
     var id = UUID()
     var threshold: Double
     var rate: Double
+
+    // `id` is a SwiftUI Identifiable token, not tax data. Excluding it keeps the
+    // generated state-tax JSON deterministic: a fresh UUID per process run would
+    // otherwise rewrite 285 bracket ids on every regeneration and bury real
+    // changes in noise. Matches tax-2026.json, which has never carried ids.
+    private enum CodingKeys: String, CodingKey { case threshold, rate }
 }
 
 struct TaxBrackets: Codable {
