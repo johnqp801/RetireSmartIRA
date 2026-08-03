@@ -316,6 +316,7 @@ extension StateTaxConfig: Codable {
         case pretax401kContributionsTaxableForState
         case capitalLossesClassIsolated
         case verification
+        case personalExemption
     }
 
     func encode(to encoder: Encoder) throws {
@@ -336,6 +337,7 @@ extension StateTaxConfig: Codable {
                      forKey: .pretax401kContributionsTaxableForState)
         try c.encode(capitalLossesClassIsolated, forKey: .capitalLossesClassIsolated)
         try c.encode(verification, forKey: .verification)
+        try c.encodeIfPresent(personalExemption, forKey: .personalExemption)
     }
 
     init(from decoder: Decoder) throws {
@@ -369,7 +371,9 @@ extension StateTaxConfig: Codable {
             capitalLossesClassIsolated: try c.decodeIfPresent(
                 Bool.self, forKey: .capitalLossesClassIsolated) ?? false,
             verification: try c.decodeIfPresent(
-                StateVerification.self, forKey: .verification) ?? .unverified
+                StateVerification.self, forKey: .verification) ?? .unverified,
+            personalExemption: try c.decodeIfPresent(
+                StatePersonalExemption.self, forKey: .personalExemption)
         )
     }
 }

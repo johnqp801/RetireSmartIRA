@@ -113,4 +113,74 @@ struct StateTaxPhase3aMechanismTests {
         #expect(tax(config: config(distributionMinAge: 55), spouseAge: 60) == 0)
         #expect(tax(config: config(distributionMinAge: 59), spouseAge: 60) == 0)
     }
+
+    // MARK: - personalExemption
+
+    /// New Jersey's four documented outcomes, from
+    /// TaxCalculationEngine.njPersonalExemptions' own doc comment:
+    ///   single under 65 -> 1,000; single 65+ -> 2,000;
+    ///   MFJ both under 65 -> 2,000; MFJ both 65+ -> 4,000.
+    static let njExemption = StatePersonalExemption(
+        single: 1_000, marriedFilingJointly: 2_000,
+        seniorAdditionalPerFiler: 1_000, seniorAge: 65)
+
+    @Test("StatePersonalExemption reproduces New Jersey's four documented outcomes")
+    func personalExemptionMatchesNJ() {
+        let e = Self.njExemption
+        #expect(e.amount(filingStatus: .single, enableSpouse: false,
+                         primaryAge: 64, spouseAge: 64) == 1_000)
+        #expect(e.amount(filingStatus: .single, enableSpouse: false,
+                         primaryAge: 65, spouseAge: 65) == 2_000)
+        #expect(e.amount(filingStatus: .marriedFilingJointly, enableSpouse: true,
+                         primaryAge: 64, spouseAge: 64) == 2_000)
+        #expect(e.amount(filingStatus: .marriedFilingJointly, enableSpouse: true,
+                         primaryAge: 65, spouseAge: 65) == 4_000)
+    }
+
+    @Test("A filer on MFJ with no spouse configured gets the single amounts")
+    func personalExemptionIgnoresMFJWithoutASpouse() {
+        let e = Self.njExemption
+        #expect(e.amount(filingStatus: .marriedFilingJointly, enableSpouse: false,
+                         primaryAge: 64, spouseAge: 64) == 1_000)
+        #expect(e.amount(filingStatus: .marriedFilingJointly, enableSpouse: false,
+                         primaryAge: 70, spouseAge: 70) == 2_000)
+    }
+
+    @Test("Only one spouse over the senior age gets exactly one senior addition")
+    func personalExemptionSeniorIsPerFiler() {
+        #expect(Self.njExemption.amount(filingStatus: .marriedFilingJointly, enableSpouse: true,
+                                        primaryAge: 66, spouseAge: 60) == 3_000)
+    }
+
+    @Test("A state with no senior addition ignores age entirely")
+    func personalExemptionWithoutSeniorTierIgnoresAge() {
+        // Shaped like Kansas: a flat per-return amount, no age component.
+        // NOTE: Kansas's real config is NOT given this value in Phase 3a.
+        // Correcting Kansas is Phase 5a, gated by a golden scenario.
+        let flat = StatePersonalExemption(
+            single: 9_160, marriedFilingJointly: 18_320,
+            seniorAdditionalPerFiler: 0, seniorAge: 65)
+        #expect(flat.amount(filingStatus: .single, enableSpouse: false,
+                            primaryAge: 80, spouseAge: 80) == 9_160)
+        #expect(flat.amount(filingStatus: .marriedFilingJointly, enableSpouse: true,
+                            primaryAge: 80, spouseAge: 80) == 18_320)
+    }
+
+    @Test("New Jersey's config carries the personal exemption; no other state does")
+    func onlyNewJerseyCarriesAPersonalExemptionInPhase3a() throws {
+        let configs = try StateTaxDataLoader.load(taxYear: 2026)
+        for state in USState.allCases {
+            let config = try #require(configs[state])
+            if state == .newJersey {
+                #expect(config.personalExemption != nil)
+            } else {
+                #expect(config.personalExemption == nil,
+                        """
+                        \(state.abbreviation) gained a personal exemption in Phase 3a. \
+                        Phase 3a adds no state's exemption except New Jersey's, which \
+                        already existed in hardcoded form. Kansas and the rest are Phase 5a.
+                        """)
+            }
+        }
+    }
 }

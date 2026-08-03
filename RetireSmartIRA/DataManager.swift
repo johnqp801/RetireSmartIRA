@@ -656,19 +656,23 @@ class DataManager {
                 : stateStandardDeduction
         }
 
-        // NJ has no standard deduction but grants personal exemptions ($1,000
-        // regular per filer + $1,000 per filer 65+). These reduce taxable
-        // income AFTER the retirement exclusions/phaseout (which gate on total
-        // income), so they are passed as `postExemptionDeduction` rather than
-        // subtracted from the phaseout gate here. Other states return 0.
-        let njExemptions = state == .newJersey
-            ? TaxCalculationEngine.njPersonalExemptions(
-                filingStatus: filingStatus, enableSpouse: enableSpouse,
-                primaryAge: currentAge, spouseAge: spouseCurrentAge)
-            : 0
+        // Personal exemptions reduce taxable income AFTER the retirement
+        // exclusions and their income-gated phaseouts, so they are passed as
+        // `postExemptionDeduction` rather than subtracted from the phaseout
+        // gate here. States with no personal exemption return 0.
+        //
+        // Prefers config.personalExemption (bundled JSON); New Jersey's
+        // shipped JSON does not carry the key until Task 8 regenerates that
+        // file, so this falls back to the legacy Swift table, which already
+        // carries NJ's value as of this task, so New Jersey's exemption does
+        // not silently regress to $0 in the interim.
+        let statePersonalExemption = (config.personalExemption
+            ?? StateTaxData.configs2026Legacy[state]?.personalExemption)?.amount(
+            filingStatus: filingStatus, enableSpouse: enableSpouse,
+            primaryAge: currentAge, spouseAge: spouseCurrentAge) ?? 0
 
         let stateTaxableIncome = max(0, adjustedGross - stateDeduction)
-        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: njExemptions)
+        return calculateStateTax(income: stateTaxableIncome, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: statePersonalExemption)
     }
 
     /// Applies state-specific retirement income exemptions to reduce state taxable income.
@@ -902,16 +906,22 @@ class DataManager {
 
         let totalExempted = ssExemptAmt + pensionExemptAmt + iraExemptAmt + militaryExemptAmt + conversionExemptAmt + otherRetirementExemptAmt
 
-        // NJ personal exemptions ($1,000 regular per filer + $1,000 per filer
-        // 65+). Applied AFTER the retirement exclusions (consistent with the
-        // engine's `postExemptionDeduction`). Other states: 0.
-        let njPersonalExemptionAmt = state == .newJersey
-            ? TaxCalculationEngine.njPersonalExemptions(
-                filingStatus: filingStatus, enableSpouse: enableSpouse,
-                primaryAge: currentAge, spouseAge: spouseCurrentAge)
-            : 0
+        // Personal exemptions reduce taxable income AFTER the retirement
+        // exclusions and their income-gated phaseouts, so they are passed as
+        // `postExemptionDeduction` rather than subtracted from the phaseout
+        // gate here. States with no personal exemption return 0.
+        //
+        // Prefers config.personalExemption (bundled JSON); New Jersey's
+        // shipped JSON does not carry the key until Task 8 regenerates that
+        // file, so this falls back to the legacy Swift table, which already
+        // carries NJ's value as of this task, so New Jersey's exemption does
+        // not silently regress to $0 in the interim.
+        let statePersonalExemption = (config.personalExemption
+            ?? StateTaxData.configs2026Legacy[state]?.personalExemption)?.amount(
+            filingStatus: filingStatus, enableSpouse: enableSpouse,
+            primaryAge: currentAge, spouseAge: spouseCurrentAge) ?? 0
 
-        let adjustedIncome = max(0, income - totalExempted - njPersonalExemptionAmt)
+        let adjustedIncome = max(0, income - totalExempted - statePersonalExemption)
 
         // 3. Calculate tax with bracket-level detail
         var bracketDetails: [StateTaxBreakdown.BracketDetail] = []

@@ -440,6 +440,12 @@ struct StateTaxConfig {
     /// to `.unverified` so existing Swift call sites compile unchanged during
     /// the Phase 1 migration.
     let verification: StateVerification
+    /// The state's personal exemption, or nil where the state grants none.
+    /// Applied by the caller as `postExemptionDeduction`, after the retirement
+    /// exclusions. Only New Jersey carries one in Phase 3a; the states the
+    /// 2026-08-02 audit found to need one (Kansas first among them) get theirs
+    /// in Phase 5a, each gated by a golden scenario.
+    let personalExemption: StatePersonalExemption?
 
     init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
          stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
@@ -450,7 +456,8 @@ struct StateTaxConfig {
          otherPreTaxDeductionsTaxableForState: Bool = false,
          pretax401kContributionsTaxableForState: Bool = false,
          capitalLossesClassIsolated: Bool = false,
-         verification: StateVerification = .unverified) {
+         verification: StateVerification = .unverified,
+         personalExemption: StatePersonalExemption? = nil) {
         self.state = state
         self.taxSystem = taxSystem
         self.retirementExemptions = retirementExemptions
@@ -464,6 +471,7 @@ struct StateTaxConfig {
         self.pretax401kContributionsTaxableForState = pretax401kContributionsTaxableForState
         self.capitalLossesClassIsolated = capitalLossesClassIsolated
         self.verification = verification
+        self.personalExemption = personalExemption
     }
 }
 
@@ -1695,7 +1703,14 @@ struct StateTaxData {
             stateDeduction: .none,
             safeHarborRule: .mirrorsFederal,
             currentYearSafeHarborRate: 0.80,
-            hsaContributionsTaxableForState: true
+            hsaContributionsTaxableForState: true,
+            // NJ-1040 personal exemptions: $1,000 regular per filer, plus
+            // another $1,000 per filer age 65+. NJ has no standard deduction.
+            // These values are a lift-and-shift of njPersonalExemptions, which
+            // this replaces; they are not a Phase 3a correction.
+            personalExemption: StatePersonalExemption(
+                single: 1_000, marriedFilingJointly: 2_000,
+                seniorAdditionalPerFiler: 1_000, seniorAge: 65)
         )
 
         // New Mexico — 1.7% to 5.9% (4 brackets)
