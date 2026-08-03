@@ -30,6 +30,22 @@
 - **To claim a test discriminates, mutate the code under test, not the expectation.** Mutating a fixture only proves the comparison is wired up. State plainly in your report which mutations you actually ran and which you did not.
 - **Fixture values must never equal the default they would fall back to**, and among N same-typed sibling fields you need enough fixtures that every field has a unique value signature (for Booleans, ceil(log2 N) fixtures). Both rules come from real defects found in Phase 1.
 
+### Standing step for Tasks 5 and 6: extend the encoder fixtures, and prove it by mutation
+
+Task 4's review found that `RetireSmartIRATests/StateTaxCodableRoundTripTests.swift`'s two
+general guards, `retirementExemptionsRoundTrip` and `retirementExemptionsEncodesExpectedJSONShape`,
+had silently gone stale. Neither was extended when Task 2 added `distributionMinAge`, so that field
+could be dropped from the encoder with the whole suite green, while the test's own title claimed to
+guard every field. A general guard is not self-maintaining.
+
+So every remaining task that adds an encoded field extends BOTH fixtures in the same commit, using
+a value that is NOT the field's own default, and proves it by deleting its `encode` line and
+watching the JSON-shape test go red. Do not defer this to Task 7. Task 7's job is to verify the
+guards hold, not to discover that four tasks left them stale.
+
+`personalExemption` sits on `StateTaxConfig` rather than `RetirementIncomeExemptions`, so its
+guard is the separate `stateTaxConfigEncodesExpectedJSONShape` fixture. Task 7 still owns that one.
+
 ### Standing step for Tasks 4 through 6: regenerate if the encoder's output changed
 
 The rule recorded at Task 3 generalises. End each remaining task by regenerating and reading the diff:

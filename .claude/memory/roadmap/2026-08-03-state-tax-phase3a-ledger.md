@@ -254,3 +254,43 @@ Task 3: commits 85c996f + fix 8ae4fd7 + fix f193c54 (base ee38d37). Reviewed on 
   RULE, now twice-earned: EVERY command in this phase begins with an explicit
   `cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a &&`, including
   read-only ones and heredocs. Chaining `cd X && a && b` does NOT protect a later separate call.
+Task 4: commits 5663949 + fix f87bb3f (base bea311a). Reviewed on opus, RE-REVIEW IN FLIGHT.
+  AGIPhaseout with two shapes (cliff, linear) + RetirementIncomeExemptions.agiPhaseout: nil for
+  all 51. Suite 1,640 ST in 278 suites + 503 XCTest. Baseline held 1,020. Regeneration diff EMPTY,
+  as predicted for an encodeIfPresent field that is nil everywhere.
+
+  ** THE BRIEF PREDICTED THE DEFECT AND THE REVIEWER FOUND IT: of the THREE phase-out call sites,
+     only ONE was guarded. Reviewer mutated each: replacing the shared-cap reduction with
+     `let pensionIRAExclusion = rawExclusion` survived all 34 tests, and replacing the IRA-side
+     reduction with `adjusted -= rawIRA` survived too, because the single engine test set
+     iraWithdrawalExemption: .none and supplied only a .pension row, so rawIRA was always 0.
+     Three states set pensionAndIRAShareSingleCap today, and ALL SIX target jurisdictions
+     (CT, VA, ME, RI, WV, NM) phase out exclusions covering IRA withdrawals, so the IRA side is
+     the one that matters most. Both closed in f87bb3f, both mutations now fail as they should. **
+
+  ** THE FINDING THAT CHANGES THE REMAINING TASKS: the test named "Encoded JSON carries all nine
+     fields", whose own comment calls itself "the general guard against a dropped encode() line
+     for all nine keys at once", HAD SILENTLY GONE STALE. Neither it nor its round-trip sibling
+     was extended when Task 2 added distributionMinAge or when Task 4 added agiPhaseout, so both
+     fields could be dropped from the encoder with the entire suite green. Proven by mutation on
+     BOTH fields. The guard covered 9 of 11 encoded keys while claiming to cover all of them.
+     A general guard is not self-maintaining. Fixed for both fields, title and comment corrected
+     to eleven, and an instruction added inside the test to extend it whenever a field is added.
+     STANDING STEP ADDED TO THE PLAN: Tasks 5 and 6 extend BOTH fixtures themselves rather than
+     deferring to Task 7, and prove it by mutation. Task 7 then verifies rather than discovers. **
+
+  Reviewer verified independently: the shared-cap branch correctly binds the REDUCED value under
+    `pensionIRAExclusion`, so NJ's Worksheet D block reads the reduced figure (the trap the brief
+    warned about); the fractional ramp arithmetic is exact despite 1.6 being unrepresentable
+    (40,000/25,000 * 12,500 rounds to exactly 20,000.0, so no max() floor rescues it); fixtures
+    are asymmetric on the filing-status axis; the round-trip test's perDollar is 1.6 not 1.0.
+  Minor fixed: noStateHasAnAGIPhaseoutYet asserted on DECODED values, so a broken decodeIfPresent
+    would let it pass against a file that DOES carry the key. Now reads raw JSON keys, matching
+    Task 3's analogue.
+  Minor fixed (docs): the cliff boundary is INCLUSIVE (income exactly at the threshold is
+    unreduced) while the audit's New Mexico wording reads exclusive. At exactly $28,500 those
+    differ by the entire exclusion. Convention now documented as unverified, for Phase 4 to pin.
+  Minor fixed (docs): a state carrying steppedPhaseout + otherRetirementIncomeExclusion + an
+    agiPhaseout would hand back through Worksheet D what the phase-out took, because chartMax
+    derives from the UNREDUCED level. Unreachable today (only NJ sets the exclusion, and it has
+    no phase-out) but now recorded at the code rather than left to be rediscovered.
