@@ -89,6 +89,19 @@ struct IncomeSource: Identifiable, Codable {
     /// Ignored in `.dollars` mode. Defaults to 0.
     var stateWithholdingPercent: Double
 
+    /// How this retirement plan is structured (defined benefit, defined
+    /// contribution, IRA...). Phase 3b. Always has a value: rows created
+    /// before this phase, or created without specifying it, fall back to
+    /// `RetirementPlanClassification.infer(incomeType:)` per design doc
+    /// section 3.6 — never left unset. See `planSource` for the orthogonal
+    /// jurisdiction/employer dimension.
+    var planStructure: PlanStructure
+
+    /// Where this retirement plan's income originates (NY state/local,
+    /// federal civilian, private employer, self-established...). Phase 3b.
+    /// Same fallback rule as `planStructure`.
+    var planSource: PlanSource
+
     /// Combined federal + state withholding for this source
     var totalWithholding: Double { federalWithholding + stateWithholding }
 
@@ -122,7 +135,7 @@ struct IncomeSource: Identifiable, Codable {
         return stateWithholding
     }
 
-    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil, federalWithholdingMode: FederalWithholdingMode? = nil, federalWithholdingPercent: Double = 0, stateWithholdingMode: FederalWithholdingMode? = nil, stateWithholdingPercent: Double = 0) {
+    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil, federalWithholdingMode: FederalWithholdingMode? = nil, federalWithholdingPercent: Double = 0, stateWithholdingMode: FederalWithholdingMode? = nil, stateWithholdingPercent: Double = 0, planStructure: PlanStructure? = nil, planSource: PlanSource? = nil) {
         self.id = id
         self.name = name
         self.type = type
@@ -135,6 +148,14 @@ struct IncomeSource: Identifiable, Codable {
         self.federalWithholdingPercent = federalWithholdingPercent
         self.stateWithholdingMode = stateWithholdingMode
         self.stateWithholdingPercent = stateWithholdingPercent
+        // No caller-supplied classification falls back to inference from
+        // `type`, same rule the decoder applies. Every call site across the
+        // app that predates Phase 3b (AddIncomeView, the Roth-conversion
+        // migration helper, dozens of tests) constructs IncomeSource without
+        // these two parameters, so this default is load-bearing, not cosmetic.
+        let inferred = RetirementPlanClassification.infer(incomeType: type)
+        self.planStructure = planStructure ?? inferred.structure
+        self.planSource = planSource ?? inferred.source
     }
 
     // MARK: - Data Migration
@@ -198,6 +219,19 @@ struct IncomeSource: Identifiable, Codable {
         // dollar stateWithholding — byte-identical to pre-feature behavior.
         stateWithholdingMode = try? container.decodeIfPresent(FederalWithholdingMode.self, forKey: .stateWithholdingMode)
         stateWithholdingPercent = (try? container.decodeIfPresent(Double.self, forKey: .stateWithholdingPercent)) ?? 0
+
+        // Phase 3b migration (design doc section 3.6). A blob written before
+        // this phase has neither key, so both decode to nil and fall back to
+        // inference from `type` — which, for a legacy `.rothConversion`
+        // sentinel row, is already `.other` by the time this line runs,
+        // landing correctly on unknown/unknown without any special case
+        // here. `decodeIfPresent` (not a bare `decode`) is the point: a
+        // present-but-unrecognised raw string still throws a typed
+        // DecodingError (per PlanStructure/PlanSource's synthesised
+        // Codable), it is only an ABSENT key that falls back.
+        let inferred = RetirementPlanClassification.infer(incomeType: type)
+        planStructure = try container.decodeIfPresent(PlanStructure.self, forKey: .planStructure) ?? inferred.structure
+        planSource = try container.decodeIfPresent(PlanSource.self, forKey: .planSource) ?? inferred.source
     }
 
     /// Sentinel prefix applied to the `name` of legacy `.rothConversion` income
@@ -207,7 +241,7 @@ struct IncomeSource: Identifiable, Codable {
     static let legacyRothConversionSentinelPrefix = "__LEGACY_ROTH_CONVERSION__::"
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate, federalWithholdingMode, federalWithholdingPercent, stateWithholdingMode, stateWithholdingPercent
+        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate, federalWithholdingMode, federalWithholdingPercent, stateWithholdingMode, stateWithholdingPercent, planStructure, planSource
     }
 
     func encode(to encoder: Encoder) throws {
@@ -224,6 +258,8 @@ struct IncomeSource: Identifiable, Codable {
         try container.encode(federalWithholdingPercent, forKey: .federalWithholdingPercent)
         try container.encodeIfPresent(stateWithholdingMode, forKey: .stateWithholdingMode)
         try container.encode(stateWithholdingPercent, forKey: .stateWithholdingPercent)
+        try container.encode(planStructure, forKey: .planStructure)
+        try container.encode(planSource, forKey: .planSource)
     }
 }
 
