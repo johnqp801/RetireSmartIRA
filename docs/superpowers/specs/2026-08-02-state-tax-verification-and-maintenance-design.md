@@ -116,6 +116,32 @@ Protocol, run identically and independently against at least two models:
 
 **Consensus rule:** both models confirm plus a primary source in hand, accept and stamp. Any contradiction, John adjudicates against the primary source, no automatic resolution. Both `CANNOT_VERIFY`, the config is left untouched and the jurisdiction is recorded unverified, which then surfaces in the app per §3.5. **Unverified is a legitimate end state.** Model agreement never substitutes for a primary source.
 
+**Citation discipline, added 2026-08-02 after Phase 2 proved it necessary.**
+
+Every fixture carries a `source` citation AND a resolvable `sourceURL`. The loader asserts both are
+present and that the URL is https-prefixed. That is a structural control and it works: it caught two
+wrong citations in the first three fixtures ever written.
+
+But it has a hard limit, demonstrated concretely in Phase 2: a URL can be well-formed, resolvable,
+on-topic, and still not support the specific sentence next to it. `#expect` cannot do semantic
+matching.
+
+So Phase 4 carries a PROCESS control that no code can enforce: **the fixture author, and the
+reviewer, must each state in their report that they personally opened every `sourceURL` and checked
+every clause of `source` against it.** Not "a citation is present". Not "the URL resolves". Every
+clause, against the page.
+
+This exists because of a specific failure. The first three fixtures were authored with citations
+that were confidently wrong in the way hardest to catch: the expected VALUES were correct, so every
+test passed, and the citations read as authoritative. One named the combat-zone pay paragraph of the
+Mississippi code instead of the retirement paragraph. One named the Illinois schedule that the
+state's own DOR warns causes a double subtraction. A reader following either to check the work would
+have found nothing supporting it.
+
+Golden scenarios exist so expected values come from a state's published form rather than from the
+engine under test. The citation is the entire mechanism making that auditable. A citation nobody can
+follow silently converts the exercise back into trust-me while still looking rigorous.
+
 **Layer 2, golden scenarios. This holds the gate.**
 
 Per jurisdiction, canonical scenarios whose expected state tax is derived from that state's own published form, instructions or worked example, with the form and line numbers cited in the fixture. Stored beside the data as `Resources/StateTaxData/2026/KS.golden.json`.
