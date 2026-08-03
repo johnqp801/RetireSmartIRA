@@ -102,3 +102,43 @@ Task 2: complete (commits 0ead148 fixture + 6f8ef88 implementation + fix 53ac0f8
      re-pointed at a New York scenario and re-proven by mutation. **
   Open, recorded not fixed: DataManager() in the test target reads UserDefaults.standard, so a
     persistence test can pick up real saved data from the developer's machine. Pre-existing.
+
+Task 3: complete (commit 34220b8). Reviewed on opus: spec OK, Approved with findings.
+  distributionComponents added BESIDE the 42-call-site scalar, not replacing it. Pooled at one
+  line in both engine (:644-648) and mirror (:834-839). Suite 1,691 ST in 282 suites + 503 XCTest.
+  Baseline held 1,020. Mirror got its configOverride seam; reviewer read both side by side and
+  found no drift, unlike Phase 3a where five changes missed the mirror.
+
+  ** IMPORTANT, FOLDED INTO TASK 4 RATHER THAN A SEPARATE FIX CYCLE: pooling is UNGUARDED.
+     The reviewer mutated the engine and mirror to apply the exemption PER COMPONENT instead of
+     once to the pooled figure, and ALL 10 of Task 3's tests passed, AND the 1,020-value frozen
+     baseline passed. Only a throwaway probe caught it. Reason: every multi-component test uses
+     iraWithdrawalExemption .full, where excludedAmount returns eligibleIncome unchanged, so
+     summing per component and pooling give identical numbers.
+     Failure scenario from the probe: .partial(maxExempt: 20_000), flat 10%, single, age 65,
+     income 60,000, two components of 15,000. Correct 4,000; per-component capping gives 3,000.
+     That is the historical New York double-20,000 bug reproduced exactly. ~20 lines to close:
+     one capped-config two-component test per surface. Task 4 Step 4 needs this guard to already
+     exist, since Task 4 is the task that reaches for the component array. **
+
+  Minor, also folded into Task 4: three comments in RetirementDistributionComponent.swift:78-80,
+    TaxCalculationEngine.swift:352 and :639-641, DataManager.swift:828-830 say the nil path
+    "synthesises one .unknown component". It does NOT; it short-circuits to the scalar
+    (RetirementDistributionComponent.swift:95). Numerically identical and safer, but Task 4 must
+    not assume nil hands it a component list to run rule matching over.
+  Minor, also folded: sumInvariantBoundary proves only that the tolerance lies somewhere in
+    [0.005, 0.02). Name the tolerance as a constant and assert its value.
+  Minor, RECORDED NOT FIXED: the release fallback and its flag are executed by no test in any
+    configuration, because assertionFailure traps first in Debug and the test target does not link
+    in Release (pre-existing SwiftUI opaque-return-type symbols in ThresholdMapChartViewTests).
+    The reviewer judged the strategy defensible but corrected the report's stated reason: the
+    sibling flag from Task 1 IS driven true by tests, so "avoid poisoning a shared static" does not
+    hold; the real reason is unreachability behind the trap. A trap-injection seam
+    (onViolation: (String) -> Void = { assertionFailure($0) }) would fix it if the invariant ever
+    gains teeth. Residual risk low: the only unproven statement is a diagnostic affecting no value.
+  Implementer honesty worth noting: its first boundary test used an exact one-cent literal, float
+    error pushed it outside tolerance, and it genuinely tripped the trap and crashed the test
+    process. It redesigned around whole-dollar components with a half-cent scalar offset and
+    reported the crash as a real finding rather than quietly working around it.
+  For Task 5: DataManager's private applyRetirementExemptions wrapper at :674 forwards no
+    components and is pinned to nil.
