@@ -580,6 +580,23 @@ struct StateTaxCodableRoundTripTests {
                     "\(state.abbreviation) safe harbor rule lost in round trip")
         }
     }
+
+    @Test("AGIPhaseout round-trips both shapes with distinct per-field values")
+    func agiPhaseoutRoundTrips() throws {
+        // Thresholds deliberately different from each other so a single/MFJ
+        // swap is detectable, and perDollar deliberately not 1.0 so a dropped
+        // payload is not masked by a plausible default.
+        let cases: [AGIPhaseout] = [
+            AGIPhaseout(thresholdSingle: 28_500, thresholdMFJ: 51_000, shape: .cliff),
+            AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                        shape: .linear(perDollar: 1.6))
+        ]
+        for original in cases {
+            let decoded = try JSONDecoder().decode(
+                AGIPhaseout.self, from: JSONEncoder().encode(original))
+            #expect(decoded == original)
+        }
+    }
 }
 
 extension RetirementIncomeExemptions.ExemptionLevel {

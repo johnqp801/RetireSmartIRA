@@ -265,11 +265,37 @@ extension RetirementIncomeExemptions.AgeTier: Codable {
     }
 }
 
+extension AGIPhaseout.Shape: Codable {
+    private enum CodingKeys: String, CodingKey { case kind, perDollar }
+    private enum Kind: String, Codable { case cliff, linear }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .cliff:
+            try c.encode(Kind.cliff, forKey: .kind)
+        case .linear(let perDollar):
+            try c.encode(Kind.linear, forKey: .kind)
+            try c.encode(perDollar, forKey: .perDollar)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        switch try c.decode(Kind.self, forKey: .kind) {
+        case .cliff:
+            self = .cliff
+        case .linear:
+            self = .linear(perDollar: try c.decode(Double.self, forKey: .perDollar))
+        }
+    }
+}
+
 extension RetirementIncomeExemptions: Codable {
     private enum CodingKeys: String, CodingKey {
         case socialSecurityExempt, pensionExemption, iraWithdrawalExemption
         case exemptionAppliesPerIndividual, regularExemptionMinAge, distributionMinAge, earlyAgeTier
-        case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion
+        case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion, agiPhaseout
         case capitalGainsTreatment
     }
 
@@ -284,6 +310,7 @@ extension RetirementIncomeExemptions: Codable {
         try c.encodeIfPresent(earlyAgeTier, forKey: .earlyAgeTier)
         try c.encode(pensionAndIRAShareSingleCap, forKey: .pensionAndIRAShareSingleCap)
         try c.encode(otherRetirementIncomeExclusion, forKey: .otherRetirementIncomeExclusion)
+        try c.encodeIfPresent(agiPhaseout, forKey: .agiPhaseout)
         try c.encode(capitalGainsTreatment, forKey: .capitalGainsTreatment)
     }
 
@@ -301,6 +328,7 @@ extension RetirementIncomeExemptions: Codable {
             earlyAgeTier: try c.decodeIfPresent(AgeTier.self, forKey: .earlyAgeTier),
             pensionAndIRAShareSingleCap: try c.decodeIfPresent(Bool.self, forKey: .pensionAndIRAShareSingleCap) ?? false,
             otherRetirementIncomeExclusion: try c.decodeIfPresent(Bool.self, forKey: .otherRetirementIncomeExclusion) ?? false,
+            agiPhaseout: try c.decodeIfPresent(AGIPhaseout.self, forKey: .agiPhaseout),
             capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal
         )
     }

@@ -239,6 +239,10 @@ struct RetirementIncomeExemptions {
     /// NJ lines 15+18+21+22) ≤ $3,000. Only New Jersey sets this today.
     var otherRetirementIncomeExclusion: Bool = false
 
+    /// Reduces the computed pension and IRA exclusion as income rises. nil
+    /// (the default, and every state's value in Phase 3a) means no reduction.
+    var agiPhaseout: AGIPhaseout? = nil
+
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
 

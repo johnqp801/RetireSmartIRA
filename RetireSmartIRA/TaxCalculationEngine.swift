@@ -595,12 +595,15 @@ struct TaxCalculationEngine {
             // the original `income` argument, before SS/exemption subtraction.
             let isMarried = filingStatus == .marriedFilingJointly
             let combinedIncome = pensionIncome + iraIncome
-            let pensionIRAExclusion = effectivePensionExemption.excludedAmount(
+            let rawExclusion = effectivePensionExemption.excludedAmount(
                 eligibleIncome: combinedIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
+            let pensionIRAExclusion = exemptions.agiPhaseout?.reduced(
+                exclusion: rawExclusion, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawExclusion
             adjusted -= pensionIRAExclusion
 
             // NJ-1040 Worksheet D — Other Retirement Income Exclusion.
@@ -629,18 +632,25 @@ struct TaxCalculationEngine {
         } else {
             // Standard per-type application: each type's cap applied independently.
             let isMarried = filingStatus == .marriedFilingJointly
-            adjusted -= effectivePensionExemption.excludedAmount(
+            let rawPension = effectivePensionExemption.excludedAmount(
                 eligibleIncome: pensionIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
-            adjusted -= effectiveIRAExemption.excludedAmount(
+            adjusted -= exemptions.agiPhaseout?.reduced(
+                exclusion: rawPension, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawPension
+
+            let rawIRA = effectiveIRAExemption.excludedAmount(
                 eligibleIncome: iraIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
+            adjusted -= exemptions.agiPhaseout?.reduced(
+                exclusion: rawIRA, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawIRA
         }
 
         // Military Retirement: per-state exemption applied per-source using the
