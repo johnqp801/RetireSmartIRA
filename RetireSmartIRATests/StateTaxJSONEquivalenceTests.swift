@@ -599,12 +599,8 @@ struct StateTaxJSONStructuralEquivalenceTests {
 @Suite("PHASE 1 GATE: Layer C, file key completeness (the shipped data is complete)")
 struct StateTaxJSONFileKeyCompletenessTests {
 
-    /// Every top-level key expected in the SHIPPED, checked-in JSON files,
-    /// taken from `StateTaxConfig`'s `CodingKeys` in StateTaxCodable.swift.
-    /// This does not assert the encoder currently writes these keys (that is
-    /// `StateTaxCodableRoundTripTests.swift`'s job); it asserts the files on
-    /// disk today have them.
-    private static let expectedTopLevelKeys: Set<String> = [
+    /// Keys every shipped file must carry.
+    private static let requiredTopLevelKeys: Set<String> = [
         "state", "taxSystem", "retirementExemptions", "stateDeduction",
         "estimatedPaymentSchedule", "safeHarborRule", "currentYearSafeHarborRate",
         "hsaContributionsTaxableForState", "traditionalIRAContributionsTaxableForState",
@@ -612,12 +608,16 @@ struct StateTaxJSONFileKeyCompletenessTests {
         "capitalLossesClassIsolated", "verification"
     ]
 
-    @Test("Each bundled JSON file's top-level keys exactly match the expected set, no more, no fewer",
+    /// Keys a file MAY carry. `personalExemption` is written only for states
+    /// that grant one, which is New Jersey alone in Phase 3a, so requiring it
+    /// everywhere would force 50 files to carry a key with no meaning. A key
+    /// outside both sets is still a failure: this widens the assertion by
+    /// exactly one name, it does not weaken it into an allow-anything check.
+    private static let optionalTopLevelKeys: Set<String> = ["personalExemption"]
+
+    @Test("Each bundled JSON file carries every required top-level key and no unknown ones",
           arguments: USState.allCases)
-    func exactTopLevelKeySet(state: USState) throws {
-        // Reads the real file through the loader's own bundle-resolution
-        // logic (StateTaxDataLoader.fileURL), not a hand-written path guess,
-        // so this stays true to what actually ships in the bundle.
+    func topLevelKeysAreCompleteAndKnown(state: USState) throws {
         let url = try StateTaxDataLoader.fileURL(for: state, taxYear: 2026)
         let data = try Data(contentsOf: url)
         let raw = try JSONSerialization.jsonObject(with: data)
@@ -627,15 +627,27 @@ struct StateTaxJSONFileKeyCompletenessTests {
         }
 
         let actualKeys = Set(object.keys)
-        let missing = Self.expectedTopLevelKeys.subtracting(actualKeys).sorted()
-        let unexpected = actualKeys.subtracting(Self.expectedTopLevelKeys).sorted()
+        let missing = Self.requiredTopLevelKeys.subtracting(actualKeys).sorted()
+        let unknown = actualKeys
+            .subtracting(Self.requiredTopLevelKeys)
+            .subtracting(Self.optionalTopLevelKeys).sorted()
 
-        #expect(
-            actualKeys == Self.expectedTopLevelKeys,
-            """
-            \(state.abbreviation) (\(url.lastPathComponent)): top-level keys diverge from the \
-            expected set. Missing: \(missing). Unexpected: \(unexpected).
-            """
-        )
+        #expect(missing.isEmpty,
+                "\(state.abbreviation) (\(url.lastPathComponent)) is missing required keys: \(missing)")
+        #expect(unknown.isEmpty,
+                "\(state.abbreviation) (\(url.lastPathComponent)) carries unknown keys: \(unknown)")
+    }
+
+    @Test("Exactly one jurisdiction ships a personalExemption key in Phase 3a")
+    func onlyNewJerseyShipsAPersonalExemptionKey() throws {
+        var carriers: [String] = []
+        for state in USState.allCases {
+            let url = try StateTaxDataLoader.fileURL(for: state, taxYear: 2026)
+            let object = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: url)) as? [String: Any]
+            if object?["personalExemption"] != nil { carriers.append(state.abbreviation) }
+        }
+        #expect(carriers == ["NJ"],
+                "Phase 3a ships New Jersey's personal exemption only. Found: \(carriers)")
     }
 }

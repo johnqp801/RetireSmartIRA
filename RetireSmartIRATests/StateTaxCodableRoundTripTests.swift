@@ -183,15 +183,21 @@ struct StateTaxCodableRoundTripTests {
             // "recover" a dropped key back to true, masking the loss). See
             // retirementExemptionsEncodesExpectedJSONShape below for the
             // general, fixture-value-independent guard against this class of
-            // bug across all nine fields.
+            // bug across all thirteen fields.
             socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
             exemptionAppliesPerIndividual: true,
             regularExemptionMinAge: 65,
+            exemptionAttribution: .perQualifyingSpouse,
+            distributionMinAge: 55,
             earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
             pensionAndIRAShareSingleCap: true,
             otherRetirementIncomeExclusion: true,
+            agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                                     shape: .linear(perDollar: 1.6)),
+            rothConversionExemption: RothConversionExemption(
+                minAge: 55, withheldPortionRemainsTaxable: true),
             capitalGainsTreatment: .taxedAsOrdinary
         )
         let data = try JSONEncoder().encode(original)
@@ -200,8 +206,12 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.socialSecurityExempt == original.socialSecurityExempt)
         #expect(decoded.exemptionAppliesPerIndividual == original.exemptionAppliesPerIndividual)
         #expect(decoded.regularExemptionMinAge == original.regularExemptionMinAge)
+        #expect(decoded.exemptionAttribution == original.exemptionAttribution)
+        #expect(decoded.distributionMinAge == original.distributionMinAge)
         #expect(decoded.pensionAndIRAShareSingleCap == original.pensionAndIRAShareSingleCap)
         #expect(decoded.otherRetirementIncomeExclusion == original.otherRetirementIncomeExclusion)
+        #expect(decoded.agiPhaseout == original.agiPhaseout)
+        #expect(decoded.rothConversionExemption == original.rothConversionExemption)
         // ExemptionLevel/CapGainsTreatment aren't Equatable in production code
         // (same reason exemptionLevelRoundTrips above compares behaviorally),
         // so compare structurally via the matchesShape helpers below.
@@ -222,6 +232,21 @@ struct StateTaxCodableRoundTripTests {
             break
         default:
             Issue.record("round trip changed earlyAgeTier presence")
+        }
+    }
+
+    @Test("RothConversionExemption round-trips both variants with distinct values")
+    func rothConversionExemptionRoundTrips() throws {
+        // minAge non-zero in one case and the Bool differing between them, so
+        // neither field can be dropped without a test noticing.
+        let cases = [
+            RothConversionExemption(minAge: 0, withheldPortionRemainsTaxable: true),
+            RothConversionExemption(minAge: 55, withheldPortionRemainsTaxable: false)
+        ]
+        for original in cases {
+            let decoded = try JSONDecoder().decode(
+                RothConversionExemption.self, from: JSONEncoder().encode(original))
+            #expect(decoded == original)
         }
     }
 
@@ -261,7 +286,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
     }
 
-    @Test("Encoded JSON carries all nine fields under their own keys, with the right values")
+    @Test("Encoded JSON carries all thirteen fields under their own keys, with the right values")
     func retirementExemptionsEncodesExpectedJSONShape() throws {
         // This is the general guard against the whole class of bug the two
         // Bool-heavy findings above raised: a dropped encode() line, or two
@@ -271,17 +296,30 @@ struct StateTaxCodableRoundTripTests {
         // arrangement the way the round-trip fixture is). Inspecting the raw
         // JSON dictionary directly -- independent of what init(from:) does
         // with it -- catches a dropped field, a swapped label, and a
-        // default-masked field for all nine keys at once, regardless of
+        // default-masked field for all thirteen keys at once, regardless of
         // fixture values.
+        //
+        // This fixture must be extended whenever a field is added to
+        // RetirementIncomeExemptions. It was not, twice: neither
+        // distributionMinAge (added when the hardcoded 59 age gate was made
+        // configurable) nor agiPhaseout (added for the general phase-out
+        // mechanism) was added here when it landed, so both could have been
+        // dropped from the encoder with this whole suite staying green.
         let original = RetirementIncomeExemptions(
             socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
             exemptionAppliesPerIndividual: true,
             regularExemptionMinAge: 65,
+            exemptionAttribution: .perQualifyingSpouse,
+            distributionMinAge: 55,
             earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
             pensionAndIRAShareSingleCap: true,
             otherRetirementIncomeExclusion: true,
+            agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                                     shape: .linear(perDollar: 1.6)),
+            rothConversionExemption: RothConversionExemption(
+                minAge: 55, withheldPortionRemainsTaxable: true),
             capitalGainsTreatment: .taxedAsOrdinary
         )
         let data = try JSONEncoder().encode(original)
@@ -291,6 +329,8 @@ struct StateTaxCodableRoundTripTests {
         #expect(json["socialSecurityExempt"] as? Bool == false)
         #expect(json["exemptionAppliesPerIndividual"] as? Bool == true)
         #expect(json["regularExemptionMinAge"] as? Int == 65)
+        #expect(json["exemptionAttribution"] as? String == "perQualifyingSpouse")
+        #expect(json["distributionMinAge"] as? Int == 55)
         #expect(json["pensionAndIRAShareSingleCap"] as? Bool == true)
         #expect(json["otherRetirementIncomeExclusion"] as? Bool == true)
         #expect(json["capitalGainsTreatment"] as? String == "taxedAsOrdinary")
@@ -309,6 +349,16 @@ struct StateTaxCodableRoundTripTests {
         let ageTierLevel = try #require(ageTier["level"] as? [String: Any])
         #expect(ageTierLevel["kind"] as? String == "partial")
         #expect(ageTierLevel["maxExempt"] as? Double == 35_000)
+
+        let phaseout = try #require(json["agiPhaseout"] as? [String: Any])
+        #expect(phaseout["thresholdSingle"] as? Double == 50_000)
+        #expect(phaseout["thresholdMFJ"] as? Double == 75_000)
+        #expect((phaseout["shape"] as? [String: Any])?["kind"] as? String == "linear")
+        #expect((phaseout["shape"] as? [String: Any])?["perDollar"] as? Double == 1.6)
+
+        let rothConversion = try #require(json["rothConversionExemption"] as? [String: Any])
+        #expect(rothConversion["minAge"] as? Int == 55)
+        #expect(rothConversion["withheldPortionRemainsTaxable"] as? Bool == true)
     }
 
     @Test("Two complementary Bool arrangements make every pair of the four Bool fields mutually distinguishable")
@@ -475,6 +525,69 @@ struct StateTaxCodableRoundTripTests {
         #expect(safeHarbor["rate"] as? Double == 1.10)
     }
 
+    @Test("personalExemption appears in encoded StateTaxConfig JSON when present, and is absent when nil")
+    func personalExemptionEncodingIsConditional() throws {
+        // personalExemption lives on StateTaxConfig, not on
+        // RetirementIncomeExemptions, so it is NOT covered by
+        // retirementExemptionsEncodesExpectedJSONShape above. Confirmed by
+        // mutation during Task 7: commenting out
+        // `try c.encodeIfPresent(personalExemption, forKey: .personalExemption)`
+        // in StateTaxCodable.swift left the entire suite green, Layers A
+        // (round trip), B (JSON shape), and C (shipped-file) included --
+        // Layer B cancels symmetrically because both the encoded and expected
+        // sides omit the field, and Layer C reads the file on disk, which
+        // still carries the key regardless of what the encoder does. This
+        // test closes that gap the same way stateTaxConfigEncodesExpectedJSONShape
+        // closes it for the config's other fields: by inspecting the raw
+        // encoded JSON dictionary directly.
+        let withExemption = StateTaxConfig(
+            state: .newJersey, taxSystem: .flat(rate: 0.05),
+            retirementExemptions: RetirementIncomeExemptions(),
+            stateDeduction: .none,
+            personalExemption: StatePersonalExemption(
+                single: 1_000, marriedFilingJointly: 2_000,
+                seniorAdditionalPerFiler: 1_000, seniorAge: 65))
+        let present = try #require(try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(withExemption)) as? [String: Any])
+        let exemption = try #require(present["personalExemption"] as? [String: Any])
+        // marriedFilingJointly (2_000) and seniorAge (65) are each unique
+        // values in this fixture, so a swap involving either is visible.
+        // single and seniorAdditionalPerFiler are BOTH 1_000 here, so a swap
+        // between those two specifically would produce byte-identical JSON --
+        // this test alone cannot tell them apart (the same pigeonhole
+        // argument retirementExemptionsBooleanKeysAreMutuallyDistinguishable
+        // and stateTaxConfigBooleanKeysAreMutuallyDistinguishable make above
+        // for same-valued Bool fields, here for two same-valued Doubles).
+        // The single and seniorAdditionalPerFiler values are both 1,000, so a
+        // CodingKeys swap between them would be invisible here. Nothing in the
+        // suite currently backstops that, and an earlier version of this
+        // comment wrongly claimed personalExemptionSeniorIsPerFiler did: that
+        // test builds the type directly and calls amount(...), never touching
+        // JSONEncoder. newJerseyConfigExemptionValuesArePinned has the same
+        // blind spot, since New Jersey's real values are also 1,000 and 1,000.
+        // No swap bug is possible today because StatePersonalExemption's
+        // Codable conformance is entirely compiler-synthesized. If anyone
+        // hand-writes an encoder for it, matching what this phase did for
+        // AGIPhaseout and StateTaxSystem, give this fixture distinct values
+        // first.
+        #expect(exemption["single"] as? Double == 1_000)
+        #expect(exemption["marriedFilingJointly"] as? Double == 2_000)
+        #expect(exemption["seniorAdditionalPerFiler"] as? Double == 1_000)
+        #expect(exemption["seniorAge"] as? Int == 65)
+
+        let without = StateTaxConfig(
+            state: .kansas, taxSystem: .flat(rate: 0.05),
+            retirementExemptions: RetirementIncomeExemptions(),
+            stateDeduction: .none)
+        let absent = try #require(try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(without)) as? [String: Any])
+        #expect(absent["personalExemption"] == nil,
+                """
+                a nil personal exemption must omit the key, not write null, \
+                so 50 files stay free of a key they do not need
+                """)
+    }
+
     @Test("Three fixtures make every pair of StateTaxConfig's five Bool fields mutually distinguishable")
     func stateTaxConfigBooleanKeysAreMutuallyDistinguishable() throws {
         // StateTaxConfig has FIVE Bool fields. Two fixtures give each field
@@ -578,6 +691,23 @@ struct StateTaxCodableRoundTripTests {
             let decoded = try JSONDecoder().decode(StateSafeHarborRule.self, from: data)
             #expect(decoded == config.safeHarborRule,
                     "\(state.abbreviation) safe harbor rule lost in round trip")
+        }
+    }
+
+    @Test("AGIPhaseout round-trips both shapes with distinct per-field values")
+    func agiPhaseoutRoundTrips() throws {
+        // Thresholds deliberately different from each other so a single/MFJ
+        // swap is detectable, and perDollar deliberately not 1.0 so a dropped
+        // payload is not masked by a plausible default.
+        let cases: [AGIPhaseout] = [
+            AGIPhaseout(thresholdSingle: 28_500, thresholdMFJ: 51_000, shape: .cliff),
+            AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                        shape: .linear(perDollar: 1.6))
+        ]
+        for original in cases {
+            let decoded = try JSONDecoder().decode(
+                AGIPhaseout.self, from: JSONEncoder().encode(original))
+            #expect(decoded == original)
         }
     }
 }

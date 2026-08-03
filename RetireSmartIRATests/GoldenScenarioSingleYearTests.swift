@@ -23,9 +23,9 @@ struct GoldenScenarioSingleYearTests {
     /// It stops being inert the moment a fixture needs any of those. New Jersey is
     /// exactly that moment: it is the only state where `postExemptionDeduction` is
     /// nonzero today (its per-filer personal exemptions, NJ-1040 line 13), and
-    /// `DataManager.calculateStateTaxFromGross` (`DataManager.swift:664-671`)
-    /// computes and forwards it via `TaxCalculationEngine.njPersonalExemptions`
-    /// before calling this same engine entry point. Reproduce that here rather
+    /// `DataManager.calculateStateTaxFromGross` reads it from the state's config
+    /// as `config.personalExemption?.amount(...)` and forwards it before calling
+    /// this same engine entry point. Reproduce that here rather
     /// than omit it: omitting it would make backlog I2 (multi-year drops
     /// `postExemptionDeduction`, `ProjectionEngine.swift:1622-1634`) invisible to a
     /// cross-path comparison, because both sides would then agree by both being
@@ -38,14 +38,17 @@ struct GoldenScenarioSingleYearTests {
         }
         let hasSpouse = scenario.spouseAge != nil
         let spouseAge = scenario.spouseAge ?? scenario.primaryAge
-        // Mirrors DataManager.swift:664-668 exactly: NJ personal exemptions are
-        // computed and forwarded as `postExemptionDeduction`; every other state
-        // gets 0, unchanged from before.
-        let postExemptionDeduction: Double = state == .newJersey
-            ? TaxCalculationEngine.njPersonalExemptions(
-                filingStatus: scenario.resolvedFilingStatus, enableSpouse: hasSpouse,
-                primaryAge: scenario.primaryAge, spouseAge: spouseAge)
-            : 0
+        // Mirrors what DataManager does now: read the state's personal exemption
+        // from its config. Deliberately NOT a `state == .newJersey` check. Task 3
+        // removed that hardcoded branch from production, and reinstating it here
+        // would make this helper blind to every state that gains an exemption in
+        // a later phase. Kansas is the first such state, and a blind helper would
+        // let both sides of the cross-path comparison agree by being wrong the
+        // same way, which is the exact failure this file's doc comment warns
+        // about.
+        let postExemptionDeduction = StateTaxData.config(for: state).personalExemption?
+            .amount(filingStatus: scenario.resolvedFilingStatus, enableSpouse: hasSpouse,
+                    primaryAge: scenario.primaryAge, spouseAge: spouseAge) ?? 0
         return TaxCalculationEngine.calculateStateTax(
             income: scenario.federalAGI,
             forState: state,

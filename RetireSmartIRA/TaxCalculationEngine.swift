@@ -449,20 +449,21 @@ struct TaxCalculationEngine {
     ///   single, 65+        → $2,000
     ///   MFJ, both under 65 → $2,000
     ///   MFJ, both 65+      → $4,000
+    ///
+    /// Retained for tests that predate Phase 3a. New Jersey's amounts now live
+    /// in `StateTaxConfig.personalExemption`; this delegates so there is one
+    /// implementation rather than two that can drift.
     static func njPersonalExemptions(
         filingStatus: FilingStatus,
         enableSpouse: Bool,
         primaryAge: Int,
         spouseAge: Int
     ) -> Double {
-        let hasSpouse = filingStatus == .marriedFilingJointly && enableSpouse
-        var exemption = 1_000.0                       // primary regular
-        if primaryAge >= 65 { exemption += 1_000 }    // primary senior
-        if hasSpouse {
-            exemption += 1_000                        // spouse regular
-            if spouseAge >= 65 { exemption += 1_000 } // spouse senior
+        guard let exemption = StateTaxData.config(for: .newJersey).personalExemption else {
+            return 0
         }
-        return exemption
+        return exemption.amount(filingStatus: filingStatus, enableSpouse: enableSpouse,
+                                primaryAge: primaryAge, spouseAge: spouseAge)
     }
 
     // MARK: - Retirement Income Exemptions
@@ -495,10 +496,8 @@ struct TaxCalculationEngine {
         // also reported Alabama's current value as $2,500, which is Arizona's;
         // Alabama is configured `.none`.
         //
-        // Still open and confirmed by the audit: this function applies a flat
-        // 59.5 baseline to `scenarioRetirementDistributions`, which is wrong for
-        // Iowa (qualifies at 55); and it cannot apply `pensionExemption` and
-        // `iraWithdrawalExemption` independently, because
+        // Still open and confirmed by the audit: this function cannot apply
+        // `pensionExemption` and `iraWithdrawalExemption` independently, because
         // `scenarioRetirementDistributions` is not split by source.
         var adjusted = income
         let exemptions = config.retirementExemptions
@@ -536,7 +535,7 @@ struct TaxCalculationEngine {
                 }
                 return false
             }
-            return age >= 59
+            return age >= exemptions.distributionMinAge
         }
 
         // Per-individual cap multiplier: when MFJ AND BOTH spouses individually
@@ -568,7 +567,24 @@ struct TaxCalculationEngine {
         let effectivePensionExemption = resolveLevel(regular: exemptions.pensionExemption)
         let effectiveIRAExemption = resolveLevel(regular: exemptions.iraWithdrawalExemption)
 
-        let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
+        /// Whether income owned by `owner` is eligible under the state's
+        /// attribution rule. Under `.household` every row is eligible when any
+        /// spouse qualifies, which is what `effectiveAge` already encodes.
+        func ownerQualifies(_ owner: Owner) -> Bool {
+            guard exemptions.exemptionAttribution == .perQualifyingSpouse, enableSpouse else {
+                return true
+            }
+            switch owner {
+            case .primary: return ageQualifiesForExemption(primaryAge)
+            case .spouse:  return ageQualifiesForExemption(spouseAge)
+            case .joint:   return ageQualifiesForExemption(primaryAge)
+                                || ageQualifiesForExemption(spouseAge)
+            }
+        }
+
+        let pensionIncome = incomeSources
+            .filter { $0.type == .pension && ownerQualifies($0.owner) }
+            .reduce(0) { $0 + $1.annualAmount }
 
         // Sum of state-recognized IRA-withdrawal income:
         //   1) `.rmd`-typed IncomeSource rows (demo profile / explicit entries), plus
@@ -579,8 +595,33 @@ struct TaxCalculationEngine {
         //      (early-withdrawal IRA distributions are taxable in PA and most
         //      states); user-entered `.rmd` rows are not gated because they
         //      implicitly represent retirement-age income.
-        let rmdSourceIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
-        let retirementAge = primaryAge >= 59 || (enableSpouse && spouseAge >= 59)
+        let rmdSourceIncome = incomeSources
+            .filter { $0.type == .rmd && ownerQualifies($0.owner) }
+            .reduce(0) { $0 + $1.annualAmount }
+        // Under `.perQualifyingSpouse` the scalar has no owner to attribute it
+        // to, so it is gated on the primary. See ExemptionAttribution.
+        let retirementAge: Bool
+        switch exemptions.exemptionAttribution {
+        case .household:
+            retirementAge = primaryAge >= exemptions.distributionMinAge
+                || (enableSpouse && spouseAge >= exemptions.distributionMinAge)
+        case .perQualifyingSpouse:
+            // Both conditions, because either alone leaks. `distributionMinAge`
+            // alone would admit a primary who fails the state's real age gate,
+            // who would then draw a level computed from `effectiveAge`, the
+            // household maximum. `ageQualifiesForExemption` alone would admit a
+            // primary who clears only an `earlyAgeTier` but sits below the
+            // 59.5 distribution floor: Colorado and Georgia both ship
+            // `earlyAgeTier: 55...64` with `distributionMinAge: 59`, so a
+            // 57-year-old would pass. Requiring both closes each gap, and
+            // reduces to the plain `primaryAge >= distributionMinAge`
+            // comparison whenever `regularExemptionMinAge` is 0, which is NOT
+            // true for every state (NY 59, NJ 62, CO 65, GA 65 all ship a
+            // nonzero value). No state ships `.perQualifyingSpouse` as of
+            // Phase 3a, so the gap this closes was latent, not live.
+            retirementAge = primaryAge >= exemptions.distributionMinAge
+                && ageQualifiesForExemption(primaryAge)
+        }
         let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
         let iraIncome = rmdSourceIncome + scenarioExemptable
 
@@ -595,14 +636,25 @@ struct TaxCalculationEngine {
             // the original `income` argument, before SS/exemption subtraction.
             let isMarried = filingStatus == .marriedFilingJointly
             let combinedIncome = pensionIncome + iraIncome
-            let pensionIRAExclusion = effectivePensionExemption.excludedAmount(
+            let rawExclusion = effectivePensionExemption.excludedAmount(
                 eligibleIncome: combinedIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
+            let pensionIRAExclusion = exemptions.agiPhaseout?.reduced(
+                exclusion: rawExclusion, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawExclusion
             adjusted -= pensionIRAExclusion
 
+            // NOTE for Phase 5: `chartMax` derives from the UNREDUCED exemption
+            // level, so a smaller `pensionIRAExclusion` makes `unused` larger.
+            // A state carrying all three of `.steppedPhaseoutByFilingStatus`,
+            // `otherRetirementIncomeExclusion` and an `agiPhaseout` would hand
+            // back through this block what the phase-out just took, up to
+            // `chartMax`. Unreachable today: `chartMax` is 0 for every level
+            // except the stepped one, New Jersey is the only state setting
+            // `otherRetirementIncomeExclusion`, and it has no `agiPhaseout`.
             // NJ-1040 Worksheet D — Other Retirement Income Exclusion.
             // The UNUSED chart maximum (chartMax − pension/IRA exclusion)
             // shelters OTHER eligible income when the taxpayer is at/above the
@@ -629,18 +681,25 @@ struct TaxCalculationEngine {
         } else {
             // Standard per-type application: each type's cap applied independently.
             let isMarried = filingStatus == .marriedFilingJointly
-            adjusted -= effectivePensionExemption.excludedAmount(
+            let rawPension = effectivePensionExemption.excludedAmount(
                 eligibleIncome: pensionIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
-            adjusted -= effectiveIRAExemption.excludedAmount(
+            adjusted -= exemptions.agiPhaseout?.reduced(
+                exclusion: rawPension, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawPension
+
+            let rawIRA = effectiveIRAExemption.excludedAmount(
                 eligibleIncome: iraIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
+            adjusted -= exemptions.agiPhaseout?.reduced(
+                exclusion: rawIRA, totalGrossIncome: income, isMarried: isMarried
+            ) ?? rawIRA
         }
 
         // Military Retirement: per-state exemption applied per-source using the
@@ -664,34 +723,27 @@ struct TaxCalculationEngine {
             adjusted -= exemptPortion
         }
 
-        // Roth conversion exemption (v1.8.3): PA per DOR Ans 274 holds that a
-        // trustee-to-trustee Roth conversion is NOT a taxable event in PA in
-        // the conversion year. Illinois (IL Pub 120) and Mississippi (MS Code
-        // §27-7-15(4)(j)) follow the same treatment per practitioner consensus.
-        // Critically this exemption is NOT age-gated — Ans 274 imposes no
-        // retirement-age condition on the conversion itself. We therefore apply
-        // it independently of `scenarioRetirementDistributions`, which retains
-        // its 59½ gate for distributions.
+        // Roth conversion treatment, config-driven since Phase 3a. The rule
+        // and the Ans 274 withholding caveat that used to live in a
+        // `switch state` here now live on each state's config; see
+        // RothConversionExemption for the citations.
         //
-        // 1.8.4 — PA Ans 274 withholding caveat: the PA exemption applies only
-        // if the FULL pre-tax balance is deposited into the Roth. If any
-        // amount is withheld for federal tax, that withheld amount IS PA-
-        // taxable as a distribution. So in withhold mode, only the NET portion
-        // (gross minus withholding) is PA-exempt; the withheld portion stays
-        // in the state-taxable income.
-        //
-        // For IL and MS, no equivalent "full balance" requirement is documented
-        // in their guidance — practitioner consensus treats the conversion as
-        // fully exempt regardless of withholding. Keep that for now; revisit if
-        // primary source emerges.
-        switch state {
-        case .pennsylvania:
-            let netExempt = max(0, scenarioRothConversionAmount - scenarioRothConversionWithholdingAmount)
-            adjusted -= netExempt
-        case .illinois, .mississippi:
-            adjusted -= scenarioRothConversionAmount
-        default:
-            break
+        // The age gate compares against `effectiveAge`, the household maximum
+        // (`max(primaryAge, spouseAge)` when a spouse is enabled), matching
+        // every other age gate in this function. No state is age-gated in
+        // Phase 3a, so this branch is unreachable today and this choice
+        // decides nothing yet. Iowa's Phase 5a golden scenario is what will
+        // decide whether a conversion should be gated on the household
+        // maximum or on the converting owner's own age.
+        if let conversionRule = exemptions.rothConversionExemption {
+            let qualifies = conversionRule.minAge == 0
+                || effectiveAge >= conversionRule.minAge
+            if qualifies {
+                let exemptAmount = conversionRule.withheldPortionRemainsTaxable
+                    ? max(0, scenarioRothConversionAmount - scenarioRothConversionWithholdingAmount)
+                    : scenarioRothConversionAmount
+                adjusted -= exemptAmount
+            }
         }
 
         return max(0, adjusted)

@@ -12,6 +12,7 @@
   "pretax401kContributionsTaxableForState" : false,
   "retirementExemptions" : {
     "capitalGainsTreatment" : "followsFederal",
+    "distributionMinAge" : 59,
     "earlyAgeTier" : {
       "level" : {
         "kind" : "partial",
@@ -21,6 +22,7 @@
       "minAge" : 62
     },
     "exemptionAppliesPerIndividual" : true,
+    "exemptionAttribution" : "household",
     "iraWithdrawalExemption" : {
       "kind" : "partial",
       "maxExempt" : 65000

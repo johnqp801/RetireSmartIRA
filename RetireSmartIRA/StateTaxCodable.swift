@@ -265,11 +265,39 @@ extension RetirementIncomeExemptions.AgeTier: Codable {
     }
 }
 
+extension AGIPhaseout.Shape: Codable {
+    private enum CodingKeys: String, CodingKey { case kind, perDollar }
+    private enum Kind: String, Codable { case cliff, linear }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .cliff:
+            try c.encode(Kind.cliff, forKey: .kind)
+        case .linear(let perDollar):
+            try c.encode(Kind.linear, forKey: .kind)
+            try c.encode(perDollar, forKey: .perDollar)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        switch try c.decode(Kind.self, forKey: .kind) {
+        case .cliff:
+            self = .cliff
+        case .linear:
+            self = .linear(perDollar: try c.decode(Double.self, forKey: .perDollar))
+        }
+    }
+}
+
 extension RetirementIncomeExemptions: Codable {
     private enum CodingKeys: String, CodingKey {
         case socialSecurityExempt, pensionExemption, iraWithdrawalExemption
-        case exemptionAppliesPerIndividual, regularExemptionMinAge, earlyAgeTier
-        case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion
+        case exemptionAppliesPerIndividual
+        case regularExemptionMinAge, exemptionAttribution, distributionMinAge, earlyAgeTier
+        case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion, agiPhaseout
+        case rothConversionExemption
         case capitalGainsTreatment
     }
 
@@ -280,9 +308,13 @@ extension RetirementIncomeExemptions: Codable {
         try c.encode(iraWithdrawalExemption, forKey: .iraWithdrawalExemption)
         try c.encode(exemptionAppliesPerIndividual, forKey: .exemptionAppliesPerIndividual)
         try c.encode(regularExemptionMinAge, forKey: .regularExemptionMinAge)
+        try c.encode(exemptionAttribution, forKey: .exemptionAttribution)
+        try c.encode(distributionMinAge, forKey: .distributionMinAge)
         try c.encodeIfPresent(earlyAgeTier, forKey: .earlyAgeTier)
         try c.encode(pensionAndIRAShareSingleCap, forKey: .pensionAndIRAShareSingleCap)
         try c.encode(otherRetirementIncomeExclusion, forKey: .otherRetirementIncomeExclusion)
+        try c.encodeIfPresent(agiPhaseout, forKey: .agiPhaseout)
+        try c.encodeIfPresent(rothConversionExemption, forKey: .rothConversionExemption)
         try c.encode(capitalGainsTreatment, forKey: .capitalGainsTreatment)
     }
 
@@ -296,9 +328,15 @@ extension RetirementIncomeExemptions: Codable {
             iraWithdrawalExemption: try c.decodeIfPresent(ExemptionLevel.self, forKey: .iraWithdrawalExemption) ?? .none,
             exemptionAppliesPerIndividual: try c.decodeIfPresent(Bool.self, forKey: .exemptionAppliesPerIndividual) ?? false,
             regularExemptionMinAge: try c.decodeIfPresent(Int.self, forKey: .regularExemptionMinAge) ?? 0,
+            exemptionAttribution: try c.decodeIfPresent(
+                ExemptionAttribution.self, forKey: .exemptionAttribution) ?? .household,
+            distributionMinAge: try c.decodeIfPresent(Int.self, forKey: .distributionMinAge) ?? 59,
             earlyAgeTier: try c.decodeIfPresent(AgeTier.self, forKey: .earlyAgeTier),
             pensionAndIRAShareSingleCap: try c.decodeIfPresent(Bool.self, forKey: .pensionAndIRAShareSingleCap) ?? false,
             otherRetirementIncomeExclusion: try c.decodeIfPresent(Bool.self, forKey: .otherRetirementIncomeExclusion) ?? false,
+            agiPhaseout: try c.decodeIfPresent(AGIPhaseout.self, forKey: .agiPhaseout),
+            rothConversionExemption: try c.decodeIfPresent(
+                RothConversionExemption.self, forKey: .rothConversionExemption),
             capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal
         )
     }
@@ -314,6 +352,7 @@ extension StateTaxConfig: Codable {
         case pretax401kContributionsTaxableForState
         case capitalLossesClassIsolated
         case verification
+        case personalExemption
     }
 
     func encode(to encoder: Encoder) throws {
@@ -334,6 +373,7 @@ extension StateTaxConfig: Codable {
                      forKey: .pretax401kContributionsTaxableForState)
         try c.encode(capitalLossesClassIsolated, forKey: .capitalLossesClassIsolated)
         try c.encode(verification, forKey: .verification)
+        try c.encodeIfPresent(personalExemption, forKey: .personalExemption)
     }
 
     init(from decoder: Decoder) throws {
@@ -367,7 +407,9 @@ extension StateTaxConfig: Codable {
             capitalLossesClassIsolated: try c.decodeIfPresent(
                 Bool.self, forKey: .capitalLossesClassIsolated) ?? false,
             verification: try c.decodeIfPresent(
-                StateVerification.self, forKey: .verification) ?? .unverified
+                StateVerification.self, forKey: .verification) ?? .unverified,
+            personalExemption: try c.decodeIfPresent(
+                StatePersonalExemption.self, forKey: .personalExemption)
         )
     }
 }

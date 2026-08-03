@@ -153,6 +153,40 @@ enum StateTaxSystem {
 
 // MARK: - Retirement Income Exemptions
 
+/// How a state's retirement exemption is attributed between spouses on a
+/// joint return.
+enum ExemptionAttribution: String, Codable, Equatable, Sendable {
+    /// Either spouse qualifying unlocks the exemption for all of the
+    /// household's retirement income. This is what the engine did for every
+    /// state before Phase 3a and it remains every state's value through
+    /// Phase 3a.
+    case household
+
+    /// Each spouse's exemption is gated by that spouse's own age and applies
+    /// only to income attributed to that spouse. Iowa's exclusion is written
+    /// this way, as are at least seven other per-person statutes (OK, DE, LA,
+    /// AR, AL, WI, RI).
+    ///
+    /// ATTRIBUTION RULES, and the one limitation they carry:
+    ///   - A `.pension` or `.rmd` income row is gated by its `owner`'s age.
+    ///   - A `.joint`-owned row is gated by the more generous of the two ages,
+    ///     which is what `.joint` means elsewhere in this codebase.
+    ///   - `scenarioRetirementDistributions` reaches the engine as a single
+    ///     scalar with no owner, so it is gated on the PRIMARY's age. A state
+    ///     adopting this case must carry a `knownLimitations` sentence saying
+    ///     so, because a household whose spouse holds the IRA will be modeled
+    ///     conservatively.
+    ///
+    /// SECOND LIMITATION, and the one more likely to surprise: attribution
+    /// gates WHICH INCOME is eligible, but the exemption LEVEL applied to it
+    /// still comes from `resolveLevel(effectiveAge)`, where `effectiveAge` is
+    /// the household maximum. So under this mode an owner who qualifies only
+    /// for an `earlyAgeTier` can still draw the household's regular level if
+    /// the other spouse clears the regular age. Closing that means attributing
+    /// levels per owner, which is a larger change than this phase makes.
+    case perQualifyingSpouse
+}
+
 /// State-level exemptions for retirement income sources.
 /// Critical for a retirement IRA planning app — these dramatically affect state tax liability.
 struct RetirementIncomeExemptions {
@@ -186,6 +220,25 @@ struct RetirementIncomeExemptions {
     /// `earlyAgeTier` covering 62-64), MD (65, but pension subtraction has
     /// its own DOR-tested age rule of 65 separately), NJ (62), CO (55/65).
     var regularExemptionMinAge: Int = 0
+
+    /// See `ExemptionAttribution`. `.household` reproduces the behavior every
+    /// state had before Phase 3a.
+    var exemptionAttribution: ExemptionAttribution = .household
+
+    /// Minimum age at which `scenarioRetirementDistributions` (RMDs computed
+    /// from balances, inherited-IRA RMDs, and extra withdrawals) becomes
+    /// eligible for the state's IRA exemption, and the fallback age used to
+    /// decide whether a spouse qualifies when `regularExemptionMinAge` is 0.
+    ///
+    /// 59 reproduces the constant this replaced, which was hardcoded in
+    /// `TaxCalculationEngine.applyRetirementExemptions` in two places and
+    /// therefore unreachable from config. Iowa qualifies at 55 (HF 2317), so
+    /// config alone could not fix Iowa while this was a literal. The value is
+    /// 59 rather than 59.5 because the engine works in integer ages; that
+    /// approximation predates this phase and is unchanged by it.
+    ///
+    /// Changed away from 59 only in Phase 5, gated by a golden scenario.
+    var distributionMinAge: Int = 59
 
     /// Optional reduced exemption for an early-age tier. When the taxpayer
     /// is in `tier.ageRange`, BOTH `pensionExemption` and
@@ -223,6 +276,14 @@ struct RetirementIncomeExemptions {
     /// total gross income ≤ $150,000, and earned income (wages/self-employment;
     /// NJ lines 15+18+21+22) ≤ $3,000. Only New Jersey sets this today.
     var otherRetirementIncomeExclusion: Bool = false
+
+    /// Reduces the computed pension and IRA exclusion as income rises. nil
+    /// (the default, and every state's value in Phase 3a) means no reduction.
+    var agiPhaseout: AGIPhaseout? = nil
+
+    /// How the state treats Roth conversion income in the conversion year.
+    /// nil (the default) means fully taxable.
+    var rothConversionExemption: RothConversionExemption? = nil
 
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
@@ -425,6 +486,12 @@ struct StateTaxConfig {
     /// to `.unverified` so existing Swift call sites compile unchanged during
     /// the Phase 1 migration.
     let verification: StateVerification
+    /// The state's personal exemption, or nil where the state grants none.
+    /// Applied by the caller as `postExemptionDeduction`, after the retirement
+    /// exclusions. Only New Jersey carries one in Phase 3a; the states the
+    /// 2026-08-02 audit found to need one (Kansas first among them) get theirs
+    /// in Phase 5a, each gated by a golden scenario.
+    let personalExemption: StatePersonalExemption?
 
     init(state: USState, taxSystem: StateTaxSystem, retirementExemptions: RetirementIncomeExemptions,
          stateDeduction: StateDeduction, estimatedPaymentSchedule: EstimatedPaymentSchedule = .federal,
@@ -435,7 +502,8 @@ struct StateTaxConfig {
          otherPreTaxDeductionsTaxableForState: Bool = false,
          pretax401kContributionsTaxableForState: Bool = false,
          capitalLossesClassIsolated: Bool = false,
-         verification: StateVerification = .unverified) {
+         verification: StateVerification = .unverified,
+         personalExemption: StatePersonalExemption? = nil) {
         self.state = state
         self.taxSystem = taxSystem
         self.retirementExemptions = retirementExemptions
@@ -449,6 +517,7 @@ struct StateTaxConfig {
         self.pretax401kContributionsTaxableForState = pretax401kContributionsTaxableForState
         self.capitalLossesClassIsolated = capitalLossesClassIsolated
         self.verification = verification
+        self.personalExemption = personalExemption
     }
 }
 
@@ -634,6 +703,11 @@ struct StateTaxData {
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // IL exempts all retirement income
                 iraWithdrawalExemption: .full,
+                // IL Pub 120 / MS Code 27-7-15(4)(j) per practitioner
+                // consensus: the conversion is exempt, with no documented
+                // full-balance condition, so withholding does not reduce it.
+                rothConversionExemption: RothConversionExemption(
+                    minAge: 0, withheldPortionRemainsTaxable: false),
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none
@@ -780,6 +854,11 @@ struct StateTaxData {
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // MS exempts all retirement income
                 iraWithdrawalExemption: .full,
+                // IL Pub 120 / MS Code 27-7-15(4)(j) per practitioner
+                // consensus: the conversion is exempt, with no documented
+                // full-balance condition, so withholding does not reduce it.
+                rothConversionExemption: RothConversionExemption(
+                    minAge: 0, withheldPortionRemainsTaxable: false),
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .fixed(single: 2_300, married: 4_600)
@@ -906,6 +985,13 @@ struct StateTaxData {
                 socialSecurityExempt: true,
                 pensionExemption: .full,  // PA exempts all retirement income
                 iraWithdrawalExemption: .full,
+                // PA DOR Ans 274: a trustee-to-trustee conversion is not a
+                // taxable event, but only the portion actually deposited into
+                // the Roth qualifies, so federal withholding taken from the
+                // conversion stays PA-taxable. Lift-and-shift of the switch
+                // this replaces, not a Phase 3a correction.
+                rothConversionExemption: RothConversionExemption(
+                    minAge: 0, withheldPortionRemainsTaxable: true),
                 capitalGainsTreatment: .followsFederal
             ),
             stateDeduction: .none,
@@ -1680,7 +1766,14 @@ struct StateTaxData {
             stateDeduction: .none,
             safeHarborRule: .mirrorsFederal,
             currentYearSafeHarborRate: 0.80,
-            hsaContributionsTaxableForState: true
+            hsaContributionsTaxableForState: true,
+            // NJ-1040 personal exemptions: $1,000 regular per filer, plus
+            // another $1,000 per filer age 65+. NJ has no standard deduction.
+            // These values are a lift-and-shift of njPersonalExemptions, which
+            // this replaces; they are not a Phase 3a correction.
+            personalExemption: StatePersonalExemption(
+                single: 1_000, marriedFilingJointly: 2_000,
+                seniorAdditionalPerFiler: 1_000, seniorAge: 65)
         )
 
         // New Mexico — 1.7% to 5.9% (4 brackets)
