@@ -62,14 +62,29 @@ struct StateTaxBehaviorBaselineTests {
               taxableSocialSecurity: 0, retirementDistributions: 50_000, rothConversion: 0,
               rothConversionWithholding: 0, primaryAge: 61, spouseAge: 56, enableSpouse: true,
               postExemptionDeduction: 0, pensionIncome: 0, rmdRowIncome: 0),
+        // BOTH spouses below the distribution gate, the only combination in
+        // which the household `||` is observed evaluating FALSE with a spouse
+        // enabled. Without it, a default branch that degraded to
+        // `primaryAge >= minAge || enableSpouse` would move none of the
+        // baseline's values.
+        .init(name: "MFJ 56 with spouse 55, both below the gate", income: 120_000,
+              filingStatus: .marriedFilingJointly,
+              taxableSocialSecurity: 0, retirementDistributions: 50_000, rothConversion: 0,
+              rothConversionWithholding: 0, primaryAge: 56, spouseAge: 55, enableSpouse: true,
+              postExemptionDeduction: 0, pensionIncome: 0, rmdRowIncome: 0),
         // Both spouses qualify: exercises exemptionAppliesPerIndividual doubling (NY, GA).
         .init(name: "MFJ 68 both qualify, pension + IRA", income: 140_000,
               filingStatus: .marriedFilingJointly,
               taxableSocialSecurity: 24_000, retirementDistributions: 40_000, rothConversion: 0,
               rothConversionWithholding: 0, primaryAge: 68, spouseAge: 67, enableSpouse: true,
               postExemptionDeduction: 2_000, pensionIncome: 60_000, rmdRowIncome: 0),
-        // MFJ filing status with NO spouse enabled. njPersonalExemptions treats
-        // this as a single filer; Task 3 must reproduce that exactly.
+        // MFJ filing status with NO spouse enabled. This pins the combination
+        // of married brackets, isMarried, and effectiveAge = primaryAge inside
+        // calculateStateTax. It does NOT guard personal-exemption logic:
+        // calculateStateTax never computes that, it receives the already
+        // computed figure as postExemptionDeduction, passed here as a literal.
+        // The guard for that logic is NJOtherExclusionAndExemptionsTests,
+        // which calls njPersonalExemptions directly.
         .init(name: "MFJ status but spouse disabled, 66", income: 95_000,
               filingStatus: .marriedFilingJointly,
               taxableSocialSecurity: 0, retirementDistributions: 0, rothConversion: 0,
@@ -82,6 +97,17 @@ struct StateTaxBehaviorBaselineTests {
               taxableSocialSecurity: 0, retirementDistributions: 0, rothConversion: 0,
               rothConversionWithholding: 0, primaryAge: 65, spouseAge: 65, enableSpouse: false,
               postExemptionDeduction: 0, pensionIncome: 80_000, rmdRowIncome: 0),
+        // NJ tier 2 (100k to 125k), SINGLE column. Without a single filer in
+        // this band, NJ's singlePercent of 0.375 multiplies nothing.
+        .init(name: "single 68 pension, total 120k", income: 120_000, filingStatus: .single,
+              taxableSocialSecurity: 0, retirementDistributions: 0, rothConversion: 0,
+              rothConversionWithholding: 0, primaryAge: 68, spouseAge: 68, enableSpouse: false,
+              postExemptionDeduction: 0, pensionIncome: 100_000, rmdRowIncome: 0),
+        // NJ tier 3 (125k to 150k), SINGLE column, covering singlePercent 0.1875.
+        .init(name: "single 68 pension, total 140k", income: 140_000, filingStatus: .single,
+              taxableSocialSecurity: 0, retirementDistributions: 0, rothConversion: 0,
+              rothConversionWithholding: 0, primaryAge: 68, spouseAge: 68, enableSpouse: false,
+              postExemptionDeduction: 0, pensionIncome: 110_000, rmdRowIncome: 0),
         .init(name: "MFJ 68 pension, total 120k", income: 120_000,
               filingStatus: .marriedFilingJointly,
               taxableSocialSecurity: 0, retirementDistributions: 0, rothConversion: 0,
@@ -179,6 +205,13 @@ struct StateTaxBehaviorBaselineTests {
           arguments: USState.allCases)
     func matchesFrozenBaseline(state: USState) throws {
         let baseline = try Self.loadBaseline()
+        #expect(baseline.count == USState.allCases.count * Self.scenarios.count,
+                """
+                Baseline holds \(baseline.count) entries for \(USState.allCases.count) \
+                jurisdictions x \(Self.scenarios.count) scenarios. A mismatch means the \
+                scenario grid was narrowed or widened without regenerating. Narrowing the \
+                grid to make a red gate green is not a fix.
+                """)
         for scenario in Self.scenarios {
             let k = Self.key(state, scenario)
             let expected = try #require(baseline[k], "no baseline entry for \(k)")
