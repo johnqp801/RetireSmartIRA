@@ -320,3 +320,57 @@ Task 4: commits 5663949 + fix f87bb3f (base bea311a). Reviewed on opus, RE-REVIE
     "all nine fields" and points at the sibling now titled eleven. Same drift the fix exists to
     end, six lines above the corrected fixture. FOLDED INTO TASK 5, which edits that file anyway.
   Minor 8 not fixed: report prose off by one on a test count. Report-only, no code impact.
+Task 5: commits 5fe180e + fix 943abda + fix 1cffd2b (base d5bc246). Reviewed on opus.
+  ExemptionAttribution (.household default, .perQualifyingSpouse) + owner-filtered pension/rmd.
+  51 JSON files regenerated (+1 line each, 0 deletions). Suite 1,650 ST in 278 suites + 503 XCTest.
+  Baseline held 1,020.
+
+  ** BOTH MY RULE AND THE IMPLEMENTER'S WERE WRONG, and the reviewer proved it by mutation.
+     My plan gated the ownerless scalar on `primaryAge >= distributionMinAge`. The implementer
+     substituted `ageQualifiesForExemption(primaryAge)` because MY version failed MY OWN specified
+     test (regularExemptionMinAge 65, primary 60, spouse 70: 60>=59 admits the scalar, then
+     resolveLevel runs on effectiveAge=70 and returns .full, giving 0 where the brief asserted
+     4,000). The reviewer then showed the substitution ALSO leaks, the other way: CO and GA ship
+     earlyAgeTier 55...64 with distributionMinAge 59, so ageQualifiesForExemption(57) is true and
+     a 57-year-old slips past the 59.5 floor. ADOPTED THE CONJUNCTION, which is strictly safer
+     than either and reduces to my original line whenever regularExemptionMinAge is 0. **
+
+  ** TASK 2 MISSED A THIRD HARDCODED 59, found here. DataManager's breakdown mirror, whose own
+     comment says it "MUST mirror TaxCalculationEngine.applyRetirementExemptions exactly", carried
+     `currentAge >= 59 || (enableSpouse && spouseCurrentAge >= 59)` AND `return age >= 59` in its
+     local ageQualifiesForExemption. Task 2's brief said there were exactly two sites; I verified
+     that by grepping the ENGINE only. Both now read distributionMinAge. Left alone, Iowa's Phase 5
+     correction would have moved the engine and not the breakdown. **
+
+  Of 16 reviewer mutations, 7 survived. Closed: the .rmd owner filter had NO test (every attribution
+    test used .pension rows); .primary and .joint were asserted only in the exempt direction, so
+    both could return true unconditionally; the shipped-data assertion read DECODED values, so
+    deleting the attribution key from all 51 files left everything green.
+  TWO MUTATIONS HONESTLY REPORTED AS NOT DISCRIMINATING, then closed in 1cffd2b:
+    (c) the joint test could not discriminate on its config: with regularExemptionMinAge 65 and no
+        tier, ownerQualifies(.joint) and resolveLevel are the SAME predicate (max(ages) >= 65), so
+        a wrongly-admitted row is excluded anyway by the level resolving to .none. Fixed with a
+        config where regularExemptionMinAge is 0 and the gate lives on distributionMinAge, making
+        the owner filter the only gate. Now fails under `case .joint: return true`.
+    (e) breakdownMatchesCalculation could not see the age gate AT ALL: it runs at a fixed age above
+        every gate and supplies only .rmd rows, which are deliberately ungated, so the gated scalar
+        is always zero. That is the ONLY guard on the mirror Task 5 just resynced. Added a
+        below-gate case with nonzero scenario distributions; it now catches the divergence
+        (Kentucky breakdown 1282.4 vs calc 193.55 under the mutation).
+  Minor open, spec-conformant: `enableSpouse` in ownerQualifies' guard is untested, and creates an
+    asymmetry worth knowing in Phase 5c: with regularExemptionMinAge 0, a single 50-year-old keeps
+    the pension exemption while a married 50/50 couple loses it.
+  Doc fixed: the comment claiming regularExemptionMinAge is 0 for "every state today" was false.
+    Four of 51 ship nonzero (NY 59, NJ 62, CO 65, GA 65). The safety argument holds for a different
+    reason: no state uses .perQualifyingSpouse at all.
+
+## CONTROLLER PROCESS CHANGE, 2026-08-03 (John asked why the build was taking so long)
+  Measured: ~4.5 hours of subagent time across Tasks 1-5. Drivers, in order:
+    (1) reviews found a real defect EVERY task, including two in my own plan. Worth the cost.
+    (2) MY WASTE: full suite (5 min) run after every fix, where targeted suites cover the change in
+        under a second. Roughly a dozen full runs when three would have done. Also dispatched
+        formal re-reviews for fixes whose reports already carried pasted mutation evidence.
+    (3) six subagents backgrounded their own xcodebuild and returned before it finished, costing a
+        round trip each despite explicit foreground instructions.
+  DECIDED (John, keep-with-speedups): per-task review STAYS. Full suite once per task at the end,
+  targeted suites for fix verification, re-review only when a fix report lacks mutation evidence.
