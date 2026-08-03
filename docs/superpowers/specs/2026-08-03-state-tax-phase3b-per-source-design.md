@@ -64,7 +64,6 @@ enum PlanSource: String, Codable, CaseIterable {
 ```
 
 `governmentUnspecified` exists because the picker establishes jurisdiction for pensions, where it changes the answer, and deliberately does not interrogate it for salary-reduction plans, where under every rule shipping in this phase it cannot. Recording "a government employer, jurisdiction unknown" is honest; recording `otherStateOrLocal` for a New York state employee's 403(b) would be a false statement stored in user data. No rule may match `governmentUnspecified` as though it were a specific jurisdiction.
-```
 
 Both are carried by `IncomeSource` and by `Account`.
 
@@ -122,9 +121,9 @@ perSourceExemptions: [
 
 Income matching no rule falls through to the existing per-state `pensionExemption` and `iraWithdrawalExemption`, which for New York is the correct shared $20,000. **A government employee's 403(b) is excluded from Line 26 by its `definedContribution` structure**, so it falls through and is capped, with no special case needed.
 
-### 3.4 Engine: components, not a scalar
+### 3.4 Engine: components beside the scalar
 
-`scenarioRetirementDistributions: Double` is replaced at the `calculateStateTax` and `applyRetirementExemptions` boundary by:
+`scenarioRetirementDistributions: Double` is **not** replaced. It has 42 call sites across production and tests, and replacing it would churn all of them and bury the change a reviewer needs to see. An optional parameter is added beside it:
 
 ```swift
 struct RetirementDistributionComponent: Equatable, Sendable {
@@ -135,11 +134,39 @@ struct RetirementDistributionComponent: Equatable, Sendable {
 }
 ```
 
-A single component with `owner: .primary`, `structure: .unknown`, `source: .unknown` reproduces today's behavior exactly, which the Phase 3a frozen baseline gates.
+`nil` means the engine synthesises one component with `owner: .primary`, `structure: .unknown`, `source: .unknown` and the scalar's amount, which is today's behavior exactly.
 
-**This closes a Phase 3a carry-forward.** That phase documented attributing the unowned scalar to the primary and recorded it as a known limitation for whichever state first adopted `.perQualifyingSpouse`. Components carry owner, so the approximation stops being needed.
+**Owner attribution does not change in this phase.** The component carries `owner` so that a later phase can correct general per-spouse attribution, but no new owner behavior is activated here. Source classification and owner attribution are separate corrections, and bundling them would destroy the ability to prove that only New York's rule moved a value. Note also that no jurisdiction ships `.perQualifyingSpouse`, so owner-differentiated behavior is unreachable in production regardless.
 
-Both callers already know the provenance: `DataManager` builds the figure from accounts, `ProjectionEngine.computeStateTax` from `totalTradWithdrawals`.
+**The sum invariant.** When components are supplied their amounts must agree with the scalar within one cent:
+
+```swift
+abs(components.reduce(0) { $0 + $1.amount } - scenarioRetirementDistributions) <= 0.01
+```
+
+Exact `Double` equality is unsafe for currency. Failure semantics are defined here rather than left to the implementer: **`assertionFailure` in debug**, which traps during development and in every test run; **in release, fall back to the scalar path and set an observable diagnostic flag**, following the precedent `StateTaxDataLoader.legacyFallbackFired` set in Phase 1. A `precondition` would crash a customer's app over a programming defect, and a silent fallback would hide it. This combination fails loudly where a developer will see it and degrades safely where a user would otherwise lose their plan.
+
+### 3.4a Shared caps: rule matching partitions, it does not evaluate per component
+
+The single largest correctness risk in moving from one scalar to many components is granting a capped exemption **once per component** instead of once per taxpayer. This codebase has already shipped that bug once: New York's shared pension-and-IRA cap exists because an earlier version granted $20,000 to pension and another $20,000 to IRA distributions.
+
+So per-source rules are applied as a **partition before the existing cap machinery runs**, never as a per-component cap evaluation:
+
+1. Each component and each `IncomeSource` row is tested against `perSourceExemptions`. First match wins.
+2. Amounts matching a rule with `.full` treatment are subtracted outright and **contribute nothing to any shared cap**.
+3. Everything unmatched is pooled exactly as today and passed to the existing `pensionExemption` / `iraWithdrawalExemption` logic, including `pensionAndIRAShareSingleCap` and `exemptionAppliesPerIndividual`.
+
+The cap is therefore still applied **once, to a pooled figure, per eligible taxpayer**. The existing per-individual doubling is untouched. For New York this yields exactly the statute: the Line 26 government pension is excluded independently and does not consume the Line 29 allowance, and every other qualifying source shares one $20,000 per eligible taxpayer.
+
+### 3.4b Multi-year: the pension input widens, accounts do not
+
+`ProjectionEngine` receives scalars throughout. `inputs.primaryPensionIncome + inputs.spousePensionIncome` are summed into one number, and `AccountSnapshot` collapses every account into nine doubles. `computeStateTax` then synthesises `.pension` and `.rmd` income rows from those scalars, so **no classification of any kind reaches the projection today**. The projection knows owner and IRA-versus-401(k) and nothing finer.
+
+Left alone, Alan would see the uncapped exclusion on Scenarios and the capped one in the Multi-Year plan: two New York answers for one household, which is the cross-path divergence class this program already carries one known instance of.
+
+**In scope:** `primaryPensionIncome` and `spousePensionIncome` widen to carry classification, so the only rule that ships is cross-path consistent.
+
+**Out of scope:** `AccountSnapshot`. It is a persisted `Codable` type with existing migration history, and the projection's bucket math, RMD basis and snapshot tests all read its four traditional scalars. Consequence, which must be disclosed rather than discovered: **a user's account classification affects the single-year calculation and not the Multi-Year projection.** No rule shipping in this phase depends on account classification, so no number is wrong because of it; Steve's flag is stored and displayed but inert until Kansas is verified.
 
 ### 3.5 The DataManager mirror
 
@@ -197,6 +224,8 @@ Alabama, Hawaii and the seven unaudited Tier-2 jurisdictions change nothing here
 | A rule matches no income | No effect; fall through |
 | Pre-3b persisted blob | Decodes via `decodeIfPresent` with inference; computed tax unchanged |
 | Unknown `PlanStructure` or `PlanSource` string in JSON | Typed `DecodingError` naming the state, never a silent default |
+| Components supplied that do not sum to the scalar within one cent | `assertionFailure` in debug; in release fall back to the scalar and set an observable diagnostic flag |
+| New York tax computed for an unclassified pension | Falls through to the capped figure, and the result carries a visible limitation wherever that figure is shown |
 
 ## 7. Risks
 
@@ -207,7 +236,7 @@ Alabama, Hawaii and the seven unaudited Tier-2 jurisdictions change nothing here
 
 ## 8. Out of scope
 
-New `AccountType` cases for 403(b) and 457; the eight other per-source jurisdictions; Hawaii's employer-funded split; Alabama's defined-benefit correction; decumulation; per-year income entry; anything in Phases 4 through 7.
+New `AccountType` cases for 403(b) and 457; widening `AccountSnapshot` so account classification reaches the Multi-Year projection; general per-spouse owner attribution, which is a separate correction with its own golden scenarios; the eight other per-source jurisdictions; Hawaii's employer-funded split; Alabama's defined-benefit correction; decumulation; per-year income entry; anything in Phases 4 through 7.
 
 ## 9. Decisions taken here
 

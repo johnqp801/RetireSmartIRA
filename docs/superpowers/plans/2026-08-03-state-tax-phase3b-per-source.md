@@ -16,7 +16,7 @@
 
 Every task's requirements implicitly include this section.
 
-- **Only New York's numbers may move, and only in Task 4.** Tasks 1, 2, 3, 5 and 6 are behavior-inert. The Phase 3a frozen baseline (`RetireSmartIRATests/StateTaxBehaviorBaselineTests.swift`, 51 jurisdictions x 20 scenarios) is the gate. Never edit it or its fixture. If it goes red outside Task 4, your change is the defect.
+- **Only New York's numbers may move, and only in Tasks 4 and 5.** Task 3 activates no new owner behavior: components carry `owner` so a later phase can correct per-spouse attribution, but that correction is NOT part of this phase and bundling it would destroy the ability to prove New York's rule caused the movement. Tasks 1, 2, 3, 5 and 6 are behavior-inert. The Phase 3a frozen baseline (`RetireSmartIRATests/StateTaxBehaviorBaselineTests.swift`, 51 jurisdictions x 20 scenarios) is the gate. Never edit it or its fixture. If it goes red outside Task 4, your change is the defect.
 - **Never edit `RetireSmartIRA.xcodeproj/project.pbxproj`.** Both source roots are `PBXFileSystemSynchronizedRootGroup`, so new files are bundled automatically. If you think you need to, stop and report BLOCKED.
 - **No em dash characters** anywhere in code, comments, tests, JSON or commit messages. The Phase 3a gate caught four that slipped through six task reviews.
 - **Sync the DataManager mirror in the same commit.** `DataManager.stateTaxBreakdown` hand-duplicates `TaxCalculationEngine.applyRetirementExemptions`. On Phase 3a alone, five changes landed in the engine and not the mirror, two of them found only by the final review. **Before calling any engine task done, run `grep <new identifier> RetireSmartIRA/DataManager.swift` and report the output.**
@@ -77,7 +77,7 @@ The cost is two sources of truth for one quantity, which Task 3 closes with an i
 | `RetireSmartIRATests/Fixtures/pre-phase3b-save.json` | A real pre-3b persisted blob, captured not typed |
 | `RetireSmartIRATests/GoldenScenarios/statetax-2026-NY.golden.json` | New York's IT-201 cases |
 
-**Modified:** `IncomeModels.swift`, `AccountModels.swift`, `PersistenceManager.swift`, `StateTaxData.swift`, `StateTaxCodable.swift`, `TaxCalculationEngine.swift`, `DataManager.swift`, `IncomeSourcesView.swift`, `AccountsView.swift`, `StateTaxCodableRoundTripTests.swift`, and the 51 bundled JSON files (Task 4 only).
+**Modified:** `IncomeModels.swift`, `AccountModels.swift`, `PersistenceManager.swift`, `StateTaxData.swift`, `StateTaxCodable.swift`, `TaxCalculationEngine.swift`, `DataManager.swift`, `MultiYearStaticInputs.swift`, `MultiYearInputAdapter.swift`, `ProjectionEngine.swift`, `WidowStressTest.swift`, `IncomeSourcesView.swift`, `AccountsView.swift`, `MultiYearCPABriefing.swift`, `StateTaxCodableRoundTripTests.swift`, and the 51 bundled JSON files (Task 4 only).
 
 **Task order and why.** Task 2 is the highest-risk work and comes second so a persistence failure surfaces before anything is built on it. Task 3 is the largest engine change and stays inert. Task 4 is the only task where a number moves. Task 5 is the only task with no mechanical gate. Task 6 is the gate.
 
@@ -97,6 +97,8 @@ Types only. Nothing consumes them yet, which is intended: Task 2 wires them to s
 
 - [ ] **Step 3: Implement.** Both enums are `String`-backed so Codable is synthesised. `PerSourceExemptionRule` is a plain struct; its `treatment` is `RetirementIncomeExemptions.ExemptionLevel`, which already has a hand-written Codable.
 
+**Add the typed decode error spec §6 requires**, which synthesised Codable does not give you: an unrecognised `PlanStructure` or `PlanSource` string must throw a `DecodingError` naming the state, never fall back to `.unknown`. A silent fallback here would turn a corrupt or hand-edited config into a plausible wrong answer, which is the failure mode this whole program exists to remove. Test it with a hand-written JSON literal carrying a bogus string.
+
 - [ ] **Step 4: Targeted run, then commit.**
 ```bash
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/Phase3bClassificationTests 2>&1 | tail -12
@@ -115,6 +117,8 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && git 
 
 - [ ] **Step 1: Capture a real pre-3b blob before changing anything.** Build a `DataManager` with a spread of income sources and accounts, save through `PersistenceManager`, and write the resulting stored representation to the fixture path. Capture it, do not hand-write it: a typed fixture proves only that your own assumptions round-trip.
 
+**Normalise before committing.** `IncomeSource.id` is a fresh `UUID` per instance, and the blob may carry timestamps, device paths or build metadata. Any of those makes the fixture regenerate differently every capture and the test noisy. Replace unstable values with fixed literals once, by hand, and note in the file's header comment which fields were normalised and why. Phase 1 hit the same class of problem when 285 random UUIDs rewrote the generated JSON on every run.
+
 - [ ] **Step 2: Write the failing test.** Decode the fixture, assert every source and account carries its inferred classification per spec §3.6, and assert the computed state tax for a fixed scenario is identical to the value computed before the fields existed. That second assertion is the real guarantee, worded in the spec as: existing saves decode without user intervention and preserve current calculated behavior.
 
 - [ ] **Step 3: Add the stored properties.** `var planStructure: PlanStructure` and `var planSource: PlanSource` on both `IncomeSource` and `Account`. Both use `decodeIfPresent` with the inference as fallback, so a blob written before this phase supplies neither key and still lands on the right value.
@@ -124,7 +128,7 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && git 
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/Phase3bPersistenceTests -only-testing:RetireSmartIRATests/StateTaxBehaviorBaselineTests 2>&1 | tail -12
 ```
 
-- [ ] **Step 5: Prove the fixture test discriminates.** Change one inference rule (map `traditional401k` to `.ira` instead of `.definedContribution`), confirm the persistence test fails naming that account, revert. Then delete the `?? inference` fallback from one decode and confirm the test fails rather than silently defaulting. Paste both.
+- [ ] **Step 5: Prove the fixture test discriminates.** Change one inference rule (map `traditional401k` to `.ira` instead of `.definedContribution`), confirm the persistence test fails naming that account, revert. Then replace one inference fallback with a wrong but COMPILABLE value (`.unknown`, or a deliberately incorrect classification) and confirm the persistence test fails. Do NOT delete the `?? inference` clause: the properties are non-optional, so deletion is a compile error, which proves nothing about whether the test detects bad migration. Paste both.
 
 - [ ] **Step 6: Full suite once, then commit.** Paste both summary lines and the tree-confirmation grep.
 
@@ -138,12 +142,14 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && xcod
 
 - [ ] **Step 1: Write the failing tests.**
   - A single `unknown` component equals the scalar path exactly, for a grid of states and ages.
-  - Components carrying different owners are gated per owner under `.perQualifyingSpouse`, which is what closes the Phase 3a approximation. Phase 3a's `ExemptionAttribution` doc comment records that the unowned scalar was attributed to the primary as a documented limitation; assert that a spouse-owned component is now gated on the spouse's age instead.
-  - **The invariant:** supplying components whose amounts do not sum to the scalar is a programming error. Assert it fails loudly.
+  - **The invariant**, per spec §3.4: components must agree with the scalar within one cent. `abs(total - scalar) <= 0.01`, never exact `Double` equality. In debug this is an `assertionFailure`; in release it falls back to the scalar path and sets an observable diagnostic flag, following `StateTaxDataLoader.legacyFallbackFired` from Phase 1. Test the debug trap and the release fallback separately.
+  - **Do NOT write a test asserting that a spouse-owned component changes the age gate.** That would activate owner attribution, which this phase does not do. A capability test through `configOverride` with a synthetic `.perQualifyingSpouse` config is acceptable and inert, since no jurisdiction ships that mode, but it must be labelled as documenting capability rather than closing the Phase 3a approximation.
 
 - [ ] **Step 2: Run, watch it fail, paste.**
 
-- [ ] **Step 3: Implement.** Add `distributionComponents: [RetirementDistributionComponent]? = nil` to `calculateStateTax` and `applyRetirementExemptions`. When nil, synthesise `[RetirementDistributionComponent(owner: .primary, structure: .unknown, source: .unknown, amount: scenarioRetirementDistributions)]`. The existing age gate and attribution logic then run per component rather than over one scalar.
+- [ ] **Step 3: Implement.** Add `distributionComponents: [RetirementDistributionComponent]? = nil` to `calculateStateTax` and `applyRetirementExemptions`. When nil, synthesise `[RetirementDistributionComponent(owner: .primary, structure: .unknown, source: .unknown, amount: scenarioRetirementDistributions)]`.
+
+**Refactor the engine to iterate components, but change no rule.** Every component takes the same age gate and the same attribution the scalar takes today. The phrase "run per component" must not become "apply a cap per component": see Task 4 Step 4 and spec §3.4a. Task 3 pools the components and hands the pooled figure to the existing logic unchanged.
 
 - [ ] **Step 4: Add the mirror's test seam and sync it.** Give `DataManager.stateTaxBreakdown(forState:filingStatus:)` a `configOverride: StateTaxConfig? = nil` parameter, defaulting to today's `StateTaxData.config(for:)` lookup. Phase 3a's Task 6 review named the absence of this seam as the reason the mirror's age-gate branch was proven by nothing while the engine's identical branch was proven by a test. Then apply the same per-component logic in the mirror.
 
@@ -172,7 +178,24 @@ You must open every `sourceURL` and check every clause of `source` against it, a
 
 - [ ] **Step 3: Add `perSourceExemptions` to `RetirementIncomeExemptions`**, defaulting to `[]`, with Codable and the fixture extension required by Global Constraints.
 
-- [ ] **Step 4: Apply the rules in the engine and the mirror.** First matching rule wins; income matching nothing falls through to the existing per-state exemption. Sync both in this commit.
+- [ ] **Step 4: Apply the rules as a PARTITION, not as a per-component cap evaluation.** This is the single largest correctness risk in the phase, and this codebase has already shipped the bug it guards against: New York's shared pension-and-IRA cap exists because an earlier version granted $20,000 to pension and another $20,000 to IRA.
+
+Per spec §3.4a, the order is:
+
+1. Test each component and each `IncomeSource` row against `perSourceExemptions`. First match wins.
+2. Amounts matching a `.full` rule are subtracted outright and **contribute nothing to any shared cap**.
+3. Pool everything unmatched and hand it to the EXISTING `pensionExemption` / `iraWithdrawalExemption` logic untouched, including `pensionAndIRAShareSingleCap` and `exemptionAppliesPerIndividual`.
+
+The cap is therefore still applied once, to a pooled figure, per eligible taxpayer. Do not evaluate a cap inside a per-component loop. Sync the mirror in this commit.
+
+- [ ] **Step 4a: Write these five cap tests before Step 5.** Each must be derived from the statute, not from observed output:
+  1. Two private pensions owned by the primary: ONE $20,000 cap between them, not two.
+  2. One IRA distribution plus one private pension, same taxpayer: one shared cap, which is what `pensionAndIRAShareSingleCap` already enforces.
+  3. Primary and spouse each with qualifying income: the cap doubles once, via the existing `exemptionAppliesPerIndividual`, and not per component.
+  4. An uncapped New York government pension **plus** capped private retirement income: the government pension is excluded independently and consumes none of the $20,000.
+  5. Several capped sources summing to more than $20,000: the excess is taxed.
+
+Prove case 1 discriminates by making the rule loop apply the cap per component and confirming it fails; that is the exact defect these tests exist to prevent.
 
 - [ ] **Step 5: Give New York its rule** (spec §3.3) and **regenerate the 51 files**. Expected diff: `perSourceExemptions` appears in New York's file only. Run the deletion check and confirm no output:
 ```bash
@@ -185,17 +208,35 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && git 
 
 ---
 
-### Task 5: The picker, and the disclosures
+### Task 5: Multi-year receives classified pension income
 
-**Files:** modify `IncomeSourcesView.swift`, `AccountsView.swift`, and the CPA briefing.
+`ProjectionEngine` gets scalars: `inputs.primaryPensionIncome + inputs.spousePensionIncome` summed into one number, and `computeStateTax` then synthesises a `.pension` row from it. So no classification reaches the projection today. Without this task Alan sees the uncapped exclusion on Scenarios and the capped one in the Multi-Year plan, which is a second deliberate cross-path divergence in a program already carrying one.
 
-No mechanical gate covers this task, which is why Task 6 requires in-app verification.
+**Files:** `MultiYearStaticInputs.swift`, `MultiYearInputAdapter.swift`, `ProjectionEngine.swift`, `WidowStressTest.swift`.
+
+**Out of scope, and it must be disclosed rather than discovered:** `AccountSnapshot` is NOT widened. It collapses every account into nine doubles and is a persisted `Codable` type whose four traditional scalars are read by the bucket math, the RMD basis and the snapshot tests. Consequence: **account classification affects the single-year calculation and not the projection.** No rule shipping in this phase depends on it, so no number is wrong; Steve's flag is stored and displayed but inert until Kansas is verified. Add that sentence to Hawaii's neighbours in the disclosure surface built in Task 6.
+
+- [ ] **Step 1: Write the failing cross-path test.** A household with a NYC government pension must produce the same New York state tax from `DataManager` and from `ProjectionEngine`'s year one. It fails before this task because the projection caps what the single-year path excludes.
+- [ ] **Step 2: Widen the pension inputs.** `primaryPensionIncome` and `spousePensionIncome` carry classification. Keep the existing scalar accessors so unrelated consumers stay untouched, the same additive approach the distribution components use.
+- [ ] **Step 3: Pass components into `computeStateTax`** instead of synthesising an unclassified `.pension` row.
+- [ ] **Step 4: Confirm the pins the phase must not move.** `GoldenScenarioCrossPathTests` still reads single-year 42.0 and multi-year 200.40469973890345. Those pin backlog item I2, which this phase does NOT fix. If they move, you have changed something beyond pension classification.
+- [ ] **Step 5: Targeted runs, then the full suite once, then commit.**
+
+---
+
+### Task 6: The picker, and the disclosures
+
+**Files:** modify `IncomeSourcesView.swift`, `AccountsView.swift`, `MultiYearCPABriefing.swift`, and `StateComparisonView.swift`.
+
+No mechanical gate covers this task, which is why Task 7 requires in-app verification.
 
 - [ ] **Step 1: The picker.** One flat list, exactly the rows and mappings in spec §3.2. It appears on `.pension` income rows and on traditional accounts. Roth and inherited accounts get none, since no audited rule turns on their plan kind.
 
 - [ ] **Step 2: A classified 403(b) or 457 displays as itself** in the accounts list, the account detail view and the CPA briefing. The engine-level `AccountType` is unchanged; the visible plan type wins. Nothing continues to call it a Traditional 401(k) after the user has said it is not one.
 
-- [ ] **Step 3: The unclassified New York prompt.** For a resident of a state with a non-empty `perSourceExemptions`, a `.pension` row with `source == .unknown` shows a prominent prompt worded as a question about the pension, and the result carries a visible limitation until answered. Not a subtle optional field.
+- [ ] **Step 3: The unclassified New York prompt and limitation.** A `.pension` row with `source == .unknown` shows a prominent prompt worded as a question about the pension, not a subtle optional field.
+
+**The limitation must appear wherever New York tax is COMPUTED, not only where New York is the residence.** `StateComparisonView` computes other states' tax for a non-resident, and `MultiYearCPABriefing` renders figures a CPA will read. A user comparing their state against New York with an unclassified pension gets an incomplete New York number in both places, so both carry the limitation.
 
 - [ ] **Step 4: Hawaii's contextual disclosure**, surfaced where a Hawaii user holding a pension will meet it, stating that the employer-funded versus employee-contributed split is not modelled and its tax may be overstated.
 
@@ -203,7 +244,7 @@ No mechanical gate covers this task, which is why Task 6 requires in-app verific
 
 ---
 
-### Task 6: The phase gate
+### Task 7: The phase gate
 
 - [ ] **Step 1: Full macOS suite**, foreground, tree confirmed, both summary lines pasted.
 - [ ] **Step 2: iOS build**, and confirm all 51 `statetax-2026-*.json` are in the built `.app`. Phase 1 found nobody had checked this; a universal binary with an unbundled resource throws on every iPhone launch while every Mac test stays green.
@@ -216,10 +257,10 @@ No mechanical gate covers this task, which is why Task 6 requires in-app verific
 
 ## Self-Review
 
-**Spec coverage.** §3.1 domain model is Task 1. §3.2 picker is Task 5. §3.3 config and New York's rule is Task 4. §3.4 components is Task 3. §3.5 mirror and its test seam is Task 3 Step 4. §3.6 migration is Task 2. §3.7 presentation, all three parts, is Task 5. §4 New York only is Task 4 Step 6. §5 testing is distributed with the golden scenarios in Task 4 Step 1. §6 error handling is covered by the typed decode error in Task 1 and the sum invariant in Task 3.
+**Spec coverage.** §3.1 domain model is Task 1. §3.2 picker is Task 5. §3.3 config and New York's rule is Task 4. §3.4 components is Task 3. §3.5 mirror and its test seam is Task 3 Step 4. §3.6 migration is Task 2. §3.7 presentation, all three parts, is Task 5. §4 New York only is Task 4 Step 6. §5 testing is distributed with the golden scenarios in Task 4 Step 1. §6 error handling: the sum invariant and its debug-versus-release semantics are Task 3; the unclassified-New-York limitation is Task 6 Step 3. **The spec's typed decode error for an unknown `PlanStructure` or `PlanSource` string is NOT covered by Task 1 as originally written**, which used synthesised Codable and match tests only. Task 1 must add it explicitly.
 
 **The departure from the spec** is stated at the top with its measurement (42 call sites) and its mitigation (the sum invariant), rather than being made silently inside a task.
 
-**Type consistency.** `PlanStructure` and `PlanSource` are defined in Task 1 and used unchanged in Tasks 2, 3, 4 and 5. `RetirementDistributionComponent` carries `owner: Owner`, reusing the existing enum from `AccountModels.swift` rather than introducing a parallel one. `PerSourceExemptionRule.treatment` is `RetirementIncomeExemptions.ExemptionLevel`, which already exists and already has a hand-written Codable, so no new serialisation surface is added for it.
+**Type consistency.** `PlanStructure` and `PlanSource` are defined in Task 1 and used unchanged in Tasks 2, 3, 4 and 5. `RetirementDistributionComponent` carries `owner: Owner`, reusing the existing enum from `AccountModels.swift` rather than introducing a parallel one. `PerSourceExemptionRule.treatment` is `RetirementIncomeExemptions.ExemptionLevel`, which already exists with a hand-written Codable, so that field adds no serialisation surface. **The phase does add four other serialisation surfaces**, each needing the fixture treatment in Global Constraints: `PlanStructure`, `PlanSource`, the classification fields on both persisted models, and `perSourceExemptions`.
 
-**Known soft spot.** Task 5 has no mechanical gate, which is why Task 6 Step 5 exists and is not optional.
+**Known soft spot.** Task 5 has no mechanical gate, which is why Task 7 Step 5 exists and is not optional.
