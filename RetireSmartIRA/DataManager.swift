@@ -660,14 +660,7 @@ class DataManager {
         // exclusions and their income-gated phaseouts, so they are passed as
         // `postExemptionDeduction` rather than subtracted from the phaseout
         // gate here. States with no personal exemption return 0.
-        //
-        // Prefers config.personalExemption (bundled JSON); New Jersey's
-        // shipped JSON does not carry the key until Task 8 regenerates that
-        // file, so this falls back to the legacy Swift table, which already
-        // carries NJ's value as of this task, so New Jersey's exemption does
-        // not silently regress to $0 in the interim.
-        let statePersonalExemption = (config.personalExemption
-            ?? StateTaxData.configs2026Legacy[state]?.personalExemption)?.amount(
+        let statePersonalExemption = config.personalExemption?.amount(
             filingStatus: filingStatus, enableSpouse: enableSpouse,
             primaryAge: currentAge, spouseAge: spouseCurrentAge) ?? 0
 
@@ -910,14 +903,7 @@ class DataManager {
         // exclusions and their income-gated phaseouts, so they are passed as
         // `postExemptionDeduction` rather than subtracted from the phaseout
         // gate here. States with no personal exemption return 0.
-        //
-        // Prefers config.personalExemption (bundled JSON); New Jersey's
-        // shipped JSON does not carry the key until Task 8 regenerates that
-        // file, so this falls back to the legacy Swift table, which already
-        // carries NJ's value as of this task, so New Jersey's exemption does
-        // not silently regress to $0 in the interim.
-        let statePersonalExemption = (config.personalExemption
-            ?? StateTaxData.configs2026Legacy[state]?.personalExemption)?.amount(
+        let statePersonalExemption = config.personalExemption?.amount(
             filingStatus: filingStatus, enableSpouse: enableSpouse,
             primaryAge: currentAge, spouseAge: spouseCurrentAge) ?? 0
 

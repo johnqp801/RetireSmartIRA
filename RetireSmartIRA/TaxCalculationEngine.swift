@@ -453,24 +453,13 @@ struct TaxCalculationEngine {
     /// Retained for tests that predate Phase 3a. New Jersey's amounts now live
     /// in `StateTaxConfig.personalExemption`; this delegates so there is one
     /// implementation rather than two that can drift.
-    ///
-    /// Prefers the bundled-JSON config's `personalExemption` and falls back to
-    /// the legacy Swift table when it is absent there. New Jersey's shipped
-    /// JSON does not carry the key until Task 8 regenerates that one file
-    /// (Phase 3a Task 3 deliberately does not touch the 51 bundled files); the
-    /// legacy table already carries NJ's value as of this task. Without the
-    /// fallback this shim would silently return 0 for New Jersey between Task
-    /// 3 and Task 8, which is a real computed-value regression, not a display
-    /// nuance -- this phase's contract is behavior-inert, so that is not
-    /// acceptable even as an interim state.
     static func njPersonalExemptions(
         filingStatus: FilingStatus,
         enableSpouse: Bool,
         primaryAge: Int,
         spouseAge: Int
     ) -> Double {
-        guard let exemption = StateTaxData.config(for: .newJersey).personalExemption
-            ?? StateTaxData.configs2026Legacy[.newJersey]?.personalExemption else {
+        guard let exemption = StateTaxData.config(for: .newJersey).personalExemption else {
             return 0
         }
         return exemption.amount(filingStatus: filingStatus, enableSpouse: enableSpouse,

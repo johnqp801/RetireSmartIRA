@@ -12,6 +12,7 @@
   "pretax401kContributionsTaxableForState" : true,
   "retirementExemptions" : {
     "capitalGainsTreatment" : "followsFederal",
+    "distributionMinAge" : 59,
     "exemptionAppliesPerIndividual" : false,
     "iraWithdrawalExemption" : {
       "kind" : "full"
