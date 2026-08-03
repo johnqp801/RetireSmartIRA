@@ -374,3 +374,45 @@ Task 5: commits 5fe180e + fix 943abda + fix 1cffd2b (base d5bc246). Reviewed on 
         round trip each despite explicit foreground instructions.
   DECIDED (John, keep-with-speedups): per-task review STAYS. Full suite once per task at the end,
   targeted suites for fix verification, re-review only when a fix report lacks mutation evidence.
+Task 6: commit 9c1dbf7 (base 2ab03ab). Reviewed on opus: spec OK, **Approved with findings, ALL MINOR**.
+  First task in this phase with NO Important finding, which suggests the standing rules
+  (regenerate your own JSON, extend the encoder fixtures, read raw keys not decoded values) are
+  doing their job upstream of the reviewer.
+  RothConversionExemption replaces BOTH hardcoded `switch state` blocks (engine + DataManager
+  mirror). PA true / IL false / MS false, all minAge 0, 48 states nil. 3 JSON files regenerated.
+  Suite 1,655 ST in 278 suites + 503 XCTest. Baseline held 1,020.
+
+  The addendum earned its place: the plan named only the ENGINE's switch. DataManager carried a
+  second copy whose own comment said it mirrored the engine. That is the THIRD DataManager mirror
+  a brief written from the engine alone missed (Task 2's two hardcoded 59s, Task 5's owner filters,
+  Task 6's conversion switch). Reviewer's independent grep confirms no fourth copy exists;
+  ProjectionEngine routes through TaxCalculationEngine so the multi-year path has none.
+
+  Reviewer ran FIVE mutations, all caught, including two I had not asked for: neutralising the
+  DataManager mirror entirely, and swapping ONLY the mirror's ternary while leaving the engine
+  correct (caught by RothConversionWithholdingTests.breakdownMatchesInWithholdMode alone).
+  Verified the regeneration at BLOB level: exactly 3 of 51 blob hashes changed, purely additive.
+  Counted 13 encoder keys against 13 assertions rather than trusting the title, which has been
+  wrong twice this phase.
+  Implementer deviation judged sound: it regenerated BEFORE its mutations, because a discrimination
+  mutation against an already-red test proves nothing and the real-state tests were red until the
+  data existed. Reviewer confirmed the ordering risk is closed by the Layer B gate regardless.
+
+  ** CARRY TO PHASE 5a, the one that will actually bite: DataManager's breakdown mirror has no
+     TEST SEAM. stateTaxBreakdown(forState:filingStatus:) resolves config through
+     StateTaxData.config(for:) and accepts no configOverride, unlike calculateStateTax. So the
+     ENGINE's age-gate branch is proven by rothConversionExemptionCanBeAgeGated and the MIRROR's
+     identical branch is proven by nothing. When Iowa ships with minAge 55, a `>` for `>=` typo in
+     the mirror would put a 55-year-old's breakdown out of step with the tax it explains and the
+     full suite would stay green. Fix when Iowa lands: add Iowa and a below-gate age to
+     MetamorphicPropertyTests.crossViewMatrix, which is pinned at age 65 over PA/IL/NY/CA/GA. **
+  Minor deferred to Phase 5: the two UI cards gate PA-specific copy on `state == .pennsylvania`.
+    Safe today (PA is the only withheldPortionRemainsTaxable state, so hardcode and config agree
+    by construction). If a second state ever gets that flag, the math charges tax on the withheld
+    portion while both cards stay silent and every test passes. Cannot be fixed by re-gating on the
+    flag: the copy names Pennsylvania and cites Answer 274, so it needs per-state citation text on
+    the exemption, a data-model addition. Correctly deferred as a scope decision.
+  Two Minor test gaps FOLDED INTO TASK 7 rather than spending a separate dispatch cycle:
+    (a) the shipped-data test pins PA's and IL's withheldPortionRemainsTaxable but not MS's;
+    (b) MetamorphicPropertyTests.crossViewMatrix has no conversion-withholding case, so the
+        mirror's GROSS branch (IL and MS) has zero coverage.
