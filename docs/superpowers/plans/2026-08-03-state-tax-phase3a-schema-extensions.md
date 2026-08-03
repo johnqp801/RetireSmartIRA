@@ -73,7 +73,7 @@ This is the fifth time in this program that a plausible-looking gate turned out 
 | `RetireSmartIRATests/StateTaxCodableRoundTripTests.swift` | JSON-shape assertions extended to the new keys. |
 | `RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-*.json` | Regenerated (51 files) in Task 9. Never hand-edited. |
 
-**Task order and why:** Task 1 freezes the baseline. Tasks 2 to 6 add one extension each, smallest blast radius first, each with its own test cycle and gate. Task 7 proves the mechanisms are load-bearing. Task 8 updates Layer C. Task 9 regenerates the JSON. Task 10 is the phase gate.
+**Task order and why:** Task 1 freezes the baseline. Tasks 2 to 6 add one extension each, smallest blast radius first, each with its own test cycle and gate. Task 7 proves the mechanisms are load-bearing. Task 8 updates Layer C and regenerates the JSON in one commit, so no commit lands with a knowingly-red test. Task 9 is the phase gate.
 
 ---
 
@@ -547,7 +547,7 @@ and to `init(from:)`, as an argument to `self.init(...)` in declaration order (a
             distributionMinAge: try c.decodeIfPresent(Int.self, forKey: .distributionMinAge) ?? 59,
 ```
 
-The `?? 59` matters: the 51 checked-in JSON files do not carry this key until Task 9 regenerates them, and the Phase 1 gate runs against them in the meantime.
+The `?? 59` matters: the 51 checked-in JSON files do not carry this key until Task 8 regenerates them, and the Phase 1 gate runs against them in the meantime.
 
 - [ ] **Step 6: Run the mechanism test and the baseline**
 
@@ -592,7 +592,7 @@ Spec §3.1 and §4. New Jersey's personal exemption is a hardcoded function toda
 - Test: `RetireSmartIRATests/StateTaxPhase3aMechanismTests.swift`
 
 **Interfaces:**
-- Produces: `StatePersonalExemption` with `amount(filingStatus:enableSpouse:primaryAge:spouseAge:) -> Double`, and `StateTaxConfig.personalExemption: StatePersonalExemption?` (default `nil`). Task 8 adds its key to Layer C's optional set; Task 9 regenerates NJ's file with it.
+- Produces: `StatePersonalExemption` with `amount(filingStatus:enableSpouse:primaryAge:spouseAge:) -> Double`, and `StateTaxConfig.personalExemption: StatePersonalExemption?` (default `nil`). Task 8 adds its key to Layer C's optional set and regenerates NJ's file with it.
 
 **The exactness requirement:** `njPersonalExemptions` grants the spouse's amounts only when `filingStatus == .marriedFilingJointly && enableSpouse`. A filer on MFJ with no spouse configured gets the single amounts. `amount(...)` must reproduce that, which is why it takes `enableSpouse` rather than filing status alone. Baseline scenario "MFJ status but spouse disabled, 66" exists to catch getting this wrong.
 
@@ -1672,7 +1672,7 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git 
 
 ---
 
-### Task 8: Teach Layer C the difference between required and optional keys
+### Task 8: Layer C required-vs-optional keys, and regenerate the 51 files
 
 `personalExemption` is the first optional top-level key, so `StateTaxJSONFileKeyCompletenessTests` cannot keep asserting one exact set for all 51 files.
 
@@ -1739,32 +1739,27 @@ Replace `expectedTopLevelKeys` and the test body:
 
 The second test is what keeps the first from having weakened anything: making a key optional would otherwise let a whole state's exemption vanish from the shipped data unnoticed.
 
-- [ ] **Step 2: Run it**
-
-It will FAIL on `onlyNewJerseyShipsAPersonalExemptionKey` until Task 9 regenerates the files. That is expected and correct: this task asserts the shape the next task produces. Paste the failure and proceed; do not weaken the assertion to make it green early.
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Run it and confirm exactly one failure**
 
 ```bash
-cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git add -A && git commit -m "test(state-tax): Layer C distinguishes required from optional top-level keys"
+cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/StateTaxJSONFileKeyCompletenessTests 2>&1 | tail -25
 ```
 
----
+Expected: `topLevelKeysAreCompleteAndKnown` PASSES for all 51 (no file has an unknown key yet), and `onlyNewJerseyShipsAPersonalExemptionKey` FAILS with `Found: []`, because the files still carry the pre-Phase-3a schema. That failure is the reason the regeneration lives in this same task rather than a later one: splitting them would commit a knowingly-red suite.
 
-### Task 9: Regenerate the 51 JSON files
+Do not weaken the assertion to make it green. Regenerate in Step 3.
 
-The shipped data should carry the Phase 3a schema at inert values, so Phase 5 is a value edit inside an existing key rather than a key addition, and so the Phase 6 disclosure view has something to read.
+**Steps 3 to 6 regenerate the 51 files.** The shipped data should carry the Phase 3a schema at inert values, so Phase 5 becomes a value edit inside an existing key rather than a key addition, and so Phase 6's disclosure view has something to read.
 
-**Files:**
-- Modify: `RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-*.json` (all 51, generated)
+Files touched: `RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-*.json`, all 51, generated and never hand-edited.
 
-- [ ] **Step 1: Regenerate**
+- [ ] **Step 3: Regenerate**
 
 ```bash
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && TEST_RUNNER_STATE_TAX_GENERATE=1 xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/StateTaxDataGeneratorTests ENABLE_APP_SANDBOX=NO 2>&1 | tail -20
 ```
 
-- [ ] **Step 2: Read the diff before trusting it**
+- [ ] **Step 4: Read the diff before trusting it**
 
 ```bash
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git diff --stat RetireSmartIRA/Resources/StateTaxData/2026/ && git diff RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-KS.json
@@ -1781,27 +1776,29 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git 
 
 Expected: no output. **Any deleted line in any file is a defect, not a formatting artifact.** Stop and report if one appears.
 
-- [ ] **Step 3: Prove regeneration is deterministic**
+- [ ] **Step 5: Prove regeneration is deterministic**
 
-Run Step 1 again and confirm `git status` shows no further change. Phase 1 hit this exact problem: `TaxBracket.id` was a fresh UUID per process and rewrote 285 lines of noise on every regeneration, which was fixed by excluding `id` from its `CodingKeys`. Confirm that fix still holds rather than assuming it.
+Run Step 3 again and confirm `git status` shows no further change. Phase 1 hit this exact problem: `TaxBracket.id` was a fresh UUID per process and rewrote 285 lines of noise on every regeneration, which was fixed by excluding `id` from its `CodingKeys`. Confirm that fix still holds rather than assuming it.
 
-- [ ] **Step 4: Run the Phase 1 gate, Layer C, and the behavior baseline**
+- [ ] **Step 6: Run the Phase 1 gate, Layer C, and the behavior baseline**
 
 ```bash
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/StateTaxJSONEquivalenceTests -only-testing:RetireSmartIRATests/StateTaxJSONStructuralEquivalenceTests -only-testing:RetireSmartIRATests/StateTaxJSONFileKeyCompletenessTests -only-testing:RetireSmartIRATests/StateTaxBehaviorBaselineTests 2>&1 | tail -30
 ```
 
-Expected: all PASS, including Task 8's `onlyNewJerseyShipsAPersonalExemptionKey`, which was red until this task.
+Expected: all PASS, including `onlyNewJerseyShipsAPersonalExemptionKey`, which was red at Step 2.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit, as one commit covering both halves**
+
+The Layer C change and the regeneration ship together so the suite is never red at a commit boundary.
 
 ```bash
-cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git add -A && git commit -m "chore(state-tax): regenerate 51 jurisdiction files with the Phase 3a schema"
+cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git add -A && git commit -m "test(state-tax): Layer C required-vs-optional keys, and regenerate the 51 files"
 ```
 
 ---
 
-### Task 10: The Phase 3a gate
+### Task 9: The Phase 3a gate
 
 - [ ] **Step 1: Full macOS suite**
 
@@ -1851,7 +1848,7 @@ Append the phase's outcome to `.claude/memory/roadmap/2026-08-03-state-tax-phase
 
 ## Self-Review
 
-**Spec coverage.** §3.3a state-aware minimum age is Task 2. §3.3b data-driven Roth conversion rule is Task 6. §3.3d AGI phase-out is Task 4. §3.3e per-individual attribution and age gates is Task 5, with the observation that `exemptionAppliesPerIndividual` and `regularExemptionMinAge` already exist as fields, so the gap was attribution rather than the fields themselves. §3.1 `personalExemption` is Task 3. §3.3c per-source exemptions is deliberately deferred to Phase 3b and is called out at the top. §4a's Phase 3 gate, "the Phase 1 equivalence test still passes, suite green," is Task 10, strengthened by Task 1 because the Phase 1 gate alone is structurally blind to this phase's failure mode.
+**Spec coverage.** §3.3a state-aware minimum age is Task 2. §3.3b data-driven Roth conversion rule is Task 6. §3.3d AGI phase-out is Task 4. §3.3e per-individual attribution and age gates is Task 5, with the observation that `exemptionAppliesPerIndividual` and `regularExemptionMinAge` already exist as fields, so the gap was attribution rather than the fields themselves. §3.1 `personalExemption` is Task 3. §3.3c per-source exemptions is deliberately deferred to Phase 3b and is called out at the top. §4a's Phase 3 gate, "the Phase 1 equivalence test still passes, suite green," is Task 9, strengthened by Task 1 because the Phase 1 gate alone is structurally blind to this phase's failure mode.
 
 **Type consistency.** `distributionMinAge` (Int), `exemptionAttribution` (`ExemptionAttribution`), `agiPhaseout` (`AGIPhaseout?`), `rothConversionExemption` (`RothConversionExemption?`) all live on `RetirementIncomeExemptions`; `personalExemption` (`StatePersonalExemption?`) lives on `StateTaxConfig`, because it applies after the retirement exclusions rather than as part of them. `AGIPhaseout.reduced(exclusion:totalGrossIncome:isMarried:)` and `StatePersonalExemption.amount(filingStatus:enableSpouse:primaryAge:spouseAge:)` are each named identically in their defining task and every consuming task.
 
