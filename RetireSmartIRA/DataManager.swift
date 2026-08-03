@@ -804,8 +804,52 @@ class DataManager {
         // TaxCalculationEngine.applyRetirementExemptions so this breakdown
         // stays consistent with scenarioStateTax.
         let taxableSS = scenarioTaxableSocialSecurity
+        // `pensionIncome`/`iraIncome` (below) stay GROSS totals -- unchanged
+        // from before this task -- because they also feed `otherIncome` and
+        // the breakdown's own displayed `pensionIncome`/`iraRmdIncome`
+        // fields, which must keep showing the taxpayer's REAL total pension
+        // and IRA income regardless of how much of it a per-source rule
+        // excludes outright. `pooledPensionIncome`/`pooledIraIncome` below
+        // are the SEPARATE, unmatched-only figures the cap machinery
+        // consumes. Mirror of TaxCalculationEngine.applyRetirementExemptions.
         let pensionIncome = incomeSources.filter { $0.type == .pension && ownerQualifies($0.owner) }.reduce(0) { $0 + $1.annualAmount }
         let rmdSourceIncome = incomeSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }.reduce(0) { $0 + $1.annualAmount }
+
+        // Phase 3b Task 4 (design doc 3.4a): partition BEFORE any pooling or
+        // cap logic runs, mirroring the engine's identical partition. A
+        // matched row is excluded per its own rule's `treatment`,
+        // UNCONDITIONALLY (no age gate), and contributes NOTHING to the
+        // pooled figures below. Single pass over the rows, never a cap
+        // evaluated per row. Empty `exemptions.perSourceExemptions` (every
+        // jurisdiction except New York) makes this reduce to exactly the old
+        // pooled totals, since `matchedPerSourceRule` then returns `nil` for
+        // every row.
+        let isMarried = filingStatus == .marriedFilingJointly
+        let qualifyingPensionRows = incomeSources.filter { $0.type == .pension && ownerQualifies($0.owner) }
+        var pooledPensionIncome = 0.0
+        var perSourceExcludedPension = 0.0
+        for row in qualifyingPensionRows {
+            if let rule = exemptions.matchedPerSourceRule(structure: row.planStructure, source: row.planSource) {
+                perSourceExcludedPension += rule.treatment.excludedAmount(
+                    eligibleIncome: row.annualAmount, totalGrossIncome: income,
+                    isMarried: isMarried, perIndividualMultiplier: 1.0)
+            } else {
+                pooledPensionIncome += row.annualAmount
+            }
+        }
+        let qualifyingRMDRows = incomeSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }
+        var pooledRmdIncome = 0.0
+        var perSourceExcludedRMD = 0.0
+        for row in qualifyingRMDRows {
+            if let rule = exemptions.matchedPerSourceRule(structure: row.planStructure, source: row.planSource) {
+                perSourceExcludedRMD += rule.treatment.excludedAmount(
+                    eligibleIncome: row.annualAmount, totalGrossIncome: income,
+                    isMarried: isMarried, perIndividualMultiplier: 1.0)
+            } else {
+                pooledRmdIncome += row.annualAmount
+            }
+        }
+
         // Mirror of TaxCalculationEngine.applyRetirementExemptions. This
         // switches exhaustively (no `default:`), matching the phase's
         // convention that a new ExemptionAttribution case must break
@@ -825,10 +869,11 @@ class DataManager {
             retirementAge = currentAge >= exemptions.distributionMinAge
                 && ageQualifiesForExemption(currentAge)
         }
-        // Phase 3b Task 3: pool distributionComponents (or the synthesized
-        // single .unknown component when nil) into ONE figure BEFORE the
-        // age gate, exactly reproducing scenarioRetirementDistributionIncome
-        // when nil or when the invariant holds. Mirror of
+        // Phase 3b Task 3: pool distributionComponents (or short-circuit
+        // straight to the scalar when nil -- no component is synthesized)
+        // into ONE figure BEFORE the age gate, exactly reproducing
+        // scenarioRetirementDistributionIncome when nil or when the
+        // invariant holds. Mirror of
         // TaxCalculationEngine.applyRetirementExemptions -- both call the
         // SAME RetirementDistributionComponent.resolvePooledAmount.
         let pooledScenarioDistribution = RetirementDistributionComponent.resolvePooledAmount(
@@ -836,6 +881,36 @@ class DataManager {
             scalar: scenarioRetirementDistributionIncome
         )
         let scenarioDistroExemptable = retirementAge ? pooledScenarioDistribution : 0
+
+        // Phase 3b Task 4: partition distributionComponents (if supplied) the
+        // same way, BEFORE pooling, mirroring the engine. A matched
+        // component is excluded outright and removed from BOTH the amount
+        // fed to the sum invariant and the pool the cap machinery sees. When
+        // nil, `matchedDistroComponents` is empty and the adjusted scalar
+        // equals the original, so `resolvePooledAmount` still takes its nil
+        // short-circuit unchanged.
+        let allDistroComponents = distributionComponents ?? []
+        let matchedDistroComponents = allDistroComponents.filter {
+            exemptions.matchedPerSourceRule(structure: $0.structure, source: $0.source) != nil
+        }
+        let unmatchedDistroComponents = allDistroComponents.filter {
+            exemptions.matchedPerSourceRule(structure: $0.structure, source: $0.source) == nil
+        }
+        let perSourceExcludedDistroComponents = matchedDistroComponents.reduce(0.0) { total, component in
+            guard let rule = exemptions.matchedPerSourceRule(
+                structure: component.structure, source: component.source) else { return total }
+            return total + rule.treatment.excludedAmount(
+                eligibleIncome: component.amount, totalGrossIncome: income,
+                isMarried: isMarried, perIndividualMultiplier: 1.0)
+        }
+        let matchedDistroComponentsAmount = matchedDistroComponents.reduce(0.0) { $0 + $1.amount }
+        let pooledScenarioDistributionForCap = RetirementDistributionComponent.resolvePooledAmount(
+            components: distributionComponents == nil ? nil : unmatchedDistroComponents,
+            scalar: scenarioRetirementDistributionIncome - matchedDistroComponentsAmount
+        )
+        let pooledScenarioDistroExemptable = retirementAge ? pooledScenarioDistributionForCap : 0
+        let pooledIraIncome = pooledRmdIncome + pooledScenarioDistroExemptable
+        let perSourceExcludedIRA = perSourceExcludedRMD + perSourceExcludedDistroComponents
         let iraIncome = rmdSourceIncome + scenarioDistroExemptable
         let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
 
@@ -875,10 +950,13 @@ class DataManager {
 
         // The stepped phaseout (NJ) gates on TOTAL state gross income (`income`,
         // pre-exemption). Mirror of TaxCalculationEngine.applyRetirementExemptions.
-        let isMarried = filingStatus == .marriedFilingJointly
+        // (`isMarried` is hoisted above, shared with the per-source partition.)
         if exemptions.pensionAndIRAShareSingleCap {
             // Shared cap (CO): pension + IRA share one annual subtraction.
-            let combinedIncome = pensionIncome + iraIncome
+            // Phase 3b Task 4: the cap sees only the POOLED (unmatched)
+            // figures -- a per-source-matched row was already excluded
+            // outright above and contributes nothing here.
+            let combinedIncome = pooledPensionIncome + pooledIraIncome
             let rawCombinedExempt = effectivePensionExemption.excludedAmount(
                 eligibleIncome: combinedIncome,
                 totalGrossIncome: income,
@@ -892,12 +970,17 @@ class DataManager {
             ) ?? rawCombinedExempt
             // Attribute the combined exemption to pension first, then IRA
             // (purely for display purposes — the totalExempted is what matters
-            // for the tax calculation).
-            pensionExemptAmt = min(pensionIncome, combinedExempt)
-            iraExemptAmt = combinedExempt - pensionExemptAmt
+            // for the tax calculation), plus each side's own outright
+            // per-source exclusion, which never went through this cap.
+            let pooledPensionShare = min(pooledPensionIncome, combinedExempt)
+            pensionExemptAmt = perSourceExcludedPension + pooledPensionShare
+            iraExemptAmt = perSourceExcludedIRA + (combinedExempt - pooledPensionShare)
         } else {
+            // Phase 3b Task 4: cap machinery sees only the POOLED (unmatched)
+            // figures; each side's own outright per-source exclusion is added
+            // back in below, never through this cap.
             let rawPension = effectivePensionExemption.excludedAmount(
-                eligibleIncome: pensionIncome,
+                eligibleIncome: pooledPensionIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
@@ -906,19 +989,19 @@ class DataManager {
             // per-type branch: the phase-out is applied independently to the
             // pension exclusion and to the IRA exclusion below. See
             // StateAGIPhaseout.swift's COMPOSITION doc comment.
-            pensionExemptAmt = exemptions.agiPhaseout?.reduced(
+            pensionExemptAmt = perSourceExcludedPension + (exemptions.agiPhaseout?.reduced(
                 exclusion: rawPension, totalGrossIncome: income, isMarried: isMarried
-            ) ?? rawPension
+            ) ?? rawPension)
 
             let rawIRA = effectiveIRAExemption.excludedAmount(
-                eligibleIncome: iraIncome,
+                eligibleIncome: pooledIraIncome,
                 totalGrossIncome: income,
                 isMarried: isMarried,
                 perIndividualMultiplier: perIndividualMultiplier
             )
-            iraExemptAmt = exemptions.agiPhaseout?.reduced(
+            iraExemptAmt = perSourceExcludedIRA + (exemptions.agiPhaseout?.reduced(
                 exclusion: rawIRA, totalGrossIncome: income, isMarried: isMarried
-            ) ?? rawIRA
+            ) ?? rawIRA)
         }
 
         // Military Retirement: per-source state exemption (Task 6.3).

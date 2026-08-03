@@ -48,14 +48,22 @@ extension RetirementDistributionComponent {
     /// cannot itself trigger without aborting. Not reset once set.
     static private(set) var sumInvariantFallbackFired = false
 
-    /// Whether `components`' amounts agree with `scalar` within one cent
-    /// (spec section 3.4): `abs(total - scalar) <= 0.01`. Never exact
-    /// `Double` equality, which is unsafe for currency. Pure and
-    /// side-effect-free -- this is the exact condition `resolvePooledAmount`
-    /// guards its debug trap on, pulled out so a test can exercise the
-    /// gating logic directly instead of triggering the trap itself.
+    /// The one-cent tolerance spec section 3.4 sets for the sum invariant,
+    /// named so a test can assert its value directly rather than only
+    /// proving it lies somewhere inside an interval bracketed by two probe
+    /// points (which is all `sumInvariantBoundary` proved before this
+    /// constant existed: that the true tolerance sits in `[0.005, 0.02)`,
+    /// not that it is exactly `0.01`).
+    static let sumInvariantTolerance: Double = 0.01
+
+    /// Whether `components`' amounts agree with `scalar` within
+    /// `sumInvariantTolerance` (spec section 3.4). Never exact `Double`
+    /// equality, which is unsafe for currency. Pure and side-effect-free --
+    /// this is the exact condition `resolvePooledAmount` guards its debug
+    /// trap on, pulled out so a test can exercise the gating logic directly
+    /// instead of triggering the trap itself.
     static func sumInvariantHolds(components: [RetirementDistributionComponent], scalar: Double) -> Bool {
-        abs(components.reduce(0) { $0 + $1.amount } - scalar) <= 0.01
+        abs(components.reduce(0) { $0 + $1.amount } - scalar) <= sumInvariantTolerance
     }
 
     /// The value `resolvePooledAmount` resolves to for a components/scalar
@@ -75,9 +83,14 @@ extension RetirementDistributionComponent {
 
     /// Pools `components` into the single figure `applyRetirementExemptions`
     /// (engine) and `stateTaxBreakdown` (mirror) both hand to the EXISTING,
-    /// unchanged age-gate and exemption logic. `nil` synthesises one
-    /// `.unknown`/`.unknown` component from `scalar`, which is today's
-    /// behavior exactly -- the invariant is not even evaluated on that path.
+    /// unchanged age-gate and exemption logic. `nil` short-circuits straight
+    /// to `scalar` below -- it does NOT construct a
+    /// `.unknown`/`.unknown` component and pool a one-element array. The two
+    /// are numerically identical (a single `.unknown` component would sum to
+    /// the same value the scalar already holds), which is why callers may
+    /// describe the nil path as "behaving like" a synthesized `.unknown`
+    /// component, but no such component object is ever created, and the sum
+    /// invariant is not even evaluated on this path.
     ///
     /// **Debug:** an out-of-tolerance sum traps immediately via
     /// `assertionFailure`, so a caller that sets one side of the invariant

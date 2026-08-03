@@ -68,6 +68,15 @@ struct Phase3bDistributionComponentTests {
     /// `configs2026`. This test is that same discipline applied to the sum
     /// invariant: it is the "debug trap" half of the evidence, kept
     /// separate from the "release fallback" half below.
+    /// Step 0c (Task 4 review fold-in): `sumInvariantBoundary` below only
+    /// proves the tolerance lies somewhere in `[0.005, 0.02)` -- two probe
+    /// points bracketing an interval, not the value itself. This asserts the
+    /// named constant directly.
+    @Test("sumInvariantTolerance is exactly one cent")
+    func sumInvariantToleranceIsOneCent() {
+        #expect(RetirementDistributionComponent.sumInvariantTolerance == 0.01)
+    }
+
     @Test("sumInvariantHolds: comfortably within one cent passes, comfortably past one cent fails")
     func sumInvariantBoundary() {
         let components = [
@@ -180,6 +189,52 @@ struct Phase3bDistributionComponentTests {
         #expect(abs(pooledTax - 5_000.0) < 0.0001, "$15,000 - $10,000 (component sum) exempt, taxed at 100% = $5,000.00")
         #expect(pooledTax != scalarTax,
                 "components summing to $10,000 must exempt a DIFFERENT amount than the $9,999.995 scalar -- proves the component SUM feeds the calculation, not the bare scalar")
+    }
+
+    // MARK: - Task 4 review fold-in (Step 0a): pooling must not become a per-component cap loop
+
+    /// Folded in from Task 3's review before Task 4 touched anything else.
+    /// Every one of Task 3's own tests above uses `.full` treatment, where
+    /// `excludedAmount` returns its input unchanged -- so per-component and
+    /// pooled capping produce IDENTICAL numbers for every case above, and a
+    /// reviewer confirmed a mutation applying the cap PER COMPONENT instead
+    /// of to the pooled sum still passed all ten of Task 3's tests AND the
+    /// 1,020-value frozen baseline. This is the exact historical New York
+    /// bug (`StateTaxData.swift`'s `pensionAndIRAShareSingleCap` comment):
+    /// the shared cap exists because an earlier version granted $20,000 to
+    /// pension and another $20,000 to IRA. `.partial`, not `.full`, is what
+    /// makes per-component-vs-pooled numerically distinguishable, because
+    /// `.partial`'s cap only binds once the SUM crosses it -- two components
+    /// each under the cap individually can still exceed it combined.
+    @Test("The shared cap applies ONCE to the pooled component sum, not once per component")
+    func capAppliesOncePooledNotPerComponent() {
+        let partialIRAExemption = StateTaxConfig(
+            state: .iowa, taxSystem: .flat(rate: 0.10),
+            retirementExemptions: RetirementIncomeExemptions(
+                socialSecurityExempt: false, pensionExemption: .none,
+                iraWithdrawalExemption: .partial(maxExempt: 20_000)),
+            stateDeduction: .none)
+
+        let tax = TaxCalculationEngine.calculateStateTax(
+            income: 60_000, forState: .iowa, filingStatus: .single,
+            taxableSocialSecurity: 0, incomeSources: [],
+            currentAge: 65, enableSpouse: false, spouseBirthYear: 1961,
+            currentYear: 2026, scenarioRetirementDistributions: 30_000,
+            distributionComponents: [
+                RetirementDistributionComponent(owner: .primary, structure: .unknown, source: .unknown, amount: 15_000),
+                RetirementDistributionComponent(owner: .primary, structure: .unknown, source: .unknown, amount: 15_000)
+            ],
+            configOverride: partialIRAExemption)
+
+        #expect(tax == 4_000,
+                """
+                the $20,000 cap must apply ONCE to the $30,000 pooled total \
+                (exclusion $20,000, taxable $40,000 @ 10% = $4,000), not once \
+                per $15,000 component, which would exempt BOTH in full since \
+                neither $15,000 alone crosses the cap ($60,000 - $30,000 = \
+                $30,000 @ 10% = $3,000, the wrong answer a per-component loop \
+                produces).
+                """)
     }
 
     // MARK: - Capability, not activation: owner does not change the age gate in this phase
@@ -337,5 +392,44 @@ struct Phase3bDistributionComponentMirrorTests {
         #expect(abs(pooled.iraExemptAmount - 10_000.0) < 0.0001,
                 "must reflect the component SUM ($10,000), not the bare $9,999.995 scalar -- proves distributionComponents is actually consumed by the mirror, not accepted and discarded")
         #expect(pooled.iraExemptAmount != scalarOnly.iraExemptAmount)
+    }
+
+    /// Task 4 review fold-in (Step 0a), mirror side. Same worked case as
+    /// `Phase3bDistributionComponentTests.capAppliesOncePooledNotPerComponent`:
+    /// `.partial` is what makes per-component-vs-pooled numerically
+    /// distinguishable, unlike every `.full`-based mirror test above.
+    /// Reviewer's exact finding: a per-component cap loop makes
+    /// `iraExemptAmount` read $30,000 (both $15,000 components pass under
+    /// the cap individually) instead of the correct $20,000 (the pooled
+    /// $30,000 total capped once).
+    @Test("The mirror applies the shared cap ONCE to the pooled component sum, not once per component")
+    func mirrorCapAppliesOncePooledNotPerComponent() {
+        let dm = makeMirrorScenario(age: 65)
+        dm.selectedState = .texas
+        dm.yourExtraWithdrawal = 30_000
+
+        let partialIRAExemption = StateTaxConfig(
+            state: .texas, taxSystem: .flat(rate: 0.10),
+            retirementExemptions: RetirementIncomeExemptions(
+                socialSecurityExempt: false, pensionExemption: .none,
+                iraWithdrawalExemption: .partial(maxExempt: 20_000)),
+            stateDeduction: .none)
+
+        let pooled = dm.stateTaxBreakdown(
+            forState: .texas, filingStatus: .single, configOverride: partialIRAExemption,
+            distributionComponents: [
+                RetirementDistributionComponent(owner: .primary, structure: .unknown, source: .unknown, amount: 15_000),
+                RetirementDistributionComponent(owner: .primary, structure: .unknown, source: .unknown, amount: 15_000)
+            ])
+
+        #expect(pooled.iraExemptAmount == 20_000,
+                """
+                the $20,000 cap must apply once to the pooled $30,000 total, \
+                not once per $15,000 component -- a per-component loop would \
+                exempt both in full (iraExemptAmount == 30,000, since neither \
+                $15,000 alone exceeds the cap), which is exactly the \
+                historical New York double-$20,000 bug reproduced at the \
+                component level.
+                """)
     }
 }

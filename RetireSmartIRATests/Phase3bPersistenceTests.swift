@@ -124,13 +124,28 @@ struct Phase3bPersistenceTests {
         #expect(inherited.yearOfInheritance == 2023)
     }
 
-    /// The real guarantee. `TaxCalculationEngine` does not consume
-    /// planStructure/planSource in this phase (that lands in Task 3), so
-    /// this proves the migration is tax-neutral today: computing state tax
-    /// from the fixture's DECODED income sources must equal computing it
-    /// from the SAME logical rows built fresh via `IncomeSource.init`,
-    /// which never goes through `decodeIfPresent` at all. Equal output means
-    /// decoding introduced no divergence in anything the engine reads.
+    /// `TaxCalculationEngine` does not consume planStructure/planSource in
+    /// THIS phase (that lands in Task 4), so this proves the migration is
+    /// tax-neutral today: computing state tax from the fixture's DECODED
+    /// income sources must equal computing it from the SAME logical rows
+    /// built fresh via `IncomeSource.init`, which never goes through
+    /// `decodeIfPresent` at all. Equal output means decoding introduced no
+    /// divergence in anything the engine reads FOR THIS FIXTURE.
+    ///
+    /// LIMITATION, proven by a reviewer's mutation and left here as the
+    /// reason `computedStateTaxUnchangedByMigrationForAClassifiedNewYorkPension`
+    /// below exists: the pre-3b fixture's `.pension` row carries no
+    /// `planStructure`/`planSource` KEY at all, so it always takes the
+    /// "key absent -> inferredFallback" branch of
+    /// `PlanClassificationUserSaveDecoding.decode`, landing on
+    /// `.unknown`/`.unknown` -- the exact same value `freshSources`' own
+    /// classification-less `.pension` row resolves to via the identical
+    /// inference function. The two sides therefore agree regardless of what
+    /// decoding actually does with a PRESENT value: a reviewer mutated every
+    /// decoded classification to a wrong value and this test still passed.
+    /// It proves decode did not corrupt the OTHER fields; it does not prove
+    /// classification decodes correctly, because nothing here reads
+    /// `planStructure`/`planSource` for any tax purpose yet.
     @Test("Computed state tax for the pre-3b fixture's income is unchanged by migration")
     func computedStateTaxUnchangedByMigration() throws {
         let blob = try Self.loadFixture()
@@ -162,6 +177,79 @@ struct Phase3bPersistenceTests {
         let actual = tax(for: blob.incomeSources)
         let expected = tax(for: freshSources)
         #expect(actual == expected)
+    }
+
+    // MARK: - Phase 3b Task 4, Step 5a: re-pointed at a scenario the migration gate can actually fail
+
+    /// STEP 5a (folded in from Task 3's review, carried into Task 4): after
+    /// this task, New York's Line 26 rule genuinely CONSUMES
+    /// `planStructure`/`planSource` -- a wrong decoded classification now
+    /// produces a wrong computed tax, which
+    /// `computedStateTaxUnchangedByMigration` above cannot detect because its
+    /// fixture never carries an explicit classification key. This test
+    /// decodes a POST-3b saved row (explicit `"planStructure":
+    /// "definedBenefit"`, `"planSource": "nyStateOrLocal"` keys present,
+    /// unlike the pre-3b fixture) through the REAL `PersistenceManager.loadAll`
+    /// path and asserts the computed New York tax matches a freshly
+    /// constructed `IncomeSource` carrying the identical classification.
+    /// Proven by mutation to actually discriminate (see the task report):
+    /// corrupting the saved JSON's `planSource` to `"otherStateOrLocal"`
+    /// (a real, valid `PlanSource` case -- New York's rule just does not
+    /// match it) now changes the computed tax and fails this test, which it
+    /// could not have done before this task.
+    @Test("Computed New York tax for a classified saved pension row is unchanged by decoding through PersistenceManager")
+    func computedStateTaxUnchangedByMigrationForAClassifiedNewYorkPension() throws {
+        let classifiedJSON = """
+        [
+          {"id": "\(UUID().uuidString)", "name": "NYC Pension", "type": "Pension", "annualAmount": 45000,
+           "federalWithholding": 4000, "stateWithholding": 0, "owner": "You",
+           "planStructure": "definedBenefit", "planSource": "nyStateOrLocal"}
+        ]
+        """.data(using: .utf8)!
+
+        let defaults = UserDefaults(suiteName: "phase3b-classified-ny-pension-\(UUID().uuidString)")!
+        defaults.set(classifiedJSON, forKey: PersistenceManager.StorageKey.incomeSources)
+        let dm = DataManager()
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        let freshSources: [IncomeSource] = [
+            IncomeSource(name: "NYC Pension", type: .pension, annualAmount: 45_000,
+                         federalWithholding: 4_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .nyStateOrLocal)
+        ]
+
+        func tax(for sources: [IncomeSource]) -> Double {
+            TaxCalculationEngine.calculateStateTax(
+                income: 82_000,
+                forState: .newYork,
+                filingStatus: .marriedFilingJointly,
+                taxableSocialSecurity: 25_500,
+                incomeSources: sources,
+                currentAge: 68,
+                enableSpouse: true,
+                spouseBirthYear: 1960,
+                currentYear: 2026
+            )
+        }
+
+        let decoded = dm.incomeSources
+        #expect(decoded.count == 1)
+        #expect(decoded.first?.planStructure == .definedBenefit)
+        #expect(decoded.first?.planSource == .nyStateOrLocal)
+
+        let actual = tax(for: decoded)
+        let expected = tax(for: freshSources)
+        #expect(actual == expected)
+        // The load-bearing half: this is now a NON-TRIVIAL number (New
+        // York's Line 26 excludes the full $45,000 pension), not $0 or an
+        // unrelated coincidence -- confirms the assertion above is actually
+        // exercising the per-source rule, not two sides that happen to agree
+        // some other way.
+        #expect(actual < tax(for: [
+            IncomeSource(name: "NYC Pension", type: .pension, annualAmount: 45_000,
+                         federalWithholding: 4_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .otherStateOrLocal)
+        ]), "an uncapped NY government pension must compute LESS tax than the same pension classified as out-of-state (capped at $20,000)")
     }
 
     /// The existing 1.7.2 `.rothConversion` migration (PersistenceManager.swift

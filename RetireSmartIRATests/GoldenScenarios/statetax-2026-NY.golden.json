@@ -1,0 +1,75 @@
+{
+  "state": "NY",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "NYC employee pension alone: fully excluded, Line 26",
+      "source": "IT-201 instructions, Line 26 (pension income of NYS, its localities, or the federal government): 'If you received a pension or other distribution from a New York State or local government pension plan or federal government pension plan, you may subtract the amount of distribution that was included in your federal adjusted gross income, regardless of your age.' Eligible filers are an officer, employee, or beneficiary of an officer or employee of NYS (including SUNY/CUNY), a NY locality, certain named NY public authorities (e.g. MTA Police, MaBSTOA, LIRR), or the United States. No dollar cap. A NYC employee pension is local-government pension income, so the full $70,000 is Line 26 income with no cap, leaving only $20,000 of unrelated ordinary income taxable (single filer, NY standard deduction $8,000 applied first per Line 34).",
+      "sourceURL": "https://www.tax.ny.gov/forms/current-forms/it/it201i.htm",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 70000, "planStructure": "definedBenefit", "planSource": "nyStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 487.75
+    },
+    {
+      "name": "NYC pension plus a private pension: government portion uncapped, private portion against the shared $20,000, Line 29",
+      "source": "IT-201 instructions: Line 26 excludes the $70,000 NYC (local government) pension with no cap, exactly as above. The separate $35,000 private pension is NOT Line 26 income (it is from neither a NYS/local nor federal government plan), so it is Line 29 'Pension and annuity income exclusion' income instead: 'If you were age 59 1/2 or older ... you may exclude up to $20,000 of your qualified pension and annuity income.' Line 29 qualifying income explicitly excludes amounts already subtracted on Line 26, so the two tracks are independent and do not share a cap -- the government pension consumes none of the $20,000. Per NY Tax Law Section 612(c)(3-a), the $20,000 pension-and-IRA exclusion is ONE combined cap per qualifying individual, not $20,000 for pension and a separate $20,000 for IRA; this scenario carries no IRA income, so that combination is not exercised here (see the Step 4a cap tests for that).",
+      "sourceURL": "https://www.tax.ny.gov/forms/current-forms/it/it201i.htm",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 105000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 70000, "planStructure": "definedBenefit", "planSource": "nyStateOrLocal"},
+        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 273.00
+    },
+    {
+      "name": "A government employee's 403(b): capped, because Line 26 excludes salary-reduction plans",
+      "source": "IT-201 instructions, Line 26 eligibility list, exclusions: Line 26 explicitly does NOT cover 'periodic distributions from government (IRC Section 457) deferred compensation plans' or 'any portion attributable to contributions you made to a supplemental annuity plan which was funded through a salary reduction program' -- a 403(b) is exactly such a salary-reduction supplemental plan, even when the employer is a government entity. It falls through to the ordinary Line 29 $20,000 pension-and-annuity exclusion instead (IRC Section 403(b) annuities purchased by an employer DO qualify for Line 29). Same arithmetic as the out-of-state-pension case below: $35,000 pooled, capped at $20,000, single filer age 65, NY standard deduction $8,000.",
+      "sourceURL": "https://www.tax.ny.gov/forms/current-forms/it/it201i.htm",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 35000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 35000, "planStructure": "definedContribution", "planSource": "governmentUnspecified"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 273.00
+    },
+    {
+      "name": "An out-of-state public pension: capped -- regression test for the design revision away from a single .governmentPension case",
+      "source": "IT-201 instructions and tax.ny.gov 'Information for retired persons': Line 26 eligibility is a closed list -- officer, employee, or beneficiary of an officer or employee of NYS (including SUNY/CUNY), a NY locality, certain named NY public authorities, or the United States. A pension from a DIFFERENT state's government (e.g. California) is not on that list and so is not Line 26 income; it is ordinary pension income subject to the same $20,000 Line 29 exclusion as any private pension. A single flat '.governmentPension' classification (without a jurisdiction dimension) would have wrongly handed this pension Line 26's uncapped exclusion -- this is the exact defect design section 2 names and revises the domain model to prevent. Same arithmetic as the government-403(b) case above.",
+      "sourceURL": "https://www.tax.ny.gov/pit/file/information_for_seniors.htm",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 35000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 273.00
+    }
+  ]
+}

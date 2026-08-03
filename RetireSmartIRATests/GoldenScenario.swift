@@ -30,10 +30,30 @@ struct GoldenScenario: Codable {
     let iraWithdrawals: Double
     let rothConversion: Double
     let expectedStateTax: Double
+    /// Phase 3b Task 4: when present, REPLACES the single flat `pensionIncome`
+    /// scalar with one classified `IncomeSource(type: .pension)` row per
+    /// element, so a fixture can express a mix of per-source-rule-eligible
+    /// and ordinary pension income within one taxpayer (e.g. New York's
+    /// government pension alongside a private one). `pensionIncome` MUST be
+    /// `0` in any fixture that sets this -- a loader that read both would
+    /// double count. Absent (the default, via Swift's synthesized
+    /// `decodeIfPresent` for an `Optional` property) for every pre-existing
+    /// PA/IL/MS/NJ fixture, which keeps using the flat scalar unchanged.
+    let classifiedPensionSources: [ClassifiedPensionSource]?
 
     var resolvedFilingStatus: FilingStatus {
         filingStatus == "marriedFilingJointly" ? .marriedFilingJointly : .single
     }
+}
+
+/// One classified pension row for `GoldenScenario.classifiedPensionSources`.
+/// `planStructure`/`planSource` are the raw string values of `PlanStructure`/
+/// `PlanSource` (e.g. `"definedBenefit"`, `"nyStateOrLocal"`), so a fixture
+/// reads as plainly as the JSON it names.
+struct ClassifiedPensionSource: Codable {
+    let amount: Double
+    let planStructure: String
+    let planSource: String
 }
 
 struct GoldenScenarioFile: Codable {

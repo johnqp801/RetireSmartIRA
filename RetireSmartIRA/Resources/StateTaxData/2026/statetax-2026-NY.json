@@ -25,6 +25,20 @@
       "kind" : "partial",
       "maxExempt" : 20000
     },
+    "perSourceExemptions" : [
+      {
+        "matchSources" : [
+          "nyStateOrLocal",
+          "federalCivilian"
+        ],
+        "matchStructures" : [
+          "definedBenefit"
+        ],
+        "treatment" : {
+          "kind" : "full"
+        }
+      }
+    ],
     "regularExemptionMinAge" : 59,
     "socialSecurityExempt" : true
   },

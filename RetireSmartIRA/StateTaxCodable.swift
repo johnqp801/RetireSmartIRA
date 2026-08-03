@@ -299,6 +299,7 @@ extension RetirementIncomeExemptions: Codable {
         case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion, agiPhaseout
         case rothConversionExemption
         case capitalGainsTreatment
+        case perSourceExemptions
     }
 
     func encode(to encoder: Encoder) throws {
@@ -316,6 +317,12 @@ extension RetirementIncomeExemptions: Codable {
         try c.encodeIfPresent(agiPhaseout, forKey: .agiPhaseout)
         try c.encodeIfPresent(rothConversionExemption, forKey: .rothConversionExemption)
         try c.encode(capitalGainsTreatment, forKey: .capitalGainsTreatment)
+        // Omit the key entirely when empty (every jurisdiction except New
+        // York in this phase), rather than encode `[]`, so the key appears
+        // in New York's shipped file only -- Task 4's expected 51-file diff.
+        if !perSourceExemptions.isEmpty {
+            try c.encode(perSourceExemptions, forKey: .perSourceExemptions)
+        }
     }
 
     init(from decoder: Decoder) throws {
@@ -337,7 +344,9 @@ extension RetirementIncomeExemptions: Codable {
             agiPhaseout: try c.decodeIfPresent(AGIPhaseout.self, forKey: .agiPhaseout),
             rothConversionExemption: try c.decodeIfPresent(
                 RothConversionExemption.self, forKey: .rothConversionExemption),
-            capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal
+            capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal,
+            perSourceExemptions: try c.decodeIfPresent(
+                [RetirementIncomeExemptions.PerSourceExemptionRule].self, forKey: .perSourceExemptions) ?? []
         )
     }
 }
