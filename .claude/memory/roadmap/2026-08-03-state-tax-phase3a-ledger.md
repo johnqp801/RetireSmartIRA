@@ -294,3 +294,29 @@ Task 4: commits 5663949 + fix f87bb3f (base bea311a). Reviewed on opus, RE-REVIE
     agiPhaseout would hand back through Worksheet D what the phase-out took, because chartMax
     derives from the UNREDUCED level. Unreachable today (only NJ sets the exclusion, and it has
     no phase-out) but now recorded at the code rather than left to be rediscovered.
+  RE-REVIEW: spec OK, **Task quality APPROVED** (upgraded). Reviewer re-ran both engine mutations
+    itself: each now fails on exactly the test named for that branch, 2 issues each, nothing else
+    moving across 36 tests, and neither new test passes incidentally off the other's code path.
+    Enumerated the encoder line by line: 11 encode calls, 11 asserted, so the corrected title is
+    accurate. Also noted the fixture is now stronger than before in a way I had not asked for:
+    regularExemptionMinAge 65 and distributionMinAge 55 are the only two Int fields and are now
+    distinct, so a CodingKeys label swap between them is detectable, which it was not previously.
+  Reviewer re-derived all six new expectations from config alone and confirmed the mutant outputs
+    (4,300 and 5,800) independently corroborate them.
+
+  ** OPEN, NOW A PHASE 5 OBLIGATION IN THE SPEC (§3.4): the engine's filing-status flag is
+     unguarded at ALL THREE phase-out call sites, not one. Reviewer mutated all three to
+     `isMarried: false` at once and the full 36-test run stayed green, because every engine test
+     in Phase 3a is single-only. reduced()'s OWN single-vs-MFJ selection is pinned asymmetrically;
+     what is unpinned is that the engine hands it the right flag.
+     DELIBERATELY NOT CLOSED HERE, on the reviewer's reasoning: a synthetic MFJ test would be
+     thrown away, while all six target jurisdictions have real MFJ thresholds their golden
+     scenarios must pin anyway. Recorded in the spec as a REQUIREMENT rather than a hope: at least
+     one fifth-case scenario must be MFJ with income BETWEEN thresholdSingle and thresholdMFJ,
+     since only that band distinguishes the two. Virginia at 50k/75k is the natural carrier.
+     The mutant errs toward OVER-taxation (every married filer phases out at the single
+     threshold), so it would not trip a "this looks suspiciously good" check. **
+  Minor 9 (new, cosmetic): StateTaxCodableRoundTripTests.swift:186's cross-reference still says
+    "all nine fields" and points at the sibling now titled eleven. Same drift the fix exists to
+    end, six lines above the corrected fixture. FOLDED INTO TASK 5, which edits that file anyway.
+  Minor 8 not fixed: report prose off by one on a test count. Report-only, no code impact.

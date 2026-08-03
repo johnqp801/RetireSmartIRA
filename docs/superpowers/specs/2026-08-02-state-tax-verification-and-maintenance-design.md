@@ -150,6 +150,12 @@ Per jurisdiction, canonical scenarios whose expected state tax is derived from t
 
 States with an AGI phase-out (§3.3d) get a fifth case above the threshold, since for those the conversion itself destroys the exemption and that interaction is the one most likely to be modeled wrongly.
 
+**And at least one of those fifth cases must be MFJ with income between the two thresholds.** Added 2026-08-03 from the Phase 3a Task 4 review, which found this by mutation rather than by argument. The phase-out mechanism selects `thresholdSingle` or `thresholdMFJ` from an `isMarried` flag, and `reduced()`'s own selection is pinned asymmetrically. What is not pinned is that the ENGINE hands it the right flag: hardcoding `isMarried: false` at all three phase-out call sites leaves the entire Phase 3a suite green, because every engine test there is single-only.
+
+Only the band between `thresholdSingle` and `thresholdMFJ` distinguishes the two, so a scenario outside it proves nothing. Virginia is the natural carrier at $50,000 single against $75,000 married: an MFJ filer at $60,000 keeps the full $12,000 under the correct flag and drops to $2,000 under the mutant.
+
+The direction of the error is why this is worth an obligation rather than a note. The mutant makes every married filer phase out at the single threshold, so it errs toward OVER-taxation: Virginia's exclusion disappears $25,000 of income too early, and New Mexico's $8,000 vanishes at $28,501 of joint income instead of $51,001. Nothing about that looks suspicious on screen, which is precisely why a synthetic test was not written for it in Phase 3a and why a real golden scenario has to carry it.
+
 **Every golden scenario asserts against both the single-year path and the multi-year path.** I2, the Kansas multi-year drop and E8's SALT basis mismatch are one bug shape: the two paths disagree while each looks locally correct. A cross-path equality invariant across 51 jurisdictions converts that entire class from a user email into a failing test, and it generalizes to every dimension rather than just retirement exemptions.
 
 User-reported scenarios become permanent golden cases. Steve's Kansas figures and Jonggie F.'s PA scenario are the first two.
