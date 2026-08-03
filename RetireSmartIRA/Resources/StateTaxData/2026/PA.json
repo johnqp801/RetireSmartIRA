@@ -1,0 +1,52 @@
+{
+  "capitalLossesClassIsolated" : true,
+  "currentYearSafeHarborRate" : 0.9,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : true,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "full"
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : false,
+    "pensionExemption" : {
+      "kind" : "full"
+    },
+    "regularExemptionMinAge" : 0,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "flatRate",
+    "rate" : 1
+  },
+  "state" : "PA",
+  "stateDeduction" : {
+    "kind" : "none"
+  },
+  "taxSystem" : {
+    "kind" : "flat",
+    "rate" : 0.0307
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

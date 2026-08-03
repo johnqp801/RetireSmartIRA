@@ -1,0 +1,64 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.7,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "earlyAgeTier" : {
+      "level" : {
+        "kind" : "partial",
+        "maxExempt" : 35000
+      },
+      "maxAge" : 64,
+      "minAge" : 62
+    },
+    "exemptionAppliesPerIndividual" : true,
+    "iraWithdrawalExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 65000
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : true,
+    "pensionExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 65000
+    },
+    "regularExemptionMinAge" : 65,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "flatRate",
+    "rate" : 1
+  },
+  "state" : "GA",
+  "stateDeduction" : {
+    "kind" : "fixed",
+    "married" : 24000,
+    "single" : 12000
+  },
+  "taxSystem" : {
+    "kind" : "flat",
+    "rate" : 0.0539
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.8,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "none"
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : false,
+    "pensionExemption" : {
+      "kind" : "none"
+    },
+    "regularExemptionMinAge" : 0,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "flatRate",
+    "rate" : 1
+  },
+  "state" : "MA",
+  "stateDeduction" : {
+    "kind" : "none"
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "58E2AAE2-0402-4486-86D5-77A170556C03",
+        "rate" : 0.05,
+        "threshold" : 0
+      },
+      {
+        "id" : "5DFAB028-B304-4F9A-ACDA-6007588F55C6",
+        "rate" : 0.09,
+        "threshold" : 1107750
+      }
+    ],
+    "single" : [
+      {
+        "id" : "E9DCFB31-8FA2-4B86-9444-5EF7E1FED534",
+        "rate" : 0.05,
+        "threshold" : 0
+      },
+      {
+        "id" : "27DFACC9-E694-4BE1-97CE-992A22C44BDE",
+        "rate" : 0.09,
+        "threshold" : 1107750
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

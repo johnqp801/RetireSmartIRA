@@ -1,0 +1,177 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.8,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : true,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "steppedPhaseoutByFilingStatus",
+      "maxExemptMFJ" : 100000,
+      "maxExemptSingle" : 75000,
+      "tiers" : [
+        {
+          "mfjPercent" : 1,
+          "singlePercent" : 1,
+          "upperBound" : 100000
+        },
+        {
+          "mfjPercent" : 0.5,
+          "singlePercent" : 0.375,
+          "upperBound" : 125000
+        },
+        {
+          "mfjPercent" : 0.25,
+          "singlePercent" : 0.1875,
+          "upperBound" : 150000
+        },
+        {
+          "mfjPercent" : 0,
+          "singlePercent" : 0,
+          "upperBound" : "unbounded"
+        }
+      ]
+    },
+    "otherRetirementIncomeExclusion" : true,
+    "pensionAndIRAShareSingleCap" : true,
+    "pensionExemption" : {
+      "kind" : "steppedPhaseoutByFilingStatus",
+      "maxExemptMFJ" : 100000,
+      "maxExemptSingle" : 75000,
+      "tiers" : [
+        {
+          "mfjPercent" : 1,
+          "singlePercent" : 1,
+          "upperBound" : 100000
+        },
+        {
+          "mfjPercent" : 0.5,
+          "singlePercent" : 0.375,
+          "upperBound" : 125000
+        },
+        {
+          "mfjPercent" : 0.25,
+          "singlePercent" : 0.1875,
+          "upperBound" : 150000
+        },
+        {
+          "mfjPercent" : 0,
+          "singlePercent" : 0,
+          "upperBound" : "unbounded"
+        }
+      ]
+    },
+    "regularExemptionMinAge" : 62,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "mirrorsFederal"
+  },
+  "state" : "NJ",
+  "stateDeduction" : {
+    "kind" : "none"
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "95873C45-BA20-48A2-8677-27728A33F17B",
+        "rate" : 0.014,
+        "threshold" : 0
+      },
+      {
+        "id" : "DFD039AB-A99B-42B7-8FA9-B6CB9CEEFFBC",
+        "rate" : 0.0175,
+        "threshold" : 20000
+      },
+      {
+        "id" : "5214CD99-B56B-4686-AA5D-CB7766C06BDE",
+        "rate" : 0.0245,
+        "threshold" : 50000
+      },
+      {
+        "id" : "83B21C78-1695-4F00-A89A-2466752332DC",
+        "rate" : 0.035,
+        "threshold" : 70000
+      },
+      {
+        "id" : "8F97B97F-7143-4C19-B2C4-8172DEE17495",
+        "rate" : 0.05525,
+        "threshold" : 80000
+      },
+      {
+        "id" : "076B1814-04B3-4985-B79A-7519D3740289",
+        "rate" : 0.0637,
+        "threshold" : 150000
+      },
+      {
+        "id" : "5108DC70-62FC-4FE6-A826-0A88F00D7210",
+        "rate" : 0.0897,
+        "threshold" : 500000
+      },
+      {
+        "id" : "FF935907-D4AF-4E8C-B5FD-A452996B02C6",
+        "rate" : 0.1075,
+        "threshold" : 1000000
+      }
+    ],
+    "single" : [
+      {
+        "id" : "5B9E91C7-A5C7-47D9-BA5A-4D1A2C568F43",
+        "rate" : 0.014,
+        "threshold" : 0
+      },
+      {
+        "id" : "C37AEB3D-4454-4909-B9C5-8BAA4F564339",
+        "rate" : 0.0175,
+        "threshold" : 20000
+      },
+      {
+        "id" : "E6D16417-5136-4AD5-983F-FA949FB528D7",
+        "rate" : 0.035,
+        "threshold" : 35000
+      },
+      {
+        "id" : "8BFA0A41-6F5D-4A63-9CC0-C038D5B847D3",
+        "rate" : 0.05525,
+        "threshold" : 40000
+      },
+      {
+        "id" : "E4B027EE-0DAC-4CFE-BD55-1AB4A1A9BA0A",
+        "rate" : 0.0637,
+        "threshold" : 75000
+      },
+      {
+        "id" : "F2F8B74F-2254-433C-A3AD-F757F9AC104B",
+        "rate" : 0.0897,
+        "threshold" : 500000
+      },
+      {
+        "id" : "FC569460-1923-4EF6-AC6C-D9C72DCCA234",
+        "rate" : 0.1075,
+        "threshold" : 1000000
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

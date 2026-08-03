@@ -1,0 +1,97 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.9,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "none"
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : false,
+    "pensionExemption" : {
+      "kind" : "none"
+    },
+    "regularExemptionMinAge" : 0,
+    "socialSecurityExempt" : false
+  },
+  "safeHarborRule" : {
+    "kind" : "flatRate",
+    "rate" : 1
+  },
+  "state" : "VT",
+  "stateDeduction" : {
+    "kind" : "fixed",
+    "married" : 15700,
+    "single" : 7850
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "7CB77134-EF4E-4E06-B109-5365358681D6",
+        "rate" : 0.0335,
+        "threshold" : 0
+      },
+      {
+        "id" : "B8BF0334-C3CE-45DF-93B1-05F716536457",
+        "rate" : 0.066,
+        "threshold" : 80200
+      },
+      {
+        "id" : "55E2F9A7-505C-4FB7-B847-F38218C4F014",
+        "rate" : 0.076,
+        "threshold" : 194000
+      },
+      {
+        "id" : "88A18510-3CFE-4C8B-A68A-D0720439C16C",
+        "rate" : 0.0875,
+        "threshold" : 294600
+      }
+    ],
+    "single" : [
+      {
+        "id" : "0C5C7875-A6EC-4866-88C0-BDF1A1C71980",
+        "rate" : 0.0335,
+        "threshold" : 0
+      },
+      {
+        "id" : "4550E4EE-16FC-47E3-A7E4-4B9F1F4AB426",
+        "rate" : 0.066,
+        "threshold" : 47900
+      },
+      {
+        "id" : "9E3F6D77-DF4E-44F5-A08C-B5F4D152F3CB",
+        "rate" : 0.076,
+        "threshold" : 116000
+      },
+      {
+        "id" : "280A49E3-3EA1-47D4-9FDA-A7A25A5D4F43",
+        "rate" : 0.0875,
+        "threshold" : 242000
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

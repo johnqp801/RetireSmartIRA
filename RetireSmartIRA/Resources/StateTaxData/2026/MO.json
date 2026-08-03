@@ -1,0 +1,134 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.9,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "full"
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : false,
+    "pensionExemption" : {
+      "kind" : "full"
+    },
+    "regularExemptionMinAge" : 0,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "mirrorsFederal"
+  },
+  "state" : "MO",
+  "stateDeduction" : {
+    "kind" : "conformsToFederal"
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "6BDC3FD1-BF87-496D-8C90-BD43E9E180F3",
+        "rate" : 0,
+        "threshold" : 0
+      },
+      {
+        "id" : "79C32E51-F371-4B37-A7F8-7DAD86388AF6",
+        "rate" : 0.02,
+        "threshold" : 1348
+      },
+      {
+        "id" : "2827B990-6D2E-4411-BB79-2630BEC37AC9",
+        "rate" : 0.025,
+        "threshold" : 2696
+      },
+      {
+        "id" : "6E92EF9C-D7A6-41CA-B670-4689C180A944",
+        "rate" : 0.03,
+        "threshold" : 4044
+      },
+      {
+        "id" : "3D8DC05D-3B41-4722-AB29-80C5B7C44072",
+        "rate" : 0.035,
+        "threshold" : 5392
+      },
+      {
+        "id" : "3F46E8D6-F4C4-4130-9667-E2582FF61CC4",
+        "rate" : 0.04,
+        "threshold" : 6740
+      },
+      {
+        "id" : "2D1ED319-02D4-4BCA-96C1-24CAEE0982E0",
+        "rate" : 0.045,
+        "threshold" : 8088
+      },
+      {
+        "id" : "DD250E51-3532-460C-92F4-25DD5B12775A",
+        "rate" : 0.047,
+        "threshold" : 9436
+      }
+    ],
+    "single" : [
+      {
+        "id" : "4C8C9FA3-96E9-4A1E-AEED-9B1120DCD30B",
+        "rate" : 0,
+        "threshold" : 0
+      },
+      {
+        "id" : "E57ED552-1904-4292-A084-E2CCAA1BE3C8",
+        "rate" : 0.02,
+        "threshold" : 1348
+      },
+      {
+        "id" : "8EBA9C69-244B-4EE9-88C4-2F9133126B3F",
+        "rate" : 0.025,
+        "threshold" : 2696
+      },
+      {
+        "id" : "B92D8BA0-9BA0-4453-B376-76D150322C41",
+        "rate" : 0.03,
+        "threshold" : 4044
+      },
+      {
+        "id" : "0512734E-7107-4916-8237-EB5A7FF21EA7",
+        "rate" : 0.035,
+        "threshold" : 5392
+      },
+      {
+        "id" : "75D58867-FE05-48FC-98FF-0F2F8212837B",
+        "rate" : 0.04,
+        "threshold" : 6740
+      },
+      {
+        "id" : "F7426E10-9F52-42F7-A182-BEBA967EC783",
+        "rate" : 0.045,
+        "threshold" : 8088
+      },
+      {
+        "id" : "8AB0B612-9E7A-4209-AB8B-815A35EF0F74",
+        "rate" : 0.047,
+        "threshold" : 9436
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

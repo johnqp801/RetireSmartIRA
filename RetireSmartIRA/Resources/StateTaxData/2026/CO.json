@@ -1,0 +1,61 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.7,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "earlyAgeTier" : {
+      "level" : {
+        "kind" : "partial",
+        "maxExempt" : 20000
+      },
+      "maxAge" : 64,
+      "minAge" : 55
+    },
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 24000
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : true,
+    "pensionExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 24000
+    },
+    "regularExemptionMinAge" : 65,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "mirrorsFederal"
+  },
+  "state" : "CO",
+  "stateDeduction" : {
+    "kind" : "conformsToFederal"
+  },
+  "taxSystem" : {
+    "kind" : "flat",
+    "rate" : 0.044
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

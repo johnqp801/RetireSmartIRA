@@ -1,0 +1,105 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.9,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "none"
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : false,
+    "pensionExemption" : {
+      "kind" : "none"
+    },
+    "regularExemptionMinAge" : 0,
+    "socialSecurityExempt" : false
+  },
+  "safeHarborRule" : {
+    "kind" : "flatRate",
+    "rate" : 1
+  },
+  "state" : "NM",
+  "stateDeduction" : {
+    "kind" : "conformsToFederal"
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "6C50D908-1368-4780-A493-81DD2BF92D26",
+        "rate" : 0.017,
+        "threshold" : 0
+      },
+      {
+        "id" : "A4BEB162-D0E5-4388-BF90-3BC757193E96",
+        "rate" : 0.032,
+        "threshold" : 8000
+      },
+      {
+        "id" : "1DB6F48E-1E77-4DAF-9606-CE398482EF2F",
+        "rate" : 0.047,
+        "threshold" : 16000
+      },
+      {
+        "id" : "BC21D017-E151-4F8A-98B8-258BB8962C5F",
+        "rate" : 0.049,
+        "threshold" : 24000
+      },
+      {
+        "id" : "8AEB8747-AC54-45D5-9A79-F6010BE579DB",
+        "rate" : 0.059,
+        "threshold" : 315000
+      }
+    ],
+    "single" : [
+      {
+        "id" : "FAA998FE-4EAA-4B1A-9AFC-042135783BA3",
+        "rate" : 0.017,
+        "threshold" : 0
+      },
+      {
+        "id" : "9F6161EF-8995-4272-B8FE-B3BC7DA8F645",
+        "rate" : 0.032,
+        "threshold" : 5500
+      },
+      {
+        "id" : "F3762E5E-1EF9-4538-87FF-673AF67ECD44",
+        "rate" : 0.047,
+        "threshold" : 11000
+      },
+      {
+        "id" : "12A04976-614E-4B0C-B801-E35135994238",
+        "rate" : 0.049,
+        "threshold" : 16000
+      },
+      {
+        "id" : "B57677E8-89C8-47D4-9166-E5E5D6353CA0",
+        "rate" : 0.059,
+        "threshold" : 210000
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

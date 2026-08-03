@@ -1,0 +1,148 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.9,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : true,
+    "iraWithdrawalExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 20000
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : true,
+    "pensionExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 20000
+    },
+    "regularExemptionMinAge" : 59,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "mirrorsFederal"
+  },
+  "state" : "NY",
+  "stateDeduction" : {
+    "kind" : "fixed",
+    "married" : 16050,
+    "single" : 8000
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "9089C977-08F7-43F4-8159-C3DCD1CF2A87",
+        "rate" : 0.039,
+        "threshold" : 0
+      },
+      {
+        "id" : "6FC610A4-EE38-460C-A8E7-F2ACE932FDEB",
+        "rate" : 0.044,
+        "threshold" : 17150
+      },
+      {
+        "id" : "ED1BFE6C-CBA1-467D-9B09-C24548613A51",
+        "rate" : 0.0515,
+        "threshold" : 23600
+      },
+      {
+        "id" : "37D8CE6B-EA72-449D-A993-C34414D22CFD",
+        "rate" : 0.054,
+        "threshold" : 27900
+      },
+      {
+        "id" : "128E0DFB-A23C-4754-8AE5-B875B2B1E8C0",
+        "rate" : 0.059,
+        "threshold" : 161550
+      },
+      {
+        "id" : "738FD232-FC10-4BB7-B487-7F3D1597309C",
+        "rate" : 0.0685,
+        "threshold" : 323200
+      },
+      {
+        "id" : "79813408-B15A-457A-8735-4510845840E4",
+        "rate" : 0.0965,
+        "threshold" : 2155350
+      },
+      {
+        "id" : "A6011C48-C134-4905-A173-80284595903E",
+        "rate" : 0.103,
+        "threshold" : 5000000
+      },
+      {
+        "id" : "E47412FF-4D95-4BC9-8DFD-D7CF81FF48B8",
+        "rate" : 0.109,
+        "threshold" : 25000000
+      }
+    ],
+    "single" : [
+      {
+        "id" : "939D6346-4293-4F88-8EC7-51F5F3EF1146",
+        "rate" : 0.039,
+        "threshold" : 0
+      },
+      {
+        "id" : "B550373C-7C4D-44F4-940B-CB515E12FA1C",
+        "rate" : 0.044,
+        "threshold" : 8500
+      },
+      {
+        "id" : "F800A563-47CF-4CA6-911E-13EE7D72F090",
+        "rate" : 0.0515,
+        "threshold" : 11700
+      },
+      {
+        "id" : "36AFF0C4-3CD6-422D-BB98-52DC31D9A35F",
+        "rate" : 0.054,
+        "threshold" : 13900
+      },
+      {
+        "id" : "42CCE6EF-8B39-4196-B33A-DC813B36AD1C",
+        "rate" : 0.059,
+        "threshold" : 80650
+      },
+      {
+        "id" : "A1040051-485B-41CC-8A0A-AB6C2AAD9215",
+        "rate" : 0.0685,
+        "threshold" : 215400
+      },
+      {
+        "id" : "3745661E-16BE-467B-9B9B-35DA6AB2A381",
+        "rate" : 0.0965,
+        "threshold" : 1077550
+      },
+      {
+        "id" : "94D3C00A-C366-4F2B-BE71-3BDA0B2023A4",
+        "rate" : 0.103,
+        "threshold" : 5000000
+      },
+      {
+        "id" : "9F462BB7-2673-4F88-B561-A53813302A33",
+        "rate" : 0.109,
+        "threshold" : 25000000
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

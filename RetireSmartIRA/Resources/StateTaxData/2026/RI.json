@@ -1,0 +1,86 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.8,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "none"
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : false,
+    "pensionExemption" : {
+      "kind" : "none"
+    },
+    "regularExemptionMinAge" : 0,
+    "socialSecurityExempt" : false
+  },
+  "safeHarborRule" : {
+    "kind" : "mirrorsFederal"
+  },
+  "state" : "RI",
+  "stateDeduction" : {
+    "kind" : "fixed",
+    "married" : 22400,
+    "single" : 11200
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "3270D8F7-F62B-48D7-AEB5-5EDB8341DBE3",
+        "rate" : 0.0375,
+        "threshold" : 0
+      },
+      {
+        "id" : "7579B4D9-EBE5-4682-BD54-C6CCAD03425F",
+        "rate" : 0.0475,
+        "threshold" : 82050
+      },
+      {
+        "id" : "BE61F026-C90B-4ED2-A8EF-B636E8E713E5",
+        "rate" : 0.0599,
+        "threshold" : 186450
+      }
+    ],
+    "single" : [
+      {
+        "id" : "10F29ACD-D677-4043-84C7-350AB2614EF4",
+        "rate" : 0.0375,
+        "threshold" : 0
+      },
+      {
+        "id" : "D7D32F84-999B-49B3-A370-BA74A9B5C843",
+        "rate" : 0.0475,
+        "threshold" : 82050
+      },
+      {
+        "id" : "C84CF642-C85B-4A95-9A6C-DA3302F9F777",
+        "rate" : 0.0599,
+        "threshold" : 186450
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "capitalLossesClassIsolated" : false,
+  "currentYearSafeHarborRate" : 0.9,
+  "estimatedPaymentSchedule" : {
+    "q1Pct" : 0.25,
+    "q2Pct" : 0.25,
+    "q3Pct" : 0.25,
+    "q4Pct" : 0.25
+  },
+  "hsaContributionsTaxableForState" : false,
+  "otherPreTaxDeductionsTaxableForState" : false,
+  "pretax401kContributionsTaxableForState" : false,
+  "retirementExemptions" : {
+    "capitalGainsTreatment" : "followsFederal",
+    "exemptionAppliesPerIndividual" : false,
+    "iraWithdrawalExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 10000
+    },
+    "otherRetirementIncomeExclusion" : false,
+    "pensionAndIRAShareSingleCap" : false,
+    "pensionExemption" : {
+      "kind" : "partial",
+      "maxExempt" : 10000
+    },
+    "regularExemptionMinAge" : 0,
+    "socialSecurityExempt" : true
+  },
+  "safeHarborRule" : {
+    "kind" : "mirrorsFederal"
+  },
+  "state" : "SC",
+  "stateDeduction" : {
+    "kind" : "conformsToFederal"
+  },
+  "taxSystem" : {
+    "kind" : "progressive",
+    "married" : [
+      {
+        "id" : "98EE5D51-E345-47CC-BBF0-D7A0009BF2C9",
+        "rate" : 0.0199,
+        "threshold" : 0
+      },
+      {
+        "id" : "595C07DC-FAC6-4271-8D17-0C0C61D1CC89",
+        "rate" : 0.0521,
+        "threshold" : 30000
+      }
+    ],
+    "single" : [
+      {
+        "id" : "B1A17AB6-9832-40E6-90F9-3C5728A04DF0",
+        "rate" : 0.0199,
+        "threshold" : 0
+      },
+      {
+        "id" : "7B57F1AB-2764-4D22-9C39-DC611CFF5637",
+        "rate" : 0.0521,
+        "threshold" : 30000
+      }
+    ]
+  },
+  "traditionalIRAContributionsTaxableForState" : false,
+  "verification" : {
+    "billReferences" : [
+
+    ],
+    "knownLimitations" : [
+
+    ],
+    "lastVerified" : "",
+    "primarySources" : [
+
+    ]
+  }
+}

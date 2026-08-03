@@ -570,6 +570,16 @@ struct StateTaxCodableRoundTripTests {
             _ = try JSONDecoder().decode(StateTaxConfig.self, from: malformed)
         }
     }
+
+    @Test("Every StateSafeHarborRule used in the real config table round-trips")
+    func allConfiguredSafeHarborRulesRoundTrip() throws {
+        for (state, config) in StateTaxData.configs2026Legacy {
+            let data = try JSONEncoder().encode(config.safeHarborRule)
+            let decoded = try JSONDecoder().decode(StateSafeHarborRule.self, from: data)
+            #expect(decoded == config.safeHarborRule,
+                    "\(state.abbreviation) safe harbor rule lost in round trip")
+        }
+    }
 }
 
 extension RetirementIncomeExemptions.ExemptionLevel {

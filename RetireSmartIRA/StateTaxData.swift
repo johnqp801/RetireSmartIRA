@@ -473,7 +473,10 @@ struct StateTaxData {
 
     // MARK: No-Income-Tax States (9)
 
-    static let configs2026: [USState: StateTaxConfig] = {
+    /// The original hardcoded table. Retained through Phase 3 as the
+    /// equivalence oracle proving the JSON migration changed nothing.
+    /// Not the production path after Task 11.
+    static let configs2026Legacy: [USState: StateTaxConfig] = {
         var configs: [USState: StateTaxConfig] = [:]
 
         // ── No Income Tax States ──────────────────────────────────────────
@@ -2069,6 +2072,9 @@ struct StateTaxData {
 
         return configs
     }()
+
+    /// Temporary during Phase 1. Task 11 replaces this with the loader.
+    static var configs2026: [USState: StateTaxConfig] { configs2026Legacy }
 
     /// Look up configuration for a state. Falls back to California if not found.
     static func config(for state: USState) -> StateTaxConfig {
