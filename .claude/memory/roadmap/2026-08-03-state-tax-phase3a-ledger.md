@@ -416,3 +416,27 @@ Task 6: commit 9c1dbf7 (base 2ab03ab). Reviewed on opus: spec OK, **Approved wit
     (a) the shipped-data test pins PA's and IL's withheldPortionRemainsTaxable but not MS's;
     (b) MetamorphicPropertyTests.crossViewMatrix has no conversion-withholding case, so the
         mirror's GROSS branch (IL and MS) has zero coverage.
+Task 7: commit 9b44664 (base 108990b). Test-only, no production diff. Suite 1,656 ST + 503 XCTest.
+  INSTRUCTED TO MEASURE BEFORE WRITING, and that was the right call. Commenting out each of the
+  five Phase 3a fields' encode lines and running the targeted suites gave:
+    distributionMinAge      ALREADY GUARDED (2 failures)
+    exemptionAttribution    ALREADY GUARDED (2 failures)
+    agiPhaseout             ALREADY GUARDED (2 failures)
+    rothConversionExemption ALREADY GUARDED (2 failures)
+    personalExemption       SURVIVED, 70/70 green across all four suites including Layers A, B, C
+  So four of the five were already covered by the standing fixture rule added mid-phase, and only
+  ONE new test was written. The plan's Task 7 would have duplicated four existing guards; a
+  redundant assertion on a covered field is noise that makes the next reader trust the file less.
+  personalExemption survived for the reason Task 3's reviewer predicted: it lives on StateTaxConfig
+  rather than RetirementIncomeExemptions, Layer B cancels symmetrically because both sides omit it,
+  and Layer C reads the file on disk which still carries the key.
+
+  Task 6's two carried-over minors closed here rather than in a separate dispatch cycle:
+    (a) Mississippi's withheldPortionRemainsTaxable now pinned in the shipped-data test.
+    (b) crossViewMatrix extended with a withholding-mode dimension (existing 15 cases defaulted,
+        unchanged) plus IL and MS cases using .withheldFromConversion. This closes the GROSS-branch
+        coverage gap: no test previously computed an IL or MS breakdown with nonzero conversion
+        withholding, so half of DataManager's net-vs-gross ternary was unguarded. Proven by
+        mutating the mirror so the gross branch also subtracts withholding: both new cases failed,
+        everything else stayed green.
+  Every added test proven to discriminate by mutation, with pasted evidence.
