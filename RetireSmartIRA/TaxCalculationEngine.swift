@@ -351,9 +351,14 @@ struct TaxCalculationEngine {
         scenarioRothConversionAmount: Double = 0,
         scenarioRothConversionWithholdingAmount: Double = 0,
         postExemptionDeduction: Double = 0,
-        localIncomeTaxRate: Double = 0
+        localIncomeTaxRate: Double = 0,
+        /// Test-only seam. When non-nil, bypasses the `StateTaxData` lookup so a
+        /// caller can exercise this function against a specific configuration.
+        /// The Phase 1 equivalence gate uses it to run the JSON-loaded and legacy
+        /// tables through identical code. Production always passes nil.
+        configOverride: StateTaxConfig? = nil
     ) -> Double {
-        let config = StateTaxData.config(for: state)
+        let config = configOverride ?? StateTaxData.config(for: state)
         let spouseAge = currentYear - spouseBirthYear
         let exemptedIncome = applyRetirementExemptions(
             income: income,

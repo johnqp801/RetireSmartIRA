@@ -48,19 +48,32 @@ enum StateTaxDataLoader {
         return configs
     }
 
-    /// Loads and decodes a single jurisdiction's bundled file.
+    /// Locates a jurisdiction's bundled JSON file without decoding it.
     ///
     /// Filenames are `statetax-<year>-<ABBR>.json`, e.g. `statetax-2026-CA.json`.
     /// The target uses PBXFileSystemSynchronizedRootGroup (Xcode 16+), which
     /// flattens `Resources/StateTaxData/2026/` into the bundle root -- no
     /// subdirectory survives packaging -- so the year is folded into the
     /// filename itself rather than relied on as a `subdirectory:` argument.
-    static func loadConfig(for state: USState, taxYear: Int,
-                            bundle: Bundle = Bundle(for: BundleMarker.self)) throws -> StateTaxConfig {
+    ///
+    /// Exposed (rather than kept private inside `loadConfig`) so the Phase 1
+    /// key-completeness gate can inspect the raw top-level keys the encoder
+    /// actually wrote. Decoding through `StateTaxConfig` would silently fill
+    /// in a default for any key the encoder dropped, hiding exactly the
+    /// failure mode that gate exists to catch.
+    static func fileURL(for state: USState, taxYear: Int,
+                         bundle: Bundle = Bundle(for: BundleMarker.self)) throws -> URL {
         guard let url = bundle.url(forResource: "statetax-\(taxYear)-\(state.abbreviation)",
                                     withExtension: "json") else {
             throw LoadError.fileMissing(state: state, taxYear: taxYear)
         }
+        return url
+    }
+
+    /// Loads and decodes a single jurisdiction's bundled file.
+    static func loadConfig(for state: USState, taxYear: Int,
+                            bundle: Bundle = Bundle(for: BundleMarker.self)) throws -> StateTaxConfig {
+        let url = try fileURL(for: state, taxYear: taxYear, bundle: bundle)
         let data: Data
         do {
             data = try Data(contentsOf: url)
