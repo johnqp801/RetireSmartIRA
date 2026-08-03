@@ -596,7 +596,9 @@ Spec §3.1 and §4. New Jersey's personal exemption is a hardcoded function toda
 **Interfaces:**
 - Produces: `StatePersonalExemption` with `amount(filingStatus:enableSpouse:primaryAge:spouseAge:) -> Double`, and `StateTaxConfig.personalExemption: StatePersonalExemption?` (default `nil`). Task 8 adds its key to Layer C's optional set and regenerates NJ's file with it.
 
-**The exactness requirement:** `njPersonalExemptions` grants the spouse's amounts only when `filingStatus == .marriedFilingJointly && enableSpouse`. A filer on MFJ with no spouse configured gets the single amounts. `amount(...)` must reproduce that, which is why it takes `enableSpouse` rather than filing status alone. Baseline scenario "MFJ status but spouse disabled, 66" exists to catch getting this wrong.
+**The exactness requirement:** `njPersonalExemptions` grants the spouse's amounts only when `filingStatus == .marriedFilingJointly && enableSpouse`. A filer on MFJ with no spouse configured gets the single amounts. `amount(...)` must reproduce that, which is why it takes `enableSpouse` rather than filing status alone.
+
+**Know which test actually guards this, because it is not the obvious one.** The behavior baseline from Task 1 does NOT cover it. `calculateStateTax` never computes a personal exemption; it receives the finished figure as `postExemptionDeduction`, and the baseline passes that as a literal. So an `amount(...)` that keyed the spouse amounts off filing status alone, returning 4,000 where the old code returned 2,000, would leave all 1,020 baseline values untouched. The real guards are `NJOtherExclusionAndExemptionsTests`, which calls `njPersonalExemptions` directly and will exercise the new path once Step 7 makes it a delegating shim, and the Step 1 tests below. Write those two carefully; the phase gate will not save you here.
 
 - [ ] **Step 1: Write the failing test**
 
