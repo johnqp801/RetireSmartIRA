@@ -156,6 +156,23 @@ private struct EquivalenceScenario {
     /// multi-year engine (backlog I2). Phase 1 only proves the migration is
     /// faithful; I2 itself is corrected in Phase 5d.
     let postExemptionDeduction: Double
+    /// A `.pension`-typed `IncomeSource` amount, when > 0. Defaults to 0 so
+    /// the original 9 scenarios are unaffected.
+    ///
+    /// Every prior scenario passed `incomeSources: []`, which forces
+    /// `pensionIncome == 0` at `TaxCalculationEngine.swift`'s
+    /// `applyRetirementExemptions`, which in turn forces
+    /// `excludedAmount(eligibleIncome: 0, ...)` to return 0 for every state's
+    /// `pensionExemption` regardless of its configured cap or kind --
+    /// `min(0, anything)` is always 0. That left `pensionExemption`
+    /// completely unreached by Layer A for the 47 states where
+    /// `pensionAndIRAShareSingleCap == false`, and for Arizona, Maryland,
+    /// Maine, and Montana specifically -- whose ONLY non-`.none` exemption
+    /// field is `pensionExemption` -- essentially nothing beyond
+    /// `socialSecurityExempt` and `taxSystem` was exercised at all. This
+    /// field closes that: set on the scenario below, large enough to bind
+    /// New Jersey's $75,000 single-filer cap and each of AZ/MD/ME/MT's caps.
+    var pensionIncome: Double = 0
 }
 
 @Suite("PHASE 1 GATE: JSON configs are behaviorally identical to the legacy table")
@@ -163,7 +180,10 @@ struct StateTaxJSONEquivalenceTests {
 
     /// Deliberately spans the age, income and filing-status boundaries where
     /// the 2026-08-02 audit found defects, so the migration is proven across
-    /// the same surface those defects live on.
+    /// the same surface those defects live on. The final scenario carries a
+    /// `.pension`-typed `IncomeSource` specifically to reach `pensionExemption`
+    /// (see `EquivalenceScenario.pensionIncome`'s doc comment for why the
+    /// other 8 scenarios, all built with `incomeSources: []`, cannot).
     private static let scenarios: [EquivalenceScenario] = [
         .init(name: "modest single 67", income: 40_000, filingStatus: .single,
               taxableSocialSecurity: 12_000, retirementDistributions: 20_000, rothConversion: 0,
@@ -193,7 +213,18 @@ struct StateTaxJSONEquivalenceTests {
               primaryAge: 68, spouseAge: 68, postExemptionDeduction: 2_000),
         .init(name: "zero income", income: 0, filingStatus: .single,
               taxableSocialSecurity: 0, retirementDistributions: 0, rothConversion: 0,
-              primaryAge: 65, spouseAge: 65, postExemptionDeduction: 0)
+              primaryAge: 65, spouseAge: 65, postExemptionDeduction: 0),
+        // $80,000 pension income, age 65 (>= NJ's 62 minimum), total income
+        // $95,000 (inside NJ's first phaseout band, so its retained
+        // percentage is 100% and the $75,000 single cap is the only thing
+        // doing any clamping). $80,000 also exceeds AZ's $2,500, MD's
+        // $41,200, ME's $25,000, and MT's $4,640 caps, so this single
+        // scenario binds all five states' pensionExemption fields at once.
+        .init(name: "NJ pension cap binds; also exercises AZ/MD/ME/MT partial caps",
+              income: 95_000, filingStatus: .single,
+              taxableSocialSecurity: 0, retirementDistributions: 0, rothConversion: 0,
+              primaryAge: 65, spouseAge: 65, postExemptionDeduction: 0,
+              pensionIncome: 80_000)
     ]
 
     @Test("Every jurisdiction computes identical state tax from JSON and from the legacy table",
@@ -207,13 +238,16 @@ struct StateTaxJSONEquivalenceTests {
         }
 
         for scenario in Self.scenarios {
+            let incomeSources: [IncomeSource] = scenario.pensionIncome > 0
+                ? [IncomeSource(name: "Pension", type: .pension, annualAmount: scenario.pensionIncome)]
+                : []
             func stateTax(using config: StateTaxConfig) -> Double {
                 TaxCalculationEngine.calculateStateTax(
                     income: scenario.income,
                     forState: state,
                     filingStatus: scenario.filingStatus,
                     taxableSocialSecurity: scenario.taxableSocialSecurity,
-                    incomeSources: [],
+                    incomeSources: incomeSources,
                     currentAge: scenario.primaryAge,
                     enableSpouse: scenario.filingStatus == .marriedFilingJointly,
                     spouseBirthYear: 2026 - scenario.spouseAge,
@@ -254,6 +288,21 @@ struct StateTaxJSONEquivalenceTests {
 // bytes to match. If decode silently substituted a default or dropped a
 // field decode itself is aware of, the two objects diverge structurally
 // even when `calculateStateTax` cannot tell the difference.
+//
+// IMPORTANT -- this layer's validity depends on the encoder, and that
+// dependency is not symmetric with Layer C: an `encode(to:)` field drop
+// does not merely evade this layer, it BLINDS it for that field. Once a
+// key is missing from both re-encoded documents, a *simultaneous*
+// decode-side loss of the same field would also compare equal here --
+// there is nothing left on either side for the bytes to disagree about.
+// So encoder completeness is a PRECONDITION for this layer's validity, not
+// an independent, parallel concern the way it might first read. The
+// actual guard against an encode-side drop is the unit-level JSON-shape
+// assertions in `StateTaxCodableRoundTripTests.swift`
+// (`retirementExemptionsEncodesExpectedJSONShape`,
+// `stateTaxConfigEncodesExpectedJSONShape`,
+// `stateTaxConfigBooleanKeysAreMutuallyDistinguishable`), plus Layer C
+// below for the outermost `StateTaxConfig` keys specifically.
 
 @Suite("PHASE 1 GATE: Layer B, structural equivalence (decode is lossless)")
 struct StateTaxJSONStructuralEquivalenceTests {
@@ -309,21 +358,41 @@ struct StateTaxJSONStructuralEquivalenceTests {
     }
 }
 
-// MARK: - PHASE 1 GATE, Layer C: key completeness (encode is complete)
+// MARK: - PHASE 1 GATE, Layer C: file key completeness (the shipped data is complete)
 //
-// Layer B has a blind spot: a field that `encode(to:)` never writes at all
-// is absent from BOTH re-encoded documents and compares equal, so Layer B
-// cannot tell "correctly round-tripped" apart from "silently never
-// serialized." This layer closes it independently of Layer B, by reading
-// the real bundled file's raw top-level keys (not a decoded, default-filled
-// `StateTaxConfig`) and requiring the set to match exactly -- catching both
-// a key the encoder forgot and a stray key nothing consumes.
+// NAMING NOTE: this layer does NOT test the encoder, despite an earlier
+// version of this comment implying it did. It reads the CHECKED-IN, already
+// generated files from disk -- a code-only `encode(to:)` drop, with no
+// regeneration, leaves those files untouched and this layer green. What it
+// actually proves is that the 51 files that SHIP match the expected shape,
+// which is a distinct question from "the encoder is correct in isolation."
+//
+// The layer this closes a blind spot in is Layer B, which has one: a field
+// that `encode(to:)` never writes at all is absent from BOTH of Layer B's
+// re-encoded documents and compares equal, so Layer B cannot tell "correctly
+// round-tripped" apart from "silently never serialized." This layer closes
+// that independently, by reading the real bundled file's raw top-level keys
+// (not a decoded, default-filled `StateTaxConfig`) and requiring the set to
+// match exactly -- catching both a key the encoder forgot to write into the
+// shipped files and a stray key nothing consumes.
+//
+// The encoder's actual guard -- the thing that would catch a dropped
+// `encode(to:)` line before it ever reaches a generated file -- is the
+// unit-level JSON-shape assertions in `StateTaxCodableRoundTripTests.swift`:
+// `retirementExemptionsEncodesExpectedJSONShape`,
+// `stateTaxConfigEncodesExpectedJSONShape`, and
+// `stateTaxConfigBooleanKeysAreMutuallyDistinguishable`. Weakening or
+// deleting those tests would silently reopen the gap this layer's name
+// might otherwise suggest it covers.
 
-@Suite("PHASE 1 GATE: Layer C, key completeness (encode is complete)")
-struct StateTaxJSONKeyCompletenessTests {
+@Suite("PHASE 1 GATE: Layer C, file key completeness (the shipped data is complete)")
+struct StateTaxJSONFileKeyCompletenessTests {
 
-    /// Every top-level key `StateTaxConfig.encode(to:)` is expected to
-    /// write, taken from its `CodingKeys` in StateTaxCodable.swift.
+    /// Every top-level key expected in the SHIPPED, checked-in JSON files,
+    /// taken from `StateTaxConfig`'s `CodingKeys` in StateTaxCodable.swift.
+    /// This does not assert the encoder currently writes these keys (that is
+    /// `StateTaxCodableRoundTripTests.swift`'s job); it asserts the files on
+    /// disk today have them.
     private static let expectedTopLevelKeys: Set<String> = [
         "state", "taxSystem", "retirementExemptions", "stateDeduction",
         "estimatedPaymentSchedule", "safeHarborRule", "currentYearSafeHarborRate",
