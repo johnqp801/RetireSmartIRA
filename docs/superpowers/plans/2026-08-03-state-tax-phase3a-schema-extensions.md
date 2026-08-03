@@ -606,6 +606,25 @@ Spec §3.1 and §4. New Jersey's personal exemption is a hardcoded function toda
 **Interfaces:**
 - Produces: `StatePersonalExemption` with `amount(filingStatus:enableSpouse:primaryAge:spouseAge:) -> Double`, and `StateTaxConfig.personalExemption: StatePersonalExemption?` (default `nil`). Task 8 adds its key to Layer C's optional set and regenerates NJ's file with it.
 
+> **PLAN CORRECTION, 2026-08-03, found during implementation.** This task MUST also update
+> Layer C and regenerate the 51 JSON files, as its final steps. The original plan deferred all
+> regeneration to Task 8, which does not work here.
+>
+> Reason: `StateTaxData.config(for:)` resolves through the bundled JSON since Phase 1 Task 11.
+> New Jersey's legacy Swift config gains a NON-DEFAULT `personalExemption` in this task while
+> its JSON file does not, so the two diverge. Two things break as a result: New Jersey's
+> exemption silently regresses to $0 on the real production path, and the Phase 1 Layer B
+> structural gate correctly fails on New Jersey because the re-encoded configs no longer match.
+>
+> Do NOT paper over this with a fallback to `configs2026Legacy`. Phase 1 spent a whole task
+> removing exactly that kind of silent substitution, and its whole-branch review left standing
+> instructions to remove the one remaining fallback rather than add more. Regenerate instead.
+>
+> The same applies to **Task 6**, which gives Pennsylvania, Illinois and Mississippi non-default
+> `rothConversionExemption` values. Tasks 2, 4 and 5 add only defaults, so a JSON file lacking
+> their keys decodes to the same value the legacy config holds and Layer B stays green; those
+> three do not need to regenerate.
+
 **The exactness requirement:** `njPersonalExemptions` grants the spouse's amounts only when `filingStatus == .marriedFilingJointly && enableSpouse`. A filer on MFJ with no spouse configured gets the single amounts. `amount(...)` must reproduce that, which is why it takes `enableSpouse` rather than filing status alone.
 
 **Know which test actually guards this, because it is not the obvious one.** The behavior baseline from Task 1 does NOT cover it. `calculateStateTax` never computes a personal exemption; it receives the finished figure as `postExemptionDeduction`, and the baseline passes that as a literal. So an `amount(...)` that keyed the spouse amounts off filing status alone, returning 4,000 where the old code returned 2,000, would leave all 1,020 baseline values untouched. The real guards are `NJOtherExclusionAndExemptionsTests`, which calls `njPersonalExemptions` directly and will exercise the new path once Step 7 makes it a delegating shim, and the Step 1 tests below. Write those two carefully; the phase gate will not save you here.
@@ -1388,6 +1407,12 @@ Spec §3.3b. `TaxCalculationEngine.swift:687-695` is a hardcoded `switch state` 
 - Modify: `RetireSmartIRA/TaxCalculationEngine.swift` (delete the `switch state`)
 - Test: `RetireSmartIRATests/StateTaxPhase3aMechanismTests.swift`
 
+> **PLAN CORRECTION, 2026-08-03.** Like Task 3, this task gives real states non-default values
+> in the legacy Swift table, so it MUST regenerate the 51 JSON files as its final step or the
+> Phase 1 Layer B structural gate fails on PA, IL and MS, and their conversion exemptions
+> regress on the production path. Layer C needs no change here: `rothConversionExemption` is
+> nested inside `retirementExemptions`, not a new top-level key.
+
 **Interfaces:**
 - Produces: `RothConversionExemption` and `RetirementIncomeExemptions.rothConversionExemption: RothConversionExemption?` (default `nil`, meaning conversion income is taxable, which is 48 jurisdictions' behavior).
 
@@ -1687,6 +1712,14 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && git 
 ---
 
 ### Task 8: Layer C required-vs-optional keys, and regenerate the 51 files
+
+> **PLAN CORRECTION, 2026-08-03.** Tasks 3 and 6 now do the Layer C change and their own
+> regenerations, because each introduces non-default legacy values that break Layer B until the
+> files are regenerated. What remains here is a FINAL regeneration and verification pass:
+> regeneration is deterministic, so if Tasks 3 to 6 each regenerated correctly this task should
+> produce NO file change at all. An empty diff here is the expected outcome and is itself the
+> evidence. A non-empty diff means a task skipped its regeneration; investigate rather than
+> just committing it.
 
 `personalExemption` is the first optional top-level key, so `StateTaxJSONFileKeyCompletenessTests` cannot keep asserting one exact set for all 51 files.
 
