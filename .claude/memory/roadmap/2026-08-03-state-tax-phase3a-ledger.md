@@ -172,3 +172,54 @@ Task 2: commits 39fefbe + fix cf680ce (base cdd66e2). Reviewed on sonnet, RE-REV
      working tree is not mine to sweep. (1) NEVER `git add -A` here; stage explicit paths.
      (2) NEVER commit while a review or fix agent is in flight. Wait for its notification.
      A commit that lands during a mutation window looks exactly like a legitimate commit. **
+Task 3: commits 85c996f + fix 8ae4fd7 + fix f193c54 (base ee38d37). Reviewed on opus, RE-REVIEW IN FLIGHT.
+  StatePersonalExemption + StateTaxConfig.personalExemption. NJ moved off the hardcoded
+  njPersonalExemptions onto config data. Suite 1,632 ST in 278 suites + 503 XCTest.
+  Baseline held 1,020 values; cross-path pins held 42.0 / 200.40469973890345.
+
+  ** MY PLAN'S BIGGEST DEFECT SO FAR, found by the implementer mid-task. The plan deferred ALL
+     JSON regeneration to Task 8. That is wrong for any task that gives a real state a
+     NON-DEFAULT value. StateTaxData.config(for:) resolves through the bundled JSON since
+     Phase 1 Task 11, so NJ's exemption living only in the legacy Swift table meant
+     config.personalExemption returned nil and NJ's exemption SILENTLY REGRESSED TO $0 on the
+     production path, while the Phase 1 Layer B structural gate correctly went red.
+     The implementer diagnosed it and refused to ship the regression. Its workaround (fall back
+     to configs2026Legacy at three sites) was REJECTED: Phase 1 spent a whole task removing
+     exactly that silent substitution and its whole-branch review left standing instructions to
+     REMOVE the remaining fallback, not add more. Correct fix = regenerate the JSON, done in
+     8ae4fd7. All three fallbacks gone (grep confirms 0 in DataManager and TaxCalculationEngine).
+     PLAN RULE ADDED @ 7b85689: a task that gives real states non-default values regenerates its
+     own JSON. Applies to Task 3 (NJ) and TASK 6 (PA/IL/MS). Tasks 2, 4, 5 add only defaults, so
+     a file lacking their keys decodes to the same value and Layer B stays green. **
+
+  REVIEWER'S IMPORTANT CATCH, fixed in f193c54: GoldenScenarioSingleYearTests still contained
+     `state == .newJersey ? njPersonalExemptions(...) : 0`, the exact hardcoded branch Task 3
+     deleted from production, with a comment claiming it "mirrors DataManager exactly". It no
+     longer did. Failure mode: Phase 5a gives Kansas an exemption, production picks it up from
+     config with no code change, this helper keeps passing 0, and BOTH sides of the cross-path
+     comparison agree by being wrong the same way. That is the precise failure the file's own
+     doc comment warns about three lines above the offending code.
+     DISCRIMINATION PROVEN with real numbers, not reasoning: with Kansas temporarily given an
+     exemption, the old helper returned 0.0 and the new one 9,160.0, and singleYearStateTax
+     returned 4,423.472 (new) versus 4,934.6 (old). Kansas fully reverted, config and JSON both.
+
+  Reviewer verified the exactness requirement cell by cell against the pre-change source: all
+    eight combinations of hasSpouse x primary-age x spouse-age agree, and both DataManager call
+    sites pass a character-identical argument list to what the old code passed.
+  Reviewer MUTATION-CONFIRMED which test guards it, and it is only ONE: keying the spouse
+    amounts off filing status alone fails ONLY personalExemptionIgnoresMFJWithoutASpouse. The
+    1,020-value baseline, all four NJOtherExclusionAndExemptionsTests exemption cases and both
+    cross-path pins stay GREEN. NJOtherExclusionAndExemptionsTests is NOT a guard for that
+    defect: every one of its cases is single+false or MFJ+true, never MFJ with no spouse.
+  Minor fixed in f193c54: NJ's seniorAge was only loosely pinned. The existing tests constrain
+    it no better than "somewhere in 62 to 65", so setting it to 63 would have handed every NJ
+    filer aged 63 or 64 a $1,000 exemption with no test failing. Now pinned against the CONFIG
+    rather than against a hand-built fixture duplicating it.
+
+  ** CARRY INTO TASK 7 (reviewer mutation, still open by design): commenting out
+     `try c.encodeIfPresent(personalExemption, ...)` in StateTaxCodable leaves the ENTIRE suite
+     green, including Layers A, B and C. Layer B cancels symmetrically (both sides omit it) and
+     Layer C reads the file on disk, which still has the key. StatePersonalExemption is also the
+     only nested Codable type in this schema with no dedicated round-trip test. Task 7 exists to
+     close exactly this and its brief already specifies personalExemptionEncodingIsConditional.
+     VERIFY Task 7 actually discriminates here rather than assuming. **
