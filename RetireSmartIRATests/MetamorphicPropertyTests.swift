@@ -67,7 +67,8 @@ struct MetamorphicPropertyTests {
                             age: Int,
                             extraWithdrawal: Double = 0,
                             rothConversion: Double = 0,
-                            wages: Double = 0) -> DataManager {
+                            wages: Double = 0,
+                            rothConversionWithholdingMode: RothConversionWithholdingMode = .paidFromOutside) -> DataManager {
         let dm = DataManager(skipPersistence: true)
         let birthYear = 2026 - age
         var dob = DateComponents(); dob.year = birthYear; dob.month = 1; dob.day = 1
@@ -78,6 +79,7 @@ struct MetamorphicPropertyTests {
         dm.filingStatus = .single
         dm.yourExtraWithdrawal = extraWithdrawal
         dm.yourRothConversion = rothConversion
+        dm.rothConversionWithholdingMode = rothConversionWithholdingMode
         if wages > 0 {
             dm.incomeSources.append(
                 IncomeSource(name: "Wages", type: .consulting, annualAmount: wages, owner: .primary)
@@ -277,25 +279,53 @@ struct MetamorphicPropertyTests {
 
     // MARK: - Engine plumbing invariants (cross-view audit lock-in)
 
-    /// (State, extraWithdrawal, rothConversion) parameter triples for #16/#17.
-    /// 5 states × 3 scenarios = 15 combinations each.
-    static let crossViewMatrix: [(USState, Double, Double)] = {
+    /// (State, extraWithdrawal, rothConversion, rothConversionWithholdingMode)
+    /// parameter tuples for #16/#17. 5 states × 3 scenarios = 15 base
+    /// combinations, each with withholding off, plus two withholding-on
+    /// cases appended below (Task 7, item b).
+    static let crossViewMatrix: [(USState, Double, Double, RothConversionWithholdingMode)] = {
         let states: [USState] = [.pennsylvania, .illinois, .newYork, .california, .georgia]
         let scenarios: [(Double, Double)] = [
             (0, 50_000),         // pure conversion
             (50_000, 0),         // pure withdrawal
             (37_000, 69_000),    // Jonggie-style mixed
         ]
-        return states.flatMap { s in scenarios.map { (s, $0.0, $0.1) } }
+        let base = states.flatMap { s in
+            scenarios.map { (s, $0.0, $0.1, RothConversionWithholdingMode.paidFromOutside) }
+        }
+        // IL and MS exempt the GROSS Roth conversion regardless of
+        // withholding (withheldPortionRemainsTaxable == false in their
+        // shipped config; see StateTaxPhase3aMechanismTests.
+        // onlyThreeStatesCarryAConversionExemption). Every combination above
+        // leaves rothConversionWithholdingMode at .paidFromOutside, so
+        // scenarioRothConversionWithholdingAmount is always $0 there and the
+        // GROSS branch of the net-vs-gross ternary -- in both
+        // TaxCalculationEngine.applyRetirementExemptions and its mirror in
+        // DataManager.stateTaxBreakdown -- is indistinguishable from the
+        // withheld-portion-taxable branch: gross minus $0 equals gross
+        // either way. These two cases set nonzero withholding on IL and MS
+        // specifically, so a regression that made either implementation
+        // subtract the withheld amount on the GROSS side would show up as a
+        // P17 mismatch between the two independently-written
+        // implementations (P16 cannot catch this one: calculateStateTaxFromGross
+        // does not take a withholding argument at all, so both sides of P16
+        // stay in agreement regardless of this branch).
+        let withholdingCases: [(USState, Double, Double, RothConversionWithholdingMode)] = [
+            (.illinois, 0, 50_000, .withheldFromConversion),
+            (.mississippi, 0, 50_000, .withheldFromConversion)
+        ]
+        return base + withholdingCases
     }()
 
     /// Property 16: scenarioStateTax == calculateStateTaxFromGross(... full args).
     @Test("P16: scenarioStateTax matches calculateStateTaxFromGross across states/scenarios",
           arguments: crossViewMatrix)
-    func p16_stateTaxMatchesGrossHelper(state: USState, extraWithdrawal: Double, rothConversion: Double) {
+    func p16_stateTaxMatchesGrossHelper(state: USState, extraWithdrawal: Double, rothConversion: Double,
+                                        withholdingMode: RothConversionWithholdingMode) {
         let dm = makeSingle(state: state, age: 65,
                             extraWithdrawal: extraWithdrawal,
-                            rothConversion: rothConversion)
+                            rothConversion: rothConversion,
+                            rothConversionWithholdingMode: withholdingMode)
         let scenarioTax = dm.scenarioStateTax
         let listTax = dm.calculateStateTaxFromGross(
             grossIncome: dm.scenarioGrossIncome,
@@ -310,19 +340,21 @@ struct MetamorphicPropertyTests {
             scenarioRothConversionAmount: dm.scenarioTotalRothConversion
         )
         #expect(abs(scenarioTax - listTax) < 1.0,
-                "\(state.rawValue) extraW=\(extraWithdrawal) conv=\(rothConversion): scenarioStateTax=\(scenarioTax) listTax=\(listTax)")
+                "\(state.rawValue) extraW=\(extraWithdrawal) conv=\(rothConversion) withholding=\(withholdingMode): scenarioStateTax=\(scenarioTax) listTax=\(listTax)")
     }
 
     /// Property 17: stateTaxBreakdown.totalStateTax == scenarioStateTax.
     @Test("P17: stateTaxBreakdown.totalStateTax matches scenarioStateTax",
           arguments: crossViewMatrix)
-    func p17_breakdownMatchesScenarioStateTax(state: USState, extraWithdrawal: Double, rothConversion: Double) {
+    func p17_breakdownMatchesScenarioStateTax(state: USState, extraWithdrawal: Double, rothConversion: Double,
+                                              withholdingMode: RothConversionWithholdingMode) {
         let dm = makeSingle(state: state, age: 65,
                             extraWithdrawal: extraWithdrawal,
-                            rothConversion: rothConversion)
+                            rothConversion: rothConversion,
+                            rothConversionWithholdingMode: withholdingMode)
         let breakdown = dm.stateTaxBreakdown(forState: state, filingStatus: dm.filingStatus)
         #expect(abs(breakdown.totalStateTax - dm.scenarioStateTax) < 1.0,
-                "\(state.rawValue) extraW=\(extraWithdrawal) conv=\(rothConversion): breakdown=\(breakdown.totalStateTax) scenarioStateTax=\(dm.scenarioStateTax)")
+                "\(state.rawValue) extraW=\(extraWithdrawal) conv=\(rothConversion) withholding=\(withholdingMode): breakdown=\(breakdown.totalStateTax) scenarioStateTax=\(dm.scenarioStateTax)")
     }
 
     // MARK: - Roth conversion math

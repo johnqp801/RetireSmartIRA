@@ -525,6 +525,63 @@ struct StateTaxCodableRoundTripTests {
         #expect(safeHarbor["rate"] as? Double == 1.10)
     }
 
+    @Test("personalExemption appears in encoded StateTaxConfig JSON when present, and is absent when nil")
+    func personalExemptionEncodingIsConditional() throws {
+        // personalExemption lives on StateTaxConfig, not on
+        // RetirementIncomeExemptions, so it is NOT covered by
+        // retirementExemptionsEncodesExpectedJSONShape above. Confirmed by
+        // mutation during Task 7: commenting out
+        // `try c.encodeIfPresent(personalExemption, forKey: .personalExemption)`
+        // in StateTaxCodable.swift left the entire suite green, Layers A
+        // (round trip), B (JSON shape), and C (shipped-file) included --
+        // Layer B cancels symmetrically because both the encoded and expected
+        // sides omit the field, and Layer C reads the file on disk, which
+        // still carries the key regardless of what the encoder does. This
+        // test closes that gap the same way stateTaxConfigEncodesExpectedJSONShape
+        // closes it for the config's other fields: by inspecting the raw
+        // encoded JSON dictionary directly.
+        let withExemption = StateTaxConfig(
+            state: .newJersey, taxSystem: .flat(rate: 0.05),
+            retirementExemptions: RetirementIncomeExemptions(),
+            stateDeduction: .none,
+            personalExemption: StatePersonalExemption(
+                single: 1_000, marriedFilingJointly: 2_000,
+                seniorAdditionalPerFiler: 1_000, seniorAge: 65))
+        let present = try #require(try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(withExemption)) as? [String: Any])
+        let exemption = try #require(present["personalExemption"] as? [String: Any])
+        // marriedFilingJointly (2_000) and seniorAge (65) are each unique
+        // values in this fixture, so a swap involving either is visible.
+        // single and seniorAdditionalPerFiler are BOTH 1_000 here, so a swap
+        // between those two specifically would produce byte-identical JSON --
+        // this test alone cannot tell them apart (the same pigeonhole
+        // argument retirementExemptionsBooleanKeysAreMutuallyDistinguishable
+        // and stateTaxConfigBooleanKeysAreMutuallyDistinguishable make above
+        // for same-valued Bool fields, here for two same-valued Doubles).
+        // That gap is acceptable only because a single/seniorAdditionalPerFiler
+        // swap is caught BEHAVIORALLY by
+        // StateTaxPhase3aMechanismTests.personalExemptionSeniorIsPerFiler,
+        // which asserts 3,000 for a household where one spouse is 66 and the
+        // other 60 -- a result only reachable when seniorAdditionalPerFiler
+        // (not single) is added on top of marriedFilingJointly.
+        #expect(exemption["single"] as? Double == 1_000)
+        #expect(exemption["marriedFilingJointly"] as? Double == 2_000)
+        #expect(exemption["seniorAdditionalPerFiler"] as? Double == 1_000)
+        #expect(exemption["seniorAge"] as? Int == 65)
+
+        let without = StateTaxConfig(
+            state: .kansas, taxSystem: .flat(rate: 0.05),
+            retirementExemptions: RetirementIncomeExemptions(),
+            stateDeduction: .none)
+        let absent = try #require(try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(without)) as? [String: Any])
+        #expect(absent["personalExemption"] == nil,
+                """
+                a nil personal exemption must omit the key, not write null, \
+                so 50 files stay free of a key they do not need
+                """)
+    }
+
     @Test("Three fixtures make every pair of StateTaxConfig's five Bool fields mutually distinguishable")
     func stateTaxConfigBooleanKeysAreMutuallyDistinguishable() throws {
         // StateTaxConfig has FIVE Bool fields. Two fixtures give each field

@@ -586,6 +586,7 @@ struct StateTaxPhase3aMechanismTests {
         // PA is the only one whose withheld portion stays taxable.
         #expect(withExemption[.pennsylvania]?["withheldPortionRemainsTaxable"] as? Bool == true)
         #expect(withExemption[.illinois]?["withheldPortionRemainsTaxable"] as? Bool == false)
+        #expect(withExemption[.mississippi]?["withheldPortionRemainsTaxable"] as? Bool == false)
         // No state is age-gated yet, so a stray default of 59 would be visible.
         for (state, json) in withExemption {
             #expect(json["minAge"] as? Int == 0, "\(state.abbreviation) minAge should be 0")
