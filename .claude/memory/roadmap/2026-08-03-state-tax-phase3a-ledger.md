@@ -147,3 +147,28 @@ Task 2: commits 39fefbe + fix cf680ce (base cdd66e2). Reviewed on sonnet, RE-REV
     than assuming, found edits uncommitted and production source correctly restored, and
     resumed it with an instruction to run in the foreground. Do not let subagents background
     their own verification runs.
+
+## CONTROLLER ERROR, caught by the reviewer, fixed at a75d8eb
+  I ran `git add -A && git commit` in this worktree WHILE the Task 2 reviewer was mid-mutation,
+  and it swept the reviewer's temporary revert of
+  `return age >= exemptions.distributionMinAge` -> `return age >= 59` into commit b22270c,
+  under a message reading "docs(ledger)". HEAD genuinely carried the regression: the very fix
+  Task 2 had just added was silently undone, and the commit label gave no hint.
+  Timestamps confirm the race: the reviewer's xcodebuild started 01:45:29, b22270c is 01:45:30.
+
+  FOUND BY: the reviewer, which noticed HEAD was not the SHA it expected and read the commit.
+  It restored the correct line in the working tree and deliberately did NOT commit, since the
+  history was not its to rewrite. Correct call.
+
+  FIXED: amended b22270c with the restoration staged, so the commit's tree now equals cf680ce
+  plus the ledger only. Verified `git diff cf680ce HEAD --stat` shows the ledger file alone,
+  working tree clean, and the mechanism + baseline suites green on the correct tree.
+  b22270c is superseded by a75d8eb; any earlier reference to b22270c means a75d8eb.
+  AUDITED the other five doc commits (db0977e, 00b3838, ecb3f16, 18c70b0, cdd66e2): all clean,
+  no stray hunks. Only b22270c was contaminated.
+
+  ** PROCESS CHANGE, binding for the rest of this phase: reviewers and fix agents MUTATE
+     PRODUCTION FILES in this shared worktree as their primary verification method, so the
+     working tree is not mine to sweep. (1) NEVER `git add -A` here; stage explicit paths.
+     (2) NEVER commit while a review or fix agent is in flight. Wait for its notification.
+     A commit that lands during a mutation window looks exactly like a legitimate commit. **
