@@ -141,11 +141,39 @@ struct StateTaxJSONLoaderTests {
 
     @Test("config(for:) reads JSON, not the legacy table")
     func productionPathUsesJSON() throws {
+        // What this test can and cannot show: all 51 generated JSON files
+        // carry exactly `.unverified`, and the legacy table's initializer
+        // also defaults `verification` to `.unverified`, so a value-based
+        // comparison of `.verification` (or any other field) cannot tell
+        // JSON and legacy apart here -- both sides produce `.unverified ==
+        // .unverified` regardless of which table actually served the
+        // config. That is by design, not a test gap: the Phase 1 gate's
+        // whole purpose (StateTaxJSONEquivalenceTests, this file) is
+        // proving JSON and legacy compute identical values, so no
+        // value-based assertion can ever distinguish which one supplied a
+        // given config. The real evidence that `config(for:)` reads JSON is
+        // by inspection: `StateTaxData.configs2026` is a one-line accessor
+        // onto `StateTaxDataLoader.configs2026` (StateTaxData.swift), not a
+        // copy or a re-derivation.
         let iowa = StateTaxData.config(for: .iowa)
         #expect(iowa.state == .iowa)
-        // The loader populates verification metadata; the legacy table cannot.
+
+        // What this test DOES verify: config(for:) resolves every state to
+        // itself and returns a well-formed config (checked via the JSON
+        // loader's own output for the same state, so the two calls agree on
+        // shape even though they cannot be told apart by value).
         let jsonIowa = try StateTaxDataLoader.load(taxYear: 2026)[.iowa]
         #expect(iowa.verification == jsonIowa?.verification)
+
+        // Genuine, non-vacuous evidence that the loader path actually ran
+        // and succeeded (rather than merely being present in the source):
+        // force the static initializer, then assert no per-state fallback
+        // occurred. This cannot exclude the accessor being rewired to some
+        // other source, but it does prove the JSON load path executed and
+        // read all 51 jurisdictions without falling back.
+        _ = StateTaxDataLoader.configs2026
+        #expect(StateTaxDataLoader.legacyFallbackFired == false,
+                "the JSON load path ran and succeeded for all 51 jurisdictions")
     }
 
     @Test("config(for:) no longer substitutes California for an unknown state")
@@ -161,11 +189,17 @@ struct StateTaxJSONLoaderTests {
     func legacyFallbackDidNotFireInNormalOperation() {
         // The bundled JSON is well-formed in this environment, so the
         // release-path fallback to configs2026Legacy should never engage.
-        // This exercises that the flag is wired into the real static-let
-        // initializer, not just declared. The fallback-firing branch
-        // itself cannot be exercised here: it starts with a debug
-        // assertionFailure, which traps the test process by design (see
+        // Swift Testing parallelizes tests, so reading the flag alone would
+        // be vacuous if nothing else happened to force configs2026's
+        // static-let initializer first: an untouched loader also reads
+        // `false`, and the test would pass proving nothing. Forcing the
+        // initializer here is what makes this a real exercise of the flag
+        // being wired into the real static-let initializer, not just
+        // declared. The fallback-firing branch itself still cannot be
+        // exercised here: it starts with a debug assertionFailure, which
+        // traps the test process by design (see
         // StateTaxDataLoader.configs2026's doc comment).
+        _ = StateTaxDataLoader.configs2026
         #expect(StateTaxDataLoader.legacyFallbackFired == false)
     }
 
@@ -371,6 +405,16 @@ struct StateTaxJSONEquivalenceTests {
 // `stateTaxConfigEncodesExpectedJSONShape`,
 // `stateTaxConfigBooleanKeysAreMutuallyDistinguishable`), plus Layer C
 // below for the outermost `StateTaxConfig` keys specifically.
+//
+// One more nuance worth recording here: encode-side completeness for 3 of
+// the 13 top-level keys -- `taxSystem`, `retirementExemptions`, and
+// `stateDeduction` -- currently rests on `StateTaxConfig.init(from:)` using
+// required `c.decode(...)` for those three (StateTaxCodable.swift), not on
+// any shape assertion, so a missing key throws instead of silently
+// defaulting. A future maintainer relaxing those three to
+// `decodeIfPresent(...) ?? someDefault`, matching every other field in that
+// initializer, would remove the only guard for those keys without any test
+// here failing.
 
 @Suite("PHASE 1 GATE: Layer B, structural equivalence (decode is lossless)")
 struct StateTaxJSONStructuralEquivalenceTests {

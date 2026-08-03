@@ -166,6 +166,19 @@ enum StateTaxDataLoader {
     /// equivalence gate for 2027 before this fallback can be trusted on the
     /// same reasoning.
     ///
+    /// Scoping this to "tax year 2026" names the wrong invalidation event,
+    /// though. This fallback is safe only while the JSON and
+    /// `configs2026Legacy` remain equivalent, which the Phase 1 gate proves
+    /// TODAY -- and it is Phase 5, not a tax-year rollover, that breaks that
+    /// equivalence first. Phase 5 corrects wrong tax values in the JSON for
+    /// this SAME tax year 2026. From the first such correction,
+    /// `configs2026Legacy` holds known-wrong data for those states, and this
+    /// fallback would serve it in production while the gate itself (which
+    /// compares JSON against that same now-wrong legacy table) stops being a
+    /// tripwire for exactly the states it was corrected for. At that point
+    /// the fallback must be removed or re-pointed at a corrected source, not
+    /// merely re-scoped to a later year.
+    ///
     /// In debug builds, `assertionFailure` still traps immediately so a
     /// broken bundle is impossible to miss during development; the fallback
     /// only reaches production because `assertionFailure` compiles to a
