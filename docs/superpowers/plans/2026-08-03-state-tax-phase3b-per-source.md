@@ -16,7 +16,7 @@
 
 Every task's requirements implicitly include this section.
 
-- **Only New York's numbers may move, and only in Tasks 4 and 5.** Task 3 activates no new owner behavior: components carry `owner` so a later phase can correct per-spouse attribution, but that correction is NOT part of this phase and bundling it would destroy the ability to prove New York's rule caused the movement. Tasks 1, 2, 3, 5 and 6 are behavior-inert. The Phase 3a frozen baseline (`RetireSmartIRATests/StateTaxBehaviorBaselineTests.swift`, 51 jurisdictions x 20 scenarios) is the gate. Never edit it or its fixture. If it goes red outside Task 4, your change is the defect.
+- **Only New York's numbers may move.** The frozen baseline may move in **Task 4 only**, since it exercises `TaxCalculationEngine.calculateStateTax` directly. Task 5 moves New York's MULTI-YEAR figure, which the baseline does not cover. Task 3 activates no new owner behavior: components carry `owner` so a later phase can correct per-spouse attribution, but that correction is NOT part of this phase and bundling it would destroy the ability to prove New York's rule caused the movement. Tasks 1, 2, 3, 6 and 7 are behavior-inert. The Phase 3a frozen baseline (`RetireSmartIRATests/StateTaxBehaviorBaselineTests.swift`, 51 jurisdictions x 20 scenarios) is the gate. Never edit it or its fixture. If it goes red outside Task 4, your change is the defect.
 - **Never edit `RetireSmartIRA.xcodeproj/project.pbxproj`.** Both source roots are `PBXFileSystemSynchronizedRootGroup`, so new files are bundled automatically. If you think you need to, stop and report BLOCKED.
 - **No em dash characters** anywhere in code, comments, tests, JSON or commit messages. The Phase 3a gate caught four that slipped through six task reviews.
 - **Sync the DataManager mirror in the same commit.** `DataManager.stateTaxBreakdown` hand-duplicates `TaxCalculationEngine.applyRetirementExemptions`. On Phase 3a alone, five changes landed in the engine and not the mirror, two of them found only by the final review. **Before calling any engine task done, run `grep <new identifier> RetireSmartIRA/DataManager.swift` and report the output.**
@@ -79,7 +79,7 @@ The cost is two sources of truth for one quantity, which Task 3 closes with an i
 
 **Modified:** `IncomeModels.swift`, `AccountModels.swift`, `PersistenceManager.swift`, `StateTaxData.swift`, `StateTaxCodable.swift`, `TaxCalculationEngine.swift`, `DataManager.swift`, `MultiYearStaticInputs.swift`, `MultiYearInputAdapter.swift`, `ProjectionEngine.swift`, `WidowStressTest.swift`, `IncomeSourcesView.swift`, `AccountsView.swift`, `MultiYearCPABriefing.swift`, `StateTaxCodableRoundTripTests.swift`, and the 51 bundled JSON files (Task 4 only).
 
-**Task order and why.** Task 2 is the highest-risk work and comes second so a persistence failure surfaces before anything is built on it. Task 3 is the largest engine change and stays inert. Task 4 is the only task where a number moves. Task 5 is the only task with no mechanical gate. Task 6 is the gate.
+**Task order and why.** Task 2 is the highest-risk work and comes second so a persistence failure surfaces before anything is built on it. Task 3 is the largest engine change and stays inert. Task 4 is the only task that moves the frozen baseline. Task 5 carries the same correction into the projection so the two paths agree. Task 6 is the only task with no mechanical gate. Task 7 is the gate.
 
 ---
 
@@ -97,7 +97,7 @@ Types only. Nothing consumes them yet, which is intended: Task 2 wires them to s
 
 - [ ] **Step 3: Implement.** Both enums are `String`-backed so Codable is synthesised. `PerSourceExemptionRule` is a plain struct; its `treatment` is `RetirementIncomeExemptions.ExemptionLevel`, which already has a hand-written Codable.
 
-**Add the typed decode error spec §6 requires**, which synthesised Codable does not give you: an unrecognised `PlanStructure` or `PlanSource` string must throw a `DecodingError` naming the state, never fall back to `.unknown`. A silent fallback here would turn a corrupt or hand-edited config into a plausible wrong answer, which is the failure mode this whole program exists to remove. Test it with a hand-written JSON literal carrying a bogus string.
+- [ ] **Step 3a: Add the typed decode error spec §6 requires**, which synthesised Codable does not give you: an unrecognised `PlanStructure` or `PlanSource` string must throw a `DecodingError` naming the state, never fall back to `.unknown`. A silent fallback here would turn a corrupt or hand-edited config into a plausible wrong answer, which is the failure mode this whole program exists to remove. Test it with a hand-written JSON literal carrying a bogus string.
 
 - [ ] **Step 4: Targeted run, then commit.**
 ```bash
@@ -117,7 +117,7 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && git 
 
 - [ ] **Step 1: Capture a real pre-3b blob before changing anything.** Build a `DataManager` with a spread of income sources and accounts, save through `PersistenceManager`, and write the resulting stored representation to the fixture path. Capture it, do not hand-write it: a typed fixture proves only that your own assumptions round-trip.
 
-**Normalise before committing.** `IncomeSource.id` is a fresh `UUID` per instance, and the blob may carry timestamps, device paths or build metadata. Any of those makes the fixture regenerate differently every capture and the test noisy. Replace unstable values with fixed literals once, by hand, and note in the file's header comment which fields were normalised and why. Phase 1 hit the same class of problem when 285 random UUIDs rewrote the generated JSON on every run.
+- [ ] **Step 1a: Normalise the fixture before committing.** `IncomeSource.id` is a fresh `UUID` per instance, and the blob may carry timestamps, device paths or build metadata. Any of those makes the fixture regenerate differently every capture and the test noisy. Replace unstable values with fixed literals once, by hand, and note in the file's header comment which fields were normalised and why. Phase 1 hit the same class of problem when 285 random UUIDs rewrote the generated JSON on every run.
 
 - [ ] **Step 2: Write the failing test.** Decode the fixture, assert every source and account carries its inferred classification per spec §3.6, and assert the computed state tax for a fixed scenario is identical to the value computed before the fields existed. That second assertion is the real guarantee, worded in the spec as: existing saves decode without user intervention and preserve current calculated behavior.
 
@@ -149,7 +149,7 @@ cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3b && xcod
 
 - [ ] **Step 3: Implement.** Add `distributionComponents: [RetirementDistributionComponent]? = nil` to `calculateStateTax` and `applyRetirementExemptions`. When nil, synthesise `[RetirementDistributionComponent(owner: .primary, structure: .unknown, source: .unknown, amount: scenarioRetirementDistributions)]`.
 
-**Refactor the engine to iterate components, but change no rule.** Every component takes the same age gate and the same attribution the scalar takes today. The phrase "run per component" must not become "apply a cap per component": see Task 4 Step 4 and spec §3.4a. Task 3 pools the components and hands the pooled figure to the existing logic unchanged.
+- [ ] **Step 3a: Refactor the engine to iterate components, but change no rule.** Every component takes the same age gate and the same attribution the scalar takes today. The phrase "run per component" must not become "apply a cap per component": see Task 4 Step 4 and spec §3.4a. Task 3 pools the components and hands the pooled figure to the existing logic unchanged.
 
 - [ ] **Step 4: Add the mirror's test seam and sync it.** Give `DataManager.stateTaxBreakdown(forState:filingStatus:)` a `configOverride: StateTaxConfig? = nil` parameter, defaulting to today's `StateTaxData.config(for:)` lookup. Phase 3a's Task 6 review named the absence of this seam as the reason the mirror's age-gate branch was proven by nothing while the engine's identical branch was proven by a test. Then apply the same per-component logic in the mirror.
 
@@ -236,7 +236,7 @@ No mechanical gate covers this task, which is why Task 7 requires in-app verific
 
 - [ ] **Step 3: The unclassified New York prompt and limitation.** A `.pension` row with `source == .unknown` shows a prominent prompt worded as a question about the pension, not a subtle optional field.
 
-**The limitation must appear wherever New York tax is COMPUTED, not only where New York is the residence.** `StateComparisonView` computes other states' tax for a non-resident, and `MultiYearCPABriefing` renders figures a CPA will read. A user comparing their state against New York with an unclassified pension gets an incomplete New York number in both places, so both carry the limitation.
+- [ ] **Step 3a: The limitation must appear wherever New York tax is COMPUTED, not only where New York is the residence.** `StateComparisonView` computes other states' tax for a non-resident, and `MultiYearCPABriefing` renders figures a CPA will read. A user comparing their state against New York with an unclassified pension gets an incomplete New York number in both places, so both carry the limitation.
 
 - [ ] **Step 4: Hawaii's contextual disclosure**, surfaced where a Hawaii user holding a pension will meet it, stating that the employer-funded versus employee-contributed split is not modelled and its tax may be overstated.
 
@@ -257,10 +257,10 @@ No mechanical gate covers this task, which is why Task 7 requires in-app verific
 
 ## Self-Review
 
-**Spec coverage.** §3.1 domain model is Task 1. §3.2 picker is Task 5. §3.3 config and New York's rule is Task 4. §3.4 components is Task 3. §3.5 mirror and its test seam is Task 3 Step 4. §3.6 migration is Task 2. §3.7 presentation, all three parts, is Task 5. §4 New York only is Task 4 Step 6. §5 testing is distributed with the golden scenarios in Task 4 Step 1. §6 error handling: the sum invariant and its debug-versus-release semantics are Task 3; the unclassified-New-York limitation is Task 6 Step 3. **The spec's typed decode error for an unknown `PlanStructure` or `PlanSource` string is NOT covered by Task 1 as originally written**, which used synthesised Codable and match tests only. Task 1 must add it explicitly.
+**Spec coverage.** §3.1 domain model is Task 1. §3.2 picker is Task 6. §3.3 config and New York's rule is Task 4. §3.4 components is Task 3. §3.5 mirror and its test seam is Task 3 Step 4. §3.6 migration is Task 2. §3.7 presentation, all three parts, is Task 6. §3.4b multi-year scope is Task 5. §4 New York only is Task 4 Step 6. §5 testing is distributed with the golden scenarios in Task 4 Step 1. §6 error handling: the sum invariant and its debug-versus-release semantics are Task 3; the unclassified-New-York limitation is Task 6 Step 3. **The spec's typed decode error for an unknown `PlanStructure` or `PlanSource` string is NOT covered by Task 1 as originally written**, which used synthesised Codable and match tests only. Task 1 must add it explicitly.
 
 **The departure from the spec** is stated at the top with its measurement (42 call sites) and its mitigation (the sum invariant), rather than being made silently inside a task.
 
-**Type consistency.** `PlanStructure` and `PlanSource` are defined in Task 1 and used unchanged in Tasks 2, 3, 4 and 5. `RetirementDistributionComponent` carries `owner: Owner`, reusing the existing enum from `AccountModels.swift` rather than introducing a parallel one. `PerSourceExemptionRule.treatment` is `RetirementIncomeExemptions.ExemptionLevel`, which already exists with a hand-written Codable, so that field adds no serialisation surface. **The phase does add four other serialisation surfaces**, each needing the fixture treatment in Global Constraints: `PlanStructure`, `PlanSource`, the classification fields on both persisted models, and `perSourceExemptions`.
+**Type consistency.** `PlanStructure` and `PlanSource` are defined in Task 1 and used unchanged in Tasks 2 through 6. `RetirementDistributionComponent` carries `owner: Owner`, reusing the existing enum from `AccountModels.swift` rather than introducing a parallel one. `PerSourceExemptionRule.treatment` is `RetirementIncomeExemptions.ExemptionLevel`, which already exists with a hand-written Codable, so that field adds no serialisation surface. **The phase does add four other serialisation surfaces**, each needing the fixture treatment in Global Constraints: `PlanStructure`, `PlanSource`, the classification fields on both persisted models, and `perSourceExemptions`.
 
-**Known soft spot.** Task 5 has no mechanical gate, which is why Task 7 Step 5 exists and is not optional.
+**Known soft spot.** Task 6 has no mechanical gate, which is why Task 7 Step 5 exists and is not optional.
