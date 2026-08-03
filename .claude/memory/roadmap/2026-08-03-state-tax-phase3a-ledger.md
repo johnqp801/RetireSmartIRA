@@ -48,7 +48,8 @@ main @ e540e9f: 1,620 Swift Testing in 275 suites + 503 XCTest, 0 failures.
 
 ## Tasks
 (none complete yet)
-Task 1: commits 855b7c3 + fix 601a622 (base db0977e). Reviewed on opus, RE-REVIEW IN FLIGHT.
+Task 1: COMPLETE (commits 855b7c3 + fix 601a622 + hardening 00b3838, base db0977e).
+  RE-REVIEWED CLEAN on opus: spec OK, quality Approved, no blocking findings.
   Deliverable: StateTaxBehaviorBaselineTests + Baselines/statetax-behavior-baseline-2026.json.
   51 jurisdictions x 20 scenarios = 1,020 frozen values. No production code touched.
   Full suite 1,622 Swift Testing in 277 suites + 503 XCTest, correct tree.
@@ -80,3 +81,35 @@ Task 1: commits 855b7c3 + fix 601a622 (base db0977e). Reviewed on opus, RE-REVIE
     NJOtherExclusionAndExemptionsTests, and Task 3 Step 8's claim needs the same correction).
   Minor not fixed: fileprivate on BaselineScenario cascades (the generator suite is a
     separate struct in the same file calling its internal members). Reverted, as instructed.
+
+  RE-REVIEW verified by independent arithmetic, not by trusting the report:
+    - The regeneration is provably ADDITIVE. git diff --numstat on the fixture: 153
+      insertions, ZERO deletions. All 867 pre-existing values byte-identical (checked
+      under exact float AND repr comparison, so no last-bit drift). That doubles as proof
+      no production file drifted from e540e9f, since drift would have moved values.
+    - Reviewer hand-derived five of the 153 new values from config data alone, including
+      both new NJ tier values to the cent, and confirmed singlePercent 0.375/0.1875 are
+      the BINDING term in them (37,500 < 45,000 and 20,625 < 26,250), so Minor 1 is
+      genuinely closed rather than nominally.
+    - 14 failing states on the household-gate mutation is the arithmetically NECESSARY
+      number, not a coverage shortfall. Reviewer derived the set independently before
+      reading the report and matched it exactly. The one-state gap versus mutation 1's 15
+      is NY, whose regularExemptionMinAge is 59 with no earlyAgeTier, so at effective age
+      56 its IRA exemption resolves to .none and opening the gate changes nothing.
+  Minor 7 TAKEN (00b3838): pinned `Self.scenarios.count == 20`. The existing count
+    assertion compares baseline.count against allCases.count * scenarios.count, and BOTH
+    operands move together under delete-and-regenerate. A literal does not. Verified green
+    on the correct tree.
+  Minor 6 FIXED in the same commit: the plan's Task 1 block still described 17 scenarios
+    and 867 entries; an as-built note now points at the source file.
+  Minor 5 NOT fixed (report prose only): task-1-report.md:726 mis-explains WHY 14 failed,
+    saying the failing states "carry age-gated exemptions" when PA/IL/MS have
+    regularExemptionMinAge 0 and exempt unconditionally. The mutated gate is the ENGINE's
+    59 scalar at TaxCalculationEngine.swift:583, independent of each state's config age.
+    Numbers and transcripts correct; the one-sentence rationalization is not. Do not
+    inherit that mental model.
+  Minor 2 OPEN, carry to final review: NJ still has exactly ONE scenario with an age
+    inside the [62, 65) window ("single 63 in the early age tier") and its baseline is 0,
+    so NJ can be caught becoming LESS generous there but never MORE generous.
+  Minor 4 noted, not worth fixing: loadBaseline() decodes the 1020-entry file 51 times
+    (once per parameterized case). Suite runs in ~45 ms.
