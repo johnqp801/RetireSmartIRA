@@ -50,7 +50,7 @@ struct IRAAccount: Identifiable, Codable {
     /// value: accounts created before this phase, or created without
     /// specifying it, fall back to
     /// `RetirementPlanClassification.infer(accountType:)` per design doc
-    /// section 3.6 — never left unset. See `planSource` for the orthogonal
+    /// section 3.6, never left unset. See `planSource` for the orthogonal
     /// jurisdiction/employer dimension.
     var planStructure: PlanStructure
 
@@ -88,15 +88,21 @@ struct IRAAccount: Identifiable, Codable {
     // MARK: - Data Migration
     //
     // Phase 3b (design doc section 3.6): planStructure/planSource are new
-    // non-optional fields. `decodeIfPresent` with an inference fallback lets
-    // a blob written before this phase, which has neither key, decode
-    // without user intervention and land on the correct classification. A
-    // PRESENT but unrecognised raw string still throws a typed
-    // DecodingError (via PlanStructure/PlanSource's synthesised Codable) —
-    // only an ABSENT key falls back to inference. Custom Codable
-    // conformance is required here (IRAAccount previously used fully
-    // synthesised Codable) because synthesis cannot express "missing key ->
-    // inference fallback" for a non-optional property.
+    // non-optional fields. This decodes USER-SAVED data
+    // (`PersistenceManager.loadAll` wraps its `[IRAAccount]` decode in
+    // `try?`), so `PlanClassificationUserSaveDecoding.decode` never throws:
+    // an absent key falls back to `RetirementPlanClassification.infer(accountType:)`,
+    // letting a blob written before this phase, which has neither key,
+    // decode without user intervention and land on the correct
+    // classification, and a PRESENT but unrecognised raw value falls back
+    // to `.unknown` with `unrecognisedClassificationEncountered` set,
+    // instead of throwing and, via that `try?`, discarding every stored
+    // account. Shipped state JSON decodes `PlanStructure`/`PlanSource`
+    // directly and keeps the strict throw; see design doc section 6 and
+    // `Phase3bClassificationTests`. Custom Codable conformance is required
+    // here (IRAAccount previously used fully synthesised Codable) because
+    // synthesis cannot express "missing key -> inference fallback" for a
+    // non-optional property.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -113,8 +119,10 @@ struct IRAAccount: Identifiable, Codable {
         minorChildMajorityYear = try container.decodeIfPresent(Int.self, forKey: .minorChildMajorityYear)
 
         let inferred = RetirementPlanClassification.infer(accountType: accountType)
-        planStructure = try container.decodeIfPresent(PlanStructure.self, forKey: .planStructure) ?? inferred.structure
-        planSource = try container.decodeIfPresent(PlanSource.self, forKey: .planSource) ?? inferred.source
+        planStructure = PlanClassificationUserSaveDecoding.decode(
+            PlanStructure.self, from: container, forKey: .planStructure, inferredFallback: inferred.structure)
+        planSource = PlanClassificationUserSaveDecoding.decode(
+            PlanSource.self, from: container, forKey: .planSource, inferredFallback: inferred.source)
     }
 
     private enum CodingKeys: String, CodingKey {

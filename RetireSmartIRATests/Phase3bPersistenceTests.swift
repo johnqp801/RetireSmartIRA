@@ -21,6 +21,7 @@ import Testing
 import Foundation
 @testable import RetireSmartIRA
 
+@MainActor
 @Suite("PHASE 3b TASK 2 GATE: pre-3b persistence fixture")
 struct Phase3bPersistenceTests {
 
@@ -30,10 +31,13 @@ struct Phase3bPersistenceTests {
     }
 
     /// Loads the checked-in fixture and decodes its two sub-arrays through
-    /// the SAME `JSONDecoder().decode([IncomeSource].self, ...)` /
-    /// `decode([IRAAccount].self, ...)` calls `PersistenceManager.loadAll`
-    /// uses in production, so this test exercises the real decode path, not
-    /// a hand-rolled stand-in for it.
+    /// the REAL production load path, `PersistenceManager.loadAll`, not a
+    /// hand-rolled `JSONDecoder().decode(...)` call that merely happens to
+    /// match `PersistenceManager.swift`'s own decode calls today. Routing
+    /// through `loadAll` itself means this gate keeps covering production
+    /// even if `loadAll` later gains a configured decoder or a post-decode
+    /// fixup; a direct `JSONDecoder` call here would stay green while
+    /// silently no longer proving anything about the shipped path.
     static func loadFixture() throws -> FixtureBlob {
         let here = URL(fileURLWithPath: #filePath)
         let url = here.deletingLastPathComponent().appendingPathComponent("Fixtures/pre-phase3b-save.json")
@@ -43,9 +47,13 @@ struct Phase3bPersistenceTests {
         let accountsJSON = try #require(object["iraAccounts"])
         let incomeData = try JSONSerialization.data(withJSONObject: incomeJSON)
         let accountsData = try JSONSerialization.data(withJSONObject: accountsJSON)
-        let incomeSources = try JSONDecoder().decode([IncomeSource].self, from: incomeData)
-        let iraAccounts = try JSONDecoder().decode([IRAAccount].self, from: accountsData)
-        return FixtureBlob(incomeSources: incomeSources, iraAccounts: iraAccounts)
+
+        let defaults = UserDefaults(suiteName: "phase3b-persistence-fixture-\(UUID().uuidString)")!
+        defaults.set(incomeData, forKey: PersistenceManager.StorageKey.incomeSources)
+        defaults.set(accountsData, forKey: PersistenceManager.StorageKey.iraAccounts)
+        let dm = DataManager()
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+        return FixtureBlob(incomeSources: dm.incomeSources, iraAccounts: dm.iraAccounts)
     }
 
     @Test("Every income source in the pre-3b fixture infers its classification per spec 3.6")
@@ -184,5 +192,94 @@ struct Phase3bPersistenceTests {
         #expect(legacy.name.hasPrefix(IncomeSource.legacyRothConversionSentinelPrefix))
         #expect(legacy.planStructure == .unknown)
         #expect(legacy.planSource == .unknown)
+    }
+
+    // MARK: - Review fix: a corrupted user-saved row must not discard the rest
+
+    /// REVIEW FIX PROOF. Before this fix, `IncomeSource.init(from:)` decoded
+    /// `planStructure`/`planSource` with a bare `decodeIfPresent(...) ??
+    /// inference`, which throws a typed `DecodingError` for a PRESENT but
+    /// unrecognised raw value. `PersistenceManager.loadAll` wraps its
+    /// `[IncomeSource]` decode in `try?` (`PersistenceManager.swift:161-163`),
+    /// so that one bad row took down the whole array decode: FIVE rows in,
+    /// ZERO rows out. This seeds a genuine `UserDefaults` suite (not a
+    /// hand-rolled decode) with five income rows, one carrying a
+    /// planStructure value no shipped build has ever written, and runs it
+    /// through the real `PersistenceManager.loadAll`.
+    @Test("A corrupted planStructure value on one saved income row does not discard the other four")
+    func corruptedIncomeSourceRowDoesNotDiscardTheRest() throws {
+        let corruptedJSON = """
+        [
+          {"id": "\(UUID().uuidString)", "name": "RMD", "type": "RMD", "annualAmount": 20000,
+           "federalWithholding": 0, "stateWithholding": 0, "owner": "You",
+           "planStructure": "notARealStructureFromAFutureBuild", "planSource": "individual"},
+          {"id": "\(UUID().uuidString)", "name": "Pension", "type": "Pension", "annualAmount": 45000,
+           "federalWithholding": 4000, "stateWithholding": 0, "owner": "You",
+           "planStructure": "unknown", "planSource": "unknown"},
+          {"id": "\(UUID().uuidString)", "name": "Social Security", "type": "Social Security", "annualAmount": 30000,
+           "federalWithholding": 0, "stateWithholding": 0, "owner": "Spouse",
+           "planStructure": "unknown", "planSource": "unknown"},
+          {"id": "\(UUID().uuidString)", "name": "Consulting", "type": "Employment/Other Income", "annualAmount": 15000,
+           "federalWithholding": 0, "stateWithholding": 0, "owner": "You",
+           "planStructure": "unknown", "planSource": "unknown"},
+          {"id": "\(UUID().uuidString)", "name": "Interest", "type": "Interest", "annualAmount": 2000,
+           "federalWithholding": 0, "stateWithholding": 0, "owner": "Joint",
+           "planStructure": "unknown", "planSource": "unknown"}
+        ]
+        """.data(using: .utf8)!
+
+        let defaults = UserDefaults(suiteName: "phase3b-corrupted-income-row-\(UUID().uuidString)")!
+        defaults.set(corruptedJSON, forKey: PersistenceManager.StorageKey.incomeSources)
+
+        let dm = DataManager()
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        #expect(dm.incomeSources.count == 5,
+                "one corrupted row must not discard the other four; this is the bug the fix removes")
+        let corrupted = try #require(dm.incomeSources.first { $0.name == "RMD" })
+        #expect(corrupted.planStructure == .unknown,
+                "an unrecognised raw value falls back to .unknown, not to the RMD inference or a thrown error")
+        #expect(PlanClassificationUserSaveDecoding.unrecognisedClassificationEncountered,
+                "the diagnostic flag must be set when a user-saved row carries an unrecognised classification")
+    }
+
+    /// Same proof, `IRAAccount` side (`AccountModels.swift`'s `init(from:)`
+    /// gets the identical fix). One corrupted planSource on one of five
+    /// accounts must not take the other four down with it.
+    @Test("A corrupted planSource value on one saved account row does not discard the other four")
+    func corruptedIRAAccountRowDoesNotDiscardTheRest() throws {
+        let corruptedJSON = """
+        [
+          {"id": "\(UUID().uuidString)", "name": "Traditional IRA", "accountType": "Traditional IRA",
+           "balance": 100000, "institution": "", "owner": "You",
+           "planStructure": "ira", "planSource": "notARealSourceFromAFutureBuild"},
+          {"id": "\(UUID().uuidString)", "name": "401k", "accountType": "Traditional 401(k)",
+           "balance": 200000, "institution": "", "owner": "You",
+           "planStructure": "definedContribution", "planSource": "privateEmployer"},
+          {"id": "\(UUID().uuidString)", "name": "Roth IRA", "accountType": "Roth IRA",
+           "balance": 50000, "institution": "", "owner": "Spouse",
+           "planStructure": "unknown", "planSource": "unknown"},
+          {"id": "\(UUID().uuidString)", "name": "Roth 401k", "accountType": "Roth 401(k)",
+           "balance": 75000, "institution": "", "owner": "You",
+           "planStructure": "unknown", "planSource": "unknown"},
+          {"id": "\(UUID().uuidString)", "name": "Inherited IRA", "accountType": "Inherited Traditional IRA",
+           "balance": 30000, "institution": "", "owner": "You",
+           "planStructure": "unknown", "planSource": "unknown"}
+        ]
+        """.data(using: .utf8)!
+
+        let defaults = UserDefaults(suiteName: "phase3b-corrupted-account-row-\(UUID().uuidString)")!
+        defaults.set(corruptedJSON, forKey: PersistenceManager.StorageKey.iraAccounts)
+
+        let dm = DataManager()
+        PersistenceManager.loadAll(into: dm, defaults: defaults)
+
+        #expect(dm.iraAccounts.count == 5,
+                "one corrupted row must not discard the other four; this is the bug the fix removes")
+        let corrupted = try #require(dm.iraAccounts.first { $0.name == "Traditional IRA" })
+        #expect(corrupted.planSource == .unknown,
+                "an unrecognised raw value falls back to .unknown, not to the IRA inference or a thrown error")
+        #expect(PlanClassificationUserSaveDecoding.unrecognisedClassificationEncountered,
+                "the diagnostic flag must be set when a user-saved row carries an unrecognised classification")
     }
 }

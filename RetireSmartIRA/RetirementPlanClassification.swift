@@ -89,3 +89,62 @@ struct RetirementPlanClassification: Codable, Equatable, Sendable {
         }
     }
 }
+
+/// A classification enum with an `.unknown` migration-default case, so a
+/// safe fallback always exists for a raw value this build does not
+/// recognise. Conformed by `PlanStructure` and `PlanSource`.
+protocol RetirementPlanClassificationCase: RawRepresentable where RawValue == String {
+    static var unknown: Self { get }
+}
+
+extension PlanStructure: RetirementPlanClassificationCase {}
+extension PlanSource: RetirementPlanClassificationCase {}
+
+/// Decodes `PlanStructure`/`PlanSource` from a USER'S saved data
+/// (`IncomeSource.init(from:)`, `IRAAccount.init(from:)`, reached via
+/// `PersistenceManager.loadAll`), which must tolerate an unrecognised raw
+/// value rather than throw. See design doc section 3.6, "the two data
+/// sources get different strictness, deliberately," and section 6's error
+/// table. Shipped state JSON keeps `PlanStructure`/`PlanSource`'s own
+/// strict, throwing `Decodable` conformance untouched by this type (pinned
+/// by `Phase3bClassificationTests`): a silent default there could turn a
+/// corrupt config into a plausible wrong tax. A user's saved data is
+/// different: `PersistenceManager.loadAll` wraps its `[IncomeSource]` and
+/// `[IRAAccount]` array decodes in `try?`, so one row throwing here would
+/// silently discard every stored row of that type, for a value the app has
+/// no rule for anyway.
+enum PlanClassificationUserSaveDecoding {
+
+    /// Set once a present but unrecognised raw value is decoded for a
+    /// user-saved `planStructure`/`planSource` key. Never set while decoding
+    /// shipped state JSON, which never calls this type. Follows the
+    /// precedent of `StateTaxDataLoader.legacyFallbackFired`: a static,
+    /// observable marker a test can assert on. Not reset once set.
+    static private(set) var unrecognisedClassificationEncountered = false
+
+    /// Absent key resolves to `inferredFallback`, the ordinary Phase 3b
+    /// migration inference from `incomeType`/`accountType`, expected on
+    /// every pre-3b row. A present value that is not a string, or is a
+    /// string that does not match a known case, resolves to `.unknown` and
+    /// sets `unrecognisedClassificationEncountered`. Never throws.
+    static func decode<T: RetirementPlanClassificationCase, K: CodingKey>(
+        _ type: T.Type,
+        from container: KeyedDecodingContainer<K>,
+        forKey key: K,
+        inferredFallback: T
+    ) -> T {
+        let raw: String?
+        do {
+            raw = try container.decodeIfPresent(String.self, forKey: key)
+        } catch {
+            unrecognisedClassificationEncountered = true
+            return .unknown
+        }
+        guard let raw else { return inferredFallback }
+        guard let value = T(rawValue: raw) else {
+            unrecognisedClassificationEncountered = true
+            return .unknown
+        }
+        return value
+    }
+}

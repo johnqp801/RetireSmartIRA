@@ -93,7 +93,7 @@ struct IncomeSource: Identifiable, Codable {
     /// contribution, IRA...). Phase 3b. Always has a value: rows created
     /// before this phase, or created without specifying it, fall back to
     /// `RetirementPlanClassification.infer(incomeType:)` per design doc
-    /// section 3.6 — never left unset. See `planSource` for the orthogonal
+    /// section 3.6, never left unset. See `planSource` for the orthogonal
     /// jurisdiction/employer dimension.
     var planStructure: PlanStructure
 
@@ -221,17 +221,26 @@ struct IncomeSource: Identifiable, Codable {
         stateWithholdingPercent = (try? container.decodeIfPresent(Double.self, forKey: .stateWithholdingPercent)) ?? 0
 
         // Phase 3b migration (design doc section 3.6). A blob written before
-        // this phase has neither key, so both decode to nil and fall back to
-        // inference from `type` — which, for a legacy `.rothConversion`
-        // sentinel row, is already `.other` by the time this line runs,
-        // landing correctly on unknown/unknown without any special case
-        // here. `decodeIfPresent` (not a bare `decode`) is the point: a
-        // present-but-unrecognised raw string still throws a typed
-        // DecodingError (per PlanStructure/PlanSource's synthesised
-        // Codable), it is only an ABSENT key that falls back.
+        // this phase has neither key, so both fall back to inference from
+        // `type`: for a legacy `.rothConversion` sentinel row, that is
+        // already `.other` by the time this line runs, landing correctly on
+        // unknown/unknown without any special case here.
+        //
+        // This decodes USER-SAVED data: `PersistenceManager.loadAll` wraps
+        // its `[IncomeSource]` decode in `try?`, so one row throwing here
+        // would silently discard every stored income source.
+        // `PlanClassificationUserSaveDecoding.decode` never throws: an
+        // absent key falls back to the inference above, same as before, but
+        // a present, unrecognised raw value falls back to `.unknown` and
+        // sets `unrecognisedClassificationEncountered` instead of
+        // propagating a `DecodingError`. Shipped state JSON decodes
+        // `PlanStructure`/`PlanSource` directly and keeps the strict throw;
+        // see design doc section 6 and `Phase3bClassificationTests`.
         let inferred = RetirementPlanClassification.infer(incomeType: type)
-        planStructure = try container.decodeIfPresent(PlanStructure.self, forKey: .planStructure) ?? inferred.structure
-        planSource = try container.decodeIfPresent(PlanSource.self, forKey: .planSource) ?? inferred.source
+        planStructure = PlanClassificationUserSaveDecoding.decode(
+            PlanStructure.self, from: container, forKey: .planStructure, inferredFallback: inferred.structure)
+        planSource = PlanClassificationUserSaveDecoding.decode(
+            PlanSource.self, from: container, forKey: .planSource, inferredFallback: inferred.source)
     }
 
     /// Sentinel prefix applied to the `name` of legacy `.rothConversion` income
