@@ -60,9 +60,10 @@ struct StateTaxPhase3aMechanismTests {
         #expect(Self.tax(config: atFiftyFive, age: 56, distributions: 40_000) == 0)
         #expect(Self.tax(config: atDefault, age: 56, distributions: 40_000) == 4_000)
 
-        // Age 60 is above both gates, so both exempt. This second pair is what
-        // stops the first pair from passing for the wrong reason (a config that
-        // simply never exempts anything).
+        // Age 60 is above both gates, so both configs exempt. This pair does
+        // not catch a mutant the pair above misses; it documents the intended
+        // shape of the boundary, that the two configs agree above it and
+        // disagree below it.
         #expect(Self.tax(config: atFiftyFive, age: 60, distributions: 40_000) == 0)
         #expect(Self.tax(config: atDefault, age: 60, distributions: 40_000) == 0)
     }
@@ -70,5 +71,46 @@ struct StateTaxPhase3aMechanismTests {
     @Test("distributionMinAge defaults to 59, reproducing the previous hardcoded gate")
     func distributionMinAgeDefaultsTo59() {
         #expect(RetirementIncomeExemptions().distributionMinAge == 59)
+    }
+
+    @Test("distributionMinAge also gates per-individual cap doubling, not only scenario distributions")
+    func distributionMinAgeGatesPerIndividualDoubling() {
+        // Reaches `ageQualifiesForExemption`, which is only called from
+        // `bothSpousesQualify` and therefore needs enableSpouse: true. Its
+        // distributionMinAge fallback runs only when regularExemptionMinAge is
+        // 0, so this config leaves that at its default. A $20,000 partial cap
+        // that doubles is the cheapest way to make the multiplier observable.
+        func config(distributionMinAge: Int) -> StateTaxConfig {
+            Self.flatTenPercent(exemptions: RetirementIncomeExemptions(
+                socialSecurityExempt: true,
+                pensionExemption: .partial(maxExempt: 20_000),
+                iraWithdrawalExemption: .none,
+                exemptionAppliesPerIndividual: true,
+                distributionMinAge: distributionMinAge))
+        }
+
+        func tax(config: StateTaxConfig, spouseAge: Int) -> Double {
+            TaxCalculationEngine.calculateStateTax(
+                income: 40_000, forState: .iowa, filingStatus: .marriedFilingJointly,
+                taxableSocialSecurity: 0,
+                incomeSources: [IncomeSource(name: "Pension", type: .pension,
+                                             annualAmount: 40_000)],
+                currentAge: 60, enableSpouse: true,
+                spouseBirthYear: 2026 - spouseAge, currentYear: 2026,
+                configOverride: config)
+        }
+
+        // Spouse is 56. Under a 55 gate BOTH spouses qualify, the cap doubles
+        // to 40,000 and the whole pension is excluded. Under the default 59
+        // gate the spouse does not qualify, the cap stays 20,000, and 20,000
+        // remains taxable at 10 percent.
+        #expect(tax(config: config(distributionMinAge: 55), spouseAge: 56) == 0)
+        #expect(tax(config: config(distributionMinAge: 59), spouseAge: 56) == 2_000)
+
+        // Spouse at 60 is above BOTH gates, so both configs double the cap.
+        // Without this pair the first could pass for a config that simply
+        // never doubles.
+        #expect(tax(config: config(distributionMinAge: 55), spouseAge: 60) == 0)
+        #expect(tax(config: config(distributionMinAge: 59), spouseAge: 60) == 0)
     }
 }
