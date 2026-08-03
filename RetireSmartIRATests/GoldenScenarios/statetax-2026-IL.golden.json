@@ -1,0 +1,19 @@
+{
+  "state": "IL",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "retiree, all retirement income subtracted",
+      "source": "IL-1040 Schedule M: federally taxable retirement income from qualified plans is subtracted. Flat rate 4.95% per IL-1040 line 12.",
+      "filingStatus": "single",
+      "primaryAge": 67,
+      "spouseAge": null,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 50000,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    }
+  ]
+}
