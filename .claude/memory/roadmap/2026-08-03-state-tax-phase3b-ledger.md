@@ -55,3 +55,50 @@ rather than relying on cwd.
 
 ## Tasks
 (none complete yet)
+Task 1: complete (commit 4d829ef). PlanStructure + PlanSource + PerSourceExemptionRule + inference.
+  18 tests. Implementer VERIFIED rather than assumed on the typed decode error: Swift's synthesised
+  Codable for String-backed enums already throws a dataCorrupted error naming the type and the bad
+  value, so no hand-written conformance was needed and StateTaxCodable.swift stayed untouched. It
+  reported that as a deliberate deviation from the brief's file list rather than silently skipping
+  the step. Added a third negative matching case (governmentUnspecified) beyond the two specified.
+
+Task 2: complete (commits 0ead148 fixture + 6f8ef88 implementation + fix 53ac0f8). Reviewed on opus.
+  Suite 1,681 ST in 280 suites + 503 XCTest. Baseline held 1,020. Legacy .rothConversion migration
+  held. THE HIGHEST-RISK TASK IN THE PHASE, and it came out clean.
+
+  ** ORDERING DISCIPLINE, done right and worth copying: the implementer committed the captured
+     fixture as its OWN commit (0ead148) touching neither model file, BEFORE changing anything.
+     That makes "this is a genuine pre-change blob" provable from git history rather than asserted
+     in a report. The reviewer then verified the content independently: no planStructure or
+     planSource key on any record, and neither symbol existed in any production file at 4d829ef.
+     This is the exact discipline the V2.3 branch lacked, where migration tests wrote legacy VALUES
+     under the NEW key and every per-task review passed while an "external" tax-funding scenario
+     silently became account-funded. **
+
+  ** THE FIX THAT MATTERED MOST, from the review: a single unrecognised classification string in
+     ONE income row would have discarded EVERY stored income source, because PersistenceManager
+     .loadAll wraps its decode in `try?`. Demonstrated: five rows in, zero rows out. The spec now
+     distinguishes the two data sources deliberately (§6 plus the paragraph above §3.7): shipped
+     state JSON keeps strict throw, because a silent default there turns a corrupt config into a
+     plausible wrong tax; USER SAVES fall back to .unknown with an observable diagnostic flag,
+     because destroying real user data to guard against a value the app has no rule for anyway is
+     the wrong trade. Trigger is real once Task 6 ships the picker: a later phase adding a
+     PlanSource case produces saves an older build cannot read. **
+
+  Reviewer also verified, beyond what was asked: a full loadAll -> saveAll -> loadAll -> saveAll ->
+    loadAll cycle is a FIXED POINT (identical tax across three generations, identical canonical
+    blobs between generations 2 and 3, every pre-3b key preserved). And that replacing IRAAccount's
+    synthesised Codable with a hand-written one kept all 14 stored properties with encodeIfPresent
+    on exactly the six optionals, which is where this task could have quietly orphaned user data.
+  Minor fixed: four em dashes in added lines, AND the report claimed there were none. In a phase
+    whose method is evidence before assertion, the false verification claim was the worse half.
+  Minor fixed: the migration gate called JSONDecoder directly rather than going through
+    PersistenceManager.loadAll. Accurate today, brittle tomorrow. Re-pointed at the real load path.
+
+  ** CARRIED INTO TASK 4 AS STEP 5a: computedStateTaxUnchangedByMigration PASSED under a mutation
+     that made every decoded classification wrong, because nothing consumes the fields yet. The
+     report presented it as the assertion proving the migration promise; it proves only that decode
+     did not corrupt the OTHER fields. Once New York's rule consumes those fields it must be
+     re-pointed at a New York scenario and re-proven by mutation. **
+  Open, recorded not fixed: DataManager() in the test target reads UserDefaults.standard, so a
+    persistence test can pick up real saved data from the developer's machine. Pre-existing.
