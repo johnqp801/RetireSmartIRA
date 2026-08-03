@@ -238,6 +238,35 @@ struct StateTaxJSONLoaderTests {
                     "\(state.abbreviation)'s fallback entry did not come from its OWN legacy config")
         }
     }
+
+    @Test("Year-keyed access returns the same configs as the 2026 accessor")
+    func yearKeyedAccessMatches2026() throws {
+        let byYear = StateTaxDataLoader.configs(for: 2026)
+        #expect(byYear.count == 51)
+        for state in USState.allCases {
+            #expect(byYear[state]?.state == state, "\(state.abbreviation) mismatched")
+        }
+        // The memoized 2026 accessor and the year-keyed one must agree exactly.
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        for state in USState.allCases {
+            let a = try encoder.encode(byYear[state])
+            let b = try encoder.encode(StateTaxDataLoader.configs2026[state])
+            #expect(a == b, "\(state.abbreviation) differs between accessors")
+        }
+    }
+
+    @Test("Year-keyed access returns empty for a year with no bundled data")
+    func yearKeyedAccessEmptyForUnknownYear() {
+        #expect(StateTaxDataLoader.configs(for: 1999).isEmpty)
+    }
+
+    @Test("StateTaxData.config(for:taxYear:) resolves every state to itself")
+    func stateTaxDataYearKeyedResolvesSelf() {
+        for state in USState.allCases {
+            #expect(StateTaxData.config(for: state, taxYear: 2026).state == state)
+        }
+    }
 }
 
 // MARK: - PHASE 1 GATE, Layer A: numeric equivalence
