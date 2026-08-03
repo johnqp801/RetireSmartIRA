@@ -267,6 +267,76 @@ struct StateTaxJSONLoaderTests {
             #expect(StateTaxData.config(for: state, taxYear: 2026).state == state)
         }
     }
+
+    // MARK: - Task 2 (Phase 2): constant-law extrapolation is observable
+
+    @Test("Latest bundled tax year is 2026")
+    func latestBundledYearIs2026() {
+        #expect(StateTaxYearAvailability.latestBundledTaxYear == 2026)
+    }
+
+    @Test("Years at or before the latest bundled year are not extrapolated")
+    func bundledYearsNotExtrapolated() {
+        #expect(StateTaxYearAvailability.isExtrapolated(taxYear: 2026) == false)
+        #expect(StateTaxYearAvailability.disclosure(forProjectionYear: 2026) == nil)
+    }
+
+    @Test("Years past the latest bundled year are disclosed as extrapolated")
+    func futureYearsDisclosed() throws {
+        #expect(StateTaxYearAvailability.isExtrapolated(taxYear: 2044) == true)
+        let text = try #require(StateTaxYearAvailability.disclosure(forProjectionYear: 2044))
+        #expect(text.contains("2026"), "the disclosure must name the year whose law is held constant")
+        #expect(text.contains("2044"), "the disclosure must name the year being projected")
+    }
+
+    // MARK: - isBundledButUnloadable: the signal `configs(for:).isEmpty` alone cannot give
+    //
+    // `StateTaxDataLoader.load(taxYear:)` throws on the FIRST missing or
+    // malformed jurisdiction file, and the year cache turns that throw into
+    // an empty dictionary. A year that was never bundled and a year that WAS
+    // bundled but has one broken file both produce `configs(for:).isEmpty ==
+    // true`. Treating those as the same fact would let a disclosure tell a
+    // user "assumes prior-year law" about a year whose law actually shipped
+    // and merely failed to load -- a build defect masquerading as a
+    // modeling choice. These tests hold the two apart.
+
+    @Test("A genuinely unbundled year, with no files at all, is not reported as bundled-but-unloadable")
+    func trulyUnbundledYearIsNotUnloadable() {
+        // Tax year 1999 has zero bundled files for any of the 51
+        // jurisdictions (same fixture year `throwsForUnknownYear` and
+        // `yearKeyedAccessEmptyForUnknownYear` already use). Absence, not
+        // breakage.
+        #expect(StateTaxYearAvailability.isBundledButUnloadable(taxYear: 1999) == false)
+    }
+
+    @Test("The real 2026 bundle, which loads cleanly, is not reported as bundled-but-unloadable")
+    func cleanlyLoadingYearIsNotUnloadable() {
+        #expect(StateTaxYearAvailability.isBundledButUnloadable(taxYear: 2026) == false)
+    }
+
+    @Test("Pure decision logic: files present but the full load came back empty is a build defect, not an extrapolation")
+    func brokenBundleLogicIsUnloadable() {
+        // hasBundledData=true + empty configs is exactly the "shipped but
+        // broke" shape that a single all-or-nothing `configs(for:).isEmpty`
+        // check cannot distinguish from "never shipped".
+        #expect(StateTaxYearAvailability.isBundledButUnloadable(hasBundledData: true, configs: [:]) == true)
+        // No bundled files at all: not unloadable, just absent.
+        #expect(StateTaxYearAvailability.isBundledButUnloadable(hasBundledData: false, configs: [:]) == false)
+        // Files present AND the load actually produced something: not unloadable.
+        let nonEmptyConfigs: [USState: StateTaxConfig] = [.california: StateTaxData.configs2026Legacy[.california]!]
+        #expect(StateTaxYearAvailability.isBundledButUnloadable(hasBundledData: true, configs: nonEmptyConfigs) == false)
+    }
+
+    @Test("isBundledButUnloadable is a signal distinct from isExtrapolated: a broken current year is not extrapolated")
+    func unloadableAndExtrapolatedAreIndependentSignals() {
+        // A broken CURRENT year (taxYear == latestBundledTaxYear) is not "in
+        // the future" relative to itself, so isExtrapolated must stay false
+        // even when isBundledButUnloadable's pure logic would report true for
+        // the same inputs. Phase 6 needs both facts, and needs them not to
+        // collapse into one boolean.
+        #expect(StateTaxYearAvailability.isExtrapolated(taxYear: StateTaxYearAvailability.latestBundledTaxYear) == false)
+        #expect(StateTaxYearAvailability.isBundledButUnloadable(hasBundledData: true, configs: [:]) == true)
+    }
 }
 
 // MARK: - PHASE 1 GATE, Layer A: numeric equivalence
