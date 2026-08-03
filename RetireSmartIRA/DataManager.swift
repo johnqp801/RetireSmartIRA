@@ -738,28 +738,12 @@ class DataManager {
         }
         let income = max(0, grossIncome - stateDeduction)
 
-        // 1. Gather income by category from income sources.
-        // IRA income includes both `.rmd` IncomeSource rows AND scenario-level
-        // retirement distributions (computed RMDs from balances, inherited-IRA
-        // RMDs, and extra withdrawals) — gated at age 59½ so early-withdrawal
-        // amounts remain taxable. Mirrors the wiring inside
-        // TaxCalculationEngine.applyRetirementExemptions so this breakdown
-        // stays consistent with scenarioStateTax.
-        let taxableSS = scenarioTaxableSocialSecurity
-        let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
-        let rmdSourceIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
-        let retirementAge = currentAge >= 59 || (enableSpouse && spouseCurrentAge >= 59)
-        let scenarioDistroExemptable = retirementAge ? scenarioRetirementDistributionIncome : 0
-        let iraIncome = rmdSourceIncome + scenarioDistroExemptable
-        let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
-
-        // 2. Calculate each exemption amount. MUST mirror
+        // 1. Determine age- and owner-based exemption eligibility. MUST mirror
         // TaxCalculationEngine.applyRetirementExemptions exactly — including
-        // regularExemptionMinAge, earlyAgeTier, exemptionAppliesPerIndividual,
-        // and pensionAndIRAShareSingleCap. (Drift here causes breakdown
-        // totals to disagree with scenarioStateTax — caught by
+        // regularExemptionMinAge, earlyAgeTier, exemptionAttribution, and
+        // ownerQualifies. (Drift here causes breakdown totals to disagree
+        // with scenarioStateTax — caught by
         // StateTaxBreakdownTests.breakdownMatchesCalculation.)
-        let ssExemptAmt = exemptions.socialSecurityExempt ? taxableSS : 0
 
         // Effective exemption level given age (resolves GA tiers, CO tiers, etc.)
         let effectiveAge = enableSpouse ? max(currentAge, spouseCurrentAge) : currentAge
@@ -773,8 +757,48 @@ class DataManager {
                 if let tier = exemptions.earlyAgeTier, tier.ageRange.contains(age) { return true }
                 return false
             }
-            return age >= 59
+            return age >= exemptions.distributionMinAge
         }
+
+        // Whether income owned by `owner` is eligible under the state's
+        // attribution rule. Mirror of TaxCalculationEngine.ownerQualifies.
+        // Under `.household` (every state today) every row is eligible when
+        // any spouse qualifies, which is what `effectiveAge` already encodes.
+        func ownerQualifies(_ owner: Owner) -> Bool {
+            guard exemptions.exemptionAttribution == .perQualifyingSpouse, enableSpouse else {
+                return true
+            }
+            switch owner {
+            case .primary: return ageQualifiesForExemption(currentAge)
+            case .spouse:  return ageQualifiesForExemption(spouseCurrentAge)
+            case .joint:   return ageQualifiesForExemption(currentAge)
+                                || ageQualifiesForExemption(spouseCurrentAge)
+            }
+        }
+
+        // 2. Gather income by category from income sources.
+        // IRA income includes both `.rmd` IncomeSource rows AND scenario-level
+        // retirement distributions (computed RMDs from balances, inherited-IRA
+        // RMDs, and extra withdrawals) — gated at age 59½ so early-withdrawal
+        // amounts remain taxable. Mirrors the wiring inside
+        // TaxCalculationEngine.applyRetirementExemptions so this breakdown
+        // stays consistent with scenarioStateTax.
+        let taxableSS = scenarioTaxableSocialSecurity
+        let pensionIncome = incomeSources.filter { $0.type == .pension && ownerQualifies($0.owner) }.reduce(0) { $0 + $1.annualAmount }
+        let rmdSourceIncome = incomeSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }.reduce(0) { $0 + $1.annualAmount }
+        let retirementAge = currentAge >= exemptions.distributionMinAge
+            || (enableSpouse && spouseCurrentAge >= exemptions.distributionMinAge)
+        let scenarioDistroExemptable = retirementAge ? scenarioRetirementDistributionIncome : 0
+        let iraIncome = rmdSourceIncome + scenarioDistroExemptable
+        let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
+
+        // 3. Calculate each exemption amount. MUST mirror
+        // TaxCalculationEngine.applyRetirementExemptions exactly — including
+        // regularExemptionMinAge, earlyAgeTier, exemptionAppliesPerIndividual,
+        // and pensionAndIRAShareSingleCap. (Drift here causes breakdown
+        // totals to disagree with scenarioStateTax — caught by
+        // StateTaxBreakdownTests.breakdownMatchesCalculation.)
+        let ssExemptAmt = exemptions.socialSecurityExempt ? taxableSS : 0
 
         // Per-individual multiplier: when MFJ AND BOTH spouses individually
         // qualify (NY $20K, GA $35K/$65K), the cap doubles. State-aware

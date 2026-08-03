@@ -421,16 +421,70 @@ struct StateTaxPhase3aMechanismTests {
                             sources: [], scenarioDistributions: 40_000) == 0)
     }
 
-    @Test("Every jurisdiction uses household attribution in Phase 3a")
-    func noStateUsesPerSpouseAttributionYet() throws {
-        let configs = try StateTaxDataLoader.load(taxYear: 2026)
+    @Test("Per-qualifying-spouse attribution gates .rmd rows by owner, not only pensions")
+    func perQualifyingSpouseAttributionGatesRMDRowsByOwner() {
+        // Every other attribution test uses a `.pension` row, so the `.rmd`
+        // half of the same rule was unguarded: deleting the owner filter from
+        // the rmdSourceIncome computation left the whole suite green.
+        let config = Self.attributionConfig(.perQualifyingSpouse)
+        let spouseRMD = [IncomeSource(name: "IRA", type: .rmd,
+                                      annualAmount: 40_000, owner: .spouse)]
+        // Spouse is 60, below the config's 65 gate, so the spouse's own IRA
+        // row is taxed even though the primary qualifies.
+        #expect(Self.mfjTax(config: config, primaryAge: 70, spouseAge: 60,
+                            sources: spouseRMD) == 4_000)
+        // Once the spouse qualifies it is exempt again, so the case above
+        // cannot be passing for a config that simply exempts nothing.
+        #expect(Self.mfjTax(config: config, primaryAge: 70, spouseAge: 66,
+                            sources: spouseRMD) == 0)
+    }
+
+    @Test("Per-qualifying-spouse attribution taxes a primary-owned row when the primary does not qualify")
+    func perQualifyingSpouseAttributionTaxesANonQualifyingPrimary() {
+        // The `.primary` branch of ownerQualifies was only ever asserted in the
+        // exempt direction, so returning true unconditionally survived.
+        let config = Self.attributionConfig(.perQualifyingSpouse)
+        let primaryPension = [IncomeSource(name: "Pension", type: .pension,
+                                           annualAmount: 40_000, owner: .primary)]
+        // Primary 60 is below the 65 gate; the spouse at 70 clears it but does
+        // not own this row.
+        #expect(Self.mfjTax(config: config, primaryAge: 60, spouseAge: 70,
+                            sources: primaryPension) == 4_000)
+    }
+
+    @Test("Per-qualifying-spouse attribution taxes a joint row when neither spouse qualifies")
+    func perQualifyingSpouseAttributionTaxesAJointRowWhenNeitherQualifies() {
+        // The `.joint` branch was pinned only in its OR shape and its exempt
+        // direction, so returning true unconditionally survived.
+        let config = Self.attributionConfig(.perQualifyingSpouse)
+        let jointPension = [IncomeSource(name: "Pension", type: .pension,
+                                         annualAmount: 40_000, owner: .joint)]
+        #expect(Self.mfjTax(config: config, primaryAge: 60, spouseAge: 62,
+                            sources: jointPension) == 4_000)
+        // Either spouse qualifying is enough for a joint row.
+        #expect(Self.mfjTax(config: config, primaryAge: 60, spouseAge: 66,
+                            sources: jointPension) == 0)
+    }
+
+    @Test("Every jurisdiction ships exemptionAttribution as household in Phase 3a")
+    func everyStateShipsHouseholdAttribution() throws {
+        var wrong: [String] = []
         for state in USState.allCases {
-            let config = try #require(configs[state])
-            #expect(config.retirementExemptions.exemptionAttribution == .household,
-                    """
-                    \(state.abbreviation) changed attribution in Phase 3a. Iowa and the \
-                    per-person statutes adopt it in Phase 5c, each gated by a golden scenario.
-                    """)
+            let url = try StateTaxDataLoader.fileURL(for: state, taxYear: 2026)
+            let object = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: url)) as? [String: Any]
+            let exemptions = object?["retirementExemptions"] as? [String: Any]
+            // Raw keys, not decoded values: `.household` is also the decode
+            // fallback, so a decoded assertion passes even when the key is
+            // absent from every shipped file.
+            if exemptions?["exemptionAttribution"] as? String != "household" {
+                wrong.append(state.abbreviation)
+            }
         }
+        #expect(wrong.isEmpty,
+                """
+                Iowa and the per-person statutes adopt perQualifyingSpouse in Phase 5c, \
+                each gated by a golden scenario. Found wrong or missing: \(wrong)
+                """)
     }
 }

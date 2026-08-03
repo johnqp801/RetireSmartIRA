@@ -176,6 +176,14 @@ enum ExemptionAttribution: String, Codable, Equatable, Sendable {
     ///     adopting this case must carry a `knownLimitations` sentence saying
     ///     so, because a household whose spouse holds the IRA will be modeled
     ///     conservatively.
+    ///
+    /// SECOND LIMITATION, and the one more likely to surprise: attribution
+    /// gates WHICH INCOME is eligible, but the exemption LEVEL applied to it
+    /// still comes from `resolveLevel(effectiveAge)`, where `effectiveAge` is
+    /// the household maximum. So under this mode an owner who qualifies only
+    /// for an `earlyAgeTier` can still draw the household's regular level if
+    /// the other spouse clears the regular age. Closing that means attributing
+    /// levels per owner, which is a larger change than this phase makes.
     case perQualifyingSpouse
 }
 

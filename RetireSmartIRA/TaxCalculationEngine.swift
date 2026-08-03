@@ -606,17 +606,21 @@ struct TaxCalculationEngine {
             retirementAge = primaryAge >= exemptions.distributionMinAge
                 || (enableSpouse && spouseAge >= exemptions.distributionMinAge)
         case .perQualifyingSpouse:
-            // Not just distributionMinAge: `ageQualifiesForExemption` also
-            // honors `regularExemptionMinAge`/`earlyAgeTier` when set, which
-            // is what actually determines effectiveIRAExemption's level
-            // below. Using the plain distributionMinAge comparison here would
-            // let a primary who fails the state's real age gate still draw
-            // the household-level exemption on the scalar, because that
-            // level is computed from `effectiveAge` (household max), not the
-            // primary alone. When regularExemptionMinAge is 0 (every state
-            // today), this reduces to the identical
-            // `primaryAge >= exemptions.distributionMinAge` comparison.
-            retirementAge = ageQualifiesForExemption(primaryAge)
+            // Both conditions, because either alone leaks. `distributionMinAge`
+            // alone would admit a primary who fails the state's real age gate,
+            // who would then draw a level computed from `effectiveAge`, the
+            // household maximum. `ageQualifiesForExemption` alone would admit a
+            // primary who clears only an `earlyAgeTier` but sits below the
+            // 59.5 distribution floor: Colorado and Georgia both ship
+            // `earlyAgeTier: 55...64` with `distributionMinAge: 59`, so a
+            // 57-year-old would pass. Requiring both closes each gap, and
+            // reduces to the plain `primaryAge >= distributionMinAge`
+            // comparison whenever `regularExemptionMinAge` is 0, which is NOT
+            // true for every state (NY 59, NJ 62, CO 65, GA 65 all ship a
+            // nonzero value). No state ships `.perQualifyingSpouse` as of
+            // Phase 3a, so the gap this closes was latent, not live.
+            retirementAge = primaryAge >= exemptions.distributionMinAge
+                && ageQualifiesForExemption(primaryAge)
         }
         let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
         let iraIncome = rmdSourceIncome + scenarioExemptable
