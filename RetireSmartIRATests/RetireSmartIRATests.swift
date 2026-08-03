@@ -1491,6 +1491,33 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
             #expect(isClose(bd.totalStateTax, calcTax), "Breakdown mismatch for \(state.rawValue): breakdown=\(bd.totalStateTax) vs calc=\(calcTax)")
         }
     }
+
+    @Test("Breakdown totalStateTax matches calculateStateTaxFromGross below the distribution age gate")
+    func breakdownMatchesCalculationBelowTheDistributionAgeGate() {
+        // The case above builds its scenario at age 71 (`makeDMWithRetirementIncome`
+        // fixes birthYear at 1955, well above every state's `distributionMinAge`)
+        // and supplies no scenario-projected retirement distributions at all —
+        // only `.pension`/`.rmd` IncomeSource rows, which are never age-gated.
+        // `scenarioRetirementDistributionIncome` is therefore always 0 there, so
+        // `retirementAge` (DataManager.swift's mirror of the engine's own age
+        // gate on that scalar) is never observed: whichever way it resolves,
+        // the exempted amount is unchanged. This case sets the primary BELOW
+        // the gate (age 56, under the default/shipped `distributionMinAge` of
+        // 59) and gives `scenarioRetirementDistributionIncome` a nonzero value
+        // via an extra withdrawal — not an `.rmd` row — so a drift between the
+        // DataManager mirror and TaxCalculationEngine's own gate is visible.
+        let dm = makeDM(birthYear: 2026 - 56, state: .california)
+        dm.yourExtraWithdrawal = 40_000
+        let grossIncome = dm.scenarioGrossIncome
+        let taxableSS = dm.scenarioTaxableSocialSecurity
+        let scenarioDistributions = dm.scenarioRetirementDistributionIncome
+        #expect(scenarioDistributions > 0)
+        for state in USState.allCases {
+            let bd = dm.stateTaxBreakdown(forState: state, filingStatus: .single)
+            let calcTax = dm.calculateStateTaxFromGross(grossIncome: grossIncome, forState: state, filingStatus: .single, taxableSocialSecurity: taxableSS, scenarioRetirementDistributions: scenarioDistributions)
+            #expect(isClose(bd.totalStateTax, calcTax), "Breakdown mismatch for \(state.rawValue): breakdown=\(bd.totalStateTax) vs calc=\(calcTax)")
+        }
+    }
 }
 
 // MARK: - State Tax — Bug Fix Validation

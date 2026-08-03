@@ -365,6 +365,26 @@ struct StateTaxPhase3aMechanismTests {
             exemptionAttribution: attribution))
     }
 
+    /// A config where the OWNER FILTER is the only age gate.
+    ///
+    /// `attributionConfig` sets `regularExemptionMinAge: 65`, which makes
+    /// `resolveLevel` gate on `max(primaryAge, spouseAge) >= 65`, exactly the
+    /// same predicate `ownerQualifies(.joint)` computes. When the two agree, a
+    /// wrongly-admitted joint row is excluded anyway by the level resolving to
+    /// `.none`, so no assertion can see the owner filter fail.
+    ///
+    /// Leaving `regularExemptionMinAge` at 0 makes `resolveLevel` return the
+    /// regular level unconditionally, so the owner filter is the only gate and
+    /// its failure is observable.
+    static func ownerGatedOnlyConfig(_ attribution: ExemptionAttribution) -> StateTaxConfig {
+        flatTenPercent(exemptions: RetirementIncomeExemptions(
+            socialSecurityExempt: true,
+            pensionExemption: .full,
+            iraWithdrawalExemption: .full,
+            exemptionAttribution: attribution,
+            distributionMinAge: 65))
+    }
+
     @Test("Household attribution exempts a non-qualifying spouse's pension when the other qualifies")
     func householdAttributionIsTodaysBehavior() {
         let config = Self.attributionConfig(.household)
@@ -454,15 +474,17 @@ struct StateTaxPhase3aMechanismTests {
 
     @Test("Per-qualifying-spouse attribution taxes a joint row when neither spouse qualifies")
     func perQualifyingSpouseAttributionTaxesAJointRowWhenNeitherQualifies() {
-        // The `.joint` branch was pinned only in its OR shape and its exempt
-        // direction, so returning true unconditionally survived.
-        let config = Self.attributionConfig(.perQualifyingSpouse)
+        let config = Self.ownerGatedOnlyConfig(.perQualifyingSpouse)
         let jointPension = [IncomeSource(name: "Pension", type: .pension,
                                          annualAmount: 40_000, owner: .joint)]
+        // Neither spouse clears the 65 gate, so the joint row is taxed.
         #expect(Self.mfjTax(config: config, primaryAge: 60, spouseAge: 62,
                             sources: jointPension) == 4_000)
-        // Either spouse qualifying is enough for a joint row.
+        // Either spouse clearing it is enough for a joint row, so this pair
+        // also pins the OR shape rather than an AND.
         #expect(Self.mfjTax(config: config, primaryAge: 60, spouseAge: 66,
+                            sources: jointPension) == 0)
+        #expect(Self.mfjTax(config: config, primaryAge: 66, spouseAge: 60,
                             sources: jointPension) == 0)
     }
 
