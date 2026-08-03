@@ -1,0 +1,20 @@
+{
+  "state": "NJ",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "age 65 single, pension inside the 100%-retention band, personal exemptions apply",
+      "source": "NJ-1040 (2024) line 27 Total Income $95,000. Line 28a Pension/Retirement Exclusion, Worksheet D: single filer eligibility requires age 62+ (NJ Div. of Taxation, nj.gov/treasury/taxation/njit7.shtml: 'You ... were 62 or older ... on the last day of the tax year'); at total income $100,000 or less a single filer retains 100% of the exclusion, capped at $75,000; pension $80,000 exceeds the cap so the exclusion is capped at exactly $75,000. Line 28b Other Retirement Income Exclusion is $0 because the pension exclusion already exhausts the chart maximum, leaving nothing unused to shelter other income. Line 29 NJ Gross Income = 95,000 - 75,000 = $20,000. Line 13/30 Exemption Amount: $1,000 Regular (line 6) + $1,000 Senior 65+ (line 7, 'You can claim an additional $1,000 exemption if you were 65 or older', nj.gov/treasury/taxation/njit2.shtml) = $2,000, no spouse. Line 39/42 NJ Taxable Income = 20,000 - 2,000 = $18,000. Line 43 tax via the New Jersey Tax Rate Schedules (2020 and after, Table A, Single), first bracket $0-$20,000 at 1.4%, no subtraction: 18,000 x 0.014 = $252.00.",
+      "sourceURL": "https://www.nj.gov/treasury/taxation/pdf/other_forms/tgi-ee/2024/1040.pdf",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 95000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 252.0
+    }
+  ]
+}
