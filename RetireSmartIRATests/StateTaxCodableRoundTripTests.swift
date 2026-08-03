@@ -558,12 +558,18 @@ struct StateTaxCodableRoundTripTests {
         // argument retirementExemptionsBooleanKeysAreMutuallyDistinguishable
         // and stateTaxConfigBooleanKeysAreMutuallyDistinguishable make above
         // for same-valued Bool fields, here for two same-valued Doubles).
-        // That gap is acceptable only because a single/seniorAdditionalPerFiler
-        // swap is caught BEHAVIORALLY by
-        // StateTaxPhase3aMechanismTests.personalExemptionSeniorIsPerFiler,
-        // which asserts 3,000 for a household where one spouse is 66 and the
-        // other 60 -- a result only reachable when seniorAdditionalPerFiler
-        // (not single) is added on top of marriedFilingJointly.
+        // The single and seniorAdditionalPerFiler values are both 1,000, so a
+        // CodingKeys swap between them would be invisible here. Nothing in the
+        // suite currently backstops that, and an earlier version of this
+        // comment wrongly claimed personalExemptionSeniorIsPerFiler did: that
+        // test builds the type directly and calls amount(...), never touching
+        // JSONEncoder. newJerseyConfigExemptionValuesArePinned has the same
+        // blind spot, since New Jersey's real values are also 1,000 and 1,000.
+        // No swap bug is possible today because StatePersonalExemption's
+        // Codable conformance is entirely compiler-synthesized. If anyone
+        // hand-writes an encoder for it, matching what this phase did for
+        // AGIPhaseout and StateTaxSystem, give this fixture distinct values
+        // first.
         #expect(exemption["single"] as? Double == 1_000)
         #expect(exemption["marriedFilingJointly"] as? Double == 2_000)
         #expect(exemption["seniorAdditionalPerFiler"] as? Double == 1_000)

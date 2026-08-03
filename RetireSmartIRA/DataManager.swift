@@ -739,10 +739,10 @@ class DataManager {
         let income = max(0, grossIncome - stateDeduction)
 
         // 1. Determine age- and owner-based exemption eligibility. MUST mirror
-        // TaxCalculationEngine.applyRetirementExemptions exactly — including
+        // TaxCalculationEngine.applyRetirementExemptions exactly, including
         // regularExemptionMinAge, earlyAgeTier, exemptionAttribution, and
         // ownerQualifies. (Drift here causes breakdown totals to disagree
-        // with scenarioStateTax — caught by
+        // with scenarioStateTax, caught by
         // StateTaxBreakdownTests.breakdownMatchesCalculation.)
 
         // Effective exemption level given age (resolves GA tiers, CO tiers, etc.)
@@ -793,7 +793,7 @@ class DataManager {
         let otherIncome = max(0, income - taxableSS - pensionIncome - iraIncome)
 
         // 3. Calculate each exemption amount. MUST mirror
-        // TaxCalculationEngine.applyRetirementExemptions exactly — including
+        // TaxCalculationEngine.applyRetirementExemptions exactly, including
         // regularExemptionMinAge, earlyAgeTier, exemptionAppliesPerIndividual,
         // and pensionAndIRAShareSingleCap. (Drift here causes breakdown
         // totals to disagree with scenarioStateTax — caught by

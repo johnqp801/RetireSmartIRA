@@ -1496,7 +1496,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
     func breakdownMatchesCalculationBelowTheDistributionAgeGate() {
         // The case above builds its scenario at age 71 (`makeDMWithRetirementIncome`
         // fixes birthYear at 1955, well above every state's `distributionMinAge`)
-        // and supplies no scenario-projected retirement distributions at all —
+        // and supplies no scenario-projected retirement distributions at all,
         // only `.pension`/`.rmd` IncomeSource rows, which are never age-gated.
         // `scenarioRetirementDistributionIncome` is therefore always 0 there, so
         // `retirementAge` (DataManager.swift's mirror of the engine's own age
@@ -1504,7 +1504,7 @@ private func isClose(_ a: Double, _ b: Double, tolerance: Double = 0.01) -> Bool
         // the exempted amount is unchanged. This case sets the primary BELOW
         // the gate (age 56, under the default/shipped `distributionMinAge` of
         // 59) and gives `scenarioRetirementDistributionIncome` a nonzero value
-        // via an extra withdrawal — not an `.rmd` row — so a drift between the
+        // via an extra withdrawal, not an `.rmd` row, so a drift between the
         // DataManager mirror and TaxCalculationEngine's own gate is visible.
         let dm = makeDM(birthYear: 2026 - 56, state: .california)
         dm.yourExtraWithdrawal = 40_000
