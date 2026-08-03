@@ -166,6 +166,21 @@ struct StateTaxPhase3aMechanismTests {
                             primaryAge: 80, spouseAge: 80) == 18_320)
     }
 
+    @Test("New Jersey's shipped config carries its four exemption values exactly")
+    func newJerseyConfigExemptionValuesArePinned() throws {
+        let configs = try StateTaxDataLoader.load(taxYear: 2026)
+        let nj = try #require(configs[.newJersey]?.personalExemption)
+        // Pinned against the CONFIG, not against a hand-built fixture that
+        // duplicates it. NJ-1040: $1,000 regular per filer, plus $1,000 per
+        // filer age 65+. Without this, seniorAge could be set anywhere from 62
+        // to 65 and every existing NJ test would still pass, silently granting
+        // an exemption to filers aged 63 and 64.
+        #expect(nj.single == 1_000)
+        #expect(nj.marriedFilingJointly == 2_000)
+        #expect(nj.seniorAdditionalPerFiler == 1_000)
+        #expect(nj.seniorAge == 65)
+    }
+
     @Test("New Jersey's config carries the personal exemption; no other state does")
     func onlyNewJerseyCarriesAPersonalExemptionInPhase3a() throws {
         let configs = try StateTaxDataLoader.load(taxYear: 2026)

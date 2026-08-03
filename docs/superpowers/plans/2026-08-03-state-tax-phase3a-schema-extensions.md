@@ -604,7 +604,7 @@ Spec §3.1 and §4. New Jersey's personal exemption is a hardcoded function toda
 - Test: `RetireSmartIRATests/StateTaxPhase3aMechanismTests.swift`
 
 **Interfaces:**
-- Produces: `StatePersonalExemption` with `amount(filingStatus:enableSpouse:primaryAge:spouseAge:) -> Double`, and `StateTaxConfig.personalExemption: StatePersonalExemption?` (default `nil`). Task 8 adds its key to Layer C's optional set and regenerates NJ's file with it.
+- Produces: `StatePersonalExemption` with `amount(filingStatus:enableSpouse:primaryAge:spouseAge:) -> Double`, and `StateTaxConfig.personalExemption: StatePersonalExemption?` (default `nil`). Task 3 also updates Layer C's optional set and regenerates the files; see the plan correction above.
 
 > **PLAN CORRECTION, 2026-08-03, found during implementation.** This task MUST also update
 > Layer C and regenerate the 51 JSON files, as its final steps. The original plan deferred all
