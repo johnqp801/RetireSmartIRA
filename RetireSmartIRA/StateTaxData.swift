@@ -153,6 +153,32 @@ enum StateTaxSystem {
 
 // MARK: - Retirement Income Exemptions
 
+/// How a state's retirement exemption is attributed between spouses on a
+/// joint return.
+enum ExemptionAttribution: String, Codable, Equatable, Sendable {
+    /// Either spouse qualifying unlocks the exemption for all of the
+    /// household's retirement income. This is what the engine did for every
+    /// state before Phase 3a and it remains every state's value through
+    /// Phase 3a.
+    case household
+
+    /// Each spouse's exemption is gated by that spouse's own age and applies
+    /// only to income attributed to that spouse. Iowa's exclusion is written
+    /// this way, as are at least seven other per-person statutes (OK, DE, LA,
+    /// AR, AL, WI, RI).
+    ///
+    /// ATTRIBUTION RULES, and the one limitation they carry:
+    ///   - A `.pension` or `.rmd` income row is gated by its `owner`'s age.
+    ///   - A `.joint`-owned row is gated by the more generous of the two ages,
+    ///     which is what `.joint` means elsewhere in this codebase.
+    ///   - `scenarioRetirementDistributions` reaches the engine as a single
+    ///     scalar with no owner, so it is gated on the PRIMARY's age. A state
+    ///     adopting this case must carry a `knownLimitations` sentence saying
+    ///     so, because a household whose spouse holds the IRA will be modeled
+    ///     conservatively.
+    case perQualifyingSpouse
+}
+
 /// State-level exemptions for retirement income sources.
 /// Critical for a retirement IRA planning app — these dramatically affect state tax liability.
 struct RetirementIncomeExemptions {
@@ -186,6 +212,10 @@ struct RetirementIncomeExemptions {
     /// `earlyAgeTier` covering 62-64), MD (65, but pension subtraction has
     /// its own DOR-tested age rule of 65 separately), NJ (62), CO (55/65).
     var regularExemptionMinAge: Int = 0
+
+    /// See `ExemptionAttribution`. `.household` reproduces the behavior every
+    /// state had before Phase 3a.
+    var exemptionAttribution: ExemptionAttribution = .household
 
     /// Minimum age at which `scenarioRetirementDistributions` (RMDs computed
     /// from balances, inherited-IRA RMDs, and extra withdrawals) becomes

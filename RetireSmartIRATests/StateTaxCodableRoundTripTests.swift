@@ -183,12 +183,13 @@ struct StateTaxCodableRoundTripTests {
             // "recover" a dropped key back to true, masking the loss). See
             // retirementExemptionsEncodesExpectedJSONShape below for the
             // general, fixture-value-independent guard against this class of
-            // bug across all nine fields.
+            // bug across all twelve fields.
             socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
             exemptionAppliesPerIndividual: true,
             regularExemptionMinAge: 65,
+            exemptionAttribution: .perQualifyingSpouse,
             distributionMinAge: 55,
             earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
             pensionAndIRAShareSingleCap: true,
@@ -203,6 +204,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.socialSecurityExempt == original.socialSecurityExempt)
         #expect(decoded.exemptionAppliesPerIndividual == original.exemptionAppliesPerIndividual)
         #expect(decoded.regularExemptionMinAge == original.regularExemptionMinAge)
+        #expect(decoded.exemptionAttribution == original.exemptionAttribution)
         #expect(decoded.distributionMinAge == original.distributionMinAge)
         #expect(decoded.pensionAndIRAShareSingleCap == original.pensionAndIRAShareSingleCap)
         #expect(decoded.otherRetirementIncomeExclusion == original.otherRetirementIncomeExclusion)
@@ -266,7 +268,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
     }
 
-    @Test("Encoded JSON carries all eleven fields under their own keys, with the right values")
+    @Test("Encoded JSON carries all twelve fields under their own keys, with the right values")
     func retirementExemptionsEncodesExpectedJSONShape() throws {
         // This is the general guard against the whole class of bug the two
         // Bool-heavy findings above raised: a dropped encode() line, or two
@@ -276,7 +278,7 @@ struct StateTaxCodableRoundTripTests {
         // arrangement the way the round-trip fixture is). Inspecting the raw
         // JSON dictionary directly -- independent of what init(from:) does
         // with it -- catches a dropped field, a swapped label, and a
-        // default-masked field for all eleven keys at once, regardless of
+        // default-masked field for all twelve keys at once, regardless of
         // fixture values.
         //
         // This fixture must be extended whenever a field is added to
@@ -291,6 +293,7 @@ struct StateTaxCodableRoundTripTests {
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
             exemptionAppliesPerIndividual: true,
             regularExemptionMinAge: 65,
+            exemptionAttribution: .perQualifyingSpouse,
             distributionMinAge: 55,
             earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
             pensionAndIRAShareSingleCap: true,
@@ -306,6 +309,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(json["socialSecurityExempt"] as? Bool == false)
         #expect(json["exemptionAppliesPerIndividual"] as? Bool == true)
         #expect(json["regularExemptionMinAge"] as? Int == 65)
+        #expect(json["exemptionAttribution"] as? String == "perQualifyingSpouse")
         #expect(json["distributionMinAge"] as? Int == 55)
         #expect(json["pensionAndIRAShareSingleCap"] as? Bool == true)
         #expect(json["otherRetirementIncomeExclusion"] as? Bool == true)

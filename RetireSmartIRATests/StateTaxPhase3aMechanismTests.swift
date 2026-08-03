@@ -339,4 +339,98 @@ struct StateTaxPhase3aMechanismTests {
                 by a golden scenario that also pins the correct income basis. Found: \(carriers)
                 """)
     }
+
+    // MARK: - attribution
+
+    static func mfjTax(
+        config: StateTaxConfig, primaryAge: Int, spouseAge: Int,
+        sources: [IncomeSource], scenarioDistributions: Double = 0
+    ) -> Double {
+        let income = sources.reduce(0) { $0 + $1.annualAmount } + scenarioDistributions
+        return TaxCalculationEngine.calculateStateTax(
+            income: income, forState: .iowa, filingStatus: .marriedFilingJointly,
+            taxableSocialSecurity: 0, incomeSources: sources,
+            currentAge: primaryAge, enableSpouse: true,
+            spouseBirthYear: 2026 - spouseAge, currentYear: 2026,
+            scenarioRetirementDistributions: scenarioDistributions,
+            configOverride: config)
+    }
+
+    static func attributionConfig(_ attribution: ExemptionAttribution) -> StateTaxConfig {
+        flatTenPercent(exemptions: RetirementIncomeExemptions(
+            socialSecurityExempt: true,
+            pensionExemption: .full,
+            iraWithdrawalExemption: .full,
+            regularExemptionMinAge: 65,
+            exemptionAttribution: attribution))
+    }
+
+    @Test("Household attribution exempts a non-qualifying spouse's pension when the other qualifies")
+    func householdAttributionIsTodaysBehavior() {
+        let config = Self.attributionConfig(.household)
+        let spousePension = [IncomeSource(name: "Pension", type: .pension,
+                                          annualAmount: 40_000, owner: .spouse)]
+        // Primary 70 qualifies, spouse 60 does not. Household: fully exempt.
+        #expect(Self.mfjTax(config: config, primaryAge: 70, spouseAge: 60,
+                            sources: spousePension) == 0)
+    }
+
+    @Test("Per-qualifying-spouse attribution taxes the non-qualifying spouse's own pension")
+    func perQualifyingSpouseAttributionGatesByOwner() {
+        let config = Self.attributionConfig(.perQualifyingSpouse)
+        let spousePension = [IncomeSource(name: "Pension", type: .pension,
+                                          annualAmount: 40_000, owner: .spouse)]
+        // Spouse is 60, below the 65 gate, so the spouse's own pension is taxed
+        // even though the primary qualifies.
+        #expect(Self.mfjTax(config: config, primaryAge: 70, spouseAge: 60,
+                            sources: spousePension) == 4_000)
+        // Once the spouse qualifies, it is exempt again. Without this second
+        // case the first could pass for a config that exempts nothing.
+        #expect(Self.mfjTax(config: config, primaryAge: 70, spouseAge: 66,
+                            sources: spousePension) == 0)
+    }
+
+    @Test("Per-qualifying-spouse attribution still exempts the qualifying spouse's own pension")
+    func perQualifyingSpouseAttributionKeepsTheQualifyingOwnersExemption() {
+        let config = Self.attributionConfig(.perQualifyingSpouse)
+        let primaryPension = [IncomeSource(name: "Pension", type: .pension,
+                                           annualAmount: 40_000, owner: .primary)]
+        #expect(Self.mfjTax(config: config, primaryAge: 70, spouseAge: 60,
+                            sources: primaryPension) == 0)
+    }
+
+    @Test("A joint-owned row qualifies when either spouse qualifies, under both attributions")
+    func jointOwnedRowsUseTheMoreGenerousAge() {
+        let jointPension = [IncomeSource(name: "Pension", type: .pension,
+                                         annualAmount: 40_000, owner: .joint)]
+        #expect(Self.mfjTax(config: Self.attributionConfig(.household),
+                            primaryAge: 70, spouseAge: 60, sources: jointPension) == 0)
+        #expect(Self.mfjTax(config: Self.attributionConfig(.perQualifyingSpouse),
+                            primaryAge: 70, spouseAge: 60, sources: jointPension) == 0)
+    }
+
+    @Test("Scenario distributions have no owner, so per-spouse attribution gates them on the primary")
+    func scenarioDistributionsAreAttributedToThePrimary() {
+        let config = Self.attributionConfig(.perQualifyingSpouse)
+        // Primary 60 below the gate, spouse 70 above it. Household would exempt;
+        // per-spouse attributes the unowned scalar to the primary, so it is taxed.
+        #expect(Self.mfjTax(config: config, primaryAge: 60, spouseAge: 70,
+                            sources: [], scenarioDistributions: 40_000) == 4_000)
+        #expect(Self.mfjTax(config: Self.attributionConfig(.household),
+                            primaryAge: 60, spouseAge: 70,
+                            sources: [], scenarioDistributions: 40_000) == 0)
+    }
+
+    @Test("Every jurisdiction uses household attribution in Phase 3a")
+    func noStateUsesPerSpouseAttributionYet() throws {
+        let configs = try StateTaxDataLoader.load(taxYear: 2026)
+        for state in USState.allCases {
+            let config = try #require(configs[state])
+            #expect(config.retirementExemptions.exemptionAttribution == .household,
+                    """
+                    \(state.abbreviation) changed attribution in Phase 3a. Iowa and the \
+                    per-person statutes adopt it in Phase 5c, each gated by a golden scenario.
+                    """)
+        }
+    }
 }

@@ -294,7 +294,8 @@ extension AGIPhaseout.Shape: Codable {
 extension RetirementIncomeExemptions: Codable {
     private enum CodingKeys: String, CodingKey {
         case socialSecurityExempt, pensionExemption, iraWithdrawalExemption
-        case exemptionAppliesPerIndividual, regularExemptionMinAge, distributionMinAge, earlyAgeTier
+        case exemptionAppliesPerIndividual
+        case regularExemptionMinAge, exemptionAttribution, distributionMinAge, earlyAgeTier
         case pensionAndIRAShareSingleCap, otherRetirementIncomeExclusion, agiPhaseout
         case capitalGainsTreatment
     }
@@ -306,6 +307,7 @@ extension RetirementIncomeExemptions: Codable {
         try c.encode(iraWithdrawalExemption, forKey: .iraWithdrawalExemption)
         try c.encode(exemptionAppliesPerIndividual, forKey: .exemptionAppliesPerIndividual)
         try c.encode(regularExemptionMinAge, forKey: .regularExemptionMinAge)
+        try c.encode(exemptionAttribution, forKey: .exemptionAttribution)
         try c.encode(distributionMinAge, forKey: .distributionMinAge)
         try c.encodeIfPresent(earlyAgeTier, forKey: .earlyAgeTier)
         try c.encode(pensionAndIRAShareSingleCap, forKey: .pensionAndIRAShareSingleCap)
@@ -324,6 +326,8 @@ extension RetirementIncomeExemptions: Codable {
             iraWithdrawalExemption: try c.decodeIfPresent(ExemptionLevel.self, forKey: .iraWithdrawalExemption) ?? .none,
             exemptionAppliesPerIndividual: try c.decodeIfPresent(Bool.self, forKey: .exemptionAppliesPerIndividual) ?? false,
             regularExemptionMinAge: try c.decodeIfPresent(Int.self, forKey: .regularExemptionMinAge) ?? 0,
+            exemptionAttribution: try c.decodeIfPresent(
+                ExemptionAttribution.self, forKey: .exemptionAttribution) ?? .household,
             distributionMinAge: try c.decodeIfPresent(Int.self, forKey: .distributionMinAge) ?? 59,
             earlyAgeTier: try c.decodeIfPresent(AgeTier.self, forKey: .earlyAgeTier),
             pensionAndIRAShareSingleCap: try c.decodeIfPresent(Bool.self, forKey: .pensionAndIRAShareSingleCap) ?? false,

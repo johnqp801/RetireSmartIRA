@@ -567,7 +567,24 @@ struct TaxCalculationEngine {
         let effectivePensionExemption = resolveLevel(regular: exemptions.pensionExemption)
         let effectiveIRAExemption = resolveLevel(regular: exemptions.iraWithdrawalExemption)
 
-        let pensionIncome = incomeSources.filter { $0.type == .pension }.reduce(0) { $0 + $1.annualAmount }
+        /// Whether income owned by `owner` is eligible under the state's
+        /// attribution rule. Under `.household` every row is eligible when any
+        /// spouse qualifies, which is what `effectiveAge` already encodes.
+        func ownerQualifies(_ owner: Owner) -> Bool {
+            guard exemptions.exemptionAttribution == .perQualifyingSpouse, enableSpouse else {
+                return true
+            }
+            switch owner {
+            case .primary: return ageQualifiesForExemption(primaryAge)
+            case .spouse:  return ageQualifiesForExemption(spouseAge)
+            case .joint:   return ageQualifiesForExemption(primaryAge)
+                                || ageQualifiesForExemption(spouseAge)
+            }
+        }
+
+        let pensionIncome = incomeSources
+            .filter { $0.type == .pension && ownerQualifies($0.owner) }
+            .reduce(0) { $0 + $1.annualAmount }
 
         // Sum of state-recognized IRA-withdrawal income:
         //   1) `.rmd`-typed IncomeSource rows (demo profile / explicit entries), plus
@@ -578,9 +595,29 @@ struct TaxCalculationEngine {
         //      (early-withdrawal IRA distributions are taxable in PA and most
         //      states); user-entered `.rmd` rows are not gated because they
         //      implicitly represent retirement-age income.
-        let rmdSourceIncome = incomeSources.filter { $0.type == .rmd }.reduce(0) { $0 + $1.annualAmount }
-        let retirementAge = primaryAge >= exemptions.distributionMinAge
-            || (enableSpouse && spouseAge >= exemptions.distributionMinAge)
+        let rmdSourceIncome = incomeSources
+            .filter { $0.type == .rmd && ownerQualifies($0.owner) }
+            .reduce(0) { $0 + $1.annualAmount }
+        // Under `.perQualifyingSpouse` the scalar has no owner to attribute it
+        // to, so it is gated on the primary. See ExemptionAttribution.
+        let retirementAge: Bool
+        switch exemptions.exemptionAttribution {
+        case .household:
+            retirementAge = primaryAge >= exemptions.distributionMinAge
+                || (enableSpouse && spouseAge >= exemptions.distributionMinAge)
+        case .perQualifyingSpouse:
+            // Not just distributionMinAge: `ageQualifiesForExemption` also
+            // honors `regularExemptionMinAge`/`earlyAgeTier` when set, which
+            // is what actually determines effectiveIRAExemption's level
+            // below. Using the plain distributionMinAge comparison here would
+            // let a primary who fails the state's real age gate still draw
+            // the household-level exemption on the scalar, because that
+            // level is computed from `effectiveAge` (household max), not the
+            // primary alone. When regularExemptionMinAge is 0 (every state
+            // today), this reduces to the identical
+            // `primaryAge >= exemptions.distributionMinAge` comparison.
+            retirementAge = ageQualifiesForExemption(primaryAge)
+        }
         let scenarioExemptable = retirementAge ? scenarioRetirementDistributions : 0
         let iraIncome = rmdSourceIncome + scenarioExemptable
 

@@ -20,6 +20,7 @@
     "capitalGainsTreatment" : "followsFederal",
     "distributionMinAge" : 59,
     "exemptionAppliesPerIndividual" : false,
+    "exemptionAttribution" : "household",
     "iraWithdrawalExemption" : {
       "kind" : "steppedPhaseoutByFilingStatus",
       "maxExemptMFJ" : 100000,

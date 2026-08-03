@@ -22,6 +22,7 @@
       "minAge" : 55
     },
     "exemptionAppliesPerIndividual" : false,
+    "exemptionAttribution" : "household",
     "iraWithdrawalExemption" : {
       "kind" : "partial",
       "maxExempt" : 24000
