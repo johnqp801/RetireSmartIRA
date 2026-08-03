@@ -464,3 +464,71 @@ Task 7: commit 9b44664 (base 108990b). Test-only, no production diff. Suite 1,65
   step, not a task, so it is folded into the phase gate rather than spending a dispatch cycle on it.
   An EMPTY regeneration diff here is the expected outcome and is itself the evidence that every
   earlier task regenerated correctly.
+
+## PHASE GATE: GREEN. 35 commits off main. Working tree clean.
+  macOS: 1,657 Swift Testing in 278 suites + 503 XCTest, 0 failures, correct tree.
+  iOS:   ** BUILD SUCCEEDED **, all 51 statetax-2026-*.json confirmed in the built .app.
+  Phase start baseline was 1,620 + 503. Net +37 tests, all additive, ZERO expected values changed.
+  Regeneration diff EMPTY on two consecutive runs, which is the merged Task 8's evidence that every
+  earlier task regenerated correctly, and re-proves determinism.
+  Untouched as promised: project.pbxproj, ProjectionEngine.swift, GoldenScenarioCrossPathTests.swift
+  (so I2 stays open with its pins at 42.0 and 200.40469973890345).
+  The gate CAUGHT ITS OWN VIOLATION: four em dashes on comment lines added earlier in the phase.
+  Fixed at 6d2764a. Every added Swift and JSON line is now clean.
+
+## FINAL WHOLE-BRANCH REVIEW (opus) - READY WITH CONDITIONS, conditions MET at a0f58af
+  ** IT FOUND THE FOURTH AND FIFTH MISSED DataManager MIRROR, both proven by mutation, neither
+     recorded anywhere. This is the defining defect of the phase and it took one grep the per-task
+     reviews never ran: grepping each of the five field names against DataManager.swift.
+     agiPhaseout returned ZERO hits.
+     (1) agiPhaseout was absent from the mirror ENTIRELY. Georgia given a cliff phase-out:
+         breakdown 161.70 vs calc 3,665.20, a $3,503.50 gap between the tax charged and the sheet
+         that explains it, for one single filer. All six target jurisdictions (CT VA ME RI WV NM)
+         ship pensionAndIRAShareSingleCap false, so they land in the per-type branch the mirror
+         also skipped.
+     (2) The mirror hardcoded the .household OR form, so .perQualifyingSpouse was unimplemented
+         there. Georgia set to perQualifyingSpouse, primary 56 / spouse 70: breakdown 0.0 vs
+         calc 1,509.2. Structural sting: the phase's no-default-branch convention protects the
+         ENGINE and cannot protect a mirror that has no switch at all.
+     Both closed at a0f58af, each verified by reproducing the reviewer's shipped-JSON experiment
+     and confirming the mismatch RETURNS when the fix alone is reverted. **
+
+  ** ALSO FOUND, documented not fixed: in the per-type branch the phase-out reduction is applied
+     INDEPENDENTLY to the pension and IRA exclusions, and reduced() floors at zero per exclusion,
+     so the SAME excess income is deducted TWICE against two separate exclusions. Two .partial
+     (12,000) exclusions at threshold 50,000 and income 55,000 subtract 7,000 + 7,000 = 14,000.
+     No test covers it: all three engine phase-out tests isolate one side. Whether it is legally
+     wrong depends on each statute, which Phase 4's golden scenarios settle. A COMPOSITION, NOT YET
+     VERIFIED block now sits in AGIPhaseout's doc comment beside INCOME BASIS and BOUNDARY
+     CONVENTION, naming the per-type branch as where Phase 5 will land. **
+
+  Minor closed: distributionMinAge was the only new field with no shipped-data assertion. The
+    behavior baseline is only PARTIAL cover for it, because moving NY from 59 to 55 shifts no
+    baseline value (NY's regularExemptionMinAge of 59 makes resolveLevel return .none below 59
+    regardless of the scalar gate). Raw-key guard added, discrimination proven on Ohio.
+  Reviewer TRACED rather than assumed the persistence hazard that bit an earlier branch: zero
+    references to any of the five types in PersistenceManager or PersistedConversionApproach, the
+    only decode path is StateTaxDataLoader over bundled JSON, and TaxModels.StateTaxBreakdown holds
+    an ExemptionLevel but is a transient view model. No persisted blob exists for a renamed key to
+    orphan. Every field also decodes via decodeIfPresent with its declared default, so Phase 1 and
+    Phase 2 era files still decode identically.
+  Reviewer VERIFIED fixture provenance with git log --follow: exactly two commits touched the
+    behavior baseline, both in Task 1, both test-only and purely additive (869/0 then 153/0), and
+    the first production change on the branch lands AFTER both. The baseline genuinely encodes
+    pre-change behavior; it was never regenerated to accommodate a change.
+  An implementer honesty note worth keeping: my suggested verification for the attribution mirror
+    fix did NOT discriminate (Georgia's regularExemptionMinAge of 65 masks it for a single filer).
+    The agent established that empirically, said so, then reproduced the reviewer's actual
+    two-spouse scenario instead of claiming success on a test that proved nothing.
+
+## OPEN, CARRIED TO PHASE 4 AND 5 (none blocking merge)
+  - MFJ golden scenario inside the phase-out threshold band. PROMOTED INTO THE SPEC at §3.4.
+  - DataManager mirror has NO TEST SEAM (no configOverride). Findings 1 and 2 above are what its
+    absence already cost. Phase 5 should add the seam, not just an Iowa crossViewMatrix case.
+  - AGIPhaseout per-type double-reduction: pin each state's reading with its golden scenario.
+  - Golden-runner guard blocked until a second exemption state exists (Phase 5a Kansas).
+  - enableSpouse asymmetry in ownerQualifies: close before any state adopts .perQualifyingSpouse.
+  - PA-specific UI copy hardcoded; needs per-state citation text on the exemption to generalise.
+  - personalExemption is schema-wide now, so every state Phase 5a gives one to inherits the
+    multi-year drop (I2). Spec orders 5a before 5d, so Kansas carries a knowingly-divergent
+    cross-path case in between.
