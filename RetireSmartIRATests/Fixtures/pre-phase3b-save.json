@@ -1,0 +1,111 @@
+{
+  "_meta": {
+    "description": "Genuine pre-Phase-3b UserDefaults-encoded blob for the incomeSources and iraAccounts storage keys. Captured 2026-08-03 by running Phase3bFixtureCapture.captureFixture() (a temporary, deleted-after-use test) against RetireSmartIRA.xcodeproj at commit 4d829ef, BEFORE IncomeSource/IRAAccount gained the planStructure/planSource fields. Built a DataManager, populated iraAccounts and incomeSources with a spread of types, ran the real PersistenceManager.saveAll(from:defaults:), then read back defaults.data(forKey: \"incomeSources\") / defaults.data(forKey: \"iraAccounts\") and pretty-printed them. Every key and value below (other than 'id') is exactly what the shipping encoder wrote; none of it is hand-typed. Neither planStructure nor planSource appears anywhere in this file, which is the point: Phase3bPersistenceTests decodes this blob and must land on the inferred classification from spec section 3.6 with no key present to decode.",
+    "normalised": "Only the 'id' field on every incomeSources and iraAccounts entry was replaced with a fixed literal UUID (00000000-0000-4000-8000-00000000000N for income sources, 00000000-0000-4000-9000-00000000000N for accounts, N = position in the array). IncomeSource.id and IRAAccount.id are `let id: UUID = UUID()` by default, so the captured values were fresh-random per capture run and would rewrite this file on every regeneration for no reason, per Phase 1's same lesson with 285 random UUIDs. The decode path never branches on the literal value of id, only on its presence and type, so this substitution does not touch anything the decoder reads for behavior. No other field was touched: no dates, device paths, or build metadata appear in either model, so there was nothing else to normalise."
+  },
+  "incomeSources" : [
+    {
+      "annualAmount" : 20000,
+      "federalWithholding" : 0,
+      "federalWithholdingPercent" : 0,
+      "id" : "00000000-0000-4000-8000-000000000001",
+      "name" : "RMD",
+      "owner" : "You",
+      "stateWithholding" : 0,
+      "stateWithholdingPercent" : 0,
+      "type" : "RMD"
+    },
+    {
+      "annualAmount" : 45000,
+      "federalWithholding" : 4000,
+      "federalWithholdingPercent" : 0,
+      "id" : "00000000-0000-4000-8000-000000000002",
+      "name" : "Pension",
+      "owner" : "You",
+      "stateWithholding" : 0,
+      "stateWithholdingPercent" : 0,
+      "type" : "Pension"
+    },
+    {
+      "annualAmount" : 30000,
+      "federalWithholding" : 0,
+      "federalWithholdingPercent" : 0,
+      "id" : "00000000-0000-4000-8000-000000000003",
+      "name" : "Social Security",
+      "owner" : "Spouse",
+      "ssWithholdingRate" : "ten",
+      "stateWithholding" : 0,
+      "stateWithholdingPercent" : 0,
+      "type" : "Social Security"
+    },
+    {
+      "annualAmount" : 15000,
+      "federalWithholding" : 0,
+      "federalWithholdingPercent" : 0,
+      "id" : "00000000-0000-4000-8000-000000000004",
+      "name" : "Consulting",
+      "owner" : "You",
+      "stateWithholding" : 0,
+      "stateWithholdingPercent" : 0,
+      "type" : "Employment/Other Income"
+    },
+    {
+      "annualAmount" : 2000,
+      "federalWithholding" : 0,
+      "federalWithholdingPercent" : 0,
+      "id" : "00000000-0000-4000-8000-000000000005",
+      "name" : "Interest",
+      "owner" : "Joint",
+      "stateWithholding" : 0,
+      "stateWithholdingPercent" : 0,
+      "type" : "Interest"
+    }
+  ],
+  "iraAccounts" : [
+    {
+      "accountType" : "Traditional IRA",
+      "balance" : 250000,
+      "id" : "00000000-0000-4000-9000-000000000001",
+      "institution" : "Fidelity",
+      "name" : "Traditional IRA",
+      "owner" : "You"
+    },
+    {
+      "accountType" : "Traditional 401(k)",
+      "balance" : 400000,
+      "id" : "00000000-0000-4000-9000-000000000002",
+      "institution" : "Vanguard",
+      "name" : "401k",
+      "owner" : "You"
+    },
+    {
+      "accountType" : "Roth IRA",
+      "balance" : 80000,
+      "id" : "00000000-0000-4000-9000-000000000003",
+      "institution" : "Fidelity",
+      "name" : "Roth IRA",
+      "owner" : "Spouse"
+    },
+    {
+      "accountType" : "Roth 401(k)",
+      "balance" : 60000,
+      "id" : "00000000-0000-4000-9000-000000000004",
+      "institution" : "Vanguard",
+      "name" : "Roth 401k",
+      "owner" : "Spouse"
+    },
+    {
+      "accountType" : "Inherited Traditional IRA",
+      "balance" : 120000,
+      "beneficiaryBirthYear" : 1958,
+      "beneficiaryType" : "Spouse",
+      "decedentBirthYear" : 1950,
+      "decedentRBDStatus" : "After RBD",
+      "id" : "00000000-0000-4000-9000-000000000005",
+      "institution" : "Schwab",
+      "name" : "Inherited IRA",
+      "owner" : "You",
+      "yearOfInheritance" : 2023
+    }
+  ]
+}
