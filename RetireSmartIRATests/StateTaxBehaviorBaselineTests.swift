@@ -212,6 +212,16 @@ struct StateTaxBehaviorBaselineTests {
                 scenario grid was narrowed or widened without regenerating. Narrowing the \
                 grid to make a red gate green is not a fix.
                 """)
+        // The count comparison above cannot catch a scenario deleted AND the
+        // fixture regenerated, because both of its operands move together. This
+        // literal does not move on its own, so that path fails here instead.
+        // Adding a legitimate scenario means bumping this number, which is the
+        // deliberate act the gate wants; quietly dropping one is not.
+        #expect(Self.scenarios.count == 20,
+                """
+                The scenario grid changed size. If that was intended, bump this literal \
+                in the same commit as the regenerated fixture and say why.
+                """)
         for scenario in Self.scenarios {
             let k = Self.key(state, scenario)
             let expected = try #require(baseline[k], "no baseline entry for \(k)")

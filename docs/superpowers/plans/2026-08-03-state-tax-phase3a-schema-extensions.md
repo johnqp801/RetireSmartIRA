@@ -86,6 +86,16 @@ This is the fifth time in this program that a plausible-looking gate turned out 
 **Interfaces:**
 - Produces: `BaselineScenario` (internal to the test file), and the checked-in JSON keyed `"<ABBR>|<scenario name>"` to a Double. Later tasks consume nothing from this task except the requirement that its test stays green.
 
+> **AS BUILT, 2026-08-03.** The shipped grid is **20 scenarios, 1020 entries**, not the 17
+> in the code block below. Task 1's review added three: `MFJ 56 with spouse 55, both below the
+> gate` (the only case in which the household distribution gate is observed evaluating FALSE
+> with a spouse enabled, and nothing pre-existing caught its degradation), plus
+> `single 68 pension, total 120k` and `single 68 pension, total 140k` (New Jersey's
+> `singlePercent` values 0.375 and 0.1875 previously multiplied nothing). Two size assertions
+> were added to `matchesFrozenBaseline`. Read
+> `RetireSmartIRATests/StateTaxBehaviorBaselineTests.swift` for the current grid; the block
+> below is the historical starting point.
+
 The grid deliberately crosses every boundary the later tasks touch: the 59 distribution gate (ages 55, 57, 58, 61 against a spouse at 56), the per-individual doubling (MFJ with both spouses qualifying versus one), NJ's stepped phase-out bands, and a large conversion in PA/IL/MS.
 
 - [ ] **Step 1: Write the generator and the assertion together, with the fixture absent**
@@ -357,13 +367,13 @@ struct StateTaxBehaviorBaselineGeneratorTests {
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && TEST_RUNNER_STATE_TAX_BASELINE=1 xcodebuild test -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/StateTaxBehaviorBaselineGeneratorTests ENABLE_APP_SANDBOX=NO 2>&1 | tail -20
 ```
 
-Then confirm the file exists and has 51 × 17 = 867 entries:
+Then confirm the file exists and has 51 x 20 = 1020 entries:
 
 ```bash
 cd /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase3a && python3 -c "import json;d=json.load(open('RetireSmartIRATests/Baselines/statetax-behavior-baseline-2026.json'));print(len(d))"
 ```
 
-Expected: `867`. If the generator skipped (wrong env prefix) the file will not exist at all rather than being wrong; that is the failure mode to watch for.
+Expected: `1020`. If the generator skipped (wrong env prefix) the file will not exist at all rather than being wrong; that is the failure mode to watch for.
 
 - [ ] **Step 5: Run the assertion and watch it pass**
 
