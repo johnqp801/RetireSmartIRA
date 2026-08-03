@@ -28,6 +28,13 @@ struct AGIPhaseout: Codable, Equatable, Sendable {
     enum Shape: Equatable, Sendable {
         /// The exclusion drops to zero the moment income exceeds the
         /// threshold. New Mexico's $28,500 / $51,000 limits are this shape.
+        ///
+        /// BOUNDARY CONVENTION, not yet verified against any statute: income
+        /// exactly AT the threshold is UNREDUCED, and reduction begins one
+        /// dollar above it. The audit's wording for New Mexico ("requires AGI
+        /// under $28,500") reads as exclusive, which would differ from this by
+        /// the entire exclusion at exactly $28,500. Each state's Phase 4 golden
+        /// scenario must pin its own boundary; do not assume this one.
         case cliff
 
         /// The exclusion is reduced by `perDollar` for every dollar of income

@@ -606,6 +606,14 @@ struct TaxCalculationEngine {
             ) ?? rawExclusion
             adjusted -= pensionIRAExclusion
 
+            // NOTE for Phase 5: `chartMax` derives from the UNREDUCED exemption
+            // level, so a smaller `pensionIRAExclusion` makes `unused` larger.
+            // A state carrying all three of `.steppedPhaseoutByFilingStatus`,
+            // `otherRetirementIncomeExclusion` and an `agiPhaseout` would hand
+            // back through this block what the phase-out just took, up to
+            // `chartMax`. Unreachable today: `chartMax` is 0 for every level
+            // except the stepped one, New Jersey is the only state setting
+            // `otherRetirementIncomeExclusion`, and it has no `agiPhaseout`.
             // NJ-1040 Worksheet D — Other Retirement Income Exclusion.
             // The UNUSED chart maximum (chartMax − pension/IRA exclusion)
             // shelters OTHER eligible income when the taxpayer is at/above the

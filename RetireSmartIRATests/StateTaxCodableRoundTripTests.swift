@@ -189,9 +189,12 @@ struct StateTaxCodableRoundTripTests {
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
             exemptionAppliesPerIndividual: true,
             regularExemptionMinAge: 65,
+            distributionMinAge: 55,
             earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
             pensionAndIRAShareSingleCap: true,
             otherRetirementIncomeExclusion: true,
+            agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                                     shape: .linear(perDollar: 1.6)),
             capitalGainsTreatment: .taxedAsOrdinary
         )
         let data = try JSONEncoder().encode(original)
@@ -200,8 +203,10 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.socialSecurityExempt == original.socialSecurityExempt)
         #expect(decoded.exemptionAppliesPerIndividual == original.exemptionAppliesPerIndividual)
         #expect(decoded.regularExemptionMinAge == original.regularExemptionMinAge)
+        #expect(decoded.distributionMinAge == original.distributionMinAge)
         #expect(decoded.pensionAndIRAShareSingleCap == original.pensionAndIRAShareSingleCap)
         #expect(decoded.otherRetirementIncomeExclusion == original.otherRetirementIncomeExclusion)
+        #expect(decoded.agiPhaseout == original.agiPhaseout)
         // ExemptionLevel/CapGainsTreatment aren't Equatable in production code
         // (same reason exemptionLevelRoundTrips above compares behaviorally),
         // so compare structurally via the matchesShape helpers below.
@@ -261,7 +266,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
     }
 
-    @Test("Encoded JSON carries all nine fields under their own keys, with the right values")
+    @Test("Encoded JSON carries all eleven fields under their own keys, with the right values")
     func retirementExemptionsEncodesExpectedJSONShape() throws {
         // This is the general guard against the whole class of bug the two
         // Bool-heavy findings above raised: a dropped encode() line, or two
@@ -271,17 +276,27 @@ struct StateTaxCodableRoundTripTests {
         // arrangement the way the round-trip fixture is). Inspecting the raw
         // JSON dictionary directly -- independent of what init(from:) does
         // with it -- catches a dropped field, a swapped label, and a
-        // default-masked field for all nine keys at once, regardless of
+        // default-masked field for all eleven keys at once, regardless of
         // fixture values.
+        //
+        // This fixture must be extended whenever a field is added to
+        // RetirementIncomeExemptions. It was not, twice: neither
+        // distributionMinAge (added when the hardcoded 59 age gate was made
+        // configurable) nor agiPhaseout (added for the general phase-out
+        // mechanism) was added here when it landed, so both could have been
+        // dropped from the encoder with this whole suite staying green.
         let original = RetirementIncomeExemptions(
             socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
             exemptionAppliesPerIndividual: true,
             regularExemptionMinAge: 65,
+            distributionMinAge: 55,
             earlyAgeTier: .init(ageRange: 62...64, level: .partial(maxExempt: 35_000)),
             pensionAndIRAShareSingleCap: true,
             otherRetirementIncomeExclusion: true,
+            agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                                     shape: .linear(perDollar: 1.6)),
             capitalGainsTreatment: .taxedAsOrdinary
         )
         let data = try JSONEncoder().encode(original)
@@ -291,6 +306,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(json["socialSecurityExempt"] as? Bool == false)
         #expect(json["exemptionAppliesPerIndividual"] as? Bool == true)
         #expect(json["regularExemptionMinAge"] as? Int == 65)
+        #expect(json["distributionMinAge"] as? Int == 55)
         #expect(json["pensionAndIRAShareSingleCap"] as? Bool == true)
         #expect(json["otherRetirementIncomeExclusion"] as? Bool == true)
         #expect(json["capitalGainsTreatment"] as? String == "taxedAsOrdinary")
@@ -309,6 +325,12 @@ struct StateTaxCodableRoundTripTests {
         let ageTierLevel = try #require(ageTier["level"] as? [String: Any])
         #expect(ageTierLevel["kind"] as? String == "partial")
         #expect(ageTierLevel["maxExempt"] as? Double == 35_000)
+
+        let phaseout = try #require(json["agiPhaseout"] as? [String: Any])
+        #expect(phaseout["thresholdSingle"] as? Double == 50_000)
+        #expect(phaseout["thresholdMFJ"] as? Double == 75_000)
+        #expect((phaseout["shape"] as? [String: Any])?["kind"] as? String == "linear")
+        #expect((phaseout["shape"] as? [String: Any])?["perDollar"] as? Double == 1.6)
     }
 
     @Test("Two complementary Bool arrangements make every pair of the four Bool fields mutually distinguishable")

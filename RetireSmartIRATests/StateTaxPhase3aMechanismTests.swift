@@ -261,17 +261,82 @@ struct StateTaxPhase3aMechanismTests {
         #expect(tax(income: 70_000) == 7_000)
     }
 
-    @Test("No jurisdiction carries an agiPhaseout in Phase 3a")
-    func noStateHasAnAGIPhaseoutYet() throws {
-        let configs = try StateTaxDataLoader.load(taxYear: 2026)
-        for state in USState.allCases {
-            let config = try #require(configs[state])
-            #expect(config.retirementExemptions.agiPhaseout == nil,
-                    """
-                    \(state.abbreviation) gained an AGI phase-out in Phase 3a. \
-                    CT, VA, ME, RI, WV and NM get theirs in Phase 5, each gated \
-                    by a golden scenario that also pins the correct income basis.
-                    """)
+    @Test("agiPhaseout reduces the exclusion in the shared-cap branch too")
+    func agiPhaseoutAppliesInTheSharedCapBranch() {
+        // pensionAndIRAShareSingleCap routes pension and IRA through ONE
+        // combined subtraction, a different branch from the per-type one
+        // above. Three states set this flag today, so a phase-out landing on
+        // one of them in Phase 5 must be reduced here as well.
+        let config = Self.flatTenPercent(exemptions: RetirementIncomeExemptions(
+            socialSecurityExempt: true,
+            pensionExemption: .partial(maxExempt: 12_000),
+            iraWithdrawalExemption: .partial(maxExempt: 12_000),
+            pensionAndIRAShareSingleCap: true,
+            agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                                     shape: .linear(perDollar: 1.0))))
+
+        func tax(income: Double) -> Double {
+            TaxCalculationEngine.calculateStateTax(
+                income: income, forState: .iowa, filingStatus: .single,
+                taxableSocialSecurity: 0,
+                incomeSources: [IncomeSource(name: "Pension", type: .pension,
+                                             annualAmount: 40_000)],
+                currentAge: 70, enableSpouse: false, spouseBirthYear: 1956,
+                currentYear: 2026, configOverride: config)
         }
+        // At 50,000 the full 12,000 shared cap applies: 38,000 taxable, 3,800.
+        #expect(tax(income: 50_000) == 3_800)
+        // At 55,000 the exclusion is cut by 5,000 to 7,000: 48,000 taxable, 4,800.
+        #expect(tax(income: 55_000) == 4_800)
+        // At 70,000 the exclusion is gone entirely: 70,000 taxable, 7,000.
+        #expect(tax(income: 70_000) == 7_000)
+    }
+
+    @Test("agiPhaseout reduces the IRA subtraction, not only the pension one")
+    func agiPhaseoutAppliesToTheIRASubtraction() {
+        // The per-type branch subtracts pension and IRA separately. The
+        // existing engine test leaves iraWithdrawalExemption at .none and
+        // supplies no IRA income, so the IRA-side reduction is a no-op there
+        // and a dropped reduction on that line survives. All six jurisdictions
+        // this mechanism was built for phase out exclusions covering IRA
+        // withdrawals, so this is the side that matters most.
+        let config = Self.flatTenPercent(exemptions: RetirementIncomeExemptions(
+            socialSecurityExempt: true,
+            pensionExemption: .none,
+            iraWithdrawalExemption: .partial(maxExempt: 12_000),
+            agiPhaseout: AGIPhaseout(thresholdSingle: 50_000, thresholdMFJ: 75_000,
+                                     shape: .linear(perDollar: 1.0))))
+
+        func tax(income: Double) -> Double {
+            TaxCalculationEngine.calculateStateTax(
+                income: income, forState: .iowa, filingStatus: .single,
+                taxableSocialSecurity: 0,
+                incomeSources: [IncomeSource(name: "IRA", type: .rmd,
+                                             annualAmount: 40_000)],
+                currentAge: 70, enableSpouse: false, spouseBirthYear: 1956,
+                currentYear: 2026, configOverride: config)
+        }
+        #expect(tax(income: 50_000) == 3_800)
+        #expect(tax(income: 55_000) == 4_800)
+        #expect(tax(income: 70_000) == 7_000)
+    }
+
+    @Test("No jurisdiction ships an agiPhaseout key in Phase 3a")
+    func noStateShipsAnAGIPhaseoutKey() throws {
+        var carriers: [String] = []
+        for state in USState.allCases {
+            let url = try StateTaxDataLoader.fileURL(for: state, taxYear: 2026)
+            let object = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: url)) as? [String: Any]
+            let exemptions = object?["retirementExemptions"] as? [String: Any]
+            if exemptions?["agiPhaseout"] != nil { carriers.append(state.abbreviation) }
+        }
+        // Raw keys, not decoded values: a broken decodeIfPresent would let a
+        // decoded-value assertion pass against a file that does carry the key.
+        #expect(carriers.isEmpty,
+                """
+                CT, VA, ME, RI, WV and NM get their phase-outs in Phase 5, each gated \
+                by a golden scenario that also pins the correct income basis. Found: \(carriers)
+                """)
     }
 }
