@@ -1,6 +1,6 @@
 # Steve Nicolai reply: his twelve items (thirteen with Iowa)
 
-**Status:** drafted 2026-08-03, approved by John. Send from john@retiresmartira.com.
+**Status: SENT 2026-08-03** from john@retiresmartira.com.
 **Context:** he emailed support@ 2026-08-01 with 4 issues + 8 suggestions, then Iowa on 08-02.
 John acknowledged the same evening and confirmed the Kansas bug in writing, promising
 "answers and a plan over the next couple of days." This reply is two days late.
