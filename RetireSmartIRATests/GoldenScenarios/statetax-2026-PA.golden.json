@@ -5,6 +5,7 @@
     {
       "name": "retiree, pension and IRA fully exempt",
       "source": "PA-40 instructions: retirement income from an eligible plan after separation from service is not PA-taxable. Flat rate 3.07% per PA-40 line 12.",
+      "sourceURL": "https://www.pa.gov/agencies/revenue/forms-and-publications/pa-personal-income-tax-guide/gross-compensation",
       "filingStatus": "single",
       "primaryAge": 67,
       "spouseAge": null,

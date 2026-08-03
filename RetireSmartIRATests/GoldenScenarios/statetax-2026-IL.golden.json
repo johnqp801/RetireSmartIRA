@@ -4,7 +4,8 @@
   "scenarios": [
     {
       "name": "retiree, all retirement income subtracted",
-      "source": "IL-1040 Schedule M: federally taxable retirement income from qualified plans is subtracted. Flat rate 4.95% per IL-1040 line 12.",
+      "source": "IL-1040 Line 5: federally taxed Social Security and retirement income from qualified employee benefit plans (including 401(k) and IRA distributions) included in AGI is subtracted directly on Line 5, not Schedule M (claiming it on Schedule M double-subtracts it and triggers a DOR notice). Flat rate 4.95% per IL-1040 line 12.",
+      "sourceURL": "https://tax.illinois.gov/forms/incometax/currentyear/individual/il-1040-instr/step-3---base-income.html",
       "filingStatus": "single",
       "primaryAge": 67,
       "spouseAge": null,

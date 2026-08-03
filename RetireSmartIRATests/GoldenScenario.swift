@@ -11,6 +11,10 @@ struct GoldenScenario: Codable {
     let name: String
     /// Form and line numbers used to derive `expectedStateTax`.
     let source: String
+    /// A resolvable link to the authority named in `source`, so a reviewer can
+    /// follow it rather than trusting the citation text. A citation string alone
+    /// hid two wrong references in the first three fixtures ever written.
+    let sourceURL: String
     let filingStatus: String        // "single" or "marriedFilingJointly"
     let primaryAge: Int
     let spouseAge: Int?

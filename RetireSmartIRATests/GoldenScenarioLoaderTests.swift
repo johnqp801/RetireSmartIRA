@@ -19,6 +19,10 @@ struct GoldenScenarioLoaderTests {
             #expect(!scenario.name.isEmpty)
             #expect(!scenario.source.isEmpty,
                     "\(abbreviation)/\(scenario.name) has no citation, so its expected value is unverifiable")
+            #expect(!scenario.sourceURL.isEmpty,
+                    "\(abbreviation)/\(scenario.name) has no sourceURL, so its citation cannot be followed")
+            #expect(scenario.sourceURL.hasPrefix("https://"),
+                    "\(abbreviation)/\(scenario.name) sourceURL is not a resolvable https link")
             #expect(scenario.expectedStateTax >= 0)
             #expect(scenario.primaryAge > 0)
         }
