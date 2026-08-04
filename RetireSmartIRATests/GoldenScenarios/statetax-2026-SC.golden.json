@@ -17,7 +17,7 @@
       "expectedStateTax": 1164.89,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "regularExemptionMinAge is 0 with no earlyAgeTier configured, so StateTaxData.swift's SC config applies the 65-or-older $10,000 retirement-deduction level unconditionally instead of gating a filer under 65 to the correct $3,000 level.",
+        "summary": "regularExemptionMinAge is 0 with no earlyAgeTier configured, so StateTaxData.swift's SC config applies the 65-or-older $10,000 retirement-deduction level unconditionally instead of gating a filer under 65 to the correct $3,000 level. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing the retirement-deduction age gate and/or the missing $15,000 age-65 deduction alone will turn these cases green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
         "observedToday": 800.19
       }
     },
@@ -36,7 +36,7 @@
       "expectedStateTax": 414.92,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "No field in RetirementIncomeExemptions models South Carolina's separate $15,000 age-65 deduction against any income; today's engine applies only the $10,000 retirement deduction and nothing further.",
+        "summary": "No field in RetirementIncomeExemptions models South Carolina's separate $15,000 age-65 deduction against any income; today's engine applies only the $10,000 retirement deduction and nothing further. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing this deduction alone will turn this case green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
         "observedToday": 514.42
       }
     },
@@ -55,7 +55,7 @@
       "expectedStateTax": 2290.25,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "exemptionAppliesPerIndividual is false AND the $15,000 age-65 deduction has no field at all, so today's engine applies only a single household-wide $10,000 retirement deduction instead of $15,000 per spouse (their own $10,000 retirement deduction plus their own $5,000 net age-65 deduction), summed.",
+        "summary": "exemptionAppliesPerIndividual is false AND the $15,000 age-65 deduction has no field at all, so today's engine applies only a single household-wide $10,000 retirement deduction instead of $15,000 per spouse (their own $10,000 retirement deduction plus their own $5,000 net age-65 deduction), summed. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing both defects above will turn this case green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
         "observedToday": 3332.25
       }
     },
@@ -74,7 +74,7 @@
       "expectedStateTax": 709.02,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "The under-65 age-tier gate on the retirement deduction is missing (regularExemptionMinAge: 0) AND the $15,000 age-65 deduction has no field at all, so today's engine applies a single unconditional $10,000 to the pooled $90,000 instead of $15,000 for the qualifying spouse plus $3,000 for the non-qualifying spouse.",
+        "summary": "The under-65 age-tier gate on the retirement deduction is missing (regularExemptionMinAge: 0) AND the $15,000 age-65 deduction has no field at all, so today's engine applies a single unconditional $10,000 to the pooled $90,000 instead of $15,000 for the qualifying spouse plus $3,000 for the non-qualifying spouse. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing both defects above will turn this case green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
         "observedToday": 1125.82
       }
     }
