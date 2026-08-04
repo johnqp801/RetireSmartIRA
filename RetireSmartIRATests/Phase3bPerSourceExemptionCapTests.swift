@@ -45,7 +45,7 @@ struct Phase3bPerSourceExemptionCapTests {
                 regularExemptionMinAge: 59,
                 pensionAndIRAShareSingleCap: true,
                 perSourceExemptions: [
-                    RetirementIncomeExemptions.PerSourceExemptionRule(
+                    PerSourceExemptionRule(
                         matchSources: [.nyStateOrLocal, .federalCivilian],
                         matchStructures: [.definedBenefit],
                         treatment: .full)
@@ -165,30 +165,54 @@ struct Phase3bPerSourceExemptionCapTests {
     /// government pension is excluded independently and consumes NONE of the
     /// $20,000, so the private income's cap binds exactly as if the
     /// government pension were not in the return at all.
+    ///
+    /// The private pension is deliberately BELOW the $20,000 cap ($15,000,
+    /// not e.g. $25,000): if the shared-cap base wrongly pooled the matched
+    /// government pension back in, `min(pooled, 20_000)` would still equal
+    /// `min(unmatched alone, 20_000)` whenever the unmatched amount already
+    /// exceeds the cap on its own, and that mutation would pass silently.
+    /// Below the cap the two bases diverge ($65,000 pooled vs $15,000
+    /// unmatched), so this is the case that actually discriminates "a
+    /// matched amount still counts toward the shared cap" -- see the report
+    /// for the mutation proof.
+    ///
+    /// `income` ($115,000) is deliberately larger than the two pensions'
+    /// $65,000 sum -- the extra $50,000 models other ordinary income not
+    /// itemized as a source here. Without it, BOTH the correct total
+    /// exclusion ($65,000) and the mutated one ($70,000: $50,000 outright +
+    /// a $20,000-capped $65,000 pooled base) would exceed a $65,000 income
+    /// and floor taxable income at $0 either way, hiding the mutation behind
+    /// the SAME saturation this case already exists to rule out on the cap
+    /// side. With $115,000 of income, the two paths land at different
+    /// nonzero taxable amounts ($50,000 vs $45,000), so the mutation is
+    /// caught on the tax figure itself.
     @Test("An uncapped government pension consumes none of the $20,000 shared with capped private income")
     func governmentPensionConsumesNoneOfSharedCap() {
         let sources = [
             IncomeSource(name: "NY Pension", type: .pension, annualAmount: 50_000, owner: .primary,
                          planStructure: .definedBenefit, planSource: .nyStateOrLocal),
-            IncomeSource(name: "Private Pension", type: .pension, annualAmount: 25_000, owner: .primary,
+            IncomeSource(name: "Private Pension", type: .pension, annualAmount: 15_000, owner: .primary,
                          planStructure: .definedBenefit, planSource: .privateEmployer)
         ]
         let tax = TaxCalculationEngine.calculateStateTax(
-            income: 75_000, forState: .newYork, filingStatus: .single,
+            income: 115_000, forState: .newYork, filingStatus: .single,
             taxableSocialSecurity: 0, incomeSources: sources,
             currentAge: 65, enableSpouse: false, spouseBirthYear: 1961,
             currentYear: 2026, configOverride: Self.nyShapedConfig())
 
-        #expect(tax == 500,
+        #expect(tax == 5_000,
                 """
-                $50,000 government pension excluded outright (Line 26) + \
-                $20,000 of the $25,000 private pension excluded (Line 29 cap, \
-                unaffected by the government pension): taxable $5,000 @ 10% = \
-                $500. A bug that pooled the government pension INTO the shared \
-                cap base (ignoring the per-source match) would compute \
-                combinedIncome $75,000, still capped at $20,000, leaving \
-                $55,000 taxable ($5,500 tax) -- overstating this taxpayer's \
-                bill more than tenfold, exactly Alan's bug.
+                $50,000 government pension excluded outright (Line 26) + the \
+                full $15,000 private pension excluded (Line 29, under the \
+                $20,000 cap on its own, unaffected by the government \
+                pension): taxable $115,000 - $65,000 = $50,000 @ 10% = \
+                $5,000. A bug that pooled the government pension INTO the \
+                shared cap base (ignoring the per-source match) would compute \
+                combinedIncome $65,000, still capped at $20,000 (not \
+                $65,000), leaving $115,000 - $50,000 - $20,000 = $45,000 \
+                taxable ($4,500 tax) -- understating this taxpayer's bill by \
+                $500, exactly Alan's bug in the direction that costs the \
+                state revenue instead of the taxpayer.
                 """)
     }
 
@@ -203,16 +227,27 @@ struct Phase3bPerSourceExemptionCapTests {
         dm.incomeSources = [
             IncomeSource(name: "NY Pension", type: .pension, annualAmount: 50_000, owner: .primary,
                          planStructure: .definedBenefit, planSource: .nyStateOrLocal),
-            IncomeSource(name: "Private Pension", type: .pension, annualAmount: 25_000, owner: .primary,
-                         planStructure: .definedBenefit, planSource: .privateEmployer)
+            IncomeSource(name: "Private Pension", type: .pension, annualAmount: 15_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .privateEmployer),
+            // Mirrors the engine test's income: 115_000 (see that test's doc
+            // comment for why $65,000 of pension income alone would floor
+            // taxable income at $0 under both the correct AND the mutated
+            // computation, hiding the mutation). The mirror has no separate
+            // `income:` parameter -- it derives gross income from
+            // `incomeSources` -- so this $50,000 ordinary-interest row plays
+            // the same role the engine test's higher scalar plays there.
+            // `.interest` is ordinary income (not pension/RMD), so it never
+            // reaches `matchedPerSourceRule` and is untouched by either the
+            // correct or the mutated cap logic.
+            IncomeSource(name: "Other Ordinary Income", type: .interest, annualAmount: 50_000)
         ]
 
         let breakdown = dm.stateTaxBreakdown(
             forState: .newYork, filingStatus: .single, configOverride: Self.nyShapedConfig())
 
-        #expect(breakdown.pensionExemptAmount == 70_000,
-                "the full $50,000 government pension (outright) plus the $20,000 capped private share")
-        #expect(breakdown.totalStateTax == 500)
+        #expect(breakdown.pensionExemptAmount == 65_000,
+                "the full $50,000 government pension (outright) plus the full $15,000 private pension (under the cap on its own)")
+        #expect(breakdown.totalStateTax == 5_000)
     }
 
     // MARK: - Case 5: several capped sources summing past $20,000, the excess is taxed

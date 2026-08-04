@@ -202,7 +202,7 @@ struct StateTaxCodableRoundTripTests {
             // Phase 3b Task 4: non-default (non-empty) value, mirroring New
             // York's real rule so the fixture exercises actual shipped shape.
             perSourceExemptions: [
-                RetirementIncomeExemptions.PerSourceExemptionRule(
+                PerSourceExemptionRule(
                     matchSources: [.nyStateOrLocal, .federalCivilian],
                     matchStructures: [.definedBenefit],
                     treatment: .full)
@@ -308,7 +308,7 @@ struct StateTaxCodableRoundTripTests {
         // solely on inspecting the generated files.
         let withRule = RetirementIncomeExemptions(
             perSourceExemptions: [
-                RetirementIncomeExemptions.PerSourceExemptionRule(
+                PerSourceExemptionRule(
                     matchSources: [.nyStateOrLocal], matchStructures: [.definedBenefit],
                     treatment: .full)
             ])
@@ -361,7 +361,7 @@ struct StateTaxCodableRoundTripTests {
                 minAge: 55, withheldPortionRemainsTaxable: true),
             capitalGainsTreatment: .taxedAsOrdinary,
             perSourceExemptions: [
-                RetirementIncomeExemptions.PerSourceExemptionRule(
+                PerSourceExemptionRule(
                     matchSources: [.nyStateOrLocal, .federalCivilian],
                     matchStructures: [.definedBenefit],
                     treatment: .full)

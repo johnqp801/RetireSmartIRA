@@ -32,8 +32,17 @@ struct GoldenScenarioSingleYearTests {
     /// wrong the same way.
     ///
     /// New York is the next such moment (Phase 3b Task 4): it is the first pilot
-    /// state whose `stateDeduction` is nonzero (`.fixed(single: 8_000, married:
-    /// 16_050)`). `DataManager.calculateStateTaxFromGross` subtracts the state
+    /// state whose `stateDeduction` (`.fixed(single: 8_000, married: 16_050)`)
+    /// actually changes this harness's answer. Mississippi's `stateDeduction` is
+    /// also nonzero (`.fixed(single: 2_300, married: 4_600)`,
+    /// `StateTaxData.swift:933`), but the `stateStandardDeduction` switch below
+    /// is numerically inert for Mississippi's CURRENT fixture only: that
+    /// fixture's retirement-income exemptions already zero out its taxable
+    /// income before the state standard deduction has anything left to act on,
+    /// so `expectedStateTax` is $0 with or without it. The next Mississippi
+    /// fixture whose taxable income survives its exemptions will be affected by
+    /// this switch, the same way New York's fixtures are here.
+    /// `DataManager.calculateStateTaxFromGross` subtracts the state
     /// standard deduction from GROSS income BEFORE calling into
     /// `TaxCalculationEngine.calculateStateTax` (`stateTaxableIncome = max(0,
     /// adjustedGross - stateDeduction)`), not via `postExemptionDeduction` --

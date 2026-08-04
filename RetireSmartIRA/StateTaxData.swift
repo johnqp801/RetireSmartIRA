@@ -307,35 +307,16 @@ struct RetirementIncomeExemptions {
     /// version granted $20,000 to pension and another $20,000 to IRA.
     var perSourceExemptions: [PerSourceExemptionRule] = []
 
-    /// One ordered rule in `perSourceExemptions`. `Codable` is synthesized:
-    /// `[PlanSource]`/`[PlanStructure]` are plain `String`-backed enums with
-    /// their OWN strict, throwing Codable (an unrecognised raw value in
-    /// shipped JSON throws, never silently defaults -- design doc section
-    /// 3.6, "the two data sources get different strictness"), and
-    /// `ExemptionLevel`'s Codable is hand-written in StateTaxCodable.swift.
-    /// No associated-value enum lives directly on this struct, so no
-    /// hand-written Codable conformance is needed here. `Equatable` IS
-    /// hand-written, below -- `ExemptionLevel` itself is deliberately not
-    /// `Equatable` in production code (see the test-only `matchesShape`
-    /// helpers in StateTaxCodableRoundTripTests.swift), so synthesis cannot
-    /// derive it for a struct carrying one.
-    struct PerSourceExemptionRule: Codable, Sendable {
-        /// Empty means "any source". Non-empty means the source must be a
-        /// member of this set.
-        let matchSources: [PlanSource]
-        /// Empty means "any structure". Non-empty means the structure must be
-        /// a member of this set.
-        let matchStructures: [PlanStructure]
-        let treatment: ExemptionLevel
-    }
-
-    /// The first rule in `perSourceExemptions` whose `matchSources` and
-    /// `matchStructures` both admit `(structure, source)`, or `nil` if none
-    /// does. First match wins (section 3.4a step 1). Centralized here, rather
-    /// than reimplemented at each call site, so the engine and the
-    /// `DataManager` mirror can never disagree about WHICH rule matched --
-    /// only about how they apply it, which each still does separately per
-    /// the mirror's existing hand-duplication convention.
+    /// The first rule in `perSourceExemptions` whose `matches(structure:source:)`
+    /// admits `(structure, source)`, or `nil` if none does. First match wins
+    /// (design doc section 3.4a step 1). Centralized here, rather than
+    /// reimplemented at each call site, so the engine and the `DataManager`
+    /// mirror can never disagree about WHICH rule matched -- only about how
+    /// they apply it, which each still does separately per the mirror's
+    /// existing hand-duplication convention. Delegates to
+    /// `PerSourceExemptionRule.matches`, the single predicate definition (see
+    /// PerSourceExemptionRule.swift), rather than re-deriving the match logic
+    /// here.
     ///
     /// `governmentUnspecified` is never treated as a specific jurisdiction
     /// here or anywhere else: it matches a rule only if that rule's own
@@ -344,10 +325,7 @@ struct RetirementIncomeExemptions {
     /// section 3.1: "No rule may match `governmentUnspecified` as though it
     /// were a specific jurisdiction").
     func matchedPerSourceRule(structure: PlanStructure, source: PlanSource) -> PerSourceExemptionRule? {
-        perSourceExemptions.first { rule in
-            (rule.matchSources.isEmpty || rule.matchSources.contains(source))
-                && (rule.matchStructures.isEmpty || rule.matchStructures.contains(structure))
-        }
+        perSourceExemptions.first { $0.matches(structure: structure, source: source) }
     }
 
     /// Reduced exemption that applies only within a specific age band.
@@ -471,10 +449,11 @@ struct RetirementIncomeExemptions {
 
 /// Structural equality for `PerSourceExemptionRule`, hand-written because
 /// `ExemptionLevel` is deliberately not `Equatable` in production code
-/// elsewhere (see the type's own doc comment above). Scoped narrowly to this
-/// one struct rather than exposing a general `ExemptionLevel: Equatable`
-/// conformance the rest of production code has never needed.
-extension RetirementIncomeExemptions.PerSourceExemptionRule: Equatable {
+/// elsewhere (see PerSourceExemptionRule.swift and ExemptionLevel's own doc
+/// comment above). Scoped narrowly to this one struct rather than exposing a
+/// general `ExemptionLevel: Equatable` conformance the rest of production
+/// code has never needed.
+extension PerSourceExemptionRule: Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
         guard lhs.matchSources == rhs.matchSources, lhs.matchStructures == rhs.matchStructures else {
             return false
@@ -1988,7 +1967,7 @@ struct StateTaxData {
                 // section 3.1). This is the design's own regression test for
                 // the flat `.governmentPension` case it was revised away from.
                 perSourceExemptions: [
-                    RetirementIncomeExemptions.PerSourceExemptionRule(
+                    PerSourceExemptionRule(
                         matchSources: [.nyStateOrLocal, .federalCivilian],
                         matchStructures: [.definedBenefit],
                         treatment: .full)

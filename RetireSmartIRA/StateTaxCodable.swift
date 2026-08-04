@@ -346,7 +346,7 @@ extension RetirementIncomeExemptions: Codable {
                 RothConversionExemption.self, forKey: .rothConversionExemption),
             capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal,
             perSourceExemptions: try c.decodeIfPresent(
-                [RetirementIncomeExemptions.PerSourceExemptionRule].self, forKey: .perSourceExemptions) ?? []
+                [PerSourceExemptionRule].self, forKey: .perSourceExemptions) ?? []
         )
     }
 }
