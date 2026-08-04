@@ -641,6 +641,193 @@ struct RMDStatusPresentationTests {
             }
         }
     }
+
+    // MARK: - Multi-Year Plan conversion window banner
+
+    /// Mirrors what MultiYearStrategyManager does: resolve the household from
+    /// planning-year ages, then ask for the banner.
+    private func banner(
+        primaryAge: Int, primaryRmdAge: Int,
+        spouseEnabled: Bool, spouseAge: Int, spouseRmdAge: Int,
+        spouseName: String = ""
+    ) -> RMDStatusPresentation.MultiYearBanner? {
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+            spouseEnabled: spouseEnabled, spouseAge: spouseAge, spouseRmdAge: spouseRmdAge)
+        return RMDStatusPresentation.multiYearBanner(
+            status: status,
+            primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+            spouseEnabled: spouseEnabled, spouseAge: spouseAge, spouseRmdAge: spouseRmdAge,
+            spouseName: spouseName)
+    }
+
+    @Test("The Multi-Year banner stops promising a window once the spouse is required")
+    func multiYearBannerDropsThePromiseForTheStraddleHousehold() {
+        // The household on screen: born 1962, RMD age 75, age 64. Karen born
+        // 1953, RMD age 73, age 73, and her 2026 RMD is $45,283.02. The banner
+        // read "You have about 11 years before required minimum distributions
+        // begin" while her distributions had already begun.
+        let b = banner(
+            primaryAge: 64, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 73, spouseRmdAge: 73,
+            spouseName: "Karen")
+
+        #expect(b != nil)
+        #expect(b?.isOpen == false)
+        #expect(b?.title == "Required distributions have already begun")
+        #expect(b?.message.contains("before required minimum distributions begin") == false)
+        #expect(b?.message == "Karen's RMDs have already begun, so part of your lower brackets is already in use. Your own required minimum distributions are still about 11 years away.")
+    }
+
+    @Test("The Multi-Year banner says the same thing the Scenario Builder says")
+    func multiYearBannerReusesTheScenarioBuilderSentence() {
+        // The two tabs already disagreed once about this household. The banner
+        // takes its naming sentence from the same builder, so a change to one
+        // cannot move only the other.
+        let w = window(
+            primaryAge: 64, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 73, spouseRmdAge: 73,
+            spouseName: "Karen")
+        let b = banner(
+            primaryAge: 64, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 73, spouseRmdAge: 73,
+            spouseName: "Karen")
+
+        #expect(w.alreadyBegunSentence != nil)
+        #expect(b?.message.hasPrefix(w.alreadyBegunSentence ?? "!") == true)
+    }
+
+    @Test("A single filer still ahead of RMDs sees today's banner exactly")
+    func multiYearBannerSingleFilerWordingIsUnchanged() {
+        // Hard compatibility pin: the sentence, the count and the open styling
+        // must not move by a single byte for a household with one clock.
+        let b = banner(
+            primaryAge: 64, primaryRmdAge: 75,
+            spouseEnabled: false, spouseAge: 0, spouseRmdAge: 0)
+
+        #expect(b?.isOpen == true)
+        #expect(b?.title == "Conversion opportunity window")
+        #expect(b?.message == "You have about 11 years before required minimum distributions begin. These pre-RMD years are often the best window for Roth conversions, while you have the most control over your taxable income.")
+    }
+
+    @Test("A single filer already past RMD age still sees no banner")
+    func multiYearBannerSingleFilerPastRmdAgeStaysHidden() {
+        // yearsBeforeFirstRMD was zero for these households and the banner was
+        // hidden. Nothing about naming the household changes that.
+        #expect(banner(primaryAge: 75, primaryRmdAge: 75,
+                       spouseEnabled: false, spouseAge: 0, spouseRmdAge: 0) == nil)
+        #expect(banner(primaryAge: 80, primaryRmdAge: 75,
+                       spouseEnabled: false, spouseAge: 0, spouseRmdAge: 0) == nil)
+    }
+
+    @Test("A couple sharing one RMD age keeps today's banner exactly")
+    func multiYearBannerSharedRmdAgeCoupleIsUnchanged() {
+        // Both born 1960 or later, so both reach RMDs at 75 and the primary
+        // gets there first. Nothing on screen was ever false for them.
+        let b = banner(
+            primaryAge: 64, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 61, spouseRmdAge: 75,
+            spouseName: "Karen")
+
+        #expect(b?.isOpen == true)
+        #expect(b?.title == "Conversion opportunity window")
+        #expect(b?.message == "You have about 11 years before required minimum distributions begin. These pre-RMD years are often the best window for Roth conversions, while you have the most control over your taxable income.")
+    }
+
+    @Test("A one-year window keeps the singular")
+    func multiYearBannerSingularYear() {
+        let b = banner(
+            primaryAge: 74, primaryRmdAge: 75,
+            spouseEnabled: false, spouseAge: 0, spouseRmdAge: 0)
+
+        #expect(b?.message.hasPrefix("You have about 1 year before") == true)
+    }
+
+    @Test("The banner never claims an open window while anyone is required")
+    func multiYearBannerNeverPromisesWhileAnyoneIsRequired() {
+        // Swept invariant. Whatever the ages, the moment someone in the
+        // household is taking distributions the banner must not carry the
+        // pre-RMD promise.
+        for primaryAge in 60...80 {
+            for spouseAge in 60...80 {
+                for spouseRmdAge in [73, 75] {
+                    let status = RMDHouseholdStatus.resolve(
+                        primaryAge: primaryAge, primaryRmdAge: 75,
+                        spouseEnabled: true, spouseAge: spouseAge, spouseRmdAge: spouseRmdAge)
+                    guard status.anyoneRequired else { continue }
+                    let b = RMDStatusPresentation.multiYearBanner(
+                        status: status,
+                        primaryAge: primaryAge, primaryRmdAge: 75,
+                        spouseEnabled: true, spouseAge: spouseAge, spouseRmdAge: spouseRmdAge,
+                        spouseName: "Karen")
+                    guard let b else { continue }
+                    #expect(!b.isOpen)
+                    #expect(!b.message.contains("best window for Roth conversions"))
+                }
+            }
+        }
+    }
+
+    // MARK: - CPA briefing year-by-year Age column
+
+    @Test("The briefing carries both ages when the spouse reaches RMDs first")
+    func briefingAgeColumnShowsBothAgesForTheStraddleHousehold() {
+        // Primary born 1962 reaches RMDs in 2037; Karen born 1953 reaches hers
+        // in 2026. The 2026 row prints a household RMD of $45,283, which is
+        // impossible for a 64-year-old whose own RMD age is 75.
+        let c = RMDStatusPresentation.briefingAgeColumn(
+            spouseEnabled: true,
+            primaryFirstRmdYear: 1962 + 75,
+            spouseFirstRmdYear: 1953 + 73,
+            spouseName: "Karen")
+
+        #expect(c.showsBothAges)
+        #expect(c.header == "Ages")
+        #expect(c.cell(primaryAge: 2026 - 1962, spouseAge: 2026 - 1953) == "64 / 73")
+        #expect(c.note == "Ages are shown as you / Karen. The RMD column is the household total for both, so it can include Karen's required distribution in a year before your own begins.")
+    }
+
+    @Test("A single filer's briefing Age column is unchanged")
+    func briefingAgeColumnSingleFilerIsUnchanged() {
+        let c = RMDStatusPresentation.briefingAgeColumn(
+            spouseEnabled: false,
+            primaryFirstRmdYear: 1962 + 75,
+            spouseFirstRmdYear: 0,
+            spouseName: "")
+
+        #expect(!c.showsBothAges)
+        #expect(c.header == "Age")
+        #expect(c.note == nil)
+        #expect(c.cell(primaryAge: 64, spouseAge: 73) == "64")
+    }
+
+    @Test("A couple sharing one RMD age leaves the briefing Age column alone")
+    func briefingAgeColumnSharedRmdAgeCoupleIsUnchanged() {
+        // Both born 1960 or later, so both reach RMDs at 75 and the primary,
+        // the older of the two, reaches his first. No row can contradict
+        // itself, so the table stays exactly as it is.
+        let c = RMDStatusPresentation.briefingAgeColumn(
+            spouseEnabled: true,
+            primaryFirstRmdYear: 1962 + 75,
+            spouseFirstRmdYear: 1965 + 75,
+            spouseName: "Karen")
+
+        #expect(!c.showsBothAges)
+        #expect(c.header == "Age")
+        #expect(c.note == nil)
+        #expect(c.cell(primaryAge: 75, spouseAge: 72) == "75")
+    }
+
+    @Test("A nameless spouse still gets a readable note")
+    func briefingAgeColumnNamelessSpouse() {
+        let c = RMDStatusPresentation.briefingAgeColumn(
+            spouseEnabled: true,
+            primaryFirstRmdYear: 2037,
+            spouseFirstRmdYear: 2026,
+            spouseName: "")
+
+        #expect(c.note == "Ages are shown as you / your spouse. The RMD column is the household total for both, so it can include your spouse's required distribution in a year before your own begins.")
+    }
 }
 
 /// The two surfaces outside the RMD card that also announced due-ness from age

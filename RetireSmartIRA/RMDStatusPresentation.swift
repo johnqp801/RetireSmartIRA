@@ -169,6 +169,134 @@ struct RMDStatusPresentation: Equatable {
             alreadyBegunSentence: alreadyBegun)
     }
 
+    /// The Multi-Year Plan tab's "Conversion opportunity window" banner.
+    ///
+    /// The banner counted down from the primary's RMD age alone, so a household
+    /// whose spouse is nine years older and already taking distributions read
+    /// "You have about 11 years before required minimum distributions begin" on
+    /// the Multi-Year tab while the Legacy tab printed nothing at all and the
+    /// Scenario Builder said her RMDs had already begun. Three screens, one
+    /// household, three answers.
+    struct MultiYearBanner: Equatable {
+        let title: String
+        let message: String
+        /// True for the original opportunity banner, false once someone in the
+        /// household is already taking distributions. The view reads it for the
+        /// icon and tint, so the closed case is not painted as an opportunity.
+        let isOpen: Bool
+    }
+
+    /// The banner's content, or nil when no banner renders.
+    ///
+    /// Every household whose text or countdown moves here is one whose banner
+    /// today states something FALSE about the household. Nothing else moves:
+    ///
+    ///  - Primary already required: nil, exactly as today, whatever the spouse
+    ///    is doing. `yearsBeforeFirstRMD` was 0 for these households and the
+    ///    banner was hidden, so a required single filer is untouched.
+    ///  - Nobody required: the original sentence, counting to whoever reaches
+    ///    RMDs first rather than to the primary. Those differ only when the
+    ///    spouse gets there sooner, which is precisely when today's number is
+    ///    wrong; for a single filer they are the same number by construction.
+    ///  - Primary still waiting while someone else is already required: the
+    ///    promise comes off. Single filers cannot reach this case at all.
+    static func multiYearBanner(
+        status: RMDHouseholdStatus,
+        primaryAge: Int, primaryRmdAge: Int,
+        spouseEnabled: Bool, spouseAge: Int, spouseRmdAge: Int,
+        spouseName: String
+    ) -> MultiYearBanner? {
+        // Today's banner is hidden once the primary's own countdown reaches
+        // zero, and that stays true: this is a callout about a window the
+        // reader still has, and the primary no longer has one.
+        guard primaryAge < primaryRmdAge else { return nil }
+
+        guard status.anyoneRequired else {
+            // Byte-for-byte the sentence the banner has always shown. The only
+            // change is WHOSE countdown it is: the first person in the
+            // household to reach RMDs, which for a single filer, and for any
+            // couple the primary reaches first, is the same value as before.
+            let y = status.yearsUntilFirst
+            guard y > 0 else { return nil }
+            return MultiYearBanner(
+                title: "Conversion opportunity window",
+                message: "You have about \(y) year\(y == 1 ? "" : "s") before required minimum distributions begin. These pre-RMD years are often the best window for Roth conversions, while you have the most control over your taxable income.",
+                isOpen: true)
+        }
+
+        // Someone is already taking distributions. The sentence naming them is
+        // the SAME sentence the Scenario Builder prints, taken from the same
+        // builder, so the two tabs cannot drift apart again.
+        let window = conversionWindow(
+            status: status,
+            primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+            spouseEnabled: spouseEnabled, spouseAge: spouseAge, spouseRmdAge: spouseRmdAge,
+            spouseName: spouseName)
+        guard let begun = window.alreadyBegunSentence else { return nil }
+
+        // The primary's own remaining years are still worth stating, and are
+        // still true; what was false was calling them the household's.
+        let years = primaryRmdAge - primaryAge
+        let unit = years == 1 ? "year" : "years"
+        return MultiYearBanner(
+            title: "Required distributions have already begun",
+            message: "\(begun) Your own required minimum distributions are still about \(years) \(unit) away.",
+            isOpen: false)
+    }
+
+    /// The Age and RMD columns of the multi-year CPA briefing's year-by-year table.
+    ///
+    /// The Age column was `year - primaryBirthYear` printed on the same row as
+    /// the household's RMD, which sums both spouses. A CPA reading a 2026 row
+    /// for a household whose wife is nine years older saw "age 64" beside an
+    /// RMD of $45,283 for a man whose own RMD age is 75. That is not merely
+    /// incomplete, it is impossible, and the document's reader cannot ask what
+    /// was meant.
+    struct BriefingAgeColumn: Equatable {
+        /// "Age" when one age explains the row, "Ages" when the cell carries two.
+        let header: String
+        let showsBothAges: Bool
+        /// The sentence appended to the table's existing rounding note, or nil
+        /// when the single-age table needs no explanation.
+        let note: String?
+
+        /// The Age cell for one row. `spouseAge` is ignored unless the column
+        /// carries both, so a caller may pass any placeholder for a household
+        /// with no spouse.
+        func cell(primaryAge: Int, spouseAge: Int) -> String {
+            showsBothAges ? "\(primaryAge) / \(spouseAge)" : "\(primaryAge)"
+        }
+    }
+
+    /// Decides whether the briefing's Age column has to carry two ages.
+    ///
+    /// The contradiction is possible in exactly one situation: the spouse's
+    /// first RMD falls in an EARLIER calendar year than the primary's, so a row
+    /// can carry a household RMD while the primary is still below his own RMD
+    /// age. Take the first RMD years rather than the RMD ages, since two people
+    /// can share an RMD age of 75 and still reach it a decade apart.
+    ///
+    /// When the spouse reaches RMDs in the same year or later, no row can
+    /// contradict itself, and the table renders exactly as it always has. That
+    /// covers every single filer and every couple of similar age.
+    static func briefingAgeColumn(
+        spouseEnabled: Bool,
+        primaryFirstRmdYear: Int,
+        spouseFirstRmdYear: Int,
+        spouseName: String
+    ) -> BriefingAgeColumn {
+        guard spouseEnabled, spouseFirstRmdYear < primaryFirstRmdYear else {
+            return BriefingAgeColumn(header: "Age", showsBothAges: false, note: nil)
+        }
+        let who = spouseName.isEmpty ? "your spouse" : spouseName
+        let possessive = spouseName.isEmpty ? "your spouse's" : "\(spouseName)'s"
+        return BriefingAgeColumn(
+            header: "Ages",
+            showsBothAges: true,
+            note: "Ages are shown as you / \(who). The RMD column is the household total for both, "
+                + "so it can include \(possessive) required distribution in a year before your own begins.")
+    }
+
     /// The label for a figure that already sums both people's RMDs.
     ///
     /// The collapsed Scenarios card called the combined figure "Required RMD"

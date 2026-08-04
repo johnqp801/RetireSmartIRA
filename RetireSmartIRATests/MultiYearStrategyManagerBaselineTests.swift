@@ -201,6 +201,102 @@ final class MultiYearStrategyManagerBaselineTests: XCTestCase {
                      "yearsBeforeFirstRMD must return nil when user is past RMD age (74)")
     }
 
+    // MARK: - yearsBeforeFirstRMD describes the household, not the primary
+
+    /// A household with a primary born 1962 (RMD age 75) and a spouse born
+    /// 1953 (RMD age 73), planning in 2026. A genuine SECURE 2.0 straddle: the
+    /// spouse is 73 and already required while the primary is 64.
+    ///
+    /// The DataManager is returned rather than kept inside a helper because the
+    /// manager holds it WEAKLY; a caller that does not keep it alive is testing
+    /// a detached manager and every one of these assertions would pass for the
+    /// wrong reason.
+    private func straddleHousehold() -> DataManager {
+        let dataManager = DataManager(skipPersistence: true)
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: 1962, month: 1, day: 1))!
+        dataManager.enableSpouse = true
+        dataManager.spouseName = "Karen"
+        dataManager.spouseBirthDate = Calendar.current.date(
+            from: DateComponents(year: 1953, month: 1, day: 1))!
+        dataManager.currentYear = 2026
+        return dataManager
+    }
+
+    private func attached(_ dataManager: DataManager,
+                          _ scenarioStateManager: ScenarioStateManager) -> MultiYearStrategyManager {
+        let manager = MultiYearStrategyManager()
+        manager.attach(dataManager: dataManager, scenarioStateManager: scenarioStateManager)
+        return manager
+    }
+
+    func testYearsBeforeFirstRMD_ReturnsNil_WhenSpouseIsAlreadyRequired() {
+        // Traced live: yearsBeforeFirstRMD was Optional(11) while Karen's 2026
+        // RMD was $45,283.02. Her distributions had already begun.
+        let dataManager = straddleHousehold()
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = attached(dataManager, scenarioStateManager)
+
+        // Guard against a detached manager returning nil for the wrong reason.
+        XCTAssertEqual(dataManager.rmdAge, 75)
+        XCTAssertEqual(dataManager.spouseRmdAge, 73)
+
+        XCTAssertNil(manager.yearsBeforeFirstRMD,
+                     "yearsBeforeFirstRMD must be nil once anyone in the household is required; the primary's own 11 years are not the household's first RMD")
+    }
+
+    func testConversionWindowBanner_DropsThePromise_WhenSpouseIsAlreadyRequired() {
+        let dataManager = straddleHousehold()
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = attached(dataManager, scenarioStateManager)
+        let banner = manager.conversionWindowBanner
+
+        XCTAssertNotNil(banner, "the household still gets a banner; it just stops promising a window")
+        XCTAssertEqual(banner?.isOpen, false)
+        XCTAssertEqual(banner?.title, "Required distributions have already begun")
+        XCTAssertEqual(banner?.message,
+                       "Karen's RMDs have already begun, so part of your lower brackets is already in use. Your own required minimum distributions are still about 11 years away.")
+    }
+
+    func testConversionWindowBanner_SingleFilerIsUnchanged() {
+        // Hard compatibility pin: one clock, so the banner keeps the exact
+        // sentence, count and open styling it has always had.
+        let dataManager = DataManager(skipPersistence: true)
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: 1962, month: 1, day: 1))!
+        dataManager.enableSpouse = false
+        dataManager.currentYear = 2026
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = attached(dataManager, scenarioStateManager)
+
+        XCTAssertEqual(manager.yearsBeforeFirstRMD, 11)
+        XCTAssertEqual(manager.conversionWindowBanner?.isOpen, true)
+        XCTAssertEqual(manager.conversionWindowBanner?.title, "Conversion opportunity window")
+        XCTAssertEqual(manager.conversionWindowBanner?.message,
+                       "You have about 11 years before required minimum distributions begin. These pre-RMD years are often the best window for Roth conversions, while you have the most control over your taxable income.")
+    }
+
+    func testConversionWindowBanner_SharedRMDAgeCoupleIsUnchanged() {
+        // Both born 1960 or later, so both reach RMDs at 75 and the primary
+        // gets there first. Nothing on this screen was ever false for them.
+        let dataManager = DataManager(skipPersistence: true)
+        dataManager.birthDate = Calendar.current.date(
+            from: DateComponents(year: 1962, month: 1, day: 1))!
+        dataManager.enableSpouse = true
+        dataManager.spouseName = "Karen"
+        dataManager.spouseBirthDate = Calendar.current.date(
+            from: DateComponents(year: 1965, month: 1, day: 1))!
+        dataManager.currentYear = 2026
+        let scenarioStateManager = ScenarioStateManager()
+        let manager = attached(dataManager, scenarioStateManager)
+
+        XCTAssertEqual(dataManager.spouseRmdAge, 75)
+        XCTAssertEqual(manager.yearsBeforeFirstRMD, 11)
+        XCTAssertEqual(manager.conversionWindowBanner?.isOpen, true)
+        XCTAssertEqual(manager.conversionWindowBanner?.message,
+                       "You have about 11 years before required minimum distributions begin. These pre-RMD years are often the best window for Roth conversions, while you have the most control over your taxable income.")
+    }
+
     // MARK: - buildEmptyActionsMap alignment (review finding #1)
 
     private func inputs(primaryAge: Int, spouseAge: Int?, baseYear: Int) -> MultiYearStaticInputs {
