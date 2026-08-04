@@ -7,8 +7,12 @@ struct GoldenScenarioSingleYearTests {
 
     /// Single source of truth for which jurisdictions are asserted. Deliberately
     /// NOT a second literal list: a hand-maintained array is how a jurisdiction
-    /// goes missing, and this codebase already shipped that failure once
-    /// (StateTaxData.swift:2069 silently returned California for any unknown state).
+    /// goes missing, and this codebase already shipped that failure once. This
+    /// codebase previously returned California's configuration for any
+    /// jurisdiction not found, so a missing state silently became California.
+    /// Phase 2 replaced that fallback with a trap (`StateTaxData.config(for:)`
+    /// now tries `configs2026`, then `configs2026Legacy`, then calls
+    /// `preconditionFailure` rather than defaulting to any state).
     static let pilot = GoldenScenarioCoverageTests.covered
 
     /// Drives `TaxCalculationEngine.calculateStateTax` directly.
