@@ -1,0 +1,136 @@
+{
+  "state": "KS",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "Steve Nicolai's reported scenario: MFJ ordinary income, the missing SB1 personal exemption (defect 1 of 2, isolated, no pension involved)",
+      "source": "2025 Individual Income Tax Booklet (ip25.pdf), page 6, Form K-40 Line 4 instructions: 'If your filing status is married filing joint...enter 2 in the box for the number of exemptions and $18,320 in the amount box.' Same page, Kansas Standard Deduction table: Married Filing Joint $8,240 (matches this app's configured statetax-2026-KS.json stateDeduction.married). Per Senate Bill 1 (2024 Special Session), signed into law, ongoing for tax year 2024 and after (no sunset). Arithmetic reproducing Steve Nicolai's report to the cent: $50,000 income minus $8,240 MFJ standard deduction minus $18,320 MFJ personal exemption = $23,440 taxable. All of it falls in the first bracket (progressive schedule: 5.2% up to $46,000 MFJ threshold, 5.58% above). $23,440 x 5.2% = $1,218.88.",
+      "sourceURL": "https://www.ksrevenue.gov/pdf/ip25.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 62,
+      "spouseAge": 60,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 50000,
+      "expectedStateTax": 1218.88,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Kansas SB1 (2024 special session) personal exemption ($18,320 MFJ / $9,160 single / $2,320 per dependent) has no StatePersonalExemption entry in statetax-2026-KS.json, so postExemptionDeduction is 0 and the engine taxes the full standard-deduction-only base.",
+        "observedToday": 2171.52
+      }
+    },
+    {
+      "name": "single filer, ordinary income, the same missing personal exemption at a different income level and filing status (defect 1 of 2, isolated, no pension involved)",
+      "source": "2025 Individual Income Tax Booklet (ip25.pdf), page 6, Form K-40 Line 4 instructions: 'If your filing status is single, married filing separate or head of household...enter one in the box for number of exemptions and $9,160 in the amount box.' Same page, Kansas Standard Deduction table: Single $3,605. Arithmetic: $30,000 minus $3,605 single standard deduction minus $9,160 single personal exemption = $17,235 taxable, entirely inside the 5.2% first bracket (single threshold $23,000). $17,235 x 5.2% = $896.22.",
+      "sourceURL": "https://www.ksrevenue.gov/pdf/ip25.pdf",
+      "filingStatus": "single",
+      "primaryAge": 58,
+      "spouseAge": null,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 30000,
+      "expectedStateTax": 896.22,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Same mechanism as Steve Nicolai's case: no personal exemption modeled for Kansas, so the engine over-taxes every Kansas filer by the exemption amount times the marginal rate.",
+        "observedToday": 1385.44
+      }
+    },
+    {
+      "name": "single filer, private pension: correctly fully taxable under KS law both ways; this case isolates that the only gap here is the shared personal-exemption defect above, not a per-source error (defect 2 of 2 contrast case)",
+      "source": "2025 Individual Income Tax Booklet (ip25.pdf), page 12, Schedule S Instructions, Line A14 'Retirement benefits specifically exempt from Kansas Income Tax' enumerates ONLY Federal Civil Service Retirement/Disability Fund and U.S. Armed Forces retirement benefits (incl. Thrift Savings Plans), U.S. Railroad Retirement Board plans, and KPERS annuities as subtractable; a private-employer pension is not on this list and remains in federal AGI (fully taxable), same as under current KS law with no A14 subtraction available. Arithmetic (age 68, single): $40,000 minus $3,605 standard deduction minus $9,160 personal exemption = $27,235 taxable. $23,000 x 5.2% = $1,196.00, plus ($27,235-$23,000) x 5.58% = $4,235 x 5.58% = $236.313. Total $1,432.31.",
+      "sourceURL": "https://www.ksrevenue.gov/pdf/ip25.pdf",
+      "filingStatus": "single",
+      "primaryAge": 68,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1432.31,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Private pension correctly receives no per-source exclusion under KS law, and the app also grants it none (no perSourceExemptions configured for KS at all), so this case's whole gap versus the app is the personal-exemption defect above, not a per-source miss. Kept as the same-income contrast for the KPERS case below.",
+        "observedToday": 1943.44
+      }
+    },
+    {
+      "name": "single filer, KPERS pension, same income as the private-pension case above: fully exempt under KS law, engine treats it identically to the private pension (defect 2 of 2, isolated by comparison)",
+      "source": "2025 Individual Income Tax Booklet (ip25.pdf), page 12, Schedule S Instructions, Line A14: 'Kansas Public Employees' Retirement (KPERS) annuities' are enumerated as fully subtractable retirement benefits, with no dollar cap and no age gate stated. This app's PlanSource enum has no Kansas-specific case; 'otherStateOrLocal' (doc-commented as 'a DIFFERENT state or its localities' relative to New York) is used here as the closest available label for a non-New-York state retirement system -- it does not literally mean 'a different US state' in this Kansas context, only that no Kansas-specific enum case exists. Arithmetic: KPERS $40,000 is fully exempt under KS law, leaving $0 in state taxable income (before or after the standard deduction/personal exemption, which have nothing left to act on), so tax is $0.00. Comparing this case's engine figure to the private-pension case immediately above (both use the identical $40,000/age 68/single inputs) isolates exactly what the per-source rule is worth: the app currently returns the SAME number for both, proving it is blind to source.",
+      "sourceURL": "https://www.ksrevenue.gov/pdf/ip25.pdf",
+      "filingStatus": "single",
+      "primaryAge": 68,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "KPERS is enumerated as fully exempt on Schedule S Line A14, but statetax-2026-KS.json has no perSourceExemptions entries at all, so the engine pools this pension into ordinary taxable income exactly as it would a private pension.",
+        "observedToday": 1943.44
+      }
+    },
+    {
+      "name": "MFJ, both spouses have exempt pensions (KPERS + federal civil service): fully exempt under KS law, engine taxes the full household income (defect 2 of 2, both spouses qualify)",
+      "source": "2025 Individual Income Tax Booklet (ip25.pdf), page 12, Schedule S Instructions, Line A14 enumerates both KPERS annuities and 'Federal Civil Service Retirement or Disability Fund payments and any other amounts received as retirement benefits from employment by the federal government or for service in the United States Armed Forces including Thrift Savings Plans' as fully subtractable, without a per-taxpayer or household cap (exemptionAttribution is household-wide in this app's model and there is no dollar limit in KS law for either category). Arithmetic: $25,000 KPERS + $25,000 federal civil service = $50,000, all fully exempt, leaving $0 state taxable income and $0.00 tax.",
+      "sourceURL": "https://www.ksrevenue.gov/pdf/ip25.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 65,
+      "spouseAge": 63,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 25000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"},
+        {"amount": 25000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both KPERS and federal-civilian pensions are enumerated as fully exempt on Schedule S Line A14; the engine's empty perSourceExemptions for KS excludes neither, taxing the full $50,000 household income exactly as it would ordinary wages.",
+        "observedToday": 2171.52
+      }
+    },
+    {
+      "name": "MFJ, one spouse's KPERS pension is exempt and the other spouse's private pension is not: only one spouse's income qualifies (defect 2 of 2, one spouse qualifies)",
+      "source": "2025 Individual Income Tax Booklet (ip25.pdf), page 12, Schedule S Instructions, Line A14 (KPERS annuities exempt) and the absence of any private-pension entry on that same enumerated list (private pensions remain fully taxable). Arithmetic: $25,000 KPERS is fully exempt; $25,000 private pension is fully taxable. $50,000 total minus $8,240 MFJ standard deduction minus $25,000 KPERS exclusion minus $18,320 MFJ personal exemption = $50,000 - 8,240 - 25,000 - 18,320 = -$1,560, floored at $0, so tax is $0.00 (the personal exemption plus the KPERS exclusion together exceed what remains of the private spouse's $25,000 after the standard deduction).",
+      "sourceURL": "https://www.ksrevenue.gov/pdf/ip25.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 65,
+      "spouseAge": 62,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 25000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"},
+        {"amount": 25000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "KPERS income should be excluded (Schedule S Line A14) while the private pension stays taxable; the engine excludes neither (no perSourceExemptions for KS) and also lacks the personal exemption, taxing the full $50,000 -- the identical figure this file's other $50,000 MFJ cases produce regardless of income composition, because the engine is blind to both mechanisms.",
+        "observedToday": 2171.52
+      }
+    }
+  ]
+}

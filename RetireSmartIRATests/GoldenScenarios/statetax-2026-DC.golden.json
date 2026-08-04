@@ -1,0 +1,108 @@
+{
+  "state": "DC",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single filer, age 55 (below 62), survivor of a DC/federal government annuitant: fails DC's age gate, correctly fully taxable -- contrast/regression case",
+      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(ii): 'Survivor benefits received from the District of Columbia or the federal government by persons who are 62 years of age or older by the end of the taxable year' are excluded from DC gross income. At age 55, this taxpayer fails the age-62 gate, so the survivor benefit is fully taxable. Arithmetic: $50,000 - $14,600 single standard deduction = $35,400 taxable. DC brackets: 4% to $10,000 ($400.00), 6% on the remaining $25,400 ($1,524.00). Total $1,924.00.",
+      "sourceURL": "https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1924.00
+    },
+    {
+      "name": "single filer, age 65 (62+), survivor of a DC/federal government annuitant: fully exempt, uncapped, engine taxes it in full",
+      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(ii) (see above; no dollar cap and no sunset clause on this subparagraph, unlike (N)(i) below). Confirmed by DC OTR's 2024 D-40 Booklet, page 17, Schedule I 'Subtractions from DC Income', 'Line 12 DC and federal government survivor benefits': 'If you are an annuitant's survivor and 62 years of age or older as of December 31, 2024, enter the total survivor benefits (do not include Social Security survivor benefits).' This app's PlanSource enum has no case for the District government specifically; 'otherStateOrLocal' is used here as the closest available generic 'a state/local-equivalent government pension, not New York's' label. This fixture STIPULATES the pension income is survivor-benefit income (not the retiree's own pension) in prose, as there is no structured field for that distinction -- see the CANNOT_VERIFY note in the batch report. Arithmetic: $50,000 fully excluded, $0 taxable, tax = $0.00.",
+      "sourceURL": "https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "DC/federal government survivor benefits are fully excluded at age 62+ with no cap (D.C. Code 47-1803.02(a)(2)(N)(ii)); statetax-2026-DC.json has no perSourceExemptions, so the engine taxes the full $50,000.",
+        "observedToday": 1924.00
+      }
+    },
+    {
+      "name": "MFJ, both spouses 62+, both survivors of DC/federal government annuitants (stipulated): fully exempt, engine taxes the full household income",
+      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(ii) (see above). Arithmetic: $30,000 + $25,000 = $55,000, all fully excluded, $0 taxable after the $25,900 MFJ standard deduction, tax = $0.00.",
+      "sourceURL": "https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 65,
+      "spouseAge": 63,
+      "federalAGI": 55000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 30000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 25000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both spouses' DC/federal survivor benefits should be fully excluded; the engine has no perSourceExemptions for DC, taxing the full $55,000 household income.",
+        "observedToday": 1546.00
+      }
+    },
+    {
+      "name": "MFJ, one spouse (65) is a DC/federal survivor and exempt, the other spouse (60) has a taxable private pension: one spouse qualifies",
+      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(ii) (survivor benefit, DC/federal government only). Arithmetic: $30,000 survivor benefit fully excluded; $60,000 private pension fully taxable. DC AGI = $90,000 - $30,000 = $60,000; taxable = $60,000 - $25,900 MFJ standard deduction = $34,100. DC brackets: 4% to $10,000 ($400.00), 6% on the next $24,100 ($1,446.00). Total $1,846.00.",
+      "sourceURL": "https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 65,
+      "spouseAge": 60,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 30000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 60000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1846.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Only the survivor spouse's $30,000 should be excluded; the engine excludes nothing (no perSourceExemptions for DC), taxing the full $90,000 household income.",
+        "observedToday": 3848.50
+      }
+    },
+    {
+      "name": "single filer, age 65, OWN federal civil service pension (not a survivor benefit): the general $3,000 pension exclusion EXPIRED in 2015 -- correctly fully taxable, engine also taxes it fully -- MATCH, correcting an assumption in this batch's own brief",
+      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(i): 'Pension, military retired pay, or annuity income received from the District of Columbia or the federal government by persons who are 62 years of age or older...except that the exclusion shall not exceed the lesser of $3,000...provided further, that this sub-subparagraph shall apply for taxable years beginning before January 1, 2015.' Confirmed by DC OTR's 2024 D-40 Booklet (all 97 pages searched): no pension-exclusion line exists anywhere in the current Schedule I subtractions list; only 'Line 12 DC and federal government survivor benefits' (subparagraph (N)(ii), which has no sunset clause) remains. This app's Task 7 brief describes DC's rule as '$3,000 at 62 or over, DC or federal government pensions only' -- that description is the EXPIRED (N)(i) provision; current law for a LIVING retiree's own pension grants no DC exclusion at all. Arithmetic: $50,000 - $14,600 standard deduction = $35,400 taxable, same DC-bracket math as the age-55 case above. Tax = $1,924.00, and the engine already agrees, since it also grants no pension exclusion.",
+      "sourceURL": "https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1924.00
+    }
+  ]
+}
