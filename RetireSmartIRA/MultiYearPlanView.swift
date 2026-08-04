@@ -112,7 +112,7 @@ struct MultiYearPlanView: View {
                     SSClaimNudgeBanner(nudge: result.ssClaimNudge,
                                        dismissed: dismissBinding("ssNudge"))
                 }
-                ConversionWindowBanner(yearsBeforeFirstRMD: manager.yearsBeforeFirstRMD,
+                ConversionWindowBanner(content: manager.conversionWindowBanner,
                                        dismissed: dismissBinding("conversionWindow"))
 
                 AssumptionsStripView(
@@ -340,6 +340,14 @@ struct MultiYearPlanView: View {
             filingStatusLabel: dataManager.filingStatus.rawValue,
             stateLabel: dataManager.selectedState.abbreviation,
             primaryBirthYear: dataManager.birthYear,
+            // The year-by-year table prints a HOUSEHOLD RMD; without the
+            // spouse's dates the Age column beside it can name an age at which
+            // that figure is impossible.
+            primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: dataManager.enableSpouse,
+            spouseBirthYear: dataManager.spouseBirthYear,
+            spouseRmdAge: dataManager.spouseRmdAge,
+            spouseName: dataManager.spouseName,
             summary: PlanSummary(path: activePath,
                                  pvRealDiscountRate: manager.assumptions.pvRealDiscountRate,
                                  cpiRate: manager.assumptions.cpiRate),

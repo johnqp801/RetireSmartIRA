@@ -8,6 +8,15 @@ struct CPABriefingModel: Equatable, Sendable {
     let filingStatusLabel: String
     let stateLabel: String
     let primaryBirthYear: Int
+    /// The dates the year-by-year table needs to keep its Age column honest
+    /// next to a household RMD figure. They default to the no-spouse values, so
+    /// a caller that has not been taught about the spouse renders the table
+    /// exactly as it did before these existed.
+    let primaryRmdAge: Int
+    let spouseEnabled: Bool
+    let spouseBirthYear: Int
+    let spouseRmdAge: Int
+    let spouseName: String
     let summary: PlanSummary
     let comparison: PlanComparison
     let yearRows: [YearRecommendation]
@@ -35,7 +44,10 @@ struct CPABriefingModel: Equatable, Sendable {
     // nil: every pre-Phase-2c call site (production and MultiYearCPABriefingTests) omits it and
     // keeps building today's single-plan briefing unchanged.
     init(preparedFor: String, taxYear: Int, filingStatusLabel: String, stateLabel: String,
-         primaryBirthYear: Int, summary: PlanSummary, comparison: PlanComparison,
+         primaryBirthYear: Int,
+         primaryRmdAge: Int = 0, spouseEnabled: Bool = false, spouseBirthYear: Int = 0,
+         spouseRmdAge: Int = 0, spouseName: String = "",
+         summary: PlanSummary, comparison: PlanComparison,
          yearRows: [YearRecommendation], frontier: HeirFrontierResult?, includeHeirs: Bool,
          assumptions: MultiYearAssumptions, limitations: [String], positioning: String,
          approachSummary: ApproachSummary? = nil) {
@@ -44,6 +56,11 @@ struct CPABriefingModel: Equatable, Sendable {
         self.filingStatusLabel = filingStatusLabel
         self.stateLabel = stateLabel
         self.primaryBirthYear = primaryBirthYear
+        self.primaryRmdAge = primaryRmdAge
+        self.spouseEnabled = spouseEnabled
+        self.spouseBirthYear = spouseBirthYear
+        self.spouseRmdAge = spouseRmdAge
+        self.spouseName = spouseName
         self.summary = summary
         self.comparison = comparison
         self.yearRows = yearRows
@@ -248,9 +265,21 @@ enum MultiYearCPABriefingHTML {
     }
 
     private static func yearByYearSection(_ m: CPABriefingModel) -> String {
+        // The RMD column is a HOUSEHOLD figure. Printed beside a primary-only
+        // age it produced rows a CPA cannot reconcile, such as "2026 / age 64 /
+        // RMD $45,283" for a man whose own RMD age is 75. The table already
+        // carries twelve nowrap columns at 8px and is explicitly width-bound,
+        // so the fix is a second age inside the existing cell rather than a
+        // thirteenth column or a wider header.
+        let ageColumn = RMDStatusPresentation.briefingAgeColumn(
+            spouseEnabled: m.spouseEnabled,
+            primaryFirstRmdYear: m.primaryBirthYear + m.primaryRmdAge,
+            spouseFirstRmdYear: m.spouseBirthYear + m.spouseRmdAge,
+            spouseName: m.spouseName)
         var rows = ""
         for r in m.yearRows {
-            let age = r.year - m.primaryBirthYear
+            let age = ageColumn.cell(primaryAge: r.year - m.primaryBirthYear,
+                                     spouseAge: r.year - m.spouseBirthYear)
             let conv = r.executedRothConversion
             // Compact currency (e.g. $785k, $1.5M) so the 12-column table fits portrait width
             // without wrapping each value onto two lines.
@@ -264,11 +293,12 @@ enum MultiYearCPABriefingHTML {
             <td>\(s(r.endOfYearBalances.taxable))</td></tr>
             """
         }
+        let ageNote = ageColumn.note.map { " " + esc($0) } ?? ""
         return """
         <h2>Year-by-year detail</h2>
-        <div class="note">Amounts are rounded (k = thousands, M = millions).</div>
+        <div class="note">Amounts are rounded (k = thousands, M = millions).\(ageNote)</div>
         <table class="yby">
-        <tr><th>Year</th><th>Age</th><th>AGI</th><th>Taxable</th><th>Fed</th><th>State</th><th>IRMAA</th><th>RMD</th><th>Conv</th><th>End Trad</th><th>End Roth</th><th>End Txbl</th></tr>
+        <tr><th>Year</th><th>\(ageColumn.header)</th><th>AGI</th><th>Taxable</th><th>Fed</th><th>State</th><th>IRMAA</th><th>RMD</th><th>Conv</th><th>End Trad</th><th>End Roth</th><th>End Txbl</th></tr>
         \(rows)
         </table>
         \(taxFundingWithdrawalNote(m))

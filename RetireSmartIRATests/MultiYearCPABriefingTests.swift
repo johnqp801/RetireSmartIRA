@@ -184,4 +184,74 @@ struct MultiYearCPABriefingTests {
     func defaultUnitsIsPresentValue() {
         #expect(MultiYearPlanView.defaultUnits == .presentValue)
     }
+
+    // MARK: - Year-by-year Age column vs. the household RMD figure
+
+    /// The household on screen: primary born 1962 (RMD age 75), Karen born
+    /// 1953 (RMD age 73). The 2026 row bills a household RMD while the primary
+    /// is 64, which is impossible for a man whose own RMD age is 75.
+    private func straddleModel() -> CPABriefingModel {
+        let path = [rec(2026, conv: 60_000), rec(2030, conv: 0)]
+        let none = [rec(2026, conv: 0), rec(2030, conv: 0)]
+        return CPABriefingModel(
+            preparedFor: "John & Karen Public", taxYear: 2026,
+            filingStatusLabel: "Married Filing Jointly", stateLabel: "CA",
+            primaryBirthYear: 1962,
+            primaryRmdAge: 75, spouseEnabled: true, spouseBirthYear: 1953,
+            spouseRmdAge: 73, spouseName: "Karen",
+            summary: PlanSummary(path: path),
+            comparison: PlanComparison(plan: path, doingNothing: none, heirSalary: 0,
+                                       heirFilingStatus: .single, heirDrawdownYears: 10),
+            yearRows: path, frontier: nil, includeHeirs: true,
+            assumptions: MultiYearAssumptions(), limitations: V2Disclosures.limitations,
+            positioning: V2Disclosures.positioning)
+    }
+
+    @Test("The Age column carries both ages when the spouse reaches RMDs first")
+    func straddleHouseholdAgeColumn() {
+        let html = MultiYearCPABriefingHTML.build(straddleModel())
+
+        #expect(html.contains("<th>Ages</th>"))
+        #expect(!html.contains("<th>Age</th>"))
+        // The row that carried the contradiction now reads 64 / 73, so the
+        // household RMD beside it belongs to someone who has an RMD.
+        #expect(html.contains("<tr><td>2026</td><td>64 / 73</td>"))
+        #expect(html.contains("<tr><td>2030</td><td>68 / 77</td>"))
+        #expect(html.contains("Ages are shown as you / Karen."))
+        #expect(html.contains("household total for both"))
+    }
+
+    @Test("A single filer's year-by-year table is byte-for-byte unchanged")
+    func singleFilerAgeColumnUnchanged() {
+        // The default model carries no spouse at all.
+        let html = MultiYearCPABriefingHTML.build(model())
+
+        #expect(html.contains("<th>Age</th>"))
+        #expect(!html.contains("<th>Ages</th>"))
+        #expect(html.contains("<tr><td>2026</td><td>67</td>"))   // 2026 - 1959
+        #expect(!html.contains("Ages are shown as"))
+        #expect(html.contains("<div class=\"note\">Amounts are rounded (k = thousands, M = millions).</div>"))
+    }
+
+    @Test("A couple sharing one RMD age keeps the single-age column")
+    func sharedRmdAgeCoupleAgeColumnUnchanged() {
+        // Both born 1960 or later, so both reach RMDs at 75; the primary, the
+        // older of the two, reaches his first and no row can contradict itself.
+        let base = straddleModel()
+        let m = CPABriefingModel(
+            preparedFor: base.preparedFor, taxYear: base.taxYear,
+            filingStatusLabel: base.filingStatusLabel, stateLabel: base.stateLabel,
+            primaryBirthYear: 1962,
+            primaryRmdAge: 75, spouseEnabled: true, spouseBirthYear: 1965,
+            spouseRmdAge: 75, spouseName: "Karen",
+            summary: base.summary, comparison: base.comparison, yearRows: base.yearRows,
+            frontier: nil, includeHeirs: base.includeHeirs, assumptions: base.assumptions,
+            limitations: base.limitations, positioning: base.positioning)
+        let html = MultiYearCPABriefingHTML.build(m)
+
+        #expect(html.contains("<th>Age</th>"))
+        #expect(!html.contains("<th>Ages</th>"))
+        #expect(html.contains("<tr><td>2026</td><td>64</td>"))
+        #expect(!html.contains("Ages are shown as"))
+    }
 }

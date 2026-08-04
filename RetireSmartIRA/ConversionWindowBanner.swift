@@ -1,30 +1,39 @@
 import SwiftUI
 
-/// Dismissible banner highlighting the pre-RMD window, when Roth conversions are most flexible.
+/// Dismissible banner about the pre-RMD window, when Roth conversions are most flexible.
+///
+/// The wording, and the decision to say anything at all, live in
+/// `RMDStatusPresentation.multiYearBanner`: the banner used to build its own
+/// sentence from a primary-only countdown, which is how it came to promise an
+/// open window to a household whose spouse was already taking distributions.
 struct ConversionWindowBanner: View {
-    let yearsBeforeFirstRMD: Int?
+    let content: RMDStatusPresentation.MultiYearBanner?
     @Binding var dismissed: Bool
 
-    static func shouldShow(yearsBeforeFirstRMD: Int?, dismissed: Bool) -> Bool {
-        guard !dismissed, let y = yearsBeforeFirstRMD else { return false }
-        return y > 0
+    static func shouldShow(content: RMDStatusPresentation.MultiYearBanner?, dismissed: Bool) -> Bool {
+        !dismissed && content != nil
     }
 
     var body: some View {
-        if let y = yearsBeforeFirstRMD, Self.shouldShow(yearsBeforeFirstRMD: yearsBeforeFirstRMD, dismissed: dismissed) {
+        if let content, Self.shouldShow(content: content, dismissed: dismissed) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Image(systemName: "hourglass").foregroundStyle(Color.Semantic.green)
-                    Text("Conversion opportunity window").font(.headline)
+                    Image(systemName: content.isOpen ? "hourglass" : "hourglass.bottomhalf.filled")
+                        .foregroundStyle(content.isOpen ? Color.Semantic.green : Color.Semantic.amber)
+                    Text(content.title).font(.headline)
                     Spacer()
                     Button { dismissed = true } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
                     }.buttonStyle(.plain)
                 }
-                Text("You have about \(y) year\(y == 1 ? "" : "s") before required minimum distributions begin. These pre-RMD years are often the best window for Roth conversions, while you have the most control over your taxable income.")
+                Text(content.message)
                     .font(.callout).foregroundStyle(.secondary)
             }
-            .padding().background(Color.Semantic.greenTint)
+            .padding()
+            // Amber is this app's "action required" tint. A household already
+            // taking distributions is not looking at an opportunity, so the
+            // closed case must not be painted as one.
+            .background(content.isOpen ? Color.Semantic.greenTint : Color.Semantic.amberTint)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }

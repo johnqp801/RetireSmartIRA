@@ -234,6 +234,24 @@ struct TaxPlanningView: View {
         || (spouseEnabled && !dataManager.spouseIsRMDRequired && dataManager.spouseTraditionalIRABalance > 0)
     }
 
+    /// What the opportunity-window lines say. The gates above still decide who
+    /// gets a line; this decides the wording, so the card cannot promise an
+    /// open conversion window that the Legacy tab already knows is closed.
+    private var conversionWindow: RMDStatusPresentation.ConversionWindow {
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: dataManager.currentAge,
+            primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: dataManager.enableSpouse,
+            spouseAge: dataManager.spouseCurrentAge,
+            spouseRmdAge: dataManager.spouseRmdAge)
+        return RMDStatusPresentation.conversionWindow(
+            status: status,
+            primaryAge: dataManager.currentAge, primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: dataManager.enableSpouse,
+            spouseAge: dataManager.spouseCurrentAge, spouseRmdAge: dataManager.spouseRmdAge,
+            spouseName: dataManager.spouseName)
+    }
+
     // MARK: - Scenario analysis (live bracket/rate tracking)
 
     private var scenarioAnalysis: ScenarioTaxAnalysis? {
@@ -936,13 +954,19 @@ struct TaxPlanningView: View {
                 }
 
                 if !dataManager.isRMDRequired && dataManager.primaryTraditionalIRABalance > 0 {
-                    Text("You have \(dataManager.yearsUntilRMD) years before RMDs start. This is an ideal time for Roth conversions while potentially in a lower tax bracket.")
+                    Text(conversionWindow.primarySentence)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
 
                 if spouseEnabled && !dataManager.spouseIsRMDRequired && dataManager.spouseTraditionalIRABalance > 0 {
-                    Text("\(spouseLabel) has \(dataManager.spouseYearsUntilRMD) years before RMDs start.")
+                    Text(conversionWindow.spouseSentence)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let alreadyBegun = conversionWindow.alreadyBegunSentence {
+                    Text(alreadyBegun)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -1262,7 +1286,9 @@ struct TaxPlanningView: View {
 
             if spouseEnabled && combinedRMD > 0 {
                 HStack {
-                    Text("Combined RMDs")
+                    // Same helper the collapsed card uses, so the two can no
+                    // longer drift apart for the same figure.
+                    Text(Self.collapsedRmdLabel(spouseEnabled: spouseEnabled))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(combinedRMD, format: .currency(code: "USD"))
@@ -1610,13 +1636,25 @@ struct TaxPlanningView: View {
         }
     }
 
+    /// The collapsed withdrawal card's label for `combinedRMD`.
+    ///
+    /// The value is both people's RMDs added together, but collapsed it read
+    /// "Required RMD" while the very same number expanded read "Combined
+    /// RMDs". A user who knows their own RMD had no way to tell which one they
+    /// were looking at.
+    static func collapsedRmdLabel(spouseEnabled: Bool) -> String {
+        RMDStatusPresentation.combinedRmdLabel(spouseEnabled: spouseEnabled)
+    }
+
     @ViewBuilder
     private var withdrawalSummary: some View {
         if combinedRMD > 0 || totalExtraWithdrawal > 0 {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
                 if combinedRMD > 0 {
-                    summaryRow(label: "Required RMD", value: combinedRMD, color: Color.UI.textPrimary)
+                    summaryRow(
+                        label: Self.collapsedRmdLabel(spouseEnabled: spouseEnabled),
+                        value: combinedRMD, color: Color.UI.textPrimary)
                 }
                 if totalExtraWithdrawal > 0 {
                     summaryRow(label: "Additional Withdrawals", value: totalExtraWithdrawal, color: Color.Chart.callout)

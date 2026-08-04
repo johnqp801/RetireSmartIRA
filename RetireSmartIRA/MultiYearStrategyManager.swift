@@ -257,18 +257,49 @@ final class MultiYearStrategyManager: ObservableObject {
         recompute(reason: .overridesChanged)
     }
 
-    /// Years before the first required minimum distribution kicks in.
-    /// Returns nil if the user is already at or past RMD age, or if data is unavailable.
-    /// Used by the Conversion Opportunity Window callout banner.
-    var yearsBeforeFirstRMD: Int? {
+    /// The household's RMD position in the PLANNING year, plus the two planning
+    /// ages it was resolved from.
+    ///
+    /// Planning-year ages (currentYear - birthYear) rather than calendar ages,
+    /// so these planning metrics respond correctly when the user sets a future
+    /// planning year, which is what `yearsBeforeFirstRMD` has always done.
+    private var householdRMD: (status: RMDHouseholdStatus, primaryAge: Int, spouseAge: Int)? {
         guard let dataManager = dataManager else { return nil }
-        let primaryRMDStartAge = dataManager.rmdAge
-        // Use planning-year age (currentYear - birthYear) so that this planning
-        // metric responds correctly when the user sets a future planning year,
-        // independent of today's calendar date.
-        let planningAge = dataManager.currentYear - dataManager.birthYear
-        let yearsTo = max(0, primaryRMDStartAge - planningAge)
+        let primaryAge = dataManager.currentYear - dataManager.birthYear
+        let spouseEnabled = dataManager.enableSpouse
+        let spouseAge = spouseEnabled ? dataManager.currentYear - dataManager.spouseBirthYear : 0
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: primaryAge, primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: spouseEnabled, spouseAge: spouseAge,
+            spouseRmdAge: dataManager.spouseRmdAge)
+        return (status, primaryAge, spouseAge)
+    }
+
+    /// Years before the first required minimum distribution in the HOUSEHOLD kicks in.
+    /// Returns nil if anyone is already at or past their RMD age, or if data is unavailable.
+    ///
+    /// This read the primary's RMD age alone, so a household whose spouse is
+    /// nine years older and already taking distributions was told it had eleven
+    /// years before "required minimum distributions begin" while her 2026 RMD
+    /// was $45,283. A single filer's household first RMD is the primary's, so
+    /// this is the same number it always was for them.
+    var yearsBeforeFirstRMD: Int? {
+        guard let household = householdRMD else { return nil }
+        guard !household.status.anyoneRequired else { return nil }
+        let yearsTo = household.status.yearsUntilFirst
         return yearsTo > 0 ? yearsTo : nil
+    }
+
+    /// What the Conversion Opportunity Window banner says, or nil when it does
+    /// not render. Built in `RMDStatusPresentation` so the wording is tested.
+    var conversionWindowBanner: RMDStatusPresentation.MultiYearBanner? {
+        guard let dataManager = dataManager, let household = householdRMD else { return nil }
+        return RMDStatusPresentation.multiYearBanner(
+            status: household.status,
+            primaryAge: household.primaryAge, primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: dataManager.enableSpouse,
+            spouseAge: household.spouseAge, spouseRmdAge: dataManager.spouseRmdAge,
+            spouseName: dataManager.spouseName)
     }
 
     func dismissInsight(_ key: String) {

@@ -2849,10 +2849,17 @@ class DataManager {
         var items: [ActionItem] = []
         let year = currentYear
 
+        // In a two-RMD household the spouse's item was named and the primary's
+        // was not, so the list read as one personal instruction plus one
+        // unexplained figure of a different amount. Both are attributed now,
+        // and a solo filer keeps the original bare wording.
         if calculatePrimaryRMD() > 0 {
             items.append(ActionItem(
                 id: "rmd-primary-\(year)",
-                title: "Take RMD: \(calculatePrimaryRMD().formatted(.currency(code: "USD")))",
+                title: RMDStatusPresentation.primaryRmdActionTitle(
+                    primaryName: userName,
+                    spouseEnabled: enableSpouse,
+                    amount: calculatePrimaryRMD().formatted(.currency(code: "USD"))),
                 detail: "Withdraw from your traditional IRA/401(k)",
                 deadline: "Dec 31, \(year)",
                 category: .rmd
@@ -2861,7 +2868,9 @@ class DataManager {
         if enableSpouse && calculateSpouseRMD() > 0 {
             items.append(ActionItem(
                 id: "rmd-spouse-\(year)",
-                title: "Take \(spouseName.isEmpty ? "Spouse" : spouseName) RMD: \(calculateSpouseRMD().formatted(.currency(code: "USD")))",
+                title: RMDStatusPresentation.spouseRmdActionTitle(
+                    spouseName: spouseName,
+                    amount: calculateSpouseRMD().formatted(.currency(code: "USD"))),
                 detail: "Withdraw from spouse's traditional IRA/401(k)",
                 deadline: "Dec 31, \(year)",
                 category: .rmd
