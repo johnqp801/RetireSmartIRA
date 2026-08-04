@@ -1026,3 +1026,44 @@ Plan: `docs/superpowers/plans/2026-06-27-v2.0-ui-plan-3-editable-year1.md`.
 5. **The Ed Slott concern is nowhere in the app.** `V2Disclosures.swift` (24 lines) says nothing about funding conversion tax from the IRA degrading the conversion. The app shows the dollar amount withdrawn but never frames the tradeoff. Joan arrived already worried about it from his book, which suggests many users will.
 
 Also: IRMAA/ACA/NIIT are frozen as a constant `nonFedState` inside the gross-up sizing loop (`:858`, comment at `:951-958`), so a gross-up that itself crosses an IRMAA or ACA cliff does not enlarge the withdrawal. Documented in code, untested. No test asserts the fixed point converges.
+
+---
+
+## 2026-08-03 / 2026-08-04 — State Tax Phase 3 (split) and RMD spouse attribution
+
+**Phase 3 SPLIT into 3a and 3b, and 3b ships WITH its classification UI.** Rationale: flipping nine
+states' exemption data reaches no user until the app can tell a government pension from a private
+one, so data and UI are one shippable unit.
+
+**`PlanStructure` and `PlanSource` kept as TWO axes, not one broad `.governmentPension` case.**
+Rationale: a single case would let a non-New-York public pension accidentally receive New York's
+uncapped IT-201 Line 26 exclusion. John's explicit instruction during design review.
+
+**User-facing replies are scoped to that user's OWN reported items; internal audit findings stay
+internal.** John rejected a draft to Steve Nicolai that disclosed ~29 of 51 jurisdictions were
+defective: *"steve is a user, not a shareholder... it gives him the ability to share on bogleheads
+how bad the app was and how he straightened it out, leaving a very tarnished reputation."*
+This is a standing rule, not a one-off edit.
+
+**RMD display rule: age statements stay age-based; due-ness claims check balances.** A line like
+"Karen has reached RMD age 73" is true whatever she holds and needs no balance data. A badge reading
+"RMDs Required", an April 1 deferral notice, and a red CPA alert row are claims that money is due,
+and age alone cannot support them. Adopted after making the badge age-only caused a Roth-only spouse
+past her RMD age to be announced a deadline she does not owe.
+
+**Badge wording left as "Not Yet Required" rather than inventing a third string** for the household
+that has reached RMD age but owes nothing. Rationale: it matches `main`, makes no false claim about
+money, and new user-facing wording is John's call with 2-3 options offered.
+
+**P6 (age-vs-due gate) and P7 (`enableSpouse=false` zeroing a spouse balance) deliberately left in
+backlog** rather than folded into the RMD branch. Rationale: they are different defects, and
+widening a branch to swallow adjacent bugs is how scope becomes unreviewable. Noted that this branch
+made P6 reachable through a spouse, so it should not sit indefinitely.
+
+**Process rules adopted after real failures this session:**
+- Stage explicit paths; never `git add -A`, and never commit while a review agent is mid-mutation.
+- Absolute paths and `git -C`; never rely on a chained `cd`, which does not persist.
+- Pass `-project <worktree>/…xcodeproj` to `xcodebuild` and confirm the product mtime is newer than
+  the last commit. A green build is NOT evidence the app is running your code.
+- Finish a merge in its own editor, or close the editor first and then commit; completing it
+  out-of-band leaves a stale `MERGE_HEAD` that silently makes the next commit a merge commit.
