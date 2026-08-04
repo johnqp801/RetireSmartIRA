@@ -1,0 +1,62 @@
+{
+  "state": "TN",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, lower income, no age threshold or phase-out exists so cases vary income instead of age",
+      "source": "Tennessee's only individual-level income tax was the Hall Income Tax, which taxed interest and dividend income (never wages, pensions, or retirement-account distributions). Primary source: Tennessee Department of Revenue, Hall Income Tax overview page: 'The Hall Income tax was repealed for tax periods that begin on January 1, 2021, or later. Please do not file a return for any tax year that begins on or after January 1, 2021.' No individual income tax of any kind remains in Tennessee for tax year 2026. expectedStateTax = $0 follows directly. This case is a single filer with pension income only; the fixture carries no interest/dividend income because that category is irrelevant post-repeal, but the pension figure is chosen to also demonstrate that Tennessee never taxed retirement income even before repeal. No age threshold or AGI phase-out exists in Tennessee law, so per the batch matrix rule this case and the next vary income rather than age.",
+      "sourceURL": "https://www.tn.gov/revenue/taxes/hall-income-tax.html",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "single, higher income including a Roth conversion, no age threshold or phase-out exists so cases vary income instead of age",
+      "source": "Same primary source as the prior case: Tennessee DOR Hall Income Tax overview page confirming full repeal for tax periods beginning on or after January 1, 2021. This case raises income well above the prior one and adds an IRA withdrawal and a Roth conversion, exactly the kind of income a multi-year conversion plan produces, to confirm the $0 result holds regardless of composition, not just for plain pension income.",
+      "sourceURL": "https://www.tn.gov/revenue/taxes/hall-income-tax.html",
+      "filingStatus": "single",
+      "primaryAge": 72,
+      "spouseAge": null,
+      "federalAGI": 120000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 40000,
+      "rothConversion": 20000,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "MFJ, both spouses present, moderate combined income including Social Security",
+      "source": "Same primary source: Tennessee DOR Hall Income Tax overview page. Repeal applies to all filing statuses; the Hall Tax's own married-filing-jointly exemption amount ($2,500, per the pre-repeal INC 250 instructions) is moot once the tax itself no longer exists. This is the MFJ 'both spouses qualifying' case in the batch matrix; because Tennessee has no age-gated income-tax exemption there is nothing to qualify for, so both spouses are simply present with retirement ages. Income mix adds taxable Social Security to the pension/IRA combination exercised in the single cases.",
+      "sourceURL": "https://www.tn.gov/revenue/taxes/hall-income-tax.html",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 65,
+      "spouseAge": 63,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 20000,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 20000,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "MFJ, only one spouse retirement-aged, highest combined income in the batch",
+      "source": "Same primary source: Tennessee DOR Hall Income Tax overview page. This is the batch's 'MFJ, only one spouse qualifying' case; Tennessee has no per-spouse age gate for its (repealed) income tax, so there is no attribution rule to trip, but the case is included anyway per the matrix so a later phase adding an age gate has a case waiting. Highest income in the batch (pension + IRA withdrawal + Roth conversion) to stress the largest plausible single-year total against the $0 expectation.",
+      "sourceURL": "https://www.tn.gov/revenue/taxes/hall-income-tax.html",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 67,
+      "spouseAge": 45,
+      "federalAGI": 150000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 30000,
+      "rothConversion": 40000,
+      "expectedStateTax": 0
+    }
+  ]
+}

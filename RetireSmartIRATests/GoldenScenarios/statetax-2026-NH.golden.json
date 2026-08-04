@@ -1,0 +1,62 @@
+{
+  "state": "NH",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, lower income, no age threshold or phase-out exists so cases vary income instead of age (post-repeal trap case)",
+      "source": "New Hampshire's only individual-level income tax was the Interest and Dividends Tax, which taxed interest and dividend income only (never wages, pensions, or retirement-account distributions). Primary source: New Hampshire Department of Revenue Administration press release 'Repeal of NH Interest and Dividends Tax Now in Effect' (dated January 23, 2025): 'For tax periods beginning on or after January 1, 2025, New Hampshire taxpayers are no longer required to pay the state's Interest and Dividends Tax.' The release names the bill: 'House Bill 2, passed by the New Hampshire General Court and signed into law by Governor Chris Sununu during the 2023 legislative session, repealed the Interest and Dividends Tax, effective January 1, 2025. Initially set for repeal in 2026, the repeal was accelerated during the 2023 session to become effective this year.' Tax year 2026 is fully within the repealed period, so New Hampshire has no individual income tax of any kind for this fixture year and expectedStateTax = $0. This is the batch's designated trap: the app's config (Resources/StateTaxData/2026/statetax-2026-NH.json) still models NH as taxSystem 'specialLimited' rather than 'noIncomeTax', a config choice this fixture does not correct (Phase 4 corrects no tax value); it is here to prove the engine's specialLimited handling still evaluates to $0 (TaxCalculationEngine.swift:396 treats noIncomeTax and specialLimited identically), not to bless the config label. This case is a single filer with pension income only. No age threshold or AGI phase-out exists in New Hampshire law, so per the batch matrix rule this case and the next vary income rather than age.",
+      "sourceURL": "https://www.revenue.nh.gov/news-and-media/repeal-nh-interest-and-dividends-tax-now-effect",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "single, higher income including a Roth conversion, no age threshold or phase-out exists so cases vary income instead of age (post-repeal trap case)",
+      "source": "Same primary source as the prior case: NH DRA press release confirming full repeal of the Interest and Dividends Tax for tax periods beginning on or after January 1, 2025 (HB 2, 2023 session, signed by Gov. Sununu). This case raises income well above the prior one and adds an IRA withdrawal and a Roth conversion, exactly the kind of income a multi-year conversion plan produces, to confirm the $0 result holds regardless of composition, not just for plain pension income. Neither addition is interest or dividend income, so even under the pre-repeal Interest and Dividends Tax this income would not have been in scope; the repeal is what matters for the whole fixture, not the composition of this particular case.",
+      "sourceURL": "https://www.revenue.nh.gov/news-and-media/repeal-nh-interest-and-dividends-tax-now-effect",
+      "filingStatus": "single",
+      "primaryAge": 72,
+      "spouseAge": null,
+      "federalAGI": 120000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 40000,
+      "rothConversion": 20000,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "MFJ, both spouses present, moderate combined income including Social Security",
+      "source": "Same primary source: NH DRA press release. The repeal is not filing-status-scoped; the pre-repeal tax's own joint exemption amount ($4,800, per the repealed statute's structure) is moot once the tax itself no longer exists for tax periods beginning in 2025 or later. This is the MFJ 'both spouses qualifying' case in the batch matrix; because New Hampshire has no age-gated income-tax exemption remaining there is nothing to qualify for, so both spouses are simply present with retirement ages. Income mix adds taxable Social Security to the pension/IRA combination exercised in the single cases.",
+      "sourceURL": "https://www.revenue.nh.gov/news-and-media/repeal-nh-interest-and-dividends-tax-now-effect",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 65,
+      "spouseAge": 63,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 20000,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 20000,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "MFJ, only one spouse retirement-aged, highest combined income in the batch",
+      "source": "Same primary source: NH DRA press release. This is the batch's 'MFJ, only one spouse qualifying' case; New Hampshire has no per-spouse age gate for its (repealed) income tax, so there is no attribution rule to trip, but the case is included anyway per the matrix so a later phase adding an age gate has a case waiting. Highest income in the batch (pension + IRA withdrawal + Roth conversion) to stress the largest plausible single-year total against the $0 expectation, and specifically to stress the app's 'specialLimited' code path (rather than 'noIncomeTax') at the largest income this batch exercises.",
+      "sourceURL": "https://www.revenue.nh.gov/news-and-media/repeal-nh-interest-and-dividends-tax-now-effect",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 67,
+      "spouseAge": 45,
+      "federalAGI": 150000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 30000,
+      "rothConversion": 40000,
+      "expectedStateTax": 0
+    }
+  ]
+}

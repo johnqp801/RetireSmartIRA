@@ -16,7 +16,7 @@ struct GoldenScenarioCoverageTests {
     /// `USState.allCases` sweep and adds a dedicated completeness test
     /// (`everyJurisdictionHasAFixture`) once this list reaches 51; that test
     /// does not exist yet.
-    static let covered: [String] = ["PA", "IL", "MS", "NJ", "NY"]
+    static let covered: [String] = ["PA", "IL", "MS", "NJ", "NY", "AK", "FL", "NV", "SD", "TN", "TX", "WY", "NH"]
 
     /// The pension amount that contributes to `federalAGI`'s component sum.
     ///
