@@ -5,7 +5,11 @@ import Foundation
 @Suite("Golden scenarios, single-year path")
 struct GoldenScenarioSingleYearTests {
 
-    static let pilot = ["PA", "IL", "MS", "NJ", "NY"]
+    /// Single source of truth for which jurisdictions are asserted. Deliberately
+    /// NOT a second literal list: a hand-maintained array is how a jurisdiction
+    /// goes missing, and this codebase already shipped that failure once
+    /// (StateTaxData.swift:2069 silently returned California for any unknown state).
+    static let pilot = GoldenScenarioCoverageTests.covered
 
     /// Drives `TaxCalculationEngine.calculateStateTax` directly.
     ///
