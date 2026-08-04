@@ -1,6 +1,6 @@
 # LinkedIn Post — Widow tax arch (links to the retiresmartira.com article)
 
-**Status:** drafted 2026-07-31 with John, hook iterated four times to his direction. Not yet posted.
+**Status:** POSTED 2026-08-04, ~10:14 AM Tuesday, personal profile, public, native image with the link in the body. Drafted 2026-07-31, hook iterated four times to John's direction, then held four days deliberately for a Tue-Thu morning slot. John edited the text himself before posting; the as-posted version is recorded below and differs from the draft.
 **Angle:** challenge a belief, then pay it off with a counterintuitive number. John's stated requirement: the hook must "challenge or cause the reader to want to find out how it impacts them."
 **Links to:** https://www.retiresmartira.com/articles/widow-tax-by-the-numbers-2026
 
@@ -23,7 +23,30 @@ Same content as the article's `widow-tax-arch-chart.png`, laid out taller, with 
 
 **Post it as a NATIVE IMAGE with the link in the body text.** A link post renders the article's OG card, not this chart, and the OG card does not carry the hook.
 
-## FINAL text (John's, 2026-07-31)
+## AS POSTED (2026-08-04) — this is the version that ran
+
+You've heard the widow tax gets worse the more you have.
+
+I ran the numbers on three incomes through RetireSmartIRA. At the highest income, it isn't a tax at all. It's a discount. The chart is the finding. Two things about it surprised me.
+
+The effective rate rises in all three households. Every one. It's only the dollars that arch, which means the tax rate change tells you almost nothing about whether a survivor is financially okay.
+
+And the household that gets hurt worst is not the one you would expect.
+
+Where do you land on the chart and what should you do about it?
+
+https://lnkd.in/gn49brsi
+
+If you've run this for your own situation, what surprised you?
+
+### What John changed from the draft, and what it costs
+
+- **The withheld-insight paragraph was cut** ("Only one of these bands is a place where planning changes the outcome, and it isn't the one you'd guess") and replaced with the direct question *"Where do you land on the chart and what should you do about it?"* Same job, fewer words. It does put two questions in the last three lines, so the closer competes with it for the reply.
+- **The link lost its lead-in.** The draft introduced it as "Three households worked all the way through, with the tables:". As posted the URL stands alone and LinkedIn auto-shortened it to `lnkd.in`, so nothing on the line says what is on the other side of it. **If engagement comes in and clicks do not, this is the first thing to fix**, and it is fixable in an edit or a first comment.
+- Wording swaps, all neutral: "the highest one" → "the highest income"; "the rate everyone quotes" → "the tax rate change"; "actually okay" → "financially okay"; "not the one this usually gets sold to" → "not the one you would expect" (drops the implied shot at advisors, consistent with why hook candidate 1 was rejected).
+- Cosmetic: a double space after "It's a discount."
+
+## Original FINAL draft text (John's, 2026-07-31) — superseded by the above
 
 You've heard the widow tax gets worse the more you have. I ran the numbers on three incomes through RetireSmartIRA. At the highest one, it isn't a tax at all. It's a discount.
 
