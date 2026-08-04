@@ -1,0 +1,67 @@
+{
+  "state": "AR",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, pension below the $6,000 per-taxpayer cap -- Arkansas's employer-pension exclusion carries no age requirement, so this and the next case vary income rather than age",
+      "source": "2025 Arkansas AR1000F/AR1000NR Instructions, 'PRIMARY EMPLOYER PENSION PLAN(S)/QUALIFIED IRA(s)' section, printed page 13, LINE 18A: 'If you had income from an employment-related pension plan or a qualified traditional IRA distribution, enter the gross amount(s) from box 1 of your 1099-R(s) in the space provided... You are entitled to a $6,000 exemption from the taxable amount; the balance is taxable to Arkansas.' The same page separately notes the $6,000 IRA-distribution exclusion applies only after age 59 1/2 ('the first $6,000 is exempt from tax' once the participant reaches that age) -- but that age condition is specific to the IRA-distribution half of line 18A, not the pension half ('You might be eligible for the $6,000 exemption for retirement or disability benefits provided the distribution was from public or private employment-related retirement systems... The recipient does not have to be retired.'). This fixture uses PENSION income only (no iraWithdrawals) to keep the case clean of that age-gated IRA sub-rule, matching how Arkansas's own form treats the two income types as one combined $6,000 cap on line 18A/18B rather than two independent caps -- the app's config models pensionExemption and iraWithdrawalExemption as SEPARATE $6,000 caps (pensionAndIRAShareSingleCap: false), which is a different, out-of-scope discrepancy from the per-taxpayer attribution this batch targets, so no case in this fixture mixes both income types. OUT-OF-SCOPE FINDING, not pinned as a knownDefect: the same instructions, 'Individual Income Tax Rate Reduction' note, printed page 5 (PDF page 6): 'Marginal Income Tax rates for 2025 are 3.9%, as amended in 2024' -- the top rate in TaxCalculationEngine's AR config is 3.7%, not 3.9%; this fixture computes against the CONFIGURED bracket table on both sides of the comparison so the only variable exercised is the per-taxpayer attribution this batch targets. Standard deduction $2,470 single (configured, and independently confirmed correct against the same instructions, printed page 13 table). Arkansas taxable income = 4,000 - 2,470 = 1,530, already less than the $4,000 pension (which is itself under the $6,000 cap so fully excluded regardless), so taxable income after the exclusion floors at $0 and tax is $0.00.",
+      "sourceURL": "https://www.dfa.arkansas.gov/wp-content/uploads/2025_AR1000F_and_AR1000NR_Instructions.pdf",
+      "filingStatus": "single",
+      "primaryAge": 45,
+      "spouseAge": null,
+      "federalAGI": 4000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 4000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "single, pension above the $6,000 per-taxpayer cap -- no age gate applies to the pension half of line 18A so a single filer's exclusion is unaffected by attribution",
+      "source": "Same AR1000F Instructions, LINE 18A, printed page 13 (see prior case for the full quote). Pension $20,000 exceeds the $6,000 cap, so $6,000 is excluded regardless of attribution. Standard deduction $2,470 single (configured) and the single bracket table (0%/$0, 2%/$5,600, 3%/$11,200, 3.4%/$16,000, 3.7%/$26,400) are the CONFIGURED StateTaxData.swift values; see the prior case's out-of-scope finding on the real 3.9% top rate this fixture deliberately does not substitute. Arkansas taxable income = 20,000 - 2,470 - 6,000 = 11,530. tax = 0*5,600 + 0.02*(11,200-5,600) + 0.03*(11,530-11,200) = 112.00 + 9.90 = 121.90.",
+      "sourceURL": "https://www.dfa.arkansas.gov/wp-content/uploads/2025_AR1000F_and_AR1000NR_Instructions.pdf",
+      "filingStatus": "single",
+      "primaryAge": 45,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 20000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 121.90
+    },
+    {
+      "name": "MFJ, BOTH spouses individually have qualifying pension income above Arkansas's own $6,000-per-taxpayer cap -- the load-bearing case for this batch, isolating the missing exemptionAppliesPerIndividual flag",
+      "source": "Same instructions, LINE 18A/18B, printed page 13: LINE 18A covers the PRIMARY's own pension/IRA income and its own $6,000 exemption; 'LINE 18B... If filing status 2, Married Filing Joint, spouse must enter the taxable amount on line 18B, column A' -- a separate line for the spouse's OWN income, gated by the SAME $6,000 exemption applied to the primary's line 18A, i.e. two independent $6,000 exemptions on a joint return, not one household-wide $6,000. Scenario: primary receives $15,000 from a private employer pension, spouse separately receives $15,000 from her own former employer's pension, pooled pensionIncome = $30,000. Correct exclusion = $6,000 (primary, capped) + $6,000 (spouse, capped) = $12,000. Standard deduction $4,940 married and the married bracket table are the CONFIGURED values (see case 1's out-of-scope finding). Arkansas taxable income = 30,000 - 4,940 - 12,000 = 13,060. tax = 0.02*5,600 + 0.03*(11,200-5,600) + 0.034*(13,060-11,200) = 112.00 + 55.80 = 167.80.",
+      "sourceURL": "https://www.dfa.arkansas.gov/wp-content/uploads/2025_AR1000F_and_AR1000NR_Instructions.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 62,
+      "spouseAge": 60,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 167.80,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "exemptionAppliesPerIndividual is false, so StateTaxData.swift's AR config applies the $6,000 cap once household-wide instead of once per taxpayer, halving the correct $12,000 MFJ exclusion when both spouses independently qualify.",
+        "observedToday": 360.04
+      }
+    },
+    {
+      "name": "MFJ, only ONE spouse has pension income -- the case that stops a naive doubling fix, because today's single-cap engine happens to land on the correct total here even though its reasoning is wrong",
+      "source": "Same instructions, LINE 18A/18B, printed page 13. Scenario: primary receives $25,000 from a single employer pension; spouse has no pension or IRA income of her own this year, so her own line 18B is $0 regardless of any cap. Correct law: only the primary's own income is eligible, capped at her individual $6,000; the household total is $6,000 whether or not a doubled cap exists, because there is no second income to which it could apply. This matches today's flag-off engine (min(25,000, $6,000 single household cap) = $6,000) exactly, and that coincidence is why this case matters: a Phase 5 fix that sets exemptionAppliesPerIndividual = true without also checking which spouse actually earned the pooled pension dollars would double the cap to $12,000 for a couple in this exact shape (both spouses independently clear the age-59 fallback in TaxCalculationEngine.swift's ageQualifiesForExemption) and erroneously shelter income the non-earning spouse never had. Standard deduction $4,940 married (CONFIGURED; see case 1's out-of-scope finding). Arkansas taxable income = 25,000 - 4,940 - 6,000 = 14,060. tax = 112.00 + 0.03*(14,060-11,200) = 112.00 + 85.80 = 197.80.",
+      "sourceURL": "https://www.dfa.arkansas.gov/wp-content/uploads/2025_AR1000F_and_AR1000NR_Instructions.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 62,
+      "spouseAge": 60,
+      "federalAGI": 25000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 25000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 197.80
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "state": "DE",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, UNDER 60 -- isolates the missing age gate alone, no MFJ/per-individual complication",
+      "source": "2025 Delaware Form PIT-RES Instructions, page 6, 'Line 6 Pension Exclusion': 'IF YOU WERE UNDER 60 on December 31, 2025, and you receive a non-military pension, your exclusion equals $2,000 or the amount of your pension, whichever is less.' The same page's '60 OR OVER' worksheet allows up to $12,500. TaxCalculationEngine's DE config sets regularExemptionMinAge: 0, so today's engine applies the 60-or-over $12,500 level unconditionally, with no under-60 gate at all -- this case isolates that missing gate by itself: a single filer well under 60 with no spouse, so the (also missing) exemptionAppliesPerIndividual flag cannot enter the computation. Scenario: primary, age 55, non-military pension $20,000. Correct exclusion = min(20,000, 2,000) = $2,000. Standard deduction $3,250 single (configured, independently confirmed against the same instructions, page 6, 'Line 20a Standard Deduction' table: Filing Status 1 = $3,250). Delaware taxable income = 20,000 - 3,250 - 2,000 = 14,750. Bracket table (0%/$0, 2.2%/$2,000, 3.9%/$5,000, 4.8%/$10,000, 5.2%/$20,000, 5.55%/$25,000, 6.6%/$60,000 -- independently confirmed against Delaware's 2025 published rate schedule, which matches the configured values exactly): tax = 0.022*3,000 + 0.039*5,000 + 0.048*4,750 = 66.00 + 195.00 + 228.00 = 489.00.",
+      "sourceURL": "https://revenuefiles.delaware.gov/2025/PITForms_Instructions/Instructions/PIT-RES_Instructions_2025-01.pdf",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 20000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 489.00,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "regularExemptionMinAge is 0, so StateTaxData.swift's DE config applies the 60-or-over $12,500 exclusion level unconditionally instead of gating a non-military filer under 60 to the correct $2,000 level -- the missing age gate alone, isolated from the per-individual flag by using a single filer.",
+        "observedToday": 49.50
+      }
+    },
+    {
+      "name": "single, 60 OR OVER, same pension amount as the prior case for a controlled comparison -- the gate is moot above the threshold so this establishes the baseline the age-gate case diverges from",
+      "source": "Same PIT-RES Instructions, page 6, 'Line 6 Pension Exclusion', '60 OR OVER' worksheet: exclusion = lesser of (pension + eligible retirement income) or $12,500. Pension $20,000 (same amount as the prior case, only age differs) exceeds the $12,500 cap, so $12,500 is excluded under both correct law and today's engine -- the age gate is moot once the filer clears 60, so this case matches and demonstrates the cap mechanism itself is not what is broken. Standard deduction $3,250 single (configured). Delaware taxable income = 20,000 - 3,250 - 12,500 = 4,250. tax = 0.022*(4,250-2,000) = 0.022*2,250 = 49.50.",
+      "sourceURL": "https://revenuefiles.delaware.gov/2025/PITForms_Instructions/Instructions/PIT-RES_Instructions_2025-01.pdf",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 20000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 49.50
+    },
+    {
+      "name": "MFJ, BOTH spouses 60 or over -- isolates the missing exemptionAppliesPerIndividual flag alone, because both being above 60 means the (also missing) age gate would be moot even if it existed",
+      "source": "Same PIT-RES Instructions, page 6: 'NOTE: Each taxpayer may receive ONLY ONE pension exclusion, even if he or she is receiving more than one pension or other retirement distribution. Spouses who each receive pensions are entitled to one exclusion each.' The page's own worked example confirms the arithmetic directly: primary with $14,500 eligible retirement income is capped at $12,500, secondary with $4,500 eligible retirement income is fully excluded, 'the combined exclusion for the primary and secondary taxpayer would be $17,000 (12,500+4,500)' -- i.e. two independent $12,500 caps on a joint return, not one household $12,500. Scenario here (independent of the form's own example, using this batch's own numbers): primary, age 70, pension $20,000 from a former employer; spouse, age 68, pension $20,000 from her own former employer, pooled pensionIncome = $40,000. Correct exclusion = $12,500 (primary, capped) + $12,500 (spouse, capped) = $25,000. Standard deduction $6,500 married (configured). Delaware taxable income = 40,000 - 6,500 - 25,000 = 8,500. tax = 0.022*3,000 + 0.039*(8,500-5,000) = 66.00 + 136.50 = 202.50.",
+      "sourceURL": "https://revenuefiles.delaware.gov/2025/PITForms_Instructions/Instructions/PIT-RES_Instructions_2025-01.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 68,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 202.50,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "exemptionAppliesPerIndividual is false, so StateTaxData.swift's DE config applies the $12,500 cap once household-wide instead of once per spouse, halving the correct $25,000 MFJ exclusion when both spouses are 60+ and independently qualify.",
+        "observedToday": 793.00
+      }
+    },
+    {
+      "name": "MFJ, only ONE spouse 60 or over -- BOTH defects interacting: exposes that a fix adding only the age gate OR only the per-individual flag, but not per-spouse attribution of WHICH income belongs to the ineligible spouse, still fails",
+      "source": "Same PIT-RES Instructions, page 6: the under-60 non-military tier ($2,000) and the 60-or-over tier ($12,500) are each a PER-TAXPAYER computation on their own worksheet lines, so a joint return with one spouse in each age tier receives the qualifying spouse's own $12,500 (capped by her own pension) plus the non-qualifying spouse's own $2,000 (capped by his own pension), not a household figure. Scenario: primary, age 62, pension $28,000 from her own former employer (qualifies for the 60-or-over $12,500 tier, capped there); spouse, age 55, non-military pension $9,000 from his own former employer (qualifies only for the under-60 $2,000 tier, capped there), pooled pensionIncome = $37,000. Correct exclusion = $12,500 (primary) + $2,000 (spouse) = $14,500. TaxCalculationEngine.swift's applyRetirementExemptions determines the exclusion LEVEL from effectiveAge = max(primaryAge, spouseAge) under .household attribution, so even a Phase 5 fix that sets regularExemptionMinAge: 60 and exemptionAppliesPerIndividual: true would compute bothSpousesQualify = false here (spouse is 55) and apply only a single, non-doubled $12,500 cap to the POOLED $37,000 -- still $12,500, not the correct $14,500, because the fix as described never reduces the cap for the non-qualifying spouse's own lower tier. Standard deduction $6,500 married (configured). Delaware taxable income = 37,000 - 6,500 - 14,500 = 16,000. tax = 0.022*3,000 + 0.039*5,000 + 0.048*(16,000-10,000) = 66.00 + 195.00 + 288.00 = 549.00.",
+      "sourceURL": "https://revenuefiles.delaware.gov/2025/PITForms_Instructions/Instructions/PIT-RES_Instructions_2025-01.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 62,
+      "spouseAge": 55,
+      "federalAGI": 37000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 37000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 549.00,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "Both the missing age gate (regularExemptionMinAge: 0) and the missing per-individual flag are wrong together: today's engine applies the unconditional $12,500 level to the whole pooled $37,000 regardless of either spouse's age, instead of $12,500 for the 60+ spouse plus $2,000 for the under-60 spouse.",
+        "observedToday": 645.00
+      }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "state": "WV",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, UNDER 65 -- correct baseline: no senior modification exists below 65, and today's engine (.none) already gives $0, so this case matches and establishes the control for the next case",
+      "source": "2025 West Virginia IT-140 Personal Income Tax Information and Instructions, Schedule M Instructions, printed page 27 (PDF page 29), 'LINE 47 SENIOR CITIZEN OR DISABILITY DEDUCTION': 'Taxpayers MUST be at least age 65 OR certified as permanently and totally disabled to receive this deduction.' There is no general pension/IRA exclusion elsewhere in Schedule M for a taxpayer who is neither 65 nor disabled (lines 30-33 are narrow, named-system carve-outs -- federal law enforcement, WV police/deputy sheriff/firefighter, WV Teachers'/PERS, federal retirement -- not a general exclusion), confirming pensionExemption/iraWithdrawalExemption: .none is CORRECT for an under-65 filer with an ordinary private pension. Scenario: primary, age 50, pension $20,000 (same amount as the next case, only age differs, for a controlled comparison). WV has no state standard deduction (stateDeduction: .none, confirmed: Form IT-140 computes tax directly from Schedule M modifications against federal AGI, with no separate standard-deduction line). WV taxable income = 20,000 - 0 - 0 = 20,000. WV bracket table (2.11%/$0, 2.81%/$10,000, 3.16%/$25,000, 4.22%/$40,000, 4.58%/$60,000 -- these are the CONFIGURED StateTaxData.swift rates; this fixture was not able to independently confirm them against a primary 2026 WV rate schedule, since only a secondary source describing the 2025 rates (2.22%-4.82%) was checked and WV's rates are subject to annual statutory triggers, so no out-of-scope finding is recorded for this element, only this disclosure that it is unverified against a primary 2026 source): tax = 0.0211*10,000 + 0.0281*(20,000-10,000) = 211.00 + 281.00 = 492.00.",
+      "sourceURL": "https://tax.wv.gov/Documents/PIT/2025/it140.PersonalIncomeTaxFormsAndInstructions.2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 20000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 492.00
+    },
+    {
+      "name": "single, 65+, same pension amount as the prior case -- isolates the brief's headline finding: the $8,000 senior citizen modification has no field in the engine at all",
+      "source": "Same Schedule M Instructions, printed page 27, LINE 47 (see prior case for the age quote). Box (c): 'Enter all income... not reported on lines 35 through 48 (NOT TO EXCEED $8000)'; Box (d): 'Add lines 29 through 34'; the modification is Box (c) minus Box (d), i.e. up to $8,000, reduced by any other decreasing modification already claimed (see the next two cases for the reduction itself; this case has no other modification to reduce it). Scenario: primary, age 70, pension $20,000, no other Schedule M modification. Correct senior modification = min(20,000, 8,000) - 0 = $8,000. WV taxable income = 20,000 - 0 - 8,000 = 12,000. tax = 0.0211*10,000 + 0.0281*(12,000-10,000) = 211.00 + 56.20 = 267.20.",
+      "sourceURL": "https://tax.wv.gov/Documents/PIT/2025/it140.PersonalIncomeTaxFormsAndInstructions.2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 20000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 267.20,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "No field in RetirementIncomeExemptions models West Virginia's $8,000 senior citizen modification; pensionExemption/iraWithdrawalExemption are both .none for every age, so today's engine excludes nothing at all for a 65+ filer.",
+        "observedToday": 492.00
+      }
+    },
+    {
+      "name": "MFJ, BOTH spouses 65+ -- pins the SELF-INTERACTION the brief calls out: each spouse's own $8,000 is reduced by that SAME spouse's own other modifications (here, her own share of the Social Security modification), not a household figure",
+      "source": "Same Schedule M Instructions, printed page 27, LINE 47: 'ONLY THE INCOME OF THE SPOUSE WHO MEETS THE ELIGIBILITY REQUIREMENTS QUALIFIES FOR THE MODIFICATION,' with Column A (taxpayer) and Column B (spouse) computed independently, each reduced by 'lines 29 through 34' -- LINE 34 SOCIAL SECURITY BENEFITS is one of those lines: 'the amount of social security benefits received... shall be allowed as a decreasing modification.' The worked example on the same page (John Doe, 69, and Mary Doe, 65) shows this arithmetic directly: each spouse independently computes box (c) $8,000 minus their own box (d) (their own other-modification total) to reach their own final line-47 amount ($500 for Mr. Doe, $7,500 for Mrs. Doe in that example). Scenario here (this batch's own numbers, not the form's example): primary, age 70, pension $25,000 from her own former employer, no other modification of her own -- her own senior modification = min(25,000, 8,000) - 0 = $8,000. Spouse, age 68, pension $6,000 from his own former employer, and the couple's $2,000 taxableSocialSecurity is attributed to his own return for this modification -- his own senior modification = min(6,000, 8,000 - 2,000) = min(6,000, 6,000) = $6,000, fully absorbing his own pension. Correct total senior modification = 8,000 + 6,000 = $14,000, ADDITIONALLY separate from the $2,000 Social Security modification itself (LINE 34, already correctly modeled today via socialSecurityExempt: true and not part of this defect). Total correct exclusion = 2,000 (SS, both sides agree) + 14,000 (senior modification, correct-law only) = $16,000. WV taxable income = 33,000 - 0 - 16,000 = 17,000. tax = 0.0211*10,000 + 0.0281*(17,000-10,000) = 211.00 + 196.70 = 407.70.",
+      "sourceURL": "https://tax.wv.gov/Documents/PIT/2025/it140.PersonalIncomeTaxFormsAndInstructions.2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 68,
+      "federalAGI": 33000,
+      "taxableSocialSecurity": 2000,
+      "pensionIncome": 31000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 407.70,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "No field models the $8,000-per-spouse senior modification or its reduction by other modifications already claimed (here, the spouse's share of the Social Security modification); today's engine correctly excludes only the $2,000 Social Security modification and nothing more for either spouse.",
+        "observedToday": 822.10
+      }
+    },
+    {
+      "name": "MFJ, only ONE spouse 65+ -- the case that stops a naive fix, because the non-qualifying spouse's own pension income must be entirely excluded from any cap, not merely left undoubled",
+      "source": "Same Schedule M Instructions, printed page 27, LINE 47: 'ONLY THE INCOME OF THE SPOUSE WHO MEETS THE ELIGIBILITY REQUIREMENTS QUALIFIES FOR THE MODIFICATION' -- a spouse under 65 (and not disabled) has NO senior modification for their own income at all, regardless of the other spouse's age. Scenario: primary, age 70, pension $30,000 from her own former employer (qualifies, capped at her own $8,000); spouse, age 60, pension $12,000 from his own former employer (does not qualify at all, so his full $12,000 stays taxable), pooled pensionIncome = $42,000. Correct exclusion = $8,000 (primary only; spouse contributes $0). Today's engine (pensionExemption: .none for every age) excludes nothing at all, which already fails this case for the same reason it fails case 2 -- but the reason THIS case, not just case 2, is required is that a Phase 5 fix modeling only 'an $8,000-per-spouse cap on the pooled total, doubled when both qualify' without ALSO attributing pooled pension income by owner would, for a couple in this exact shape, apply a single $8,000 cap to the pooled $42,000 (since only one spouse's age qualifies, no doubling occurs) and land on the SAME correct-looking $8,000 exclusion by coincidence here -- but that same under-specified fix would silently shelter part of a non-qualifying spouse's income the moment the pooled total is close enough to the cap that whose money it is starts to matter, exactly as LA's fourth case demonstrates for a state with the identical pooling gap. WV taxable income = 42,000 - 0 - 8,000 = 34,000. tax = 0.0211*10,000 + 0.0281*15,000 + 0.0316*(34,000-25,000) = 211.00 + 421.50 + 284.40 = 916.90.",
+      "sourceURL": "https://tax.wv.gov/Documents/PIT/2025/it140.PersonalIncomeTaxFormsAndInstructions.2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 60,
+      "federalAGI": 42000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 42000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 916.90,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "No field models the $8,000 senior modification at all, so today's engine excludes nothing for the qualifying spouse's own pension income even though the non-qualifying spouse's income is correctly left untouched by coincidence (there is no exclusion of any kind to misattribute).",
+        "observedToday": 1190.90
+      }
+    }
+  ]
+}
