@@ -353,7 +353,23 @@ struct MultiYearPlanView: View {
             frontier: legacyEnabled ? manager.heirFrontier : nil,
             includeHeirs: legacyEnabled,
             assumptions: manager.assumptions,
-            limitations: V2Disclosures.limitations,
+            // Phase 3b Task 6 (design doc section 3.7, task 6 brief step
+            // 3a/4): the CPA briefing renders figures a CPA reads, so it
+            // carries the same New York and Hawaii disclosures Income
+            // Sources and State Comparison show, conditioned the same way.
+            // Both are empty (no-op) for every household outside their
+            // trigger condition, so an ordinary briefing is unchanged.
+            limitations: V2Disclosures.limitations
+                + MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
+                    residesInNewYork: dataManager.selectedState == .newYork,
+                    // Whole-branch review Fix 2: also fires for an owner whose pension rows
+                    // genuinely disagree with each other, which the adapter treats as
+                    // unclassified with no `.unknown` row to catch otherwise.
+                    hasUnclassifiedPension: dataManager.incomeSources.contains { $0.type == .pension && $0.planSource == .unknown }
+                        || PlanClassificationChoice.hasAnyMixedPensionClassification(in: dataManager.incomeSources))
+                + MultiYearCPABriefing.hawaiiPensionSplitLimitation(
+                    residesInHawaii: dataManager.selectedState == .hawaii,
+                    hasPensionIncome: dataManager.incomeSources.contains { $0.type == .pension }),
             positioning: V2Disclosures.positioning,
             approachSummary: briefingApproachSummary)
     }

@@ -777,7 +777,8 @@ struct ProjectionEngine {
             let stateTax = computeStateTax(
                 federalAGI: federalAGI,
                 taxableSS: taxableSS,
-                pensionIncome: pensionIncome,
+                primaryPensionIncome: inputs.primaryPensionIncome,
+                spousePensionIncome: inputs.spousePensionIncome,
                 totalTradWithdrawals: totalTradWithdrawals,
                 explicitRothConversions: explicitRothConversions,
                 rothConversionWithholding: federalWithheld,
@@ -786,7 +787,9 @@ struct ProjectionEngine {
                 primaryAge: primaryAge,
                 spouseBirthYear: inputs.spouseBirthYear,
                 year: year,
-                localIncomeTaxRate: inputs.localIncomeTaxRate
+                localIncomeTaxRate: inputs.localIncomeTaxRate,
+                primaryPensionClassification: inputs.primaryPensionClassification,
+                spousePensionClassification: inputs.spousePensionClassification
             )
 
             // ─── Per-year standard-vs-itemized deduction selection (V2.1.1) ───
@@ -1004,12 +1007,15 @@ struct ProjectionEngine {
                         brackets: brackets, preferentialIncome: min(taxablePreferential + max(0, saleGain),
                                                                      income)) - federalTax
                     let st = computeStateTax(
-                        federalAGI: federalAGI + dW + max(0, saleGain) + deltaSS, taxableSS: ssNow, pensionIncome: pensionIncome,
+                        federalAGI: federalAGI + dW + max(0, saleGain) + deltaSS, taxableSS: ssNow,
+                        primaryPensionIncome: inputs.primaryPensionIncome, spousePensionIncome: inputs.spousePensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
                         rothConversionWithholding: federalWithheld,
                         filingStatus: inputs.filingStatus,
                         usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear,
-                        year: year, localIncomeTaxRate: inputs.localIncomeTaxRate) - stateTax
+                        year: year, localIncomeTaxRate: inputs.localIncomeTaxRate,
+                        primaryPensionClassification: inputs.primaryPensionClassification,
+                        spousePensionClassification: inputs.spousePensionClassification) - stateTax
                     return max(0, fed) + max(0, st)
                 }
 
@@ -1114,11 +1120,14 @@ struct ProjectionEngine {
                         brackets: brackets,
                         preferentialIncome: reportedTaxablePreferential)
                     stTax = computeStateTax(
-                        federalAGI: reportedAGI, taxableSS: reportedTaxableSS, pensionIncome: pensionIncome,
+                        federalAGI: reportedAGI, taxableSS: reportedTaxableSS,
+                        primaryPensionIncome: inputs.primaryPensionIncome, spousePensionIncome: inputs.spousePensionIncome,
                         totalTradWithdrawals: totalTradWithdrawals + dW, explicitRothConversions: explicitRothConversions,
                         rothConversionWithholding: federalWithheld,
                         filingStatus: inputs.filingStatus,
-                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year, localIncomeTaxRate: inputs.localIncomeTaxRate)
+                        usState: usState, primaryAge: primaryAge, spouseBirthYear: inputs.spouseBirthYear, year: year, localIncomeTaxRate: inputs.localIncomeTaxRate,
+                        primaryPensionClassification: inputs.primaryPensionClassification,
+                        spousePensionClassification: inputs.spousePensionClassification)
                 }
 
                 // V2.3: withheld dollars are already remitted, so they are not a funding
@@ -1581,7 +1590,8 @@ struct ProjectionEngine {
     private func computeStateTax(
         federalAGI: Double,
         taxableSS: Double,
-        pensionIncome: Double,
+        primaryPensionIncome: Double,
+        spousePensionIncome: Double,
         totalTradWithdrawals: Double,
         explicitRothConversions: Double,
         rothConversionWithholding: Double,
@@ -1590,16 +1600,46 @@ struct ProjectionEngine {
         primaryAge: Int,
         spouseBirthYear: Int?,
         year: Int,
-        localIncomeTaxRate: Double
+        localIncomeTaxRate: Double,
+        /// Phase 3b Task 5: classification for each owner's pension income, carried from
+        /// `MultiYearStaticInputs.primaryPensionClassification`/`spousePensionClassification`.
+        /// `nil` produces exactly today's behavior: an unclassified `.pension` row that falls
+        /// through to the state's ordinary, capped exemption. See design doc section 3.4b.
+        primaryPensionClassification: RetirementPlanClassification? = nil,
+        spousePensionClassification: RetirementPlanClassification? = nil
     ) -> Double {
         // Build a minimal income source list so retirement exemptions can be applied.
-        // StateTaxData uses .pension and .rmd types for exemption bucketing.
+        // StateTaxData uses .pension and .rmd types for exemption bucketing. Split into
+        // one row PER OWNER (rather than one combined row) so each owner's classification
+        // -- New York's Line 26 government-pension exclusion is the only rule that ships
+        // reading it (Phase 3b Task 4) -- attaches to the correct dollars.
+        // `matchedPerSourceRule` matches per row, so a nil classification (the default,
+        // unchanged from before this task) resolves to `.unknown`/`.unknown` via
+        // `IncomeSource.init`'s own inference, matching every jurisdiction other than New
+        // York exactly. Splitting by owner is otherwise numerically inert: every exemption
+        // below this point pools all `.pension` rows before applying any cap (Task 3/4), and
+        // `ownerQualifies` treats every owner identically under `.household` attribution,
+        // the only mode any jurisdiction ships (RetirementDistributionComponent.swift's file
+        // doc comment).
         var sources: [IncomeSource] = []
-        if pensionIncome > 0 {
+        if primaryPensionIncome > 0 {
             sources.append(IncomeSource(
                 name: "Pension",
                 type: .pension,
-                annualAmount: pensionIncome
+                annualAmount: primaryPensionIncome,
+                owner: .primary,
+                planStructure: primaryPensionClassification?.structure,
+                planSource: primaryPensionClassification?.source
+            ))
+        }
+        if spousePensionIncome > 0 {
+            sources.append(IncomeSource(
+                name: "Pension",
+                type: .pension,
+                annualAmount: spousePensionIncome,
+                owner: .spouse,
+                planStructure: spousePensionClassification?.structure,
+                planSource: spousePensionClassification?.source
             ))
         }
         if totalTradWithdrawals > 0 {

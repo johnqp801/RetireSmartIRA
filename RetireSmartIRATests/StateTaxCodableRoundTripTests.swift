@@ -183,7 +183,7 @@ struct StateTaxCodableRoundTripTests {
             // "recover" a dropped key back to true, masking the loss). See
             // retirementExemptionsEncodesExpectedJSONShape below for the
             // general, fixture-value-independent guard against this class of
-            // bug across all thirteen fields.
+            // bug across all fourteen fields.
             socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
             iraWithdrawalExemption: .partial(maxExempt: 42_000),
@@ -198,7 +198,15 @@ struct StateTaxCodableRoundTripTests {
                                      shape: .linear(perDollar: 1.6)),
             rothConversionExemption: RothConversionExemption(
                 minAge: 55, withheldPortionRemainsTaxable: true),
-            capitalGainsTreatment: .taxedAsOrdinary
+            capitalGainsTreatment: .taxedAsOrdinary,
+            // Phase 3b Task 4: non-default (non-empty) value, mirroring New
+            // York's real rule so the fixture exercises actual shipped shape.
+            perSourceExemptions: [
+                PerSourceExemptionRule(
+                    matchSources: [.nyStateOrLocal, .federalCivilian],
+                    matchStructures: [.definedBenefit],
+                    treatment: .full)
+            ]
         )
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(RetirementIncomeExemptions.self, from: data)
@@ -212,6 +220,8 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.otherRetirementIncomeExclusion == original.otherRetirementIncomeExclusion)
         #expect(decoded.agiPhaseout == original.agiPhaseout)
         #expect(decoded.rothConversionExemption == original.rothConversionExemption)
+        #expect(decoded.perSourceExemptions == original.perSourceExemptions,
+                "round trip lost or corrupted perSourceExemptions")
         // ExemptionLevel/CapGainsTreatment aren't Equatable in production code
         // (same reason exemptionLevelRoundTrips above compares behaviorally),
         // so compare structurally via the matchesShape helpers below.
@@ -264,6 +274,7 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.pensionAndIRAShareSingleCap == false)
         #expect(decoded.otherRetirementIncomeExclusion == false)
         #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
+        #expect(decoded.perSourceExemptions.isEmpty)
     }
 
     @Test("Decoding a completely empty JSON object yields every declared default")
@@ -284,9 +295,36 @@ struct StateTaxCodableRoundTripTests {
         #expect(decoded.pensionAndIRAShareSingleCap == false)
         #expect(decoded.otherRetirementIncomeExclusion == false)
         #expect(decoded.capitalGainsTreatment.matchesShape(of: .followsFederal))
+        #expect(decoded.perSourceExemptions.isEmpty)
     }
 
-    @Test("Encoded JSON carries all thirteen fields under their own keys, with the right values")
+    @Test("perSourceExemptions is omitted from encoded JSON when empty, present when non-empty")
+    func perSourceExemptionsEncodingIsConditional() throws {
+        // Phase 3b Task 4: mirrors personalExemptionEncodingIsConditional
+        // below for StateTaxConfig.personalExemption -- the same "omit when
+        // the collection doesn't need it" contract, this time proving Task
+        // 4's expected 51-file diff (perSourceExemptions appears in New
+        // York's shipped file only) at the Codable layer rather than relying
+        // solely on inspecting the generated files.
+        let withRule = RetirementIncomeExemptions(
+            perSourceExemptions: [
+                PerSourceExemptionRule(
+                    matchSources: [.nyStateOrLocal], matchStructures: [.definedBenefit],
+                    treatment: .full)
+            ])
+        let present = try #require(try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(withRule)) as? [String: Any])
+        #expect(present["perSourceExemptions"] != nil,
+                "a non-empty perSourceExemptions must appear in the encoded JSON")
+
+        let withoutRule = RetirementIncomeExemptions()
+        let absent = try #require(try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(withoutRule)) as? [String: Any])
+        #expect(absent["perSourceExemptions"] == nil,
+                "an empty perSourceExemptions must omit the key, not write [], so 50 files stay free of a key they do not need")
+    }
+
+    @Test("Encoded JSON carries all fourteen fields under their own keys, with the right values")
     func retirementExemptionsEncodesExpectedJSONShape() throws {
         // This is the general guard against the whole class of bug the two
         // Bool-heavy findings above raised: a dropped encode() line, or two
@@ -296,7 +334,7 @@ struct StateTaxCodableRoundTripTests {
         // arrangement the way the round-trip fixture is). Inspecting the raw
         // JSON dictionary directly -- independent of what init(from:) does
         // with it -- catches a dropped field, a swapped label, and a
-        // default-masked field for all thirteen keys at once, regardless of
+        // default-masked field for all fourteen keys at once, regardless of
         // fixture values.
         //
         // This fixture must be extended whenever a field is added to
@@ -305,6 +343,7 @@ struct StateTaxCodableRoundTripTests {
         // configurable) nor agiPhaseout (added for the general phase-out
         // mechanism) was added here when it landed, so both could have been
         // dropped from the encoder with this whole suite staying green.
+        // perSourceExemptions (Phase 3b Task 4) is the fourteenth.
         let original = RetirementIncomeExemptions(
             socialSecurityExempt: false,
             pensionExemption: .partial(maxExempt: 65_000),
@@ -320,7 +359,13 @@ struct StateTaxCodableRoundTripTests {
                                      shape: .linear(perDollar: 1.6)),
             rothConversionExemption: RothConversionExemption(
                 minAge: 55, withheldPortionRemainsTaxable: true),
-            capitalGainsTreatment: .taxedAsOrdinary
+            capitalGainsTreatment: .taxedAsOrdinary,
+            perSourceExemptions: [
+                PerSourceExemptionRule(
+                    matchSources: [.nyStateOrLocal, .federalCivilian],
+                    matchStructures: [.definedBenefit],
+                    treatment: .full)
+            ]
         )
         let data = try JSONEncoder().encode(original)
         let raw = try JSONSerialization.jsonObject(with: data)
@@ -334,6 +379,13 @@ struct StateTaxCodableRoundTripTests {
         #expect(json["pensionAndIRAShareSingleCap"] as? Bool == true)
         #expect(json["otherRetirementIncomeExclusion"] as? Bool == true)
         #expect(json["capitalGainsTreatment"] as? String == "taxedAsOrdinary")
+
+        let perSourceRules = try #require(json["perSourceExemptions"] as? [[String: Any]])
+        #expect(perSourceRules.count == 1)
+        #expect(perSourceRules[0]["matchSources"] as? [String] == ["nyStateOrLocal", "federalCivilian"])
+        #expect(perSourceRules[0]["matchStructures"] as? [String] == ["definedBenefit"])
+        let ruleTreatment = try #require(perSourceRules[0]["treatment"] as? [String: Any])
+        #expect(ruleTreatment["kind"] as? String == "full")
 
         let pension = try #require(json["pensionExemption"] as? [String: Any])
         #expect(pension["kind"] as? String == "partial")

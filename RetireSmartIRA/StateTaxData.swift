@@ -288,6 +288,46 @@ struct RetirementIncomeExemptions {
     /// How the state treats capital gains
     var capitalGainsTreatment: CapGainsTreatment = .followsFederal
 
+    /// Ordered, first-match-wins rules matching retirement income by WHERE it
+    /// came from (`PlanSource`/`PlanStructure`), rather than by pension-vs-IRA
+    /// alone. Empty (the default, and every jurisdiction's value except New
+    /// York in this phase) means every source is treated identically, which is
+    /// what all 51 jurisdictions did before this phase. See design doc section
+    /// 3.3.
+    ///
+    /// APPLIED AS A PARTITION, NEVER AS A PER-COMPONENT CAP (section 3.4a):
+    /// each income row/component is matched against these rules BEFORE the
+    /// existing `pensionExemption`/`iraWithdrawalExemption` cap machinery
+    /// runs. A matched row is excluded (per its rule's own `treatment`) and
+    /// contributes NOTHING to any shared cap; everything unmatched is pooled
+    /// exactly as before and handed to the unchanged cap logic, including
+    /// `pensionAndIRAShareSingleCap` and `exemptionAppliesPerIndividual`. This
+    /// codebase has already shipped the bug this ordering guards against once:
+    /// New York's shared pension-and-IRA cap exists because an earlier
+    /// version granted $20,000 to pension and another $20,000 to IRA.
+    var perSourceExemptions: [PerSourceExemptionRule] = []
+
+    /// The first rule in `perSourceExemptions` whose `matches(structure:source:)`
+    /// admits `(structure, source)`, or `nil` if none does. First match wins
+    /// (design doc section 3.4a step 1). Centralized here, rather than
+    /// reimplemented at each call site, so the engine and the `DataManager`
+    /// mirror can never disagree about WHICH rule matched -- only about how
+    /// they apply it, which each still does separately per the mirror's
+    /// existing hand-duplication convention. Delegates to
+    /// `PerSourceExemptionRule.matches`, the single predicate definition (see
+    /// PerSourceExemptionRule.swift), rather than re-deriving the match logic
+    /// here.
+    ///
+    /// `governmentUnspecified` is never treated as a specific jurisdiction
+    /// here or anywhere else: it matches a rule only if that rule's own
+    /// `matchSources` explicitly lists `.governmentUnspecified`, exactly like
+    /// any other case. No rule shipped in this phase does that (design doc
+    /// section 3.1: "No rule may match `governmentUnspecified` as though it
+    /// were a specific jurisdiction").
+    func matchedPerSourceRule(structure: PlanStructure, source: PlanSource) -> PerSourceExemptionRule? {
+        perSourceExemptions.first { $0.matches(structure: structure, source: source) }
+    }
+
     /// Reduced exemption that applies only within a specific age band.
     /// Below `ageRange.lowerBound`: no exemption. Within `ageRange`: `level`.
     /// Above `ageRange.upperBound`: use the regular pension/IRA exemption
@@ -404,6 +444,35 @@ struct RetirementIncomeExemptions {
         case taxedAsOrdinary
         /// No state tax on capital gains (no-income-tax states, or special treatment)
         case noStateTax
+    }
+}
+
+/// Structural equality for `PerSourceExemptionRule`, hand-written because
+/// `ExemptionLevel` is deliberately not `Equatable` in production code
+/// elsewhere (see PerSourceExemptionRule.swift and ExemptionLevel's own doc
+/// comment above). Scoped narrowly to this one struct rather than exposing a
+/// general `ExemptionLevel: Equatable` conformance the rest of production
+/// code has never needed.
+extension PerSourceExemptionRule: Equatable {
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        guard lhs.matchSources == rhs.matchSources, lhs.matchStructures == rhs.matchStructures else {
+            return false
+        }
+        switch (lhs.treatment, rhs.treatment) {
+        case (.none, .none), (.full, .full):
+            return true
+        case let (.partial(a), .partial(b)):
+            return a == b
+        case let (.steppedPhaseoutByFilingStatus(s1, m1, t1), .steppedPhaseoutByFilingStatus(s2, m2, t2)):
+            return s1 == s2 && m1 == m2 && t1.count == t2.count
+                && zip(t1, t2).allSatisfy {
+                    $0.upperBound == $1.upperBound
+                        && $0.mfjPercent == $1.mfjPercent
+                        && $0.singlePercent == $1.singlePercent
+                }
+        default:
+            return false
+        }
     }
 }
 
@@ -1871,7 +1940,38 @@ struct StateTaxData {
                 // true per-spouse caps. Full per-spouse dollar attribution is a
                 // deferred follow-up.
                 pensionAndIRAShareSingleCap: true,
-                capitalGainsTreatment: .followsFederal
+                capitalGainsTreatment: .followsFederal,
+                // Phase 3b Task 4: IT-201 Line 26. Pensions of NYS, its
+                // localities, named NY public authorities (MTA Police,
+                // MaBSTOA, LIRR), or the US government are excluded from NY
+                // tax with NO dollar cap, for an officer, employee, or
+                // beneficiary of one -- separately from, and never consuming,
+                // the $20,000 Line 29 exclusion above. Confirmed 2026-08-03
+                // against the current IT-201 instructions and tax.ny.gov's
+                // "Information for retired persons": see
+                // GoldenScenarios/statetax-2026-NY.golden.json for the
+                // primary-source citations and four hand-derived cases.
+                //
+                // `matchStructures: [.definedBenefit]` is what excludes a
+                // government employee's 403(b)/457 (Line 26 explicitly does
+                // NOT cover salary-reduction/deferred-compensation plans,
+                // even from a government employer) -- it falls through to
+                // the ordinary $20,000 cap below, no special case needed.
+                //
+                // `matchSources` deliberately does NOT include
+                // `.otherStateOrLocal` or `.governmentUnspecified`: an
+                // out-of-state government pension is not Line 26 income (the
+                // eligibility list is closed to NYS/its localities/named NY
+                // authorities/the US government), and `.governmentUnspecified`
+                // is never treated as a specific jurisdiction (design doc
+                // section 3.1). This is the design's own regression test for
+                // the flat `.governmentPension` case it was revised away from.
+                perSourceExemptions: [
+                    PerSourceExemptionRule(
+                        matchSources: [.nyStateOrLocal, .federalCivilian],
+                        matchStructures: [.definedBenefit],
+                        treatment: .full)
+                ]
             ),
             stateDeduction: .fixed(single: 8_000, married: 16_050)
         )

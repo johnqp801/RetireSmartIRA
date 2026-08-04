@@ -59,6 +59,18 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     let primaryPensionIncome: Double
     let spousePensionIncome: Double
 
+    // Phase 3b Task 5: pension classification, carried ADDITIVELY beside the existing
+    // scalar amounts above -- the same pattern RetirementDistributionComponent uses
+    // beside scenarioRetirementDistributions. nil means unclassified, which resolves
+    // to today's behavior exactly (the capped, per-state exemption every jurisdiction
+    // applies, and the only outcome for every jurisdiction other than New York). See
+    // docs/superpowers/specs/2026-08-03-state-tax-phase3b-per-source-design.md
+    // section 3.4b. `AccountSnapshot` is deliberately NOT widened alongside these --
+    // see that section for why account classification stays single-year-only in
+    // this phase.
+    let primaryPensionClassification: RetirementPlanClassification?
+    let spousePensionClassification: RetirementPlanClassification?
+
     // V2.0 SIMPLIFICATION (Gemini review 2026-05-03): Captures dividends, interest,
     // capital gains (both short and long), state tax refunds, and "other" income types
     // that don't fit consulting/pension/SS. All are taxed as ORDINARY income for v2.0,
@@ -170,7 +182,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         carriedPropertyAndOtherSALT: Double = 0,
         carriedGrossMedicalExpenses: Double = 0,
         taxableAccounts: [TaxableAccountInput] = [],
-        inheritedAccounts: [InheritedAccountInput] = []
+        inheritedAccounts: [InheritedAccountInput] = [],
+        primaryPensionClassification: RetirementPlanClassification? = nil,
+        spousePensionClassification: RetirementPlanClassification? = nil
     ) {
         self.startingBalances = startingBalances
         self.taxableAccounts = taxableAccounts
@@ -193,6 +207,8 @@ struct MultiYearStaticInputs: Equatable, Sendable {
         self.spouseWageIncome = spouseWageIncome
         self.primaryPensionIncome = primaryPensionIncome
         self.spousePensionIncome = spousePensionIncome
+        self.primaryPensionClassification = primaryPensionClassification
+        self.spousePensionClassification = spousePensionClassification
         self.primaryOtherOrdinaryIncome = primaryOtherOrdinaryIncome
         self.spouseOtherOrdinaryIncome = spouseOtherOrdinaryIncome
         self.primaryPreferentialIncome = primaryPreferentialIncome
@@ -266,7 +282,9 @@ struct MultiYearStaticInputs: Equatable, Sendable {
             carriedPropertyAndOtherSALT: carriedPropertyAndOtherSALT,
             carriedGrossMedicalExpenses: carriedGrossMedicalExpenses,
             taxableAccounts: taxableAccounts,
-            inheritedAccounts: inheritedAccounts
+            inheritedAccounts: inheritedAccounts,
+            primaryPensionClassification: primaryPensionClassification,
+            spousePensionClassification: spousePensionClassification
         )
     }
 }

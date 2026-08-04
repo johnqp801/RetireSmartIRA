@@ -170,6 +170,15 @@ enum MultiYearInputAdapter {
         let spouseWage = spouseIncome(from: sources, type: .consulting, enableSpouse: dataManager.enableSpouse)
         let primaryPension = primaryIncome(from: sources, type: .pension)
         let spousePension = spouseIncome(from: sources, type: .pension, enableSpouse: dataManager.enableSpouse)
+        // Phase 3b Task 5: classification for the SAME pension rows summed above, so New
+        // York's Line 26 rule reaches the projection the way it already reaches
+        // DataManager.stateTaxBreakdown. nil (an owner with zero or MORE THAN ONE pension
+        // row) falls back to unclassified -- today's capped behavior -- rather than guess
+        // which of two differently-classified pensions the combined amount belongs to.
+        let primaryPensionClass = Self.pensionClassification(from: sources, owner: .primary)
+        let spousePensionClass = dataManager.enableSpouse
+            ? Self.pensionClassification(from: sources, owner: .spouse)
+            : nil
         // Taxable accounts -> engine value types. When the user has none, synthesize one from
         // the legacy scalar so the engine bucket matches pre-feature behavior.
         let taxableInputs: [TaxableAccountInput] = dataManager.taxableAccounts.isEmpty
@@ -316,7 +325,9 @@ enum MultiYearInputAdapter {
             carriedPropertyAndOtherSALT: carriedPropertyAndOtherSALT,
             carriedGrossMedicalExpenses: carriedGrossMedicalExpenses,
             taxableAccounts: taxableInputs,
-            inheritedAccounts: inheritedInputs
+            inheritedAccounts: inheritedInputs,
+            primaryPensionClassification: primaryPensionClass,
+            spousePensionClassification: spousePensionClass
         )
     }
 
@@ -336,6 +347,27 @@ enum MultiYearInputAdapter {
         return sources
             .filter { $0.type == incomeType && $0.owner == .spouse }
             .reduce(0.0) { $0 + $1.annualAmount }
+    }
+
+    /// Classification for `owner`'s pension income, derived from the underlying `.pension`
+    /// `IncomeSource` row(s). `MultiYearStaticInputs.primaryPensionIncome`/
+    /// `spousePensionIncome` are a SUM across every pension row that owner has. When every row
+    /// AGREES on classification (the ordinary case -- e.g. a NYSLRS state pension and a
+    /// separate NYC pension, both New York State-or-local defined benefit), that shared
+    /// classification attaches to the combined amount. Zero rows: nothing to classify, `nil`.
+    /// Rows that genuinely DISAGREE (e.g. one NY government pension plus one private pension,
+    /// both owned by the same person) could misattribute the other row's dollars if either
+    /// one's classification were applied to the pooled total, so that case still falls back to
+    /// `nil` (unclassified, today's capped behavior) rather than guess. Phase 3b Task 5; whole-
+    /// branch review Fix 2 (before this fix, ANY owner with more than one pension row fell back
+    /// to `nil` unconditionally, silently dropping the classification even when every row
+    /// agreed). See design doc section 3.4b and
+    /// `PlanClassificationChoice.hasMixedPensionClassification`.
+    private static func pensionClassification(from sources: [IncomeSource], owner: Owner) -> RetirementPlanClassification? {
+        let rows = sources.filter { $0.type == .pension && $0.owner == owner }
+        guard let first = rows.first else { return nil }
+        guard !PlanClassificationChoice.hasMixedPensionClassification(in: sources, owner: owner) else { return nil }
+        return RetirementPlanClassification(structure: first.planStructure, source: first.planSource)
     }
 
     /// Sum annualAmount for all primary-owner income sources whose type contributes

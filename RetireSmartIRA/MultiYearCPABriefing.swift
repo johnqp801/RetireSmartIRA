@@ -354,6 +354,29 @@ enum MultiYearCPABriefing {
         let deltaMedicareCost: Double
     }
 
+    /// Phase 3b Task 6 (design doc sections 3.4a and 3.7): mirrors
+    /// `StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation`
+    /// for the CPA briefing, the other surface that computes a New York
+    /// number a user reads (`MultiYearCPABriefing renders figures a CPA
+    /// reads`, task 6 brief step 3a). Empty when the condition does not
+    /// hold, so an ordinary briefing (not New York, or the pension is
+    /// already classified) is unchanged from before this task.
+    static func newYorkUnclassifiedPensionLimitation(residesInNewYork: Bool, hasUnclassifiedPension: Bool) -> [String] {
+        guard residesInNewYork, hasUnclassifiedPension else { return [] }
+        return ["Your pension is not yet classified as government or private in Income Sources. New York excludes a qualifying government pension from state tax with no dollar cap, but this plan applies the standard $20,000 pension exclusion until it is classified."]
+    }
+
+    /// Phase 3b Task 6 (design doc section 3.7, step 4): Hawaii's known
+    /// limitation, surfaced in the CPA briefing in addition to Income
+    /// Sources, for a resident with any pension income. Hawaii excludes the
+    /// employer-funded portion of a pension, a split this app does not
+    /// model either before or after classification, so this is gated on
+    /// pension income alone, not on classification state.
+    static func hawaiiPensionSplitLimitation(residesInHawaii: Bool, hasPensionIncome: Bool) -> [String] {
+        guard residesInHawaii, hasPensionIncome else { return [] }
+        return ["Hawaii excludes the employer-funded portion of a pension from state tax. This plan does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated."]
+    }
+
     /// Selected-approach vs Recommended-plan deltas for the CPA briefing header. Zero across the
     /// board when the selected approach IS the recommended plan (collapsed comparison).
     ///

@@ -130,7 +130,12 @@ struct WidowStressTest {
                 baselineAnnualExpenses: inputs.baselineAnnualExpenses,
                 // Survivor keeps any inherited IRAs; their beneficiary schedule is
                 // unchanged by the spouse's death.
-                inheritedAccounts: inputs.inheritedAccounts
+                inheritedAccounts: inputs.inheritedAccounts,
+                // Phase 3b Task 5: the surviving primary's own pension classification carries
+                // over unchanged; the deceased spouse's pension is zeroed above, so its
+                // classification (if any) carries no dollars and is dropped, not carried.
+                primaryPensionClassification: inputs.primaryPensionClassification,
+                spousePensionClassification: nil
             )
         } else {
             // Deceased = primary. Surviving "primary" of widow scenario uses original
@@ -170,7 +175,13 @@ struct WidowStressTest {
                 baselineAnnualExpenses: inputs.baselineAnnualExpenses,
                 // Survivor keeps any inherited IRAs; their beneficiary schedule is
                 // unchanged by the spouse's death.
-                inheritedAccounts: inputs.inheritedAccounts
+                inheritedAccounts: inputs.inheritedAccounts,
+                // Phase 3b Task 5: the surviving spouse's own pension classification (stored
+                // on `spousePensionClassification` before the death) becomes the survivor's
+                // PRIMARY classification in this single-filer variant, mirroring how
+                // `spousePensionIncome` above becomes `primaryPensionIncome`.
+                primaryPensionClassification: inputs.spousePensionClassification,
+                spousePensionClassification: nil
             )
         }
     }

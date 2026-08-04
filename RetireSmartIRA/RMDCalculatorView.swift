@@ -684,7 +684,7 @@ struct RMDCalculatorView: View {
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                     HStack(spacing: 4) {
-                                        Text(account.accountType.rawValue)
+                                        Text(Self.accountTypeLabel(for: account))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         if let ownerLabel = accountOwnerLabel(for: account) {
@@ -2030,6 +2030,17 @@ struct RMDCalculatorView: View {
             guard enableSpouse else { return nil }
             return (age: spouseAge, rmdAge: spouseRMDAge)
         }
+    }
+
+    /// The account "Type" label shown for an account still below RMD age (the
+    /// "not yet RMD age" branch of the accounts list) -- the classified
+    /// display name, not the raw `accountType.rawValue` that used to print
+    /// "Traditional 401(k)" over a classified 403(b)/457. Not `private`,
+    /// and `static` rather than an instance method, so a test can call it
+    /// directly without constructing this view. Whole-branch review Fix 4.
+    static func accountTypeLabel(for account: IRAAccount) -> String {
+        PlanClassificationChoice.accountDisplayName(
+            accountType: account.accountType, planStructure: account.planStructure, planSource: account.planSource)
     }
 
     /// Owner caption for an account row, shown whenever it carries information —
