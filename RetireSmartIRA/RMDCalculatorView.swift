@@ -326,7 +326,13 @@ struct RMDCalculatorView: View {
             primaryName: dataManager.userName,
             spouseName: dataManager.spouseName,
             hasInheritedRMDs: hasInheritedRMDs,
-            firstRmdDeadlineYear: dataManager.currentYear + 1)
+            firstRmdDeadlineYear: dataManager.currentYear + 1,
+            // The same pair of conditions `hasAnyRMDs` below uses to decide
+            // whether the dollar section renders at all. The badge and the
+            // April 1 notice have to agree with it, or the card announces a
+            // deadline above a section it has itself hidden.
+            primaryHasTraditionalBalance: dataManager.primaryTraditionalIRABalance > 0,
+            spouseHasTraditionalBalance: dataManager.spouseTraditionalIRABalance > 0)
     }
 
     /// "1 year" rather than "1 years" for the two original single-person
@@ -337,8 +343,9 @@ struct RMDCalculatorView: View {
 
     private var statusCard: some View {
         // Resolved once so the badge, the headline number and the lines can
-        // never disagree with one another.
-        let status = rmdHouseholdStatus
+        // never disagree with one another. The warning icon reads the same
+        // due-ness flag the badge text does, so an amber triangle can never
+        // sit beside "Not Yet Required".
         let presentation = rmdStatusPresentation
 
         return VStack(alignment: .leading, spacing: 16) {
@@ -350,7 +357,7 @@ struct RMDCalculatorView: View {
                         TabPurposeChip(purpose: .analysis)
                     }
 
-                    if status.anyoneRequired {
+                    if presentation.anyoneDue {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(Color.Semantic.amber)

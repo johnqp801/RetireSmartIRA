@@ -11,7 +11,10 @@ struct RMDStatusPresentationTests {
         spouseEnabled: Bool, spouseAge: Int, spouseRmdAge: Int,
         spouseName: String = "",
         hasInheritedRMDs: Bool = false,
-        firstRmdDeadlineYear: Int = 2027
+        firstRmdDeadlineYear: Int = 2027,
+        primaryName: String = "",
+        primaryHasTraditionalBalance: Bool = true,
+        spouseHasTraditionalBalance: Bool = true
     ) -> RMDStatusPresentation {
         let status = RMDHouseholdStatus.resolve(
             primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
@@ -20,9 +23,12 @@ struct RMDStatusPresentationTests {
             status: status,
             primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
             spouseAge: spouseAge, spouseRmdAge: spouseRmdAge,
+            primaryName: primaryName,
             spouseName: spouseName,
             hasInheritedRMDs: hasInheritedRMDs,
-            firstRmdDeadlineYear: firstRmdDeadlineYear)
+            firstRmdDeadlineYear: firstRmdDeadlineYear,
+            primaryHasTraditionalBalance: primaryHasTraditionalBalance,
+            spouseHasTraditionalBalance: spouseHasTraditionalBalance)
     }
 
     @Test("Steve's household: the already-required wife leads and the card reads Required")
@@ -225,6 +231,77 @@ struct RMDStatusPresentationTests {
                 #expect(!line.contains("RMDs start"))
             }
         }
+    }
+
+    // MARK: - Reaching RMD age is not the same as owing a distribution
+
+    @Test("A Roth-only spouse past her RMD age is announced no deadline, but her AGE is still stated")
+    func rothOnlySpouseIsPastHerAgeYetOwesNothing() {
+        // Primary 64 with RMD age 75 and a traditional balance. Karen is 73
+        // with RMD age 73 and holds $800,000 of ROTH and no traditional money
+        // at all. A Roth IRA has no required minimum distribution during the
+        // owner's lifetime, so this household owes nothing this year: the
+        // combined RMD is zero and the dollar section of the card is hidden.
+        // The card nonetheless read "RMDs Required", offered Karen an April 1
+        // deferral and warned her about taking two RMDs in one year.
+        let p = build(
+            primaryAge: 64, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 73, spouseRmdAge: 73,
+            spouseName: "Karen",
+            primaryHasTraditionalBalance: true,
+            spouseHasTraditionalBalance: false)
+
+        #expect(p.badge != "RMDs Required")
+        #expect(p.badge == "Not Yet Required")
+        #expect(!p.anyoneDue)
+        // No April 1 notice, and with it no two-RMDs-in-one-year warning: the
+        // view hangs that warning off a non-empty notice list.
+        #expect(p.firstYearNotices.isEmpty)
+
+        // The other half of the rule. Her AGE statement is true whatever she
+        // holds, it is what an earlier review asked for, and balance-gating it
+        // would be the over-correction.
+        #expect(p.lines.contains("Karen has reached RMD age 73"))
+        #expect(p.lines.count == 2)
+    }
+
+    @Test("Both people holding traditional balances behave exactly as they do today")
+    func bothHoldingTraditionalBalancesIsUnchanged() {
+        // The customer's real household, and the pin against over-correcting.
+        // Balances present means the age-driven answers all stand.
+        let p = build(
+            primaryAge: 64, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 73, spouseRmdAge: 73,
+            spouseName: "Karen",
+            firstRmdDeadlineYear: 2027,
+            primaryHasTraditionalBalance: true,
+            spouseHasTraditionalBalance: true)
+
+        #expect(p.badge == "RMDs Required")
+        #expect(p.anyoneDue)
+        #expect(p.firstYearNotices == ["Karen's first RMD can be delayed until April 1 2027"])
+        #expect(p.lines.contains("Karen has reached RMD age 73"))
+        #expect(p.headlineMetric.label == "RMD Status")
+        #expect(p.headlineMetric.value == "Required")
+    }
+
+    @Test("A Roth-only PRIMARY past his own RMD age is announced no deadline either")
+    func rothOnlyPrimaryOwesNothing() {
+        // The mirror of the household above, so the fix cannot pass by having
+        // been applied to the spouse alone. He is 78 against an RMD age of 75
+        // and holds only Roth; she is 60 and not close to hers.
+        let p = build(
+            primaryAge: 78, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 60, spouseRmdAge: 73,
+            spouseName: "Karen",
+            primaryHasTraditionalBalance: false,
+            spouseHasTraditionalBalance: true)
+
+        #expect(p.badge != "RMDs Required")
+        #expect(p.badge == "Not Yet Required")
+        #expect(!p.anyoneDue)
+        #expect(p.firstYearNotices.isEmpty)
+        #expect(p.lines.contains("You have reached RMD age 75"))
     }
 
     // MARK: - First-year April 1 notices
@@ -563,5 +640,104 @@ struct RMDStatusPresentationTests {
                 }
             }
         }
+    }
+}
+
+/// The two surfaces outside the RMD card that also announced due-ness from age
+/// alone: the CPA briefing's Personal Information table and the Dashboard's
+/// header metric.
+///
+/// These run through the real call sites rather than through
+/// `RMDStatusPresentation.build` directly, because the defect being pinned is
+/// as much "the caller never told the presentation about balances" as it is
+/// "the presentation ignored them".
+@Suite("RMD due-ness at the export and dashboard call sites", .serialized)
+@MainActor
+struct RMDDuenessCallSiteTests {
+
+    /// Primary 64 (RMD age 75) holding traditional money; Karen 73 (RMD age
+    /// 73) holding $800,000 of ROTH and no traditional money whatsoever.
+    /// Nothing is due from anyone this year.
+    private func rothOnlySpouse() -> DataManager {
+        let dm = DataManager(skipPersistence: true)
+        dm.currentYear = 2026
+        dm.filingStatus = .marriedFilingJointly
+        dm.selectedState = .florida
+        dm.userName = "John"
+        dm.spouseName = "Karen"
+        dm.birthDate = date(1962)          // age 64, RMD age 75
+        dm.enableSpouse = true
+        dm.spouseBirthDate = date(1953)    // age 73, RMD age 73
+        dm.iraAccounts = [
+            IRAAccount(name: "His IRA", accountType: .traditionalIRA,
+                       balance: 500_000, owner: .primary),
+            IRAAccount(name: "Her Roth", accountType: .rothIRA,
+                       balance: 800_000, owner: .spouse)
+        ]
+        return dm
+    }
+
+    /// The same household with Karen's $800,000 in a TRADITIONAL IRA, where
+    /// her RMD genuinely is due. Everything must read exactly as it does today.
+    private func traditionalSpouse() -> DataManager {
+        let dm = rothOnlySpouse()
+        dm.iraAccounts = [
+            IRAAccount(name: "His IRA", accountType: .traditionalIRA,
+                       balance: 500_000, owner: .primary),
+            IRAAccount(name: "Her IRA", accountType: .traditionalIRA,
+                       balance: 800_000, owner: .spouse)
+        ]
+        return dm
+    }
+
+    private func date(_ year: Int) -> Date {
+        var c = DateComponents(); c.year = year; c.month = 1; c.day = 1
+        return Calendar.current.date(from: c)!
+    }
+
+    @Test("The briefing states the Roth-only spouse's age without flagging it as an alert")
+    func briefingDoesNotFlagAnAgeAsAnObligation() {
+        let dm = rothOnlySpouse()
+        #expect(dm.calculateSpouseRMD() == 0)
+
+        let html = PDFExportService.sectionPersonalInfo(PDFExportData(from: dm))
+
+        // Present and truthful: she really has reached RMD age 73.
+        #expect(html.contains("<tr><td>Karen RMD Status</td><td>Has reached RMD age 73</td></tr>"))
+        // But not printed in the document's alert color, which a CPA reads as
+        // an obligation that has not been met.
+        #expect(!html.contains("<td class=\"red\">Has reached RMD age 73</td>"))
+        #expect(html.contains("<tr><td>John RMD Status</td><td>Reaches RMD age 75 in 11 years</td></tr>"))
+    }
+
+    @Test("The briefing DOES flag the spouse whose traditional balance makes it due")
+    func briefingStillFlagsARealObligation() {
+        let dm = traditionalSpouse()
+        #expect(dm.calculateSpouseRMD() > 0)
+
+        let html = PDFExportService.sectionPersonalInfo(PDFExportData(from: dm))
+
+        #expect(html.contains("<tr><td>Karen RMD Status</td><td class=\"red\">Has reached RMD age 73</td></tr>"))
+    }
+
+    @Test("The Dashboard header does not read Required for the Roth-only household")
+    func dashboardHeaderDoesNotClaimRequired() {
+        let metric = DashboardView.rmdHeadlineMetric(rothOnlySpouse())
+
+        #expect(metric.value != "Required")
+        #expect(metric.label != "RMD Status")
+        // It counts to the first person who will actually owe one: the primary
+        // at 75, eleven years out. Karen never will on this balance.
+        #expect(metric.label == "Years Until RMD")
+        #expect(metric.value == "11")
+    }
+
+    @Test("The Dashboard header still reads Required when the money is really there")
+    func dashboardHeaderStillClaimsRequiredWhenDue() {
+        let metric = DashboardView.rmdHeadlineMetric(traditionalSpouse())
+
+        #expect(metric.label == "RMD Status")
+        #expect(metric.value == "Required")
+        #expect(metric.detail == "Karen has reached RMD age 73")
     }
 }

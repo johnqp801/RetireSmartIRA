@@ -25,6 +25,16 @@ struct RMDStatusPresentation: Equatable {
 
     /// "RMDs Required" or "Not Yet Required".
     let badge: String
+    /// Whether ANYONE actually owes a distribution: age reached AND a
+    /// traditional balance to take it from.
+    ///
+    /// Reaching RMD age is not the same as owing money. A Roth IRA has no
+    /// required minimum distribution during the owner's lifetime, so a
+    /// 73-year-old holding nothing but Roth owes nothing at all. The badge,
+    /// the April 1 notices, the document alert flag and the Dashboard headline
+    /// all read this rather than the household's age arithmetic, which is what
+    /// stops the card announcing a deadline for money that does not exist.
+    let anyoneDue: Bool
     /// "RMD Age" or "First RMD Age".
     let ageTitle: String
     /// The large number under `ageTitle`.
@@ -196,9 +206,48 @@ struct RMDStatusPresentation: Equatable {
         primaryName: String = "",
         spouseName: String,
         hasInheritedRMDs: Bool,
-        firstRmdDeadlineYear: Int
+        firstRmdDeadlineYear: Int,
+        primaryHasTraditionalBalance: Bool = true,
+        spouseHasTraditionalBalance: Bool = true
     ) -> RMDStatusPresentation {
-        let badge = status.anyoneRequired ? "RMDs Required" : "Not Yet Required"
+        // Age says WHEN a distribution would begin; a traditional balance says
+        // WHETHER there is one at all. Both parameters default to true so a
+        // caller that has not been taught about balances yet gets exactly the
+        // age-driven behavior it got before.
+        let primaryDue = primaryAge >= primaryRmdAge && primaryHasTraditionalBalance
+        let spouseDue = spouseAge >= spouseRmdAge && spouseHasTraditionalBalance
+        // When the household collapses to one clock the spouse's AGE is either
+        // identical to the primary's or is not a real person's age at all, so
+        // only the balances can differ. Reading the spouse's age here is what
+        // would let a disabled spouse's placeholder age drive the card.
+        let householdHoldsTraditional =
+            primaryHasTraditionalBalance || spouseHasTraditionalBalance
+        let anyoneDue = status.showsBothPeople
+            ? (primaryDue || spouseDue)
+            : (status.anyoneRequired && householdHoldsTraditional)
+
+        // "RMDs Required" is a claim about money, so it follows due-ness. The
+        // negative case keeps the wording it has always had: it is not a false
+        // statement about a Roth-only 73-year-old, and the age lines directly
+        // beneath it still say plainly that she has reached her RMD age.
+        let badge = anyoneDue ? "RMDs Required" : "Not Yet Required"
+
+        // The countdown counts to the first person who will actually owe
+        // something, which is not necessarily the first person to reach RMD
+        // age. `status.yearsUntilFirst` is left exactly as it is; this is a
+        // display value, and it falls back to it whenever the household holds
+        // no traditional money at all or sits on one shared clock.
+        let yearsUntilDue: Int = {
+            guard status.showsBothPeople else { return status.yearsUntilFirst }
+            var candidates: [Int] = []
+            if primaryHasTraditionalBalance {
+                candidates.append(max(0, primaryRmdAge - primaryAge))
+            }
+            if spouseHasTraditionalBalance {
+                candidates.append(max(0, spouseRmdAge - spouseAge))
+            }
+            return candidates.min() ?? status.yearsUntilFirst
+        }()
 
         // Only a genuine split in RMD ages earns the "First" qualifier. Two
         // people who share an RMD age but not a birth year still show both
@@ -210,20 +259,33 @@ struct RMDStatusPresentation: Equatable {
 
         guard status.showsBothPeople else {
             // One person drives the card, so the notice keeps its original
-            // wording with no possessive attached to it.
-            let notices = primaryAge == primaryRmdAge
+            // wording with no possessive attached to it. The April 1 deferral
+            // is a right over a distribution, so it needs one to exist.
+            let notices = primaryAge == primaryRmdAge && householdHoldsTraditional
                 ? ["First RMD can be delayed until April 1 \(firstRmdDeadlineYear)"]
                 : []
             // One statement is true of everyone here, so every downstream
             // surface keeps the exact single-person shape it has always had.
-            let soleRow = status.anyoneRequired
-                ? DocumentRow(label: "RMD Status", value: "Required", isAlert: true)
-                : DocumentRow(
+            let soleRow: DocumentRow
+            if anyoneDue {
+                soleRow = DocumentRow(label: "RMD Status", value: "Required", isAlert: true)
+            } else if status.anyoneRequired {
+                // Past the age with nothing to distribute. A CPA reading this
+                // document cannot ask a follow-up question, so the row states
+                // the age truthfully and is not flagged as an alert.
+                soleRow = DocumentRow(
+                    label: "RMD Status",
+                    value: agePhrase(age: primaryAge, rmdAge: primaryRmdAge),
+                    isAlert: false)
+            } else {
+                soleRow = DocumentRow(
                     label: "RMD Begins",
                     value: "Age \(status.firstRmdAge) (\(status.yearsUntilFirst) years)",
                     isAlert: false)
+            }
             return RMDStatusPresentation(
                 badge: badge,
+                anyoneDue: anyoneDue,
                 ageTitle: ageTitle,
                 ageValue: ageValue,
                 lines: [],
@@ -232,7 +294,8 @@ struct RMDStatusPresentation: Equatable {
                     status: status,
                     showsHouseholdLines: false,
                     hasInheritedRMDs: hasInheritedRMDs),
-                headlineMetric: headline(status: status, detail: nil),
+                headlineMetric: headline(
+                    anyoneDue: anyoneDue, yearsUntilDue: yearsUntilDue, detail: nil),
                 documentRows: [soleRow],
                 conversionGapSentence: gapSentence(
                     status: status,
@@ -251,10 +314,18 @@ struct RMDStatusPresentation: Equatable {
             subject: spouseSubject, isThirdPerson: true, age: spouseAge, rmdAge: spouseRmdAge)
 
         let spousePossessive = spouseName.isEmpty ? "Your spouse's" : "\(spouseName)'s"
+        // The April 1 deferral is a right to postpone a distribution, so it
+        // belongs only to someone who has one to postpone. Announcing it for a
+        // Roth-only spouse, and with it the two-RMDs-in-one-year warning the
+        // view hangs off these notices, names a deadline for money that does
+        // not exist.
         let primaryNotice = notice(
-            who: "Your", age: primaryAge, rmdAge: primaryRmdAge, year: firstRmdDeadlineYear)
+            who: "Your", age: primaryAge, rmdAge: primaryRmdAge,
+            hasTraditionalBalance: primaryHasTraditionalBalance,
+            year: firstRmdDeadlineYear)
         let spouseNotice = notice(
             who: spousePossessive, age: spouseAge, rmdAge: spouseRmdAge,
+            hasTraditionalBalance: spouseHasTraditionalBalance,
             year: firstRmdDeadlineYear)
 
         let spouseFirst = status.startsFirst == .spouse
@@ -267,14 +338,19 @@ struct RMDStatusPresentation: Equatable {
         // `lines` does: a shared trigger age printed beside two names is the
         // misattribution this whole type exists to prevent. The name fallbacks
         // match the ones the export already uses for its Age rows.
+        //
+        // The VALUE stays an age statement, true whatever the person holds.
+        // The ALERT flag is the document's "act on this" mark, so it follows
+        // due-ness: a CPA cannot ask a follow-up question of a PDF, and a red
+        // row against a Roth-only spouse reads as an unmet obligation.
         let primaryRow = DocumentRow(
             label: "\(primaryName.isEmpty ? "Primary" : primaryName) RMD Status",
             value: agePhrase(age: primaryAge, rmdAge: primaryRmdAge),
-            isAlert: primaryAge >= primaryRmdAge)
+            isAlert: primaryDue)
         let spouseRow = DocumentRow(
             label: "\(spouseName.isEmpty ? "Spouse" : spouseName) RMD Status",
             value: agePhrase(age: spouseAge, rmdAge: spouseRmdAge),
-            isAlert: spouseAge >= spouseRmdAge)
+            isAlert: spouseDue)
         let documentRows = spouseFirst ? [spouseRow, primaryRow] : [primaryRow, spouseRow]
 
         // Whoever gets there first is who the one-card surfaces name.
@@ -282,6 +358,7 @@ struct RMDStatusPresentation: Equatable {
 
         return RMDStatusPresentation(
             badge: badge,
+            anyoneDue: anyoneDue,
             ageTitle: ageTitle,
             ageValue: ageValue,
             lines: lines,
@@ -290,7 +367,8 @@ struct RMDStatusPresentation: Equatable {
                 status: status,
                 showsHouseholdLines: true,
                 hasInheritedRMDs: hasInheritedRMDs),
-            headlineMetric: headline(status: status, detail: lines.first),
+            headlineMetric: headline(
+                anyoneDue: anyoneDue, yearsUntilDue: yearsUntilDue, detail: lines.first),
             documentRows: documentRows,
             conversionGapSentence: gapSentence(status: status, subject: firstSubject))
     }
@@ -306,14 +384,15 @@ struct RMDStatusPresentation: Equatable {
         return "Reaches RMD age \(rmdAge) in \(years) \(years == 1 ? "year" : "years")"
     }
 
+    /// The Dashboard reads "Required" only when something actually is.
     private static func headline(
-        status: RMDHouseholdStatus, detail: String?
+        anyoneDue: Bool, yearsUntilDue: Int, detail: String?
     ) -> HeadlineMetric {
-        status.anyoneRequired
+        anyoneDue
             ? HeadlineMetric(label: "RMD Status", value: "Required", detail: detail)
             : HeadlineMetric(
                 label: "Years Until RMD",
-                value: "\(status.yearsUntilFirst)",
+                value: "\(yearsUntilDue)",
                 detail: detail)
     }
 
@@ -342,8 +421,10 @@ struct RMDStatusPresentation: Equatable {
         return "\(subject) \(isThirdPerson ? "reaches" : "reach") RMD age \(rmdAge) in \(years) \(unit)"
     }
 
-    private static func notice(who: String, age: Int, rmdAge: Int, year: Int) -> String? {
-        guard age == rmdAge else { return nil }
+    private static func notice(
+        who: String, age: Int, rmdAge: Int, hasTraditionalBalance: Bool, year: Int
+    ) -> String? {
+        guard hasTraditionalBalance, age == rmdAge else { return nil }
         return "\(who) first RMD can be delayed until April 1 \(year)"
     }
 

@@ -182,7 +182,12 @@ struct DashboardView: View {
             primaryName: dm.userName,
             spouseName: dm.spouseName,
             hasInheritedRMDs: dm.inheritedIRARMDTotal > 0,
-            firstRmdDeadlineYear: dm.currentYear + 1).headlineMetric
+            firstRmdDeadlineYear: dm.currentYear + 1,
+            // "Required" is a claim about money, so the header needs to know
+            // whether there is any. A spouse holding only Roth has reached her
+            // RMD age and still owes nothing.
+            primaryHasTraditionalBalance: dm.primaryTraditionalIRABalance > 0,
+            spouseHasTraditionalBalance: dm.spouseTraditionalIRABalance > 0).headlineMetric
     }
 
     private var headerCard: some View {

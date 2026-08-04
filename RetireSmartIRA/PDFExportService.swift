@@ -1055,7 +1055,12 @@ struct PDFExportService {
             primaryName: d.userName,
             spouseName: d.spouseName,
             hasInheritedRMDs: d.inheritedIRARMDTotal > 0,
-            firstRmdDeadlineYear: d.currentYear + 1)
+            firstRmdDeadlineYear: d.currentYear + 1,
+            // The row's VALUE is an age statement either way. These decide
+            // only whether it prints in the document's alert color, which a
+            // CPA reads as an obligation to act on.
+            primaryHasTraditionalBalance: d.primaryTraditionalIRABalance > 0,
+            spouseHasTraditionalBalance: d.spouseTraditionalIRABalance > 0)
     }
 
     static func sectionPersonalInfo(_ d: PDFExportData) -> String {
