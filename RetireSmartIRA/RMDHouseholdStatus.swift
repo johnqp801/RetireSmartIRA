@@ -25,24 +25,32 @@ struct RMDHouseholdStatus: Equatable {
         primaryAge: Int, primaryRmdAge: Int,
         spouseEnabled: Bool, spouseAge: Int, spouseRmdAge: Int
     ) -> RMDHouseholdStatus {
-        let primaryYearsUntil = max(0, primaryRmdAge - primaryAge)
+        // Signed years-past-RMD-age: negative means still waiting, zero means
+        // starting this year, positive means required that many years already.
+        // A single signed comparison is correct whether both are still
+        // waiting, both are already required, or one of each, so there is no
+        // clamp to lose the "how overdue" information the old max(0, ...)
+        // countdown discarded.
+        let primarySignedYears = primaryAge - primaryRmdAge
 
         guard spouseEnabled else {
             return RMDHouseholdStatus(
-                anyoneRequired: primaryYearsUntil == 0,
+                anyoneRequired: primarySignedYears >= 0,
                 startsFirst: .primary,
-                yearsUntilFirst: primaryYearsUntil,
+                yearsUntilFirst: max(0, -primarySignedYears),
                 firstRmdAge: primaryRmdAge,
                 showsBothPeople: false)
         }
 
-        let spouseYearsUntil = max(0, spouseRmdAge - spouseAge)
+        let spouseSignedYears = spouseAge - spouseRmdAge
 
-        let startsFirst: Who = spouseYearsUntil < primaryYearsUntil ? .spouse : .primary
-        let yearsUntilFirst = min(primaryYearsUntil, spouseYearsUntil)
+        // Whoever has the larger signed value started first; ties favor primary.
+        let startsFirst: Who = spouseSignedYears > primarySignedYears ? .spouse : .primary
+        let largestSignedYears = max(primarySignedYears, spouseSignedYears)
+        let yearsUntilFirst = max(0, -largestSignedYears)
         let firstRmdAge = startsFirst == .spouse ? spouseRmdAge : primaryRmdAge
-        let anyoneRequired = primaryYearsUntil == 0 || spouseYearsUntil == 0
-        let showsBothPeople = primaryRmdAge != spouseRmdAge || primaryYearsUntil != spouseYearsUntil
+        let anyoneRequired = primarySignedYears >= 0 || spouseSignedYears >= 0
+        let showsBothPeople = primaryRmdAge != spouseRmdAge || primarySignedYears != spouseSignedYears
 
         return RMDHouseholdStatus(
             anyoneRequired: anyoneRequired,
