@@ -223,3 +223,67 @@ Task 6: complete (commit 3fa5320). THE TASK THAT MAKES THE PHASE REACHABLE. 33 n
      correctly flagged rather than silently expanded. Steve was told his 403(b) would show as
      itself; if he classifies one and exports a PDF he still sees 401(k). Fix before the release
      that carries the promise. **
+
+## FINAL WHOLE-BRANCH REVIEW (opus): READY WITH CONDITIONS. All three closed at b21019b.
+  Suite after fixes: 1,752 ST in 285 suites + 505 XCTest. Baseline byte-identical, I2 pins held.
+
+  ** IMPORTANT 1, AND THE SPEC WAS THE SOURCE: the account picker told the user "This affects your
+     single-year Tax Summary and Scenarios. It does not yet affect the Multi-Year plan." Account
+     classification affects NEITHER; it is inert in every tax path. PROVEN BY PROBE: a NY household
+     with a $500k traditional 401(k), classified (definedBenefit, nyStateOrLocal) versus
+     unclassified, computed $3,121.8679245283015 BOTH WAYS, identical to the last digit.
+     IRAAccount.planStructure/planSource are read at exactly three sites repo-wide, all
+     presentation. MY spec §3.4b said "affects the single-year calculation and not the Multi-Year
+     projection", which is wrong in the OVERPROMISING direction; its own next clause ("stored and
+     displayed but inert until Kansas is verified") was the accurate one. Both the string and the
+     spec are corrected. A wrong sentence in a spec became a wrong sentence shown to users. **
+
+  ** IMPORTANT 2, AND A NAMED USER COULD HIT IT: MultiYearInputAdapter.pensionClassification
+     returned nil whenever an owner had MORE THAN ONE .pension row. Probed: primary with a $45,000
+     NYSLRS pension and a $25,000 NYC pension, BOTH classified (definedBenefit, nyStateOrLocal),
+     gave single-year $0 against multi-year $2,535, every year of the horizon. And all three
+     disclosure surfaces stayed SILENT, because they gate on planSource == .unknown and both rows
+     WERE classified, so the CPA briefing printed the capped figure with no limitation. A New York
+     City retiree holding a city pension plus a state pension is an ordinary profile. This is the
+     exact cross-path divergence Task 5 existed to close, closed for one row and left open for two.
+     Fixed: the classification attaches when an owner's rows AGREE, nil only on a genuine mix, and
+     the three predicates now warn on a genuine mix too. **
+
+  ** IMPORTANT 3: this phase's most consequential bug (neither save path passed the classification,
+     so ANY edit reverted it to the inferred default) was fixed in Task 6 and guarded by NOTHING,
+     because saveIncome() and saveAccount() are private methods on private view structs. Hoisted to
+     testable statics with both branches pinned, including "a non-pension row passes nil". **
+
+  KNOWN-OPEN (a) PROMOTED AND FIXED: PDFExportService.swift:1326 and RMDCalculatorView.swift:687
+    still printed accountType.rawValue over a classified 403(b). The reviewer's argument, accepted:
+    given Important 1, THE LABEL IS THE ENTIRE DELIVERABLE for a classified 403(b), because there
+    is no tax effect behind it. A label right on one screen and wrong on the two a user would print
+    for a CPA is worse than not shipping it. Steve was told in writing his 403(b) would show as
+    itself.
+
+  CLEAN, verified by the reviewer rather than assumed: persistence round trip including the legacy
+    .rothConversion sentinel; EVERY save path audited by exhaustive grep of IncomeSource( and
+    IRAAccount( constructions, confirming the two edit sheets are the only user-facing writers and
+    there is no profile-switch or duplicate path; New York's rule and all three negatives; all four
+    golden fixture values recomputed BY HAND against the shipped brackets; mirror parity on every
+    new field; no duplicate types remain and matchedPerSourceRule delegates to the tested
+    predicate; Task 5's refactor numerically inert; no double-exclusion path exists.
+
+## OPEN, RECORDED, NOT FIXED (none block merge)
+  - Minor mirror drift, latent: DataManager.swift:1055 computes pensionIRAExclusion including the
+    per-source exclusions where the engine (TaxCalculationEngine.swift:766) uses the capped
+    exclusion only, so `unused` diverges the day a state carries BOTH otherRetirementIncomeExclusion
+    and perSourceExemptions. NJ is the only such state today and has no per-source rules. One line.
+  - Retyping an RMD row to Pension permanently suppresses every NY disclosure: AddIncomeView has no
+    .onChange(of: incomeType) reset, unlike AddAccountView's at AccountsView.swift:476, so the
+    pre-selected "IRA" classification is saved onto a pension, which matches no rule AND is not
+    .unknown, so nothing warns.
+  - .unknown does double duty as "never asked" and "user answered Not sure", so a user who picks
+    Not sure gets the amber prompt forever with no dismissal.
+  - PRE-EXISTING, now load-bearing: ProjectionEngine NEVER subtracts the state standard deduction
+    (grep -c stateDeduction = 0), so New York's Multi-Year figure is over-taxed by $8,000 single /
+    $16,050 MFJ relative to Scenarios. Found and documented by Task 5, and the reason NY is absent
+    from GoldenScenarioCrossPathTests.agreeing. This branch IS the New York release and invites the
+    user to compare paths, so it deserves a backlog entry rather than a test doc comment.
+  - Unrelated: .joint-owned pension rows are dropped from Multi-Year entirely
+    (MultiYearInputAdapter.swift:339, :348 filter primary/spouse only).
