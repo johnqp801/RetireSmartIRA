@@ -310,3 +310,28 @@ them called the engine directly and none went through what a user actually reads
 Two things to look at specifically: the deadline block and the single April 1 notice landing in
 Steve's household, and the both-people-in-their-first-RMD-year case, which renders two April 1
 notices under one shared amber warning and has never been seen on screen.
+
+---
+
+## Steve's THIRD RMD point, resolved 2026-08-04 (the answer still owed to him in writing)
+
+The 08-03 email told Steve: "I am checking your Tax Summary point separately, since that may be a
+third thing rather than the same one." **It was a third thing, it was real, and this branch fixed it.**
+
+**His spouse's RMD dollars were never missing from Tax Summary.** `DashboardView.swift:309-323`
+renders a separate line item labelled with her actual name, gated on `enableSpouse && spouseRMD > 0`,
+and `calculateSpouseRMD` (`DataManager.swift:485-488`) gates on `spouseIsRMDRequired`, which is
+per-spouse (`ProfileManager.swift:166-169`, `spouseCurrentAge >= spouseRmdAge`) and never reads the
+primary. Verified byte-identical between shipped `v2.3.0-build63` and `main`, so this was already
+correct on the build he is running.
+
+**What WAS wrong is the header card at the top of that same tab.** Before `26044c3` it read
+`isRMDRequired` and `yearsUntilRMD`, both primary-only. Steve's household, already into his wife's
+RMDs, opened the tab called Tax Summary and was told something like "Years Until RMD: 14" directly
+above a correctly billed spouse RMD. Same failure shape as everything else in this branch: primary-only
+status text sitting above correctly attributed money, and the header is read first.
+
+**For the reply, scoped to his own item per [[user-reply-scope-rule]]:** confirm it was a third
+issue, say the header at the top of Tax Summary was reading only his age and now reads the household,
+and do NOT say the amounts were missing. They were not, and telling him they were would be
+apologising for a wrong number that never existed.
