@@ -124,6 +124,41 @@ struct GoldenScenarioSingleYearTests {
         )
     }
 
+    /// The comparison decision, extracted so it can be tested directly.
+    ///
+    /// Phase 4's whole method rests on this branch, and before it was hoisted
+    /// the only thing that ever exercised it was a mutation experiment that was
+    /// deliberately reverted, leaving the logic uncovered. A pure function with
+    /// no engine, no fixture loading and no I/O can be pinned in every outcome.
+    enum GoldenComparison: Equatable {
+        /// No knownDefect, and the engine agrees with the state's form.
+        case matchesForm
+        /// A knownDefect is present and the engine still produces the pinned figure.
+        case pinnedDefectHolds
+        /// A knownDefect is present but the engine has moved off the pinned figure.
+        case pinnedDefectMoved(actual: Double, pinned: Double)
+        /// A knownDefect is present and the engine now MATCHES the form, so the
+        /// defect looks fixed and the block must be deleted rather than updated.
+        case defectAppearsFixed(formValue: Double)
+        /// No knownDefect, and the engine disagrees with the state's form.
+        case unexplainedDisagreement(actual: Double, formValue: Double)
+    }
+
+    static func classify(actual: Double, scenario: GoldenScenario) -> GoldenComparison {
+        let tolerance = 0.01
+        guard let defect = scenario.knownDefect else {
+            return abs(actual - scenario.expectedStateTax) < tolerance
+                ? .matchesForm
+                : .unexplainedDisagreement(actual: actual, formValue: scenario.expectedStateTax)
+        }
+        if abs(actual - scenario.expectedStateTax) < tolerance {
+            return .defectAppearsFixed(formValue: scenario.expectedStateTax)
+        }
+        return abs(actual - defect.observedToday) < tolerance
+            ? .pinnedDefectHolds
+            : .pinnedDefectMoved(actual: actual, pinned: defect.observedToday)
+    }
+
     @Test("Single-year path matches each state's own published form",
           arguments: GoldenScenarioSingleYearTests.pilot)
     func singleYearMatchesGolden(abbreviation: String) throws {
@@ -131,26 +166,30 @@ struct GoldenScenarioSingleYearTests {
         let state = try #require(USState.allCases.first { $0.abbreviation == abbreviation })
         for scenario in file.scenarios {
             let actual = Self.singleYearStateTax(scenario, state: state)
-            if let defect = scenario.knownDefect {
-                #expect(abs(actual - defect.observedToday) < 0.01,
+            switch Self.classify(actual: actual, scenario: scenario) {
+            case .matchesForm, .pinnedDefectHolds:
+                break
+            case .pinnedDefectMoved(let actual, let pinned):
+                #expect(Bool(false),
                         """
                         \(abbreviation) / \(scenario.name): engine now \(actual), \
-                        pinned observed value \(defect.observedToday).
+                        pinned observed value \(pinned).
                         A DEFECTIVE state moved. Diagnose what changed before touching this pin.
-                        Defect: \(defect.summary)
+                        Defect: \(scenario.knownDefect?.summary ?? "")
                         """)
-                #expect(abs(actual - scenario.expectedStateTax) >= 0.01,
+            case .defectAppearsFixed(let formValue):
+                #expect(Bool(false),
                         """
                         \(abbreviation) / \(scenario.name) now MATCHES its published form \
-                        (\(scenario.expectedStateTax)). The defect appears to be FIXED.
+                        (\(formValue)). The defect appears to be FIXED.
                         Delete the knownDefect block from this fixture so the case becomes a
                         normal passing assertion. Do not update observedToday to keep it quiet.
                         """)
-            } else {
-                #expect(abs(actual - scenario.expectedStateTax) < 0.01,
+            case .unexplainedDisagreement(let actual, let formValue):
+                #expect(Bool(false),
                         """
                         \(abbreviation) / \(scenario.name): engine \(actual), \
-                        form says \(scenario.expectedStateTax).
+                        form says \(formValue).
                         Source: \(scenario.source)
                         Phase 4 corrects no tax value. If the engine is wrong, add a knownDefect
                         block recording the MEASURED observedToday and leave the fix for Phase 5.
@@ -159,26 +198,47 @@ struct GoldenScenarioSingleYearTests {
         }
     }
 
-    @Test("A knownDefect fixture pins today's wrong figure and asserts it is still wrong")
-    func knownDefectMechanismRoundTrips() throws {
-        let json = """
-        {"state":"XX","taxYear":2026,"scenarios":[{
-          "name":"synthetic",
-          "source":"synthetic fixture for the mechanism test, cites no authority",
-          "sourceURL":"https://example.invalid/none",
-          "filingStatus":"single","primaryAge":65,"spouseAge":null,
-          "federalAGI":50000,"taxableSocialSecurity":0,"pensionIncome":50000,
-          "iraWithdrawals":0,"rothConversion":0,
-          "expectedStateTax":1218.88,
-          "knownDefect":{"tier":"tier2","summary":"missing personal exemption","observedToday":2171.52}
-        }]}
-        """
-        let file = try JSONDecoder().decode(GoldenScenarioFile.self, from: Data(json.utf8))
-        let scenario = try #require(file.scenarios.first)
-        let defect = try #require(scenario.knownDefect)
-        #expect(defect.tier == "tier2")
-        #expect(abs(defect.observedToday - 2171.52) < 0.01)
-        #expect(abs(scenario.expectedStateTax - 1218.88) < 0.01)
+    @Test("classify covers all five outcomes of the defect-pin decision")
+    func classifyCoversAllOutcomes() throws {
+        let noDefect = Self.makeScenario(expectedStateTax: 1000, knownDefect: nil)
+        let withDefect = Self.makeScenario(
+            expectedStateTax: 1000,
+            knownDefect: KnownDefect(tier: "tier2", summary: "x", observedToday: 1200))
+
+        // No knownDefect, engine agrees with the form.
+        #expect(Self.classify(actual: 1000, scenario: noDefect) == .matchesForm)
+
+        // No knownDefect, engine disagrees with the form.
+        #expect(Self.classify(actual: 1200, scenario: noDefect)
+                == .unexplainedDisagreement(actual: 1200, formValue: 1000))
+
+        // knownDefect present, engine still produces the pinned figure.
+        #expect(Self.classify(actual: 1200, scenario: withDefect) == .pinnedDefectHolds)
+
+        // knownDefect present, engine matches neither the pin nor the form: the
+        // pin has moved.
+        #expect(Self.classify(actual: 1300, scenario: withDefect)
+                == .pinnedDefectMoved(actual: 1300, pinned: 1200))
+
+        // knownDefect present, but engine now matches the form: the defect
+        // appears fixed. This must win over pinnedDefectMoved/pinnedDefectHolds
+        // -- see the ordering note on `classify`.
+        #expect(Self.classify(actual: 1000, scenario: withDefect)
+                == .defectAppearsFixed(formValue: 1000))
+    }
+
+    /// Builds a minimal `GoldenScenario` in Swift, for tests that only need to
+    /// vary `expectedStateTax` and `knownDefect`. Every other field is a fixed,
+    /// arbitrary placeholder: `classify` never looks at them.
+    static func makeScenario(expectedStateTax: Double, knownDefect: KnownDefect?) -> GoldenScenario {
+        GoldenScenario(
+            name: "synthetic", source: "synthetic fixture for classify() unit tests",
+            sourceURL: "https://example.invalid/none",
+            filingStatus: "single", primaryAge: 65, spouseAge: nil,
+            federalAGI: 50000, taxableSocialSecurity: 0, pensionIncome: 50000,
+            iraWithdrawals: 0, rothConversion: 0,
+            expectedStateTax: expectedStateTax, classifiedPensionSources: nil,
+            knownDefect: knownDefect, otherOrdinaryIncome: nil)
     }
 
     @Test("A fixture with no knownDefect decodes it as nil")

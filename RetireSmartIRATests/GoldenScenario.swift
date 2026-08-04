@@ -54,10 +54,11 @@ struct GoldenScenario: Codable {
     /// passes in. Wiring this into the runner would change New York's shipped
     /// fixture values, which Phase 4 forbids.
     ///
-    /// New York's first fixture is the precedent and, at the time this field was
-    /// added, the only user of it: $90,000 of AGI against a $70,000 classified
-    /// government pension, with $20,000 of unrelated ordinary income that
-    /// previously existed only inside a prose `source` string.
+    /// No fixture sets this field yet. It exists for New York's first fixture,
+    /// whose `federalAGI` of $90,000 stands against a $70,000 classified
+    /// government pension, leaving $20,000 of unrelated ordinary income
+    /// currently described only in that fixture's prose `source` string. A
+    /// later task moves that $20,000 into this field.
     ///
     /// A fixture with a nonzero value here can never join
     /// `GoldenScenarioCrossPathTests.agreeing`, because the multi-year runner
