@@ -17,8 +17,22 @@
       "expectedStateTax": 83.60
     },
     {
+      "name": "single, age 60, squarely in the 55-64 tier: $20,000 subtraction cap exercised",
+      "source": "Colorado DR 0104 income tax booklet (Book104_2025.pdf), 'Instructions for the DR 0104AD', page 19, 'Line 4 Pension and Annuity Subtraction': 'At least 55 years old, but not yet 65, then you may subtract $20,000...'. Age 60 falls squarely inside that tier (this file's other three cases jump straight from below-all-tiers to above-the-top-tier, so no scenario before this one exercised the $20,000 figure). Single filer, pension income $50,000, no Social Security. Line 4 subtraction = min(20000,50000) = 20000. Federal taxable income = 50000 - 16100 (2026 single standard deduction, no age addback under 65) = 33900. Colorado taxable income = 33900-20000 = 13900. Tax = 13900*0.044 = $611.60.",
+      "sourceURL": "https://tax.colorado.gov/sites/tax/files/documents/Book104_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 611.60
+    },
+    {
       "name": "single, age 70, above $24,000 cap: excess pension is taxed",
-      "source": "Same booklet and page as above. Age 70 is 65+, so the DR 0104AD Line 4 subtraction is 'the total amount of your taxable pension/annuity income, whichever is smaller' against $24,000 (no Line 3 Social Security entered here, so nothing reduces the $24,000). Federal taxable income: 2026 single standard deduction $16,100, plus age-65 addition $2,050 (TaxYearConfig.additionalDeduction65Single), plus the OBBBA senior bonus (IRC sec. 151(d)(5)(B), 2025-2028): at MAGI $80,000 against the $75,000 single phase-out start, the $6,000 bonus is reduced by 6% of the $5,000 excess = $300, leaving $5,700. Total federal deduction = 16100+2050+5700 = 23850. Federal taxable income = 80000-23850 = 56150. Colorado subtraction = min($24,000, $80,000 pension) = 24000. Colorado taxable income = 56150-24000 = 32150. Tax = 32150 * 0.044 = $1,414.60.",
+      "source": "Same booklet and page as above. Age 70 is 65+, so the DR 0104AD Line 4 subtraction is 'the total amount of your taxable pension/annuity income, whichever is smaller' against $24,000 (no Line 3 Social Security entered here, so nothing reduces the $24,000). SB25-136 ('Expand Deduction For Retirement Benefits', https://leg.colorado.gov/bills/sb25-136), which would have raised or removed this cap, was Postponed Indefinitely by the Senate Committee on State, Veterans, & Military Affairs on 2025-02-27 and never became law, so the $24,000 (age 65+) and $20,000 (age 55-64) DR 0104AD caps stand unchanged for TY2026. Federal taxable income: 2026 single standard deduction $16,100, plus age-65 addition $2,050 (TaxYearConfig.additionalDeduction65Single), plus the OBBBA senior bonus (IRC sec. 151(d)(5)(B), 2025-2028): at MAGI $80,000 against the $75,000 single phase-out start, the $6,000 bonus is reduced by 6% of the $5,000 excess = $300, leaving $5,700. Total federal deduction = 16100+2050+5700 = 23850. Federal taxable income = 80000-23850 = 56150. Colorado subtraction = min($24,000, $80,000 pension) = 24000. Colorado taxable income = 56150-24000 = 32150. Tax = 32150 * 0.044 = $1,414.60.",
       "sourceURL": "https://tax.colorado.gov/sites/tax/files/documents/Book104_2025.pdf",
       "filingStatus": "single",
       "primaryAge": 70,
