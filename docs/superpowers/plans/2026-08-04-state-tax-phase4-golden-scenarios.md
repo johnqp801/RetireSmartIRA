@@ -66,9 +66,15 @@ Case 4 is the one that matters most and the one a lazy fixture set omits. It is 
 
 ## The fixture shape invariant, and why it is load-bearing
 
-`federalAGI` MUST equal `pensionIncome + iraWithdrawals + rothConversion + taxableSocialSecurity` (with `classifiedPensionSources` amounts summed in place of `pensionIncome` when present).
+`federalAGI` MUST equal `pensionIncome + iraWithdrawals + rothConversion + taxableSocialSecurity + otherOrdinaryIncome` (with `classifiedPensionSources` amounts summed in place of `pensionIncome` when present).
 
 This is not a style rule. The single-year runner reads `federalAGI` directly, but the multi-year runner **derives its own AGI from the income components and never reads `federalAGI` at all** (`ProjectionEngine.swift:680-690`). A Phase 2 fixture set `federalAGI` to $95,000 while pension was $80,000, and that $15,000 mismatch moved the single-year figure by $210 while the multi-year figure could not move at all. It read as an engine divergence and was a **fixture authoring artifact**. Task 2 makes that unrepresentable by asserting it across every fixture.
+
+**`otherOrdinaryIncome` exists because the excess is sometimes legitimate, and must then be DECLARED rather than implied.** New York's first fixture is the precedent: `federalAGI` is $90,000 against a $70,000 classified pension, and the remaining $20,000 is deliberate unrelated ordinary income, described in that fixture's own `source` string and in no machine-readable field. A bare equality check would fail a correct fixture; a bare `>=` check would let the Phase 2 artifact back in. Declaring the excess keeps the check exact and moves the intent out of prose.
+
+**`otherOrdinaryIncome` is DECLARATIVE ONLY.** It is never added to anything and never passed to any engine. `federalAGI` remains the single number the single-year runner hands the engine. An implementer who "wires it up" changes New York's shipped fixture values and has broken the phase's no-behavior-change rule.
+
+**A fixture with nonzero `otherOrdinaryIncome` can never join `GoldenScenarioCrossPathTests.agreeing`,** because the multi-year runner is structurally blind to that income. Record that alongside the field so Phase 5d does not have to rediscover it.
 
 ---
 
@@ -182,6 +188,25 @@ And add to `GoldenScenario`, after `classifiedPensionSources`:
     /// Present only when the engine is KNOWN to disagree with `expectedStateTax`.
     /// Absent (nil) means the jurisdiction is expected to match its own form.
     let knownDefect: KnownDefect?
+
+    /// Ordinary income carried by `federalAGI` that no other field on this
+    /// fixture represents, DECLARED so the shape invariant can stay an exact
+    /// equality instead of an inequality.
+    ///
+    /// DECLARATIVE ONLY. It is never summed into anything and never reaches an
+    /// engine: `federalAGI` remains the single number the single-year runner
+    /// passes in. Wiring this into the runner would change New York's shipped
+    /// fixture values, which Phase 4 forbids.
+    ///
+    /// New York's first fixture is the precedent and, at the time this field was
+    /// added, the only user of it: $90,000 of AGI against a $70,000 classified
+    /// government pension, with $20,000 of unrelated ordinary income that
+    /// previously existed only inside a prose `source` string.
+    ///
+    /// A fixture with a nonzero value here can never join
+    /// `GoldenScenarioCrossPathTests.agreeing`, because the multi-year runner
+    /// derives AGI from the components and is structurally blind to this income.
+    let otherOrdinaryIncome: Double?
 ```
 
 - [ ] **Step 4: Run and verify it passes**
@@ -308,13 +333,15 @@ struct GoldenScenarioCoverageTests {
             let pension = scenario.classifiedPensionSources?.reduce(0) { $0 + $1.amount }
                 ?? scenario.pensionIncome
             let components = pension + scenario.iraWithdrawals + scenario.rothConversion
-                + scenario.taxableSocialSecurity
+                + scenario.taxableSocialSecurity + (scenario.otherOrdinaryIncome ?? 0)
             #expect(abs(scenario.federalAGI - components) < 0.01,
                     """
                     \(abbreviation) / \(scenario.name): federalAGI \(scenario.federalAGI) \
                     against components summing to \(components).
                     The multi-year runner never reads federalAGI, so this mismatch would surface
                     as a phantom cross-path divergence. Fix the fixture, not the engine.
+                    If the excess is deliberate unmodelled ordinary income, DECLARE it in
+                    otherOrdinaryIncome rather than leaving it implicit.
                     """)
         }
     }
@@ -350,7 +377,29 @@ struct GoldenScenarioCoverageTests {
 xcodebuild test -project /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase4/RetireSmartIRA.xcodeproj -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/GoldenScenarioCoverageTests 2>&1 | tail -20
 ```
 
-Expected: PASS. If `federalAGIIsInternallyConsistent` fails on an existing fixture, that is a REAL finding about a Phase 2/3b fixture. Record it in the ledger and report it; do not silently repair the fixture, because the NJ pin in `GoldenScenarioCrossPathTests` is calibrated against today's values.
+Expected: `federalAGIIsInternallyConsistent` FAILS on exactly one case, New York's first fixture, reporting `federalAGI 90000.0 against components summing to 70000.0`. This is a KNOWN, pre-identified failure and it is why `otherOrdinaryIncome` exists. Every other case in all five existing fixtures passes.
+
+If any OTHER case fails, stop: that is a genuine new finding about a Phase 2 or 3b fixture. Record it in the ledger and report it rather than repairing it, because the NJ pin in `GoldenScenarioCrossPathTests` is calibrated against today's values and a fixture edit would move it.
+
+- [ ] **Step 2a: Declare New York's unmodelled income**
+
+In `RetireSmartIRATests/GoldenScenarios/statetax-2026-NY.golden.json`, add to the FIRST scenario only (`"NYC employee pension alone: fully excluded, Line 26"`), beside `rothConversion`:
+
+```json
+      "otherOrdinaryIncome": 20000,
+```
+
+That $20,000 is already described in that scenario's own `source` string ("leaving only $20,000 of unrelated ordinary income taxable"). This change moves the figure from prose into a checked field and **must not change any computed value**: `otherOrdinaryIncome` is declarative and reaches no engine.
+
+Re-run the coverage suite. Expected: PASS.
+
+Then confirm New York's tax figures did not move:
+
+```bash
+xcodebuild test -project /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase4/RetireSmartIRA.xcodeproj -scheme RetireSmartIRA -destination 'platform=macOS' -only-testing:RetireSmartIRATests/GoldenScenarioSingleYearTests 2>&1 | tail -20
+```
+
+Expected: PASS, all four NY cases still matching their form-derived values ($487.75, $273.00, $273.00, $273.00). If any NY figure moved, `otherOrdinaryIncome` was wired into the runner and must be reverted to declarative.
 
 - [ ] **Step 3: Point the single-year suite at the shared enumeration**
 
