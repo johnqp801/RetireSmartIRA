@@ -131,12 +131,60 @@ struct GoldenScenarioSingleYearTests {
         let state = try #require(USState.allCases.first { $0.abbreviation == abbreviation })
         for scenario in file.scenarios {
             let actual = Self.singleYearStateTax(scenario, state: state)
-            #expect(abs(actual - scenario.expectedStateTax) < 0.01,
-                    """
-                    \(abbreviation) / \(scenario.name): engine \(actual), form says \(scenario.expectedStateTax).
-                    Source: \(scenario.source)
-                    Phase 2 corrects no tax value. If the engine is wrong, record it and leave it for Phase 5.
-                    """)
+            if let defect = scenario.knownDefect {
+                #expect(abs(actual - defect.observedToday) < 0.01,
+                        """
+                        \(abbreviation) / \(scenario.name): engine now \(actual), \
+                        pinned observed value \(defect.observedToday).
+                        A DEFECTIVE state moved. Diagnose what changed before touching this pin.
+                        Defect: \(defect.summary)
+                        """)
+                #expect(abs(actual - scenario.expectedStateTax) >= 0.01,
+                        """
+                        \(abbreviation) / \(scenario.name) now MATCHES its published form \
+                        (\(scenario.expectedStateTax)). The defect appears to be FIXED.
+                        Delete the knownDefect block from this fixture so the case becomes a
+                        normal passing assertion. Do not update observedToday to keep it quiet.
+                        """)
+            } else {
+                #expect(abs(actual - scenario.expectedStateTax) < 0.01,
+                        """
+                        \(abbreviation) / \(scenario.name): engine \(actual), \
+                        form says \(scenario.expectedStateTax).
+                        Source: \(scenario.source)
+                        Phase 4 corrects no tax value. If the engine is wrong, add a knownDefect
+                        block recording the MEASURED observedToday and leave the fix for Phase 5.
+                        """)
+            }
         }
+    }
+
+    @Test("A knownDefect fixture pins today's wrong figure and asserts it is still wrong")
+    func knownDefectMechanismRoundTrips() throws {
+        let json = """
+        {"state":"XX","taxYear":2026,"scenarios":[{
+          "name":"synthetic",
+          "source":"synthetic fixture for the mechanism test, cites no authority",
+          "sourceURL":"https://example.invalid/none",
+          "filingStatus":"single","primaryAge":65,"spouseAge":null,
+          "federalAGI":50000,"taxableSocialSecurity":0,"pensionIncome":50000,
+          "iraWithdrawals":0,"rothConversion":0,
+          "expectedStateTax":1218.88,
+          "knownDefect":{"tier":"tier2","summary":"missing personal exemption","observedToday":2171.52}
+        }]}
+        """
+        let file = try JSONDecoder().decode(GoldenScenarioFile.self, from: Data(json.utf8))
+        let scenario = try #require(file.scenarios.first)
+        let defect = try #require(scenario.knownDefect)
+        #expect(defect.tier == "tier2")
+        #expect(abs(defect.observedToday - 2171.52) < 0.01)
+        #expect(abs(scenario.expectedStateTax - 1218.88) < 0.01)
+    }
+
+    @Test("A fixture with no knownDefect decodes it as nil")
+    func absentKnownDefectDecodesNil() throws {
+        let file = try GoldenScenario.load(abbreviation: "PA")
+        let scenario = try #require(file.scenarios.first)
+        #expect(scenario.knownDefect == nil)
     }
 }
