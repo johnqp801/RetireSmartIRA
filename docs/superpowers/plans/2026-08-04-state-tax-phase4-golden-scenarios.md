@@ -17,7 +17,7 @@
 - **Admissible sources:** state DOR pages, statutes, enrolled bills, official form instructions. Advisor blogs, tax-prep vendor help pages and news articles are inadmissible as sole basis. Any claimed 2024-2026 change must state the bill number and its final disposition (signed, vetoed, died). This is the check that catches the Colorado class of error, where a syndicated guide reported a bill that was Postponed Indefinitely on 2025-02-27 as enacted law.
 - **`CANNOT_VERIFY` is a legitimate outcome.** If a state's rule cannot be established from a primary source, record the jurisdiction as unverified per §3.4 rather than guessing. The failure mode is confident fabrication, not silence.
 - **No em dashes** in any file, per user preference. This has been a recurring review finding; a report claiming there are none when there are is treated as the worse half of the defect.
-- **Suite is the source of truth** (CLAUDE.md). Baseline at branch point: 1,752 Swift Testing in 285 suites + 505 XCTest, 0 failures.
+- **Suite is the source of truth** (CLAUDE.md). Baseline at branch point, MEASURED on this branch 2026-08-04: 1,845 Swift Testing in 290 suites + 509 XCTest, 0 failures. (The 1,752 + 505 figure in the Phase 3b ledger was measured on the phase3b branch tip, BEFORE the RMD spouse attribution work merged; that work added five test files and 1,835 lines, which accounts for the whole difference. Do not cite the Phase 3b number as this branch's baseline.)
 - **Never edit files by chained `cd`.** Bash cwd resets between calls. Use absolute paths and `git -C`. This bit the previous phase four times, once committing a ledger to the wrong branch.
 
 **Worktree:** `/Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase4`, branch `feature/state-tax-phase4`, off `main` @ `6097430`.
@@ -99,6 +99,16 @@ Ordered so that **jurisdictions expected to PASS come first.** If the harness re
 ---
 
 ### Task 1: The `knownDefect` mechanism
+
+> **AMENDED 2026-08-04 after the task review, at commit `32ba080`. Two defects in the task text below were confirmed and corrected; the steps are left as written for the record.**
+>
+> **1. Step 1's `knownDefectMechanismRoundTrips` did not test the mechanism.** It decoded a JSON literal and asserted the decoded fields equalled the literals it had just written, which tests `Codable`, not the pin. The two-branch decision this entire phase rests on therefore had ZERO permanent coverage: the only thing that ever exercised it was Step 7's mutation, which is deliberately reverted. A future edit inverting or dropping the second `#expect` would have passed the suite silently.
+>
+> Corrected by hoisting the decision into a pure function, `GoldenScenarioSingleYearTests.classify(actual:scenario:)`, returning a `GoldenComparison` enum with five cases: `.matchesForm`, `.pinnedDefectHolds`, `.pinnedDefectMoved`, `.defectAppearsFixed`, `.unexplainedDisagreement`. `singleYearMatchesGolden` now switches over it, and `classifyCoversAllOutcomes` pins every case directly with no engine, no fixture loading and no I/O. Proven by inverting a comparison inside `classify` and confirming the new test failed while the others stayed green.
+>
+> **`defectAppearsFixed` is checked BEFORE the pin**, because a corrected state matches the form and misses the pin at the same instant, and "the defect is fixed, delete the block" is the more actionable message.
+>
+> **2. Step 3's `otherOrdinaryIncome` doc comment stated a falsehood.** It claimed New York's fixture was "the precedent and, at the time this field was added, the only user of it." No fixture set the field at all; Task 2 Step 2a is what adds it. Reworded to be forward-looking. The lesson generalises: a doc comment that describes a state of the world one task ahead of itself reads as fact and is a lie until that task lands.
 
 **Files:**
 - Modify: `RetireSmartIRATests/GoldenScenario.swift`
