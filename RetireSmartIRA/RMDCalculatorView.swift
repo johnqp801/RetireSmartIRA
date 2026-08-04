@@ -8,6 +8,222 @@
 import SwiftUI
 import Charts
 
+// MARK: - Projection Chart Data (pure, testable)
+
+/// A single bar segment in the projected-RMD chart.
+struct RMDChartDataPoint: Identifiable {
+    let id = UUID()
+    let year: Int
+    let yearLabel: String
+    let amount: Double
+    let category: String
+}
+
+/// The one place that names a projection-chart series, and the one predicate for
+/// "is this a regular (non-inherited) series".
+///
+/// The literal "IRA / 401(k)" used to be typed out at four separate call sites: the
+/// series identity, the legend, `hasRegularRMDs`, the peak callout and the combined
+/// peak's per-year total.  Splitting the regular bar per person would have silently
+/// dropped the peak marker and undercounted the combined peak for couples.  Every
+/// one of those call sites now routes through here.
+enum RMDChartSeries {
+    /// The inherited series is never split per person: an inherited account already
+    /// carries its owner on the account row itself.
+    static let inherited = "Inherited IRA"
+
+    /// The regular series name for a household with no spouse.  This exact string is
+    /// what single filers have always seen on this chart; it must not change.
+    static let regularSingle = "IRA / 401(k)"
+
+    /// The primary person's regular series, used only when a spouse is enabled.
+    static let regularYours = "Your IRA / 401(k)"
+
+    /// The spouse's regular series.  Matches the possessive convention the spouse
+    /// RMD card on this screen already uses ("Karen's RMD" / "Spouse's RMD").
+    static func regularSpouse(spouseName: String) -> String {
+        spouseName.isEmpty ? "Spouse's IRA / 401(k)" : "\(spouseName)'s IRA / 401(k)"
+    }
+
+    /// The primary person's series name.  Only a household with a spouse gets the
+    /// attributed "Your ..." form.
+    static func regularPrimary(hasSpouse: Bool) -> String {
+        hasSpouse ? regularYours : regularSingle
+    }
+
+    /// True for every series that is a living person's own IRA/401(k) RMD.
+    static func isRegular(_ category: String) -> Bool {
+        category != inherited
+    }
+
+    /// The color each series present in `data` is drawn with, in plotting order.
+    ///
+    /// Built from the data rather than enumerated as literals, so a couple's two
+    /// regular series cannot fall through to default colors that collide with the
+    /// inherited sand.
+    static func styles(for data: [RMDChartDataPoint]) -> [ChartSeriesStyle] {
+        var ordered: [String] = []
+        for point in data where !ordered.contains(point.category) {
+            ordered.append(point.category)
+        }
+
+        let regularPalette = [Color.Chart.heroTeal, Color.Chart.tealRamp4, Color.Chart.tealRamp2]
+        var regularIndex = 0
+        var styles: [ChartSeriesStyle] = []
+        for category in ordered {
+            if category == inherited {
+                styles.append(ChartSeriesStyle(category: category, color: Color.Chart.callout))
+            } else {
+                let color = regularPalette[min(regularIndex, regularPalette.count - 1)]
+                styles.append(ChartSeriesStyle(category: category, color: color))
+                regularIndex += 1
+            }
+        }
+        return styles
+    }
+
+    /// Per-year household total across every regular series, in plotting order.
+    ///
+    /// This is what the single combined "IRA / 401(k)" bar used to hold, and it is
+    /// what the peak callouts read so the split cannot shrink the reported peak.
+    static func regularTotalsByYear(_ data: [RMDChartDataPoint]) -> [(year: Int, total: Double)] {
+        var totals: [Int: Double] = [:]
+        var order: [Int] = []
+        for point in data {
+            if totals[point.year] == nil {
+                order.append(point.year)
+                totals[point.year] = 0
+            }
+            if isRegular(point.category) {
+                totals[point.year, default: 0] += point.amount
+            }
+        }
+        return order.map { (year: $0, total: totals[$0] ?? 0) }
+    }
+}
+
+/// A series name paired with the color the chart draws it in.
+struct ChartSeriesStyle: Identifiable {
+    let category: String
+    let color: Color
+    var id: String { category }
+}
+
+/// The inputs the regular (non-inherited) projection series are built from.
+struct RMDChartHousehold {
+    var currentYear: Int
+    var projectionYears: Int
+    var primaryBalance: Double = 0
+    var primaryCurrentAge: Int = 0
+    var primaryRMDAge: Int = 73
+    var primaryGrowthPercent: Double = 0
+    var enableSpouse: Bool = false
+    var spouseName: String = ""
+    var spouseBalance: Double = 0
+    var spouseCurrentAge: Int = 0
+    var spouseRMDAge: Int = 73
+    var spouseGrowthPercent: Double = 0
+}
+
+/// Builds the projection chart's regular series.
+///
+/// This lives outside the view on purpose.  The bug it fixes (both spouses summed
+/// into a single bar) sat inside a private view computed property where no test
+/// could see it.
+enum RMDChartDataBuilder {
+
+    /// Projects a balance forward using the given annual growth rate minus RMDs.
+    static func projectBalance(
+        years: Int,
+        startingBalance: Double,
+        startAge: Int,
+        rmdStartAge: Int,
+        growthPercent: Double
+    ) -> Double {
+        var balance = startingBalance
+        let growthRate = growthPercent / 100.0
+
+        for year in 0..<years {
+            let age = startAge + year
+
+            if age >= rmdStartAge {
+                let rmd = RMDCalculationEngine.calculateRMD(for: age, balance: balance)
+                balance -= rmd
+            }
+
+            balance *= (1 + growthRate)
+        }
+
+        return max(0, balance)
+    }
+
+    /// One regular series per person, year-major: every point for year N, then N+1.
+    ///
+    /// A person contributes a series only when they actually hold a balance, and the
+    /// spouse contributes only when Enable Spouse is on; a disabled spouse produces
+    /// no series at all rather than a flat zero one.  The per-person amounts for a
+    /// year always sum to the single combined amount this chart used to draw.
+    static func regularSeries(_ household: RMDChartHousehold) -> [RMDChartDataPoint] {
+        struct Person {
+            let category: String
+            let balance: Double
+            let currentAge: Int
+            let rmdStartAge: Int
+            let growthPercent: Double
+        }
+
+        var people: [Person] = []
+        if household.primaryBalance > 0 {
+            people.append(Person(
+                category: RMDChartSeries.regularPrimary(hasSpouse: household.enableSpouse),
+                balance: household.primaryBalance,
+                currentAge: household.primaryCurrentAge,
+                rmdStartAge: household.primaryRMDAge,
+                growthPercent: household.primaryGrowthPercent
+            ))
+        }
+        if household.enableSpouse && household.spouseBalance > 0 {
+            people.append(Person(
+                category: RMDChartSeries.regularSpouse(spouseName: household.spouseName),
+                balance: household.spouseBalance,
+                currentAge: household.spouseCurrentAge,
+                rmdStartAge: household.spouseRMDAge,
+                growthPercent: household.spouseGrowthPercent
+            ))
+        }
+
+        guard household.projectionYears > 0, !people.isEmpty else { return [] }
+
+        var points: [RMDChartDataPoint] = []
+        for yearOffset in 0..<household.projectionYears {
+            let projectedYear = household.currentYear + yearOffset
+            let label = RMDCalculatorView.chartYearLabel(projectedYear)
+
+            for person in people {
+                let age = person.currentAge + yearOffset
+                var amount: Double = 0
+                if age >= person.rmdStartAge {
+                    let balance = projectBalance(
+                        years: yearOffset,
+                        startingBalance: person.balance,
+                        startAge: person.currentAge,
+                        rmdStartAge: person.rmdStartAge,
+                        growthPercent: person.growthPercent
+                    )
+                    amount = RMDCalculationEngine.calculateRMD(for: age, balance: balance)
+                }
+                points.append(RMDChartDataPoint(
+                    year: projectedYear,
+                    yearLabel: label,
+                    amount: amount,
+                    category: person.category
+                ))
+            }
+        }
+        return points
+    }
+}
+
 struct RMDCalculatorView: View {
     @Environment(DataManager.self) var dataManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -791,21 +1007,31 @@ struct RMDCalculatorView: View {
 
     // MARK: - RMD Projection Chart
 
-    private struct RMDChartDataPoint: Identifiable {
-        let id = UUID()
-        let year: Int
-        let yearLabel: String
-        let amount: Double
-        let category: String
-    }
-
     private var hasChartData: Bool {
         dataManager.primaryTraditionalIRABalance > 0
         || (dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0)
         || dataManager.hasInheritedAccounts
     }
 
-    /// Combined stacked chart data for both IRA/401(k) and Inherited IRA RMDs.
+    /// The regular-RMD inputs, lifted out of the view so the series split is testable.
+    private var chartHousehold: RMDChartHousehold {
+        RMDChartHousehold(
+            currentYear: dataManager.currentYear,
+            projectionYears: projectionYears,
+            primaryBalance: dataManager.primaryTraditionalIRABalance,
+            primaryCurrentAge: dataManager.currentAge,
+            primaryRMDAge: dataManager.rmdAge,
+            primaryGrowthPercent: dataManager.primaryGrowthRate,
+            enableSpouse: dataManager.enableSpouse,
+            spouseName: dataManager.spouseName,
+            spouseBalance: dataManager.spouseTraditionalIRABalance,
+            spouseCurrentAge: dataManager.spouseCurrentAge,
+            spouseRMDAge: dataManager.spouseRmdAge,
+            spouseGrowthPercent: dataManager.spouseGrowthRate
+        )
+    }
+
+    /// Combined stacked chart data: one regular series *per person* plus Inherited IRA.
     ///
     /// The chart window is strictly authoritative: it shows exactly `projectionYears`
     /// bars regardless of any inherited deadline.  When an NEDB deadline falls outside
@@ -830,42 +1056,18 @@ struct RMDCalculatorView: View {
             }
         }
 
+        // --- Regular RMDs, one series per person (pure, tested seam) ---
+        var regularByYear: [Int: [RMDChartDataPoint]] = [:]
+        for point in RMDChartDataBuilder.regularSeries(chartHousehold) {
+            regularByYear[point.year, default: []].append(point)
+        }
+
         // --- Build per-year data points — strictly within the picker window ---
         for yearOffset in 0..<projectionYears {
             let projectedYear = dataManager.currentYear + yearOffset
             let label = Self.chartYearLabel(projectedYear)
 
-            // Regular IRA/401(k) RMDs
-            var regularRMD: Double = 0
-            if dataManager.primaryTraditionalIRABalance > 0 {
-                let pAge = dataManager.currentAge + yearOffset
-                if pAge >= dataManager.rmdAge {
-                    let balance = projectBalance(
-                        years: yearOffset,
-                        startingBalance: dataManager.primaryTraditionalIRABalance,
-                        startAge: dataManager.currentAge,
-                        rmdStartAge: dataManager.rmdAge,
-                        growthPercent: dataManager.primaryGrowthRate
-                    )
-                    regularRMD += dataManager.calculateRMD(for: pAge, balance: balance)
-                }
-            }
-
-            if dataManager.enableSpouse && dataManager.spouseTraditionalIRABalance > 0 {
-                let sAge = dataManager.spouseCurrentAge + yearOffset
-                if sAge >= dataManager.spouseRmdAge {
-                    let balance = projectBalance(
-                        years: yearOffset,
-                        startingBalance: dataManager.spouseTraditionalIRABalance,
-                        startAge: dataManager.spouseCurrentAge,
-                        rmdStartAge: dataManager.spouseRmdAge,
-                        growthPercent: dataManager.spouseGrowthRate
-                    )
-                    regularRMD += dataManager.calculateRMD(for: sAge, balance: balance)
-                }
-            }
-
-            data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: regularRMD, category: "IRA / 401(k)"))
+            data.append(contentsOf: regularByYear[projectedYear] ?? [])
 
             // Inherited IRA RMDs — pull from pre-computed projection rows within window
             var inheritedRMD: Double = 0
@@ -875,7 +1077,7 @@ struct RMDCalculatorView: View {
                 }
             }
 
-            data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: inheritedRMD, category: "Inherited IRA"))
+            data.append(RMDChartDataPoint(year: projectedYear, yearLabel: label, amount: inheritedRMD, category: RMDChartSeries.inherited))
         }
         return data
     }
@@ -944,6 +1146,22 @@ struct RMDCalculatorView: View {
         ).map(Self.chartYearLabel)
     }
 
+    /// Legend swatches for the projection chart, laid out by whichever container
+    /// `ViewThatFits` picks: a couple's two named regular series are wider than the
+    /// single "IRA / 401(k)" entry that used to sit here alone.
+    @ViewBuilder
+    private func chartLegendItems(_ styles: [ChartSeriesStyle]) -> some View {
+        ForEach(styles) { style in
+            HStack(spacing: 6) {
+                Circle().fill(style.color).frame(width: 8, height: 8)
+                Text(style.category)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
     /// Formats Y-axis labels compactly ($5K, $150K, etc.)
     private func chartYAxisLabel(_ amount: Double) -> String {
         if amount >= 1_000_000 {
@@ -959,8 +1177,12 @@ struct RMDCalculatorView: View {
     private var rmdProjectionChart: some View {
         if hasChartData {
             let chartData = rmdChartData
-            let hasRegularRMDs = chartData.contains { $0.category == "IRA / 401(k)" && $0.amount > 0 }
-            let hasInheritedRMDs = chartData.contains { $0.category == "Inherited IRA" && $0.amount > 0 }
+            let seriesStyles = RMDChartSeries.styles(for: chartData)
+            let styleColors = Dictionary(uniqueKeysWithValues: seriesStyles.map { ($0.category, $0.color) })
+            let regularTotals = RMDChartSeries.regularTotalsByYear(chartData)
+            let regularSeriesCount = seriesStyles.filter { RMDChartSeries.isRegular($0.category) }.count
+            let hasRegularRMDs = chartData.contains { RMDChartSeries.isRegular($0.category) && $0.amount > 0 }
+            let hasInheritedRMDs = chartData.contains { $0.category == RMDChartSeries.inherited && $0.amount > 0 }
             let anyRMDs = hasRegularRMDs || hasInheritedRMDs
 
             VStack(alignment: .leading, spacing: 16) {
@@ -993,23 +1215,14 @@ struct RMDCalculatorView: View {
                 }
 
                 if anyRMDs {
-                    // Legend
-                    HStack(spacing: 16) {
-                        if hasRegularRMDs {
-                            HStack(spacing: 6) {
-                                Circle().fill(Color.Chart.heroTeal).frame(width: 8, height: 8)
-                                Text("IRA / 401(k)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        if hasInheritedRMDs {
-                            HStack(spacing: 6) {
-                                Circle().fill(Color.Chart.callout).frame(width: 8, height: 8)
-                                Text("Inherited IRA")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                    // Legend: one entry per series that actually draws a bar
+                    let legendStyles = seriesStyles.filter { style in
+                        chartData.contains { $0.category == style.category && $0.amount > 0 }
+                    }
+                    HStack {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 16) { chartLegendItems(legendStyles) }
+                            VStack(alignment: .leading, spacing: 6) { chartLegendItems(legendStyles) }
                         }
                         Spacer()
                     }
@@ -1023,10 +1236,9 @@ struct RMDCalculatorView: View {
                         .foregroundStyle(by: .value("Type", point.category))
                         .cornerRadius(3)
                     }
-                    .chartForegroundStyleScale([
-                        "IRA / 401(k)": Color.Chart.heroTeal,
-                        "Inherited IRA": Color.Chart.callout
-                    ])
+                    .chartForegroundStyleScale(mapping: { (category: String) -> Color in
+                        styleColors[category] ?? Color.Chart.heroTeal
+                    })
                     .chartLegend(.hidden)
                     .chartYAxis {
                         AxisMarks(position: .leading) { value in
@@ -1052,17 +1264,19 @@ struct RMDCalculatorView: View {
 
                     // Peak callouts
                     VStack(alignment: .leading, spacing: 4) {
+                        // Regular peak reads the per-year HOUSEHOLD total, not one person's
+                        // max, so splitting the bar per person cannot shrink the number.
                         if hasRegularRMDs,
-                           let peak = chartData.filter({ $0.category == "IRA / 401(k)" }).max(by: { $0.amount < $1.amount }),
-                           peak.amount > 0 {
+                           let peak = regularTotals.max(by: { $0.total < $1.total }),
+                           peak.total > 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.up.right")
                                     .foregroundStyle(Color.Chart.heroTeal)
                                     .font(.caption)
-                                Text("IRA / 401(k) Peak:")
+                                Text(regularSeriesCount > 1 ? "IRA / 401(k) Peak (both):" : "IRA / 401(k) Peak:")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                Text(peak.amount, format: .currency(code: "USD").precision(.fractionLength(0)))
+                                Text(peak.total, format: .currency(code: "USD").precision(.fractionLength(0)))
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                 Text("in \(String(peak.year))")
@@ -1072,7 +1286,7 @@ struct RMDCalculatorView: View {
                         }
 
                         if hasInheritedRMDs,
-                           let peak = chartData.filter({ $0.category == "Inherited IRA" }).max(by: { $0.amount < $1.amount }),
+                           let peak = chartData.filter({ $0.category == RMDChartSeries.inherited }).max(by: { $0.amount < $1.amount }),
                            peak.amount > 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.up.right")
@@ -1092,11 +1306,11 @@ struct RMDCalculatorView: View {
 
                         // Combined peak when both types present
                         if hasRegularRMDs && hasInheritedRMDs {
-                            let totalsByYear: [(year: Int, total: Double)] = (0..<projectionYears).map { offset in
-                                let yr = dataManager.currentYear + offset
-                                let reg = chartData.first(where: { $0.year == yr && $0.category == "IRA / 401(k)" })?.amount ?? 0
-                                let inh = chartData.first(where: { $0.year == yr && $0.category == "Inherited IRA" })?.amount ?? 0
-                                return (year: yr, total: reg + inh)
+                            // Sums EVERY regular series for the year; a `first(where:)`
+                            // lookup would silently drop the spouse's bar for couples.
+                            let totalsByYear: [(year: Int, total: Double)] = regularTotals.map { entry in
+                                let inh = chartData.first(where: { $0.year == entry.year && $0.category == RMDChartSeries.inherited })?.amount ?? 0
+                                return (year: entry.year, total: entry.total + inh)
                             }
                             if let peakTotal = totalsByYear.max(by: { $0.total < $1.total }), peakTotal.total > 0 {
                                 HStack(spacing: 4) {
@@ -2047,21 +2261,13 @@ struct RMDCalculatorView: View {
 
     /// Projects a balance forward using the given annual growth rate minus RMDs.
     private func projectBalance(years: Int, startingBalance: Double, startAge: Int, rmdStartAge: Int, growthPercent: Double) -> Double {
-        var balance = startingBalance
-        let growthRate = growthPercent / 100.0
-
-        for year in 0..<years {
-            let age = startAge + year
-
-            if age >= rmdStartAge {
-                let rmd = dataManager.calculateRMD(for: age, balance: balance)
-                balance -= rmd
-            }
-
-            balance *= (1 + growthRate)
-        }
-
-        return max(0, balance)
+        RMDChartDataBuilder.projectBalance(
+            years: years,
+            startingBalance: startingBalance,
+            startAge: startAge,
+            rmdStartAge: rmdStartAge,
+            growthPercent: growthPercent
+        )
     }
 
     /// Returns the current age of the account's owner.
