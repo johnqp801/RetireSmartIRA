@@ -161,6 +161,30 @@ struct DashboardView: View {
 
     // MARK: - Header Card
 
+    /// The header's RMD card, asked of the household rather than the primary.
+    ///
+    /// This card used to read `isRMDRequired` / `yearsUntilRMD`, both
+    /// primary-only, so a household already years into a spouse's RMDs opened
+    /// the tab called Tax Summary and was told "Years Until RMD: 14" while the
+    /// correct combined figure sat a dozen rows below. The header is what gets
+    /// read first, so the header is what gets believed.
+    static func rmdHeadlineMetric(_ dm: DataManager) -> RMDStatusPresentation.HeadlineMetric {
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: dm.currentAge,
+            primaryRmdAge: dm.rmdAge,
+            spouseEnabled: dm.enableSpouse,
+            spouseAge: dm.spouseCurrentAge,
+            spouseRmdAge: dm.spouseRmdAge)
+        return RMDStatusPresentation.build(
+            status: status,
+            primaryAge: dm.currentAge, primaryRmdAge: dm.rmdAge,
+            spouseAge: dm.spouseCurrentAge, spouseRmdAge: dm.spouseRmdAge,
+            primaryName: dm.userName,
+            spouseName: dm.spouseName,
+            hasInheritedRMDs: dm.inheritedIRARMDTotal > 0,
+            firstRmdDeadlineYear: dm.currentYear + 1).headlineMetric
+    }
+
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             // Header row: year + filing status
@@ -192,19 +216,13 @@ struct DashboardView: View {
                     )
                 }
 
-                if dataManager.isRMDRequired {
-                    MetricCard(
-                        label: "RMD Status",
-                        value: "Required",
-                        category: .informational
-                    )
-                } else {
-                    MetricCard(
-                        label: "Years Until RMD",
-                        value: "\(dataManager.yearsUntilRMD)",
-                        category: .informational
-                    )
-                }
+                let rmdMetric = Self.rmdHeadlineMetric(dataManager)
+                MetricCard(
+                    label: rmdMetric.label,
+                    value: rmdMetric.value,
+                    delta: rmdMetric.detail,
+                    category: .informational
+                )
             }
         }
         #if canImport(UIKit)

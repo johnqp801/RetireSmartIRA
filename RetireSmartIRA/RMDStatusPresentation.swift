@@ -44,11 +44,78 @@ struct RMDStatusPresentation: Equatable {
     let firstYearNotices: [String]
     /// Which body blocks the view renders.
     let sections: BodySections
+    /// The single label/value/detail triple for surfaces that have room for
+    /// exactly one card, such as the Tax Summary header.
+    let headlineMetric: HeadlineMetric
+    /// The rows an exported document prints under Personal Information. One
+    /// row when a single statement is true of the whole household, otherwise
+    /// one row per person carrying that person's OWN RMD age.
+    let documentRows: [DocumentRow]
+    /// The Legacy tab's pre-RMD conversion-window sentence, or nil when anyone
+    /// is already required or the window is too short to advise on.
+    let conversionGapSentence: String?
+
+    /// A one-card summary of household RMD status.
+    ///
+    /// The Tax Summary header used to read `dataManager.yearsUntilRMD`
+    /// directly, so a household six years into a spouse's RMDs was greeted
+    /// with a countdown. `detail` is what names the person once the two are
+    /// not in the same position; it stays nil when one statement covers both,
+    /// which is what keeps single filers rendering exactly as before.
+    struct HeadlineMetric: Equatable {
+        let label: String
+        let value: String
+        let detail: String?
+    }
+
+    /// One Personal Information row in the CPA briefing PDF.
+    ///
+    /// A document read by a third party cannot answer a follow-up question, so
+    /// a household with two different RMD ages gets two rows rather than one
+    /// row built from the primary's numbers alone.
+    struct DocumentRow: Equatable {
+        let label: String
+        let value: String
+        /// Whether the value renders in the document's alert color, preserving
+        /// the red "Required" treatment the single-row form has always had.
+        let isAlert: Bool
+    }
+
+    /// The label for a figure that already sums both people's RMDs.
+    ///
+    /// The collapsed Scenarios card called the combined figure "Required RMD"
+    /// while the expanded card called the same number "Combined RMDs", so a
+    /// user who knew their own RMD saw the household total under a label that
+    /// read as personal.
+    static func combinedRmdLabel(spouseEnabled: Bool) -> String {
+        spouseEnabled ? "Combined RMDs" : "Required RMD"
+    }
+
+    /// The action-item title for the primary's own RMD.
+    ///
+    /// Unqualified "Take RMD" next to a named spouse item read as one personal
+    /// instruction plus one unexplained figure. A solo filer has nobody to be
+    /// confused with, so that case keeps its original bare wording.
+    static func primaryRmdActionTitle(
+        primaryName: String, spouseEnabled: Bool, amount: String
+    ) -> String {
+        guard spouseEnabled else { return "Take RMD: \(amount)" }
+        let who = primaryName.isEmpty ? "Your" : "\(primaryName)'s"
+        return "Take \(who) RMD: \(amount)"
+    }
+
+    /// The action-item title for the spouse's RMD, in the same possessive
+    /// shape as the primary's so the pair reads as one list.
+    static func spouseRmdActionTitle(spouseName: String, amount: String) -> String {
+        let who = spouseName.isEmpty ? "Your spouse's" : "\(spouseName)'s"
+        return "Take \(who) RMD: \(amount)"
+    }
 
     static func build(
         status: RMDHouseholdStatus,
         primaryAge: Int, primaryRmdAge: Int,
         spouseAge: Int, spouseRmdAge: Int,
+        primaryName: String = "",
         spouseName: String,
         hasInheritedRMDs: Bool,
         firstRmdDeadlineYear: Int
@@ -69,6 +136,14 @@ struct RMDStatusPresentation: Equatable {
             let notices = primaryAge == primaryRmdAge
                 ? ["First RMD can be delayed until April 1 \(firstRmdDeadlineYear)"]
                 : []
+            // One statement is true of everyone here, so every downstream
+            // surface keeps the exact single-person shape it has always had.
+            let soleRow = status.anyoneRequired
+                ? DocumentRow(label: "RMD Status", value: "Required", isAlert: true)
+                : DocumentRow(
+                    label: "RMD Begins",
+                    value: "Age \(status.firstRmdAge) (\(status.yearsUntilFirst) years)",
+                    isAlert: false)
             return RMDStatusPresentation(
                 badge: badge,
                 ageTitle: ageTitle,
@@ -78,7 +153,12 @@ struct RMDStatusPresentation: Equatable {
                 sections: bodySections(
                     status: status,
                     showsHouseholdLines: false,
-                    hasInheritedRMDs: hasInheritedRMDs))
+                    hasInheritedRMDs: hasInheritedRMDs),
+                headlineMetric: headline(status: status, detail: nil),
+                documentRows: [soleRow],
+                conversionGapSentence: gapSentence(
+                    status: status,
+                    subject: nil))
         }
 
         // Each line is built ONLY from that person's own age and own RMD age.
@@ -105,6 +185,23 @@ struct RMDStatusPresentation: Equatable {
             ? [spouseNotice, primaryNotice].compactMap { $0 }
             : [primaryNotice, spouseNotice].compactMap { $0 }
 
+        // Document rows carry each person's OWN RMD age, for the same reason
+        // `lines` does: a shared trigger age printed beside two names is the
+        // misattribution this whole type exists to prevent. The name fallbacks
+        // match the ones the export already uses for its Age rows.
+        let primaryRow = DocumentRow(
+            label: "\(primaryName.isEmpty ? "Primary" : primaryName) RMD Status",
+            value: agePhrase(age: primaryAge, rmdAge: primaryRmdAge),
+            isAlert: primaryAge >= primaryRmdAge)
+        let spouseRow = DocumentRow(
+            label: "\(spouseName.isEmpty ? "Spouse" : spouseName) RMD Status",
+            value: agePhrase(age: spouseAge, rmdAge: spouseRmdAge),
+            isAlert: spouseAge >= spouseRmdAge)
+        let documentRows = spouseFirst ? [spouseRow, primaryRow] : [primaryRow, spouseRow]
+
+        // Whoever gets there first is who the one-card surfaces name.
+        let firstSubject = spouseFirst ? (spouseName.isEmpty ? "your spouse" : spouseName) : "you"
+
         return RMDStatusPresentation(
             badge: badge,
             ageTitle: ageTitle,
@@ -114,7 +211,46 @@ struct RMDStatusPresentation: Equatable {
             sections: bodySections(
                 status: status,
                 showsHouseholdLines: true,
-                hasInheritedRMDs: hasInheritedRMDs))
+                hasInheritedRMDs: hasInheritedRMDs),
+            headlineMetric: headline(status: status, detail: lines.first),
+            documentRows: documentRows,
+            conversionGapSentence: gapSentence(status: status, subject: firstSubject))
+    }
+
+    /// "Has reached RMD age 73" / "Reaches RMD age 75 in 14 years".
+    ///
+    /// The subject is deliberately absent: a document row's label already
+    /// carries the name, and the sentence is about an AGE, so it stays true
+    /// whatever that person happens to hold.
+    private static func agePhrase(age: Int, rmdAge: Int) -> String {
+        if age >= rmdAge { return "Has reached RMD age \(rmdAge)" }
+        let years = rmdAge - age
+        return "Reaches RMD age \(rmdAge) in \(years) \(years == 1 ? "year" : "years")"
+    }
+
+    private static func headline(
+        status: RMDHouseholdStatus, detail: String?
+    ) -> HeadlineMetric {
+        status.anyoneRequired
+            ? HeadlineMetric(label: "RMD Status", value: "Required", detail: detail)
+            : HeadlineMetric(
+                label: "Years Until RMD",
+                value: "\(status.yearsUntilFirst)",
+                detail: detail)
+    }
+
+    /// `subject` is nil when one statement covers the household, which keeps
+    /// the original single-person sentence byte-for-byte.
+    private static func gapSentence(
+        status: RMDHouseholdStatus, subject: String?
+    ) -> String? {
+        // The view only ever showed this advice for a window longer than a
+        // single year, and that gate lives here now so it is testable.
+        guard !status.anyoneRequired, status.yearsUntilFirst > 1 else { return nil }
+        guard let subject else {
+            return "You have \(status.yearsUntilFirst) gap years before RMDs start at age \(status.firstRmdAge)."
+        }
+        return "Your household has \(status.yearsUntilFirst) gap years before RMDs start, when \(subject) reaches RMD age \(status.firstRmdAge)."
     }
 
     private static func line(

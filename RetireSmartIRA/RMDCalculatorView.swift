@@ -323,6 +323,7 @@ struct RMDCalculatorView: View {
             primaryRmdAge: dataManager.rmdAge,
             spouseAge: dataManager.spouseCurrentAge,
             spouseRmdAge: dataManager.spouseRmdAge,
+            primaryName: dataManager.userName,
             spouseName: dataManager.spouseName,
             hasInheritedRMDs: hasInheritedRMDs,
             firstRmdDeadlineYear: dataManager.currentYear + 1)

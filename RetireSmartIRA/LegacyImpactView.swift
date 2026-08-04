@@ -26,6 +26,30 @@ struct LegacyImpactView: View {
     private var itemHeader: Font { isWideLayout ? .headline : .subheadline }
     private var metricFont: Font { isWideLayout ? .title : .title3 }
 
+    /// The pre-RMD conversion-window sentence, or nil when there is no window
+    /// left to talk about.
+    ///
+    /// This was gated on the primary's `isRMDRequired` and counted from the
+    /// primary's `rmdAge`, so a household already six years into a spouse's
+    /// RMDs was told it had gap years before RMDs start. Nil now means nil for
+    /// the household, and the sentence names whoever gets there first.
+    static func conversionGapSentence(_ dm: DataManager) -> String? {
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: dm.currentAge,
+            primaryRmdAge: dm.rmdAge,
+            spouseEnabled: dm.enableSpouse,
+            spouseAge: dm.spouseCurrentAge,
+            spouseRmdAge: dm.spouseRmdAge)
+        return RMDStatusPresentation.build(
+            status: status,
+            primaryAge: dm.currentAge, primaryRmdAge: dm.rmdAge,
+            spouseAge: dm.spouseCurrentAge, spouseRmdAge: dm.spouseRmdAge,
+            primaryName: dm.userName,
+            spouseName: dm.spouseName,
+            hasInheritedRMDs: dm.inheritedIRARMDTotal > 0,
+            firstRmdDeadlineYear: dm.currentYear + 1).conversionGapSentence
+    }
+
     var body: some View {
         @Bindable var dataManager = dataManager
         let hasRothConversion = dataManager.scenarioTotalRothConversion > 0
@@ -79,23 +103,18 @@ struct LegacyImpactView: View {
                     compoundingChartSection
 
                     // Multi-year strategy note
-                    if !dataManager.isRMDRequired {
-                        let rmdAge = dataManager.rmdAge
-                        let currentAge = dataManager.currentAge
-                        let gapYears = max(0, rmdAge - currentAge)
-                        if gapYears > 1 {
-                            HStack(spacing: 6) {
-                                Image(systemName: "arrow.clockwise")
-                                    .foregroundStyle(Color.UI.brandTeal)
-                                    .font(bodyFont)
-                                Text("You have \(gapYears) gap years before RMDs start at age \(rmdAge). Converting a similar amount each year amplifies this advantage significantly. Re-evaluate annually based on updated brackets, income, and balances.")
-                                    .font(bodyFont)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(8)
-                            .background(Color.UI.surfaceInset)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    if let gapSentence = Self.conversionGapSentence(dataManager) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundStyle(Color.UI.brandTeal)
+                                .font(bodyFont)
+                            Text("\(gapSentence) Converting a similar amount each year amplifies this advantage significantly. Re-evaluate annually based on updated brackets, income, and balances.")
+                                .font(bodyFont)
+                                .foregroundStyle(.secondary)
                         }
+                        .padding(8)
+                        .background(Color.UI.surfaceInset)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
 

@@ -628,7 +628,7 @@ struct PDFExportService {
 
     // MARK: - HTML Construction
 
-    private static func buildHTML(from d: PDFExportData) -> String {
+    static func buildHTML(from d: PDFExportData) -> String {
         var h = htmlHeader(taxYear: d.currentYear)
 
         // ── Lead with the Bottom Line ──
@@ -1039,7 +1039,26 @@ struct PDFExportService {
 
     // MARK: - Section: Personal Information
 
-    private static func sectionPersonalInfo(_ d: PDFExportData) -> String {
+    /// The household's RMD status, resolved from both people's ages exactly
+    /// the way the RMD Calculator's status card resolves it.
+    static func rmdStatusPresentation(_ d: PDFExportData) -> RMDStatusPresentation {
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: d.currentAge,
+            primaryRmdAge: d.rmdAge,
+            spouseEnabled: d.enableSpouse,
+            spouseAge: d.spouseCurrentAge,
+            spouseRmdAge: d.spouseRmdAge)
+        return RMDStatusPresentation.build(
+            status: status,
+            primaryAge: d.currentAge, primaryRmdAge: d.rmdAge,
+            spouseAge: d.spouseCurrentAge, spouseRmdAge: d.spouseRmdAge,
+            primaryName: d.userName,
+            spouseName: d.spouseName,
+            hasInheritedRMDs: d.inheritedIRARMDTotal > 0,
+            firstRmdDeadlineYear: d.currentYear + 1)
+    }
+
+    static func sectionPersonalInfo(_ d: PDFExportData) -> String {
         let primary = d.userName.isEmpty ? "Primary" : esc(d.userName)
         var rows = """
         <tr><td>Filing Status</td><td>\(d.filingStatus.rawValue)</td></tr>
@@ -1050,10 +1069,14 @@ struct PDFExportService {
             let sp = d.spouseName.isEmpty ? "Spouse" : esc(d.spouseName)
             rows += "<tr><td>\(sp) Age</td><td>\(d.spouseCurrentAge)</td></tr>"
         }
-        if d.isRMDRequired {
-            rows += "<tr><td>RMD Status</td><td class=\"red\">Required</td></tr>"
-        } else {
-            rows += "<tr><td>RMD Begins</td><td>Age \(d.rmdAge) (\(d.yearsUntilRMD) years)</td></tr>"
+        // These rows used to come from the primary's `isRMDRequired` / `rmdAge`
+        // / `yearsUntilRMD` alone, so a briefing could open with "RMD Begins:
+        // Age 75 (14 years)" and then bill the CPA for the spouse's RMD two
+        // sections later. The household decides now, and a household with two
+        // different RMD ages prints one row per person.
+        for row in rmdStatusPresentation(d).documentRows {
+            let cls = row.isAlert ? " class=\"red\"" : ""
+            rows += "<tr><td>\(esc(row.label))</td><td\(cls)>\(esc(row.value))</td></tr>"
         }
         return """
         <h2>Personal Information</h2>
@@ -1063,7 +1086,7 @@ struct PDFExportService {
 
     // MARK: - Section: Income Sources (simplified, with RMDs folded in)
 
-    private static func sectionIncomeSources(_ d: PDFExportData) -> String {
+    static func sectionIncomeSources(_ d: PDFExportData) -> String {
         let hasIncome = !d.incomeSources.isEmpty
         let totalRMD = d.primaryRMD + d.spouseRMD + d.inheritedIRARMDTotal
         guard hasIncome || totalRMD > 0 else {
@@ -1087,8 +1110,12 @@ struct PDFExportService {
         let primary = d.userName.isEmpty ? "Your" : esc(d.userName) + "'s"
         if d.primaryRMD > 0 {
             let rmdLabel = d.enableSpouse ? "\(primary) RMD" : "Required Minimum Distribution"
+            // The spouse's row names her, and the row label above names him, so
+            // a literal "Primary" here was the one owner cell in the table that
+            // did not identify a person.
+            let primaryOwner = d.userName.isEmpty ? "Primary" : esc(d.userName)
             rows += "<tr><td>\(rmdLabel)</td>"
-            if showOwner { rows += "<td>Primary</td>" }
+            if showOwner { rows += "<td>\(primaryOwner)</td>" }
             rows += "<td class=\"amt red\">\(fmt(d.primaryRMD))</td></tr>"
             totalAmt += d.primaryRMD
         }

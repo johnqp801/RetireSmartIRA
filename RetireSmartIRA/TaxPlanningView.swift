@@ -1262,7 +1262,9 @@ struct TaxPlanningView: View {
 
             if spouseEnabled && combinedRMD > 0 {
                 HStack {
-                    Text("Combined RMDs")
+                    // Same helper the collapsed card uses, so the two can no
+                    // longer drift apart for the same figure.
+                    Text(Self.collapsedRmdLabel(spouseEnabled: spouseEnabled))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(combinedRMD, format: .currency(code: "USD"))
@@ -1610,13 +1612,25 @@ struct TaxPlanningView: View {
         }
     }
 
+    /// The collapsed withdrawal card's label for `combinedRMD`.
+    ///
+    /// The value is both people's RMDs added together, but collapsed it read
+    /// "Required RMD" while the very same number expanded read "Combined
+    /// RMDs". A user who knows their own RMD had no way to tell which one they
+    /// were looking at.
+    static func collapsedRmdLabel(spouseEnabled: Bool) -> String {
+        RMDStatusPresentation.combinedRmdLabel(spouseEnabled: spouseEnabled)
+    }
+
     @ViewBuilder
     private var withdrawalSummary: some View {
         if combinedRMD > 0 || totalExtraWithdrawal > 0 {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
                 if combinedRMD > 0 {
-                    summaryRow(label: "Required RMD", value: combinedRMD, color: Color.UI.textPrimary)
+                    summaryRow(
+                        label: Self.collapsedRmdLabel(spouseEnabled: spouseEnabled),
+                        value: combinedRMD, color: Color.UI.textPrimary)
                 }
                 if totalExtraWithdrawal > 0 {
                     summaryRow(label: "Additional Withdrawals", value: totalExtraWithdrawal, color: Color.Chart.callout)
