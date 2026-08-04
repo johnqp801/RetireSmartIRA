@@ -1,0 +1,82 @@
+{
+  "state": "OR",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, income at the top of the 8.75% bracket",
+      "source": "2025 Form OR-40 Instructions (150-101-040-1), page 16, 'Table 5. Standard deduction': 'Single $2,835'. Page 17, '2025 Tax rate charts', 'Chart S: For persons filing single or married filing separately -- If your taxable income is $50,000 or more but not over $125,000... your tax is $4,065 plus 8.75% of excess over $50,000.' Oregon taxable income = 58,000 - 2,835 = 55,165, inside this band: tax = 4,065 + 0.0875*(55,165-50,000) = 4,065 + 451.9375 = 4,516.9375, rounds to 4,516.94. Page 18, box 25 'Exemption credit... Depending on your AGI, you may be allowed to claim a credit for the exemptions claimed on line 6', worksheet line 5: 'Line 4 multiplied by $256. This is your exemption credit'; worksheet line 1 gates the credit to $0 only when federal AGI exceeds $100,000 single -- AGI 58,000 is under that, so the full one-exemption credit applies: $256. Net tax = 4,516.94 - 256 = 4,260.94. Chose income at or above the $50,000 Chart S/J floor deliberately: below $50,000, OR-40's printed tax TABLE (not the rate chart) governs, and its lower-bracket boundaries could not be established to the dollar from the scanned table without risking a transcription error, so every OR case in this batch stays inside the clean, explicitly-printed Chart S/J formula range. No age threshold or AGI phase-out gates OR's retirement-income treatment (pensionExemption/iraWithdrawalExemption both .none per the audit), so this case and the next vary income rather than age.",
+      "sourceURL": "https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 58000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 58000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 4260.94,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Not a retirement-exclusion defect (the audit's .none is correct); OR's engine standard deduction ($4,840 single) and its lower-bracket thresholds are both miscalibrated against Form OR-40's published $2,835 and Chart S formula, and the $256-per-exemption credit (line 25) is not modeled at all.",
+        "observedToday": 4366.5
+      }
+    },
+    {
+      "name": "single, high income with IRA withdrawal and Roth conversion, top 9.9% bracket, exemption credit fully phased out",
+      "source": "Same instructions, page 17, Chart S top tier: 'If your taxable income is over $125,000... your tax is $10,627 plus 9.9% of excess over $125,000.' Standard deduction (page 16, Table 5) $2,835 single: Oregon taxable income = 140,000 - 2,835 = 137,165. Tax = 10,627 + 0.099*(137,165-125,000) = 10,627 + 1,204.335 = 11,831.335, rounds to 11,831.34. Exemption credit worksheet (page 18, box 25): federal AGI 140,000 exceeds the $100,000 single threshold, so 'enter 0' -- the credit is fully phased out. Net tax = 11,831.34.",
+      "sourceURL": "https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 63,
+      "spouseAge": null,
+      "federalAGI": 140000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 30000,
+      "rothConversion": 50000,
+      "expectedStateTax": 11831.34,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same mechanism as the low-income OR case: the engine's standard deduction and lower-bracket thresholds overstate what Form OR-40 allows, and here the credit is $0 under both sides so the entire gap is the deduction/threshold miscalibration.",
+        "observedToday": 11658.34
+      }
+    },
+    {
+      "name": "MFJ, both spouses present, moderate combined income including Social Security, top of the 8.75% bracket",
+      "source": "This is the batch's MFJ 'both spouses present' case; OR has no age-gated retirement exclusion for either spouse to qualify for, so both are simply present. Page 17, Chart J: 'If your taxable income is $50,000 or more but not over $250,000... your tax is $3,756 plus 8.75% of excess over $50,000.' Oregon excludes Social Security entirely (config socialSecurityExempt true), so state income before deduction is 80,000 - 20,000 = 60,000; standard deduction (page 16, Table 5) $5,670 MFJ: Oregon taxable income = 60,000 - 5,670 = 54,330. Tax = 3,756 + 0.0875*(54,330-50,000) = 3,756 + 378.875 = 4,134.875, rounds to 4,134.88. Exemption credit worksheet (page 18, box 25): the phase-out gate is federal AGI over $200,000 for 'all others' (i.e. joint filers), and 80,000 is well under that, so both exemptions (self + spouse) apply in full: 2 * $256 = $512. Net tax = 4,134.88 - 512 = 3,622.88.",
+      "sourceURL": "https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 62,
+      "spouseAge": 60,
+      "federalAGI": 80000,
+      "taxableSocialSecurity": 20000,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 3622.88,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same mechanism, doubled for MFJ: the engine's $9,680 standard deduction and lower-bracket thresholds overstate Form OR-40's $5,670, and the $512 two-exemption credit is entirely unmodeled.",
+        "observedToday": 3833.0
+      }
+    },
+    {
+      "name": "MFJ, highest income in the batch, top 9.9% bracket",
+      "source": "Same instructions, page 17, Chart J top tier: 'If your taxable income is over $250,000... your tax is $21,256 plus 9.9% of excess over $250,000' -- not reached here, so this case exercises the SAME 8.75% band as the prior MFJ case at a much higher absolute level, to stress the largest plausible single-year total against real Oregon law. Standard deduction (page 16, Table 5) $5,670 MFJ: Oregon taxable income = 190,000 - 5,670 = 184,330. Tax = 3,756 + 0.0875*(184,330-50,000) = 3,756 + 11,753.875 = 15,509.875, rounds to 15,509.88. Exemption credit worksheet (page 18, box 25): federal AGI 190,000 is under the $200,000 joint-filer phase-out threshold, so both exemptions apply in full: 2 * $256 = $512. Net tax = 15,509.88 - 512 = 14,997.88.",
+      "sourceURL": "https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 58,
+      "spouseAge": 56,
+      "federalAGI": 190000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 90000,
+      "iraWithdrawals": 40000,
+      "rothConversion": 60000,
+      "expectedStateTax": 14997.88,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same mechanism as the other three OR cases: the engine's standard deduction and lower-bracket thresholds overstate Form OR-40's figures, and the $512 two-exemption credit is entirely unmodeled.",
+        "observedToday": 15208.0
+      }
+    }
+  ]
+}

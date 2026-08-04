@@ -100,14 +100,26 @@ struct GoldenScenarioSingleYearTests {
             .amount(filingStatus: scenario.resolvedFilingStatus, enableSpouse: hasSpouse,
                     primaryAge: scenario.primaryAge, spouseAge: spouseAge) ?? 0
         // Mirrors DataManager.calculateStateTaxFromGross's state-standard-
-        // deduction step (see doc comment above). `.conformsToFederal` is not
-        // handled -- no pilot state uses it -- so it is treated as 0 here
-        // rather than pulled in via the federal standard deduction table;
-        // flag this comment if a future pilot state needs it.
+        // deduction step (see doc comment above).
         let stateStandardDeduction: Double
         switch StateTaxData.config(for: state).stateDeduction {
-        case .none, .conformsToFederal:
+        case .none:
             stateStandardDeduction = 0
+        case .conformsToFederal:
+            // Task 4 (North Dakota): the first pilot state that actually needs
+            // this branch -- this comment used to say "no pilot state uses it"
+            // and treated the case as 0, which was numerically inert for every
+            // fixture written before ND's. Mirrors DataManager
+            // .standardDeductionAmount's BASE federal standard deduction only:
+            // no age-65+ addition and no OBBBA senior bonus, both of which
+            // depend on a live DataManager instance this static helper doesn't
+            // have. Every ND fixture keeps both filers under 65, which makes
+            // this an exact reproduction for them, not an approximation -- see
+            // that property's doc comment in DataManager.swift for the parts
+            // intentionally left out.
+            let cfg = TaxCalculationEngine.config
+            stateStandardDeduction = scenario.resolvedFilingStatus == .single
+                ? cfg.standardDeductionSingle : cfg.standardDeductionMFJ
         case .fixed(let single, let married):
             // Filing status selects the bracket, mirroring
             // calculateStateTaxFromGross's `filingStatus == .single ? single :

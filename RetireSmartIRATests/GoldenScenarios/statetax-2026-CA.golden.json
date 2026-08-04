@@ -1,0 +1,62 @@
+{
+  "state": "CA",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, moderate income, 8% Schedule X bracket",
+      "source": "FTB 2025 Form 540 Personal Income Tax Booklet, 'Deductions', Table 5 heading is not CA's -- CA uses 'Standard deduction' text on Form 540 line 18: single/MRDP-separate standard deduction $5,706. Tax computed from the '2025 California Tax Rate Schedules' page (same booklet), Schedule X (Single or Married/RDP Filing Separately): the 8.00% bracket row reads '57,542  72,724  1,987.41 + 8.00%  57,542'. Taxable income 65,000 - 5,706 = 59,294 falls in this row: 1,987.41 + 0.08*(59,294-57,542) = 1,987.41 + 140.16 = 2,127.57. Exemption credit: Form 540 line 7, single filer under 65 -- 'enter 1 in the box... $153' (one exemption, no senior box on line 9 since primaryAge is 55). AGI 59,294 is far under the $252,203 single phase-out threshold (FTB 540 2EZ Table C / exemption credit phase-out worksheet), so the full $153 applies. Net tax = 2,127.57 - 153 = 1,974.57. No age threshold or phase-out gates CA's retirement-income treatment (pensionExemption/iraWithdrawalExemption both .none per the audit), so this case and the next vary income rather than age.",
+      "sourceURL": "https://www.ftb.ca.gov/forms/2025/2025-540-booklet.html",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 65000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 65000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1974.57
+    },
+    {
+      "name": "single, high income with IRA withdrawal and Roth conversion, 10.3% Schedule X bracket, exemption credit fully phased out",
+      "source": "Same booklet, Schedule X, the 10.30% row: '371,479  445,771  30,986.19 + 10.30%  371,479'. Taxable income 400,000 - 5,706 (Form 540 line 18 single standard deduction) = 394,294 falls in this row: 30,986.19 + 0.103*(394,294-371,479) = 30,986.19 + 2,349.945 = 33,336.135, rounds to 33,336.14. Exemption credit worksheet (Form 540 instructions, 'Exemption credit' section, immediately following the line 9 instructions): the $153 single credit phases out $6 per $2,500 (or fraction) of AGI over $252,203. Excess = 394,294 - 252,203 = 142,091; 142,091/2,500 = 56.84, floor 56 steps * $6 = $336, which exceeds the $153 credit, so the credit is fully phased out to $0. Net tax = 33,336.14.",
+      "sourceURL": "https://www.ftb.ca.gov/forms/2025/2025-540-booklet.html",
+      "filingStatus": "single",
+      "primaryAge": 63,
+      "spouseAge": null,
+      "federalAGI": 400000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 150000,
+      "iraWithdrawals": 100000,
+      "rothConversion": 150000,
+      "expectedStateTax": 33336.14
+    },
+    {
+      "name": "MFJ, both spouses present, moderate combined income including Social Security, 6% Schedule Y bracket",
+      "source": "This is the batch's MFJ 'both spouses present' case; CA has no age-gated retirement exclusion for either spouse to qualify for, so both are simply present. Form 540 line 18 MFJ standard deduction $11,412 (same booklet, Table 5-equivalent standard deduction instructions). CA excludes Social Security entirely ('CA does not tax SS', per retirementExemptions.socialSecurityExempt and consistent with FTB Schedule CA (540) Part I, Section B, line 6 subtraction for federally taxable Social Security), so state income before deduction is 150,000 - 50,000 = 100,000; after deduction, 100,000 - 11,412 = 88,588. 2025 California Tax Rate Schedules, Schedule Y (Married/RDP Filing Jointly), 6.00% row: '82,904  115,084  2,044.02 + 6.00%  82,904'. Tax = 2,044.02 + 0.06*(88,588-82,904) = 2,044.02 + 341.04 = 2,385.06. Exemption credit: two exemptions (self + spouse, neither 65+) * $153 = $306; AGI 88,588 is far under the $504,406 MFJ phase-out threshold, so the full $306 applies. Net tax = 2,385.06 - 306 = 2,079.06.",
+      "sourceURL": "https://www.ftb.ca.gov/forms/2025/2025-540-booklet.html",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 58,
+      "spouseAge": 56,
+      "federalAGI": 150000,
+      "taxableSocialSecurity": 50000,
+      "pensionIncome": 100000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 2079.06
+    },
+    {
+      "name": "MFJ, very high income crossing the $1,000,000 Mental Health Services Tax threshold, regression for the non-doubled surcharge",
+      "source": "The batch's highest-income MFJ case, chosen specifically to land inside the $1,000,000-$1,485,906 band where CA's 1% Mental Health Services Tax (Cal. Rev. & Tax Code section 17043, 'Mental Health Services Act') applies ON TOP of the regular Schedule Y rate and does NOT double for joint filers -- the same $1,000,000 threshold applies regardless of filing status, unlike every ordinary Schedule Y bracket boundary. Standard deduction (Form 540 line 18, MFJ) $11,412: taxable income 1,200,000 - 11,412 = 1,188,588, which sits inside Schedule Y's own 11.30% bracket ('891,542  1,485,906  77,276.52 + 11.30%  891,542'), so the regular-schedule component is 77,276.52 + 0.113*(1,188,588-891,542) = 77,276.52 + 33,566.198 = 110,842.718. The MHST surcharge is a flat additional 1% of the amount over $1,000,000 (undoubled): 0.01*(1,188,588-1,000,000) = 1,885.88. Total = 110,842.718 + 1,885.88 = 112,728.598, rounds to 112,728.60. Exemption credit: two exemptions * $153 = $306, but AGI 1,188,588 is far over the $504,406 MFJ phase-out threshold, so the credit is fully phased out to $0. Net tax = 112,728.60. This is the batch's fifth-case-equivalent for CA's AGI-gated feature (the MHST surcharge, not a retirement exclusion): a scenario outside the $1,000,000-$1,485,906 band would not distinguish CA's engine encoding (which folds the 1% surcharge into a synthetic 12.3%/13.3% bracket pair starting at the undoubled $1,000,000) from a mutant that doubled the MHST threshold for MFJ the way every real Schedule Y bracket boundary is doubled.",
+      "sourceURL": "https://www.ftb.ca.gov/forms/2025/2025-540-booklet.html",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 63,
+      "spouseAge": 61,
+      "federalAGI": 1200000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 500000,
+      "iraWithdrawals": 300000,
+      "rothConversion": 400000,
+      "expectedStateTax": 112728.60
+    }
+  ]
+}

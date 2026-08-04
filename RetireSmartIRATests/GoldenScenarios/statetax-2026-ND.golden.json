@@ -1,0 +1,62 @@
+{
+  "state": "ND",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, moderate income, 1.95% bracket",
+      "source": "North Dakota's Form ND-1 (SFN 28702, 2025) starts from FEDERAL TAXABLE INCOME, not federal AGI: line 1b 'Federal taxable income from Form 1040 or 1040-SR, line 15', which is federal AGI already net of the federal standard deduction. This is why the engine's stateDeduction is coded '.conformsToFederal' -- ND's own form performs the equivalent of subtracting the federal standard deduction before its own additions/subtractions. Neither Form ND-1 nor its instructions carry a pension or IRA exclusion line (compare line 14, 'Military retirement benefit exclusion', and line 9, 'Licensed peace officer retirement benefit exclusion' -- both narrow, occupation-specific carve-outs, not a general retirement-income exclusion), confirming the audit's '.none' for pensionExemption/iraWithdrawalExemption. Line 15, 'Social security benefit exclusion', confirms socialSecurityExempt separately. Using the 2026 federal standard deduction ($16,100 single, per IRS Rev. Proc. 2025-32, TaxCalculationEngine's own TaxYearConfig) since primaryAge is under 65 (no OBBBA senior bonus or age-65 addition applies): ND taxable income = 70,000 - 16,100 = 53,900. 2025 ND-1 Tax Rate Schedules (SFN 28727 series insert, page headed '2025 Tax Rate Schedules'), Single: '48,475  244,825 ... 0.00 + 1.95% of amount over $48,475'. Tax = 0.00 + 0.0195*(53,900-48,475) = 0.0195*5,425 = 105.7875, rounds to 105.79. No age threshold or AGI phase-out gates ND's retirement-income treatment, so this case and the next vary income rather than age.",
+      "sourceURL": "https://www.tax.nd.gov/sites/www/files/documents/forms/individual/2025-iit/tax-tables-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 52,
+      "spouseAge": null,
+      "federalAGI": 70000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 70000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 105.79
+    },
+    {
+      "name": "single, high income with IRA withdrawal and Roth conversion, top 2.50% bracket",
+      "source": "Same 2025 ND-1 Tax Rate Schedules, Single, top bracket: '244,825 ... 3,828.83 + 2.50% of amount over $244,825'. Federal standard deduction (2026, under 65) $16,100: taxable income 300,000 - 16,100 = 283,900. Tax = 3,828.83 + 0.025*(283,900-244,825) = 3,828.83 + 976.875 = 4,805.705, rounds to 4,805.71 (or 4,805.70 under round-half-to-even; this fixture records the conventional round-half-up figure and treats a one-cent discrepancy as a rounding-convention question, not a law question, if the engine lands on the adjacent cent).",
+      "sourceURL": "https://www.tax.nd.gov/sites/www/files/documents/forms/individual/2025-iit/tax-tables-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 300000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 100000,
+      "iraWithdrawals": 80000,
+      "rothConversion": 120000,
+      "expectedStateTax": 4805.70
+    },
+    {
+      "name": "MFJ, both spouses present, moderate combined income including Social Security, 1.95% bracket",
+      "source": "This is the batch's MFJ 'both spouses present' case; ND has no age-gated retirement exclusion for either spouse to qualify for, so both are simply present. Form ND-1 line 15 excludes Social Security from ND taxable income, so state income before deduction is 160,000 - 30,000 = 130,000; federal standard deduction (2026, both under 65) $32,200; ND taxable income = 130,000 - 32,200 = 97,800. 2025 ND-1 Tax Rate Schedules, Married Filing Jointly and Qualifying Surviving Spouse: '80,975  298,075 ... 0.00 + 1.95% of amount over $80,975'. Tax = 0.0195*(97,800-80,975) = 0.0195*16,825 = 328.0875, rounds to 328.09.",
+      "sourceURL": "https://www.tax.nd.gov/sites/www/files/documents/forms/individual/2025-iit/tax-tables-2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 55,
+      "spouseAge": 53,
+      "federalAGI": 160000,
+      "taxableSocialSecurity": 30000,
+      "pensionIncome": 130000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 328.09
+    },
+    {
+      "name": "MFJ, highest income in the batch, top 2.50% bracket",
+      "source": "Same 2025 ND-1 Tax Rate Schedules, Married Filing Jointly, top bracket: '298,075 ... 4,233.45 + 2.50% of amount over $298,075'. Federal standard deduction (2026, both under 65) $32,200: ND taxable income = 500,000 - 32,200 = 467,800. Tax = 4,233.45 + 0.025*(467,800-298,075) = 4,233.45 + 4,243.125 = 8,476.575, rounds to 8,476.58 (or 8,476.57 under round-half-to-even; see the rounding note on the prior single high-income case).",
+      "sourceURL": "https://www.tax.nd.gov/sites/www/files/documents/forms/individual/2025-iit/tax-tables-2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 58,
+      "spouseAge": 56,
+      "federalAGI": 500000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 200000,
+      "iraWithdrawals": 150000,
+      "rothConversion": 150000,
+      "expectedStateTax": 8476.58
+    }
+  ]
+}
