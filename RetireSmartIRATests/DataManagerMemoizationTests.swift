@@ -243,4 +243,120 @@ struct DataManagerMemoizationTests {
         let after = dm.engineInputsHash
         #expect(before != after)
     }
+
+    // MARK: - Phase 3b regression: plan classification must invalidate the memo
+    //
+    // Reproduces the in-app defect: a New York resident reclassifies a pension
+    // from "Government pension, New York State or local" (planStructure:
+    // .definedBenefit, planSource: .nyStateOrLocal -- fully excluded under NY's
+    // IT-201 Line 26 per-source rule) to "Government pension, another state or
+    // locality" (planSource: .otherStateOrLocal -- no longer matches that rule,
+    // falls back to NY's ordinary $20,000-capped pension/IRA exclusion). The
+    // engine computation is correct either way (`stateTaxBreakdown`/
+    // `TaxCalculationEngine.calculateStateTax` both read `planStructure`/
+    // `planSource` fresh off the row every call); the bug was that
+    // `memoizedScenarioStateTax`'s cache key (`engineInputsHash`) did not
+    // include either field, so `scenarioStateTax` kept returning the
+    // pre-reclassification value forever.
+
+    @Test("scenarioStateTax invalidates when a pension's planSource classification changes (NY)")
+    func scenarioStateTaxInvalidatesOnPensionPlanSourceChange() {
+        let dm = DataManager(skipPersistence: true)
+        dm.currentYear = 2026
+        dm.selectedState = .newYork
+        dm.filingStatus = .single
+        var c = DateComponents(); c.year = 1953; c.month = 6; c.day = 1
+        dm.birthDate = Calendar.current.date(from: c)!  // age 73 in 2026
+        dm.incomeSources = [
+            IncomeSource(
+                name: "NY State Pension", type: .pension, annualAmount: 70_000,
+                planStructure: .definedBenefit, planSource: .nyStateOrLocal
+            )
+        ]
+
+        // Prime the memo: "Government pension, New York State or local" is
+        // fully excluded under NY's per-source Line 26 rule.
+        let beforeHash = dm.engineInputsHash
+        let before = dm.scenarioStateTax
+
+        // Mutate ONLY the classification -- reclassify to "another state or
+        // locality," which no longer matches NY's per-source rule and falls
+        // back to the ordinary $20,000-capped pension exclusion.
+        dm.incomeSources[0].planSource = .otherStateOrLocal
+
+        let afterHash = dm.engineInputsHash
+        #expect(beforeHash != afterHash, "Changing planSource should change engineInputsHash")
+
+        let after = dm.scenarioStateTax
+        #expect(after != before, "Reclassifying the pension's planSource must change scenarioStateTax; got before=\(before) after=\(after) (stale memo would leave these equal)")
+        #expect(after > before, "Losing the full Line 26 exclusion for a $50K larger taxable base should raise NY state tax; got before=\(before) after=\(after)")
+    }
+
+    @Test("scenarioStateTax invalidates when a pension's planStructure classification changes (NY)")
+    func scenarioStateTaxInvalidatesOnPensionPlanStructureChange() {
+        let dm = DataManager(skipPersistence: true)
+        dm.currentYear = 2026
+        dm.selectedState = .newYork
+        dm.filingStatus = .single
+        var c = DateComponents(); c.year = 1953; c.month = 6; c.day = 1
+        dm.birthDate = Calendar.current.date(from: c)!  // age 73 in 2026
+        dm.incomeSources = [
+            IncomeSource(
+                name: "NY State Pension", type: .pension, annualAmount: 70_000,
+                planStructure: .definedBenefit, planSource: .nyStateOrLocal
+            )
+        ]
+
+        let beforeHash = dm.engineInputsHash
+        let before = dm.scenarioStateTax
+
+        // Mutate ONLY the structure -- NY's per-source rule requires
+        // .definedBenefit; .definedContribution no longer matches even though
+        // the source is still NY state/local.
+        dm.incomeSources[0].planStructure = .definedContribution
+
+        let afterHash = dm.engineInputsHash
+        #expect(beforeHash != afterHash, "Changing planStructure should change engineInputsHash")
+
+        let after = dm.scenarioStateTax
+        #expect(after != before, "Reclassifying the pension's planStructure must change scenarioStateTax; got before=\(before) after=\(after) (stale memo would leave these equal)")
+        #expect(after > before, "Losing the full Line 26 exclusion for a $50K larger taxable base should raise NY state tax; got before=\(before) after=\(after)")
+    }
+
+    // MARK: - Phase 3b: account-level plan classification, hash coverage only
+    //
+    // Audit finding (see fix report): no production code path ever populates
+    // `stateTaxBreakdown`/`calculateStateTaxFromGross`'s `distributionComponents`
+    // parameter for the single-year DataManager pipeline these 8 memoized
+    // properties sit behind -- every production call site passes `nil`, so
+    // `IRAAccount.planStructure`/`planSource` reach the per-source exemption
+    // matcher only via `ProjectionEngine`'s multi-year path, which builds its
+    // own income-source rows directly against `TaxCalculationEngine` and never
+    // goes through `DataManager`'s `EngineMemoCache`. So there is currently no
+    // memoized *value* whose output depends on an account's classification to
+    // assert against -- this test instead proves the hash itself now covers
+    // those two fields, per the file's "when in doubt, add it" policy, so a
+    // future wiring of account classification into this pipeline fails safe
+    // rather than reintroducing this exact staleness bug silently.
+
+    @Test("engineInputsHash changes when an account's planStructure or planSource changes")
+    func engineInputsHashChangesOnAccountPlanClassificationChange() {
+        let dm = DataManager(skipPersistence: true)
+        dm.currentYear = 2026
+        dm.iraAccounts = [
+            IRAAccount(
+                name: "Trad", accountType: .traditionalIRA, balance: 500_000, owner: .primary,
+                planStructure: .definedContribution, planSource: .privateEmployer
+            )
+        ]
+
+        let sourceBefore = dm.engineInputsHash
+        dm.iraAccounts[0].planSource = .governmentUnspecified
+        let sourceAfter = dm.engineInputsHash
+        #expect(sourceBefore != sourceAfter, "Changing an account's planSource should change engineInputsHash")
+
+        dm.iraAccounts[0].planStructure = .ira
+        let structureAfter = dm.engineInputsHash
+        #expect(sourceAfter != structureAfter, "Changing an account's planStructure should change engineInputsHash")
+    }
 }

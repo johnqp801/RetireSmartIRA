@@ -110,6 +110,8 @@ extension DataManager {
             h.combine(account.decedentBirthYear)
             h.combine(account.beneficiaryBirthYear)
             h.combine(account.minorChildMajorityYear)
+            h.combine(account.planStructure)
+            h.combine(account.planSource)
         }
 
         // IncomeDeductionsManager
@@ -126,6 +128,8 @@ extension DataManager {
             h.combine(source.federalWithholdingPercent)
             h.combine(source.stateWithholdingMode)
             h.combine(source.stateWithholdingPercent)
+            h.combine(source.planStructure)
+            h.combine(source.planSource)
         }
         h.combine(incomeDeductions.deductionItems.count)
         for item in incomeDeductions.deductionItems {
