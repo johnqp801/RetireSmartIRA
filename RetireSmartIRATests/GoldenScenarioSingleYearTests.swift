@@ -107,19 +107,75 @@ struct GoldenScenarioSingleYearTests {
             stateStandardDeduction = 0
         case .conformsToFederal:
             // Task 4 (North Dakota): the first pilot state that actually needs
-            // this branch -- this comment used to say "no pilot state uses it"
-            // and treated the case as 0, which was numerically inert for every
-            // fixture written before ND's. Mirrors DataManager
-            // .standardDeductionAmount's BASE federal standard deduction only:
-            // no age-65+ addition and no OBBBA senior bonus, both of which
-            // depend on a live DataManager instance this static helper doesn't
-            // have. Every ND fixture keeps both filers under 65, which makes
-            // this an exact reproduction for them, not an approximation -- see
-            // that property's doc comment in DataManager.swift for the parts
-            // intentionally left out.
+            // this branch. Mirrors DataManager.standardDeductionAmount
+            // (DataManager.swift:1735-1775) in full: BASE federal standard
+            // deduction, PLUS the age-65+ addition (added once per qualifying
+            // person -- twice for MFJ when both spouses qualify), PLUS the
+            // OBBBA senior bonus (per IRC section 151(d)(5)(B): $6,000 per
+            // qualifying person, each person's $6,000 independently reduced by
+            // 6% of MAGI over the threshold, THEN summed -- not one shared
+            // reduction applied once and multiplied by headcount).
+            //
+            // An earlier version of this comment claimed both terms "depend on
+            // a live DataManager instance this static helper doesn't have."
+            // That was wrong for both terms: the age addition is a pure
+            // function of the fixture's ages against two static config
+            // constants already read in this function, and the bonus is a
+            // pure function of MAGI, which this fixture already carries as
+            // `federalAGI`.
+            //
+            // MAGI: production's `standardDeductionAmount` reads
+            // `scenarioGrossIncome` (DataManager.swift:1721-1723), which is
+            // `scenarioBaseIncome + scenarioTotalRothConversion +
+            // scenarioTotalWithdrawals` -- i.e. every declared income
+            // component summed. `GoldenScenario.federalAGI` is definitionally
+            // identical to that sum for any income composition this fixture
+            // schema can express: the schema's shape invariant requires
+            // `federalAGI` to equal the sum of its declared components, and it
+            // has no capital-gains or dividend field that could make the two
+            // diverge. So `scenario.federalAGI` is an EXACT stand-in here, not
+            // an approximation.
             let cfg = TaxCalculationEngine.config
-            stateStandardDeduction = scenario.resolvedFilingStatus == .single
-                ? cfg.standardDeductionSingle : cfg.standardDeductionMFJ
+            let magi = scenario.federalAGI
+            // Matches the `currentYear: 2026` literal passed to
+            // `calculateStateTax` below -- every bundled fixture file is
+            // "statetax-2026-*.golden.json" and this helper has never taken a
+            // year parameter.
+            let year = 2026
+            var amount: Double
+            switch scenario.resolvedFilingStatus {
+            case .single:
+                amount = cfg.standardDeductionSingle
+                if scenario.primaryAge >= 65 {
+                    amount += cfg.additionalDeduction65Single
+                }
+                if scenario.primaryAge >= 65,
+                   year >= cfg.seniorBonusFirstYear,
+                   year <= cfg.seniorBonusLastYear {
+                    let reduction = max(0, (magi - cfg.seniorBonusPhaseoutSingle) * cfg.seniorBonusPhaseoutRate)
+                    amount += max(0, cfg.seniorBonusPerPerson - reduction)
+                }
+            case .marriedFilingJointly:
+                amount = cfg.standardDeductionMFJ
+                if scenario.primaryAge >= 65 { amount += cfg.additionalDeduction65MFJ }
+                if hasSpouse && spouseAge >= 65 { amount += cfg.additionalDeduction65MFJ }
+                if year >= cfg.seniorBonusFirstYear,
+                   year <= cfg.seniorBonusLastYear {
+                    var qualifyingSeniors = 0
+                    if scenario.primaryAge >= 65 { qualifyingSeniors += 1 }
+                    if hasSpouse && spouseAge >= 65 { qualifyingSeniors += 1 }
+                    if qualifyingSeniors > 0 {
+                        // Per IRC section 151(d)(5)(B): the $6,000 amount is
+                        // reduced by 6% of MAGI over the threshold for EACH
+                        // qualified individual, then summed across qualifying
+                        // individuals on the return.
+                        let perPersonReduction = max(0, (magi - cfg.seniorBonusPhaseoutMFJ) * cfg.seniorBonusPhaseoutRate)
+                        let perPersonBonus = max(0, cfg.seniorBonusPerPerson - perPersonReduction)
+                        amount += perPersonBonus * Double(qualifyingSeniors)
+                    }
+                }
+            }
+            stateStandardDeduction = amount
         case .fixed(let single, let married):
             // Filing status selects the bracket, mirroring
             // calculateStateTaxFromGross's `filingStatus == .single ? single :
@@ -266,5 +322,58 @@ struct GoldenScenarioSingleYearTests {
         let file = try GoldenScenario.load(abbreviation: "PA")
         let scenario = try #require(file.scenarios.first)
         #expect(scenario.knownDefect == nil)
+    }
+
+    /// Finding 1 regression coverage: the `.conformsToFederal` branch of
+    /// `singleYearStateTax` must deduct the age-65+ addition and the OBBBA
+    /// senior bonus, not just the base federal standard deduction. No bundled
+    /// fixture reaches this: North Dakota is the only `.conformsToFederal`
+    /// state with fixtures today, and all four of its cases keep both filers
+    /// under 65. This test is built in Swift, not a bundled fixture, per
+    /// Finding 1's instruction to exercise the branch without touching the
+    /// bundled ND fixtures.
+    ///
+    /// Reuses ND's own "single, moderate income, 1.95% bracket" fixture
+    /// ($70,000 federal AGI, all pension income, no Social Security) but ages
+    /// the filer to 70. Without the fix, the same $70,000 input produces
+    /// $105.79 (that fixture's pinned value at age 52) because only the base
+    /// $16,100 federal standard deduction is subtracted. With the fix:
+    ///   base $16,100 + age-65 addition $2,050 + full OBBBA senior bonus
+    ///   $6,000 (MAGI $70,000 is under the $75,000 single phaseout threshold,
+    ///   so the bonus is un-reduced) = $24,150 deduction.
+    ///   Taxable income = 70,000 - 24,150 = $45,850, which falls entirely
+    ///   inside ND's 0% first bracket ($0-$48,475), so tax = $0.00.
+    @Test("The .conformsToFederal branch deducts the age-65+ addition and OBBBA senior bonus")
+    func conformsToFederalDeductsForAge65AndOver() throws {
+        let state = try #require(USState.allCases.first { $0.abbreviation == "ND" })
+        let scenario = GoldenScenario(
+            name: "single, age 70, exercises .conformsToFederal age-65 deduction (synthetic, not bundled)",
+            source: """
+                Synthetic regression case for Finding 1, not a bundled fixture. Same $70,000 \
+                federal AGI / all-pension income as ND's bundled 'single, moderate income, \
+                1.95% bracket' fixture (primaryAge 52, expectedStateTax 105.79), but the filer \
+                is aged to 70 so this test exercises the age-65 addition and OBBBA senior bonus \
+                that no bundled ND fixture reaches. Expected deduction: base $16,100 + age-65 \
+                addition $2,050 + full $6,000 senior bonus (MAGI $70,000 is under the $75,000 \
+                single phaseout threshold) = $24,150. Taxable income = 70,000 - 24,150 = 45,850, \
+                entirely inside ND's 0% first bracket ($0-$48,475), so tax = $0.00. Without the \
+                age/bonus terms this would compute $105.79 instead, identical to the under-65 \
+                fixture at the same income.
+                """,
+            sourceURL: "https://example.invalid/synthetic-conformsToFederal-age65-regression",
+            filingStatus: "single", primaryAge: 70, spouseAge: nil,
+            federalAGI: 70000, taxableSocialSecurity: 0, pensionIncome: 70000,
+            iraWithdrawals: 0, rothConversion: 0,
+            expectedStateTax: 0.0, classifiedPensionSources: nil,
+            knownDefect: nil, otherOrdinaryIncome: nil)
+
+        let actual = Self.singleYearStateTax(scenario, state: state)
+        #expect(abs(actual - 0.0) < 0.01,
+                """
+                Expected $0.00 (taxable income $45,850 falls entirely inside ND's 0% bracket \
+                once the age-65 addition and senior bonus are deducted). Got \(actual). If this \
+                is $105.79, the .conformsToFederal branch has regressed to deducting only the \
+                base federal standard deduction.
+                """)
     }
 }
