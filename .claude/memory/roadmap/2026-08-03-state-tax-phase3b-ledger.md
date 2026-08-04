@@ -142,3 +142,48 @@ Task 3: complete (commit 34220b8). Reviewed on opus: spec OK, Approved with find
     reported the crash as a real finding rather than quietly working around it.
   For Task 5: DataManager's private applyRetirementExemptions wrapper at :674 forwards no
     components and is pinned to nil.
+
+Task 4: complete (commits bbf631d + fix 3bfab67). Reviewed on opus, Approved with findings, all fixed.
+  NEW YORK'S IT-201 LINE 26 UNCAPPED GOVERNMENT PENSION EXCLUSION SHIPS. Alan Levy's confirmed bug.
+  Only statetax-2026-NY.json changed among the 51 files, 14 insertions, 0 deletions.
+  Suite 1,703 ST in 283 suites + 503 XCTest.
+
+  ** THE RELEASE-PLANNING FACT: the New York fix is NOT REACHABLE BY ANY USER until Task 6 ships
+     the picker. Verified three independent ways: no view file references planStructure or
+     planSource; every pension row a user can create infers to .unknown/.unknown via
+     IncomeSource.init; and no production caller passes distributionComponents non-nil. A New York
+     government-pension holder computes exactly the same overstated tax after this commit as
+     before. Both the Steve and Alan emails promise fixes "in the next release", so TASK 6 IS
+     LOAD-BEARING FOR A WRITTEN PROMISE, not optional polish. **
+
+  ** THE PLAN PREDICTED THE BASELINE WOULD MOVE. IT DID NOT, and that is correct. Every baseline
+     scenario builds .pension rows with no classification, which infer to .unknown, which New
+     York's rule never matches. The fixture came back byte-identical and was NOT regenerated.
+     Corroborated empirically: the baseline stayed green under two independent mutations of New
+     York's rule, which it could not have if any of the 1,020 entries touched it. **
+
+  ** THE ROOT-CAUSE FINDING: PerSourceExemptionRule EXISTED TWICE. Task 2 shipped a top-level type
+     with seven matching tests; Task 4 declared a nested duplicate and re-implemented the predicate
+     as matchedPerSourceRule. Production used the nested one. So seven tests guarded a type nothing
+     shipped, which is WHY blanking New York's matchStructures left all 43 tests across six suites
+     green. Failure scenario that would have shipped: a New York state employee's 403(b)
+     (definedContribution + nyStateOrLocal) silently receiving the uncapped Line 26 exclusion
+     instead of the 20,000 cap. Fixed by deleting the nested copy AND making matchedPerSourceRule
+     DELEGATE to the tested predicate, so unifying the type made the tested path the shipping path
+     rather than leaving two same-shaped implementations. **
+
+  Also fixed: golden case 3 used planSource governmentUnspecified, which fails matchSources and so
+    never reached the structure gate; now nyStateOrLocal. Both cap tests (engine :169 and mirror
+    :196) SATURATED the cap either way (unmatched pool 25,000 against a 20,000 cap, so min() gave
+    20,000 under both correct and mutated code); unmatched pool dropped below 20,000 and income
+    raised to 115,000 so neither the cap's min() nor the taxable-income zero floor masks it.
+  Citation defects fixed, the Phase 2 class recurring: golden case 1 quoted "regardless of your
+    age" against it201i.htm, where that phrase appears only in the Line 29 Beneficiaries paragraph,
+    a different rule; the sentence is on information_for_seniors.htm. Case 3 claimed flatly that a
+    403(b) is a salary-reduction supplemental plan, but the form scopes the exclusion to "contributions
+    YOU MADE", so it does not hold for an employer-funded portion.
+  Minor fixed: GoldenScenarioSingleYearTests:44 claimed New York is the first pilot state with a
+    nonzero stateDeduction. Mississippi also has one; its fixture is inert only because it expects 0.
+
+## REMAINING: Task 5 (multi-year pension classification), Task 6 (picker, LOAD-BEARING FOR THE
+## WRITTEN PROMISE), Task 7 (gate + in-app verification by John).
