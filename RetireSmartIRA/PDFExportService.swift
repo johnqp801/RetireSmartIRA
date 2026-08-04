@@ -1312,7 +1312,10 @@ struct PDFExportService {
 
     // MARK: - Section: Account Balances
 
-    private static func sectionAccounts(_ d: PDFExportData) -> String {
+    /// Not `private` (unlike this file's other section builders) so a test can call it directly
+    /// without constructing the full `PDFExportData` fixture via `generatePDF`. Whole-branch
+    /// review Fix 4.
+    static func sectionAccounts(_ d: PDFExportData) -> String {
         guard !d.iraAccounts.isEmpty else {
             return "<h2>Retirement Account Balances</h2><p class=\"muted\">No accounts entered.</p>"
         }
@@ -1323,7 +1326,12 @@ struct PDFExportService {
 
         var rows = ""
         for a in d.iraAccounts {
-            rows += "<tr><td>\(esc(a.name))</td><td>\(a.accountType.rawValue)</td>"
+            // Whole-branch review Fix 4: use the same classified display name AccountsView's
+            // list already shows, so a classified 403(b)/457 doesn't print "Traditional 401(k)"
+            // on the one document a user hands to their CPA.
+            let displayType = PlanClassificationChoice.accountDisplayName(
+                accountType: a.accountType, planStructure: a.planStructure, planSource: a.planSource)
+            rows += "<tr><td>\(esc(a.name))</td><td>\(esc(displayType))</td>"
             if showOwner { rows += "<td>\(a.owner.rawValue)</td>" }
             rows += "<td class=\"amt\">\(fmt(a.balance))</td></tr>"
         }

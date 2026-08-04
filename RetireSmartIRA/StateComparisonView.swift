@@ -126,12 +126,16 @@ struct StateComparisonView: View {
     }
 
     /// Phase 3b Task 6 (design doc section 3.7): whether the household has
-    /// any `.pension` income row still unclassified. Drives the New York
-    /// limitation in `StateTaxDetailSheet`, wherever New York tax is
-    /// actually computed (both when New York is the residence and when a
-    /// non-resident is comparing against it).
+    /// any `.pension` income row still unclassified, OR (whole-branch
+    /// review Fix 2) an owner whose pension rows genuinely disagree with
+    /// each other -- the adapter falls back to unclassified treatment in
+    /// that case too, with no `.unknown` row to trip the first half of this
+    /// check. Drives the New York limitation in `StateTaxDetailSheet`,
+    /// wherever New York tax is actually computed (both when New York is
+    /// the residence and when a non-resident is comparing against it).
     private var hasUnclassifiedPension: Bool {
         dataManager.incomeSources.contains { $0.type == .pension && $0.planSource == .unknown }
+            || PlanClassificationChoice.hasAnyMixedPensionClassification(in: dataManager.incomeSources)
     }
 
     // MARK: - Header Card

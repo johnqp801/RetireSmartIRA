@@ -351,18 +351,23 @@ enum MultiYearInputAdapter {
 
     /// Classification for `owner`'s pension income, derived from the underlying `.pension`
     /// `IncomeSource` row(s). `MultiYearStaticInputs.primaryPensionIncome`/
-    /// `spousePensionIncome` are a SUM across every pension row that owner has, so a single
-    /// `RetirementPlanClassification` can only be attached when there is exactly one row to
-    /// attach it to. Zero rows: nothing to classify. More than one row: the rows could carry
-    /// DIFFERENT classifications (e.g. one NY government pension plus one private pension,
-    /// both owned by the same person), and applying either row's classification to the
-    /// COMBINED amount would misattribute the other row's dollars -- so this falls back to
-    /// `nil` (unclassified, today's capped behavior) rather than guess. Phase 3b Task 5; see
-    /// design doc section 3.4b.
+    /// `spousePensionIncome` are a SUM across every pension row that owner has. When every row
+    /// AGREES on classification (the ordinary case -- e.g. a NYSLRS state pension and a
+    /// separate NYC pension, both New York State-or-local defined benefit), that shared
+    /// classification attaches to the combined amount. Zero rows: nothing to classify, `nil`.
+    /// Rows that genuinely DISAGREE (e.g. one NY government pension plus one private pension,
+    /// both owned by the same person) could misattribute the other row's dollars if either
+    /// one's classification were applied to the pooled total, so that case still falls back to
+    /// `nil` (unclassified, today's capped behavior) rather than guess. Phase 3b Task 5; whole-
+    /// branch review Fix 2 (before this fix, ANY owner with more than one pension row fell back
+    /// to `nil` unconditionally, silently dropping the classification even when every row
+    /// agreed). See design doc section 3.4b and
+    /// `PlanClassificationChoice.hasMixedPensionClassification`.
     private static func pensionClassification(from sources: [IncomeSource], owner: Owner) -> RetirementPlanClassification? {
         let rows = sources.filter { $0.type == .pension && $0.owner == owner }
-        guard rows.count == 1, let row = rows.first else { return nil }
-        return RetirementPlanClassification(structure: row.planStructure, source: row.planSource)
+        guard let first = rows.first else { return nil }
+        guard !PlanClassificationChoice.hasMixedPensionClassification(in: sources, owner: owner) else { return nil }
+        return RetirementPlanClassification(structure: first.planStructure, source: first.planSource)
     }
 
     /// Sum annualAmount for all primary-owner income sources whose type contributes

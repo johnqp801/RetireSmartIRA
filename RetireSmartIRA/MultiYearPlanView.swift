@@ -362,7 +362,11 @@ struct MultiYearPlanView: View {
             limitations: V2Disclosures.limitations
                 + MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
                     residesInNewYork: dataManager.selectedState == .newYork,
-                    hasUnclassifiedPension: dataManager.incomeSources.contains { $0.type == .pension && $0.planSource == .unknown })
+                    // Whole-branch review Fix 2: also fires for an owner whose pension rows
+                    // genuinely disagree with each other, which the adapter treats as
+                    // unclassified with no `.unknown` row to catch otherwise.
+                    hasUnclassifiedPension: dataManager.incomeSources.contains { $0.type == .pension && $0.planSource == .unknown }
+                        || PlanClassificationChoice.hasAnyMixedPensionClassification(in: dataManager.incomeSources))
                 + MultiYearCPABriefing.hawaiiPensionSplitLimitation(
                     residesInHawaii: dataManager.selectedState == .hawaii,
                     hasPensionIncome: dataManager.incomeSources.contains { $0.type == .pension }),

@@ -464,4 +464,62 @@ final class MultiYearInputAdapterTests: XCTestCase {
         XCTAssertEqual(inputs.carriedMortgageAndOtherItemized, 0, accuracy: 0.01,
                        "additionalSALTAmount (.saltTax) must not leak into the mortgage/other bucket either")
     }
+
+    // MARK: - Whole-branch review Fix 2: multiple pension rows for one owner
+
+    /// Before this fix, `MultiYearInputAdapter.pensionClassification` fell back to `nil` for
+    /// ANY owner with more than one `.pension` row, even when every row AGREED on
+    /// classification. A New York City retiree holding a NYSLRS state pension AND a separate
+    /// NYC pension (both government, both `nyStateOrLocal`) is an ordinary profile, not a
+    /// corner case, and used to silently lose the classification: single-year (which reads the
+    /// two `IncomeSource` rows directly) excludes both under Line 26, while multi-year (which
+    /// pools them into one scalar via this adapter) fell back to the capped, unclassified
+    /// treatment. Same household, two different New York answers, every year of the horizon.
+    func test_buildInputs_agreeingMultiplePensionRowsForOneOwnerKeepClassification() {
+        let dm = makeDataManager()
+        dm.selectedState = .newYork
+        dm.incomeSources = [
+            IncomeSource(name: "NYSLRS Pension", type: .pension, annualAmount: 45_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .nyStateOrLocal),
+            IncomeSource(name: "NYC Pension", type: .pension, annualAmount: 25_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .nyStateOrLocal),
+        ]
+
+        let inputs = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
+        )
+
+        XCTAssertEqual(inputs.primaryPensionIncome, 70_000, accuracy: 0.01,
+                       "Both rows should still pool into the combined pension amount")
+        XCTAssertEqual(inputs.primaryPensionClassification?.structure, .definedBenefit,
+                       "Two AGREEING pension rows for the same owner should keep the shared classification, not drop to nil")
+        XCTAssertEqual(inputs.primaryPensionClassification?.source, .nyStateOrLocal,
+                       "Two AGREEING pension rows for the same owner should keep the shared classification, not drop to nil")
+    }
+
+    /// The genuine-mix case this fix must NOT change: rows that actually disagree on
+    /// classification (e.g. one New York government pension and one private pension, same
+    /// owner) still fall back to nil rather than guess which row's classification belongs on
+    /// the pooled total.
+    func test_buildInputs_disagreeingMultiplePensionRowsForOneOwnerFallBackToNilClassification() {
+        let dm = makeDataManager()
+        dm.selectedState = .newYork
+        dm.incomeSources = [
+            IncomeSource(name: "NY Gov Pension", type: .pension, annualAmount: 45_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .nyStateOrLocal),
+            IncomeSource(name: "Private Pension", type: .pension, annualAmount: 25_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .privateEmployer),
+        ]
+
+        let inputs = MultiYearInputAdapter.build(
+            from: dm,
+            scenarioState: dm.scenario,
+            assumptions: MultiYearAssumptions()
+        )
+
+        XCTAssertNil(inputs.primaryPensionClassification,
+                     "Genuinely different classifications on one owner's pension rows must not be guessed at")
+    }
 }

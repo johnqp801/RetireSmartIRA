@@ -145,6 +145,50 @@ struct Phase3bPresentationTests {
         #expect(label == AccountType.traditionalIRA.rawValue)
     }
 
+    // MARK: - Whole-branch review Fix 4: two more surfaces show the classified label
+
+    @MainActor
+    @Test("The PDF export's account table shows a classified 403(b)/457 as itself, not Traditional 401(k)")
+    func pdfAccountsSectionShowsClassifiedAccountLabel() {
+        let dm = DataManager(skipPersistence: true)
+        dm.iraAccounts = [
+            IRAAccount(name: "State 403(b)", accountType: .traditional401k, balance: 50_000,
+                       planStructure: .definedContribution, planSource: .governmentUnspecified)
+        ]
+        let data = PDFExportData(from: dm)
+        let html = PDFExportService.sectionAccounts(data)
+        #expect(html.contains("403(b) or 457 (Government Employer)"))
+        #expect(!html.contains(">Traditional 401(k)<"))
+    }
+
+    @MainActor
+    @Test("The PDF export's account table still shows Traditional 401(k) for an unclassified account")
+    func pdfAccountsSectionUnclassifiedAccountUnchanged() {
+        let dm = DataManager(skipPersistence: true)
+        dm.iraAccounts = [
+            IRAAccount(name: "401(k)", accountType: .traditional401k, balance: 50_000)
+        ]
+        let data = PDFExportData(from: dm)
+        let html = PDFExportService.sectionAccounts(data)
+        #expect(html.contains(">Traditional 401(k)<"))
+    }
+
+    @Test("The RMD calculator's account list shows a classified 403(b)/457 as itself, not Traditional 401(k)")
+    func rmdCalculatorShowsClassifiedAccountLabel() {
+        let account = IRAAccount(name: "State 403(b)", accountType: .traditional401k, balance: 50_000,
+                                  planStructure: .definedContribution, planSource: .governmentUnspecified)
+        let label = RMDCalculatorView.accountTypeLabel(for: account)
+        #expect(label == "403(b) or 457 (Government Employer)")
+        #expect(label != AccountType.traditional401k.rawValue)
+    }
+
+    @Test("The RMD calculator's account list still shows Traditional 401(k) for an unclassified account")
+    func rmdCalculatorUnclassifiedAccountUnchanged() {
+        let account = IRAAccount(name: "401(k)", accountType: .traditional401k, balance: 50_000)
+        let label = RMDCalculatorView.accountTypeLabel(for: account)
+        #expect(label == AccountType.traditional401k.rawValue)
+    }
+
     // MARK: - 3.7 The unclassified New York prompt
 
     private func pensionRow(source: PlanSource, structure: PlanStructure = .unknown) -> IncomeSource {
@@ -179,6 +223,96 @@ struct Phase3bPresentationTests {
     func residenceHasPerSourceRulesReflectsLiveConfig() {
         #expect(PlanClassificationChoice.residenceHasPerSourceRules(.newYork))
         #expect(!PlanClassificationChoice.residenceHasPerSourceRules(.california))
+    }
+
+    // MARK: - Whole-branch review Fix 2: two pension rows for one owner
+
+    @Test("A classified pension still prompts when its owner's other pension rows genuinely disagree")
+    func mixedPensionClassificationStillPrompts() {
+        let row = pensionRow(source: .nyStateOrLocal, structure: .definedBenefit)
+        #expect(PlanClassificationChoice.shouldPromptForClassification(
+            source: row, residenceHasPerSourceRules: true, hasMixedPensionClassification: true))
+    }
+
+    @Test("A classified pension does not prompt when hasMixedPensionClassification is left at its default")
+    func unmixedPensionClassificationDoesNotPromptByDefault() {
+        let row = pensionRow(source: .nyStateOrLocal, structure: .definedBenefit)
+        #expect(!PlanClassificationChoice.shouldPromptForClassification(source: row, residenceHasPerSourceRules: true))
+    }
+
+    @Test("Two pension rows for the same owner that AGREE are not a mix")
+    func agreeingPensionRowsAreNotAMix() {
+        let sources = [
+            pensionRow(source: .nyStateOrLocal, structure: .definedBenefit),
+            pensionRow(source: .nyStateOrLocal, structure: .definedBenefit),
+        ]
+        #expect(!PlanClassificationChoice.hasMixedPensionClassification(in: sources, owner: .primary))
+    }
+
+    @Test("Two pension rows for the same owner that DISAGREE are a genuine mix")
+    func disagreeingPensionRowsAreAMix() {
+        let sources = [
+            pensionRow(source: .nyStateOrLocal, structure: .definedBenefit),
+            pensionRow(source: .privateEmployer, structure: .definedBenefit),
+        ]
+        #expect(PlanClassificationChoice.hasMixedPensionClassification(in: sources, owner: .primary))
+    }
+
+    @Test("A single pension row, or zero pension rows, is never a mix")
+    func fewerThanTwoPensionRowsIsNeverAMix() {
+        #expect(!PlanClassificationChoice.hasMixedPensionClassification(
+            in: [pensionRow(source: .nyStateOrLocal, structure: .definedBenefit)], owner: .primary))
+        #expect(!PlanClassificationChoice.hasMixedPensionClassification(in: [], owner: .primary))
+    }
+
+    @Test("hasAnyMixedPensionClassification finds a mix regardless of which owner carries it")
+    func hasAnyMixedPensionClassificationChecksEveryOwner() {
+        let mixedForSpouse = [
+            IncomeSource(name: "Spouse Gov Pension", type: .pension, annualAmount: 30_000, owner: .spouse,
+                         planStructure: .definedBenefit, planSource: .nyStateOrLocal),
+            IncomeSource(name: "Spouse Private Pension", type: .pension, annualAmount: 20_000, owner: .spouse,
+                         planStructure: .definedBenefit, planSource: .privateEmployer),
+        ]
+        #expect(PlanClassificationChoice.hasAnyMixedPensionClassification(in: mixedForSpouse))
+
+        let agreeingForBoth = [
+            pensionRow(source: .nyStateOrLocal, structure: .definedBenefit),
+            IncomeSource(name: "Spouse Pension", type: .pension, annualAmount: 20_000, owner: .spouse,
+                         planStructure: .definedBenefit, planSource: .privateEmployer),
+        ]
+        #expect(!PlanClassificationChoice.hasAnyMixedPensionClassification(in: agreeingForBoth))
+    }
+
+    // MARK: - Whole-branch review Fix 3: hoisted save-time classification decision
+
+    @Test("A pension row's save carries the picker's chosen classification")
+    func pensionSaveCarriesChosenClassification() {
+        let choice = PlanClassificationChoice.nyGovernmentPension
+        #expect(PlanClassificationChoice.classificationToSave(incomeType: .pension, choice: choice) == choice.classification)
+    }
+
+    @Test("A non-pension row's save passes nil, regardless of the picker's leftover selection")
+    func nonPensionSavePassesNil() {
+        let choice = PlanClassificationChoice.nyGovernmentPension
+        #expect(PlanClassificationChoice.classificationToSave(incomeType: .consulting, choice: choice) == nil)
+        #expect(PlanClassificationChoice.classificationToSave(incomeType: .rmd, choice: choice) == nil)
+        #expect(PlanClassificationChoice.classificationToSave(incomeType: .socialSecurity, choice: choice) == nil)
+    }
+
+    @Test("An account whose type shows the picker saves the picker's chosen classification")
+    func accountSaveCarriesChosenClassificationWhenPickerShown() {
+        let choice = PlanClassificationChoice.employer401k
+        #expect(PlanClassificationChoice.classificationToSave(accountType: .traditional401k, choice: choice) == choice.classification)
+        #expect(PlanClassificationChoice.classificationToSave(accountType: .traditionalIRA, choice: choice) == choice.classification)
+    }
+
+    @Test("A Roth or inherited account's save passes nil, regardless of the picker's leftover selection")
+    func rothAndInheritedAccountSavePassesNil() {
+        let choice = PlanClassificationChoice.employer401k
+        for type in AccountType.allCases where type.isRothType || type.isInherited {
+            #expect(PlanClassificationChoice.classificationToSave(accountType: type, choice: choice) == nil,
+                     "AccountType.\(type) must not save a classification")
+        }
     }
 
     // MARK: - 3.7 The New York limitation wherever New York tax is computed
@@ -285,7 +419,8 @@ struct Phase3bPresentationTests {
     @Test("IncomeRow builds for an unclassified pension row with the prompt showing")
     func incomeRowBuildsWithPrompt() {
         let row = IncomeSourcesView.IncomeRow(
-            source: pensionRow(source: .unknown), residenceHasPerSourceRules: true)
+            source: pensionRow(source: .unknown), residenceHasPerSourceRules: true,
+            hasMixedPensionClassification: false)
         _ = row.body
         #expect(true)
     }

@@ -121,13 +121,68 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
 
     /// Whether a `.pension` income row should show the prominent "is this a
     /// government pension" prompt, spec section 3.7. Gated on the income
-    /// type (never `.rmd` or anything else), on the row still being
-    /// unclassified, and on the taxpayer's residence actually carrying a
-    /// per-source rule that could change the answer: prompting a resident
-    /// of a state with no per-source rules would be noise with no possible
-    /// effect on their tax.
-    static func shouldPromptForClassification(source: IncomeSource, residenceHasPerSourceRules: Bool) -> Bool {
-        source.type == .pension && source.planSource == .unknown && residenceHasPerSourceRules
+    /// type (never `.rmd` or anything else), on the taxpayer's residence
+    /// actually carrying a per-source rule that could change the answer
+    /// (prompting a resident of a state with no per-source rules would be
+    /// noise with no possible effect on their tax), and on EITHER the row
+    /// itself still being unclassified OR its owner's pension rows
+    /// genuinely disagreeing with each other (`hasMixedPensionClassification`,
+    /// default `false` for callers that have not computed it -- whole-branch
+    /// review Fix 2). A genuine mix has no `.unknown` row to trip the first
+    /// half of this check, so it needs its own gate: `nil` classification
+    /// with no `.unknown` row previously warned nobody.
+    static func shouldPromptForClassification(
+        source: IncomeSource, residenceHasPerSourceRules: Bool, hasMixedPensionClassification: Bool = false
+    ) -> Bool {
+        guard source.type == .pension, residenceHasPerSourceRules else { return false }
+        return source.planSource == .unknown || hasMixedPensionClassification
+    }
+
+    /// Whether `owner`'s `.pension` rows in `sources` disagree on
+    /// classification -- e.g. one New York government pension and one
+    /// private pension for the same person. Every row here IS classified
+    /// (no row has `.unknown` `planSource`), so the ordinary "unclassified
+    /// pension" checks above never catch it on their own. This is the
+    /// genuine-mix case `MultiYearInputAdapter.pensionClassification` falls
+    /// back to `nil` for (design doc section 3.4b); the disclosure surfaces
+    /// need this as a second, independent gate. Whole-branch review Fix 2.
+    static func hasMixedPensionClassification(in sources: [IncomeSource], owner: Owner) -> Bool {
+        let rows = sources.filter { $0.type == .pension && $0.owner == owner }
+        guard let first = rows.first else { return false }
+        return rows.dropFirst().contains {
+            $0.planStructure != first.planStructure || $0.planSource != first.planSource
+        }
+    }
+
+    /// Same as `hasMixedPensionClassification(in:owner:)`, across every
+    /// owner who has `.pension` income in `sources`. Used by disclosure
+    /// surfaces (State Comparison, the Multi-Year CPA briefing) that do not
+    /// distinguish primary from spouse. Whole-branch review Fix 2.
+    static func hasAnyMixedPensionClassification(in sources: [IncomeSource]) -> Bool {
+        let pensionOwners = Set(sources.filter { $0.type == .pension }.map(\.owner))
+        return pensionOwners.contains { hasMixedPensionClassification(in: sources, owner: $0) }
+    }
+
+    /// The classification to persist for a `.pension` income row's save,
+    /// hoisted out of `AddIncomeView.saveIncome()` (a private method on a
+    /// private view struct, per whole-branch review Fix 3) so a test can
+    /// pin both branches directly. Only `.pension` rows are ever classified
+    /// through this picker; every other `IncomeType` passes `nil` so
+    /// `IncomeSource.init`'s own inference stays in charge, exactly as
+    /// before this fix, and switching a row's type away from `.pension`
+    /// cannot leave a stray pension classification on unrelated income.
+    static func classificationToSave(incomeType: IncomeType, choice: PlanClassificationChoice) -> RetirementPlanClassification? {
+        incomeType == .pension ? choice.classification : nil
+    }
+
+    /// The classification to persist for an account's save, hoisted out of
+    /// `AddAccountView.saveAccount()` the same way (whole-branch review Fix
+    /// 3). `nil` whenever the picker would not have been shown for
+    /// `accountType` (Roth and inherited types), so `IRAAccount.init`'s own
+    /// inference stays in charge for those even if a future refactor stops
+    /// resetting the picker's selection on an account-type change.
+    static func classificationToSave(accountType: AccountType, choice: PlanClassificationChoice) -> RetirementPlanClassification? {
+        showsPickerFor(accountType: accountType) ? choice.classification : nil
     }
 
     /// Whether `state`'s configuration carries any per-source exemption
@@ -210,7 +265,12 @@ struct IncomeSourcesView: View {
                                 .padding(.bottom, 4)
                         }
                         ForEach(dataManager.incomeSources) { source in
-                            IncomeRow(source: source, residenceHasPerSourceRules: PlanClassificationChoice.residenceHasPerSourceRules(dataManager.selectedState))
+                            IncomeRow(
+                                source: source,
+                                residenceHasPerSourceRules: PlanClassificationChoice.residenceHasPerSourceRules(dataManager.selectedState),
+                                hasMixedPensionClassification: PlanClassificationChoice.hasMixedPensionClassification(
+                                    in: dataManager.incomeSources, owner: source.owner)
+                            )
                                 .onTapGesture {
                                     selectedIncomeSource = source
                                     showingAddIncome = true
@@ -697,6 +757,12 @@ struct IncomeSourcesView: View {
         /// caller (`PlanClassificationChoice.residenceHasPerSourceRules`)
         /// so this row stays a pure view over its inputs.
         let residenceHasPerSourceRules: Bool
+        /// Whole-branch review Fix 2: whether `source`'s owner has other
+        /// `.pension` rows that genuinely disagree with this one's
+        /// classification. Computed by the caller
+        /// (`PlanClassificationChoice.hasMixedPensionClassification`) so
+        /// this row stays a pure view over its inputs.
+        let hasMixedPensionClassification: Bool
 
         private var isManagedBySSPlanner: Bool {
             source.type == .socialSecurity && source.name.hasSuffix("(SS Planner)")
@@ -705,10 +771,13 @@ struct IncomeSourcesView: View {
         /// Spec section 3.7: a `.pension` row whose source is still
         /// unknown, in a state where classifying it could change the
         /// answer, shows a prominent prompt rather than a subtle optional
-        /// field.
+        /// field. Also shown (Fix 2) when the row IS classified but its
+        /// owner's other pension rows disagree, since the adapter silently
+        /// falls back to unclassified treatment in that case too.
         private var showsClassificationPrompt: Bool {
             PlanClassificationChoice.shouldPromptForClassification(
-                source: source, residenceHasPerSourceRules: residenceHasPerSourceRules)
+                source: source, residenceHasPerSourceRules: residenceHasPerSourceRules,
+                hasMixedPensionClassification: hasMixedPensionClassification)
         }
 
         var body: some View {
@@ -1254,14 +1323,17 @@ struct IncomeSourcesView: View {
                 }
             }
 
-            // Phase 3b Task 6: only a `.pension` row is classified through
+            // Phase 3b Task 6, hoisted to a testable static for whole-branch
+            // review Fix 3: only a `.pension` row is classified through
             // this picker. Passing `nil` for every other type leaves
             // `IncomeSource.init`'s own inference in charge (ira/individual
             // for `.rmd`, unknown/unknown otherwise), exactly as before this
             // task, so switching a row's type away from `.pension` cannot
-            // leave a stray pension classification on unrelated income.
-            let explicitStructure: PlanStructure? = incomeType == .pension ? planChoice.classification.structure : nil
-            let explicitSource: PlanSource? = incomeType == .pension ? planChoice.classification.source : nil
+            // leave a stray pension classification on unrelated income. See
+            // `PlanClassificationChoice.classificationToSave(incomeType:choice:)`.
+            let classificationToSave = PlanClassificationChoice.classificationToSave(incomeType: incomeType, choice: planChoice)
+            let explicitStructure = classificationToSave?.structure
+            let explicitSource = classificationToSave?.source
 
             if let existing = incomeToEdit,
                let index = dataManager.incomeSources.firstIndex(where: { $0.id == existing.id }) {

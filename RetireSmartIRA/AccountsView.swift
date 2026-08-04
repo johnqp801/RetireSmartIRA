@@ -309,7 +309,7 @@ struct AddAccountView: View {
                                 Text(choice.label).tag(choice)
                             }
                         }
-                        Text("Some states, including New York, tax government and private accounts differently. This affects your single-year Tax Summary and Scenarios. It does not yet affect the Multi-Year plan.")
+                        Text("This is recorded for a possible future state rule based on account type. It does not change any calculated tax today, anywhere in the app.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -571,6 +571,11 @@ struct AddAccountView: View {
         // this task (neither construction below passed planStructure /
         // planSource, so `IRAAccount.init`'s inference fallback ran on
         // every save, discarding any previously stored classification).
+        // Whole-branch review Fix 3: the decision itself is hoisted to a
+        // testable static, `PlanClassificationChoice.classificationToSave(
+        // accountType:choice:)`, rather than living only in this private
+        // method on a private view struct.
+        let classificationToSave = PlanClassificationChoice.classificationToSave(accountType: accountType, choice: planChoice)
         if let existingAccount = accountToEdit,
            let index = dataManager.iraAccounts.firstIndex(where: { $0.id == existingAccount.id }) {
             dataManager.iraAccounts[index] = IRAAccount(
@@ -586,8 +591,8 @@ struct AddAccountView: View {
                 decedentBirthYear: decedentBY,
                 beneficiaryBirthYear: beneficiaryBY,
                 minorChildMajorityYear: majorityYear,
-                planStructure: planChoice.classification.structure,
-                planSource: planChoice.classification.source
+                planStructure: classificationToSave?.structure,
+                planSource: classificationToSave?.source
             )
         } else {
             let newAccount = IRAAccount(
@@ -602,8 +607,8 @@ struct AddAccountView: View {
                 decedentBirthYear: decedentBY,
                 beneficiaryBirthYear: beneficiaryBY,
                 minorChildMajorityYear: majorityYear,
-                planStructure: planChoice.classification.structure,
-                planSource: planChoice.classification.source
+                planStructure: classificationToSave?.structure,
+                planSource: classificationToSave?.source
             )
             dataManager.iraAccounts.append(newAccount)
         }
