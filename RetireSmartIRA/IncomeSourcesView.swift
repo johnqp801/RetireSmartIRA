@@ -7,6 +7,139 @@
 
 import SwiftUI
 
+/// Phase 3b Task 6 (design doc section 3.2): the one flat list of
+/// plan-classification choices shown on `.pension` income rows and on
+/// traditional (non-Roth, non-inherited) accounts. Exact rows, order and
+/// two-dimension mappings per spec section 3.2 -- do not add, remove, or
+/// reorder without updating the spec. This is the ONLY place in the app a
+/// user sets `RetirementPlanClassification`.
+enum PlanClassificationChoice: String, CaseIterable, Identifiable {
+    case nyGovernmentPension
+    case federalCivilianPension
+    case otherStateGovernmentPension
+    case privateEmployerPension
+    case governmentSalaryReduction
+    case privateSalaryReduction
+    case employer401k
+    case ira
+    case notSure
+
+    var id: String { rawValue }
+
+    /// Plain-English row label, spec section 3.2 column 1, verbatim.
+    var label: String {
+        switch self {
+        case .nyGovernmentPension: return "Government pension, New York State or local"
+        case .federalCivilianPension: return "Government pension, federal civilian"
+        case .otherStateGovernmentPension: return "Government pension, another state or locality"
+        case .privateEmployerPension: return "Private employer pension"
+        case .governmentSalaryReduction: return "403(b) or 457, government employer"
+        case .privateSalaryReduction: return "403(b) or 457, private or nonprofit employer"
+        case .employer401k: return "Employer 401(k)"
+        case .ira: return "IRA"
+        case .notSure: return "Not sure"
+        }
+    }
+
+    /// The two-dimension classification this row writes, spec section 3.2
+    /// columns 2 and 3.
+    var classification: RetirementPlanClassification {
+        switch self {
+        case .nyGovernmentPension:
+            return RetirementPlanClassification(structure: .definedBenefit, source: .nyStateOrLocal)
+        case .federalCivilianPension:
+            return RetirementPlanClassification(structure: .definedBenefit, source: .federalCivilian)
+        case .otherStateGovernmentPension:
+            // The row that exists specifically to stop an out-of-state
+            // public pension from selecting New York's exclusion (spec
+            // section 3.2). Line 26 covers NYS, NY localities, named NY
+            // authorities and the US government only.
+            return RetirementPlanClassification(structure: .definedBenefit, source: .otherStateOrLocal)
+        case .privateEmployerPension:
+            return RetirementPlanClassification(structure: .definedBenefit, source: .privateEmployer)
+        case .governmentSalaryReduction:
+            return RetirementPlanClassification(structure: .definedContribution, source: .governmentUnspecified)
+        case .privateSalaryReduction, .employer401k:
+            // Deliberately identical (spec section 3.2): neither row
+            // affects any rule shipping in this phase, since New York
+            // excludes both by structure (definedContribution never
+            // matches Line 26). See `choice(for:)` below for the
+            // reverse-lookup consequence of this collision.
+            return RetirementPlanClassification(structure: .definedContribution, source: .privateEmployer)
+        case .ira:
+            return RetirementPlanClassification(structure: .ira, source: .individual)
+        case .notSure:
+            return RetirementPlanClassification(structure: .unknown, source: .unknown)
+        }
+    }
+
+    /// Reverse lookup, for pre-selecting the picker against an existing
+    /// classification when editing a row or account. `.employer401k` and
+    /// `.privateSalaryReduction` write the identical classification (see
+    /// above), so this is inherently ambiguous for that one pair. Resolved
+    /// in favor of `.employer401k`, the far more common case, via an
+    /// explicit priority list rather than `allCases`' declaration/display
+    /// order (which follows spec section 3.2 and lists the 403(b) row
+    /// first).
+    static func choice(for classification: RetirementPlanClassification) -> PlanClassificationChoice {
+        let priorityOrder: [PlanClassificationChoice] = [
+            .nyGovernmentPension, .federalCivilianPension, .otherStateGovernmentPension,
+            .privateEmployerPension, .governmentSalaryReduction, .employer401k,
+            .privateSalaryReduction, .ira, .notSure
+        ]
+        return priorityOrder.first(where: { $0.classification == classification }) ?? .notSure
+    }
+
+    /// Whether the picker should be offered at all for `accountType`. Roth
+    /// and inherited accounts get none, since no audited rule turns on
+    /// their plan kind (task 6 brief, step 1).
+    static func showsPickerFor(accountType: AccountType) -> Bool {
+        !accountType.isRothType && !accountType.isInherited
+    }
+
+    /// The label an account row or detail view should show in place of
+    /// `accountType.rawValue`, spec section 3.7 ("a classified 403(b) or
+    /// 457 displays as itself"). Only `(definedContribution,
+    /// governmentUnspecified)` is unambiguous: it is the one tuple no
+    /// `AccountType`'s default inference ever produces
+    /// (`RetirementPlanClassification.infer(accountType:)` never returns
+    /// `.governmentUnspecified`), so seeing it always means a user
+    /// explicitly picked "403(b) or 457, government employer." Every other
+    /// definedContribution/privateEmployer combination is what a plain,
+    /// never-classified 401(k) already infers to by default AND what
+    /// "Employer 401(k)" and "403(b) or 457, private or nonprofit employer"
+    /// both write (spec section 3.2), so it is indistinguishable without
+    /// persisting the literal picker choice, which is out of this task's
+    /// scope (the Account schema is frozen from Tasks 1 through 5). Those
+    /// cases fall back to `accountType.rawValue`, unchanged from today.
+    static func accountDisplayName(accountType: AccountType, planStructure: PlanStructure, planSource: PlanSource) -> String {
+        if planStructure == .definedContribution && planSource == .governmentUnspecified {
+            return "403(b) or 457 (Government Employer)"
+        }
+        return accountType.rawValue
+    }
+
+    /// Whether a `.pension` income row should show the prominent "is this a
+    /// government pension" prompt, spec section 3.7. Gated on the income
+    /// type (never `.rmd` or anything else), on the row still being
+    /// unclassified, and on the taxpayer's residence actually carrying a
+    /// per-source rule that could change the answer: prompting a resident
+    /// of a state with no per-source rules would be noise with no possible
+    /// effect on their tax.
+    static func shouldPromptForClassification(source: IncomeSource, residenceHasPerSourceRules: Bool) -> Bool {
+        source.type == .pension && source.planSource == .unknown && residenceHasPerSourceRules
+    }
+
+    /// Whether `state`'s configuration carries any per-source exemption
+    /// rule at all. Empty for every jurisdiction except New York today
+    /// (spec section 3.3). Reads the live config rather than hardcoding
+    /// "New York" so this stays correct the day a second jurisdiction
+    /// ships one.
+    static func residenceHasPerSourceRules(_ state: USState) -> Bool {
+        !StateTaxData.config(for: state).retirementExemptions.perSourceExemptions.isEmpty
+    }
+}
+
 struct IncomeSourcesView: View {
     @Environment(DataManager.self) var dataManager
     @State private var showingAddIncome = false
@@ -77,7 +210,7 @@ struct IncomeSourcesView: View {
                                 .padding(.bottom, 4)
                         }
                         ForEach(dataManager.incomeSources) { source in
-                            IncomeRow(source: source)
+                            IncomeRow(source: source, residenceHasPerSourceRules: PlanClassificationChoice.residenceHasPerSourceRules(dataManager.selectedState))
                                 .onTapGesture {
                                     selectedIncomeSource = source
                                     showingAddIncome = true
@@ -559,9 +692,23 @@ struct IncomeSourcesView: View {
 
     struct IncomeRow: View {
         let source: IncomeSource
+        /// Phase 3b Task 6: whether the taxpayer's residence carries a
+        /// per-source retirement exemption rule at all. Computed by the
+        /// caller (`PlanClassificationChoice.residenceHasPerSourceRules`)
+        /// so this row stays a pure view over its inputs.
+        let residenceHasPerSourceRules: Bool
 
         private var isManagedBySSPlanner: Bool {
             source.type == .socialSecurity && source.name.hasSuffix("(SS Planner)")
+        }
+
+        /// Spec section 3.7: a `.pension` row whose source is still
+        /// unknown, in a state where classifying it could change the
+        /// answer, shows a prominent prompt rather than a subtle optional
+        /// field.
+        private var showsClassificationPrompt: Bool {
+            PlanClassificationChoice.shouldPromptForClassification(
+                source: source, residenceHasPerSourceRules: residenceHasPerSourceRules)
         }
 
         var body: some View {
@@ -626,6 +773,21 @@ struct IncomeSourcesView: View {
                                 .fontWeight(.medium)
                         }
                     }
+                }
+
+                if showsClassificationPrompt {
+                    HStack(spacing: 6) {
+                        Image(systemName: "questionmark.circle.fill")
+                            .foregroundStyle(Color.Semantic.amber)
+                        Text("Is this a government pension? Tap to answer. It could change your state tax.")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.Semantic.amber)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.Semantic.amber.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
             .padding()
@@ -694,6 +856,10 @@ struct IncomeSourcesView: View {
         /// source type (no state W-4V), so it is read/written regardless of incomeType.
         @State private var stateWithholdingMode: FederalWithholdingMode
         @State private var stateWithholdingPercent: String
+        /// Phase 3b Task 6: the picker's current selection. Only consulted
+        /// when `incomeType == .pension` (see `saveIncome()`), so editing a
+        /// non-pension row is byte-for-byte unaffected by this field.
+        @State private var planChoice: PlanClassificationChoice
 
         init(incomeToEdit: IncomeSource? = nil) {
             self.incomeToEdit = incomeToEdit
@@ -737,6 +903,15 @@ struct IncomeSourcesView: View {
             } else {
                 _federalWithholdingMode = State(initialValue: .percent)
             }
+
+            // Phase 3b Task 6: pre-select the picker against the row's
+            // existing classification (unknown/unknown, i.e. "Not sure",
+            // for both a brand-new row and any pre-3b row that has never
+            // been classified).
+            let existingClassification = RetirementPlanClassification(
+                structure: incomeToEdit?.planStructure ?? .unknown,
+                source: incomeToEdit?.planSource ?? .unknown)
+            _planChoice = State(initialValue: PlanClassificationChoice.choice(for: existingClassification))
         }
 
         /// True when editing an existing Social Security source that has a
@@ -911,6 +1086,26 @@ struct IncomeSourcesView: View {
                         }
                     }
 
+                    if incomeType == .pension {
+                        Section("What kind of pension is this?") {
+                            Picker("Plan type", selection: $planChoice) {
+                                ForEach(PlanClassificationChoice.allCases) { choice in
+                                    Text(choice.label).tag(choice)
+                                }
+                            }
+                            Text("Some states, including New York, tax government and private pensions differently. Answering helps this app compute your state tax correctly.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            if dataManager.selectedState == .hawaii {
+                                Label("Hawaii excludes the employer-funded portion of a pension from state tax. This app does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.",
+                                      systemImage: "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
                     if incomeType == .stateTaxRefund {
                         Section("About State Tax Refunds") {
                             Text("If you itemized deductions last year and received a state tax refund, that refund is taxable as income on your federal return (tax benefit rule). If you took the standard deduction last year, the refund is not taxable and does not need to be entered here.")
@@ -1059,20 +1254,31 @@ struct IncomeSourcesView: View {
                 }
             }
 
+            // Phase 3b Task 6: only a `.pension` row is classified through
+            // this picker. Passing `nil` for every other type leaves
+            // `IncomeSource.init`'s own inference in charge (ira/individual
+            // for `.rmd`, unknown/unknown otherwise), exactly as before this
+            // task, so switching a row's type away from `.pension` cannot
+            // leave a stray pension classification on unrelated income.
+            let explicitStructure: PlanStructure? = incomeType == .pension ? planChoice.classification.structure : nil
+            let explicitSource: PlanSource? = incomeType == .pension ? planChoice.classification.source : nil
+
             if let existing = incomeToEdit,
                let index = dataManager.incomeSources.firstIndex(where: { $0.id == existing.id }) {
                 dataManager.incomeSources[index] = IncomeSource(
                     id: existing.id, name: name, type: incomeType,
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
                     ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
-                    stateWithholdingMode: stMode, stateWithholdingPercent: statePercent
+                    stateWithholdingMode: stMode, stateWithholdingPercent: statePercent,
+                    planStructure: explicitStructure, planSource: explicitSource
                 )
             } else {
                 dataManager.incomeSources.append(IncomeSource(
                     name: name, type: incomeType,
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
                     ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
-                    stateWithholdingMode: stMode, stateWithholdingPercent: statePercent
+                    stateWithholdingMode: stMode, stateWithholdingPercent: statePercent,
+                    planStructure: explicitStructure, planSource: explicitSource
                 ))
             }
             dataManager.saveAllData()

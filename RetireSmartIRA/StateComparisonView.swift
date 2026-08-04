@@ -9,6 +9,25 @@
 import SwiftUI
 import Charts
 
+/// Phase 3b Task 6 (design doc sections 3.4a and 3.7): pure predicate for
+/// whether the state-comparison detail sheet should show the "your New York
+/// number may be incomplete" limitation. New York tax is COMPUTED here
+/// whenever the sheet is showing New York's own breakdown, whether the
+/// viewer resides in New York (comparing their own number) or resides
+/// elsewhere and is comparing against New York (`StateComparisonView`
+/// computes every state's tax for a non-resident too), so this does not
+/// gate on residence, only on which state's breakdown is on screen.
+enum StateComparisonPresentation {
+    static func showsUnclassifiedNewYorkPensionLimitation(viewedState: USState, hasUnclassifiedPension: Bool) -> Bool {
+        viewedState == .newYork && hasUnclassifiedPension
+    }
+
+    /// The limitation's copy, shared by the single call site so the wording
+    /// cannot drift between two inline literals.
+    static let unclassifiedNewYorkPensionLimitationText =
+        "Your pension is not yet classified as government or private in Income Sources. New York excludes a qualifying government pension from state tax with no dollar cap, but this figure applies the standard $20,000 pension exclusion until it is classified."
+}
+
 struct StateComparisonView: View {
     @Environment(DataManager.self) var dataManager
     @State private var searchText = ""
@@ -31,7 +50,8 @@ struct StateComparisonView: View {
                 item: item,
                 breakdown: dataManager.stateTaxBreakdown(forState: item.state, filingStatus: dataManager.filingStatus),
                 currentStateBreakdown: dataManager.stateTaxBreakdown(forState: dataManager.selectedState, filingStatus: dataManager.filingStatus),
-                currentStateItem: currentStateItem
+                currentStateItem: currentStateItem,
+                hasUnclassifiedPension: hasUnclassifiedPension
             )
         }
     }
@@ -103,6 +123,15 @@ struct StateComparisonView: View {
     /// The current state's entry in the ranked list.
     private var currentStateItem: StateComparisonItem? {
         rankedStates.first { $0.isCurrentState }
+    }
+
+    /// Phase 3b Task 6 (design doc section 3.7): whether the household has
+    /// any `.pension` income row still unclassified. Drives the New York
+    /// limitation in `StateTaxDetailSheet`, wherever New York tax is
+    /// actually computed (both when New York is the residence and when a
+    /// non-resident is comparing against it).
+    private var hasUnclassifiedPension: Bool {
+        dataManager.incomeSources.contains { $0.type == .pension && $0.planSource == .unknown }
     }
 
     // MARK: - Header Card
@@ -534,14 +563,43 @@ private struct StateTaxDetailSheet: View {
     let breakdown: StateTaxBreakdown
     let currentStateBreakdown: StateTaxBreakdown
     let currentStateItem: StateComparisonItem?
+    /// Phase 3b Task 6: whether the household has an unclassified pension.
+    /// Drives `newYorkPensionLimitationBanner` below.
+    let hasUnclassifiedPension: Bool
 
     @Environment(\.dismiss) private var dismiss
+
+    /// Spec section 3.7 / task 6 brief step 3a: New York tax is COMPUTED
+    /// here whenever this sheet shows New York's own breakdown, whether the
+    /// viewer resides in New York or is a non-resident comparing against
+    /// it, so the number carries a visible limitation in both cases.
+    private var showsNewYorkPensionLimitation: Bool {
+        StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
+            viewedState: item.state, hasUnclassifiedPension: hasUnclassifiedPension)
+    }
+
+    @ViewBuilder
+    private var newYorkPensionLimitationBanner: some View {
+        if showsNewYorkPensionLimitation {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.Semantic.amber)
+                Text(StateComparisonPresentation.unclassifiedNewYorkPensionLimitationText)
+                    .font(.caption)
+                    .foregroundStyle(Color.Semantic.amber)
+            }
+            .padding()
+            .background(Color.Semantic.amber.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     stateHeaderSection
+                    newYorkPensionLimitationBanner
                     if item.state != currentStateBreakdown.state {
                         savingsHeadlineSection
                     }

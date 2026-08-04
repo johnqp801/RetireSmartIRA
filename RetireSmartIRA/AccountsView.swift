@@ -155,7 +155,8 @@ struct AccountRow: View {
                             .clipShape(Capsule())
                     }
                     
-                    Text(account.accountType.rawValue)
+                    Text(PlanClassificationChoice.accountDisplayName(
+                        accountType: account.accountType, planStructure: account.planStructure, planSource: account.planSource))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -236,6 +237,12 @@ struct AddAccountView: View {
     @State private var minorChildMajorityYear: String
     @State private var showBeneficiaryGuide = false
     @State private var showDeleteConfirmation = false
+    /// Phase 3b Task 6: the picker's current selection. Preserved across an
+    /// edit (initialized by reverse lookup from the account's existing
+    /// classification) rather than silently re-inferred every save, and
+    /// reset to the new type's default whenever `accountType` itself
+    /// changes (see the `.onChange` in `body`).
+    @State private var planChoice: PlanClassificationChoice
 
     init(accountToEdit: IRAAccount? = nil) {
         self.accountToEdit = accountToEdit
@@ -250,6 +257,14 @@ struct AddAccountView: View {
         _decedentBirthYear = State(initialValue: accountToEdit?.decedentBirthYear.map { String($0) } ?? "")
         _beneficiaryBirthYear = State(initialValue: accountToEdit?.beneficiaryBirthYear.map { String($0) } ?? "")
         _minorChildMajorityYear = State(initialValue: accountToEdit?.minorChildMajorityYear.map { String($0) } ?? "")
+
+        let initialClassification: RetirementPlanClassification
+        if let existing = accountToEdit {
+            initialClassification = RetirementPlanClassification(structure: existing.planStructure, source: existing.planSource)
+        } else {
+            initialClassification = RetirementPlanClassification.infer(accountType: .traditionalIRA)
+        }
+        _planChoice = State(initialValue: PlanClassificationChoice.choice(for: initialClassification))
     }
     
     var body: some View {
@@ -283,6 +298,28 @@ struct AddAccountView: View {
                             id: \.self
                         ) { option in
                             Text(option.rawValue).tag(option)
+                        }
+                    }
+                }
+
+                if PlanClassificationChoice.showsPickerFor(accountType: accountType) {
+                    Section("What kind of retirement account is this?") {
+                        Picker("Plan type", selection: $planChoice) {
+                            ForEach(PlanClassificationChoice.allCases) { choice in
+                                Text(choice.label).tag(choice)
+                            }
+                        }
+                        Text("Some states, including New York, tax government and private accounts differently. This affects your single-year Tax Summary and Scenarios. It does not yet affect the Multi-Year plan.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        let displayName = PlanClassificationChoice.accountDisplayName(
+                            accountType: accountType, planStructure: planChoice.classification.structure,
+                            planSource: planChoice.classification.source)
+                        if displayName != accountType.rawValue {
+                            Label("Classified as: \(displayName)", systemImage: "checkmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(Color.UI.brandTeal)
                         }
                     }
                 }
@@ -430,6 +467,16 @@ struct AddAccountView: View {
                 }
             }
             .dismissableKeyboard()
+            // Phase 3b Task 6: switching Account Type invalidates whatever
+            // plan classification was selected for the PREVIOUS type (e.g.
+            // "IRA" no longer describes an account just switched to
+            // Traditional 401(k)), so reset to the new type's own default
+            // rather than silently carrying a mismatched classification
+            // forward. A no-op when the account type doesn't actually
+            // change, including on first appearance.
+            .onChange(of: accountType) { _, newType in
+                planChoice = PlanClassificationChoice.choice(for: RetirementPlanClassification.infer(accountType: newType))
+            }
             .alert("Delete Account", isPresented: $showDeleteConfirmation) {
                 Button("Delete", role: .destructive) {
                     if let account = accountToEdit,
@@ -516,6 +563,14 @@ struct AddAccountView: View {
         let beneficiaryBY: Int? = accountType.isInherited ? Int(beneficiaryBirthYear) : nil
         let majorityYear: Int? = (accountType.isInherited && beneficiaryType == .minorChild) ? Int(minorChildMajorityYear) : nil
 
+        // Phase 3b Task 6: `planChoice` is preserved across an edit
+        // (initialized by reverse lookup from the existing account, see
+        // `init`), so passing it explicitly here PRESERVES an account's
+        // classification across a resave instead of silently re-inferring
+        // it from `accountType` every time, which is what happened before
+        // this task (neither construction below passed planStructure /
+        // planSource, so `IRAAccount.init`'s inference fallback ran on
+        // every save, discarding any previously stored classification).
         if let existingAccount = accountToEdit,
            let index = dataManager.iraAccounts.firstIndex(where: { $0.id == existingAccount.id }) {
             dataManager.iraAccounts[index] = IRAAccount(
@@ -530,7 +585,9 @@ struct AddAccountView: View {
                 yearOfInheritance: inheritedYear,
                 decedentBirthYear: decedentBY,
                 beneficiaryBirthYear: beneficiaryBY,
-                minorChildMajorityYear: majorityYear
+                minorChildMajorityYear: majorityYear,
+                planStructure: planChoice.classification.structure,
+                planSource: planChoice.classification.source
             )
         } else {
             let newAccount = IRAAccount(
@@ -544,7 +601,9 @@ struct AddAccountView: View {
                 yearOfInheritance: inheritedYear,
                 decedentBirthYear: decedentBY,
                 beneficiaryBirthYear: beneficiaryBY,
-                minorChildMajorityYear: majorityYear
+                minorChildMajorityYear: majorityYear,
+                planStructure: planChoice.classification.structure,
+                planSource: planChoice.classification.source
             )
             dataManager.iraAccounts.append(newAccount)
         }
