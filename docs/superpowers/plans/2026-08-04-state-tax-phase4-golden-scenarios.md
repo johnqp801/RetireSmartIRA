@@ -457,6 +457,10 @@ git -C /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase4 comm
 
 - [ ] **Step 2: Read the app's current config** at `RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-<XX>.json` so you know what the engine will do. Do NOT let it influence `expectedStateTax`. You are reading it to predict whether this fixture will need a `knownDefect` block, not to derive an answer.
 
+> **CARRIED FORWARD FROM THE TASK 3 REVIEW (2026-08-04): do not reuse one income template across a batch.** Task 3 wrote all eight jurisdictions against an identical set of four incomes ($40k pension; $120k; $90k MFJ; $150k MFJ), with the same ages throughout. That was defensible there, because no-tax states have no threshold for a case to sit either side of, and the batch's only job was proving the harness scales. **It stops being defensible from Task 4 onward.** Every state from here has brackets, deductions, thresholds or age gates, and a case that does not straddle one of them proves nothing about that state. Choose each state's four incomes from that state's own thresholds. If two states happen to share a figure, that should be because their statutes do, not because the file was copied.
+>
+> **The same review found the defect this phase is built to catch, so treat the citation step as the real work.** Wyoming's `source` cited "Slide 4" for text that sits on Slide 5 of the very PDF it links. The URL was right, the document was right, the quoted words were right, and a reader following the citation would still have found nothing supporting it. Naming a document is not citing it. Name the exact location and check that location.
+
 - [ ] **Step 3: Derive the four cases BY HAND from the form.** Show the arithmetic in the fixture's `source` string: which lines, which subtraction, which bracket. A reader must be able to re-derive your number from your citation without running the app. Honor the shape invariant: `federalAGI` equals the sum of its components.
 
 - [ ] **Step 4: Write the fixture file** with no `knownDefect` blocks yet.
