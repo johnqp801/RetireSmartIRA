@@ -107,7 +107,15 @@ struct RMDCalculatorView: View {
             primaryRmdAge: dataManager.rmdAge,
             spouseAge: dataManager.spouseCurrentAge,
             spouseRmdAge: dataManager.spouseRmdAge,
-            spouseName: dataManager.spouseName)
+            spouseName: dataManager.spouseName,
+            hasInheritedRMDs: hasInheritedRMDs,
+            firstRmdDeadlineYear: dataManager.currentYear + 1)
+    }
+
+    /// "1 year" rather than "1 years" for the two original single-person
+    /// countdown sentences below.
+    private func yearsPhrase(_ years: Int) -> String {
+        "\(years) \(years == 1 ? "year" : "years")"
     }
 
     private var statusCard: some View {
@@ -170,7 +178,7 @@ struct RMDCalculatorView: View {
             // person and that person's own trigger age. When the household
             // collapses to one person these are empty and the original
             // single-person branches below render untouched.
-            if !presentation.lines.isEmpty {
+            if presentation.sections.showsHouseholdLines {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(presentation.lines.indices, id: \.self) { index in
                         HStack {
@@ -183,7 +191,10 @@ struct RMDCalculatorView: View {
                 }
             }
 
-            if dataManager.isRMDRequired {
+            // The deadline block serves whoever is actually required, not the
+            // primary. In a household where only the spouse has reached her RMD
+            // age, she is the one with a December 31 deadline.
+            if presentation.sections.showsDeadlines {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Important Deadlines")
                         .font(.subheadline)
@@ -196,8 +207,10 @@ struct RMDCalculatorView: View {
                             .font(.callout)
                     }
 
-                    if dataManager.currentAge == dataManager.rmdAge {
-                        InlineHint("First RMD can be delayed until April 1 \(dataManager.currentYear + 1)")
+                    if !presentation.firstYearNotices.isEmpty {
+                        ForEach(presentation.firstYearNotices.indices, id: \.self) { index in
+                            InlineHint(presentation.firstYearNotices[index])
+                        }
 
                         Text("\u{26A0}\u{FE0F} Warning: Delaying means taking 2 RMDs in one year")
                             .font(.caption)
@@ -205,7 +218,7 @@ struct RMDCalculatorView: View {
                             .padding(.leading, 24)
                     }
                 }
-            } else if hasInheritedRMDs {
+            } else if presentation.sections.showsInheritedCountdown {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Image(systemName: "calendar")
@@ -213,18 +226,23 @@ struct RMDCalculatorView: View {
                         Text("Inherited IRA: \(dataManager.inheritedIRARMDTotal, format: .currency(code: "USD")) due by December 31")
                             .font(.callout)
                     }
-                    HStack {
-                        Image(systemName: "clock")
-                            .foregroundStyle(Color.UI.textPrimary)
-                        Text("Own IRA RMDs start in \(dataManager.yearsUntilRMD) years (age \(dataManager.rmdAge))")
-                            .font(.callout)
+                    // The household lines already say when each person's own
+                    // RMDs begin, so this primary-only sentence would repeat one
+                    // of them four lines further down the card.
+                    if !presentation.sections.showsHouseholdLines {
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundStyle(Color.UI.textPrimary)
+                            Text("Own IRA RMDs start in \(yearsPhrase(dataManager.yearsUntilRMD)) (age \(dataManager.rmdAge))")
+                                .font(.callout)
+                        }
                     }
                 }
-            } else if presentation.lines.isEmpty {
+            } else if presentation.sections.showsLegacyCountdown {
                 HStack {
                     Image(systemName: "clock")
                         .foregroundStyle(Color.UI.textPrimary)
-                    Text("RMDs start in \(dataManager.yearsUntilRMD) years")
+                    Text("RMDs start in \(yearsPhrase(dataManager.yearsUntilRMD))")
                         .font(.callout)
                 }
             }
