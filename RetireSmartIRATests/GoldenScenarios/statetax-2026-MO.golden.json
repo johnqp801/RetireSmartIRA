@@ -1,0 +1,73 @@
+{
+  "state": "MO",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, small private IRA withdrawal well under both the $6,000 cap and the income threshold: clean pass",
+      "source": "Form MO-A (2025), page 3, 'Part 3 - Pension and Social Security/Social Security Disability', 'Private Pension Calculation - Annuities, pensions, IRAs, and 401(k) plans funded by a private source.' Section B worksheet: Line 1 Missouri AGI, Line 2 taxable Social Security, Line 3 = Line1-Line2, Line 4 threshold ($25,000 single/head of household/qualifying widow(er), $32,000 married filing combined, $16,000 married filing separate), Line 5 = Line3-Line4 (floor $0), Line 6 taxable private pension/IRA/401(k) income, Line 7 = lesser of Line 6 or $6,000, Line 9 = Line 7 minus Line 5 (floor $0). Single filer, IRA withdrawal $5,000, no other income: Line3 = 5000-0 = 5000, well under the $25,000 threshold so Line5 = $0 (Line4 > Line3). Line7 = min(5000,6000) = 5000. Line9 = 5000-0 = 5000, i.e. the full $5,000 withdrawal is excluded. Missouri AGI = 5000-5000 = 0. Missouri conforms to the federal standard deduction (RSMo 143.131); 2026 single standard deduction is $16,100, which alone exceeds the $5,000 of income, so taxable income is $0 either before or after the exclusion. Tax = $0.",
+      "sourceURL": "https://dor.mo.gov/forms/MO-A_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 63,
+      "spouseAge": null,
+      "federalAGI": 5000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 5000,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "single, larger private IRA withdrawal: the $6,000 cap is fully phased out above the $25,000 income threshold",
+      "source": "Same Form MO-A Section B as above. Single filer, IRA withdrawal $50,000, no other income. Line3 = 50000-0 = 50000. Line4 (single threshold) = 25000. Line5 = 50000-25000 = 25000 (reduction). Line7 = min(50000,6000) = 6000 (the raw pre-reduction cap). Line9 = 6000-25000, Line5 exceeds Line8, per the form's own instruction ('If Line 5 is greater than Line 8, enter $0') the exclusion is $0. Missouri AGI = 50000 (fully taxable). Standard deduction (single, age 60, no 65+ addback) = $16,100. Missouri taxable income = 50000-16100 = 33900. Missouri's 2026 brackets (dor.mo.gov 2025 MO-1040 Instructions page 21 chart, escalated by the same year-over-year CPI adjustment MO applies annually -- 2026 thresholds of $1,348/$2,696/$4,044/$5,392/$6,740/$8,088/$9,436 at 2%/2.5%/3%/3.5%/4%/4.5%/4.7% are corroborated against the 2025 chart's $1,313/.../$9,191 progression and independently by multiple 2026-specific bracket calculators). Cumulative tax through the $9,436 top-bracket floor = 262.86 (sum of each $1,348-wide band's tax). Tax = 262.86 + 0.047*(33900-9436) = 262.86+1149.81 = $1,412.67.",
+      "sourceURL": "https://dor.mo.gov/forms/MO-A_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 50000,
+      "rothConversion": 0,
+      "expectedStateTax": 1412.67,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "StateTaxData.swift's MO config sets iraWithdrawalExemption to .full (unconditional), but Form MO-A Section B caps private pension/IRA/401(k) income at $6,000 per taxpayer, phased out dollar-for-dollar above $25,000 single / $32,000 MFJ Missouri AGI. This is not the public-pension cap the 2026-08-02 audit already flagged; it is a separate, unaudited gap that is directly on-point for this app's core IRA-withdrawal/Roth-conversion use case, and is expressible with the existing .partial(maxExempt:) + AGIPhaseout(.linear(perDollar: 1.0)) machinery already used elsewhere in this codebase.",
+        "observedToday": 0
+      }
+    },
+    {
+      "name": "MFJ, both spouses have public (government) pensions exceeding the maximum Social Security benefit cap",
+      "source": "Form MO-A (2025), page 3, 'Public Pension Calculation - Pensions received from any federal, state, or local government.' Section A worksheet: Line 2 = lesser of Line 1 (taxable public pension) or $47,633 (the 2025 maximum Social Security benefit printed on the 2025 form), Line 4 = Line2 minus Line3 (any Social Security deduction claimed, $0 here since taxableSocialSecurity is 0 in this fixture). The cap tracks the Social Security Administration's published maximum benefit for a worker retiring at full retirement age each year; for 2026 that figure is $4,152/month = $49,824/year (SSA's 2.8% COLA-adjusted 2026 figures, as reported by CNBC 10/31/2025 citing SSA data; ssa.gov itself returned 403 to both this fixture's research tooling, so this specific dollar figure is corroborated via that secondary report rather than opened directly -- see this batch's report for the full attestation). Primary (age 67) has $150,000 of public pension income: Line2 = min(150000,49824) = 49824, Line4 = 49824. Spouse (age 65) has $120,000 of public pension income: Line2 = min(120000,49824) = 49824, Line4 = 49824. Line5 total public pension = 49824+49824 = 99648. federalAGI = 270000. Missouri standard deduction (MFJ, both 65+: base $32,200 + $1,650 + $1,650 = $35,500; OBBBA senior bonus fully phased out at this income, MAGI $270,000 against the $150,000 MFJ phase-out start) = $35,500. Missouri taxable income before exclusion = 270000-35500 = 234500. Missouri AGI = 234500-99648 = 134852. Tax = 262.86+0.047*(134852-9436) = 262.86+5894.55 = $6,157.41.",
+      "sourceURL": "https://dor.mo.gov/forms/MO-A_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 67,
+      "spouseAge": 65,
+      "federalAGI": 270000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 270000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 6157.41,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "StateTaxData.swift's MO config sets pensionExemption to .full (unconditional), but Form MO-A Section A caps the public pension exemption at each individual's maximum Social Security benefit ($49,824 for 2026), reduced by any Social Security deduction claimed. This is the exact gap the 2026-08-02 audit already named for Missouri ('the public pension exemption is capped at each individual's maximum Social Security benefit, which is not modeled') and is being pinned here for the first time with a measured figure.",
+        "observedToday": 0
+      }
+    },
+    {
+      "name": "MFJ, only primary spouse has a small private IRA withdrawal; spouse still working",
+      "source": "Same Form MO-A Section B mechanics as the second scenario, but only the primary (age 66) has a $4,000 IRA withdrawal; the spouse (age 58, still working) has $20,000 of unrelated wage income and no retirement income of her own. Line3 = 24000-0 = 24000, under the $32,000 MFJ threshold, so Line4(32000) > Line3(24000) and Line5 = $0 (no reduction). Line7 = min(4000,6000) = 4000 (only the primary contributes; the spouse's column is $0). Line9 = 4000-0 = 4000, the full withdrawal is excluded. Missouri AGI = 24000-4000 = 20000. Standard deduction (MFJ, primary 66 qualifies for the $1,650 addback and the $6,000 OBBBA senior bonus at this income; spouse 58 does not) = 32200+1650+6000 = 39850, which alone exceeds the $24,000 of income. Taxable income = $0 either before or after the $4,000 exclusion. Tax = $0.",
+      "sourceURL": "https://dor.mo.gov/forms/MO-A_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 58,
+      "federalAGI": 24000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 4000,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 20000,
+      "expectedStateTax": 0
+    }
+  ]
+}

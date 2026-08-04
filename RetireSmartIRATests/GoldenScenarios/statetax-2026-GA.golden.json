@@ -1,0 +1,83 @@
+{
+  "state": "GA",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 60, below the 62 floor: no retirement income exclusion",
+      "source": "2025 IT-511 Individual Income Tax Instruction Booklet, page 21, 'Subtractions', item 1 'Retirement income': 'The maximum retirement income exclusion is $35,000 for taxpayers who are: A. 62 - 64 years of age, or B. less than 62 and permanently disabled...The maximum retirement income exclusion is $65,000 for taxpayers who are 65 years of age or older.' Age 60, not disabled, qualifies for neither tier, so the exclusion is $0. Single filer, pension income $20,000, federalAGI $20,000. Georgia standard deduction for TY2026 is $15,000 single (Georgia DOR, 'Important Tax Updates', dor.georgia.gov/taxes/important-tax-updates: 'The Georgia standard deduction has been increased to $15,000 for single taxpayers...or $30,000 for married taxpayers filing jointly'), effective retroactive to 01/01/2026 under HB 463 (Georgia Economic Growth and Tax Relief Act of 2026, signed by Governor Kemp May 2026; see this fixture's knownDefect note on the bill-number caveat). Georgia taxable income = 20000-15000-0 = 5000. Georgia's TY2026 flat rate is 4.99% (same DOR page: 'The Georgia income tax rate has been reduced to a flat rate of 4.99%.'), also effective retroactive to 01/01/2026 under HB 463. Tax = 5000*0.0499 = $249.50.",
+      "sourceURL": "https://dor.georgia.gov/taxes/important-tax-updates",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 20000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 249.50,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "StateTaxData.swift's GA config still carries the pre-HB463 rate (0.0539) and fixed standard deduction ($12,000/$24,000); Georgia's Economic Growth and Tax Relief Act of 2026 cut the rate to 4.99% and raised the standard deduction to $15,000/$30,000 retroactive to January 1, 2026, confirmed on Georgia DOR's own 'Important Tax Updates' page. The retirement-exclusion age/dollar mechanics the 2026-08-02 audit checked are unaffected and correct in every case in this file; only the rate and the deduction are stale.",
+        "observedToday": 431.20
+      }
+    },
+    {
+      "name": "single, age 66, above $65,000 cap: excess retirement income is taxed",
+      "source": "Same IT-511 page 21 tier as above; age 66 is 65+, exclusion cap $65,000. Single filer, pension income $100,000, federalAGI $100,000. Georgia taxable income before exemptions = 100000-15000 = 85000. Exclusion = min(100000,65000) = 65000. Georgia taxable income = 85000-65000 = 20000. Tax = 20000*0.0499 = $998.00.",
+      "sourceURL": "https://dor.georgia.gov/taxes/important-tax-updates",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 100000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 100000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 998.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same stale rate/deduction mechanism as the first scenario in this file; the $65,000 age-65+ exclusion cap and its correct application to this single filer are unaffected.",
+        "observedToday": 1239.70
+      }
+    },
+    {
+      "name": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+      "source": "dor.georgia.gov/retirement-income-exclusion (DOR page, dateModified 2026-01-21): 'For married couples filing joint returns with both members receiving retirement income, the maximum adjustment for that year may be up to twice the individual exclusion amount.' IT-511 page 21: 'The exclusion is available for the taxpayer and their spouse; however, each must qualify on a separate basis. If both spouses qualify, each spouse may claim the amounts above.' Primary (age 70) has $110,000 of pension income, spouse (age 68) has $90,000; both are 65+ so each independently qualifies for the $65,000 cap, combined maximum = $130,000. federalAGI = 200000. Georgia standard deduction MFJ 2026 = $30,000 (same DOR page as above). Georgia taxable income before exemptions = 200000-30000 = 170000. Exclusion = min(200000, 65000*2) = 130000. Georgia taxable income = 170000-130000 = 40000. Tax = 40000*0.0499 = $1,996.00. StateTaxData.swift's GA config already sets exemptionAppliesPerIndividual: true and pensionAndIRAShareSingleCap: true, so the ENGINE correctly doubles this household's cap -- this case is a clean pass on the retirement-exclusion mechanic itself; the only defect present is the same stale rate/deduction from the two scenarios above.",
+      "sourceURL": "https://dor.georgia.gov/retirement-income-exclusion",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 68,
+      "federalAGI": 200000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 200000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1996.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same stale rate/deduction mechanism as the first scenario in this file. The per-individual doubling this case exercises (exemptionAppliesPerIndividual, pensionAndIRAShareSingleCap) is correctly configured and produces the right $130,000 combined cap -- unlike Colorado and Kentucky in this same batch, Georgia's MFJ attribution is not broken.",
+        "observedToday": 2479.40
+      }
+    },
+    {
+      "name": "MFJ, only primary spouse qualifies (65+ with pension); spouse is 55 and still working",
+      "source": "Same GA mechanics as above, but only the primary (age 66) has $70,000 of pension income and qualifies (65+); the spouse (age 55) is below the 62-64 disabled-or-tiered floor and has $50,000 of unrelated wage income, no pension of her own. Because the spouse does not independently qualify, the doubling in the previous case does not apply here (IT-511: 'each must qualify on a separate basis'), and there is no second pool of retirement income to double regardless. Exclusion = min(70000,65000) = 65000. federalAGI = 120000. Georgia taxable income before exemptions = 120000-30000 = 90000. Georgia taxable income = 90000-65000 = 25000. Tax = 25000*0.0499 = $1,247.50.",
+      "sourceURL": "https://dor.georgia.gov/retirement-income-exclusion",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 55,
+      "federalAGI": 120000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 70000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 50000,
+      "expectedStateTax": 1247.50,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same stale rate/deduction mechanism as the first scenario in this file; the single-qualifying-spouse exclusion mechanic is correctly configured and unaffected.",
+        "observedToday": 1670.90
+      }
+    }
+  ]
+}

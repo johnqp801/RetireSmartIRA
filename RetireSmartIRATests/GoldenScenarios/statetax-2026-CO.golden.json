@@ -1,0 +1,68 @@
+{
+  "state": "CO",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 50, below the 55 floor: no pension subtraction at all",
+      "source": "Colorado DR 0104 income tax booklet (Book104_2025.pdf, 09/15/25 revision), 'Instructions for the DR 0104AD', page 19, 'Line 4 Pension and Annuity Subtraction': the subtraction tiers are 'Age 65 or older, then you may subtract $24,000 minus any amount entered on line 3... At least 55 years old, but not yet 65, then you may subtract $20,000...'. A taxpayer younger than 55 who is not a secondary beneficiary of a deceased person's pension gets none of the three bullet points on that page, so the DR 0104AD Line 4 subtraction is $0. State starts from Federal Taxable Income (DR 0104AD instructions, page 18: 'these subtractions will change your Colorado Taxable Income from the amount of Federal Taxable Income'). Federal taxable income = 18000 AGI - 16100 (2026 single standard deduction, no age addback under 65) = 1900. Colorado taxable income = 1900 - 0 = 1900. Tax at the flat 4.4% rate (Book104_2025.pdf page 34, '2025 Colorado Income Tax Table with tax rate of 4.4%'; no 2026-specific TABOR rate reduction has been announced for tax year 2026 as of this fixture's authoring, so the C.R.S. 39-22-104(1.7) statutory base rate of 4.4% applies) = 1900 * 0.044 = $83.60.",
+      "sourceURL": "https://tax.colorado.gov/sites/tax/files/documents/Book104_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 18000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 18000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 83.60
+    },
+    {
+      "name": "single, age 70, above $24,000 cap: excess pension is taxed",
+      "source": "Same booklet and page as above. Age 70 is 65+, so the DR 0104AD Line 4 subtraction is 'the total amount of your taxable pension/annuity income, whichever is smaller' against $24,000 (no Line 3 Social Security entered here, so nothing reduces the $24,000). Federal taxable income: 2026 single standard deduction $16,100, plus age-65 addition $2,050 (TaxYearConfig.additionalDeduction65Single), plus the OBBBA senior bonus (IRC sec. 151(d)(5)(B), 2025-2028): at MAGI $80,000 against the $75,000 single phase-out start, the $6,000 bonus is reduced by 6% of the $5,000 excess = $300, leaving $5,700. Total federal deduction = 16100+2050+5700 = 23850. Federal taxable income = 80000-23850 = 56150. Colorado subtraction = min($24,000, $80,000 pension) = 24000. Colorado taxable income = 56150-24000 = 32150. Tax = 32150 * 0.044 = $1,414.60.",
+      "sourceURL": "https://tax.colorado.gov/sites/tax/files/documents/Book104_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 80000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1414.60
+    },
+    {
+      "name": "MFJ, both spouses 65+ with their own pension income: DR 0104AD Lines 4 and 6 are two separate $24,000 caps, not one household cap",
+      "source": "DR 0104AD instructions page 19: Line 4 (primary) and Line 6 (spouse) are computed and claimed separately -- 'Pension/annuity income should not be intermingled between spouses. Each spouse must meet the requirements for the subtraction separately and claim the subtraction only on their pension/annuity income.' Primary (age 68) has $60,000 of own pension income: Line 4 = min(24000, 60000) = 24000. Spouse (age 66) has $55,000 of own pension income: Line 6 = min(24000, 55000) = 24000. Combined DR 0104AD subtraction = 24000+24000 = 48000. Federal taxable income: MFJ 2026 standard deduction $32,200, plus $1,650 age-65 addition for EACH spouse (TaxYearConfig.additionalDeduction65MFJ, both qualify) = 32200+1650+1650 = 35500; OBBBA senior bonus at MAGI $115,000 against the $150,000 MFJ phase-out start is unreduced, $6,000 per qualifying senior x 2 = 12000. Total federal deduction = 35500+12000 = 47500. Federal taxable income = 115000-47500 = 67500. Colorado taxable income = 67500-48000 = 19500. Tax = 19500*0.044 = $858.00. The engine pools both spouses' pension income into ONE subtraction, capped once at $24,000 (StateTaxData.swift's CO config carries no exemptionAppliesPerIndividual/exemptionAttribution override, so both default to household/false), so it will materially overtax this household.",
+      "sourceURL": "https://tax.colorado.gov/sites/tax/files/documents/Book104_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 66,
+      "federalAGI": 115000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 115000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 858.00,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "CO's config has no exemptionAppliesPerIndividual/exemptionAttribution override so the engine pools both spouses' pension income and applies ONE $24,000 household cap, when DR 0104AD Lines 4 and 6 are two separately-computed $24,000 caps (one per spouse, per that spouse's own age) per the instructions' explicit 'do not intermingle' rule.",
+        "observedToday": 1914.00
+      }
+    },
+    {
+      "name": "MFJ, only primary spouse has pension income: single-pool cap and per-spouse cap agree, no defect",
+      "source": "Same DR 0104AD mechanics as above, but only the primary (age 67) has $50,000 of pension income; the spouse (age 60, not yet 65, still working) has $40,000 of unrelated wage income and no pension of her own. Line 4 = min(24000,50000) = 24000. Line 6 = 0 (spouse has no pension income to enter). Combined subtraction = 24000, identical to what a single pooled cap would also produce since only one spouse contributes to the pool. Federal taxable income: MFJ standard deduction $32,200, plus $1,650 age-65 addition for the primary only (spouse is 60, no addback) = 33850; OBBBA senior bonus: only the primary qualifies (1 qualifying senior), MAGI $90,000 is below the $150,000 MFJ phase-out start, bonus = $6,000. Total federal deduction = 33850+6000 = 39850. Federal taxable income = 90000-39850 = 50150. Colorado taxable income = 50150-24000 = 26150. Tax = 26150*0.044 = $1,150.60. This case is the contrast to the previous one: the per-individual attribution defect only bites when BOTH spouses actually have their own qualifying pension income.",
+      "sourceURL": "https://tax.colorado.gov/sites/tax/files/documents/Book104_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 67,
+      "spouseAge": 60,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 40000,
+      "expectedStateTax": 1150.60
+    }
+  ]
+}
