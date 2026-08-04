@@ -89,8 +89,34 @@ struct RMDCalculatorView: View {
         dataManager.inheritedIRARMDTotal > 0
     }
 
+    /// Whether either person has reached RMD age, and who gets there first.
+    /// All the logic lives in the pure type; this only supplies the inputs.
+    private var rmdHouseholdStatus: RMDHouseholdStatus {
+        RMDHouseholdStatus.resolve(
+            primaryAge: dataManager.currentAge,
+            primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: dataManager.enableSpouse,
+            spouseAge: dataManager.spouseCurrentAge,
+            spouseRmdAge: dataManager.spouseRmdAge)
+    }
+
+    private var rmdStatusPresentation: RMDStatusPresentation {
+        RMDStatusPresentation.build(
+            status: rmdHouseholdStatus,
+            primaryAge: dataManager.currentAge,
+            primaryRmdAge: dataManager.rmdAge,
+            spouseAge: dataManager.spouseCurrentAge,
+            spouseRmdAge: dataManager.spouseRmdAge,
+            spouseName: dataManager.spouseName)
+    }
+
     private var statusCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        // Resolved once so the badge, the headline number and the lines can
+        // never disagree with one another.
+        let status = rmdHouseholdStatus
+        let presentation = rmdStatusPresentation
+
+        return VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
@@ -99,11 +125,11 @@ struct RMDCalculatorView: View {
                         TabPurposeChip(purpose: .analysis)
                     }
 
-                    if dataManager.isRMDRequired {
+                    if status.anyoneRequired {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(Color.Semantic.amber)
-                            Text("RMDs Required")
+                            Text(presentation.badge)
                                 .font(.title3)
                                 .fontWeight(.semibold)
                         }
@@ -119,7 +145,7 @@ struct RMDCalculatorView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(Color.UI.textPrimary)
-                            Text("Not Yet Required")
+                            Text(presentation.badge)
                                 .font(.title3)
                                 .fontWeight(.semibold)
                         }
@@ -129,16 +155,33 @@ struct RMDCalculatorView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("RMD Age")
+                    Text(presentation.ageTitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text("\(dataManager.rmdAge)")
+                    Text(presentation.ageValue)
                         .font(.largeTitle)
                         .fontWeight(.bold)
                 }
             }
 
             Divider()
+
+            // Two people on different RMD clocks get a line each, naming the
+            // person and that person's own trigger age. When the household
+            // collapses to one person these are empty and the original
+            // single-person branches below render untouched.
+            if !presentation.lines.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(presentation.lines.indices, id: \.self) { index in
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundStyle(Color.UI.textPrimary)
+                            Text(presentation.lines[index])
+                                .font(.callout)
+                        }
+                    }
+                }
+            }
 
             if dataManager.isRMDRequired {
                 VStack(alignment: .leading, spacing: 12) {
@@ -177,7 +220,7 @@ struct RMDCalculatorView: View {
                             .font(.callout)
                     }
                 }
-            } else {
+            } else if presentation.lines.isEmpty {
                 HStack {
                     Image(systemName: "clock")
                         .foregroundStyle(Color.UI.textPrimary)
