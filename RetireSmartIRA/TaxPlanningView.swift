@@ -234,6 +234,24 @@ struct TaxPlanningView: View {
         || (spouseEnabled && !dataManager.spouseIsRMDRequired && dataManager.spouseTraditionalIRABalance > 0)
     }
 
+    /// What the opportunity-window lines say. The gates above still decide who
+    /// gets a line; this decides the wording, so the card cannot promise an
+    /// open conversion window that the Legacy tab already knows is closed.
+    private var conversionWindow: RMDStatusPresentation.ConversionWindow {
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: dataManager.currentAge,
+            primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: dataManager.enableSpouse,
+            spouseAge: dataManager.spouseCurrentAge,
+            spouseRmdAge: dataManager.spouseRmdAge)
+        return RMDStatusPresentation.conversionWindow(
+            status: status,
+            primaryAge: dataManager.currentAge, primaryRmdAge: dataManager.rmdAge,
+            spouseEnabled: dataManager.enableSpouse,
+            spouseAge: dataManager.spouseCurrentAge, spouseRmdAge: dataManager.spouseRmdAge,
+            spouseName: dataManager.spouseName)
+    }
+
     // MARK: - Scenario analysis (live bracket/rate tracking)
 
     private var scenarioAnalysis: ScenarioTaxAnalysis? {
@@ -936,13 +954,19 @@ struct TaxPlanningView: View {
                 }
 
                 if !dataManager.isRMDRequired && dataManager.primaryTraditionalIRABalance > 0 {
-                    Text("You have \(dataManager.yearsUntilRMD) years before RMDs start. This is an ideal time for Roth conversions while potentially in a lower tax bracket.")
+                    Text(conversionWindow.primarySentence)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
 
                 if spouseEnabled && !dataManager.spouseIsRMDRequired && dataManager.spouseTraditionalIRABalance > 0 {
-                    Text("\(spouseLabel) has \(dataManager.spouseYearsUntilRMD) years before RMDs start.")
+                    Text(conversionWindow.spouseSentence)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let alreadyBegun = conversionWindow.alreadyBegunSentence {
+                    Text(alreadyBegun)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

@@ -439,4 +439,129 @@ struct RMDStatusPresentationTests {
             }
         }
     }
+
+    // MARK: - Conversion Opportunity Window
+
+    /// Mirrors what the Scenario Builder does: resolve the household, then ask
+    /// for the window sentences.
+    private func window(
+        primaryAge: Int, primaryRmdAge: Int,
+        spouseEnabled: Bool, spouseAge: Int, spouseRmdAge: Int,
+        spouseName: String = ""
+    ) -> RMDStatusPresentation.ConversionWindow {
+        let status = RMDHouseholdStatus.resolve(
+            primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+            spouseEnabled: spouseEnabled, spouseAge: spouseAge, spouseRmdAge: spouseRmdAge)
+        return RMDStatusPresentation.conversionWindow(
+            status: status,
+            primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+            spouseEnabled: spouseEnabled,
+            spouseAge: spouseAge, spouseRmdAge: spouseRmdAge,
+            spouseName: spouseName)
+    }
+
+    @Test("A spouse already taking RMDs ends the card's ideal-time promise")
+    func requiredSpouseDropsTheIdealTimeAdvice() {
+        // Seen in the running app: primary 66 with RMD age 75, Karen 73 and
+        // already required, owing $33,962 by December 31. The card still read
+        // "This is an ideal time for Roth conversions" while the Legacy tab,
+        // looking at the same household, printed nothing at all.
+        let w = window(
+            primaryAge: 66, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 73, spouseRmdAge: 73,
+            spouseName: "Karen")
+
+        #expect(!w.primarySentence.contains("ideal time"))
+        #expect(w.primarySentence == "You have 9 years before your own RMDs start.")
+        #expect(w.alreadyBegunSentence == "Karen's RMDs have already begun, so part of your lower brackets is already in use.")
+    }
+
+    @Test("A couple with nobody required keeps today's wording exactly")
+    func nobodyRequiredCoupleWordingIsUnchanged() {
+        // Hard compatibility pin: this is the household the advice was written
+        // for, and its strings must not move by a single byte.
+        let w = window(
+            primaryAge: 64, primaryRmdAge: 73,
+            spouseEnabled: true, spouseAge: 60, spouseRmdAge: 75,
+            spouseName: "Karen")
+
+        #expect(w.primarySentence == "You have 9 years before RMDs start. This is an ideal time for Roth conversions while potentially in a lower tax bracket.")
+        #expect(w.spouseSentence == "Karen has 15 years before RMDs start.")
+        #expect(w.alreadyBegunSentence == nil)
+    }
+
+    @Test("A single filer with nobody required keeps today's wording exactly")
+    func nobodyRequiredSingleFilerWordingIsUnchanged() {
+        let w = window(
+            primaryAge: 64, primaryRmdAge: 73,
+            spouseEnabled: false, spouseAge: 0, spouseRmdAge: 0)
+
+        #expect(w.primarySentence == "You have 9 years before RMDs start. This is an ideal time for Roth conversions while potentially in a lower tax bracket.")
+        #expect(w.alreadyBegunSentence == nil)
+    }
+
+    @Test("When the primary is the required one, the household line says Your")
+    func requiredPrimaryNamesTheUser() {
+        // The mirror of the household above. Attributing this line to the
+        // primary by default would pass the case above for the wrong reason,
+        // so the two directions are pinned separately.
+        let w = window(
+            primaryAge: 75, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 66, spouseRmdAge: 73,
+            spouseName: "Karen")
+
+        #expect(w.spouseSentence == "Karen has 7 years before Karen's own RMDs start.")
+        #expect(!w.spouseSentence.contains("ideal time"))
+        #expect(w.alreadyBegunSentence == "Your RMDs have already begun, so part of your lower brackets is already in use.")
+    }
+
+    @Test("A nameless spouse is called Your spouse's in the already-begun line")
+    func namelessSpousePossessive() {
+        let w = window(
+            primaryAge: 66, primaryRmdAge: 75,
+            spouseEnabled: true, spouseAge: 73, spouseRmdAge: 73,
+            spouseName: "")
+
+        #expect(w.alreadyBegunSentence == "Your spouse's RMDs have already begun, so part of your lower brackets is already in use.")
+    }
+
+    @Test("The window never promises an ideal time once the Legacy tab has gone silent")
+    func windowAgreesWithTheLegacyGapSentence() {
+        // The exact contradiction seen on screen: `conversionGapSentence` is
+        // nil for a required household, yet the Scenario Builder kept printing
+        // the advice. Pin the agreement between the two surfaces directly.
+        for primaryAge in [55, 64, 66, 70, 73, 75, 85] {
+            for primaryRmdAge in [73, 75] {
+                for spouseAge in [55, 60, 66, 70, 73, 85] {
+                    for spouseRmdAge in [73, 75] {
+                        for spouseEnabled in [true, false] {
+                            let p = build(
+                                primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+                                spouseEnabled: spouseEnabled,
+                                spouseAge: spouseAge, spouseRmdAge: spouseRmdAge,
+                                spouseName: "Karen")
+                            guard p.conversionGapSentence == nil,
+                                  RMDHouseholdStatus.resolve(
+                                    primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+                                    spouseEnabled: spouseEnabled,
+                                    spouseAge: spouseAge, spouseRmdAge: spouseRmdAge
+                                  ).anyoneRequired
+                            else { continue }
+
+                            let w = window(
+                                primaryAge: primaryAge, primaryRmdAge: primaryRmdAge,
+                                spouseEnabled: spouseEnabled,
+                                spouseAge: spouseAge, spouseRmdAge: spouseRmdAge,
+                                spouseName: "Karen")
+                            #expect(!w.primarySentence.contains("ideal time"))
+                            #expect(!w.spouseSentence.contains("ideal time"))
+                            #expect(!(w.alreadyBegunSentence ?? "").contains("ideal time"))
+                            // Somebody is required, so the card must say so.
+                            #expect(w.alreadyBegunSentence != nil)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

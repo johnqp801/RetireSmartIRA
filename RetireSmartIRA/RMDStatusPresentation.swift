@@ -81,6 +81,84 @@ struct RMDStatusPresentation: Equatable {
         let isAlert: Bool
     }
 
+    /// The Scenario Builder's "Conversion Opportunity Window" sentences.
+    ///
+    /// The card promised "an ideal time for Roth conversions" off the primary's
+    /// countdown alone, so a household whose spouse was already taking RMDs
+    /// read that promise on one tab while the Legacy tab, looking at the same
+    /// household, printed nothing at all because `conversionGapSentence` is nil
+    /// once anyone is required. Two screens contradicting each other about one
+    /// household is why these sentences live here.
+    ///
+    /// The per-person visibility gates stay in the view: they decide WHETHER a
+    /// person's line shows. This decides only WHAT each line says.
+    struct ConversionWindow: Equatable {
+        /// The primary's line, shown when the primary is not yet required and
+        /// holds a traditional balance.
+        let primarySentence: String
+        /// The spouse's line, under the equivalent per-person gate.
+        let spouseSentence: String
+        /// One household line naming whoever has already begun, or nil when
+        /// nobody has. It is what stops the card reading as an open window.
+        let alreadyBegunSentence: String?
+    }
+
+    /// Builds the opportunity-window sentences for the household.
+    ///
+    /// `spouseName` is the RAW name, not the view's display label, because the
+    /// possessive form of a nameless spouse ("Your spouse's") differs from the
+    /// subject form ("Spouse").
+    static func conversionWindow(
+        status: RMDHouseholdStatus,
+        primaryAge: Int, primaryRmdAge: Int,
+        spouseEnabled: Bool, spouseAge: Int, spouseRmdAge: Int,
+        spouseName: String
+    ) -> ConversionWindow {
+        // These reproduce `yearsUntilRMD` / `spouseYearsUntilRMD` exactly, so
+        // the nobody-is-required wording below stays byte-for-byte what the
+        // view printed before, for every single filer and every couple still
+        // ahead of their RMDs.
+        let primaryYears = max(0, primaryRmdAge - primaryAge)
+        let spouseYears = max(0, spouseRmdAge - spouseAge)
+        // The view's own fallback for a nameless spouse, kept identical.
+        let spouseLabel = spouseName.isEmpty ? "Spouse" : spouseName
+
+        guard status.anyoneRequired else {
+            return ConversionWindow(
+                primarySentence: "You have \(primaryYears) years before RMDs start. This is an ideal time for Roth conversions while potentially in a lower tax bracket.",
+                spouseSentence: "\(spouseLabel) has \(spouseYears) years before RMDs start.",
+                alreadyBegunSentence: nil)
+        }
+
+        // Someone's RMDs are already consuming the low brackets the advice
+        // pointed at, so the advice clause comes off and each remaining line
+        // states only what is true of that person.
+        let primaryRequired = primaryAge >= primaryRmdAge
+        let spouseRequired = spouseEnabled && spouseAge >= spouseRmdAge
+        let spousePossessive = spouseName.isEmpty ? "Your spouse's" : "\(spouseName)'s"
+        let alreadyBegunTail = "RMDs have already begun, so part of your lower brackets is already in use."
+
+        // The subject follows whoever is actually required, never the primary
+        // by default: naming the wrong person here is the same misattribution
+        // this type was created to end.
+        let alreadyBegun: String?
+        switch (primaryRequired, spouseRequired) {
+        case (true, true):
+            alreadyBegun = "Your RMDs and \(spousePossessive) \(alreadyBegunTail)"
+        case (true, false):
+            alreadyBegun = "Your \(alreadyBegunTail)"
+        case (false, true):
+            alreadyBegun = "\(spousePossessive) \(alreadyBegunTail)"
+        case (false, false):
+            alreadyBegun = nil
+        }
+
+        return ConversionWindow(
+            primarySentence: "You have \(primaryYears) years before your own RMDs start.",
+            spouseSentence: "\(spouseLabel) has \(spouseYears) years before \(spouseLabel)'s own RMDs start.",
+            alreadyBegunSentence: alreadyBegun)
+    }
+
     /// The label for a figure that already sums both people's RMDs.
     ///
     /// The collapsed Scenarios card called the combined figure "Required RMD"
