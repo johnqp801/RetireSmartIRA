@@ -201,3 +201,25 @@ Task 5: complete (commit b174ccb). PER-TASK REVIEW DEFERRED to the Task 7 whole-
   AccountSnapshot deliberately NOT widened, per spec 3.4b: account classification affects the
   single-year calculation and NOT the projection. No shipping rule depends on it, so no number is
   wrong, but it must be disclosed in Task 6 rather than discovered.
+
+Task 6: complete (commit 3fa5320). THE TASK THAT MAKES THE PHASE REACHABLE. 33 new tests.
+  Suite 1,738 ST in 285 suites + 503 XCTest. Baseline byte-identical, I2 pins held.
+  Mutations that discriminated: the out-of-state-pension picker mapping (flipping it to select New
+  York's exclusion failed 4 tests including the named regression test), and the New York prompt's
+  residence gate.
+
+  ** LATENT BUG FOUND AND FIXED AS A SIDE EFFECT: neither Add Income nor Add Account passed the
+     classification on save, so ANY edit to a classified row would have silently wiped it back to
+     the inferred default. A user would classify a pension, edit its amount later, and quietly lose
+     the classification along with the correct tax treatment. **
+
+  Honest scope reporting worth crediting: MultiYearCPABriefing.swift was audited and has NO
+  per-account display surface at all, so deliverable 2 had nothing to fix there rather than being
+  quietly skipped.
+
+  ** OPEN, AND IT AFFECTS THE STEVE PROMISE: two OTHER surfaces still render
+     account.accountType.rawValue and will print "Traditional 401(k)" over a classified 403(b):
+     PDFExportService.swift and RMDCalculatorView.swift. Outside Task 6's four-file scope and
+     correctly flagged rather than silently expanded. Steve was told his 403(b) would show as
+     itself; if he classifies one and exports a PDF he still sees 401(k). Fix before the release
+     that carries the promise. **
