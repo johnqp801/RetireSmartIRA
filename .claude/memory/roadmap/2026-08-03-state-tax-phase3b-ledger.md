@@ -187,3 +187,17 @@ Task 4: complete (commits bbf631d + fix 3bfab67). Reviewed on opus, Approved wit
 
 ## REMAINING: Task 5 (multi-year pension classification), Task 6 (picker, LOAD-BEARING FOR THE
 ## WRITTEN PROMISE), Task 7 (gate + in-app verification by John).
+
+Task 5: complete (commit b174ccb). PER-TASK REVIEW DEFERRED to the Task 7 whole-branch review,
+  deliberately, for time. Evidence was strong enough to justify it: compile-level RED captured by
+  stashing the four production files while keeping the test, then GREEN, then a mutation forcing
+  the classification to nil inside ProjectionEngine.computeStateTax's row builder produced a
+  $2,535 gap and was reverted clean.
+  Multi-year now receives classified pension income, so a classified New York government pension
+  produces the SAME answer from DataManager and from ProjectionEngine year one. Without this the
+  user would have seen the uncapped exclusion on Scenarios and the capped figure in Multi-Year.
+  I2 pins HELD (single-year 42.0, multi-year 200.40469973890345). Frozen baseline byte-identical,
+  checksum 34a121744f8edf3db7c440202a8c4d83, not regenerated. Suite 1,705 ST in 284 suites + 503.
+  AccountSnapshot deliberately NOT widened, per spec 3.4b: account classification affects the
+  single-year calculation and NOT the projection. No shipping rule depends on it, so no number is
+  wrong, but it must be disclosed in Task 6 rather than discovered.
