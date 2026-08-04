@@ -520,7 +520,7 @@ Stage explicit paths. Never `git add -A`: it raced a reviewer's in-flight mutati
 
 **Batch-specific notes:**
 
-- California is the most consequential fixture in this batch for a reason unrelated to California: `StateTaxData.swift:2069` returns California's config for any state not found, so CA is the value a bundling failure silently resolves to. A correct, exercised CA fixture is what makes that fallback detectable elsewhere.
+- **CORRECTED 2026-08-04 after the Task 2 review.** An earlier draft of this note said California is consequential because `StateTaxData.swift:2069` returns California's config for any unknown state, so a bundling failure would silently resolve to CA. **That fallback no longer exists.** `StateTaxData.config(for:)` (now at `:2290-2298`) tries `configs2026`, then `configs2026Legacy`, then calls `preconditionFailure`. Phase 2 removed the fallback, which was its stated deliverable. A missing jurisdiction now traps loudly rather than impersonating California, so CA carries no special risk here and is an ordinary member of this batch. The spec's §1 still describes the fallback in the present tense and is itself stale on this point; do not re-derive the claim from it.
 - CA has exemption CREDITS ($153/person), not exclusions. Credits are applied differently from deductions and the app models them separately. Derive from Form 540 and say which line each figure comes from.
 - These states still have brackets, standard deductions and (for some) personal exemptions. "No retirement exclusion" does not mean "no tax". Expect nonzero `expectedStateTax` in most cases, which makes this batch a much stronger harness proof than Task 3.
 
