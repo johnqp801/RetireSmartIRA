@@ -1,0 +1,91 @@
+{
+  "state": "VA",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 50, below the 65 age-deduction threshold -- overstated, the app grants the age deduction with no age gate at all",
+      "source": "Va. Code Ann. Section 58.1-322.03(5)(b) (via law.lis.virginia.gov, full statute text): 'A deduction in the amount of $12,000 for individuals born after January 1, 1939, who have attained the age of 65.' This filer is 50, so no age deduction applies at all -- the full $30,000 pension is taxable. VA standard deduction (StateTaxData.swift, .fixed(single: 8_750, married: 17_500), matching the statute's '(v) for taxable years beginning on and after January 1, 2025, but before January 1, 2027, $8,750 for single individuals') applies: taxable = 30,000 - 8,750 = 21,250. VA brackets (StateTaxData.swift, Virginia block): 2% to $3,000, 3% to $5,000, 5% to $17,000, 5.75% above. Tax = 3,000x.02 + 2,000x.03 + 12,000x.05 + 4,250x.0575 = 60+60+600+244.375 = 964.38. The app's config sets no regularExemptionMinAge for Virginia (defaults to 0), so pensionExemption's $12,000 partial cap applies unconditionally regardless of age.",
+      "sourceURL": "https://law.lis.virginia.gov/vacode/title58.1/chapter3/section58.1-322.03/",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 964.38,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Virginia's config sets no regularExemptionMinAge, so the $12,000 age deduction (Va. Code 58.1-322.03(5)(b), which requires age 65+) applies unconditionally to a 50-year-old's pension income; this OVERSTATES the exemption for any filer below 65.",
+        "observedToday": 332.50
+      }
+    },
+    {
+      "name": "single, age 70, AFAGI under the $50,000 threshold -- both sides agree",
+      "source": "Same statute, and VA 760 Instructions (Rev. 2025) p.10, Age 65 and Older Deduction Worksheet: at AFAGI (adjusted federal AGI, i.e. federal AGI minus taxable Social Security/Tier 1 Railroad benefits) below the $50,000 single threshold (Line 9A), Line 10A gives the full $12,000 with no reduction. This filer is 70 (qualifies) with $40,000 AFAGI (no Social Security in this fixture, so AFAGI = federal AGI = $40,000, under $50,000). Full $12,000 age deduction applies. VA standard deduction $8,750. Taxable = 40,000 - 12,000 - 8,750 = 19,250. Tax = 3,000x.02 + 2,000x.03 + 12,000x.05 + 2,250x.0575 = 60+60+600+129.375 = 849.38. The engine's missing age gate does not distort this case (age 70 would qualify either way) and its missing AGI phase-out does not distort it either (AFAGI is under the threshold, so no reduction is due under real law), so engine and form coincide here.",
+      "sourceURL": "https://www.tax.virginia.gov/sites/default/files/vatax-pdf/2025-760-instructions.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 849.38
+    },
+    {
+      "name": "MFJ, BOTH spouses 65+ (68/70), combined AFAGI under $75,000 -- understated, the app never doubles the cap per qualifying spouse",
+      "source": "VA 760 Instructions (Rev. 2025) p.9, Age 65 and Older Deduction Worksheet, Line 1B: 'If both spouses are eligible to claim an income-based age deduction and both spouses are filing Virginia returns...enter 2'; Line 12: 'Multiply Line 1 by $12,000'; with AFAGI under the $75,000 married threshold (Line 9B), Line 10B gives '$12,000 for EACH SPOUSE claiming an income-based age deduction' -- $24,000 total for this couple. AFAGI = $65,000 (no Social Security), under $75,000, so unreduced: $24,000. VA standard deduction (MFJ) $17,500. Taxable = 65,000 - 24,000 - 17,500 = 23,500. Tax = 3,000x.02+2,000x.03+12,000x.05+6,500x.0575 = 60+60+600+373.75 = 1,093.75. The app's exemptionAppliesPerIndividual flag is not set for Virginia (defaults false), so the engine never doubles the $12,000 cap even when both spouses independently qualify -- it stays flat at $12,000. This UNDERSTATES the exemption, the opposite direction from the missing-age-gate defect above; Virginia's net direction depends on which gap a given case exercises, not uniformly toward overstatement.",
+      "sourceURL": "https://www.tax.virginia.gov/sites/default/files/vatax-pdf/2025-760-instructions.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 70,
+      "federalAGI": 65000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 65000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1093.75,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Virginia's exemptionAppliesPerIndividual is not set, so the engine never doubles the $12,000 age-deduction cap for an MFJ couple where both spouses independently qualify (Va. 760 Instructions worksheet Line 12 requires $12,000 PER qualifying spouse); this UNDERSTATES the exemption, unlike the other Virginia defects in this batch which overstate it.",
+        "observedToday": 1783.75
+      }
+    },
+    {
+      "name": "MFJ at $60,000, the required carrier BETWEEN Virginia's $50,000 single and $75,000 married thresholds -- passes today, guards against a hardcoded isMarried:false regression",
+      "source": "Same worksheet, Line 9: 'A. Filing Status 1, Single: enter $50,000. B. All Married Taxpayers: enter $75,000.' At $60,000 combined AFAGI (no Social Security), this sits strictly between the two thresholds: under the correct MFJ $75,000 gate the deduction is unreduced ($12,000, since only the spouse -- age 68 -- claims it, Line 1=1); under a mutant that hardcodes the single $50,000 gate instead, Line 11 = 60,000-50,000 = 10,000, Line 14 = 12,000-10,000 = $2,000. Only this income band distinguishes the two; a case outside it proves nothing (Phase 3a's entire suite stayed green under exactly this mutation because every engine test there was single-only). VA standard deduction (MFJ) $17,500. Correct taxable = 60,000-12,000-17,500 = 30,500. Tax = 3,000x.02+2,000x.03+12,000x.05+13,500x.0575 = 60+60+600+776.25 = 1,496.25. The primary (age 55) does not individually qualify and the spouse (age 68) does; VA's age deduction is not income-attributed to the qualifying spouse the way Iowa's is, so this is unaffected by that distinction.",
+      "sourceURL": "https://www.tax.virginia.gov/sites/default/files/vatax-pdf/2025-760-instructions.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 55,
+      "spouseAge": 68,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1496.25
+    },
+    {
+      "name": "single, age 70, Roth conversion lifts AFAGI to $70,000, past the $50,000 threshold by more than the $12,000 cap -- the conversion destroys the exemption entirely",
+      "source": "Same worksheet: AFAGI = federal AGI (no Social Security here) = $30,000 pension + $40,000 Roth conversion = $70,000. Line 11 = 70,000-50,000 = 20,000. Line 12 = 1x$12,000 = 12,000. Line 13: 'If Line 11 is greater than Line 12: You do not qualify for an age deduction.' 20,000 > 12,000, so the age deduction is $0, not merely reduced. VA standard deduction (single) $8,750. Taxable = 70,000-0-8,750 = 61,250. Tax = 3,000x.02+2,000x.03+12,000x.05+44,250x.0575 = 60+60+600+2,544.375 = 3,264.38. The Roth conversion itself carries no Virginia-specific exemption (correctly ordinary taxable income), but the engine's missing agiPhaseout means it does not see that the conversion pushed AFAGI past the point where the age deduction disappears entirely -- it still grants the full $12,000.",
+      "sourceURL": "https://www.tax.virginia.gov/sites/default/files/vatax-pdf/2025-760-instructions.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 70000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 40000,
+      "expectedStateTax": 3264.38,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Virginia's config has no agiPhaseout, so a Roth conversion that lifts AFAGI $20,000 past the $50,000 threshold -- more than the $12,000 cap, which zeroes the deduction entirely per the worksheet's Line 13 cliff -- still leaves the engine granting the full $12,000 age deduction; this OVERSTATES the exemption exactly when the conversion is what destroys it.",
+        "observedToday": 2574.38
+      }
+    }
+  ]
+}

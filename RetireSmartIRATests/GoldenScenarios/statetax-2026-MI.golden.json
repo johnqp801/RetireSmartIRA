@@ -1,0 +1,72 @@
+{
+  "state": "MI",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, pension income under the private-retirement-maximum floor -- no age gate exists for TY2026, so this case varies income instead per the phase's collapse rule",
+      "source": "Michigan Dept. of Treasury, Revenue Administrative Bulletin 2026-1 (approved January 8, 2026), 'Issue 2. What changes to deduction limits on retirement benefits did PA 4 make?': 'Tax year 2026 and each year thereafter - regardless of year of birth, taxpayers may deduct combined public and private retirement benefits up to the inflation-adjusted private retirement maximum under subsection (1)(f)(iv) of section 30 of the MITA.' TY2026 genuinely has no birth-year/age gate at all (the 'N/A' row of the RAB's own phase-in table), so this fixture varies income rather than age per the phase's own rule for age-gate-free jurisdictions. The same Issue 2 section states the TY2025 dollar figure for this maximum was $65,897 single/$131,794 joint (RAB 2026-1, 'Tax Year 2025' bullet), and that the TY2026 figure is the SAME maximum concept, indexed further -- Treasury had not published the exact TY2026 number as of this fixture's writing (2026-08-04), so $65,897 is used here as a documented floor (indexing only raises it, never lowers it). At $40,000, this filer is under that floor by a wide enough margin that the unknown exact 2026 figure cannot flip the result: the full $40,000 is deductible either way. Michigan flat rate 4.25%, no state standard deduction modeled (stateDeduction: .none). Taxable = 40,000 - 40,000 (exclusion) = $0. Tax = $0.00.",
+      "sourceURL": "https://www.michigan.gov/taxes/rep-legal/rab/2026-revenue-administrative-bulletins/revenue-administrative-bulletin-2026-1",
+      "filingStatus": "single",
+      "primaryAge": 45,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "single, pension income above the private-retirement-maximum floor -- overstated, the app's .full has no cap at all",
+      "source": "Same RAB 2026-1 Issue 2 text as above: the TY2026 deduction is capped at 'the inflation-adjusted private retirement maximum,' documented at $65,897 for the immediately preceding year (TY2025) and only INCREASING for TY2026 by CPI indexing. Using $65,897 as the applicable (floor) cap: taxable pension in excess of the cap = 150,000 - 65,897 = 84,103. Michigan flat rate 4.25% (no state standard deduction, stateDeduction: .none). Tax = 84,103 x 0.0425 = 3,574.38. The app's config carries pensionExemption: .full with no maxExempt at all (StateTaxData.swift, Michigan block: 'MI phasing to full retirement income exemption by 2026 -- Already modeled as .full'), which is the wrong claim: PA 4 of 2023's TY2026 phase-in step is 100% of a CAPPED maximum, not an unconditional 100% of all retirement income.",
+      "sourceURL": "https://www.michigan.gov/taxes/rep-legal/rab/2026-revenue-administrative-bulletins/revenue-administrative-bulletin-2026-1",
+      "filingStatus": "single",
+      "primaryAge": 68,
+      "spouseAge": null,
+      "federalAGI": 150000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 150000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 3574.38,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Michigan's pensionExemption is .full with no dollar cap, so the engine excludes an unlimited retirement-income amount when real law (RAB 2026-1) caps the TY2026 phase-in at the inflation-adjusted private retirement maximum (at least $65,897 single); this overstates the exemption for any filer above the cap.",
+        "observedToday": 0.00
+      }
+    },
+    {
+      "name": "MFJ, combined IRA withdrawal under the private-retirement-maximum floor",
+      "source": "Same RAB 2026-1 text; the joint-return maximum for the immediately preceding year (TY2025) was $131,794 (RAB 2026-1, 'Tax Year 2025' bullet: '...and $131,794 for joint filers'), only increasing for TY2026. At $100,000 combined, this couple is under that floor by a wide enough margin that the unpublished exact 2026 figure cannot flip the result. Michigan flat rate 4.25%, no state standard deduction. Taxable = 100,000 - 100,000 (exclusion) = $0. Tax = $0.00.",
+      "sourceURL": "https://www.michigan.gov/taxes/rep-legal/rab/2026-revenue-administrative-bulletins/revenue-administrative-bulletin-2026-1",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 60,
+      "spouseAge": 58,
+      "federalAGI": 100000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 100000,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "MFJ, combined IRA withdrawal well above the private-retirement-maximum floor -- overstated",
+      "source": "Same RAB 2026-1 text and the same $131,794 TY2025 joint maximum used as a documented floor for TY2026. Taxable in excess of the cap = 250,000 - 131,794 = 118,206. Michigan flat rate 4.25%, no state standard deduction. Tax = 118,206 x 0.0425 = 5,023.76. Same defect mechanism as the single case above: the app's iraWithdrawalExemption is .full with no cap, so it excludes the entire $250,000 regardless of Michigan's real dollar ceiling.",
+      "sourceURL": "https://www.michigan.gov/taxes/rep-legal/rab/2026-revenue-administrative-bulletins/revenue-administrative-bulletin-2026-1",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 64,
+      "federalAGI": 250000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 250000,
+      "rothConversion": 0,
+      "expectedStateTax": 5023.76,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same as the single-filer defect: Michigan's iraWithdrawalExemption is .full with no dollar cap, so a couple's IRA withdrawals well above the real (at least $131,794) joint cap are excluded in their entirety, overstating the exemption.",
+        "observedToday": 0.00
+      }
+    }
+  ]
+}

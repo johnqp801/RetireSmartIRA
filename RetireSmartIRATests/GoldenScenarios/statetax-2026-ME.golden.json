@@ -1,0 +1,82 @@
+{
+  "state": "ME",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 50, ordinary (non-SEPP) pension distribution before age 55 -- overstated, the app grants the deduction with no age gate at all",
+      "source": "Maine Revenue Services, 2025 Form 1040ME General Instructions (https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/25_1040me_gen_instr_w_cover_pg.pdf), 'Important Changes for 2025': 'the pension income deduction is subject to phaseout... The law is amended to exclude from the pension income deduction distributions from an employee retirement plan received prior to age 55 that are not part of a series of substantially equal periodic payments made over the life of the primary recipient... Effective September 24, 2025.' (36 M.R.S. Section 5122(2)(M-2)). This filer is 50 and receives an ordinary (non-SEPP) distribution, so none of the $20,000 qualifies for the deduction at all. Maine standard deduction (single) $15,300 (StateTaxData.swift). Taxable = 20,000-15,300 = 4,700. Maine brackets: 5.8% to $27,400 (entire amount in first bracket). Tax = 4,700x.058 = 272.60. The app's config sets no regularExemptionMinAge for Maine (defaults to 0), so the $25,000 pensionExemption cap applies unconditionally regardless of age.",
+      "sourceURL": "https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/25_1040me_gen_instr_w_cover_pg.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 20000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 272.60,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Maine's config sets no regularExemptionMinAge, so the pension income deduction applies unconditionally to a distribution received before age 55 (which 36 M.R.S. 5122(2)(M-2) excludes unless paid as substantially equal periodic payments); this OVERSTATES the exemption.",
+        "observedToday": 0.00
+      }
+    },
+    {
+      "name": "single, age 60, pension income between the app's wrong $25,000 cap and the real $48,216 figure -- understated, the app's dollar figure is stale",
+      "source": "Same instructions, page 6, Line 4: 'you and your spouse (if married) may each deduct up to $48,216 of other eligible pension income* that is included in your federal adjusted gross income. The $48,216 cap must be reduced by any social security and railroad retirement benefits received' -- this filer receives no Social Security, so the full $48,216 cap applies unreduced. Age 60 clears the age-55 gate. $45,000 is under that cap, so the full $45,000 is deductible. Maine standard deduction (single) $15,300. Taxable = 45,000-45,000-15,300, floored at $0. Tax = $0.00. The app's pensionExemption caps at $25,000 (StateTaxData.swift, Maine block: 'ME pension deduction'), a stale figure against Maine's actual $48,216 -- this filer's $45,000 exceeds the app's wrong cap even though it is fully within the real one.",
+      "sourceURL": "https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/25_1040me_gen_instr_w_cover_pg.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 45000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Maine's pensionExemption caps at $25,000, well under the real $48,216-per-person figure (36 M.R.S. 5122(2)(M-2), Form 1040ME instructions page 6); this UNDERSTATES the exemption for a qualifying filer with income between the two figures.",
+        "observedToday": 272.60
+      }
+    },
+    {
+      "name": "MFJ, both spouses 60+ (60/62), combined pension income above the app's wrong cap and above $48,216 for the one filer this harness can attribute it to -- understated",
+      "source": "Same instructions, page 6: the $48,216 cap applies per spouse, but this fixture's harness attributes all pension income to one return line (as in the app's own DataManager model, which does not split pension income by owner), so the applicable cap here is the single $48,216 figure. $90,000 exceeds it: exclusion = min(90,000, 48,216) = 48,216. Maine standard deduction (MFJ) $30,600. Taxable = 90,000-48,216-30,600 = 11,184. Maine MFJ brackets: 5.8% to $54,850 (entire amount in first bracket). Tax = 11,184x.058 = 648.67. The app's config instead caps at $25,000 with no per-spouse doubling modeled at all (exemptionAppliesPerIndividual not set for Maine), so it excludes far less than either figure allows.",
+      "sourceURL": "https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/25_1040me_gen_instr_w_cover_pg.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 60,
+      "spouseAge": 62,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 90000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 648.67,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same wrong-dollar-figure defect at the MFJ scale: Maine's config caps the pension deduction at $25,000 against a real $48,216 per-spouse figure, and never doubles the cap for a jointly-filing couple; this UNDERSTATES the exemption.",
+        "observedToday": 1995.20
+      }
+    },
+    {
+      "name": "MFJ, only the spouse is 65 and has no income of their own; the income-bearing primary is 50 and predates the age-55 gate -- overstated, missing age gate visible in the MFJ pattern",
+      "source": "Same instructions, page 6 and 'Important Changes for 2025' section: the $50,000 pension here is attributable to the primary (age 50, before the age-55 gate and not a SEPP), so none of it qualifies; the spouse (age 65) has no pension income of their own to which the deduction could apply. Correct deduction = $0. Maine standard deduction (MFJ) $30,600. Taxable = 50,000-30,600 = 19,400. Maine MFJ brackets: 5.8% to $54,850 (entire amount in first bracket). Tax = 19,400x.058 = 1,125.20. Because Maine's exemption IS active today (unlike Iowa/Virginia/Rhode Island's MFJ-one-qualifies cases in this phase, which pass because those states currently have zero exemption configured), Maine's missing age gate is immediately visible here: the engine grants the $25,000 cap regardless of which spouse's income it is or whether that spouse individually qualifies.",
+      "sourceURL": "https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/25_1040me_gen_instr_w_cover_pg.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 50,
+      "spouseAge": 65,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1125.20,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Maine's config sets no regularExemptionMinAge and has no per-spouse income attribution, so the $25,000 pension deduction is granted against the non-qualifying primary's own pre-age-55 income simply because the spouse is 65+; this OVERSTATES the exemption.",
+        "observedToday": 0.00
+      }
+    }
+  ]
+}

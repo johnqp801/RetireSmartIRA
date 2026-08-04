@@ -1,0 +1,110 @@
+{
+  "state": "CT",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, IRA withdrawal, AGI under the $75,000 threshold -- both sides agree",
+      "source": "CT DRS Form CT-1040 Instructions (Rev. 12/25), page 24, Pension and Annuity Worksheet: 'If your filing status is single...is the amount on Line 1 $75,000 or more? ... No: Do not complete this worksheet... If you answered No...and you are an IRA recipient (other than a Roth IRA), enter as a subtraction modification 75% of the amount of such distribution.' For TY2026 the IRA phase-in reaches its final 100% step (Conn. Gen. Stat. 12-701(a)(20)(B)(xxviii)-(xxx), as amended by PA 23-204 Sec. 377: 25% TY2023, 50% TY2024, 75% TY2025 -- confirmed directly on page 24 of this instructions booklet for TY2025 -- 100% TY2026), so a filer under the $75,000 threshold subtracts 100% of the IRA distribution with no worksheet needed. At $50,000 federal AGI, this filer is under $75,000: the full $50,000 IRA withdrawal is a Line 48b subtraction. CT has no state standard deduction (stateDeduction: .none). CT taxable income = 50,000 - 50,000 = $0. Tax = $0.00.",
+      "sourceURL": "https://portal.ct.gov/-/media/drs/forms/2025/income/2025-ct-1040-instructions_1225.pdf",
+      "filingStatus": "single",
+      "primaryAge": 62,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 50000,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "single, IRA withdrawal, AGI at the top of the phase-out range -- overstated, the app has no AGI phase-out at all",
+      "source": "Same instructions, page 24, Pension and Annuity Phase-Out Table, single/MFS/HoH column: '$100,000 and up ... 0' -- at $120,000 federal AGI the subtraction modification is fully phased out (Line 3 decimal = 0), so Line 4 (Line 2 x Line 3) = $0 regardless of Line 2. The entire $120,000 IRA withdrawal is CT taxable income. CT has no state standard deduction. Progressive brackets (StateTaxData.swift, Connecticut single): 2% to $10,000, 4.5% to $50,000, 5.5% to $100,000, 6.0% above $100,000. Tax = 10,000x.02 + 40,000x.045 + 50,000x.055 + 20,000x.06 = 200 + 1,800 + 2,750 + 1,200 = 5,950.00. The app's iraWithdrawalExemption is .full with no agiPhaseout configured at all (StateTaxData.swift, Connecticut block: 'phaseouts NOT modeled here (engine lacks AGI-based exemption support...)'), so it excludes the entire withdrawal regardless of AGI.",
+      "sourceURL": "https://portal.ct.gov/-/media/drs/forms/2025/income/2025-ct-1040-instructions_1225.pdf",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 120000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 120000,
+      "rothConversion": 0,
+      "expectedStateTax": 5950.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Connecticut's iraWithdrawalExemption is .full with no agiPhaseout configured, so the engine excludes an IRA withdrawal in full even when federal AGI is above CT's $100,000 single cliff, where real law fully phases the subtraction to zero; this overstates the exemption.",
+        "observedToday": 0.00
+      }
+    },
+    {
+      "name": "MFJ, both spouses present, combined AGI under the $100,000 threshold -- both sides agree",
+      "source": "Same instructions, page 24: MFJ threshold is $100,000 ('If your filing status is married filing jointly...is the amount on Line 1 $100,000 or more? ... No: Do not complete this worksheet'). At $90,000 combined federal AGI this couple is under that threshold, so the full $90,000 IRA withdrawal (100% for TY2026, PA 23-204 Sec. 377) is a Line 48b subtraction with no worksheet needed. CT has no state standard deduction. CT taxable income = 90,000 - 90,000 = $0. Tax = $0.00.",
+      "sourceURL": "https://portal.ct.gov/-/media/drs/forms/2025/income/2025-ct-1040-instructions_1225.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 63,
+      "spouseAge": 60,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 90000,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "MFJ, combined AGI well above the $150,000 full-phaseout ceiling -- overstated",
+      "source": "Same instructions, page 24, Phase-Out Table, MFJ column: '$150,000 and up ... 0' -- at $200,000 combined federal AGI the subtraction modification is fully phased to zero. The entire $200,000 IRA withdrawal is CT taxable income. Progressive brackets (Connecticut married): 2% to $20,000, 4.5% to $100,000, 5.5% to $200,000, 6.0% above $200,000. Tax = 20,000x.02 + 80,000x.045 + 100,000x.055 + 0x.06 = 400 + 3,600 + 5,500 + 0 = 9,500.00. Same missing-agiPhaseout defect as the single case above, doubled at the MFJ scale.",
+      "sourceURL": "https://portal.ct.gov/-/media/drs/forms/2025/income/2025-ct-1040-instructions_1225.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 65,
+      "federalAGI": 200000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 200000,
+      "rothConversion": 0,
+      "expectedStateTax": 9500.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same missing-agiPhaseout defect as the single-filer case, at the MFJ scale: the engine excludes the full $200,000 IRA withdrawal though real law fully phases the subtraction to zero above $150,000 combined AGI.",
+        "observedToday": 0.00
+      }
+    },
+    {
+      "name": "single, IRA withdrawal partially phased out by a Roth conversion that lifts AGI to exactly $100,000 -- the conversion destroys the exemption, required 5th case",
+      "source": "Same instructions, page 24. This filer's own IRA withdrawal is $40,000, but a same-year $60,000 Roth conversion lifts total federal AGI to $100,000 -- 100% is the Line 2 percentage for the IRA (TY2026), but Line 1's threshold test uses TOTAL federal AGI ('Enter your federal adjusted gross income...'), and the Phase-Out Table's single/MFS/HoH row for '$100,000 and up' is '0': at exactly $100,000 the subtraction is fully phased out (Line 3 = 0), so Line 4 = $0 regardless of the $40,000 IRA amount on Line 2. CT taxable income = $100,000 (no state standard deduction). Progressive single brackets: 2% to $10,000, 4.5% to $50,000, 5.5% to $100,000. Tax = 10,000x.02 + 40,000x.045 + 50,000x.055 = 200+1,800+2,750 = 4,750.00. The Roth conversion itself carries no CT-specific exemption (rothConversionExemption is nil for Connecticut, so it is ordinary taxable income as it should be) -- the defect is that the engine's IRA exclusion does not see the conversion's effect on total AGI at all, so it still excludes the full $40,000 IRA withdrawal regardless of what the conversion did to the phase-out gate.",
+      "sourceURL": "https://portal.ct.gov/-/media/drs/forms/2025/income/2025-ct-1040-instructions_1225.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 100000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 40000,
+      "rothConversion": 60000,
+      "expectedStateTax": 4750.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Connecticut's iraWithdrawalExemption is .full with no agiPhaseout, so a same-year Roth conversion that lifts total AGI past the phase-out cliff still leaves the engine excluding the IRA withdrawal in full, overstating the exemption exactly when the conversion is what destroys it under real law.",
+        "observedToday": 2550.00
+      }
+    },
+    {
+      "name": "single, pension income under the $75,000 threshold -- understated, the app's pensionExemption is .none regardless of AGI",
+      "source": "Same instructions, page 24: at $75,000 or below single federal AGI, 'enter as a subtraction modification the amount of pension and annuity reported on federal Form 1040 or federal Form 1040 SR, Line 5b' -- the FULL amount, no worksheet needed, no partial percentage. At $40,000 federal AGI (well under $75,000) this filer's entire $40,000 pension is a Line 48b subtraction. CT taxable income = 40,000 - 40,000 = $0. Tax = $0.00. The app's pensionExemption is .none unconditionally (StateTaxData.swift, Connecticut block: 'pension/annuity 100% deduction under $75K/$100K AGI...NOT modeled here...pensionExemption stays .none conservatively'), so it taxes this filer's pension in full though CT law exempts all of it. Unlike the IRA-side defect above (which overstates), this one UNDERSTATES the exemption -- Connecticut's engine is wrong in both directions depending on income type, not uniformly generous.",
+      "sourceURL": "https://portal.ct.gov/-/media/drs/forms/2025/income/2025-ct-1040-instructions_1225.pdf",
+      "filingStatus": "single",
+      "primaryAge": 64,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Connecticut's pensionExemption is .none unconditionally, so the engine taxes pension income in full even for a filer well under the $75,000 AGI threshold where real law exempts it entirely; this UNDERSTATES the exemption, the opposite direction from the IRA-side defect in this same batch.",
+        "observedToday": 1550.00
+      }
+    }
+  ]
+}
