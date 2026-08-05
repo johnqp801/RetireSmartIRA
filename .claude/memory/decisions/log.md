@@ -4,6 +4,41 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-04 — Phase 4 covers all 51 jurisdictions, and the whole program ships as one build 64
+
+**Decision (John):** hold the seven-phase program as specced. Golden scenarios for all remaining 46
+jurisdictions, then Phase 5 corrections, Phase 6 disclosure, Phase 7 release. No narrowing to the
+promised states, and no interim build cut from what already sits on `main`.
+
+**Rationale, and the finding that drove it:** Steve's suggestion F and the internal audit are the same
+object. §3.5 requires the per-state view to be generated from the JSON and to render `knownLimitations`
+verbatim with unverified jurisdictions shown as unverified. Shipping it against a mostly-unverified
+table would tell Steve, state by state, the blast radius John deliberately kept out of the 08-03 email,
+and he participates on Bogleheads, the app's number-one referral source ([[download-driver-attribution]],
+[[user-reply-scope-rule]]). **The disclosure feature's honesty is a direct function of how much of
+Phase 4 is finished**, so trimming Phase 4 is not a schedule shortcut, it is a reputational cost.
+
+Splitting the release was rejected for a simpler reason: the Steve email says Kansas and Iowa will be
+"in the next release", so any build 64 without them breaks that promise a second time, which is the
+exact pattern the caret fix already set.
+
+**Accepted knowingly:** three finished items (both RMD fixes, the 403(b)/457 classification with the
+New York line 26 correction) and the caret fix wait on `main` for the length of Phase 4. Steve and Alan
+continue running an app where their reported items are broken.
+
+## 2026-08-04 — Caret fix extends to all nine numeric screens, not SettingsView alone
+
+**Decision (John):** close the §9 open question in the broad direction. `af45404` covers `SettingsView`
+only; the fix extends to `IncomeSourcesView`, `AccountsView`, `RothConversionView`, `QuarterlyTaxView`,
+`SSDataEntryView`, `TaxPlanningView`, `Year1EditorView` and `YearDetailEditor`.
+
+**Rationale:** the defect silently commits a wrong value with no validation — typing `8` into a field
+showing `3` produces `0.83`, an 83% state tax rate. `IncomeSourcesView` is the sharpest remaining risk
+and income entry is not a screen where a silent corruption is acceptable. One line per screen makes the
+narrow option a false economy.
+
+---
+
 ## 2026-07-29 — Two pending fixes ride the NEXT release, contents still to be decided
 
 **Decision (John):** `fix/numeric-caret-at-end` and `fix/year1-override-wipe` are not shipped as a 2.3.1 on their own. They go into the next release once its scope is decided.
