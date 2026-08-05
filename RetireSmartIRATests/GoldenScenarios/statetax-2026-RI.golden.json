@@ -1,0 +1,86 @@
+{
+  "state": "RI",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 60, below Social Security full retirement age -- both sides agree, no exclusion exists for either",
+      "source": "RI Division of Taxation, Publication 2026-01 'Retirement Income Tax Guide' (dated Feb 2026, covering TY2025 rules unchanged as of this writing), https://tax.ri.gov/sites/g/files/xkgbur541/files/2026-02/PUB_2026-01_Retirement_Income_Guide.pdf, Section 1: 'You may qualify for the modification if... You have reached \"full retirement age\" as defined by the Social Security Administration.' This filer is 60; Social Security full retirement age for anyone born after 1960 is 67, so this filer has not reached it -- no modification applies. RI standard deduction (single) $11,200 (StateTaxData.swift). Taxable = 40,000-11,200 = 28,800. RI brackets: 3.75% to $82,050. Tax = 28,800x.0375 = 1,080.00. The app's config has no retirement exclusion at all for Rhode Island (pensionExemption/iraWithdrawalExemption both .none), so it agrees with real law here.",
+      "sourceURL": "https://tax.ri.gov/sites/g/files/xkgbur541/files/2026-02/PUB_2026-01_Retirement_Income_Guide.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1080.00
+    },
+    {
+      "name": "single, age 70, at full retirement age, AGI well under the threshold -- missing gate, understated",
+      "source": "Same guide, Section 1 Overview: 'For Tax Year 2025, Rhode Island tax law allows up to $50,000 of qualifying taxable pension and/or annuity income to be exempted' (increased from $20,000, effective for tax years beginning on/after Jan 1 2025, per the guide's 'New for Tax Year 2025' notice -- no subsequent notice supersedes this for TY2026 as of this fixture's writing, and RI 2026 bill S2365, which would have removed the cap entirely, was held for further study by the Senate Finance Committee on 2026-04-30 and never enacted). Age 70 clears full retirement age (67, per Section 1b for anyone born after 1960). Section 1c: federal AGI must be below $107,000 single (TY2025 published figure; the TY2026 indexed figure was not yet published as of this fixture's writing, but indexing only raises the threshold, so $40,000 clears it under any plausible 2026 value). Exclusion = min(40,000, 50,000) = 40,000. RI standard deduction (single) $11,200. Taxable = 40,000-40,000-11,200, floored at $0. Tax = $0.00.",
+      "sourceURL": "https://tax.ri.gov/sites/g/files/xkgbur541/files/2026-02/PUB_2026-01_Retirement_Income_Guide.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Rhode Island's config has no retirement-income exclusion at all, so the engine misses the entire $50,000-per-person Pension and Annuity Income Modification for a qualifying filer at full retirement age; this UNDERSTATES the exemption (a missing gate, not an overstatement).",
+        "observedToday": 1080.00
+      }
+    },
+    {
+      "name": "MFJ, both spouses at full retirement age (70/68), combined income under the AGI threshold -- missing gate",
+      "source": "Same guide, Section 1: the modification 'is applied on an individual basis,' so 'for Tax Year 2025, joint filers may qualify for a combined total modification of $100,000' when both spouses independently qualify. Both spouses here (70/68) are at full retirement age; combined federal AGI $90,000 is under the $133,500 MFJ threshold (TY2025 published figure, only rising for TY2026). Exclusion = min(90,000, 100,000) = 90,000. RI standard deduction (MFJ) $22,400 (RI does not double brackets for MFJ, per StateTaxData.swift Rhode Island block comment: 'Same brackets across all filing statuses'). Taxable = 90,000-90,000-22,400, floored at $0. Tax = $0.00.",
+      "sourceURL": "https://tax.ri.gov/sites/g/files/xkgbur541/files/2026-02/PUB_2026-01_Retirement_Income_Guide.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 68,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 90000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same missing-exclusion defect at the MFJ scale: Rhode Island's config has no retirement-income exclusion at all, so a couple both at full retirement age gets none of the up-to-$100,000 combined modification it is entitled to.",
+        "observedToday": 2535.00
+      }
+    },
+    {
+      "name": "MFJ, only the spouse is at full retirement age and has no income of their own; the income-bearing primary is 62 and does not qualify -- passes today, per-individual regression guard",
+      "source": "Same guide, Section 1: the modification is applied per-individual to that individual's OWN qualifying pension/annuity income, gated on THAT individual reaching full retirement age. The $45,000 pension here is attributable to the primary (age 62, has not reached full retirement age -- born after 1960, FRA 67); the spouse (age 68, at full retirement age) has no pension income of their own to exempt. Correct modification = $0 (neither the primary's income, which does not qualify by age, nor an amount the spouse could apply it to, exists). RI standard deduction (MFJ) $22,400. Taxable = 45,000-22,400 = 22,600. RI brackets (single schedule, RI does not double for MFJ): 3.75% to $82,050. Tax = 22,600x.0375 = 847.50. Rhode Island's config carries no exclusion mechanism at all today, so it happens to also apply $0 modification here -- this fixture exists so that once Phase 5 ships RI's exclusion using the default .household attribution (which would grant it based on the spouse's age regardless of whose income it is) instead of a per-individual rule, this case turns red and catches it.",
+      "sourceURL": "https://tax.ri.gov/sites/g/files/xkgbur541/files/2026-02/PUB_2026-01_Retirement_Income_Guide.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 62,
+      "spouseAge": 68,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 45000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 847.50
+    },
+    {
+      "name": "single, age 70, IRA withdrawal instead of pension -- confirmatory case, RI's real law excludes IRAs and the app coincidentally agrees",
+      "source": "Same guide, Section 1a, 'At-a-glance table': under the column 'Income from the following does NOT qualify,' the table lists 'Individual retirement accounts (IRAs)' explicitly, and the prose below repeats it: 'income from individual retirement accounts (IRAs)...does not qualify for purposes of the Rhode Island Pension and Annuity Income Modification. No income from a traditional IRA, Roth IRA, SEP-IRA, or any other type of IRA qualifies.' Even though this filer is 70 and at full retirement age, the $40,000 IRA withdrawal (not a pension/annuity) gets no modification at all. RI standard deduction (single) $11,200. Taxable = 40,000-11,200 = 28,800. Tax = 28,800x.0375 = 1,080.00. This FALSIFIES a naive reading of Rhode Island as uniformly wrong: the app's iraWithdrawalExemption is also .none, so on the IRA side specifically it is coincidentally correct -- the real Tier 1 defect here is confined to pension/annuity income, not IRA withdrawals.",
+      "sourceURL": "https://tax.ri.gov/sites/g/files/xkgbur541/files/2026-02/PUB_2026-01_Retirement_Income_Guide.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 40000,
+      "rothConversion": 0,
+      "expectedStateTax": 1080.00
+    }
+  ]
+}

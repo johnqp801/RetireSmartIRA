@@ -1,0 +1,77 @@
+{
+  "state": "WI",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 60, below the 67 threshold -- both sides agree, no exclusion exists for either",
+      "source": "Wisconsin DOR Publication 106 (2025), 'Wisconsin Tax Information for Retirees', Section 3.C.1, https://www.revenue.wi.gov/DOR%20Publications/pb106.pdf: 'Up to $24,000 ($48,000 for certain joint filers) of qualified retirement income may be subtracted from Wisconsin income if you (or your spouse if married filing joint return) were age 67 or older on December 31, 2025.' This filer is 60, unmarried, so no one in the household is 67+: no subtraction applies. WI standard deduction (single) $6,702 (StateTaxData.swift, Wisconsin block). Taxable = 30,000-6,702 = 23,298. WI brackets: 3.5% to $14,680, 4.4% to $50,480. Tax = 14,680x.035 + 8,618x.044 = 513.80+379.192 = 892.99. The app's config has no retirement exclusion at all for Wisconsin (pensionExemption/iraWithdrawalExemption both .none), so it agrees with real law at this age.",
+      "sourceURL": "https://www.revenue.wi.gov/DOR%20Publications/pb106.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 892.99
+    },
+    {
+      "name": "single, age 70, above the 67 threshold, income above the $24,000 cap -- missing gate, understated",
+      "source": "Same publication, same section: age 70 clears the 67-year gate; the exclusion is capped at '$24,000 ($48,000 for certain joint filers)' per single filer -- 2025 Wisconsin Act 15 (unindexed statutory figure, Wis. Stat. 71.05(6)(b)55, unchanged for TY2026 absent new legislation). Exclusion = min(50,000, 24,000) = 24,000. WI standard deduction (single) $6,702. Taxable = 50,000-24,000-6,702 = 19,298. WI brackets: 3.5% to $14,680, 4.4% to $50,480. Tax = 14,680x.035 + 4,618x.044 = 513.80+203.192 = 716.99. The app has no Wisconsin retirement exclusion configured at all, so a qualifying 70-year-old's retirement income is taxed as though the exclusion did not exist.",
+      "sourceURL": "https://www.revenue.wi.gov/DOR%20Publications/pb106.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 716.99,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Wisconsin's config has no retirement-income exclusion at all, so the engine misses the entire 2025 Act 15 $24,000-per-person exclusion for a qualifying 67+ filer; this UNDERSTATES the exemption (a missing gate, not an overstatement, unlike Michigan/Connecticut/Virginia in this batch).",
+        "observedToday": 1772.99
+      }
+    },
+    {
+      "name": "MFJ, BOTH spouses 67+ (70/68) -- $48,000 cap for both qualifying, missing gate",
+      "source": "The $48,000-with-both-spouses-67+ sentence does not appear in Publication 106; it is quoted from the load-bearing document, 2025 Schedule SB Instructions, I-0104 (R. 10-25), https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf, Line 16 -- 'Retirement Income Subtraction (Credits Restricted)' -- printed page 7 (footer '-7-'), which is also PDF page 7 of 17: 'If you (or your spouse if married and filing a joint return) were at least 67 years old as of December 31, 2025, you may subtract retirement income from a qualified retirement plan or individual retirement account (IRA) that is federally taxable...Individuals may subtract up to $24,000 of retirement income received. A married couple who file a joint return and are both as least 67 years old as of December 31, 2025, may subtract up to $48,000 of retirement income, regardless of how much retirement income each spouse received.' Both spouses (70/68) qualify: cap = $48,000. Exclusion = min(80,000, 48,000) = 48,000. WI standard deduction (MFJ) $9,461. Taxable = 80,000-48,000-9,461 = 22,539. WI MFJ brackets: 3.5% to $19,580, 4.4% to $67,300. Tax = 19,580x.035 + 2,959x.044 = 685.30+130.196 = 815.50.",
+      "sourceURL": "https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 68,
+      "federalAGI": 80000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 815.50,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same missing-exclusion defect at the MFJ scale: Wisconsin's config has no retirement-income exclusion at all, so the engine misses the entire $48,000 both-spouses-67+ exclusion.",
+        "observedToday": 2956.65
+      }
+    },
+    {
+      "name": "MFJ, only the spouse is 67+ (primary 60, spouse 72) -- household gate unlocks the $24,000 cap, missing gate",
+      "source": "Same load-bearing document as the prior case, 2025 Schedule SB Instructions, I-0104 (R. 10-25), https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf, Line 16, printed page 7 (footer '-7-') / PDF page 7 of 17: eligibility is household-wide ('If you (or your spouse if married and filing a joint return) were at least 67 years old...'), but the $48,000 doubled cap requires 'a married couple who file a joint return and are both...67 years old'; with only the spouse qualifying, the cap stays at the $24,000 individual figure. Exclusion = min(55,000, 24,000) = 24,000. WI standard deduction (MFJ) $9,461. Taxable = 55,000-24,000-9,461 = 21,539. WI MFJ brackets: 3.5% to $19,580, 4.4% to $67,300. Tax = 19,580x.035 + 1,959x.044 = 685.30+86.196 = 771.50.",
+      "sourceURL": "https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 60,
+      "spouseAge": 72,
+      "federalAGI": 55000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 55000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 771.50,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same missing-exclusion defect: Wisconsin's config has no retirement-income exclusion at all, so even a household where the spouse alone clears the age-67 gate gets none of the $24,000 exclusion it is entitled to.",
+        "observedToday": 1827.50
+      }
+    }
+  ]
+}
