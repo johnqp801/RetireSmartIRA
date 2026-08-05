@@ -155,6 +155,76 @@ protocol RetirementPlanClassificationCase: RawRepresentable where RawValue == St
 extension PlanStructure: RetirementPlanClassificationCase {}
 extension PlanSource: RetirementPlanClassificationCase {}
 
+/// The disclosure telling a user that a per-source exemption they may
+/// qualify for is going unused because their pension is not classified as
+/// government or private.
+///
+/// Phase 5b Task 3b. Two surfaces show this, and both used to be hardcoded
+/// to New York, with the copy duplicated as two Swift literals that differed
+/// by one word. Kansas shipped a per-source rule in Task 3 and got neither
+/// warning: an unclassified KPERS holder was taxed in full on an exclusion
+/// Kansas law grants, while an identically placed New York household was
+/// warned twice. This type is the single composer both surfaces now call, so
+/// a jurisdiction becomes covered by shipping a sentence in its own config
+/// and nothing else.
+///
+/// It deliberately does NOT decide WHICH state to ask about. That differs
+/// between the two surfaces on purpose, and each caller passes its own
+/// answer: see `StateComparisonPresentation` (viewed state) against
+/// `MultiYearCPABriefing` (residence).
+enum UnclassifiedPensionDisclosure {
+
+    /// Which surface is asking. The two differ by exactly one word, because
+    /// State Comparison renders a number on screen while the CPA briefing
+    /// describes a multi-year plan in a document a preparer reads.
+    enum Scope {
+        /// State Comparison's detail sheet: the reader is looking at a figure.
+        case stateComparisonFigure
+        /// The CPA briefing: the reader is reading about a plan.
+        case cpaBriefingPlan
+
+        /// The words substituted for `scopeToken`. These reproduce the two
+        /// hardcoded literals this type replaced, exactly.
+        var substitution: String {
+            switch self {
+            case .stateComparisonFigure: "this figure"
+            case .cpaBriefingPlan: "this plan"
+            }
+        }
+    }
+
+    /// The placeholder each config sentence carries where the surfaces
+    /// differ. Braces because they cannot occur in the surrounding English
+    /// prose, so a reviewer reading the JSON sees it as a placeholder and a
+    /// substitution failure shows up as visible punctuation rather than as a
+    /// plausible sentence.
+    static let scopeToken = "{scope}"
+
+    /// Sentence one. Jurisdiction-independent, so it lives here rather than
+    /// being copied into every config file where 51 copies could disagree.
+    /// Byte-identical to the opening of both literals this replaced.
+    static let leadSentence =
+        "Your pension is not yet classified as government or private in Income Sources."
+
+    /// The full disclosure for `state`, or `nil` when `state` ships no
+    /// sentence.
+    ///
+    /// GATES ON THE SENTENCE, NOT ON `perSourceExemptions` DIRECTLY, which is
+    /// the same gate by construction: `Phase5bUnclassifiedPensionDisclosureTests`
+    /// asserts the two sets are equal in both directions. Reading the
+    /// sentence is what makes a partial disclosure unrepresentable. Gating on
+    /// the rules instead would leave this function able to return a lead
+    /// sentence with nothing after it for a jurisdiction whose sentence was
+    /// forgotten, which reads to a user as a warning with no advice.
+    static func text(for state: USState, scope: Scope) -> String? {
+        guard let sentence =
+                StateTaxData.config(for: state).retirementExemptions.unclassifiedPensionDisclosure
+        else { return nil }
+        return leadSentence + " "
+            + sentence.replacingOccurrences(of: scopeToken, with: scope.substitution)
+    }
+}
+
 /// Decodes `PlanStructure`/`PlanSource` from a USER'S saved data
 /// (`IncomeSource.init(from:)`, `IRAAccount.init(from:)`, reached via
 /// `PersistenceManager.loadAll`), which must tolerate an unrecognised raw

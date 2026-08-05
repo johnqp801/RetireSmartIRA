@@ -46,7 +46,8 @@
       }
     ],
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "Kansas exempts a KPERS, federal government, military or Railroad Retirement pension from state tax with no dollar cap, but {scope} taxes your pension in full until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "flatRate",

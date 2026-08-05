@@ -40,7 +40,8 @@
       }
     ],
     "regularExemptionMinAge" : 59,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "New York excludes a qualifying government pension from state tax with no dollar cap, but {scope} applies the standard $20,000 pension exclusion until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "mirrorsFederal"

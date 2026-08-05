@@ -307,6 +307,41 @@ struct RetirementIncomeExemptions {
     /// version granted $20,000 to pension and another $20,000 to IRA.
     var perSourceExemptions: [PerSourceExemptionRule] = []
 
+    /// The jurisdiction-specific SECOND SENTENCE of the disclosure shown when
+    /// a household's pension is unclassified and this jurisdiction's
+    /// `perSourceExemptions` therefore cannot be applied to it. `nil` (the
+    /// default, and the value for the 49 jurisdictions that ship no
+    /// per-source rule) means neither disclosure surface fires.
+    ///
+    /// SHIPS WITH `perSourceExemptions`, ALWAYS. A jurisdiction carrying a
+    /// per-source rule and no sentence over-taxes an unclassified pension
+    /// with no warning at all, which is precisely the defect this field
+    /// exists to close: Kansas shipped a correct rule in Phase 5b Task 3 and
+    /// its holders got no warning, because both disclosure surfaces were
+    /// hardcoded to New York. `Phase5bUnclassifiedPensionDisclosureTests`
+    /// asserts the two travel together IN BOTH DIRECTIONS, so a later
+    /// jurisdiction task cannot ship a rule and silently forget the
+    /// sentence, and cannot ship a warning about a rule it does not have.
+    ///
+    /// WHY THE STATE'S OWN CONFIG RATHER THAN GENERIC COPY: the sentence
+    /// names that state's own mechanics and dollar figures ("the standard
+    /// $20,000 pension exclusion" in New York, a full KPERS exclusion in
+    /// Kansas). Generic copy naming no state and no figure was considered
+    /// and rejected on 2026-08-05, on the grounds that a vague warning does
+    /// not tell a user what to do about it.
+    ///
+    /// CARRIES `UnclassifiedPensionDisclosure.scopeToken`, exactly once. The
+    /// two surfaces that show this differ by one word: State Comparison
+    /// renders a FIGURE on screen, the CPA briefing describes a PLAN in a
+    /// document. Storing one sentence with a token, rather than two
+    /// sentences, is what keeps those two from drifting apart the way the
+    /// two hardcoded literals this replaced could have.
+    ///
+    /// The first sentence is jurisdiction-independent and lives in code, at
+    /// `UnclassifiedPensionDisclosure.leadSentence`, so 51 config files
+    /// cannot disagree about it.
+    var unclassifiedPensionDisclosure: String? = nil
+
     /// The first rule in `perSourceExemptions` whose `matches(structure:source:)`
     /// admits `(structure, source)`, or `nil` if none does. First match wins
     /// (design doc section 3.4a step 1). Centralized here, rather than
@@ -1992,7 +2027,21 @@ struct StateTaxData {
                         matchSources: [.nyStateOrLocal, .federalCivilian],
                         matchStructures: [.definedBenefit],
                         treatment: .full)
-                ]
+                ],
+                // Phase 5b Task 3b: mirrors the sentence now carried by
+                // statetax-2026-NY.json, for the same reason the rule above
+                // is mirrored here. New York is NOT in
+                // `phase5CorrectedJurisdictions`, so Layer B of the Phase 1
+                // gate requires its JSON and this entry to re-encode
+                // byte-identically; a field present in one and not the other
+                // fails that gate. Kansas needs no counterpart because Kansas
+                // IS on that list and is required to diverge.
+                //
+                // This is also the fallback a user actually sees if the
+                // bundled JSON fails to load, so leaving it out would mean
+                // that user silently loses the warning.
+                unclassifiedPensionDisclosure:
+                    "New York excludes a qualifying government pension from state tax with no dollar cap, but \(UnclassifiedPensionDisclosure.scopeToken) applies the standard $20,000 pension exclusion until it is classified."
             ),
             stateDeduction: .fixed(single: 8_000, married: 16_050)
         )

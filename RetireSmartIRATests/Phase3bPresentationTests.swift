@@ -538,54 +538,62 @@ struct Phase3bPresentationTests {
         }
     }
 
-    // MARK: - 3.7 The New York limitation wherever New York tax is computed
+    // MARK: - 3.7 The unclassified-pension limitation wherever that state's tax is computed
+    //
+    // Phase 5b Task 3b renamed both functions and moved their copy into each
+    // jurisdiction's own config. These New York cases are kept verbatim in
+    // substance: New York is still the jurisdiction whose behaviour must not
+    // change. What they could never catch, and what
+    // `Phase5bUnclassifiedPensionDisclosureTests` adds, is that a SECOND
+    // jurisdiction shipping a per-source rule also gets warned, and that New
+    // York's copy is byte-identical after the move.
 
-    @Test("StateComparisonView shows the New York limitation when viewing New York with an unclassified pension")
+    @Test("StateComparisonView shows the limitation when viewing New York with an unclassified pension")
     func stateComparisonShowsLimitationForUnclassifiedNewYorkPension() {
-        #expect(StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
+        #expect(StateComparisonPresentation.showsUnclassifiedPensionLimitation(
             viewedState: .newYork, hasUnclassifiedPension: true))
     }
 
     @Test("StateComparisonView omits the limitation once the pension is classified")
     func stateComparisonOmitsLimitationOnceClassified() {
-        #expect(!StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
+        #expect(!StateComparisonPresentation.showsUnclassifiedPensionLimitation(
             viewedState: .newYork, hasUnclassifiedPension: false))
     }
 
-    @Test("StateComparisonView omits the New York limitation for a different state's detail")
+    @Test("StateComparisonView omits the limitation for a state with no per-source rules")
     func stateComparisonOmitsLimitationForOtherStates() {
-        #expect(!StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
+        #expect(!StateComparisonPresentation.showsUnclassifiedPensionLimitation(
             viewedState: .california, hasUnclassifiedPension: true))
     }
 
-    // MARK: - CPA briefing: New York limitation
+    // MARK: - CPA briefing: the unclassified-pension limitation
 
-    @Test("The CPA briefing carries the New York limitation for a NY resident with an unclassified pension")
+    @Test("The CPA briefing carries the limitation for a NY resident with an unclassified pension")
     func cpaBriefingCarriesNewYorkLimitationWhenApplicable() {
-        let limitations = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: true, hasUnclassifiedPension: true)
+        let limitations = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .newYork, hasUnclassifiedPension: true)
         #expect(!limitations.isEmpty)
         #expect(limitations.allSatisfy { !$0.isEmpty })
     }
 
-    @Test("The CPA briefing omits the New York limitation for a non-NY resident")
+    @Test("The CPA briefing omits the New York limitation for a resident of a state with no rules")
     func cpaBriefingOmitsNewYorkLimitationOutsideNewYork() {
-        let limitations = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: false, hasUnclassifiedPension: true)
+        let limitations = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .california, hasUnclassifiedPension: true)
         #expect(limitations.isEmpty)
     }
 
-    @Test("The CPA briefing omits the New York limitation once the pension is classified")
+    @Test("The CPA briefing omits the limitation once the pension is classified")
     func cpaBriefingOmitsNewYorkLimitationOnceClassified() {
-        let limitations = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: true, hasUnclassifiedPension: false)
+        let limitations = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .newYork, hasUnclassifiedPension: false)
         #expect(limitations.isEmpty)
     }
 
     @Test("The rendered CPA briefing HTML contains the New York limitation text when applicable")
     func cpaBriefingHTMLContainsNewYorkLimitation() {
-        let extra = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: true, hasUnclassifiedPension: true)
+        let extra = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .newYork, hasUnclassifiedPension: true)
         let model = Self.briefingModel(limitations: V2Disclosures.limitations + extra)
         let html = MultiYearCPABriefingHTML.build(model)
         for line in extra {
@@ -692,7 +700,10 @@ struct Phase3bPresentationTests {
 
     // MARK: - Test fixture
 
-    private static func briefingModel(limitations: [String]) -> CPABriefingModel {
+    /// Not `private`: `Phase5bUnclassifiedPensionDisclosureTests` renders the
+    /// Kansas disclosure through the same briefing model, and a second copy
+    /// of this fixture would be free to drift from this one.
+    static func briefingModel(limitations: [String]) -> CPABriefingModel {
         let row = YearRecommendation(
             year: 2026, agi: 120_000, acaMagi: nil, irmaaMagi: 120_000, taxableIncome: 95_000,
             taxBreakdown: TaxBreakdown(federal: 18_000, state: 4_000, irmaa: 1_200, acaPremiumImpact: 0),

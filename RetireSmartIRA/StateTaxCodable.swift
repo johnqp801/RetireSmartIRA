@@ -300,6 +300,7 @@ extension RetirementIncomeExemptions: Codable {
         case rothConversionExemption
         case capitalGainsTreatment
         case perSourceExemptions
+        case unclassifiedPensionDisclosure
     }
 
     func encode(to encoder: Encoder) throws {
@@ -323,6 +324,11 @@ extension RetirementIncomeExemptions: Codable {
         if !perSourceExemptions.isEmpty {
             try c.encode(perSourceExemptions, forKey: .perSourceExemptions)
         }
+        // Same reasoning, and the same expected diff: the key appears only in
+        // the files of jurisdictions that ship a per-source rule (New York
+        // and Kansas today). `encodeIfPresent` omits it rather than writing
+        // `null`, so the other 49 files stay byte-for-byte as they are.
+        try c.encodeIfPresent(unclassifiedPensionDisclosure, forKey: .unclassifiedPensionDisclosure)
     }
 
     init(from decoder: Decoder) throws {
@@ -346,7 +352,9 @@ extension RetirementIncomeExemptions: Codable {
                 RothConversionExemption.self, forKey: .rothConversionExemption),
             capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal,
             perSourceExemptions: try c.decodeIfPresent(
-                [PerSourceExemptionRule].self, forKey: .perSourceExemptions) ?? []
+                [PerSourceExemptionRule].self, forKey: .perSourceExemptions) ?? [],
+            unclassifiedPensionDisclosure: try c.decodeIfPresent(
+                String.self, forKey: .unclassifiedPensionDisclosure)
         )
     }
 }

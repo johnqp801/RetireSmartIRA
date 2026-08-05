@@ -363,13 +363,19 @@ struct MultiYearPlanView: View {
             assumptions: manager.assumptions,
             // Phase 3b Task 6 (design doc section 3.7, task 6 brief step
             // 3a/4): the CPA briefing renders figures a CPA reads, so it
-            // carries the same New York and Hawaii disclosures Income
+            // carries the same per-source and Hawaii disclosures Income
             // Sources and State Comparison show, conditioned the same way.
             // Both are empty (no-op) for every household outside their
             // trigger condition, so an ordinary briefing is unchanged.
+            //
+            // Phase 5b Task 3b: the first of these takes the RESIDENCE state
+            // and reads that state's own config, so it covers New York,
+            // Kansas and every jurisdiction a later task adds. Residence is
+            // correct here and a viewed state would not be: see the doc
+            // comment on `unclassifiedPensionLimitation`.
             limitations: V2Disclosures.limitations
-                + MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-                    residesInNewYork: dataManager.selectedState == .newYork,
+                + MultiYearCPABriefing.unclassifiedPensionLimitation(
+                    residenceState: dataManager.selectedState,
                     // Whole-branch review Fix 2: also fires for an owner whose pension rows
                     // genuinely disagree with each other, which the adapter treats as
                     // unclassified with no `.unknown` row to catch otherwise.
