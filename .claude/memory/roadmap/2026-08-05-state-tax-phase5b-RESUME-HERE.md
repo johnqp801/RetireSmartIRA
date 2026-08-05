@@ -16,17 +16,27 @@ classifies their pension, which is Steve's own case, so the claim is sound FOR H
    matches `definedBenefit` only, so a Kansas TSP holder is still taxed. Recorded as machine-readable
    data in `GoldenScenarioDefectCatalogueTests.knownButUnpinned`, not merely in a report.
 
-## OPEN WORK, DECIDED BUT NOT BUILT
+## TASK 3b IS ALSO COMPLETE (commit `626199e`, approved first round)
 
-**John chose OPTION 2 on 2026-08-05** for the unclassified-pension disclosure gap: the two disclosures
-stop gating on New York and gate instead on whether the resident's own config carries per-source rules,
-with the SENTENCE coming from that jurisdiction's own config, so New York keeps its exact wording and
-each new jurisdiction supplies its own. Surfaces: `StateComparisonView.swift:22` and
-`MultiYearCPABriefing.swift:394` (gated at `MultiYearPlanView.swift:371-377`). **Consequence: every
-remaining jurisdiction task (4, 5, 6, 7, 8, 9) now owes a disclosure sentence alongside its rule, and
-Task 10 should verify none was skipped.** The Kansas wording was drafted and is AWAITING JOHN'S
-APPROVAL; it is user-facing copy and must not ship on an implementer's own phrasing. Drafts are in the
-session scratchpad and were presented as options A, B and C.
+Caveat 1 above is CLOSED. The two unclassified-pension disclosures now gate on live config instead of
+on New York, and each jurisdiction's SENTENCE comes from its own config. John approved option A
+wording, one string per jurisdiction, with a `{scope}` token swapping "this figure" (State Comparison)
+for "this plan" (CPA briefing). New York's live copy was proven byte-identical by extracting both
+shipped strings from the PARENT commit and asserting full equality, then proving the test could fail.
+
+**EVERY REMAINING JURISDICTION TASK NOW OWES A JOHN-APPROVED DISCLOSURE SENTENCE ALONGSIDE ITS RULE.**
+Tasks 4 (MA), 5 (HI), 6 (AZ), 7 (NC), 8 (ID), 9 (VT and DC). The sweep
+`rulesAndDisclosuresStayInLockstep` fails the suite if one is skipped, and a reviewer confirmed it
+genuinely fires. **TASK 10 MUST NOT DELETE OR SKIP THAT SWEEP.** It is the only thing binding the
+disclosure gate to the rules gate, and removing it silently reopens the Kansas defect for every later
+jurisdiction. The copy is user-facing: draft it, get John's approval, then ship it. Do not let an
+implementer's own phrasing land.
+
+**A lesson worth keeping.** Seven tests already covered these two surfaces and ALL SEVEN PASSED while
+Kansas got no warning, because each asserted only "New York fires, California does not" and "the text
+is non-empty". That was coverage written to the implementation's own shape, not absent coverage. The
+replacement sweeps iterate `USState.allCases` and derive their subject from data, so a jurisdiction
+added by a later task is in scope with no test edit.
 
 ## THE MOST SERIOUS OPEN DEFECT ON THIS BRANCH
 
