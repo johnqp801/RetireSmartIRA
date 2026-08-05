@@ -1,4 +1,36 @@
-# RESUME HERE: State Tax Phase 5b, ready to run Task 4 (Massachusetts)
+# RESUME HERE: State Tax Phase 5b, ready to run Task 5 (Hawaii)
+
+## TASK 4 (MASSACHUSETTS) IS COMPLETE, BUT MASSACHUSETTS IS NOT (commits `0bd68af`..`0a19cb8`)
+
+Three real defects fixed: contributory MA state and local pensions and US military retired pay are
+excluded outright by MA law and the engine taxed them in full. Suite 1,938 + 509, 0 failures.
+
+**TWO DECISIONS AWAIT JOHN. Do not start Task 5 assuming either way.**
+1. **SHIP as-is, or take the section 13 reversal.** The reviewer and the controller both recommend
+   SHIP. Shipping accepts a reachable UNDER-taxation path: a noncontributory municipal retiree who
+   picks the own-state picker row gets $0.00 instead of $3,000.00. Reverting is not a safe state, it
+   is a differently-wrong one, since it keeps over-taxing every MA public retiree on quoted statute to
+   protect a small legacy category.
+2. **Two copy items, shipped as PROPOSED:** the `unclassifiedPensionDisclosure` sentence in
+   `statetax-2026-MA.json` and the picker caption in `IncomeSourcesView.swift`. The caption is the
+   mitigation doing the real work, so it deserves the closer read.
+
+## THE THING TASK 5 MUST RESOLVE RATHER THAN INHERIT
+
+**Two fixtures on this branch assign OPPOSITE funding semantics to the same field.** HI-1's `source`
+says `definedBenefit` represents an employer-funded NONCONTRIBUTORY pension. MA-1's says
+`definedBenefit` IS the contributory Commonwealth pension. `PlanStructure.definedBenefit`'s own doc
+comment takes neither side. Task 4 discovered this, declined to build an employee-contributory axis
+from four Massachusetts cases precisely because it would have foreclosed Hawaii's, and a reviewer
+verified the argument against Hawaii's actual fixture. **Hawaii is where the axis question gets
+answered.** The plan already anticipated Hawaii might be a disclosure item rather than a correction;
+this is the deciding input.
+
+Also inherited: `governmentUnspecified` means "jurisdiction not established", NOT "noncontributory".
+Task 4 established that from the enum's own doc comment and renamed MA-2 accordingly. Do not reuse it
+as a funding marker.
+
+---
 
 ## TASK 3 IS COMPLETE AND KANSAS IS DONE (commits `44acf69`..`a2125f1`, reviewed clean twice)
 
