@@ -124,15 +124,25 @@ struct GoldenFixtureSurvivorFlagTests {
                 without deciding what its survivor flag should be.
                 """)
 
+        // Which scenario each expectation landed on. Asserted DISTINCT below:
+        // "count matches" plus "each substring matches exactly one scenario"
+        // is not enough on its own, because a rename that merged two
+        // substrings onto the SAME scenario name satisfies both while leaving
+        // another scenario asserted by nothing at all.
+        var matchedIndices: Set<Int> = []
+
         for expectation in Self.dcExpectedFlags {
-            let matches = file.scenarios.filter { $0.name.contains(expectation.nameContains) }
+            let matches = file.scenarios.enumerated()
+                .filter { $0.element.name.contains(expectation.nameContains) }
             #expect(matches.count == 1,
                     """
                     "\(expectation.nameContains)" matches \(matches.count) DC scenarios, \
                     expected exactly 1. A renamed case would otherwise drop out of this \
                     sweep silently, taking its flag assertion with it.
                     """)
-            guard let scenario = matches.first else { continue }
+            guard let match = matches.first else { continue }
+            matchedIndices.insert(match.offset)
+            let scenario = match.element
             let flags = (scenario.classifiedPensionSources ?? []).map(\.isSurvivorBenefit)
             #expect(flags == expectation.flags,
                     """
@@ -143,6 +153,15 @@ struct GoldenFixtureSurvivorFlagTests {
                     47-1803.02(a)(2)(N)(ii) turns on.
                     """)
         }
+
+        #expect(matchedIndices.count == Self.dcExpectedFlags.count,
+                """
+                \(Self.dcExpectedFlags.count) expectations landed on only \
+                \(matchedIndices.count) distinct DC scenarios, so at least one scenario is \
+                asserted by nothing. Two expectations matching the SAME case passes both \
+                the count check and the exactly-one-match check above while leaving another \
+                case's survivor flag entirely unchecked.
+                """)
 
         let rows = file.scenarios.flatMap { $0.classifiedPensionSources ?? [] }
         #expect(rows.allSatisfy { $0.isSurvivorBenefit != false },
