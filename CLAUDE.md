@@ -36,8 +36,25 @@ This repo maintains persistent memory in `.claude/memory/`.
 
 ## Testing
 
-- After any edits to retirement, tax, or calculation engine code, run the full test suite and confirm all tests pass before considering the change complete.
-- Tests are the source of truth — 951+ tests run on this project. A change is not done until the suite is green.
+**Run the suite with `tools/run-tests.sh`. Do not call `xcodebuild` directly.**
+
+```bash
+tools/run-tests.sh                              # full suite, about five to six minutes
+tools/run-tests.sh GoldenScenarioSingleYearTests # one or more suites by name
+tools/run-tests.sh --raw                        # unfiltered xcodebuild output
+```
+
+**RUN IT IN THE FOREGROUND.** If your tool has a timeout parameter, set it to 600000 milliseconds. Do NOT background it and do not poll it. Five separate agents lost a full turn each by backgrounding a build after hitting a 120 second default; the wrapper prints about six lines instead of tens of thousands, so there is no reason to.
+
+The wrapper exists because two mistakes kept recurring and a louder instruction never fixed either:
+
+- **Omitting `-project`.** This repo uses git worktrees, so several checkouts of different branches sit side by side. `xcodebuild` with no `-project` picks one by scanning the working directory, and a shell whose cwd resets between calls once silently built a DIFFERENT worktree on a DIFFERENT branch and printed BUILD SUCCEEDED for code nobody had written. The wrapper derives the project from its own location and cannot target another checkout.
+- **Backgrounding the run**, as above.
+
+It also refuses to report a false green: a run where zero tests executed exits non-zero and tells you the suite name was probably mistyped. And when the only failing suite is the known `MultiYearPerfTests` wall-clock flake, it re-runs that suite in isolation to CHECK the claim rather than waving it through, then tells you to say so explicitly in any report.
+
+- After any edits to retirement, tax, or calculation engine code, run the full suite and confirm it passes before considering the change complete.
+- Tests are the source of truth. The suite is currently about 2,366 tests (1,857 Swift Testing in 293 suites plus 509 XCTest). A change is not done until it is green.
 
 ## Code Search Conventions
 
