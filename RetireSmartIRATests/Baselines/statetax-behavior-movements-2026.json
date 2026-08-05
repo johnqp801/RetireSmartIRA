@@ -446,5 +446,157 @@
     "state": "NM",
     "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
     "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
+  },
+  {
+    "key": "UT|MFJ 56 with spouse 55, both below the gate",
+    "before": 5460.0,
+    "after": 5340.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|MFJ 57 with spouse 61",
+    "before": 5460.0,
+    "after": 5340.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|MFJ 61 with spouse 56",
+    "before": 5460.0,
+    "after": 5340.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|MFJ 68 both qualify, pension + IRA",
+    "before": 6279.0,
+    "after": 6141.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|MFJ 68 pension, total 120k",
+    "before": 5369.0,
+    "after": 5251.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|MFJ 68 pension, total 140k",
+    "before": 6279.0,
+    "after": 6141.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|MFJ 68 pension, total 200k over the cliff",
+    "before": 9009.0,
+    "after": 8811.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|MFJ status but spouse disabled, 66",
+    "before": 4277.0,
+    "after": 4183.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 54 conversion 80k",
+    "before": 6370.0,
+    "after": 6230.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 55 rmd rows not scenario distributions",
+    "before": 2730.0,
+    "after": 2670.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 55, distributions only",
+    "before": 2730.0,
+    "after": 2670.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 58, distributions only",
+    "before": 2730.0,
+    "after": 2670.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 59, distributions only",
+    "before": 2730.0,
+    "after": 2670.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 62 conversion 100k no withholding",
+    "before": 7280.0,
+    "after": 7120.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 62 conversion 100k with 22k withheld",
+    "before": 7280.0,
+    "after": 7120.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 63 in the early age tier",
+    "before": 4095.0,
+    "after": 4005.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 65 pension, total 95k",
+    "before": 4322.5,
+    "after": 4227.5,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 68 pension, total 120k",
+    "before": 5460.0,
+    "after": 5340.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
+  },
+  {
+    "key": "UT|single 68 pension, total 140k",
+    "before": 6370.0,
+    "after": 6230.0,
+    "state": "UT",
+    "goldenCase": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+    "justification": "Utah's flat rate corrected from 4.55% to 4.45% per enrolled S.B. 60 (2026 General Session, amending 59-10-104(2)(b), retrospective to Jan 1, 2026); the engine does not model UT's Taxpayer Tax Credit or Retirement Credit at all, so every one of this scenario grid's UT entries moves by exactly the rate cut, no more and no less."
   }
 ]

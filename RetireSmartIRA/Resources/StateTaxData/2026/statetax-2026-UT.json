@@ -35,7 +35,7 @@
   },
   "taxSystem" : {
     "kind" : "flat",
-    "rate" : 0.0455
+    "rate" : 0.0445
   },
   "traditionalIRAContributionsTaxableForState" : false,
   "verification" : {

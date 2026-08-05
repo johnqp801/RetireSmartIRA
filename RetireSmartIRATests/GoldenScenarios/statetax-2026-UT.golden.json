@@ -17,8 +17,8 @@
       "expectedStateTax": 1385.00,
       "knownDefect": {
         "tier": "tier4",
-        "summary": "UT's Taxpayer Tax Credit (UCA 59-10-1018, up to 6% of the federal standard deduction, phased out 1.3% per dollar over $18,213/$36,426 MAGI) is entirely unmodeled and the engine's flat rate is stale (4.55% configured vs 4.45% enacted for TY2026 by S.B. 60).",
-        "observedToday": 2047.5
+        "summary": "UT's Taxpayer Tax Credit (UCA 59-10-1018, up to 6% of the federal standard deduction, phased out 1.3% per dollar over $18,213/$36,426 MAGI) is entirely unmodeled. The engine's rate is now correct (4.45%, S.B. 60); the remaining gap is the credit alone.",
+        "observedToday": 2002.5
       }
     },
     {
@@ -36,8 +36,8 @@
       "expectedStateTax": 74.00,
       "knownDefect": {
         "tier": "tier4",
-        "summary": "Same Taxpayer Tax Credit and rate-staleness gap, now compounded with the separate age-gated Retirement Credit (UCA 59-10-1019, $450/person, fixed 1952 birth-year cutoff), also entirely unmodeled.",
-        "observedToday": 1365.0
+        "summary": "Same Taxpayer Tax Credit gap, now compounded with the separate age-gated Retirement Credit (UCA 59-10-1019, $450/person, fixed 1952 birth-year cutoff), also entirely unmodeled. The engine's rate is now correct (4.45%, S.B. 60).",
+        "observedToday": 1335.0
       }
     },
     {
@@ -56,7 +56,7 @@
       "knownDefect": {
         "tier": "tier4",
         "summary": "Same mechanism; the engine has no notion of the doubled Retirement Credit base for two qualifying spouses because it does not model the credit at all, and the Taxpayer Tax Credit's phase-out is likewise absent.",
-        "observedToday": 3185.0
+        "observedToday": 3115.0
       }
     },
     {
@@ -75,7 +75,7 @@
       "knownDefect": {
         "tier": "tier4",
         "summary": "Same mechanism as the both-spouses-qualify MFJ case; the engine cannot distinguish a single-spouse $450 Retirement Credit base from a doubled $900 base because it models neither.",
-        "observedToday": 2957.5
+        "observedToday": 2892.5
       }
     },
     {
@@ -90,12 +90,7 @@
       "pensionIncome": 50000,
       "iraWithdrawals": 0,
       "rothConversion": 60000,
-      "expectedStateTax": 4895.00,
-      "knownDefect": {
-        "tier": "tier4",
-        "summary": "At this income both UT credits are legitimately zero under real law too, so the entire gap is the stale flat rate: engine 4.55% vs the TY2026-enacted 4.45% (S.B. 60).",
-        "observedToday": 5005.0
-      }
+      "expectedStateTax": 4895.00
     }
   ]
 }
