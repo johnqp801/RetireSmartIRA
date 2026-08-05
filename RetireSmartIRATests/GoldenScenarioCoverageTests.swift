@@ -10,13 +10,54 @@ import Foundation
 @Suite("Golden scenarios, coverage and shape")
 struct GoldenScenarioCoverageTests {
 
-    /// Jurisdictions with a bundled fixture today. This list grows as each
-    /// batch task lands, so a half-finished phase still gates on what it has
-    /// actually delivered. Task 10 switches `covered` to a full
-    /// `USState.allCases` sweep and adds a dedicated completeness test
-    /// (`everyJurisdictionHasAFixture`) once this list reaches 51; that test
-    /// does not exist yet.
-    static let covered: [String] = ["PA", "IL", "MS", "NJ", "NY", "AK", "FL", "NV", "SD", "TN", "TX", "WY", "NH", "CA", "NE", "ND", "IN", "OR", "CO", "KY", "GA", "MO", "IA", "MI", "CT", "VA", "WI", "AL", "RI", "ME", "MD", "KS", "MA", "HI", "AZ", "NC", "ID", "VT", "DC", "OK", "DE", "LA", "AR", "SC", "WV", "OH", "UT", "NM", "WA", "MN"]
+    /// All 51 jurisdictions minus the ones in `cannotVerify`. Derived, not
+    /// hand-listed: Task 10 closed the phase by switching this from a
+    /// hand-grown literal to a full `USState.allCases` sweep, because a
+    /// literal list is a liability once the phase is done -- a jurisdiction
+    /// silently falling out of it would read as "not yet reached" forever
+    /// instead of failing a test. `everyJurisdictionHasAFixture` below is
+    /// the completeness gate this list feeds.
+    static let covered: [String] = USState.allCases
+        .map(\.abbreviation)
+        .filter { abbreviation in !cannotVerify.map(\.abbreviation).contains(abbreviation) }
+        .sorted()
+
+    /// Jurisdictions for which Phase 4 deliberately shipped NO golden fixture,
+    /// because the TY2026 rule cannot be established from a primary source.
+    ///
+    /// This is DATA, not a comment. Phase 6's disclosure UI is specified to
+    /// render exactly this distinction -- a jurisdiction with no fixture must
+    /// be visibly UNVERIFIED, never silently treated as "assumed correct" --
+    /// and it has to read that distinction from something other than a code
+    /// comment. `everyJurisdictionHasAFixture` and
+    /// `cannotVerifyListIsExactlyWhatPhase4Shipped` are what keep this list
+    /// honest: the first can never pass by quietly shrinking `covered`
+    /// instead of fixing a gap, and the second can never pass by quietly
+    /// growing this list to make the first one pass.
+    struct UnverifiedJurisdiction {
+        let abbreviation: String
+        /// Why no fixture exists, and what would resolve it. Written for
+        /// Phase 6 to show a user, not just for a future engineer.
+        let reason: String
+    }
+
+    static let cannotVerify: [UnverifiedJurisdiction] = [
+        UnverifiedJurisdiction(
+            abbreviation: "MT",
+            reason: """
+                Montana's mechanism is confirmed: the old income-gated \
+                .partial(4_640) deduction was repealed effective TY2025 and \
+                replaced with a flat age-65 subtraction (Montana DOR Form 2 \
+                2025 Instructions, page 6, opened directly by the Task 6 \
+                batch). The exact TY2026 INDEXED dollar figure for that flat \
+                subtraction has not been published by Montana DOR as of \
+                2026-08-04. Recorded CANNOT_VERIFY per spec 3.4 rather than \
+                interpolated or guessed. A reviewer independently examined \
+                this call and agreed with it. Revisit once Montana DOR \
+                publishes the TY2026 figure.
+                """
+        )
+    ]
 
     /// The pension amount that contributes to `federalAGI`'s component sum.
     ///
@@ -46,6 +87,62 @@ struct GoldenScenarioCoverageTests {
         #expect(file.state == abbreviation)
         #expect(file.taxYear == 2026)
         #expect(!file.scenarios.isEmpty)
+    }
+
+    /// The Task 10 completeness gate. Sweeps ALL 51 jurisdictions, not just
+    /// `covered`, so a half-finished phase (or a jurisdiction that silently
+    /// falls out of `covered` later) cannot pass by construction. Every
+    /// jurisdiction not in `cannotVerify` must load a real fixture; every
+    /// jurisdiction IN `cannotVerify` is deliberately allowed to have none,
+    /// because it is unverifiable, not unfinished.
+    ///
+    /// Read literally, the brief's version of this test (`USState.allCases`
+    /// swept with no exclusion) fails on Montana. That failure would be
+    /// correct only if Montana's absence were an oversight. It is not: the
+    /// mechanism is confirmed and only the TY2026 indexed dollar figure is
+    /// unpublished (see `cannotVerify`). Weakening this test to pass on a
+    /// silently-missing state would be the failure the phase exists to
+    /// prevent; carrying the exclusion as reviewed, documented DATA is what
+    /// keeps the test strict while making a real exception.
+    @Test("Every one of the 51 jurisdictions has a fixture or a documented CANNOT_VERIFY reason")
+    func everyJurisdictionHasAFixture() throws {
+        let excluded = Set(GoldenScenarioCoverageTests.cannotVerify.map(\.abbreviation))
+        var missing: [String] = []
+        for state in USState.allCases {
+            guard !excluded.contains(state.abbreviation) else { continue }
+            if (try? GoldenScenario.load(abbreviation: state.abbreviation)) == nil {
+                missing.append(state.abbreviation)
+            }
+        }
+        #expect(missing.isEmpty,
+                """
+                No golden fixture bundled for: \(missing.sorted().joined(separator: ", ")).
+                Phase 4's deliverable is all 51 jurisdictions, less any documented
+                CANNOT_VERIFY exclusion. A jurisdiction with no fixture and no entry in
+                `cannotVerify` is not "assumed correct", it is an unfinished phase.
+                """)
+        #expect(USState.allCases.count == 51)
+    }
+
+    /// Without this, `everyJurisdictionHasAFixture` could be made to pass by
+    /// quietly ADDING an abbreviation to `cannotVerify` instead of writing the
+    /// fixture -- the exact silent-drop failure mode the completeness gate
+    /// exists to catch, just moved one layer up. Pinning the list's exact
+    /// membership means growing it (or shrinking it) is a change a reviewer
+    /// has to see and approve, not a side effect nobody notices.
+    @Test("The CANNOT_VERIFY exclusion list is exactly what Phase 4 shipped, not silently grown")
+    func cannotVerifyListIsExactlyWhatPhase4Shipped() {
+        let abbreviations = GoldenScenarioCoverageTests.cannotVerify.map(\.abbreviation).sorted()
+        #expect(abbreviations == ["MT"],
+                """
+                cannotVerify now lists \(abbreviations), expected exactly ["MT"]. If a
+                jurisdiction was deliberately added or removed, update this pin along with
+                the reviewed reason in `cannotVerify` itself -- do not let this list drift
+                silently.
+                """)
+        for entry in GoldenScenarioCoverageTests.cannotVerify {
+            #expect(!entry.reason.isEmpty, "\(entry.abbreviation): CANNOT_VERIFY with no reason recorded")
+        }
     }
 
     /// The invariant that makes a whole class of false finding unrepresentable.
