@@ -563,10 +563,82 @@ struct Phase5bArizonaPerSourceTests {
                 """)
     }
 
+    // MARK: - The two records that outlive this file's reasoning
+
+    /// `knownButUnpinnedIsWellFormed` only asserts the ARRAY is non-empty and
+    /// that each surviving entry has prose. With MO, KS, MA and HI present,
+    /// deleting Arizona's entries leaves that test green, so a future green
+    /// suite could mean "Arizona is fine" when a real, cited defect was quietly
+    /// dropped. These two tests fail on deletion, in the same shape as
+    /// `Phase5bHawaiiDecisionTests.theEmployerFundedPortionGapStaysRecorded`.
+    ///
+    /// Arizona carries TWO entries, so each is selected on its own content
+    /// rather than on `state == "AZ"` alone, which would let either one be
+    /// deleted while the other kept the lookup satisfied.
+    @Test("Arizona's unclassified-pension default stays recorded as a known-but-unpinned defect")
+    func theUnclassifiedDefaultStaysRecorded() throws {
+        let entry = try #require(
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "AZ" && $0.summary.contains("UNCLASSIFIED")
+            },
+            """
+            Arizona's unclassified-pension default is no longer recorded. Either the
+            unclassified state was genuinely made unreachable, in which case this test
+            should be replaced by golden cases, or a real, cited under-taxation was
+            silently dropped from the catalogue. Arizona ships a live
+            `pensionExemption: .partial(2500)` that still applies to any unclassified
+            pension, including a private one Line 29a does not reach.
+            """)
+        #expect(entry.blockedOn.contains("NOT EXPRESSIBLE AS A GOLDEN CASE"))
+        #expect(entry.blockedOn.contains("BYTE-IDENTICAL"))
+    }
+
+    @Test("Arizona's unresolved Railroad Retirement treatment stays recorded")
+    func theRailroadRetirementGapStaysRecorded() throws {
+        let entry = try #require(
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "AZ" && $0.summary.contains("RAILROAD RETIREMENT")
+            },
+            """
+            Arizona's Railroad Retirement gap is no longer recorded. If a rule now names
+            `railroadRetirement`, this test should be replaced by the golden case that
+            authorised it, and the AZ entry deleted in the SAME change. If no rule was
+            added, a live picker-reachable classification with an unresolved answer was
+            dropped from the catalogue.
+            """)
+        #expect(entry.blockedOn.contains("NO AUTHORITY IN THE FIXTURE"))
+        // The claim the entry rests on: no Arizona rule names the source, so it
+        // falls through to the pooled allowance. Asserted against the SHIPPED
+        // config, so the entry cannot outlive the condition it describes.
+        #expect(Self.arizonaExemptions.matchedPerSourceRule(
+            structure: .definedBenefit, source: .railroadRetirement) == nil,
+                """
+                An Arizona rule now names railroadRetirement, so the catalogue entry \
+                describing it as unresolved is stale and must be deleted along with this \
+                test, citing the golden case that authorised the rule.
+                """)
+    }
+
     // MARK: - The disclosure
 
     /// Task 3b's lockstep sweep asserts a sentence EXISTS. This asserts it says
     /// the right things, which the sweep cannot.
+    ///
+    /// THE COPY IS APPROVED. Task 6 drafted three options and recommended this
+    /// one; John APPROVED it AS IS on 2026-08-05, so the shipped sentence in
+    /// `statetax-2026-AZ.json` is approved user-facing copy and not a working
+    /// draft. Recorded here because that file is JSON and cannot carry a
+    /// comment; this is the same treatment Task 4's Massachusetts copy and Task
+    /// 3's picker labels got in `IncomeSourcesView.swift`.
+    ///
+    /// Arizona's sentence is the only one in the phase that has to describe an
+    /// unclassified default which is wrong in BOTH directions: too little for a
+    /// military retiree, who is owed an uncapped exclusion, and too much for a
+    /// private pensioner, who is owed nothing. The "applies the $2,500 allowance
+    /// to any pension" clause is what carries the second half, and it is why the
+    /// two shorter options were rejected. A rewrite that drops it makes the
+    /// sentence read as though classifying can only ever LOWER a user's tax,
+    /// which for an Arizona private pensioner is false.
     @Test("Arizona's disclosure names both lines and the allowance a user actually gets")
     func arizonaDisclosureNamesBothLines() throws {
         let sentence = try #require(Self.arizonaExemptions.unclassifiedPensionDisclosure)

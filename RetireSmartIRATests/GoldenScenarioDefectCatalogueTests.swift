@@ -177,6 +177,44 @@ struct GoldenScenarioDefectCatalogueTests {
                 """
         ),
         UnpinnedDefect(
+            state: "AZ",
+            summary: """
+                Arizona's treatment of RAILROAD RETIREMENT benefits is unresolved, and
+                Phase 5b Task 6 left it at the status quo rather than guessing. The
+                shipped Arizona rules name `uniformedServices` (Line 29b, full) and deny
+                `privateEmployer`, `otherStateOrLocal` and `nyStateOrLocal`;
+                `railroadRetirement` is named by neither, so it falls through to the
+                pooled `pensionExemption` and receives the Line 29a $2,500 allowance.
+                That is exactly what Arizona did before this task, so nothing regressed,
+                but it is unlikely to be right in either direction: 45 U.S.C. 231m is
+                generally read as barring state taxation of Railroad Retirement Board
+                benefits outright, and Kansas's Schedule S Line A14 already exempts them
+                by name, which is why `PlanSource.railroadRetirement` exists at all. If
+                that reading holds for Arizona, the direction is UNDER-exemption (the app
+                over-taxes) on everything above $2,500. `railroadRetirement` is
+                picker-reachable ("Railroad Retirement benefits"), so this is a live
+                classification an Arizona user can select today.
+                """,
+            blockedOn: """
+                NO AUTHORITY IN THE FIXTURE. statetax-2026-AZ.golden.json carries no
+                railroad scenario and cites no Arizona provision covering these benefits;
+                its nine cases quote Form 140 Lines 29a and 29b only. The shared
+                procedure's Step 1 makes the golden fixture the specification and forbids
+                re-researching the law, and neither available answer is derivable from
+                what the fixture cites: a `full` rule and a `none` rule are both
+                assertions about Arizona law that no quoted source in this repository
+                supports. Guessing either way would put an uncited figure into a shipped
+                config, which is the failure mode Missouri's entry above was created to
+                avoid. Resolve by adding an Arizona golden case derived from the Arizona
+                DOR's own published treatment of Railroad Retirement (and the federal
+                preemption question), then naming `railroadRetirement` in whichever rule
+                that case supports. The same question is open for `governmentUnspecified`,
+                which also falls through to the $2,500 allowance, though that case is a
+                deliberate non-answer: `PlanSource.governmentUnspecified`'s own doc
+                comment forbids any rule treating it as a specific jurisdiction.
+                """
+        ),
+        UnpinnedDefect(
             state: "MO",
             summary: """
                 Missouri's public pension exemption is coded `.full` (unlimited) in

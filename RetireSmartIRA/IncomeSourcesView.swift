@@ -188,10 +188,22 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// source-to-state association and made
     /// `residenceNamesItsOwnJurisdiction` check less than its name asserted:
     /// it answered "does this state's config name ANY jurisdiction-named
-    /// source", not "does it name ITS OWN". Nothing triggers the difference
-    /// today, since `nyStateOrLocal` is the only such case and only New
-    /// York's config names it, but the name is now true rather than
-    /// accidentally true.
+    /// source", not "does it name ITS OWN".
+    ///
+    /// THAT DIFFERENCE IS NOW LIVE, and Arizona is what exercises it. An
+    /// earlier version of this comment said nothing triggered it, on the
+    /// grounds that only New York's config named `nyStateOrLocal`. Phase 5b
+    /// Task 6 changed that: Arizona's Line 29a DENIAL rule names
+    /// `nyStateOrLocal`, because an Arizona resident can select the New York
+    /// picker row and a New York pension is not Line 29a income. Under the
+    /// old `Set` version, `residenceNamesItsOwnJurisdiction(.arizona)` would
+    /// answer true and `options(for: .arizona)` would suppress the generic
+    /// own-state row for every Arizona resident, making Arizona's own $2,500
+    /// allowance UNREACHABLE for an Arizona State Retirement System retiree.
+    /// The `== state` comparison is what keeps it false. Reverting this to a
+    /// `Set` now breaks Arizona;
+    /// `Phase5bArizonaPerSourceTests.arizonaDoesNotSuppressTheOwnStateRow`
+    /// is the test that catches it.
     static let jurisdictionNamedSources: [PlanSource: USState] = [.nyStateOrLocal: .newYork]
 
     /// Whether `state`'s OWN configuration already names its own
