@@ -179,7 +179,17 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// made expressible generically. Data rather than a `state == .newYork`
     /// check, so retiring the case (the structural fix this file's enum doc
     /// comment describes) is a one-line deletion here and nowhere else.
-    static let jurisdictionNamedSources: Set<PlanSource> = [.nyStateOrLocal]
+    /// keyed to THE STATE IT NAMES, so the association survives the lookup.
+    ///
+    /// This was a `Set<PlanSource>` on review, which dropped the
+    /// source-to-state association and made
+    /// `residenceNamesItsOwnJurisdiction` check less than its name asserted:
+    /// it answered "does this state's config name ANY jurisdiction-named
+    /// source", not "does it name ITS OWN". Nothing triggers the difference
+    /// today, since `nyStateOrLocal` is the only such case and only New
+    /// York's config names it, but the name is now true rather than
+    /// accidentally true.
+    static let jurisdictionNamedSources: [PlanSource: USState] = [.nyStateOrLocal: .newYork]
 
     /// Whether `state`'s OWN configuration already names its own
     /// jurisdiction in a per-source rule, which makes the generic own-state
@@ -190,10 +200,14 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     ///
     /// Reads the live config, in the same spirit as
     /// `residenceHasPerSourceRules` below, so it needs no edit when a
-    /// jurisdiction ships or retires such a rule.
+    /// jurisdiction ships or retires such a rule. The `== state` comparison
+    /// is what makes this "its own" rather than "any": a config naming some
+    /// OTHER state's jurisdiction-named source would not suppress here, and
+    /// should not, because the generic own-state row is still the only way
+    /// that state's residents could describe their own pension.
     static func residenceNamesItsOwnJurisdiction(_ state: USState) -> Bool {
         StateTaxData.config(for: state).retirementExemptions.perSourceExemptions.contains { rule in
-            rule.matchSources.contains { jurisdictionNamedSources.contains($0) }
+            rule.matchSources.contains { jurisdictionNamedSources[$0] == state }
         }
     }
 
@@ -208,8 +222,17 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// and which would silently rewrite the row's classification on the next
     /// save. Suppression is about what a user can newly CHOOSE, never about
     /// hiding what they already chose.
+    ///
+    /// `selected` has NO DEFAULT VALUE, deliberately. It carried `= nil` on
+    /// review, which made the one form with a data-loss failure mode the
+    /// DEFAULT form: a call site added later could omit it with no compile
+    /// error, and no test would catch it, because the tests exercise the nil
+    /// form on purpose and therefore cannot also assert that production
+    /// never uses it. Requiring the argument moves that from "covered by
+    /// vigilance" to "foreclosed by the compiler". Pass `nil` explicitly
+    /// when there genuinely is no current selection.
     static func options(for state: USState,
-                        selected: PlanClassificationChoice? = nil) -> [PlanClassificationChoice] {
+                        selected: PlanClassificationChoice?) -> [PlanClassificationChoice] {
         guard residenceNamesItsOwnJurisdiction(state) else { return allCases }
         return allCases.filter { $0 != .ownStateGovernmentPension || $0 == selected }
     }

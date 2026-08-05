@@ -568,11 +568,27 @@ class DataManager {
     /// since v1.8.3; this one generalises it from a rate to a
     /// classification.
     ///
-    /// Numerically inert for every household that exists today. No shipped
-    /// fixture drives this path with `ownStateOrLocal`, neither frozen
-    /// scenario grid classifies its rows at all, and no user save can carry
-    /// the value because the picker row that writes it ships in this same
-    /// change.
+    /// Numerically inert for every household that exists today. FIVE golden
+    /// fixture scenarios DO carry `ownStateOrLocal` (Kansas KS-4, KS-5 and
+    /// KS-6 among them), so "no fixture carries the value" would be false;
+    /// what is true is that none of them reaches this function, because the
+    /// golden runner calls `TaxCalculationEngine.calculateStateTax` directly
+    /// and never constructs a `DataManager`. Neither frozen scenario grid
+    /// classifies its rows at all, and no user save can carry the value,
+    /// because the picker row that writes it ships in this same change.
+    ///
+    /// WHAT THIS DOES NOT FIX, and cannot without a new stored field:
+    /// `ownStateOrLocal` goes STALE on a residence change, and that route
+    /// errs toward UNDER-taxation. Nothing records the residence at
+    /// classification time. A Vermont resident classifies VSERS as
+    /// own-state (harmless while Vermont ships no rule), later changes
+    /// residence to Kansas in Settings, and the guard below short-circuits
+    /// to identity because the state now MATCHES. Schedule S Line A14 then
+    /// matches and a Vermont pension takes Kansas's full exclusion at the
+    /// user's actual residence. It is the same defect reached by MOVING
+    /// instead of by COMPARING, it goes further live with Tasks 4, 8 and 9
+    /// (Massachusetts, Idaho and Vermont all plan `ownStateOrLocal` rules),
+    /// and it is recorded rather than solved. See the Task 3 report.
     func incomeSources(asResidentOf state: USState) -> [IncomeSource] {
         guard state != selectedState else { return incomeSources }
         return incomeSources.map { row in
@@ -933,6 +949,19 @@ class DataManager {
         // nil, `matchedDistroComponents` is empty and the adjusted scalar
         // equals the original, so `resolvePooledAmount` still takes its nil
         // short-circuit unchanged.
+        //
+        // NOT RESIDENCE-MAPPED, recorded deliberately (Phase 5b Task 3
+        // re-review). The pension/RMD partition above reads rows through
+        // `incomeSources(asResidentOf: state)`; this block does not, because
+        // a `RetirementDistributionComponent` arrives as a parameter rather
+        // than from `incomeSources` and this function has no equivalent
+        // mapping for it. Inert today: no PRODUCTION caller passes
+        // `distributionComponents` non-nil, only tests do, so
+        // `allDistroComponents` is always empty on every shipped path.
+        // Whichever task first supplies components in production inherits
+        // the obligation to map `ownStateOrLocal` here too, or a component
+        // will claim another state's own-state exclusion on the State
+        // Comparison screen exactly as an unmapped income row would have.
         let allDistroComponents = distributionComponents ?? []
         let matchedDistroComponents = allDistroComponents.filter {
             exemptions.matchedPerSourceRule(structure: $0.structure, source: $0.source) != nil

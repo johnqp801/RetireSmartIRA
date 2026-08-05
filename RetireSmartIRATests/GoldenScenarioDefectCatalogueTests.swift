@@ -87,19 +87,40 @@ struct GoldenScenarioDefectCatalogueTests {
     // MARK: - Known but unpinned
 
     /// A real, confirmed defect the phase found but could NOT pin with a golden
-    /// case, because the correct `expectedStateTax` depends on a dollar figure
-    /// no reachable primary source states. `catalogue()` above can only ever see
-    /// what a fixture carries, so a defect like this is invisible to it -- and a
-    /// real defect invisible to the catalogue is exactly the thing Phase 5 would
-    /// never act on. This list is the deliberate, documented alternative to
-    /// letting it disappear: DATA, not a comment, so it survives independent of
-    /// any one report or ledger.
+    /// case. `catalogue()` above can only ever see what a fixture carries, so a
+    /// defect like this is invisible to it -- and a real defect invisible to the
+    /// catalogue is exactly the thing Phase 5 would never act on. This list is
+    /// the deliberate, documented alternative to letting it disappear: DATA, not
+    /// a comment, so it survives independent of any one report or ledger.
     ///
     /// Distinct from both a pinned `knownDefect` (measured, cited, in
     /// `catalogue()`) and a clean pass (measured, cited, agrees with the form):
-    /// this is measured to be WRONG in direction and mechanism, cited for the
-    /// mechanism, but has no admissible source for the one number
-    /// `expectedStateTax` would need, so no fixture asserts it.
+    /// this is measured to be WRONG in direction and mechanism, and cited for
+    /// the mechanism, but something stops a fixture from asserting it.
+    ///
+    /// TWO ADMISSIBLE KINDS OF BLOCKER, and a contributor deciding whether their
+    /// finding belongs here should check theirs against both. The list held only
+    /// the first kind until Phase 5b Task 3, and an earlier version of this
+    /// comment defined the whole category by it, which was the differentia of
+    /// the single member that happened to exist rather than the genus:
+    ///
+    ///   1. NO ADMISSIBLE FIGURE. The correct `expectedStateTax` depends on a
+    ///      dollar amount no reachable primary source states, so the fixture
+    ///      could be written but its expected value could not be derived. The
+    ///      Missouri entry below. Resolved by a source becoming reachable.
+    ///
+    ///   2. NOT EXPRESSIBLE. The household itself cannot be described in the
+    ///      app's model, so the fixture cannot be written at all and a fixture
+    ///      asserting a tax for it would assert something unreachable. The
+    ///      Kansas TSP entry below: no `PlanClassificationChoice` row writes a
+    ///      federal defined-contribution plan, so no user can classify one and
+    ///      no fixture can pin what happens when they do. Resolved by a product
+    ///      decision, not by research.
+    ///
+    /// What both share, and what actually defines the category: a defect
+    /// measured against a state's own published form, whose mechanism is cited,
+    /// which no golden case can hold. A finding that COULD be pinned belongs in
+    /// a fixture with a `knownDefect` block instead, not here.
     struct UnpinnedDefect {
         let state: String
         /// The mechanism, stated the same way a `knownDefect.summary` would be.

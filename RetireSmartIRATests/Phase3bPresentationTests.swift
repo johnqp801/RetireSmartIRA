@@ -353,7 +353,7 @@ struct Phase3bPresentationTests {
     @Test("A resident of a state that names its own jurisdiction is not offered the generic own-state row")
     func ownStateRowIsSuppressedWhereTheStateNamesItsOwnJurisdiction() {
         #expect(PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.newYork))
-        let options = PlanClassificationChoice.options(for: .newYork)
+        let options = PlanClassificationChoice.options(for: .newYork, selected: nil)
         #expect(!options.contains(.ownStateGovernmentPension))
         #expect(options.contains(.nyGovernmentPension),
                 "the jurisdiction-named row is the one that DOES select New York's exclusion")
@@ -369,8 +369,8 @@ struct Phase3bPresentationTests {
     @Test("A Kansas resident is still offered the own-state row, which is how KPERS is selected at all")
     func ownStateRowIsOfferedWhereTheStateUsesTheGenericSource() {
         #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.kansas))
-        #expect(PlanClassificationChoice.options(for: .kansas).contains(.ownStateGovernmentPension))
-        #expect(PlanClassificationChoice.options(for: .kansas) == PlanClassificationChoice.allCases)
+        #expect(PlanClassificationChoice.options(for: .kansas, selected: nil).contains(.ownStateGovernmentPension))
+        #expect(PlanClassificationChoice.options(for: .kansas, selected: nil) == PlanClassificationChoice.allCases)
     }
 
     /// A state with no per-source rules at all is unaffected: nothing is
@@ -378,7 +378,7 @@ struct Phase3bPresentationTests {
     @Test("A state with no per-source rules offers the full list")
     func noPerSourceRulesMeansNoSuppression() {
         #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.california))
-        #expect(PlanClassificationChoice.options(for: .california) == PlanClassificationChoice.allCases)
+        #expect(PlanClassificationChoice.options(for: .california, selected: nil) == PlanClassificationChoice.allCases)
     }
 
     /// Suppression governs what a user can newly CHOOSE, never what they
@@ -403,9 +403,32 @@ struct Phase3bPresentationTests {
     /// it names the one legacy jurisdiction-named case and nothing else, so
     /// retiring `nyStateOrLocal` (the structural fix) is a one-line deletion
     /// that this test reports rather than a silent behavior change.
-    @Test("The jurisdiction-named source list is exactly the one legacy case")
+    /// It is a MAP, not a set: each jurisdiction-named source is keyed to
+    /// the state it names, so `residenceNamesItsOwnJurisdiction` can ask
+    /// whether a config names ITS OWN jurisdiction rather than merely
+    /// whether it names some jurisdiction. As a `Set` the association was
+    /// dropped and the predicate checked less than its name asserted.
+    @Test("The jurisdiction-named source map is exactly the one legacy case, keyed to its own state")
     func jurisdictionNamedSourcesIsExactlyTheLegacyCase() {
-        #expect(PlanClassificationChoice.jurisdictionNamedSources == [.nyStateOrLocal])
+        #expect(PlanClassificationChoice.jurisdictionNamedSources == [.nyStateOrLocal: .newYork])
+        // Every other source is generic, naming no jurisdiction on its own.
+        for source in PlanSource.allCases where source != .nyStateOrLocal {
+            #expect(PlanClassificationChoice.jurisdictionNamedSources[source] == nil,
+                    "\(source) must not be treated as naming a jurisdiction")
+        }
+    }
+
+    /// The `== state` half of the predicate, which is what makes its name
+    /// true. New York names `nyStateOrLocal` and that source maps to New
+    /// York, so New York suppresses. No OTHER state suppresses on account of
+    /// New York's case, which is the association a `Set` could not express.
+    @Test("Only the state a jurisdiction-named source actually names suppresses on account of it")
+    func suppressionIsKeyedToTheNamedStateNotMerePresence() {
+        #expect(PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.newYork))
+        for state in USState.allCases where state != .newYork {
+            #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(state),
+                    "\(state.abbreviation) suppresses the own-state row, but only New York ships a rule naming its own jurisdiction. Either a new jurisdiction-named source shipped without being added to jurisdictionNamedSources, or the predicate regressed to checking mere presence.")
+        }
     }
 
     /// The addendum's "confirm it, do not modify it" item.
