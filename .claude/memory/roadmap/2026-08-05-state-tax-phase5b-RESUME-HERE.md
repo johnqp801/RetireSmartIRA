@@ -1,4 +1,49 @@
-# RESUME HERE: State Tax Phase 5b, ready to run Task 3
+# RESUME HERE: State Tax Phase 5b, ready to run Task 4 (Massachusetts)
+
+## TASK 3 IS COMPLETE AND KANSAS IS DONE (commits `44acf69`..`a2125f1`, reviewed clean twice)
+
+**Kansas had two defects. Phase 5a fixed one, Task 3 fixed the other. Steve Nicolai's report is now
+fully addressed, and this is the first time in the whole program that has been true of any
+jurisdiction.** Suite 1,910 Swift Testing in 296 suites + 509 XCTest, 0 failures.
+
+**Two caveats before anyone tells Steve anything.** Neither affects a Kansas KPERS holder who
+classifies their pension, which is Steve's own case, so the claim is sound FOR HIM.
+1. An unclassified Kansas pension is still taxed in full and the user gets NO warning, while an
+   identically-placed New York user is warned on two surfaces. John chose option 2 to fix this (see
+   the OPEN WORK section below). Until it lands, "Kansas is complete" is true only for a user who
+   classified.
+2. Schedule S Line A14 also names Thrift Savings Plans, which are defined-contribution, and the rule
+   matches `definedBenefit` only, so a Kansas TSP holder is still taxed. Recorded as machine-readable
+   data in `GoldenScenarioDefectCatalogueTests.knownButUnpinned`, not merely in a report.
+
+## OPEN WORK, DECIDED BUT NOT BUILT
+
+**John chose OPTION 2 on 2026-08-05** for the unclassified-pension disclosure gap: the two disclosures
+stop gating on New York and gate instead on whether the resident's own config carries per-source rules,
+with the SENTENCE coming from that jurisdiction's own config, so New York keeps its exact wording and
+each new jurisdiction supplies its own. Surfaces: `StateComparisonView.swift:22` and
+`MultiYearCPABriefing.swift:394` (gated at `MultiYearPlanView.swift:371-377`). **Consequence: every
+remaining jurisdiction task (4, 5, 6, 7, 8, 9) now owes a disclosure sentence alongside its rule, and
+Task 10 should verify none was skipped.** The Kansas wording was drafted and is AWAITING JOHN'S
+APPROVAL; it is user-facing copy and must not ship on an implementer's own phrasing. Drafts are in the
+session scratchpad and were presented as options A, B and C.
+
+## THE MOST SERIOUS OPEN DEFECT ON THIS BRANCH
+
+**`ownStateOrLocal` goes STALE ON A RESIDENCE CHANGE, and it errs toward UNDER-taxation.** Nothing
+records the residence at classification time, and the pension picker gates on `incomeType == .pension`
+only, not on the state. Reproduction: a Vermont user classifies VSERS as own-state (harmless, Vermont
+ships no rule), then changes residence to Kansas in Settings. `incomeSources(asResidentOf: .kansas)`
+short-circuits to identity at `DataManager.swift:577` because the state now matches, Schedule S Line
+A14 matches, and a Vermont pension collects Kansas's full exclusion at the user's ACTUAL residence.
+Task 3 closed the COMPARING route (State Comparison) but NOT the MOVING route, and the commit message
+says so explicitly. Closing it needs a new stored field, so it was deliberately not attempted in Task
+3. **It goes further live with every task that names `ownStateOrLocal`, and Tasks 4, 8 and 9 (MA, ID,
+VT) all plan to.** Routed to the Phase 6 re-confirm prompt.
+
+---
+
+# Original resume notes follow
 
 **This file exists because the SDD progress ledger lives in `.superpowers/`, which is GITIGNORED and would not survive a new session.** Everything a fresh session needs is below.
 
