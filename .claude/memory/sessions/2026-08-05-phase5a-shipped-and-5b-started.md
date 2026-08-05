@@ -74,7 +74,7 @@ Scoped to the per-source track alone, eight jurisdictions and 29 defects, rather
 ## 5. Method findings from this session
 
 - **Seven separate times a subagent caught an error in the brief it was given**, including two of mine that would have put false statements into fixtures, and one where my mutation probe targeted a single field when the gate rested on several independent ones. "Verify before you comply" is now standing in every fix dispatch.
-- **Five agents stalled by backgrounding a build**, each costing a full turn, despite an explicit instruction in every dispatch. Repeating the instruction is not working. **The durable fix is a wrapper script that runs the suite with the right timeout by default. Nobody has written one.**
+- **Five agents stalled by backgrounding a build**, each costing a full turn, despite an explicit instruction in every dispatch. Repeating the instruction did not work. **FIXED at the end of this session: `tools/run-tests.sh` now wraps the suite, CLAUDE.md points at it, and it is merged into the 5b branch.** It makes both recurring mistakes impossible rather than discouraged, and it caught a false-green bug in its own first draft during smoke testing: a run where zero tests executed reported PASS, which a mistyped suite name would have produced.
 - **A fixture can be citation-clean and still not carry enough.** New Mexico's married bracket table was only partially quoted, so its corrector fetched the enrolled bill itself. Phase 4's reviews checked that quotes were real and correctly located, not that they were sufficient.
 - **Georgia surfaced three pre-existing tests whose inputs sat exactly on a zero-crossing**, so they passed regardless of whether Georgia was right. Only changing the surrounding numbers exposed them.
 - **Utah showed the subtler failure mode being avoided.** Its four surviving defect records were not just kept; two had their descriptions reworded to drop a now-fixed claim. A stale description would have sent Phase 5b to re-fix something already corrected.
@@ -86,6 +86,6 @@ Scoped to the per-source track alone, eight jurisdictions and 29 defects, rather
 1. **Run Phase 5b Task 2.** Everything needed is in the RESUME file.
 2. **Answer Steve on the Tax Summary point.** Analysis done 08-04, no draft written. It was a real third issue, already fixed, and the reply must not say the amounts were missing, because they never were.
 3. Phase 5b Tasks 3 to 10, then 5c (credits, bracket base, SC deduction, attribution gates, OK/AR/SC base values with re-derivation, cross-path), then Phase 6, then Phase 7.
-4. **Write the xcodebuild wrapper script** before the next phase, so five wasted turns do not become ten.
+4. ~~Write the xcodebuild wrapper script~~ **DONE 2026-08-05.** `tools/run-tests.sh`, referenced from CLAUDE.md, merged into the 5b branch, verified to report the correct worktree and branch when run from 5b.
 
 **Housekeeping:** `feature/state-tax-phase4`, `feature/state-tax-phase5` and their `p5-t*` and `phase4-b*` worktrees are merged and removable. `feature/state-tax-phase5b` IS pushed. `feature/state-tax-phase3b` was never pushed and remains laptop-only.
