@@ -45,7 +45,7 @@
       "expectedStateTax": 167.80,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "exemptionAppliesPerIndividual is false, so StateTaxData.swift's AR config applies the $6,000 cap once household-wide instead of once per taxpayer, halving the correct $12,000 MFJ exclusion when both spouses independently qualify. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (top rate 3.7%), not Arkansas's real published top rate of 3.9% (see the out-of-scope finding in case 1's source string). Fixing exemptionAppliesPerIndividual alone will turn this case green, but Arkansas will still be wrong for every filer whose income reaches the top bracket. Green here does NOT mean Arkansas is correct.",
+        "summary": "exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-AR.json's config applies the $6,000 cap once household-wide instead of once per taxpayer, halving the correct $12,000 MFJ exclusion when both spouses independently qualify. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (top rate 3.7%), not Arkansas's real published top rate of 3.9% (see the out-of-scope finding in case 1's source string). Fixing exemptionAppliesPerIndividual alone will turn this case green, but Arkansas will still be wrong for every filer whose income reaches the top bracket. Green here does NOT mean Arkansas is correct.",
         "observedToday": 360.04
       }
     },

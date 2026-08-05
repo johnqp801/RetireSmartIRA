@@ -59,7 +59,7 @@
       "expectedStateTax": 0.00,
       "knownDefect": {
         "tier": "tier2",
-        "summary": "Retired service members qualify for Idaho's Retirement Benefits Deduction at age 62 (not 65) per Form 39R Line 8e, a distinct gate from Part One's general rule; the engine has no age-tiered or per-source retirement deduction of any kind for ID, granting nothing.",
+        "summary": "Retired service members qualify for Idaho's Retirement Benefits Deduction at age 62 (not 65) per Form 39R Line 8e, a distinct gate from Part One's general rule; the engine has no age-tiered or per-source retirement deduction of any kind for ID, granting nothing. PHASE 5 WARNING: this file's only under-62 case is ID-1 (age 60), so a single age-62 gate applied to (federalCivilian, definedBenefit) would turn all five ID cases in this file green while encoding 62 as the CSRS civilian gate too, when the real CSRS gate is 65 (ID-2's own citation, Form 39R Part One). A green ID suite does NOT mean Idaho's age gates are correct.",
         "observedToday": 1266.70
       }
     },

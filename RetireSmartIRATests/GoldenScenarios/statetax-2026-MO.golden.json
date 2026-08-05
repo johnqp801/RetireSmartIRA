@@ -31,7 +31,7 @@
       "expectedStateTax": 1412.67,
       "knownDefect": {
         "tier": "tier1",
-        "summary": "StateTaxData.swift's MO config sets iraWithdrawalExemption to .full (unconditional), but Form MO-A Section B caps private pension/IRA/401(k) income at $6,000 per taxpayer, phased out dollar-for-dollar above $25,000 single / $32,000 MFJ Missouri AGI. This is not the public-pension cap the 2026-08-02 audit already flagged; it is a separate, unaudited gap that is directly on-point for this app's core IRA-withdrawal/Roth-conversion use case, and is expressible with the existing .partial(maxExempt:) + AGIPhaseout(.linear(perDollar: 1.0)) machinery already used elsewhere in this codebase.",
+        "summary": "RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-MO.json's config sets iraWithdrawalExemption to .full (unconditional), but Form MO-A Section B caps private pension/IRA/401(k) income at $6,000 per taxpayer, phased out dollar-for-dollar above $25,000 single / $32,000 MFJ Missouri AGI. This is not the public-pension cap the 2026-08-02 audit already flagged; it is a separate, unaudited gap that is directly on-point for this app's core IRA-withdrawal/Roth-conversion use case, and is expressible with the existing .partial(maxExempt:) + AGIPhaseout(.linear(perDollar: 1.0)) machinery already used elsewhere in this codebase.",
         "observedToday": 0
       }
     },

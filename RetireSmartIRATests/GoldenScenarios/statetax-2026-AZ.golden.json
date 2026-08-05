@@ -61,7 +61,7 @@
       "expectedStateTax": 0.00,
       "knownDefect": {
         "tier": "tier2",
-        "summary": "This app's PlanSource enum has no case for U.S. uniformed-services retired pay distinct from federal civilian service (used here as the closest available label, disclosed as an imprecise fit); even set aside, statetax-2026-AZ.json models only Line 29a's $2,500 cap and has no Line 29b 100%-exclusion mechanism at all, so the engine excludes at most $2,500 of this fully-exempt $40,000 military pension, overstating tax in the OPPOSITE direction from the private-pension case above.",
+        "summary": "This app's PlanSource enum has no case for U.S. uniformed-services retired pay distinct from federal civilian service (used here as the closest available label, disclosed as an imprecise fit); even set aside, statetax-2026-AZ.json models only Line 29a's $2,500 cap and has no Line 29b 100%-exclusion mechanism at all, so the engine excludes at most $2,500 of this fully-exempt $40,000 military pension, overstating tax in the OPPOSITE direction from the private-pension case above. PHASE 5 WARNING: every other federalCivilian amount in this file (AZ-1, AZ-4, AZ-5) is $2,000, under the real $2,500 civilian cap, so an uncapped-federalCivilian rule fixing this case would leave those three cases green while being wrong for any federal civilian retiree whose pension exceeds $2,500. A green AZ suite does NOT mean Arizona's per-source caps are correct.",
         "observedToday": 333.75
       }
     },

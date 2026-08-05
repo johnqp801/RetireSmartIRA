@@ -17,7 +17,7 @@
       "expectedStateTax": 525.00,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "regularExemptionMinAge is 0, so StateTaxData.swift's LA config applies the 65-or-older $12,000 exclusion unconditionally to a filer well under 65, who is entitled to no general retirement-income exclusion at all under La. R.S. 47:44.1 -- the missing age gate alone, isolated from the per-individual flag by using a single filer.",
+        "summary": "regularExemptionMinAge is 0, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-LA.json's config applies the 65-or-older $12,000 exclusion unconditionally to a filer well under 65, who is entitled to no general retirement-income exclusion at all under La. R.S. 47:44.1 -- the missing age gate alone, isolated from the per-individual flag by using a single filer.",
         "observedToday": 165.00
       }
     },
@@ -50,7 +50,7 @@
       "expectedStateTax": 930.00,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "exemptionAppliesPerIndividual is false, so StateTaxData.swift's LA config applies the $12,000 cap once household-wide instead of once per spouse, halving the correct $24,000 MFJ exclusion when both spouses are 65+ and each received their own qualifying income.",
+        "summary": "exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-LA.json's config applies the $12,000 cap once household-wide instead of once per spouse, halving the correct $24,000 MFJ exclusion when both spouses are 65+ and each received their own qualifying income.",
         "observedToday": 1290.00
       }
     },

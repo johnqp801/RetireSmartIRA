@@ -17,7 +17,7 @@
       "expectedStateTax": 249.50,
       "knownDefect": {
         "tier": "tier1",
-        "summary": "StateTaxData.swift's GA config still carries the pre-HB463 rate (0.0539) and fixed standard deduction ($12,000/$24,000); Georgia's Economic Growth and Tax Relief Act of 2026 cut the rate to 4.99% and raised the standard deduction to $15,000/$30,000 retroactive to January 1, 2026, confirmed on Georgia DOR's own 'Important Tax Updates' page. The retirement-exclusion age/dollar mechanics the 2026-08-02 audit checked are unaffected and correct in every case in this file; only the rate and the deduction are stale.",
+        "summary": "RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-GA.json's config still carries the pre-HB463 rate (0.0539) and fixed standard deduction ($12,000/$24,000); Georgia's Economic Growth and Tax Relief Act of 2026 cut the rate to 4.99% and raised the standard deduction to $15,000/$30,000 retroactive to January 1, 2026, confirmed on Georgia DOR's own 'Important Tax Updates' page. The retirement-exclusion age/dollar mechanics the 2026-08-02 audit checked are unaffected and correct in every case in this file; only the rate and the deduction are stale.",
         "observedToday": 431.20
       }
     },
@@ -36,7 +36,7 @@
       "expectedStateTax": 499.00,
       "knownDefect": {
         "tier": "tier1",
-        "summary": "Same stale rate/deduction mechanism as the first scenario in this file (StateTaxData.swift's GA config still carries 0.0539 and the $12,000 single standard deduction). The 62-64 age-tier $35,000 exclusion cap this case exercises for the first time in this file is applied correctly; only the rate and the deduction are stale.",
+        "summary": "Same stale rate/deduction mechanism as the first scenario in this file (RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-GA.json's config still carries 0.0539 and the $12,000 single standard deduction). The 62-64 age-tier $35,000 exclusion cap this case exercises for the first time in this file is applied correctly; only the rate and the deduction are stale.",
         "observedToday": 700.70
       }
     },

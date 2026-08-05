@@ -200,7 +200,11 @@ Focused run (`GoldenScenarioCoverageTests` + `GoldenScenarioDefectCatalogueTests
 ** TEST SUCCEEDED **
 ```
 
-## THE DEFECT CATALOGUE (verbatim from `printCatalogue`, this is Phase 5's input)
+## THE DEFECT CATALOGUE (Phase 5's input)
+
+Most lines below are verbatim `printCatalogue` output; some are abridged paraphrases of the
+fixture's own `knownDefect.summary`, spot-checked as faithful but not a byte-for-byte transcript.
+Read `printCatalogue`'s own test output, not this block, when exact wording matters.
 
 ```
 PHASE 4 DEFECT CATALOGUE: 118 cases across 35 jurisdictions
@@ -213,8 +217,8 @@ TIER1, 34 cases, 11 jurisdictions
   CT  UNDERTAXES by $9500.00, Same missing-agiPhaseout defect as the single-filer case, at the MFJ scale: the engine excludes the full $200,000 IRA withdrawal though real law fully phases the subtraction to zero above $150,000 combined AGI; this OVERSTATES the exemption, the same direction as the single-filer case above.
   CT  UNDERTAXES by $2200.00, Connecticut's iraWithdrawalExemption is .full with no agiPhaseout, so a same-year Roth conversion that lifts total AGI past the phase-out cliff still leaves the engine excluding the IRA withdrawal in full, overstating the exemption exactly when the conversion is what destroys it under real law.
   CT  OVERTAXES by $1550.00, Connecticut's pensionExemption is .none unconditionally, so the engine taxes pension income in full even for a filer well under the $75,000 AGI threshold where real law exempts it entirely; this UNDERSTATES the exemption, the opposite direction from the IRA-side defect in this same batch.
-  GA  OVERTAXES by $181.70, StateTaxData.swift's GA config still carries the pre-HB463 rate (0.0539) and fixed standard deduction ($12,000/$24,000); Georgia's Economic Growth and Tax Relief Act of 2026 cut the rate to 4.99% and raised the standard deduction to $15,000/$30,000 retroactive to January 1, 2026, confirmed on Georgia DOR's own 'Important Tax Updates' page. The retirement-exclusion age/dollar mechanics the 2026-08-02 audit checked are unaffected and correct in every case in this file; only the rate and the deduction are stale.
-  GA  OVERTAXES by $201.70, Same stale rate/deduction mechanism as the first scenario in this file (StateTaxData.swift's GA config still carries 0.0539 and the $12,000 single standard deduction). The 62-64 age-tier $35,000 exclusion cap this case exercises for the first time in this file is applied correctly; only the rate and the deduction are stale.
+  GA  OVERTAXES by $181.70, RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-GA.json's config still carries the pre-HB463 rate (0.0539) and fixed standard deduction ($12,000/$24,000); Georgia's Economic Growth and Tax Relief Act of 2026 cut the rate to 4.99% and raised the standard deduction to $15,000/$30,000 retroactive to January 1, 2026, confirmed on Georgia DOR's own 'Important Tax Updates' page. The retirement-exclusion age/dollar mechanics the 2026-08-02 audit checked are unaffected and correct in every case in this file; only the rate and the deduction are stale.
+  GA  OVERTAXES by $201.70, Same stale rate/deduction mechanism as the first scenario in this file (RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-GA.json's config still carries 0.0539 and the $12,000 single standard deduction). The 62-64 age-tier $35,000 exclusion cap this case exercises for the first time in this file is applied correctly; only the rate and the deduction are stale.
   GA  OVERTAXES by $241.70, Same stale rate/deduction mechanism as the first scenario in this file; the $65,000 age-65+ exclusion cap and its correct application to this single filer are unaffected.
   GA  OVERTAXES by $483.40, Same stale rate/deduction mechanism as the first scenario in this file. The per-individual doubling this case exercises (exemptionAppliesPerIndividual, pensionAndIRAShareSingleCap) is correctly configured and produces the right $130,000 combined cap -- unlike Colorado and Kentucky in this same batch, Georgia's MFJ attribution is not broken.
   GA  OVERTAXES by $423.40, Same stale rate/deduction mechanism as the first scenario in this file; the single-qualifying-spouse exclusion mechanic is correctly configured and unaffected.
@@ -231,7 +235,7 @@ TIER1, 34 cases, 11 jurisdictions
   ME  UNDERTAXES by $1125.20, Maine's config sets no regularExemptionMinAge and has no per-spouse income attribution, so the $25,000 pension deduction is granted against the non-qualifying primary's own pre-age-55 income simply because the spouse is 65+; this OVERSTATES the exemption.
   MI  UNDERTAXES by $3574.38, Michigan's pensionExemption is .full with no dollar cap, so the engine excludes an unlimited retirement-income amount when real law (RAB 2026-1) caps the TY2026 phase-in at the inflation-adjusted private retirement maximum (at least $65,897 single); this overstates the exemption for any filer above the cap.
   MI  UNDERTAXES by $5023.76, Same as the single-filer defect: Michigan's iraWithdrawalExemption is .full with no dollar cap, so a couple's IRA withdrawals well above the real (at least $131,794) joint cap are excluded in their entirety, overstating the exemption.
-  MO  UNDERTAXES by $1412.67, StateTaxData.swift's MO config sets iraWithdrawalExemption to .full (unconditional), but Form MO-A Section B caps private pension/IRA/401(k) income at $6,000 per taxpayer, phased out dollar-for-dollar above $25,000 single / $32,000 MFJ Missouri AGI. This is not the public-pension cap the 2026-08-02 audit already flagged; it is a separate, unaudited gap that is directly on-point for this app's core IRA-withdrawal/Roth-conversion use case, and is expressible with the existing .partial(maxExempt:) + AGIPhaseout(.linear(perDollar: 1.0)) machinery already used elsewhere in this codebase.
+  MO  UNDERTAXES by $1412.67, RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-MO.json's config sets iraWithdrawalExemption to .full (unconditional), but Form MO-A Section B caps private pension/IRA/401(k) income at $6,000 per taxpayer, phased out dollar-for-dollar above $25,000 single / $32,000 MFJ Missouri AGI. This is not the public-pension cap the 2026-08-02 audit already flagged; it is a separate, unaudited gap that is directly on-point for this app's core IRA-withdrawal/Roth-conversion use case, and is expressible with the existing .partial(maxExempt:) + AGIPhaseout(.linear(perDollar: 1.0)) machinery already used elsewhere in this codebase.
   RI  OVERTAXES by $1080.00, Rhode Island's config has no retirement-income exclusion at all, so the engine misses the entire $50,000-per-person Pension and Annuity Income Modification for a qualifying filer at full retirement age; this UNDERSTATES the exemption (a missing gate, not an overstatement).
   RI  OVERTAXES by $2535.00, Same missing-exclusion defect at the MFJ scale: Rhode Island's config has no retirement-income exclusion at all, so a couple both at full retirement age gets none of the up-to-$100,000 combined modification it is entitled to.
   VA  UNDERTAXES by $631.88, Virginia's config sets no regularExemptionMinAge, so the $12,000 age deduction (Va. Code 58.1-322.03(5)(b), which requires age 65+) applies unconditionally to a 50-year-old's pension income; this OVERSTATES the exemption for any filer below 65.
@@ -243,17 +247,17 @@ TIER1, 34 cases, 11 jurisdictions
 
 TIER2, 32 cases, 8 jurisdictions
   AZ  UNDERTAXES by $50.00, AZ's $2,500 exclusion (Line 29a) is government-pensions-only, but statetax-2026-AZ.json applies pensionExemption.partial(2500) with no perSourceExemptions gate, so the engine wrongly grants the exclusion to this private pension, understating tax by exactly $2,000 x 2.5% = $50.00.
-  AZ  OVERTAXES by $333.75, This app's PlanSource enum has no case for U.S. uniformed-services retired pay distinct from federal civilian service (used here as the closest available label, disclosed as an imprecise fit); even set aside, statetax-2026-AZ.json models only Line 29a's $2,500 cap and has no Line 29b 100%-exclusion mechanism at all, so the engine excludes at most $2,500 of this fully-exempt $40,000 military pension, overstating tax in the OPPOSITE direction from the private-pension case above.
+  AZ  OVERTAXES by $333.75, This app's PlanSource enum has no case for U.S. uniformed-services retired pay distinct from federal civilian service (used here as the closest available label, disclosed as an imprecise fit); even set aside, statetax-2026-AZ.json models only Line 29a's $2,500 cap and has no Line 29b 100%-exclusion mechanism at all, so the engine excludes at most $2,500 of this fully-exempt $40,000 military pension, overstating tax in the OPPOSITE direction from the private-pension case above. PHASE 5 WARNING: every other federalCivilian amount in this file (AZ-1, AZ-4, AZ-5) is $2,000, under the real $2,500 civilian cap, so an uncapped-federalCivilian rule fixing this case would leave those three cases green while being wrong for any federal civilian retiree whose pension exceeds $2,500. A green AZ suite does NOT mean Arizona's per-source caps are correct.
   AZ  OVERTAXES by $37.50, AZ Form 140 grants each spouse an independent $2,500 cap on Line 29a, but statetax-2026-AZ.json sets exemptionAppliesPerIndividual to false, so the engine pools both spouses' government pensions under one shared $2,500 household cap instead of doubling it, overstating tax by $1,500 x 2.5% = $37.50.
   AZ  UNDERTAXES by $12.50, Only the government-pension spouse's $2,000 should be excluded; the engine pools both spouses' pensions ($4,000 total, government and private alike) under one $2,500 household cap regardless of source, granting $500 more exclusion than the government portion alone justifies and understating tax by $12.50 relative to the correct figure -- a smaller, opposite-signed error from combining the per-source miss (case 2) and the non-doubling miss (case 4).
   DC  OVERTAXES by $1924.00, DC/federal government survivor benefits are fully excluded at age 62+ with no cap (D.C. Code 47-1803.02(a)(2)(N)(ii)); statetax-2026-DC.json has no perSourceExemptions, so the engine taxes the full $50,000.
-  DC  OVERTAXES by $1546.00, Both spouses' DC/federal survivor benefits should be fully excluded; the engine has no perSourceExemptions for DC, taxing the full $55,000 household income.
-  DC  OVERTAXES by $2002.50, Only the survivor spouse's $30,000 should be excluded; the engine excludes nothing (no perSourceExemptions for DC), taxing the full $90,000 household income.
+  DC  OVERTAXES by $1546.00, Both spouses' DC/federal survivor benefits should be fully excluded; the engine has no perSourceExemptions for DC, taxing the full $55,000 household income. CANNOT_VERIFY: this file's DC-3/DC-4 (survivor benefit) require full exemption for (planSource: federalCivilian, planStructure: definedBenefit), while DC-5 (own pension, same pair) requires that pair fully taxable; both parties are 62 or older in every case, so age cannot separate them. This file cannot be fully satisfied by any StateTaxData configuration until ClassifiedPensionSource gains a survivor-versus-own flag.
+  DC  OVERTAXES by $2002.50, Only the survivor spouse's $30,000 should be excluded; the engine excludes nothing (no perSourceExemptions for DC), taxing the full $90,000 household income. CANNOT_VERIFY: this file's DC-3/DC-4 (survivor benefit) require full exemption for (planSource: federalCivilian, planStructure: definedBenefit), while DC-5 (own pension, same pair) requires that pair fully taxable; both parties are 62 or older in every case, so age cannot separate them. This file cannot be fully satisfied by any StateTaxData configuration until ClassifiedPensionSource gains a survivor-versus-own flag.
   HI  OVERTAXES by $2107.20, Hawaii's pension exclusion turns on whether the EMPLOYEE contributed, not on employer type; statetax-2026-HI.json has no perSourceExemptions (Phase 3b scoped Hawaii as disclosed-not-modelled), so the engine taxes this fully employer-funded pension at HI's 12-bracket schedule as if it were ordinary income.
   HI  OVERTAXES by $2466.40, Both spouses' noncontributory pensions should be fully excluded; the engine has no perSourceExemptions for HI, taxing the full $75,000 household income.
   HI  OVERTAXES by $2200.40, The noncontributory-pension spouse's income should be excluded while the 401(k)-deferral spouse's distribution stays taxable; the engine excludes neither (no perSourceExemptions for HI), taxing the full $75,000 -- the identical figure the fully-exempt MFJ case above produces, because the engine is blind to the funding-source distinction entirely.
   ID  OVERTAXES by $840.05, CSRS retirement annuities qualify for Idaho's Retirement Benefits Deduction (Form 39R Line 8) once the recipient is 65+; statetax-2026-ID.json has no perSourceExemptions and pensionExemption is 'none', so the engine grants no deduction at all.
-  ID  OVERTAXES by $1266.70, Retired service members qualify for Idaho's Retirement Benefits Deduction at age 62 (not 65) per Form 39R Line 8e, a distinct gate from Part One's general rule; the engine has no age-tiered or per-source retirement deduction of any kind for ID, granting nothing.
+  ID  OVERTAXES by $1266.70, Retired service members qualify for Idaho's Retirement Benefits Deduction at age 62 (not 65) per Form 39R Line 8e, a distinct gate from Part One's general rule; the engine has no age-tiered or per-source retirement deduction of any kind for ID, granting nothing. PHASE 5 WARNING: this file's only under-62 case is ID-1 (age 60), so a single age-62 gate applied to (federalCivilian, definedBenefit) would turn all five ID cases in this file green while encoding 62 as the CSRS civilian gate too, when the real CSRS gate is 65 (ID-2's own citation, Form 39R Part One). A green ID suite does NOT mean Idaho's age gates are correct.
   ID  OVERTAXES by $1722.50, Both spouses' CSRS pensions qualify for the MFJ Retirement Benefits Deduction (capped at $72,324); the engine grants nothing, taxing the full $80,000 household income.
   ID  OVERTAXES by $1597.95, Only the CSRS spouse's pension should be deductible; the engine grants no retirement deduction at all for ID, taxing the full $70,000 household income.
   KS  OVERTAXES by $952.64, Kansas SB1 (2024 special session) personal exemption ($18,320 MFJ / $9,160 single / $2,320 per dependent) has no StatePersonalExemption entry in statetax-2026-KS.json, so postExemptionDeduction is 0 and the engine taxes the full standard-deduction-only base.
@@ -268,25 +272,25 @@ TIER2, 32 cases, 8 jurisdictions
   NC  OVERTAXES by $1486.27, Bailey-vested NC state/local/federal government pensions are fully exempt from NC tax; statetax-2026-NC.json has no perSourceExemptions (and the model has no vesting-date field to express Bailey status at all -- see the CANNOT_VERIFY discussion below), so the engine taxes it in full.
   NC  OVERTAXES by $1975.05, Both spouses' Bailey-vested pensions should be fully excluded; the engine has no perSourceExemptions for NC, taxing the full $75,000 household income.
   NC  OVERTAXES by $1596.00, The Bailey-vested spouse's pension should be excluded while the private-pension spouse's income stays taxable; the engine excludes neither (no perSourceExemptions for NC), taxing the full $75,000 -- the identical figure the fully-exempt MFJ case above produces.
-  VT  OVERTAXES by $335.00, CSRS income up to $10,000 qualifies for VT's Retirement Income Exemption when AGI is under $55,000/$70,000; statetax-2026-VT.json has no perSourceExemptions and pensionExemption is 'none', so the engine grants no exclusion.
+  VT  OVERTAXES by $335.00, CSRS income up to $10,000 qualifies for VT's Retirement Income Exemption when AGI is under $55,000/$70,000; statetax-2026-VT.json has no perSourceExemptions and pensionExemption is 'none', so the engine grants no exclusion. CANNOT_VERIFY: this file's VT-1 (CSRS, capped at $10,000) and VT-5 (military, uncapped and fully exempt) both require the SAME (planSource: federalCivilian, planStructure: definedBenefit) pair to receive contradictory treatment; no single PerSourceExemptionRule can satisfy both, and neither age nor AGI separates them. This file cannot be fully satisfied by any StateTaxData configuration until PlanSource gains a distinct uniformed-services case.
   VT  OVERTAXES by $305.62, Same missing mechanism as the case above; this fixture specifically pins the linear phase-out band's magnitude ($5,000 of the $10,000 cap retained at AGI $60,000), not just the full-exemption case.
   VT  OVERTAXES by $335.00, Both spouses' combined CSRS income up to $10,000 qualifies for the shared exclusion; the engine grants none, taxing the full $65,000 household income.
   VT  OVERTAXES by $335.00, Only the CSRS spouse's income (up to $10,000) should be excluded; the engine excludes neither spouse's pension, taxing the full $55,000 -- the identical figure the fully-covered MFJ case above produces at the same total income.
-  VT  OVERTAXES by $4525.15, This app's PlanSource enum has no case for military retired pay distinct from federal civilian service (used here as the closest available label, disclosed as imprecise); more materially, statetax-2026-VT.json models neither VT retirement exclusion at all, so the engine taxes the full $100,000 military pension exactly as ordinary income.
+  VT  OVERTAXES by $4525.15, This app's PlanSource enum has no case for military retired pay distinct from federal civilian service (used here as the closest available label, disclosed as imprecise); more materially, statetax-2026-VT.json models neither VT retirement exclusion at all, so the engine taxes the full $100,000 military pension exactly as ordinary income. CANNOT_VERIFY: this file's VT-5 (military, uncapped and fully exempt) and VT-1 (CSRS, capped at $10,000) both require the SAME (planSource: federalCivilian, planStructure: definedBenefit) pair to receive contradictory treatment; no single PerSourceExemptionRule can satisfy both, and neither age nor AGI separates them. This file cannot be fully satisfied by any StateTaxData configuration until PlanSource gains a distinct uniformed-services case.
   VT  OVERTAXES by $5211.50, Same missing military exclusion as the case above, pinned specifically in Act 71's linear phase-out band (AGI $150,000, 50% of the pension retained as excludable). The gap here ($5,211.50) is the single largest dollar defect measured in this batch.
 
 TIER3, 17 cases, 8 jurisdictions
-  AR  OVERTAXES by $192.24, exemptionAppliesPerIndividual is false, so StateTaxData.swift's AR config applies the $6,000 cap once household-wide instead of once per taxpayer, halving the correct $12,000 MFJ exclusion. PHASE 5 WARNING: expectedStateTax in every case is computed against the CONFIGURED bracket table (top rate 3.7%), not Arkansas's real published top rate of 3.9%. Fixing exemptionAppliesPerIndividual alone will turn this case green, but Arkansas will still be wrong for every filer whose income reaches the top bracket. Green here does NOT mean Arkansas is correct.
+  AR  OVERTAXES by $192.24, exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-AR.json's config applies the $6,000 cap once household-wide instead of once per taxpayer, halving the correct $12,000 MFJ exclusion. PHASE 5 WARNING: expectedStateTax in every case is computed against the CONFIGURED bracket table (top rate 3.7%), not Arkansas's real published top rate of 3.9%. Fixing exemptionAppliesPerIndividual alone will turn this case green, but Arkansas will still be wrong for every filer whose income reaches the top bracket. Green here does NOT mean Arkansas is correct.
   CO  OVERTAXES by $1056.00, CO's config has no exemptionAppliesPerIndividual/exemptionAttribution override so the engine pools both spouses' pension income and applies ONE $24,000 household cap, when DR 0104AD Lines 4 and 6 are two separately-computed $24,000 caps (one per spouse, per that spouse's own age) per the instructions' explicit 'do not intermingle' rule.
-  DE  UNDERTAXES by $439.50, regularExemptionMinAge is 0, so StateTaxData.swift's DE config applies the 60-or-over $12,500 exclusion level unconditionally instead of gating a non-military filer under 60 to the correct $2,000 level.
-  DE  OVERTAXES by $590.50, exemptionAppliesPerIndividual is false, so StateTaxData.swift's DE config applies the $12,500 cap once household-wide instead of once per spouse, halving the correct $25,000 MFJ exclusion when both spouses are 60+ and independently qualify.
+  DE  UNDERTAXES by $439.50, regularExemptionMinAge is 0, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-DE.json's config applies the 60-or-over $12,500 exclusion level unconditionally instead of gating a non-military filer under 60 to the correct $2,000 level.
+  DE  OVERTAXES by $590.50, exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-DE.json's config applies the $12,500 cap once household-wide instead of once per spouse, halving the correct $25,000 MFJ exclusion when both spouses are 60+ and independently qualify.
   DE  OVERTAXES by $96.00, Both the missing age gate and the missing per-individual flag are wrong together: today's engine applies the unconditional $12,500 level to the whole pooled $37,000 regardless of either spouse's age.
   KY  OVERTAXES by $1088.85, KY's config has no exemptionAppliesPerIndividual/exemptionAttribution override so the engine pools both spouses' pension income and applies ONE $31,110 household cap, when Schedule P computes each spouse's own $31,110 exclusion separately and combines them regardless of filing status.
-  LA  UNDERTAXES by $360.00, regularExemptionMinAge is 0, so StateTaxData.swift's LA config applies the 65-or-older $12,000 exclusion unconditionally to a filer well under 65, entitled to no general retirement-income exclusion at all under La. R.S. 47:44.1.
-  LA  OVERTAXES by $360.00, exemptionAppliesPerIndividual is false, so StateTaxData.swift's LA config applies the $12,000 cap once household-wide instead of once per spouse, halving the correct $24,000 MFJ exclusion.
+  LA  UNDERTAXES by $360.00, regularExemptionMinAge is 0, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-LA.json's config applies the 65-or-older $12,000 exclusion unconditionally to a filer well under 65, entitled to no general retirement-income exclusion at all under La. R.S. 47:44.1.
+  LA  OVERTAXES by $360.00, exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-LA.json's config applies the $12,000 cap once household-wide instead of once per spouse, halving the correct $24,000 MFJ exclusion.
   LA  UNDERTAXES by $90.00, Both the missing age gate and the pooled, unattributed income model are wrong together, over-sheltering the ineligible under-65 spouse's own retirement income instead of excluding only the 65+ spouse's own $9,000.
-  OK  OVERTAXES by $435.00, exemptionAppliesPerIndividual is false, so StateTaxData.swift's OK config applies the $10,000 cap once household-wide instead of once per spouse, halving the correct $20,000 MFJ exclusion. PHASE 5 WARNING: expectedStateTax is computed against the CONFIGURED standard deduction ($13,550/$27,100) and bracket table (top rate 4.5%), not Oklahoma's real published figures ($6,350/$12,700 standard deduction, 4.75% top marginal rate). Fixing exemptionAppliesPerIndividual alone will turn this case green, but Oklahoma will still be substantially wrong for every filer. Green here does NOT mean Oklahoma is correct.
-  SC  UNDERTAXES by $364.70, regularExemptionMinAge is 0 with no earlyAgeTier configured, so StateTaxData.swift's SC config applies the 65-or-older $10,000 retirement-deduction level unconditionally instead of gating a filer under 65 to the correct $3,000 level. PHASE 5 WARNING: same configured-bracket-table caveat as the other SC cases below.
+  OK  OVERTAXES by $435.00, exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-OK.json's config applies the $10,000 cap once household-wide instead of once per spouse, halving the correct $20,000 MFJ exclusion. PHASE 5 WARNING: expectedStateTax is computed against the CONFIGURED standard deduction ($13,550/$27,100) and bracket table (top rate 4.5%), not Oklahoma's real published figures ($6,350/$12,700 standard deduction, 4.75% top marginal rate). Fixing exemptionAppliesPerIndividual alone will turn this case green, but Oklahoma will still be substantially wrong for every filer. Green here does NOT mean Oklahoma is correct.
+  SC  UNDERTAXES by $364.70, regularExemptionMinAge is 0 with no earlyAgeTier configured, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-SC.json's config applies the 65-or-older $10,000 retirement-deduction level unconditionally instead of gating a filer under 65 to the correct $3,000 level. PHASE 5 WARNING: same configured-bracket-table caveat as the other SC cases below.
   SC  OVERTAXES by $99.50, No field in RetirementIncomeExemptions models South Carolina's separate $15,000 age-65 deduction against any income. PHASE 5 WARNING applies.
   SC  OVERTAXES by $1042.00, exemptionAppliesPerIndividual is false AND the $15,000 age-65 deduction has no field at all. PHASE 5 WARNING applies.
   SC  OVERTAXES by $416.80, The under-65 age-tier gate is missing AND the $15,000 age-65 deduction has no field at all. PHASE 5 WARNING applies. (All four SC cases: expectedStateTax is computed against the CONFIGURED two-bracket 1.99%/5.21% structure switching at $30,000, not SC1040TT's real 6%-minus-$642 schedule above $100,000. Green on any SC case does NOT mean South Carolina's bracket table is correct.)
@@ -350,6 +354,19 @@ UNCLASSIFIED, 17 cases, 4 jurisdictions
   own per-state case listings -- b6's report, for one, states "42 cases total" while its own
   per-state breakdown sums to 46; this ledger's counts come from parsing the shipped JSON, not
   from either number in that report).
+
+**What `tier` means, and what it does not.** Batches 6-9 used `tier` as the jurisdiction's audit
+tier, per the plan. Batch 5 used it as a severity rating instead, assigning `tier1` to GA and MO
+and `tier3` to CO and KY even though the 2026-08-02 audit's own section 5 ("Confirmed CORRECT --
+do not touch") lists all four with no tier at all -- they are caveats on a correct verdict, not
+tiered defects. Task 4 and batch 9 treated the same kind of situation (a defect the audit did
+not classify) as `unclassified` instead. The result: a missing personal exemption is `tier2` in
+Kansas, `tier4` in Ohio, and `unclassified` in Indiana and Nebraska. **`tier` is NOT a mechanism
+grouping** -- do not read `printCatalogue`'s tier-grouped output as "all tier2 cases share a
+fix." Retiering the 118 cases to make `tier` mechanism-consistent would churn every entry for no
+correctness gain and is deliberately NOT done here. The personal-exemption and
+per-exemption-credit states (KS, IN, NE, OR, OH) span four different tiers and are, mechanically,
+two shared fixes.
 
 ## Comparison against the audit (2026-08-02-full-50-state-verification.md)
 
@@ -561,7 +578,7 @@ counted, because those three hit every filer in those states, not just retirees:
 
 ### Bucket 4: CANNOT_VERIFY
 
-Two entries, deliberately kept distinct because they resolve differently and belong to
+Four entries, deliberately kept distinct because they resolve differently and belong to
 different downstream phases:
 
 - **Montana -- law is unresolved, not the model.** Mechanism confirmed (Montana DOR Form 2 2025
@@ -586,6 +603,30 @@ different downstream phases:
   dependency at all. Recorded here as an open item for Phase 5's design, not Phase 6's
   disclosure copy, precisely because it is an engineering decision, not a waiting-on-a-source
   decision.
+- **Vermont -- the model is unresolved, not the law, and this one is worse than NC's: the
+  fixture SET is internally unsatisfiable, not just under-expressive for one household.** VT-1
+  (age 63, AGI $40,000) requires a $10,000 cap on `(federalCivilian, definedBenefit)`; VT-5 (age
+  60, AGI $100,000) requires that SAME pair uncapped and fully exempt. No age gate and no AGI
+  phase-out can separate them, because the distinguishing fact is military versus CSRS, which
+  `PlanSource` has no case for (`PerSourceExemptionRule` matches only on `matchSources` and
+  `matchStructures`, `StateTaxData.swift:308,327-329`, and configuration is per-STATE, not
+  per-scenario, so one rule set must serve both VT-1 and VT-5 at once). An INTERNAL blocker,
+  same class as NC's: the law is completely clear, the model cannot express it. Closed by the
+  same fix NC and AZ/ID/MA would benefit from -- a distinct uniformed-services `PlanSource`
+  case. See the CRITICAL-1 blocker entry above.
+- **DC -- the model is unresolved, not the law, and the fixture SET is internally
+  unsatisfiable.** DC-3 and DC-4 (both spouses 62+, `federalCivilian` survivor benefit) require
+  `(federalCivilian, definedBenefit)` fully exempt; DC-5 (age 65, `federalCivilian` own pension)
+  requires that SAME pair fully taxable. Both parties are 62 or older in every one of these
+  cases, so age cannot separate them either; the distinguishing fact is survivor-versus-own,
+  which `ClassifiedPensionSource` has no field for. An INTERNAL blocker, same class as NC's and
+  Vermont's: the law is completely clear, the model cannot express it. Closed by adding a
+  survivor flag to `ClassifiedPensionSource`. A prior pass of this ledger (attributed to batch
+  7) examined this exact DC risk and concluded a same-`planSource` survivor/own collision would
+  need a single household to bite, and so "did not become a second CANNOT_VERIFY entry." That
+  reasoning was wrong: `perSourceExemptions` configuration is shared across the WHOLE file, not
+  evaluated per household, so DC-3/DC-4 and DC-5 collide across scenarios in the same file
+  exactly as VT-1/VT-5 do. Recorded here as the correction.
 
 ## Known-but-unpinned: real defects with no golden case
 
@@ -614,14 +655,18 @@ dedicated case of their own:
 - **South Carolina** -- the CONFIGURED two-bracket 1.99%/5.21% structure (switching at
   $30,000) does not match SC1040TT's real 6%-minus-$642 schedule applying above $100,000. All
   four SC cases carry this warning.
-- **West Virginia** -- a possible missing $2,000-per-exemption general personal exemption
-  (disclosed, general, not senior-specific, not built into any case's arithmetic), and WV's
-  2026 bracket rates were disclosed as UNVERIFIED against a primary source (not confirmed
-  wrong -- a secondary source describes a further rate-trigger reduction WV is known to apply
-  annually, which could explain the gap between config and the secondary figure, but this was
-  not independently confirmed).
 
-The distinction from Missouri matters: OK, AR, SC, and WV all HAVE fixtures and the warning is
+**Correction: West Virginia does NOT belong in this category.** An earlier draft of this section
+listed WV alongside OK/AR/SC as carrying an explicit "PHASE 5 WARNING" and a disclosed
+$2,000-per-exemption personal exemption gap. Neither is true of the shipped
+`statetax-2026-WV.golden.json`: it contains no "PHASE 5 WARNING" text anywhere, and no mention
+of a personal exemption at all. The only related disclosure is in WV-1's `source` field, a
+prose caveat that the configured bracket rates were not independently confirmed against a
+primary 2026 WV rate schedule -- a narrower, unflagged note, not a warning that WV's numbers are
+wrong. The "Open items Phase 5 inherits" section below lists only OK, AR, SC for this category;
+that section is correct, this one was not.
+
+The distinction from Missouri matters: OK, AR, and SC all HAVE fixtures and the warning is
 readable by anyone who opens the case. Missouri has NO case for this specific defect at all,
 which is why it alone needed the separate `knownButUnpinned` data structure -- there is no
 fixture text for a future reader to find it in.
@@ -712,7 +757,11 @@ changed across the entire phase. Phase 4 corrected no tax value. `git status --s
 - **Georgia's rate/deduction staleness, Utah's Taxpayer Tax Credit and rate staleness, and New
   Mexico's stale bracket schedule** hit every filer in those states, not just retirees, and are
   not retirement-exclusion work at all -- worth sequencing ahead of some Tier 1/2/3 items
-  precisely because their blast radius is every user, not a subset.
+  precisely because their blast radius is every user, not a subset. **Nebraska's stale standard
+  deduction ($12,000 configured against the real $8,600), Oregon's miscalibrated brackets, and
+  Indiana's unmodeled personal exemption belong in this same every-filer category** -- they sit
+  in `unclassified`, which `printCatalogue` prints last, so they are easy to miss if this list is
+  read as exhaustive. Add them to the early-sequencing set alongside GA/UT/NM.
 - **Missouri's public-pension cap** is real and confirmed but has no pinned case. Before
   correcting it, either find a source for the 2026 maximum Social Security benefit (retry
   ssa.gov; check whether the 2026 MO-A form has published) or accept correcting it without a
@@ -731,10 +780,13 @@ changed across the entire phase. Phase 4 corrected no tax value. `git status --s
   workaround) is a real product gap independent of Phase 5/6: this app's own affluent-skewing
   audience is the exact population who would realize a WA capital gain large enough to matter,
   and the engine currently guarantees them $0 state tax regardless of gain size.
-- **`PlanSource` has no case for U.S. uniformed-services retired pay distinct from federal
-  civilian service.** Used as an imprecise stand-in for AZ's and VT's military-pension cases,
-  disclosed each time. Worth a dedicated case if Phase 5 builds out per-source exemptions
-  further.
+- **BLOCKER: `PlanSource` has no case for U.S. uniformed-services retired pay distinct from
+  federal civilian service.** Not a nice-to-have. It is a hard prerequisite for Vermont, whose
+  VT-1/VT-5 fixture pair cannot both be satisfied by any configuration without it (see Bucket 4
+  below), and a correctness trap for Arizona (AZ-3), Idaho (ID-3), and Massachusetts (MA-4),
+  where `federalCivilian` is used as an imprecise stand-in for military pay and a fix that
+  treats `federalCivilian` uniformly will silently mis-handle whichever of the two populations
+  it does not target. Four states affected: VT, AZ, ID, MA.
 - **Michigan's exact TY2026 cap** ($65,897/$131,794 TY2025 figures were used as a floor;
   RAB 2026-1's own worked example states the 2026-indexed figure is not yet published) and
   **Maine's AGI-phaseout ramp shape** (threshold's existence confirmed; the exact reduction
@@ -744,6 +796,13 @@ changed across the entire phase. Phase 4 corrected no tax value. `git status --s
 - **DataManager's mirror implementation of the exemption logic** (flagged in prior-phase
   memory as `datamanager-breakdown-mirror`) should be grepped for every new identifier Phase 5
   introduces while correcting any of the above, per that standing lesson.
+- **No single vocabulary for "the engine happens to agree with the form despite the underlying
+  defect."** Across batches this phase used at least three: "-- contrast/regression case" and
+  "-- MATCH" in scenario `name` strings, "correct by coincidence" / "coincidentally correct" in
+  `source` prose (AL case 1, IA case 2, RI's IRA case, WV case 4), and unlabeled clean passes
+  with no marker at all. No downstream consequence found this phase -- every instance was
+  readable in context -- but worth settling on one convention before Phase 5 adds more
+  fixtures, so a future reader can grep for it reliably.
 
 ## Commit
 

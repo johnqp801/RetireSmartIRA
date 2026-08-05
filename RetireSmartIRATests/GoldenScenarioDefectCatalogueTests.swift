@@ -118,7 +118,8 @@ struct GoldenScenarioDefectCatalogueTests {
                 caps it at the LESSER of the pension received or each individual's own
                 maximum Social Security benefit, reduced by any Social Security
                 deduction the same person claims. This is the exact defect the
-                2026-08-02 audit named (Tier 1). The 2026-08-04 b5 batch confirmed the
+                2026-08-02 audit named in section 5, Confirmed CORRECT, as a caveat --
+                not a Tier 1 finding. The 2026-08-04 b5 batch confirmed the
                 mechanism directly against the published MO-A form and Missouri DOR's
                 pension FAQ, and hand-derived the correct arithmetic for a $150,000 /
                 $120,000 MFJ public-pension case: correct tax $6,157.41 against the

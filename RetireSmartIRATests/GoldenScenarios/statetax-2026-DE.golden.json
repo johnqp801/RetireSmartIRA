@@ -17,7 +17,7 @@
       "expectedStateTax": 489.00,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "regularExemptionMinAge is 0, so StateTaxData.swift's DE config applies the 60-or-over $12,500 exclusion level unconditionally instead of gating a non-military filer under 60 to the correct $2,000 level -- the missing age gate alone, isolated from the per-individual flag by using a single filer.",
+        "summary": "regularExemptionMinAge is 0, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-DE.json's config applies the 60-or-over $12,500 exclusion level unconditionally instead of gating a non-military filer under 60 to the correct $2,000 level -- the missing age gate alone, isolated from the per-individual flag by using a single filer.",
         "observedToday": 49.50
       }
     },
@@ -50,7 +50,7 @@
       "expectedStateTax": 202.50,
       "knownDefect": {
         "tier": "tier3",
-        "summary": "exemptionAppliesPerIndividual is false, so StateTaxData.swift's DE config applies the $12,500 cap once household-wide instead of once per spouse, halving the correct $25,000 MFJ exclusion when both spouses are 60+ and independently qualify.",
+        "summary": "exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-DE.json's config applies the $12,500 cap once household-wide instead of once per spouse, halving the correct $25,000 MFJ exclusion when both spouses are 60+ and independently qualify.",
         "observedToday": 793.00
       }
     },

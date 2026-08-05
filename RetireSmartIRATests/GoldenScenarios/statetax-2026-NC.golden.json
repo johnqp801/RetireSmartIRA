@@ -4,7 +4,7 @@
   "scenarios": [
     {
       "name": "single filer, Bailey-vested NC state government pension (stipulated: 5+ years creditable service as of 8/12/1989): fully exempt under the Bailey settlement, engine taxes it in full",
-      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits': 'the North Carolina Consolidated Judicial Retirement System, the Federal Employees' Retirement System, or the United States Civil Service Retirement System, if the retiree had five or more years of creditable service as of August 12, 1989' are exempt from NC income tax; a retiree entitled to the exclusion claims a deduction on 'Line 20, Form D-400, Schedule S 2025 Supplemental Schedule'. This fixture STIPULATES in prose (not in any structured field -- see the CANNOT_VERIFY note below) that this taxpayer had 5+ years of creditable service in the NC state retirement system as of 8/12/1989, i.e. is Bailey-vested. Arithmetic: $50,000 fully excluded, $0 state taxable income after the $12,750 single standard deduction, tax = $0.00.",
+      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits': 'the North Carolina Consolidated Judicial Retirement System, the Federal Employees' Retirement System, or the United States Civil Service Retirement System, if the retiree had five or more years of creditable service as of August 12, 1989' are exempt from NC income tax; a retiree entitled to the exclusion claims a deduction on 'Line 20, Form D-400, Schedule S 2025 Supplemental Schedule'. This fixture STIPULATES in prose (not in any structured field -- the model has no vesting-date field at all: a household with two government pensions of the identical PlanSource where only one is Bailey-vested cannot be expressed, because both rows decode to the same planSource with no way to distinguish them) that this taxpayer had 5+ years of creditable service in the NC state retirement system as of 8/12/1989, i.e. is Bailey-vested. Arithmetic: $50,000 fully excluded, $0 state taxable income after the $12,750 single standard deduction, tax = $0.00.",
       "sourceURL": "https://www.ncdor.gov/taxes-forms/individual-income-tax/filing-topics/bailey-decision-concerning-federal-state-and-local-retirement-benefits",
       "filingStatus": "single",
       "primaryAge": 70,
@@ -20,7 +20,7 @@
       "expectedStateTax": 0.00,
       "knownDefect": {
         "tier": "tier2",
-        "summary": "Bailey-vested NC state/local/federal government pensions are fully exempt from NC tax; statetax-2026-NC.json has no perSourceExemptions (and the model has no vesting-date field to express Bailey status at all -- see the CANNOT_VERIFY note below), so the engine taxes it in full.",
+        "summary": "Bailey-vested NC state/local/federal government pensions are fully exempt from NC tax; statetax-2026-NC.json has no perSourceExemptions (and the model has no vesting-date field to express Bailey status at all -- a household with two government pensions of the identical PlanSource where only one is Bailey-vested cannot be expressed, because both rows decode to the same planSource with no way to distinguish them), so the engine taxes it in full.",
         "observedToday": 1486.27
       }
     },
