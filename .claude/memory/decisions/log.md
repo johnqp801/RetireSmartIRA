@@ -1248,3 +1248,37 @@ that can express what their rules need, instead of editing the same reverse-look
 separate times.
 
 **Found by** controller code audit before Task 3 was dispatched. The plan never mentions the picker.
+
+---
+
+## 2026-08-05: Massachusetts ships with a known, disclosed under-taxation path
+
+**Decision.** Phase 5b Task 4's Massachusetts per-source rule SHIPS as written. The section 13
+reversal was NOT taken. Both Massachusetts copy items are approved: the
+`unclassifiedPensionDisclosure` sentence and the pension-picker caption.
+
+**What shipping accepts.** A noncontributory municipal retiree who selects "Government pension, my own
+state or locality" receives $0.00 instead of $3,000.00. That is UNDER-taxation and it is reachable by
+a real user. No golden case can pin it, because such a case would carry inputs byte-identical to MA-1's
+with a contradictory expected value.
+
+**Rationale.** The three defects the rule fixes rest on quoted, affirmative statute text ("are excluded
+from Massachusetts gross income"). The new gap rests on a closed-list INFERENCE that the fixture's own
+source string flags as not stated verbatim. Reverting is not a safe state, it is a differently-wrong
+one: it keeps charging every Massachusetts public retiree a tax the statute says they do not owe, and
+M.G.L. c. 32 systems are contributory by statute while noncontributory municipal pensions are a small
+legacy category. "Over-taxation is the safe direction" is a tiebreaker for when the answer is unknown;
+here it is known and quoted for the large majority.
+
+**What makes it defensible rather than merely convenient.** The gap is recorded three ways: a
+`knownButUnpinned` catalogue entry, a test that fails if that entry is deleted, and a caption sitting
+directly under the picker on the screen where the affected user makes the costly choice.
+
+**Known remaining exposure, routed to Phase 6.** That caption is INPUT-SURFACE ONLY. State Comparison
+and the CPA briefing, the document handed to a preparer, both present $0.00 with no caveat, because
+the unclassified-pension disclosure fires only for an unclassified pension and this user has
+classified.
+
+**Root cause, deliberately not fixed here.** The model has no employee-contributory axis. It was not
+built because Hawaii's Task 5 fixture turns on the same axis inverted, and designing it from four
+Massachusetts cases would have foreclosed Hawaii's. Task 5 decides it.

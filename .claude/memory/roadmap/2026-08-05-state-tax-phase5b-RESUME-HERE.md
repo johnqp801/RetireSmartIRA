@@ -5,15 +5,23 @@
 Three real defects fixed: contributory MA state and local pensions and US military retired pay are
 excluded outright by MA law and the engine taxed them in full. Suite 1,938 + 509, 0 failures.
 
-**TWO DECISIONS AWAIT JOHN. Do not start Task 5 assuming either way.**
-1. **SHIP as-is, or take the section 13 reversal.** The reviewer and the controller both recommend
-   SHIP. Shipping accepts a reachable UNDER-taxation path: a noncontributory municipal retiree who
-   picks the own-state picker row gets $0.00 instead of $3,000.00. Reverting is not a safe state, it
-   is a differently-wrong one, since it keeps over-taxing every MA public retiree on quoted statute to
-   protect a small legacy category.
-2. **Two copy items, shipped as PROPOSED:** the `unclassifiedPensionDisclosure` sentence in
-   `statetax-2026-MA.json` and the picker caption in `IncomeSourcesView.swift`. The caption is the
-   mitigation doing the real work, so it deserves the closer read.
+**BOTH DECISIONS RESOLVED BY JOHN ON 2026-08-05.**
+1. **SHIP as-is. The section 13 reversal was NOT taken.** Shipping knowingly accepts a reachable
+   UNDER-taxation path: a noncontributory municipal retiree who picks the own-state picker row gets
+   $0.00 instead of $3,000.00. Reverting was rejected as a differently-wrong state, not a safe one,
+   since it keeps over-taxing every MA public retiree on quoted statute to protect a small legacy
+   category. Section 13's recipe is kept as the record of what shipping cost, not as pending work.
+2. **Both copy items APPROVED:** the `unclassifiedPensionDisclosure` sentence in
+   `statetax-2026-MA.json` and the picker caption in `IncomeSourcesView.swift`.
+
+**ALSO APPROVED 2026-08-05:** Task 3's three picker labels, as is: "Government pension, my own state or
+locality", "Military retired pay", "Railroad Retirement benefits". **All user-facing copy introduced by
+Phase 5b is now approved.** Tasks 5 through 9 each still owe a NEW disclosure sentence for approval
+alongside their rule; that obligation is unchanged and `rulesAndDisclosuresStayInLockstep` enforces it.
+
+**Do not let the disclosure artifacts be retired now that MA has shipped.** The `knownButUnpinned`
+entries, `theContributoryGapStaysRecorded`, and the caption are what make shipping defensible rather
+than merely convenient. Deleting any of them turns a disclosed tradeoff into a silent defect.
 
 ## THE THING TASK 5 MUST RESOLVE RATHER THAN INHERIT
 
