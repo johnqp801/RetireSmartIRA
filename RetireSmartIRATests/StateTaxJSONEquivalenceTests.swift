@@ -606,7 +606,9 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///
     /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
     ///   special session).
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa]
+    /// - Indiana: Phase 5a Task 7, `personalExemption` added (IT-40 Booklet
+    ///   2025, page 24, Schedule 3 line 1).
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .indiana]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different
@@ -717,10 +719,10 @@ struct StateTaxJSONFileKeyCompletenessTests {
 
     /// Keys a file MAY carry. `personalExemption` is written only for states
     /// that grant one (New Jersey since Phase 3a, Kansas since Phase 5a Task
-    /// 2), so requiring it everywhere would force 50 files to carry a key
-    /// with no meaning. A key outside both sets is still a failure: this
-    /// widens the assertion by exactly one name, it does not weaken it into
-    /// an allow-anything check.
+    /// 2, Indiana since Phase 5a Task 7), so requiring it everywhere would
+    /// force 50 files to carry a key with no meaning. A key outside both
+    /// sets is still a failure: this widens the assertion by exactly one
+    /// name, it does not weaken it into an allow-anything check.
     private static let optionalTopLevelKeys: Set<String> = ["personalExemption"]
 
     @Test("Each bundled JSON file carries every required top-level key and no unknown ones",
@@ -746,7 +748,7 @@ struct StateTaxJSONFileKeyCompletenessTests {
                 "\(state.abbreviation) (\(url.lastPathComponent)) carries unknown keys: \(unknown)")
     }
 
-    @Test("Exactly New Jersey and Kansas ship a personalExemption key")
+    @Test("Exactly New Jersey, Kansas, and Indiana ship a personalExemption key")
     func onlyNewJerseyAndKansasShipAPersonalExemptionKey() throws {
         var carriers: [String] = []
         for state in USState.allCases {
@@ -757,7 +759,9 @@ struct StateTaxJSONFileKeyCompletenessTests {
         }
         // Phase 3a shipped New Jersey's. Phase 5a Task 2 added Kansas's (SB1,
         // 2024 special session), correcting Steve Nicolai's reported defect.
-        #expect(carriers.sorted() == ["KS", "NJ"],
-                "Expected only New Jersey and Kansas to carry personalExemption. Found: \(carriers)")
+        // Phase 5a Task 7 added Indiana's (IT-40 Booklet 2025, page 24,
+        // Schedule 3 line 1).
+        #expect(carriers.sorted() == ["IN", "KS", "NJ"],
+                "Expected only New Jersey, Kansas, and Indiana to carry personalExemption. Found: \(carriers)")
     }
 }
