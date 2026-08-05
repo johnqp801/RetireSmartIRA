@@ -438,6 +438,8 @@ struct StateTaxJSONEquivalenceTests {
             return
         }
 
+        var observedDivergence = false
+
         for scenario in Self.scenarios {
             let incomeSources: [IncomeSource] = scenario.pensionIncome > 0
                 ? [IncomeSource(name: "Pension", type: .pension, annualAmount: scenario.pensionIncome)]
@@ -463,6 +465,9 @@ struct StateTaxJSONEquivalenceTests {
             }
             let fromJSON = stateTax(using: jsonConfig)
             let fromLegacy = stateTax(using: legacyConfig)
+            if fromJSON != fromLegacy {
+                observedDivergence = true
+            }
             // Phase 5 jurisdictions on `phase5CorrectedJurisdictions`
             // (StateTaxJSONStructuralEquivalenceTests, Layer B) are
             // DELIBERATELY corrected in the bundled JSON while
@@ -475,8 +480,8 @@ struct StateTaxJSONEquivalenceTests {
             // now legitimately disagrees with the frozen legacy table. The
             // golden fixture and the baseline movement ledger are the
             // authoritative, attributed record of what changed and why for
-            // those states, so this identity check is skipped for them
-            // rather than silently weakened for everyone.
+            // those states, so the per-scenario identity check is skipped
+            // for them; see below the loop for what replaces it.
             if StateTaxJSONStructuralEquivalenceTests.phase5CorrectedJurisdictions.contains(state) {
                 continue
             }
@@ -489,7 +494,55 @@ struct StateTaxJSONEquivalenceTests {
                 """
             )
         }
+
+        // A blanket skip for every corrected jurisdiction would be too
+        // coarse: it would also pass if a correction were silently reverted
+        // from the bundled JSON, so long as the jurisdiction stayed on
+        // `phase5CorrectedJurisdictions`. For jurisdictions where this
+        // scenario grid is known to exercise the corrected field(s) --
+        // listed in `layerAProvenDivergentJurisdictions` -- assert instead
+        // that AT LEAST ONE scenario actually diverged, closing that hole.
+        //
+        // Kansas is deliberately NOT in that list: none of the 10 scenarios
+        // above read `postExemptionDeduction` from config, so Kansas
+        // computes identically through both tables whether its
+        // `personalExemption` correction is present, reverted, or garbled.
+        // A "must diverge" assertion would fail Kansas forever in its
+        // correct state, so it stays on the plain skip above with no
+        // further check here; its correction is guarded by Layer B
+        // (`structurallyIdentical`) and Kansas's own targeted unit tests
+        // instead. To slot in the next corrected jurisdiction: if this grid
+        // exercises its corrected field(s), add it to
+        // `layerAProvenDivergentJurisdictions` and it gets this assertion
+        // for free; if not (Kansas's situation), leave it out and say why,
+        // as here.
+        if Self.layerAProvenDivergentJurisdictions.contains(state) {
+            #expect(
+                observedDivergence,
+                """
+                \(state.abbreviation) is listed in layerAProvenDivergentJurisdictions, \
+                so at least one of the scenarios above must compute a different tax \
+                from the JSON config than from the frozen legacy table. None diverged. \
+                Either the correction was reverted from the bundled JSON, or this \
+                scenario grid no longer exercises the corrected field -- both are \
+                regressions to investigate, not silence.
+                """
+            )
+        }
     }
+
+    /// Corrected jurisdictions whose fix this Layer A scenario grid is known
+    /// to exercise, so "at least one scenario diverges from the frozen
+    /// legacy table" can be positively asserted rather than merely skipped.
+    /// See the comment below the scenario loop in `jsonMatchesLegacy` for
+    /// how this differs from `phase5CorrectedJurisdictions` and why Kansas
+    /// is not here.
+    ///
+    /// - Iowa: Phase 5a Task 3 touches `scenarioRetirementDistributions`,
+    ///   `scenarioRothConversionAmount`, `pensionIncome`, and
+    ///   `primaryAge`/`spouseAge` directly, all of which this grid varies;
+    ///   9 of its 10 scenarios (all but "zero income") diverge.
+    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa]
 }
 
 // MARK: - PHASE 1 GATE, Layer B: structural equivalence (decode is lossless)

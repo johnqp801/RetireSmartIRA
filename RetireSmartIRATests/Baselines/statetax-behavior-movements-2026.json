@@ -125,7 +125,7 @@
     "after": 1520.0,
     "state": "IA",
     "goldenCase": "single, age 60, large Roth conversion -- the highest-value fixture in the phase, the app invents state tax on the exact transaction it exists to optimize",
-    "justification": "Iowa's rothConversionExemption.withheldPortionRemainsTaxable is false (no Iowa DOR guidance carves out withheld amounts the way PA DOR Ans 274 does), so this scenario computes identically to the no-withholding case: the full $100,000 conversion is excluded regardless of the $22,000 withheld."
+    "justification": "Iowa's rothConversionExemption.withheldPortionRemainsTaxable is false, so this scenario computes identically to the no-withholding case under the setting Iowa currently ships: the full $100,000 conversion is excluded regardless of the $22,000 withheld, yielding $1,520.00. This is a dollar-consequential setting, not a moot one: no Iowa DOR guidance was found addressing whether the withheld portion remains taxable, and `false` was chosen by reasoned analogy to Illinois and Mississippi (both blanket-exclusion states shipping `false`) against Pennsylvania's `true`, which rests on a Pennsylvania-specific cost-recovery mechanism Iowa's statute shows no sign of. Had `true` been chosen instead, this same scenario would compute $2,356.00 (exempt amount $78,000, taxable income $62,000), an $836 difference. Treat `false` as a reasoned choice under an evidentiary gap, not a citation; revisit if Iowa DOR ever publishes guidance on this point."
   },
   {
     "key": "IA|single 55 rmd rows not scenario distributions",
