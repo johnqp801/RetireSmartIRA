@@ -181,19 +181,28 @@ struct StateTaxPhase3aMechanismTests {
         #expect(nj.seniorAge == 65)
     }
 
-    @Test("New Jersey's config carries the personal exemption; no other state does")
-    func onlyNewJerseyCarriesAPersonalExemptionInPhase3a() throws {
+    @Test("New Jersey, Kansas, and Indiana carry a personal exemption; no other state does")
+    func onlyNewJerseyAndKansasCarryAPersonalExemption() throws {
+        // Phase 3a shipped New Jersey's exemption, already existing in
+        // hardcoded form. Phase 5a Task 2 added Kansas's (SB1, 2024 special
+        // session), correcting Steve Nicolai's reported defect. Phase 5a Task
+        // 7 added Indiana's (IT-40 Booklet 2025, page 24, Schedule 3 line 1).
+        // Every other state's Phase 5a/5b personal-exemption defects
+        // (Nebraska's credit, Oregon's credit, etc.) are NOT expressible as
+        // this field and remain absent here; see the Task 2 brief's scope
+        // boundary.
+        let carriers: Set<USState> = [.newJersey, .kansas, .indiana]
         let configs = try StateTaxDataLoader.load(taxYear: 2026)
         for state in USState.allCases {
             let config = try #require(configs[state])
-            if state == .newJersey {
+            if carriers.contains(state) {
                 #expect(config.personalExemption != nil)
             } else {
                 #expect(config.personalExemption == nil,
                         """
-                        \(state.abbreviation) gained a personal exemption in Phase 3a. \
-                        Phase 3a adds no state's exemption except New Jersey's, which \
-                        already existed in hardcoded form. Kansas and the rest are Phase 5a.
+                        \(state.abbreviation) gained a personal exemption unexpectedly. \
+                        Only New Jersey (Phase 3a), Kansas (Phase 5a Task 2), and Indiana \
+                        (Phase 5a Task 7) ship this field today.
                         """)
             }
         }
@@ -488,7 +497,7 @@ struct StateTaxPhase3aMechanismTests {
                             sources: jointPension) == 0)
     }
 
-    @Test("Every jurisdiction ships exemptionAttribution as household in Phase 3a")
+    @Test("Every jurisdiction except Iowa still ships exemptionAttribution as household")
     func everyStateShipsHouseholdAttribution() throws {
         var wrong: [String] = []
         for state in USState.allCases {
@@ -499,18 +508,26 @@ struct StateTaxPhase3aMechanismTests {
             // Raw keys, not decoded values: `.household` is also the decode
             // fallback, so a decoded assertion passes even when the key is
             // absent from every shipped file.
-            if exemptions?["exemptionAttribution"] as? String != "household" {
+            let attribution = exemptions?["exemptionAttribution"] as? String
+            if state == .iowa {
+                // Phase 5a: Iowa's exclusion is per qualifying spouse (Iowa
+                // DOR guidance, "Who qualifies" FAQ), not household-wide.
+                if attribution != "perQualifyingSpouse" {
+                    wrong.append(state.abbreviation)
+                }
+            } else if attribution != "household" {
                 wrong.append(state.abbreviation)
             }
         }
         #expect(wrong.isEmpty,
                 """
-                Iowa and the per-person statutes adopt perQualifyingSpouse in Phase 5c, \
-                each gated by a golden scenario. Found wrong or missing: \(wrong)
+                Iowa moved to perQualifyingSpouse in Phase 5a, gated by a golden scenario. \
+                The remaining per-person statutes adopt it in Phase 5c. \
+                Found wrong or missing: \(wrong)
                 """)
     }
 
-    @Test("Every jurisdiction ships distributionMinAge as 59 in Phase 3a")
+    @Test("Every jurisdiction except Iowa still ships distributionMinAge as 59")
     func everyStateShipsDistributionMinAge59() throws {
         var wrong: [String] = []
         for state in USState.allCases {
@@ -523,13 +540,20 @@ struct StateTaxPhase3aMechanismTests {
             // partial cover here: moving New York from 59 to 55 shifts no
             // baseline value, because NY's regularExemptionMinAge of 59 makes
             // resolveLevel return .none below 59 regardless of this gate.
-            if exemptions?["distributionMinAge"] as? Int != 59 {
+            let minAge = exemptions?["distributionMinAge"] as? Int
+            if state == .iowa {
+                // Phase 5a: Iowa DOR sets the qualifying age at 55 (HF 2317),
+                // not the engine's prior hardcoded 59.
+                if minAge != 55 {
+                    wrong.append(state.abbreviation)
+                }
+            } else if minAge != 59 {
                 wrong.append(state.abbreviation)
             }
         }
         #expect(wrong.isEmpty,
                 """
-                Iowa moves to 55 in Phase 5a, gated by a golden scenario. \
+                Iowa moved to 55 in Phase 5a, gated by a golden scenario. \
                 Found wrong or missing: \(wrong)
                 """)
     }
@@ -584,7 +608,7 @@ struct StateTaxPhase3aMechanismTests {
         #expect(tax(age: 55) == 0)        // at the gate, exempt
     }
 
-    @Test("Exactly PA, IL and MS carry a conversion exemption in Phase 3a")
+    @Test("Exactly PA, IL, MS and Iowa carry a conversion exemption")
     func onlyThreeStatesCarryAConversionExemption() throws {
         // Raw keys, not decoded values: `nil` is also the decode fallback for
         // a missing key, so a decoded assertion would pass even when the key
@@ -602,18 +626,25 @@ struct StateTaxPhase3aMechanismTests {
                 withExemption[state] = conversion
             }
         }
-        #expect(Set(withExemption.keys) == Set([.pennsylvania, .illinois, .mississippi]),
+        #expect(Set(withExemption.keys) == Set([.pennsylvania, .illinois, .mississippi, .iowa]),
                 """
-                Phase 3a moves the existing PA/IL/MS rule into config and adds no state. \
-                Iowa is Phase 5a. Found: \(withExemption.keys.map(\.abbreviation).sorted())
+                Phase 3a moved the existing PA/IL/MS rule into config and added no state. \
+                Phase 5a adds Iowa, named by HF 2317 as excluding "Roth conversion income". \
+                Found: \(withExemption.keys.map(\.abbreviation).sorted())
                 """)
-        // PA is the only one whose withheld portion stays taxable.
+        // PA is the only one whose withheld portion stays taxable (Ans 274).
         #expect(withExemption[.pennsylvania]?["withheldPortionRemainsTaxable"] as? Bool == true)
         #expect(withExemption[.illinois]?["withheldPortionRemainsTaxable"] as? Bool == false)
         #expect(withExemption[.mississippi]?["withheldPortionRemainsTaxable"] as? Bool == false)
-        // No state is age-gated yet, so a stray default of 59 would be visible.
-        for (state, json) in withExemption {
+        // Iowa DOR guidance carries no PA-style "reaches the Roth" carve-out
+        // for withheld amounts, so Iowa exempts the gross like IL and MS.
+        #expect(withExemption[.iowa]?["withheldPortionRemainsTaxable"] as? Bool == false)
+        // PA, IL and MS are not age-gated; a stray default of 59 would be
+        // visible. Iowa is the first age-gated member of this rule, at 55
+        // (HF 2317's qualifying age), not 0.
+        for (state, json) in withExemption where state != .iowa {
             #expect(json["minAge"] as? Int == 0, "\(state.abbreviation) minAge should be 0")
         }
+        #expect(withExemption[.iowa]?["minAge"] as? Int == 55)
     }
 }

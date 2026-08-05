@@ -9,6 +9,12 @@
   },
   "hsaContributionsTaxableForState" : false,
   "otherPreTaxDeductionsTaxableForState" : false,
+  "personalExemption" : {
+    "marriedFilingJointly" : 18320,
+    "seniorAdditionalPerFiler" : 0,
+    "seniorAge" : 65,
+    "single" : 9160
+  },
   "pretax401kContributionsTaxableForState" : false,
   "retirementExemptions" : {
     "capitalGainsTreatment" : "followsFederal",

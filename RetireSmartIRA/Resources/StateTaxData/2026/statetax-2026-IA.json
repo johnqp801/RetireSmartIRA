@@ -12,18 +12,22 @@
   "pretax401kContributionsTaxableForState" : false,
   "retirementExemptions" : {
     "capitalGainsTreatment" : "followsFederal",
-    "distributionMinAge" : 59,
+    "distributionMinAge" : 55,
     "exemptionAppliesPerIndividual" : false,
-    "exemptionAttribution" : "household",
+    "exemptionAttribution" : "perQualifyingSpouse",
     "iraWithdrawalExemption" : {
-      "kind" : "none"
+      "kind" : "full"
     },
     "otherRetirementIncomeExclusion" : false,
     "pensionAndIRAShareSingleCap" : false,
     "pensionExemption" : {
-      "kind" : "none"
+      "kind" : "full"
     },
-    "regularExemptionMinAge" : 0,
+    "regularExemptionMinAge" : 55,
+    "rothConversionExemption" : {
+      "minAge" : 55,
+      "withheldPortionRemainsTaxable" : false
+    },
     "socialSecurityExempt" : true
   },
   "safeHarborRule" : {

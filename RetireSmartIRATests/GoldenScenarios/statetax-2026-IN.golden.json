@@ -1,6 +1,7 @@
 {
   "state": "IN",
   "taxYear": 2026,
+  "personalExemptionScopingNote": "IT-40 Booklet 2025, page 24, Schedule 3 also grants (line 2) an exemption per dependent claimed on the federal return and (lines 4-5) additional income-gated exemptions for a filer and/or spouse age 65+ with federal AGI under $40,000. StatePersonalExemption (RetireSmartIRA/StatePersonalExemption.swift) has no dependent-count field and no income parameter at all, and a codebase grep found no dependent-count input anywhere in the app, matching Kansas's Phase 5a Task 2 finding. The Phase 5a Task 7 correction is therefore scoped to Schedule 3 line 1 only: the $1,000 single / $2,000 married filing jointly base exemption for taxpayer and spouse. The dependent exemption and the income-gated age-65 addition are NOT modelled and are not folded into either base figure. None of the scenarios in this file describe a household with dependents or a filer age 65 or older, so no expectedStateTax value here is affected by either gap.",
   "scenarios": [
     {
       "name": "single, moderate income, flat 2.95% rate net of the personal exemption",
@@ -14,12 +15,7 @@
       "pensionIncome": 45000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 1298.00,
-      "knownDefect": {
-        "tier": "unclassified",
-        "summary": "Not a retirement-exclusion defect (the audit's .none is correct); IN's $1,000/$2,000 personal exemption (IT-40 Schedule 3 line 1) is not modeled anywhere in the engine, so the full federalAGI is taxed at 2.95% with no subtraction.",
-        "observedToday": 1327.5
-      }
+      "expectedStateTax": 1298.00
     },
     {
       "name": "single, high income with IRA withdrawal and Roth conversion, flat 2.95% rate net of the personal exemption",
@@ -33,12 +29,7 @@
       "pensionIncome": 60000,
       "iraWithdrawals": 30000,
       "rothConversion": 40000,
-      "expectedStateTax": 3805.50,
-      "knownDefect": {
-        "tier": "unclassified",
-        "summary": "Same mechanism as the low-income IN case: the $1,000 single personal exemption is entirely unmodeled.",
-        "observedToday": 3835.0
-      }
+      "expectedStateTax": 3805.50
     },
     {
       "name": "MFJ, both spouses present, moderate combined income including Social Security, flat 2.95% rate net of the doubled personal exemption",
@@ -52,12 +43,7 @@
       "pensionIncome": 65000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 1858.50,
-      "knownDefect": {
-        "tier": "unclassified",
-        "summary": "Same mechanism, doubled for MFJ: the $2,000 married personal exemption is entirely unmodeled.",
-        "observedToday": 1917.5
-      }
+      "expectedStateTax": 1858.50
     },
     {
       "name": "MFJ, highest income in the batch, flat 2.95% rate net of the doubled personal exemption",
@@ -71,12 +57,7 @@
       "pensionIncome": 100000,
       "iraWithdrawals": 60000,
       "rothConversion": 60000,
-      "expectedStateTax": 6431.00,
-      "knownDefect": {
-        "tier": "unclassified",
-        "summary": "Same mechanism as the other three IN cases: the $2,000 married personal exemption is entirely unmodeled.",
-        "observedToday": 6490.0
-      }
+      "expectedStateTax": 6431.00
     }
   ]
 }

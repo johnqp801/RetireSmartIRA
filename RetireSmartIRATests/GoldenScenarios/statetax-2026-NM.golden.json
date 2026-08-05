@@ -14,12 +14,7 @@
       "pensionIncome": 40000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 752.70,
-      "knownDefect": {
-        "tier": "tier4",
-        "summary": "The engine still applies NM's pre-HB252 bracket schedule (deleted from law effective TY2025), not the enacted 6-bracket 1.5%-5.9% schedule; the correct standard deduction (conformsToFederal) is already applied correctly by the harness.",
-        "observedToday": 891.6
-      }
+      "expectedStateTax": 752.70
     },
     {
       "name": "single, age 70 (above 65), the $8,000-scale PIT-ADJ age exemption plus the federal-conformity standard deduction very nearly zero out a modest pension",
@@ -36,8 +31,8 @@
       "expectedStateTax": 12.75,
       "knownDefect": {
         "tier": "tier4",
-        "summary": "Same stale pre-HB252 bracket schedule as the age-55 case, compounded here with NM's $8,000-scale age-65 PIT-ADJ exemption (otherRetirementIncomeExclusion: false), which is entirely unmodeled.",
-        "observedToday": 48.45
+        "summary": "Phase 5a Task 4 corrected the bracket schedule to the enacted HB252 table, which alone moved this case's observed value from 48.45 to 42.75. NM's $8,000-scale age-65 PIT-ADJ exemption remains entirely unmodeled (StateTaxConfig has no income-graduated per-filer age exemption field), so this case does not resolve: the engine still computes tax on the full $27,000 - $24,150 = $2,850 base instead of subtracting the $2,000 PIT-ADJ exemption to reach $850.",
+        "observedToday": 42.75
       }
     },
     {
@@ -55,8 +50,8 @@
       "expectedStateTax": 32.25,
       "knownDefect": {
         "tier": "tier4",
-        "summary": "Same stale bracket and missing age-65 PIT-ADJ exemption as the other NM cases; this fixture additionally pins the correct MFJ-column, per-qualifying-spouse exemption behavior the engine has no representation for at all.",
-        "observedToday": 87.55000000000001
+        "summary": "Phase 5a Task 4 corrected the bracket schedule to the enacted HB252 table, which alone moved this case's observed value from 87.55 to 77.25. The MFJ-column, per-qualifying-spouse PIT-ADJ exemption behavior remains entirely unmodeled (StateTaxConfig has no representation for it at all), so this case does not resolve: the engine still computes tax on the full $45,000 - $39,850 = $5,150 base instead of subtracting the $3,000 PIT-ADJ exemption (primary only) to reach $2,150.",
+        "observedToday": 77.25
       }
     },
     {
@@ -85,12 +80,7 @@
       "pensionIncome": 30000,
       "iraWithdrawals": 0,
       "rothConversion": 30000,
-      "expectedStateTax": 1275.95,
-      "knownDefect": {
-        "tier": "tier4",
-        "summary": "Same stale pre-HB252 bracket schedule as the other NM cases; the PIT-ADJ age exemption is already legitimately zero at this income under real law too, so this case isolates the bracket-schedule gap alone.",
-        "observedToday": 1477.15
-      }
+      "expectedStateTax": 1275.95
     }
   ]
 }
