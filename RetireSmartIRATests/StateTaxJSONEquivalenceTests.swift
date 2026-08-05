@@ -548,7 +548,11 @@ struct StateTaxJSONEquivalenceTests {
     ///   into `calculateStateTax` with no state standard deduction, so every
     ///   nonzero-income scenario recomputes against different thresholds;
     ///   9 of its 10 scenarios (all but "zero income") diverge.
-    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .newMexico]
+    /// - Georgia: Phase 5a Task 5 touches `taxSystem.rate` and
+    ///   `stateDeduction`, both of which apply to every scenario with any
+    ///   positive taxable income; 9 of its 10 scenarios (all but "zero
+    ///   income", which computes $0 either way) diverge.
+    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .newMexico, .georgia]
 }
 
 // MARK: - PHASE 1 GATE, Layer B: structural equivalence (decode is lossless)
@@ -619,7 +623,11 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///   HB252 table (Laws 2024, Chapter 67, Section 5), effective TY2025;
     ///   the pre-HB252 schedule that was deleted from law now lives on only
     ///   in `configs2026Legacy`.
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico]
+    /// - Georgia: Phase 5a Task 5, `taxSystem.rate` corrected from 0.0539 to
+    ///   0.0499 and `stateDeduction` raised from $12,000/$24,000 to
+    ///   $15,000/$30,000 (HB 463, Economic Growth and Tax Relief Act of
+    ///   2026, signed 2026-05-11).
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different

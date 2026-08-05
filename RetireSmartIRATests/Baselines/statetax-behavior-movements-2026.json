@@ -1,27 +1,163 @@
 [
   {
-    "key": "IA|single 55, distributions only",
-    "before": 2280.0,
-    "after": 760.0,
-    "state": "IA",
-    "goldenCase": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
-    "justification": "Iowa DOR retirement income guidance sets the qualifying age at 55, not the engine's prior hardcoded 59; distributionMinAge is now 55 so a 55-year-old's IRA distribution scalar is fully excluded under HF 2317."
+    "key": "GA|MFJ 56 with spouse 55, both below the gate",
+    "before": 6468.0,
+    "after": 5988.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Both spouses (56 and 55) are below Georgia's 62-64 early tier, so neither qualifies and the $50,000 distribution scalar has no exclusion to lose. Only the stale rate and deduction move this value."
   },
   {
-    "key": "IA|single 58, distributions only",
-    "before": 2280.0,
-    "after": 760.0,
-    "state": "IA",
-    "goldenCase": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
-    "justification": "Same distributionMinAge correction as age 55: age 58 clears Iowa's real 55-year gate and was wrongly denied by the old 59 literal, so the IRA distribution scalar is now fully excluded."
+    "key": "GA|MFJ 57 with spouse 61",
+    "before": 6468.0,
+    "after": 5988.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Primary 57 and spouse 61 are both below Georgia's 62-64 early tier (which starts at 62), so neither independently qualifies and the $50,000 distribution scalar has no exclusion to lose under IT-511's 'each must qualify on a separate basis' rule. Only the stale rate and deduction move this value."
   },
   {
-    "key": "IA|single 59, distributions only",
-    "before": 2280.0,
-    "after": 760.0,
+    "key": "GA|MFJ 61 with spouse 56",
+    "before": 6468.0,
+    "after": 5988.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Primary 61 and spouse 56 are both below Georgia's 62-64 early tier, so neither qualifies and the $50,000 distribution scalar has no exclusion to lose. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 68 both qualify, pension + IRA",
+    "before": 754.6,
+    "after": 698.6,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Both spouses (68 and 67) are 65+, so the per-individual doubling this golden case documents applies here too: combined cap $130,000 against $100,000 of pension plus IRA distribution, fully excluded. Only the stale rate and deduction move this value; the doubling mechanic is unaffected and correct."
+  },
+  {
+    "key": "GA|MFJ 68 pension, total 120k",
+    "before": 431.20000000000005,
+    "after": 399.2,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Both spouses are 68 and 65+, so the same per-individual doubling applies: combined cap $130,000 against the $110,000 pension, fully excluded. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 68 pension, total 140k",
+    "before": 1509.2,
+    "after": 1397.2,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Same as the MFJ $120k case at the same ages: the $110,000 pension is fully excluded under the $130,000 combined cap. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 68 pension, total 200k over the cliff",
+    "before": 4743.200000000001,
+    "after": 4391.2,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Georgia's retirement exclusion has no income cliff or income limit, unlike the NJ-style phaseout this scenario is named for; both spouses clear 65+ so the $110,000 pension is fully excluded under the $130,000 combined cap regardless of the $200,000 total. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ status but spouse disabled, 66",
+    "before": 1563.1000000000001,
+    "after": 1447.1,
+    "state": "GA",
+    "goldenCase": "MFJ, only primary spouse qualifies (65+ with pension); spouse is 55 and still working",
+    "justification": "With enableSpouse false, only the primary (66, 65+) is counted, the same single-qualifying-spouse mechanic the golden case exercises; the $80,000 pension exceeds the $65,000 individual cap so $15,000 remains taxable. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 54 conversion 80k",
+    "before": 7546.000000000001,
+    "after": 6986.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Age 54 is below Georgia's 62-64 early tier, so the $30,000 distribution scalar has no exclusion to lose; Georgia's config carries no rothConversionExemption field, so the $80,000 conversion is fully taxable regardless of age or rate. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 55 rmd rows not scenario distributions",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "The .rmd-typed income row is age 55, below Georgia's 62-64 early tier, so it has no exclusion to lose regardless of which income path carries it. Only the stale rate and deduction move this value, identically to the scalar-distribution scenarios at the same age."
+  },
+  {
+    "key": "GA|single 55, distributions only",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Georgia's flat rate was 5.39% against the corrected 4.99%, and the standard deduction was $12,000 single against the corrected $15,000, per HB 463 (Economic Growth and Tax Relief Act of 2026, signed 2026-05-11, Georgia DOR's Important Tax Updates page). Age 55 is below Georgia's 62-64 early tier, so no retirement income exclusion applies to this IRA distribution scalar either way; only the rate and deduction move this value, the same mechanism the golden case documents for a filer below the 62 floor."
+  },
+  {
+    "key": "GA|single 58, distributions only",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Same stale rate/deduction correction as age 55; age 58 is still below Georgia's 62-64 early tier, so the IRA distribution scalar has no exclusion to lose. Only the rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 59, distributions only",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Same stale rate/deduction correction; age 59 is still below Georgia's 62-64 early tier, so the IRA distribution scalar has no exclusion to lose. Only the rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 62 conversion 100k no withholding",
+    "before": 7546.000000000001,
+    "after": 6986.0,
+    "state": "GA",
+    "goldenCase": "single, age 63, squarely in the 62-64 tier: $35,000 exclusion cap exercised",
+    "justification": "Age 62 clears Georgia's 62-64 early tier, so the $20,000 distribution scalar sits entirely under the $35,000 cap and is fully excluded, the same mechanism the golden case exercises. Georgia's config carries no rothConversionExemption field, so the $100,000 conversion is fully taxable either way; only the stale rate and deduction, plus the now-correctly-applied tier exclusion, move this value."
+  },
+  {
+    "key": "GA|single 62 conversion 100k with 22k withheld",
+    "before": 7546.000000000001,
+    "after": 6986.0,
+    "state": "GA",
+    "goldenCase": "single, age 63, squarely in the 62-64 tier: $35,000 exclusion cap exercised",
+    "justification": "Identical to the no-withholding case: Georgia has no rothConversionExemption field, so the withheld amount is not a distinguishing input and both scenarios compute the same result. Age 62 clears the 62-64 tier so the $20,000 distribution scalar is fully excluded; only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 63 in the early age tier",
+    "before": 1994.3000000000002,
+    "after": 1846.3,
+    "state": "GA",
+    "goldenCase": "single, age 63, squarely in the 62-64 tier: $35,000 exclusion cap exercised",
+    "justification": "Age 63 falls squarely in Georgia's 62-64 tier; the $40,000 distribution scalar exceeds the $35,000 cap so $5,000 remains taxable, the exact mechanism the golden case exercises. The taxable Social Security portion is unaffected since Georgia already exempts Social Security. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 65 pension, total 95k",
+    "before": 1617.0,
+    "after": 1497.0,
+    "state": "GA",
+    "goldenCase": "single, age 66, above $65,000 cap: excess retirement income is taxed",
+    "justification": "Age 65 clears the 65+ regular tier; the $80,000 pension exceeds the $65,000 cap so $15,000 remains taxable, the same excess-above-cap mechanism the golden case exercises. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 68 pension, total 120k",
+    "before": 2964.5,
+    "after": 2744.5,
+    "state": "GA",
+    "goldenCase": "single, age 66, above $65,000 cap: excess retirement income is taxed",
+    "justification": "Age 68 clears the 65+ regular tier; the $100,000 pension exceeds the $65,000 cap so $35,000 remains taxable, the same excess-above-cap mechanism the golden case exercises. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 68 pension, total 140k",
+    "before": 4042.5000000000005,
+    "after": 3742.5,
+    "state": "GA",
+    "goldenCase": "single, age 66, above $65,000 cap: excess retirement income is taxed",
+    "justification": "Age 68 clears the 65+ regular tier; the $110,000 pension exceeds the $65,000 cap so $45,000 remains taxable, the same excess-above-cap mechanism the golden case exercises. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "IA|MFJ 56 with spouse 55, both below the gate",
+    "before": 4560.0,
+    "after": 2660.0,
     "state": "IA",
     "goldenCase": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
-    "justification": "Age 59 cleared even the old hardcoded gate, but iraWithdrawalExemption was still .none; with it set to full under HF 2317 the distribution scalar is now fully excluded, matching ages 55 and 58."
+    "justification": "Both spouses (56 and 55) clear Iowa's real 55-year gate even though both sit below the engine's old hardcoded 59; the primary (56) clears the new distributionMinAge so the scalar distribution is fully excluded."
   },
   {
     "key": "IA|MFJ 57 with spouse 61",
@@ -40,52 +176,12 @@
     "justification": "Both spouses (61 and 56) clear Iowa's 55-year gate; the primary (61) alone already clears distributionMinAge, so the scalar distribution is fully excluded under HF 2317."
   },
   {
-    "key": "IA|MFJ 56 with spouse 55, both below the gate",
-    "before": 4560.0,
-    "after": 2660.0,
-    "state": "IA",
-    "goldenCase": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
-    "justification": "Both spouses (56 and 55) clear Iowa's real 55-year gate even though both sit below the engine's old hardcoded 59; the primary (56) clears the new distributionMinAge so the scalar distribution is fully excluded."
-  },
-  {
     "key": "IA|MFJ 68 both qualify, pension + IRA",
     "before": 4332.0,
     "after": 532.0,
     "state": "IA",
     "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
     "justification": "Iowa DOR: 'If both spouses meet one of the above conditions, the taxpayers may exclude all eligible retirement income'; both spouses here are 67/68, so pensionExemption=full and iraWithdrawalExemption=full both apply, excluding the pension and the IRA distribution scalar."
-  },
-  {
-    "key": "IA|MFJ status but spouse disabled, 66",
-    "before": 3572.0,
-    "after": 532.0,
-    "state": "IA",
-    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
-    "justification": "Primary is 66, clearing the 55-year gate; with enableSpouse false, ownerQualifies is unconditional, so pensionExemption=full excludes the $80,000 pension per HF 2317's 'Defined benefit plans, pension plans' listing."
-  },
-  {
-    "key": "IA|single 65 pension, total 95k",
-    "before": 3610.0,
-    "after": 570.0,
-    "state": "IA",
-    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
-    "justification": "Same pension exclusion rule as the MFJ golden case, applied to a single filer at 65: age clears Iowa's 55-year gate so pensionExemption=full excludes the $80,000 pension."
-  },
-  {
-    "key": "IA|single 68 pension, total 120k",
-    "before": 4560.0,
-    "after": 760.0,
-    "state": "IA",
-    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
-    "justification": "Age 68 single filer clears Iowa's 55-year gate; pensionExemption=full excludes the $100,000 pension under HF 2317, leaving only the non-pension portion of income taxable."
-  },
-  {
-    "key": "IA|single 68 pension, total 140k",
-    "before": 5320.0,
-    "after": 1140.0,
-    "state": "IA",
-    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
-    "justification": "Same pension exclusion as the other age-68 single scenario: the $110,000 pension is fully excluded, leaving only the non-pension portion of the $140,000 total taxable."
   },
   {
     "key": "IA|MFJ 68 pension, total 120k",
@@ -112,6 +208,46 @@
     "justification": "Iowa's retirement exclusion has no income cliff or income limit, unlike the NJ-style phaseout this scenario is named for; both spouses clear the 55-year gate so the $110,000 pension is fully excluded regardless of the $200,000 total."
   },
   {
+    "key": "IA|MFJ status but spouse disabled, 66",
+    "before": 3572.0,
+    "after": 532.0,
+    "state": "IA",
+    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
+    "justification": "Primary is 66, clearing the 55-year gate; with enableSpouse false, ownerQualifies is unconditional, so pensionExemption=full excludes the $80,000 pension per HF 2317's 'Defined benefit plans, pension plans' listing."
+  },
+  {
+    "key": "IA|single 55 rmd rows not scenario distributions",
+    "before": 2280.0,
+    "after": 760.0,
+    "state": "IA",
+    "goldenCase": "single, age 60, IRA withdrawal fully excluded under HF 2317 -- the app's .none/.none invents Iowa tax on retirement income",
+    "justification": "The .rmd-typed IncomeSource row is IRA-sourced retirement income under HF 2317; at age 55 (the new gate) and with enableSpouse false, ownerQualifies is unconditional so iraWithdrawalExemption=full excludes the $40,000 row."
+  },
+  {
+    "key": "IA|single 55, distributions only",
+    "before": 2280.0,
+    "after": 760.0,
+    "state": "IA",
+    "goldenCase": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
+    "justification": "Iowa DOR retirement income guidance sets the qualifying age at 55, not the engine's prior hardcoded 59; distributionMinAge is now 55 so a 55-year-old's IRA distribution scalar is fully excluded under HF 2317."
+  },
+  {
+    "key": "IA|single 58, distributions only",
+    "before": 2280.0,
+    "after": 760.0,
+    "state": "IA",
+    "goldenCase": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
+    "justification": "Same distributionMinAge correction as age 55: age 58 clears Iowa's real 55-year gate and was wrongly denied by the old 59 literal, so the IRA distribution scalar is now fully excluded."
+  },
+  {
+    "key": "IA|single 59, distributions only",
+    "before": 2280.0,
+    "after": 760.0,
+    "state": "IA",
+    "goldenCase": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
+    "justification": "Age 59 cleared even the old hardcoded gate, but iraWithdrawalExemption was still .none; with it set to full under HF 2317 the distribution scalar is now fully excluded, matching ages 55 and 58."
+  },
+  {
     "key": "IA|single 62 conversion 100k no withholding",
     "before": 6080.0,
     "after": 1520.0,
@@ -128,14 +264,6 @@
     "justification": "Iowa's rothConversionExemption.withheldPortionRemainsTaxable is false, so this scenario computes identically to the no-withholding case under the setting Iowa currently ships: the full $100,000 conversion is excluded regardless of the $22,000 withheld, yielding $1,520.00. This is a dollar-consequential setting, not a moot one: no Iowa DOR guidance was found addressing whether the withheld portion remains taxable, and `false` was chosen by reasoned analogy to Illinois and Mississippi (both blanket-exclusion states shipping `false`) against Pennsylvania's `true`, which rests on a Pennsylvania-specific cost-recovery mechanism Iowa's statute shows no sign of. Had `true` been chosen instead, this same scenario would compute $2,356.00 (exempt amount $78,000, taxable income $62,000), an $836 difference. Treat `false` as a reasoned choice under an evidentiary gap, not a citation; revisit if Iowa DOR ever publishes guidance on this point."
   },
   {
-    "key": "IA|single 55 rmd rows not scenario distributions",
-    "before": 2280.0,
-    "after": 760.0,
-    "state": "IA",
-    "goldenCase": "single, age 60, IRA withdrawal fully excluded under HF 2317 -- the app's .none/.none invents Iowa tax on retirement income",
-    "justification": "The .rmd-typed IncomeSource row is IRA-sourced retirement income under HF 2317; at age 55 (the new gate) and with enableSpouse false, ownerQualifies is unconditional so iraWithdrawalExemption=full excludes the $40,000 row."
-  },
-  {
     "key": "IA|single 63 in the early age tier",
     "before": 2736.0,
     "after": 1216.0,
@@ -144,28 +272,36 @@
     "justification": "Age 63 clears Iowa's 55-year gate (Iowa has no separate early-age tier), so the $40,000 IRA distribution scalar is fully excluded under HF 2317; the taxable Social Security portion is unaffected since Iowa already exempted Social Security."
   },
   {
-    "key": "NM|single 55, distributions only",
-    "before": 2660.5,
-    "after": 2411.0,
-    "state": "NM",
-    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
-    "justification": "New Mexico House Bill 252 (Laws 2024, Chapter 67, Section 5) replaced the pre-HB252 5-bracket 1.7%-5.9% single schedule with the enacted 6-bracket 1.5%-5.9% schedule effective TY2025; this baseline scenario calls calculateStateTax directly on its income with no state standard deduction or PIT-ADJ exemption applied, so it exercises the corrected single bracket table alone, the same mechanism golden case 1 isolates."
+    "key": "IA|single 65 pension, total 95k",
+    "before": 3610.0,
+    "after": 570.0,
+    "state": "IA",
+    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
+    "justification": "Same pension exclusion rule as the MFJ golden case, applied to a single filer at 65: age clears Iowa's 55-year gate so pensionExemption=full excludes the $80,000 pension."
   },
   {
-    "key": "NM|single 58, distributions only",
-    "before": 2660.5,
-    "after": 2411.0,
-    "state": "NM",
-    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
-    "justification": "Same HB252 single-bracket-schedule correction as the age-55 case; the corrected single table alone determines this scenario's tax."
+    "key": "IA|single 68 pension, total 120k",
+    "before": 4560.0,
+    "after": 760.0,
+    "state": "IA",
+    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
+    "justification": "Age 68 single filer clears Iowa's 55-year gate; pensionExemption=full excludes the $100,000 pension under HF 2317, leaving only the non-pension portion of income taxable."
   },
   {
-    "key": "NM|single 59, distributions only",
-    "before": 2660.5,
-    "after": 2411.0,
+    "key": "IA|single 68 pension, total 140k",
+    "before": 5320.0,
+    "after": 1140.0,
+    "state": "IA",
+    "goldenCase": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
+    "justification": "Same pension exclusion as the other age-68 single scenario: the $110,000 pension is fully excluded, leaving only the non-pension portion of the $140,000 total taxable."
+  },
+  {
+    "key": "NM|MFJ 56 with spouse 55, both below the gate",
+    "before": 5472.0,
+    "after": 5069.0,
     "state": "NM",
-    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
-    "justification": "Same HB252 single-bracket-schedule correction as the age-55 case; the corrected single table alone determines this scenario's tax."
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
   },
   {
     "key": "NM|MFJ 57 with spouse 61",
@@ -184,52 +320,12 @@
     "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
   },
   {
-    "key": "NM|MFJ 56 with spouse 55, both below the gate",
-    "before": 5472.0,
-    "after": 5069.0,
-    "state": "NM",
-    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
-    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
-  },
-  {
     "key": "NM|MFJ 68 both qualify, pension + IRA",
     "before": 6354.0,
     "after": 5951.0,
     "state": "NM",
     "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
     "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
-  },
-  {
-    "key": "NM|MFJ status but spouse disabled, 66",
-    "before": 4198.0,
-    "after": 3807.0,
-    "state": "NM",
-    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
-    "justification": "filingStatus is marriedFilingJointly here (enableSpouse merely disables spouse-attributed exemption logic this harness never exercises), so the corrected married bracket table applies, the same HB252 mechanism as the other MFJ baseline scenarios."
-  },
-  {
-    "key": "NM|single 65 pension, total 95k",
-    "before": 4375.5,
-    "after": 4113.0,
-    "state": "NM",
-    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
-    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
-  },
-  {
-    "key": "NM|single 68 pension, total 120k",
-    "before": 5600.5,
-    "after": 5338.0,
-    "state": "NM",
-    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
-    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
-  },
-  {
-    "key": "NM|single 68 pension, total 140k",
-    "before": 6580.5,
-    "after": 6318.0,
-    "state": "NM",
-    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
-    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
   },
   {
     "key": "NM|MFJ 68 pension, total 120k",
@@ -256,20 +352,12 @@
     "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax, unaffected by the $200,000 income level since New Mexico's schedule has no separate cliff mechanism of its own."
   },
   {
-    "key": "NM|single 62 conversion 100k no withholding",
-    "before": 7560.5,
-    "after": 7298.0,
+    "key": "NM|MFJ status but spouse disabled, 66",
+    "before": 4198.0,
+    "after": 3807.0,
     "state": "NM",
-    "goldenCase": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
-    "justification": "Same HB252 single-bracket-schedule correction, isolated by the same golden case that pins a Roth-conversion-driven income level against the corrected single table; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected table alone determines its tax."
-  },
-  {
-    "key": "NM|single 62 conversion 100k with 22k withheld",
-    "before": 7560.5,
-    "after": 7298.0,
-    "state": "NM",
-    "goldenCase": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
-    "justification": "Same HB252 single-bracket-schedule correction as the no-withholding case; New Mexico's config carries no Roth-conversion-withholding treatment for this harness to differentiate, so both scenarios move identically."
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "filingStatus is marriedFilingJointly here (enableSpouse merely disables spouse-attributed exemption logic this harness never exercises), so the corrected married bracket table applies, the same HB252 mechanism as the other MFJ baseline scenarios."
   },
   {
     "key": "NM|single 54 conversion 80k",
@@ -288,11 +376,75 @@
     "justification": "Same HB252 single-bracket-schedule correction as the age-55 distributions case; the corrected single table alone determines this scenario's tax regardless of income-row composition."
   },
   {
+    "key": "NM|single 55, distributions only",
+    "before": 2660.5,
+    "after": 2411.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "New Mexico House Bill 252 (Laws 2024, Chapter 67, Section 5) replaced the pre-HB252 5-bracket 1.7%-5.9% single schedule with the enacted 6-bracket 1.5%-5.9% schedule effective TY2025; this baseline scenario calls calculateStateTax directly on its income with no state standard deduction or PIT-ADJ exemption applied, so it exercises the corrected single bracket table alone, the same mechanism golden case 1 isolates."
+  },
+  {
+    "key": "NM|single 58, distributions only",
+    "before": 2660.5,
+    "after": 2411.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction as the age-55 case; the corrected single table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|single 59, distributions only",
+    "before": 2660.5,
+    "after": 2411.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction as the age-55 case; the corrected single table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|single 62 conversion 100k no withholding",
+    "before": 7560.5,
+    "after": 7298.0,
+    "state": "NM",
+    "goldenCase": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
+    "justification": "Same HB252 single-bracket-schedule correction, isolated by the same golden case that pins a Roth-conversion-driven income level against the corrected single table; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected table alone determines its tax."
+  },
+  {
+    "key": "NM|single 62 conversion 100k with 22k withheld",
+    "before": 7560.5,
+    "after": 7298.0,
+    "state": "NM",
+    "goldenCase": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
+    "justification": "Same HB252 single-bracket-schedule correction as the no-withholding case; New Mexico's config carries no Roth-conversion-withholding treatment for this harness to differentiate, so both scenarios move identically."
+  },
+  {
     "key": "NM|single 63 in the early age tier",
     "before": 4130.5,
     "after": 3868.0,
     "state": "NM",
     "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
     "justification": "Same HB252 single-bracket-schedule correction; New Mexico has no separate early-age tier of its own, so the corrected single table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|single 65 pension, total 95k",
+    "before": 4375.5,
+    "after": 4113.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
+  },
+  {
+    "key": "NM|single 68 pension, total 120k",
+    "before": 5600.5,
+    "after": 5338.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
+  },
+  {
+    "key": "NM|single 68 pension, total 140k",
+    "before": 6580.5,
+    "after": 6318.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
   }
 ]

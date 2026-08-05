@@ -43,24 +43,25 @@
   "state" : "GA",
   "stateDeduction" : {
     "kind" : "fixed",
-    "married" : 24000,
-    "single" : 12000
+    "married" : 30000,
+    "single" : 15000
   },
   "taxSystem" : {
     "kind" : "flat",
-    "rate" : 0.0539
+    "rate" : 0.0499
   },
   "traditionalIRAContributionsTaxableForState" : false,
   "verification" : {
     "billReferences" : [
-
+      "HB 463 (Economic Growth and Tax Relief Act of 2026), signed 2026-05-11"
     ],
     "knownLimitations" : [
-
+      "Georgia's standard deduction rises again to $70,000 for the retirement-income exclusion in TY2027; this config is TY2026 only and does not encode that increase."
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-04",
     "primarySources" : [
-
+      "Georgia DOR, Important Tax Updates: https://dor.georgia.gov/taxes/important-tax-updates",
+      "Gov. Kemp signing announcement: https://gov.georgia.gov/press-releases/2026-05-11/gov-kemp-signs-legislation-lowering-taxes-and-supporting-economic-growth"
     ]
   }
 }
