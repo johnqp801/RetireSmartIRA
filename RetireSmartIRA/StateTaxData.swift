@@ -614,6 +614,27 @@ struct StateTaxData {
     /// The original hardcoded table. Retained through Phase 3 as the
     /// equivalence oracle proving the JSON migration changed nothing.
     /// Not the production path after Task 11.
+    ///
+    /// FROZEN AT PRE-PHASE-5 LAW as of Phase 5a Task 2. Corrections landing
+    /// in Phase 5 (Kansas's `personalExemption` first, more to follow) are
+    /// made to the bundled JSON only. This table is NOT updated to match
+    /// them, on purpose: touching it for every correction would turn each
+    /// Phase 5 fix into a double-edit across two data sources, which is the
+    /// exact hand-duplication failure mode this project has already hit
+    /// elsewhere. `StateTaxJSONStructuralEquivalenceTests.structurallyIdentical`
+    /// encodes the intended divergence explicitly, via
+    /// `phase5CorrectedJurisdictions` -- that list, not this comment, is the
+    /// source of truth for which states are expected to differ here.
+    ///
+    /// This table is still live. `config(for:)` below falls back to it
+    /// whenever the bundled JSON fails to load. A user in a jurisdiction
+    /// Phase 5 has corrected would, in that failure case, silently receive
+    /// the pre-correction tax rule for their state instead of an error.
+    /// That is a known, accepted trade-off, not an oversight: replacing the
+    /// fallback with a hard failure (`preconditionFailure`, which traps in
+    /// RELEASE builds too) would turn a JSON-bundling defect into an app
+    /// crash for every user, which is worse for a shipped consumer app than
+    /// serving stale-but-plausible numbers to the rare user who hits it.
     static let configs2026Legacy: [USState: StateTaxConfig] = {
         var configs: [USState: StateTaxConfig] = [:]
 

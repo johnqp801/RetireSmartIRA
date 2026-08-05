@@ -518,6 +518,26 @@ struct StateTaxJSONEquivalenceTests {
 @Suite("PHASE 1 GATE: Layer B, structural equivalence (decode is lossless)")
 struct StateTaxJSONStructuralEquivalenceTests {
 
+    /// PHASE 5 CORRECTED-JURISDICTIONS LIST. Append here, and only here, as
+    /// each Phase 5 task corrects a jurisdiction's bundled JSON.
+    ///
+    /// `configs2026Legacy` (`StateTaxData.swift`) is frozen at pre-Phase-5
+    /// law by decision: it is a defensive fallback reached only when the
+    /// bundled JSON fails to load, and it is deliberately NOT updated
+    /// alongside corrections (see that declaration's doc comment for the
+    /// full rationale). That means every jurisdiction named here is EXPECTED
+    /// to diverge from its legacy counterpart, permanently, not skipped.
+    ///
+    /// This list does not silence `structurallyIdentical` for these states;
+    /// it flips its assertion. A jurisdiction on this list that re-encodes
+    /// IDENTICALLY to its legacy entry is a failure, not a pass, because
+    /// that means either the correction was reverted from the JSON or
+    /// someone edited the legacy table to match it. Both need fixing.
+    ///
+    /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
+    ///   special session).
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas]
+
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different
     /// serialization convention.
@@ -543,7 +563,10 @@ struct StateTaxJSONStructuralEquivalenceTests {
         return "no line-level divergence found despite unequal Data (formatting-only difference?)"
     }
 
-    @Test("Re-encoding the JSON-loaded config is byte-identical to re-encoding the legacy config",
+    @Test("""
+          Re-encoding the JSON-loaded config is byte-identical to re-encoding the legacy \
+          config, except for jurisdictions Phase 5 has corrected, which must diverge
+          """,
           arguments: USState.allCases)
     func structurallyIdentical(state: USState) throws {
         let jsonConfigs = try StateTaxDataLoader.load(taxYear: 2026)
@@ -557,15 +580,29 @@ struct StateTaxJSONStructuralEquivalenceTests {
         let jsonEncoded = try encoder.encode(jsonConfig)
         let legacyEncoded = try encoder.encode(legacyConfig)
 
-        #expect(
-            jsonEncoded == legacyEncoded,
-            """
-            \(state.abbreviation): re-encoding the JSON-loaded config does not byte-match \
-            re-encoding the legacy config. Decode dropped, defaulted, or reordered a field \
-            even though Layer A's computed-tax comparison can still pass.
-            First divergence: \(Self.firstDivergence(jsonEncoded, legacyEncoded))
-            """
-        )
+        if Self.phase5CorrectedJurisdictions.contains(state) {
+            #expect(
+                jsonEncoded != legacyEncoded,
+                """
+                \(state.abbreviation) is listed in phase5CorrectedJurisdictions, so its \
+                corrected JSON is expected to diverge permanently from the frozen legacy \
+                table (configs2026Legacy is deliberately not updated alongside \
+                corrections). Byte-identical here means either the correction was \
+                reverted from the JSON or the legacy table was edited to match it; both \
+                are failures that need fixing, not this test.
+                """
+            )
+        } else {
+            #expect(
+                jsonEncoded == legacyEncoded,
+                """
+                \(state.abbreviation): re-encoding the JSON-loaded config does not byte-match \
+                re-encoding the legacy config. Decode dropped, defaulted, or reordered a field \
+                even though Layer A's computed-tax comparison can still pass.
+                First divergence: \(Self.firstDivergence(jsonEncoded, legacyEncoded))
+                """
+            )
+        }
     }
 }
 
@@ -609,10 +646,11 @@ struct StateTaxJSONFileKeyCompletenessTests {
     ]
 
     /// Keys a file MAY carry. `personalExemption` is written only for states
-    /// that grant one, which is New Jersey alone in Phase 3a, so requiring it
-    /// everywhere would force 50 files to carry a key with no meaning. A key
-    /// outside both sets is still a failure: this widens the assertion by
-    /// exactly one name, it does not weaken it into an allow-anything check.
+    /// that grant one (New Jersey since Phase 3a, Kansas since Phase 5a Task
+    /// 2), so requiring it everywhere would force 50 files to carry a key
+    /// with no meaning. A key outside both sets is still a failure: this
+    /// widens the assertion by exactly one name, it does not weaken it into
+    /// an allow-anything check.
     private static let optionalTopLevelKeys: Set<String> = ["personalExemption"]
 
     @Test("Each bundled JSON file carries every required top-level key and no unknown ones",
@@ -638,8 +676,8 @@ struct StateTaxJSONFileKeyCompletenessTests {
                 "\(state.abbreviation) (\(url.lastPathComponent)) carries unknown keys: \(unknown)")
     }
 
-    @Test("Exactly one jurisdiction ships a personalExemption key in Phase 3a")
-    func onlyNewJerseyShipsAPersonalExemptionKey() throws {
+    @Test("Exactly New Jersey and Kansas ship a personalExemption key")
+    func onlyNewJerseyAndKansasShipAPersonalExemptionKey() throws {
         var carriers: [String] = []
         for state in USState.allCases {
             let url = try StateTaxDataLoader.fileURL(for: state, taxYear: 2026)
@@ -647,7 +685,9 @@ struct StateTaxJSONFileKeyCompletenessTests {
                 with: Data(contentsOf: url)) as? [String: Any]
             if object?["personalExemption"] != nil { carriers.append(state.abbreviation) }
         }
-        #expect(carriers == ["NJ"],
-                "Phase 3a ships New Jersey's personal exemption only. Found: \(carriers)")
+        // Phase 3a shipped New Jersey's. Phase 5a Task 2 added Kansas's (SB1,
+        // 2024 special session), correcting Steve Nicolai's reported defect.
+        #expect(carriers.sorted() == ["KS", "NJ"],
+                "Expected only New Jersey and Kansas to carry personalExemption. Found: \(carriers)")
     }
 }

@@ -181,19 +181,26 @@ struct StateTaxPhase3aMechanismTests {
         #expect(nj.seniorAge == 65)
     }
 
-    @Test("New Jersey's config carries the personal exemption; no other state does")
-    func onlyNewJerseyCarriesAPersonalExemptionInPhase3a() throws {
+    @Test("New Jersey and Kansas carry a personal exemption; no other state does")
+    func onlyNewJerseyAndKansasCarryAPersonalExemption() throws {
+        // Phase 3a shipped New Jersey's exemption, already existing in
+        // hardcoded form. Phase 5a Task 2 added Kansas's (SB1, 2024 special
+        // session), correcting Steve Nicolai's reported defect. Every other
+        // state's Phase 5a/5b personal-exemption defects (Nebraska's credit,
+        // Oregon's credit, etc.) are NOT expressible as this field and remain
+        // absent here; see the Task 2 brief's scope boundary.
+        let carriers: Set<USState> = [.newJersey, .kansas]
         let configs = try StateTaxDataLoader.load(taxYear: 2026)
         for state in USState.allCases {
             let config = try #require(configs[state])
-            if state == .newJersey {
+            if carriers.contains(state) {
                 #expect(config.personalExemption != nil)
             } else {
                 #expect(config.personalExemption == nil,
                         """
-                        \(state.abbreviation) gained a personal exemption in Phase 3a. \
-                        Phase 3a adds no state's exemption except New Jersey's, which \
-                        already existed in hardcoded form. Kansas and the rest are Phase 5a.
+                        \(state.abbreviation) gained a personal exemption unexpectedly. \
+                        Only New Jersey (Phase 3a) and Kansas (Phase 5a Task 2) ship this \
+                        field today.
                         """)
             }
         }
