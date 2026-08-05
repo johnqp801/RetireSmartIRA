@@ -1,0 +1,91 @@
+{
+  "state": "MA",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single filer, Massachusetts state contributory pension: fully exempt under MA law, engine taxes it in full",
+      "source": "mass.gov 'Tax Treatment of Government Pensions in Massachusetts', section 'Massachusetts state and local employee contributory pension': 'Massachusetts state/local employee pensions are contributory annuity, pension, endowment, or retirement funds of the Commonwealth of Massachusetts (or any of its political subdivisions)...Distributions made to you from a Massachusetts state and local employee contributory plan are excluded from Massachusetts gross income even though they are included in federal gross income.' No age gate is stated for this exclusion. This app's PlanSource enum has no Massachusetts-specific case; 'otherStateOrLocal' (doc-commented for New York's model as 'a DIFFERENT state or its localities') is used here as the closest available generic 'a state/local government pension, not New York's' label. Arithmetic: $60,000 fully excluded, $0 state taxable income (MA's stateDeduction is 'none' in this app's config, so there is no separate standard deduction to apply), tax = $0.00.",
+      "sourceURL": "https://www.mass.gov/info-details/tax-treatment-of-government-pensions-in-massachusetts",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 60000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "MA state/local contributory pensions are fully excluded from MA gross income; statetax-2026-MA.json has no perSourceExemptions, so the engine pools it into ordinary taxable income and taxes it at the flat 5% rate.",
+        "observedToday": 3000.00
+      }
+    },
+    {
+      "name": "single filer, noncontributory municipal pension: correctly fully taxable, no MA exclusion applies -- contrast/regression case",
+      "source": "mass.gov 'Tax Treatment of Government Pensions in Massachusetts' enumerates a closed list of exempt pension categories (MA/local contributory, federal contributory, MBTA, out-of-state reciprocal contributory, railroad retirement, U.S. uniformed-services noncontributory). A noncontributory municipal pension -- one where the employee made no contributions, distinct from the U.S. uniformed-services noncontributory exemption which is scoped specifically to military service -- appears on none of those lists, so by the closed-list structure of this guidance it remains ordinary taxable pension income under M.G.L. c. 62 (this is an inference from the enumeration's closed-list structure, not a sentence stating 'noncontributory municipal pensions are taxable' verbatim on the page). Arithmetic: $60,000 fully taxable at the flat 5% rate = $3,000.00.",
+      "sourceURL": "https://www.mass.gov/info-details/tax-treatment-of-government-pensions-in-massachusetts",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 60000, "planStructure": "definedBenefit", "planSource": "governmentUnspecified"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 3000.00
+    },
+    {
+      "name": "MFJ, both spouses have MA state/local contributory pensions: fully exempt under MA law, engine taxes the full household income",
+      "source": "mass.gov 'Tax Treatment of Government Pensions in Massachusetts', section 'Massachusetts state and local employee contributory pension' (see single-filer case above for the exact quote). No per-taxpayer cap is stated -- distributions are excluded outright regardless of amount. Arithmetic: $40,000 + $35,000 = $75,000, all fully excluded, $0 state taxable income, tax = $0.00.",
+      "sourceURL": "https://www.mass.gov/info-details/tax-treatment-of-government-pensions-in-massachusetts",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 67,
+      "spouseAge": 65,
+      "federalAGI": 75000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"},
+        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both spouses' MA contributory pensions should be fully excluded; the engine's empty perSourceExemptions for MA excludes neither, taxing the full $75,000 household income at 5%.",
+        "observedToday": 3750.00
+      }
+    },
+    {
+      "name": "MFJ, one spouse's U.S. uniformed-services pension is exempt and the other spouse's private 401(k) distribution is not: one spouse qualifies",
+      "source": "mass.gov 'Tax Treatment of Government Pensions in Massachusetts', section 'U.S. military non-contributory pension': 'U.S. military pensions, which are included in federal gross income, are excluded from Massachusetts gross income.' This app's PlanSource enum has no distinct case for U.S. uniformed-services retired pay; 'federalCivilian' (doc-commented as 'US government civilian service') is used here as the closest available label for federal-government-sourced retirement income, though military retired pay is not civilian employment -- disclosed as a labeling limitation, not a claim that this enum value is a precise fit. The private 401(k) distribution is ordinary taxable pension/annuity income with no MA exclusion. Arithmetic: $30,000 military fully excluded; $30,000 private taxable; $30,000 x 5% = $1,500.00.",
+      "sourceURL": "https://www.mass.gov/info-details/tax-treatment-of-government-pensions-in-massachusetts",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 64,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 30000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 30000, "planStructure": "definedContribution", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1500.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "The military spouse's pension should be fully excluded while the private 401(k) spouse's distribution stays taxable; the engine excludes neither (no perSourceExemptions for MA), taxing the full $60,000.",
+        "observedToday": 3000.00
+      }
+    }
+  ]
+}
