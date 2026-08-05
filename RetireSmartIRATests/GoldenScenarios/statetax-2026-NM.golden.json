@@ -1,0 +1,96 @@
+{
+  "state": "NM",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+      "source": "BRACKETS: New Mexico House Bill 252 (2024 Regular Session, 'Adjust Income Tax Brackets'), signed by Governor Michelle Lujan Grisham March 6, 2024, enacted as Laws 2024, Chapter 67, Section 5 (amending NMSA 1978 Section 7-2-7), effective for 'any taxable year beginning on or after January 1, 2025' -- confirmed against the enrolled/committee-substitute bill text (nmlegis.gov/Sessions/24%20Regular/bills/house/HB0252TRS.pdf, printed pages 15-16) and independently corroborated by Tax Foundation's 2025 state rate summary. This REPLACED New Mexico's prior 5-bracket 1.7%-5.9% schedule with a 6-bracket 1.5%-5.9% schedule effective TY2025 (and unchanged for TY2026, no further amending bill found). This app's engine (RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-NM.json) still uses the OLD pre-2025 5-bracket table verbatim (single: 1.7%@0, 3.2%@5500, 4.7%@11000, 4.9%@16000, 5.9%@210000) -- this is the bracket table the 2024 bill text itself shows being DELETED, bracketed as '[...]' in the amendment. The NEW single/estates-and-trusts table (HB252TRS.pdf printed page 17, PDF page 17 of 45 -- printed and PDF pagination coincide in this document, confirmed via the '- 17 -' page-bottom marker; printed page 16 ends mid-header with no data rows for this table, since it is occupied by the NEW married-filing-jointly table and the single table's column headers only): 'Not over $5,500: 1.5%'; 'Over $5,500 but not over $16,500: $82.50 plus 3.2% of excess over $5,500'; 'Over $16,500 but not over $33,500: $434.50 plus 4.3% of excess over $16,500'; 'Over $33,500 but not over $66,500: $1,165.50 plus 4.7% of excess over $33,500'; 'Over $66,500 but not over $210,000: $2,716.50 plus 4.9% of excess over $66,500'; 'Over $210,000: $9,748 plus 5.9% of excess over $210,000.' STANDARD DEDUCTION: this app's engine correctly models NM as stateDeduction.conformsToFederal (New Mexico PIT conforms to the federal standard deduction), and the test harness's .conformsToFederal branch already applies the base federal amount plus the age-65 addition and OBBBA senior bonus correctly (per this batch's brief, context item 5) -- for primaryAge 55 (under 65) that is just the base $16,100 (RetireSmartIRA/TaxYearConfig.swift standardDeductionSingle). AGE-65 EXEMPTION: 2025 PIT-ADJ Instructions (klvg4oyd4j.execute-api.us-west-2.amazonaws.com/.../2025pit-adj-ins.pdf), page ADJ-4, 'LINE 13. Exemption for persons age 65 or older, or blind' -- primaryAge 55 does not qualify, $0, so this exemption does not enter this case's arithmetic (it is exercised by the other NM cases in this file). Arithmetic: federalAGI = $40,000 (pension only). NM taxable income = 40,000 - 16,100 (federal std deduction, age 55 < 65) = $23,900. Applying the CORRECT (HB252) single bracket table: 23,900 falls in the $16,500-$33,500 band -> $434.50 + 4.3% x (23,900 - 16,500) = 434.50 + 4.3% x 7,400 = 434.50 + 318.20 = $752.70.",
+      "sourceURL": "https://www.nmlegis.gov/Sessions/24%20Regular/bills/house/HB0252TRS.pdf",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 752.70,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "The engine still applies NM's pre-HB252 bracket schedule (deleted from law effective TY2025), not the enacted 6-bracket 1.5%-5.9% schedule; the correct standard deduction (conformsToFederal) is already applied correctly by the harness.",
+        "observedToday": 891.6
+      }
+    },
+    {
+      "name": "single, age 70 (above 65), the $8,000-scale PIT-ADJ age exemption plus the federal-conformity standard deduction very nearly zero out a modest pension",
+      "source": "Same HB252 (Laws 2024, Chapter 67) bracket schedule as the age-55 case in this file. AGE-65 EXEMPTION: 2025 PIT-ADJ Instructions, page ADJ-4, 'LINE 13. Exemption for persons age 65 or older, or blind': 'You may be eligible for an exemption of up to $8,000 based on your filing status and your federal adjusted gross income from PIT-1, line 9' -- looked up from TABLE 1 (2025 PIT-ADJ Instructions, page ADJ-5, PDF page 5 of 8; NOT the same page as the Line 13 narrative text above, which is on ADJ-4 -- ADJ-4 ends with narrative examples and 'Mark Correct Boxes on PIT-1 Return' instructions, and the boxed Table 1 itself opens ADJ-5), Single column: '$25,501-$27,000 -> $2,000.' At federalAGI $27,000 the exemption is $2,000 (NOT a flat $8,000 -- the exemption is a graduated 8-step scale reducing $1,000 per $1,500 of AGI above $18,000, reaching $0 at $28,501; this fixture deliberately sits mid-scale rather than at the full-$8,000 floor, to test the graduated mechanism the batch's task notes describe only as a $28,500 cliff). Standard deduction: primaryAge 70 >= 65, and MAGI $27,000 is far under the $75,000 OBBBA single phase-out threshold, so the .conformsToFederal branch applies base $16,100 + age-65 addition $2,050 + full OBBBA senior bonus $6,000 = $24,150 (RetireSmartIRA/TaxYearConfig.swift). Arithmetic: federalAGI = $27,000. NM taxable income = 27,000 - 24,150 (federal-conformity standard deduction) - 2,000 (PIT-ADJ age exemption) = $850. Applying the correct single bracket table, $850 is entirely in the first bracket (not over $5,500 -> 1.5%): tax = 850 x 1.5% = $12.75.",
+      "sourceURL": "https://klvg4oyd4j.execute-api.us-west-2.amazonaws.com/prod/PublicFiles/34821a9573ca43e7b06dfad20f5183fd/61f8c5b0-b391-49b5-9d66-6605ef1f0c13/2025pit-adj-ins.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 27000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 27000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 12.75,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same stale pre-HB252 bracket schedule as the age-55 case, compounded here with NM's $8,000-scale age-65 PIT-ADJ exemption (otherRetirementIncomeExclusion: false), which is entirely unmodeled.",
+        "observedToday": 48.45
+      }
+    },
+    {
+      "name": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+      "source": "This fixture's combined federalAGI ($45,000) is deliberately inside the band ($28,500, $51,000]: under the CORRECT New Mexico Married-Filing-Jointly Table 1 column this AGI still carries a nonzero per-qualifying-person exemption, but under a mutant that hardcodes isMarried:false (so the age-exemption lookup wrongly uses the SINGLE column of Table 1 instead of the MFJ column), $45,000 is already past the single column's $28,500 cliff and the lookup would wrongly return $0. New Mexico is the SECOND, independent carrier of this regression check (Virginia is the primary carrier per Task 6); having two means a single fixture edit cannot silently disarm it. TABLE 1 (2025 PIT-ADJ Instructions, page ADJ-5, PDF page 5 of 8 -- the boxed table itself, not page ADJ-4 where the Line 13 narrative discussion sits), MFJ column: '$42,001-$45,000 -> $3,000' per qualifying taxpayer 65+; 'When both persons in a married couple are either 65 or older or blind on the last day of the tax year, the amount in the table applies to EACH taxpayer on a joint return' -- here only primary (age 68) is 65+, spouse (age 55) is not, so only ONE $3,000 applies, not $6,000. Standard deduction (.conformsToFederal): only primary is 65+, MFJ base $32,200 + 1 x $1,650 age-65 addition (RetireSmartIRA/TaxYearConfig.swift additionalDeduction65MFJ) + 1 x $6,000 OBBBA senior bonus (MAGI $45,000 is under the $150,000 MFJ threshold, full bonus, only primary qualifies) = $39,850. Arithmetic: federalAGI = $45,000. NM taxable income = 45,000 - 39,850 (standard deduction) - 3,000 (PIT-ADJ exemption, primary only) = $2,150. Applying the correct MFJ bracket table, $2,150 is in the first bracket (not over $8,000 -> 1.5%): tax = 2,150 x 1.5% = $32.25. (Under the isMarried:false mutant the exemption would be $0 instead of $3,000, taxable income would be $5,150, tax would be $5,150 x 1.5% = $77.25 -- a $45.00 divergence this fixture is positioned to catch.)",
+      "sourceURL": "https://klvg4oyd4j.execute-api.us-west-2.amazonaws.com/prod/PublicFiles/34821a9573ca43e7b06dfad20f5183fd/61f8c5b0-b391-49b5-9d66-6605ef1f0c13/2025pit-adj-ins.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 55,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 45000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 32.25,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same stale bracket and missing age-65 PIT-ADJ exemption as the other NM cases; this fixture additionally pins the correct MFJ-column, per-qualifying-spouse exemption behavior the engine has no representation for at all.",
+        "observedToday": 87.55000000000001
+      }
+    },
+    {
+      "name": "MFJ, both spouses 65+, doubled PIT-ADJ exemption plus federal-conformity standard deduction (doubled age addition and OBBBA bonus) fully zero out the household's taxable income",
+      "source": "Same HB252 bracket schedule and same PIT-ADJ Table 1 mechanics as the other NM cases in this file. Both spouses are 65+ (primaryAge 66, spouseAge 68), so Table 1's MFJ-column amount applies to EACH taxpayer (2025 PIT-ADJ Instructions, page ADJ-5, PDF page 5 of 8, the boxed table -- not page ADJ-4, which carries only the Line 13 narrative): at combined federalAGI $40,000, the MFJ column band '$39,001-$42,000 -> $4,000' applies to each spouse, for a total exemption of $4,000 x 2 = $8,000. Standard deduction (.conformsToFederal): both spouses 65+, MFJ base $32,200 + 2 x $1,650 age-65 addition + 2 x $6,000 OBBBA senior bonus (MAGI $40,000 is under the $150,000 threshold, both qualify for the full per-person bonus) = 32,200 + 3,300 + 12,000 = $47,500. Arithmetic: federalAGI = $40,000. NM taxable income = 40,000 - 47,500 (standard deduction) - 8,000 (PIT-ADJ exemption) = -15,500, floored to $0. Tax = $0.00. This is a legitimate, fully-derived result, not an approximation: it shows that at this income level, a Married-Filing-Jointly New Mexico household where both spouses are 65+ owes NO state tax at all once the federal-conformity standard deduction (with its doubled age addition and OBBBA bonus) and New Mexico's own age exemption are correctly applied -- a real, striking gap against the engine's naive full-bracket taxation of the same household.",
+      "sourceURL": "https://klvg4oyd4j.execute-api.us-west-2.amazonaws.com/prod/PublicFiles/34821a9573ca43e7b06dfad20f5183fd/61f8c5b0-b391-49b5-9d66-6605ef1f0c13/2025pit-adj-ins.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 68,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
+      "source": "Same HB252 bracket schedule and PIT-ADJ Table 1 mechanics as the other NM cases in this file. This is the batch's required fifth (phase-out) case: without the Roth conversion this filer's $30,000 pension alone would sit in the graduated exemption scale (similar to the age-70 case above); the $30,000 conversion pushes federalAGI to $60,000, past the single-column cliff at $28,500 (2025 PIT-ADJ Instructions, page ADJ-5, PDF page 5 of 8, Table 1 -- not page ADJ-4, which carries only the Line 13 narrative: 'Single ... $28,501 --------- 0'), so the PIT-ADJ exemption is entirely destroyed. Standard deduction (.conformsToFederal): primaryAge 70 >= 65, MAGI $60,000 is under the $75,000 single OBBBA threshold, so base $16,100 + age-65 addition $2,050 + full OBBBA bonus $6,000 = $24,150 (unchanged from the age-70/$27,000 case above -- the standard deduction does not depend on the higher income here since the OBBBA phase-out has not yet begun). Arithmetic: federalAGI = $60,000. NM taxable income = 60,000 - 24,150 (standard deduction) - 0 (PIT-ADJ exemption, phased to zero) = $35,850. Applying the correct single bracket table, $35,850 falls in the $33,500-$66,500 band: tax = $1,165.50 + 4.7% x (35,850 - 33,500) = 1,165.50 + 4.7% x 2,350 = 1,165.50 + 110.45 = $1,275.95.",
+      "sourceURL": "https://klvg4oyd4j.execute-api.us-west-2.amazonaws.com/prod/PublicFiles/34821a9573ca43e7b06dfad20f5183fd/61f8c5b0-b391-49b5-9d66-6605ef1f0c13/2025pit-adj-ins.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 30000,
+      "expectedStateTax": 1275.95,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same stale pre-HB252 bracket schedule as the other NM cases; the PIT-ADJ age exemption is already legitimately zero at this income under real law too, so this case isolates the bracket-schedule gap alone.",
+        "observedToday": 1477.15
+      }
+    }
+  ]
+}

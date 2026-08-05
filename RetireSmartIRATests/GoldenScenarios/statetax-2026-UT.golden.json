@@ -1,0 +1,101 @@
+{
+  "state": "UT",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 50 (born after the 1952 retirement-credit cutoff, not age-65-based), Taxpayer Tax Credit alone",
+      "source": "TY2026 RATE: Utah S.B. 60 (2026 General Session, 'Income Tax Rate Amendments'), enrolled bill text (le.utah.gov/~2026/bills/enrolled/SB0060.pdf), Section 3 amending 59-10-104(2)(b): '[4.5%] 4.45%', Section 4: 'This bill takes effect on May 6, 2026,' Section 5: 'retrospective operation for a taxable year beginning on or after January 1, 2026.' Independently corroborated (Governor signed March 23, 2026 per multiple secondary reports); this app's engine still uses the PRIOR 4.55% rate (statetax-2026-UT.json 'rate': 0.0455), which is stale by two separate rate cuts (4.55% predates even the 4.5% rate SB60 itself is cutting FROM). TAX BASE: 2025 Utah TC-40 Instructions (tax.utah.gov/forms/current/tc-40inst.pdf), printed page 7 (PDF page 9), 'Line 4. Federal Adjusted Gross Income' through 'Line 9. Utah Taxable Income/Loss' (= FAGI + additions - subtractions, NOT federal taxable income -- Utah does not itself subtract the federal standard deduction from its own tax base the way the bracket math would suggest). TAXPAYER TAX CREDIT (same document, printed page 8, PDF page 10, Lines 11-20, UCA 59-10-1018): Line 11 Utah personal exemption = $2,111 PER DEPENDENT ONLY (not per filer/spouse) -- $0 here, no dependents. Line 12 = federal standard deduction from federal Form 1040 line 12e; for a single filer under 65 in TY2026 this is the base federal standard deduction $16,100 (RetireSmartIRA/TaxYearConfig.swift, standardDeductionSingle, already used elsewhere in this branch's fixtures). Line 16 = Line 15 x 6%. Line 17 = base phase-out amount, single $18,213 (2025 TC-40 Instructions printed page 8; 2026 amount not published as of this research, TY2025 figure used and stated explicitly here as this task's WA precedent directs). Line 18 = Line 9 - Line 17 (floor 0). Line 19 = Line 18 x 1.3%. Line 20 = Line 16 - Line 19 (floor 0) = Taxpayer Tax Credit. RETIREMENT CREDIT (UCA 59-10-1019, same document printed page 19/PDF page 21, 'Retirement Credit Worksheet'): eligibility is 'born on or before Dec. 31, 1952' -- a FIXED birth-year cutoff, not an age-65 test, confirmed via Utah Code 59-10-1019 ('Eligible claimant' definition). primaryAge 50 in TY2026 means birth year 1976, well after the cutoff -> NOT eligible regardless of income. Arithmetic: Line 4 FAGI = Line 6 total income = Line 9 Utah taxable income = $45,000 (no additions/subtractions). Line 10 Utah tax = 45,000 x 4.45% = $2,002.50, rounds to $2,003 (TC-40 Instructions printed page 4, 'Rounding Off to Whole Dollars': round up at 50 cents and above). Line 12 = $16,100 (age 50 < 65, no age addition). Line 15 = $16,100. Line 16 = 16,100 x 6% = $966. Line 18 = 45,000 - 18,213 = 26,787. Line 19 = 26,787 x 1.3% = 348.231, rounds to $348. Line 20 (Taxpayer Tax Credit) = 966 - 348 = $618. Retirement Credit = $0 (not born on or before Dec 31, 1952). Line 25 tax = 2,003 - 618 = $1,385.",
+      "sourceURL": "https://tax.utah.gov/forms/current/tc-40inst.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 45000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1385.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "UT's Taxpayer Tax Credit (UCA 59-10-1018, up to 6% of the federal standard deduction, phased out 1.3% per dollar over $18,213/$36,426 MAGI) is entirely unmodeled and the engine's flat rate is stale (4.55% configured vs 4.45% enacted for TY2026 by S.B. 60).",
+        "observedToday": 2047.5
+      }
+    },
+    {
+      "name": "single, age 76 (born on or before Dec 31 1952, retirement-credit eligible), Taxpayer Tax Credit plus a partial Retirement Credit",
+      "source": "Same TY2026 rate (4.45%, S.B. 60 enrolled bill) and same TC-40 Taxpayer Tax Credit mechanics (2025 TC-40 Instructions printed page 8, Lines 11-20) as the age-50 case in this file. primaryAge 76 in TY2026 means birth year 1950, on or before the Dec. 31, 1952 cutoff (UCA 59-10-1019) -> eligible for the Retirement Credit; also >= 65, so the federal age-65 additional standard deduction ($2,050 single, TaxYearConfig.swift additionalDeduction65Single) applies to Line 12. Retirement Credit Worksheet (2025 TC-40 Instructions printed page 19): Line 1 = $450 (only this taxpayer taking it). Line 6 (MAGI) = Line 2 (TC-40 line 6, total income) here $30,000, no muni/tax-exempt interest. Line 7 threshold = $25,000 (single). Line 8 = 30,000 - 25,000 = 5,000. Line 9 = 5,000 x 2.5% = $125. Line 10 = 450 - 125 = $325. Arithmetic: Line 9 Utah taxable income = $30,000. Line 10 Utah tax = 30,000 x 4.45% = $1,335.00 (exact, no rounding needed). Line 12 = base $16,100 + age-65 addition $2,050 = $18,150. Line 15 = $18,150. Line 16 = 18,150 x 6% = $1,089. Line 18 = 30,000 - 18,213 = 11,787. Line 19 = 11,787 x 1.3% = 153.231, rounds to $153. Line 20 (Taxpayer Tax Credit) = 1,089 - 153 = $936. Retirement Credit = $325 (computed above). Total credits = 936 + 325 = $1,261. Line 25 tax = 1,335 - 1,261 = $74.",
+      "sourceURL": "https://tax.utah.gov/forms/current/tc-40inst.pdf",
+      "filingStatus": "single",
+      "primaryAge": 76,
+      "spouseAge": null,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 74.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same Taxpayer Tax Credit and rate-staleness gap, now compounded with the separate age-gated Retirement Credit (UCA 59-10-1019, $450/person, fixed 1952 birth-year cutoff), also entirely unmodeled.",
+        "observedToday": 1365.0
+      }
+    },
+    {
+      "name": "MFJ, both spouses born before the 1952 cutoff, doubled Retirement Credit base ($900) largely phased out by income, Taxpayer Tax Credit dominates",
+      "source": "Same TY2026 rate and TC-40 mechanics as the other UT cases in this file. Retirement Credit Worksheet (2025 TC-40 Instructions printed page 19), Line 1: 'If both you and your spouse are taking this credit, enter 900' -- both spouses born on or before Dec. 31, 1952 (primaryAge 75 -> birth year 1951, spouseAge 74 -> birth year 1952) qualify. Line 7 threshold for MFJ = $32,000. Arithmetic: combined pension $40,000 (primary) + $30,000 (spouse) = federalAGI $70,000 = Line 9 Utah taxable income. Line 10 Utah tax = 70,000 x 4.45% = $3,115.00. Line 12: both spouses 65+, base MFJ std deduction $32,200 + 2 x $1,650 (age-65 addition per spouse, TaxYearConfig.swift additionalDeduction65MFJ) = $35,500. Line 15 = $35,500. Line 16 = 35,500 x 6% = $2,130. Line 17 (MFJ base phase-out) = $36,426. Line 18 = max(0, 70,000-36,426) = $33,574. Line 19 = 33,574 x 1.3% = 436.462, rounds to $436. Line 20 (Taxpayer Tax Credit) = 2,130 - 436 = $1,694. Retirement Credit: Line 1 = $900 (both qualify). Line 8 = 70,000 - 32,000 = 38,000. Line 9 = 38,000 x 2.5% = $950, which exceeds Line 1's $900, so Line 10 (floor 0) = $0 -- the doubled $900 base is fully phased out at this income even though both spouses qualify by age. Total credits = 1,694 + 0 = $1,694. Line 25 tax = 3,115 - 1,694 = $1,421.",
+      "sourceURL": "https://tax.utah.gov/forms/current/tc-40inst.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 75,
+      "spouseAge": 74,
+      "federalAGI": 70000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 70000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1421.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism; the engine has no notion of the doubled Retirement Credit base for two qualifying spouses because it does not model the credit at all, and the Taxpayer Tax Credit's phase-out is likewise absent.",
+        "observedToday": 3185.0
+      }
+    },
+    {
+      "name": "MFJ, only primary born before the 1952 cutoff, single-taxpayer Retirement Credit base ($450, already fully phased out) plus Taxpayer Tax Credit",
+      "source": "Same TY2026 rate and TC-40 mechanics as the other UT cases in this file. This is the batch's case-4: spouseAge 60 (birth year 1966) is well after the Dec. 31, 1952 cutoff and does not qualify for the Retirement Credit or the federal age-65 additional standard deduction; primaryAge 77 (birth year 1949) qualifies for both. Retirement Credit Worksheet Line 1: 'If only you or only your spouse is taking this credit, enter 450' (2025 TC-40 Instructions printed page 19). Arithmetic: combined pension $40,000 (primary) + $25,000 (spouse) = federalAGI $65,000 = Line 9 Utah taxable income. Line 10 Utah tax = 65,000 x 4.45% = 2,892.50, rounds to $2,893 (round up at 50 cents, TC-40 Instructions printed page 4). Line 12: only primary is 65+, so MFJ base $32,200 + 1 x $1,650 = $33,850. Line 15 = $33,850. Line 16 = 33,850 x 6% = $2,031. Line 18 = max(0, 65,000-36,426) = $28,574. Line 19 = 28,574 x 1.3% = 371.462, rounds to $371. Line 20 (Taxpayer Tax Credit) = 2,031 - 371 = $1,660. Retirement Credit: Line 1 = $450 (only primary). Line 8 = 65,000 - 32,000 = 33,000. Line 9 = 33,000 x 2.5% = $825, exceeds $450, so Line 10 (floor 0) = $0. Total credits = 1,660 + 0 = $1,660. Line 25 tax = 2,893 - 1,660 = $1,233.",
+      "sourceURL": "https://tax.utah.gov/forms/current/tc-40inst.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 77,
+      "spouseAge": 60,
+      "federalAGI": 65000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 65000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1233.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism as the both-spouses-qualify MFJ case; the engine cannot distinguish a single-spouse $450 Retirement Credit base from a doubled $900 base because it models neither.",
+        "observedToday": 2957.5
+      }
+    },
+    {
+      "name": "single, age 76, a $60,000 Roth conversion pushes MAGI so high that BOTH the Taxpayer Tax Credit and the Retirement Credit are fully phased out, isolating the bare 4.45%-vs-4.55% rate gap",
+      "source": "Same TY2026 rate (4.45%) and TC-40 mechanics as the other UT cases in this file. This is the batch's fifth (phase-out) case: pension $50,000 plus a $60,000 Roth conversion pushes federalAGI to $110,000, which is high enough that BOTH Utah credits are entirely phased out -- unlike the age-76 single case above (federalAGI $30,000), where the same taxpayer's age alone was not enough; the extra income from the conversion is what destroys the credits. Arithmetic: Line 9 Utah taxable income = $110,000. Line 10 Utah tax = 110,000 x 4.45% = $4,895.00 (exact). Line 12: age 76 >= 65, base $16,100 + age-65 addition $2,050 = $18,150 (the OBBBA senior bonus is excluded from this UT-specific Line 12 by construction: 2025 TC-40 Instructions printed page 8/PDF page 10 defines Line 12 as 'your federal standard or itemized deduction from line 12e of your federal return (1040, 1040-SR)', and the OBBBA enhanced deduction for seniors is NOT part of federal line 12e -- it is computed on 2025 Schedule 1-A, Part V and flows to federal Form 1040 line 13b, a separate line added AFTER line 12e, confirmed via the IRS's own 'Check your eligibility for the new enhanced deduction for seniors' guidance and Schedule 1-A's form structure. So Utah's Taxpayer Tax Credit worksheet, which by its own text pulls only from line 12e, correctly excludes it; it would be fully phased out at this income regardless, MAGI $110,000 exceeds the $75,000 single OBBBA threshold, so the exclusion does not change this case's tax). Line 15 = $18,150. Line 16 = 18,150 x 6% = $1,089. Line 18 = 110,000 - 18,213 = $91,787. Line 19 = 91,787 x 1.3% = 1,193.231, rounds to $1,193, which exceeds Line 16's $1,089, so Line 20 (Taxpayer Tax Credit, floor 0) = $0. Retirement Credit: Line 8 = 110,000 - 25,000 = $85,000. Line 9 = 85,000 x 2.5% = $2,125, exceeds the $450 base, so Line 10 (floor 0) = $0. Total credits = $0. Line 25 tax = 4,895 - 0 = $4,895. At this income level Utah's real law converges to a bare flat-rate calculation with no credits, which isolates the ONE remaining gap to the rate itself: engine 4.55% vs statute 4.45%.",
+      "sourceURL": "https://tax.utah.gov/forms/current/tc-40inst.pdf",
+      "filingStatus": "single",
+      "primaryAge": 76,
+      "spouseAge": null,
+      "federalAGI": 110000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 60000,
+      "expectedStateTax": 4895.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "At this income both UT credits are legitimately zero under real law too, so the entire gap is the stale flat rate: engine 4.55% vs the TY2026-enacted 4.45% (S.B. 60).",
+        "observedToday": 5005.0
+      }
+    }
+  ]
+}
