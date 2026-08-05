@@ -429,3 +429,45 @@ Grepped this ledger file for the em dash character (U+2014): none found.
 git -C /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase5 add .claude/memory/roadmap/2026-08-04-state-tax-phase5a-ledger.md
 git -C /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase5 commit -m "docs(state-tax): Phase 5a ledger, Iowa fully fixed, Kansas partially"
 ```
+
+---
+
+## RESOLVED 2026-08-05: Iowa's withheld-portion treatment is now CITED, not inferred
+
+This ledger recorded, as its one open item needing a human rather than an engineer, that
+`withheldPortionRemainsTaxable: false` rested on a reasoned analogy to Illinois and Mississippi
+because no Iowa DOR guidance addressing the withheld portion could be found. **It has been found, the
+shipped value is CORRECT, and no number changes.**
+
+**Source, fetched and read directly rather than taken from a summary:**
+`https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance`
+
+Two clauses settle it:
+1. The "What retirement income qualifies for the exclusion?" section lists **"Roth conversion income"**
+   by name among qualifying distributions.
+2. The FAQ **"Iowa income tax was withheld on retirement income from a qualifying plan to a qualified
+   recipient. What should I do?"** answers that such tax is **ERRONEOUSLY WITHHELD**, and directs the
+   taxpayer to request a refund from the plan administrator, file a new IA W-4P claiming exemption
+   from withholding, and report any remaining amounts on the return.
+
+**The reasoning that makes this decisive.** Iowa does not treat the withheld portion as a taxable
+slice of the distribution. It treats the WITHHOLDING ITSELF as a mistake to be recovered. There is no
+mechanism by which withholding reduces the excludable amount, so the exclusion covers the full
+distribution. This is the OPPOSITE of Pennsylvania, whose `true` rests on a PA cost-recovery mechanism
+under which only the net amount reaching the Roth is exempt. Iowa has no such mechanism, which is
+exactly why copying Pennsylvania's flag would have been wrong.
+
+The $836 exposure is closed: $1,520.00 was and remains the correct figure for
+`IA|single 62 conversion 100k with 22k withheld`.
+
+**A NEW LIMITATION SURFACED WHILE RESOLVING THIS, recorded rather than modelled.** Iowa's qualifying
+list does NOT reach nonqualified deferred compensation under IRC section 409A, or nonqualified
+annuities, which commonly carry code D in box 7 of Form 1099-R. The app has no field distinguishing
+those, so an Iowa holder of one is **UNDER-taxed** by the exclusion. That is the opposite error
+direction from most of this program's defects and it is worth Phase 6 disclosure text. Recorded in the
+Iowa fixture as `nonQualifyingPlansNote`.
+
+Also confirmed against the same page, all already implemented correctly: the threshold is 55 rather
+than 59.5; qualification is 55-or-older on December 31, disabled, or a surviving spouse; and the
+exclusion is per qualifying spouse rather than per return.
+

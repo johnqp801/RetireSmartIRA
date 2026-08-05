@@ -14,7 +14,7 @@
       "pensionIncome": 0,
       "iraWithdrawals": 40000,
       "rothConversion": 0,
-      "expectedStateTax": 908.20
+      "expectedStateTax": 908.2
     },
     {
       "name": "single, age 60, IRA withdrawal fully excluded under HF 2317 -- the app's .none/.none invents Iowa tax on retirement income",
@@ -28,7 +28,7 @@
       "pensionIncome": 0,
       "iraWithdrawals": 55000,
       "rothConversion": 0,
-      "expectedStateTax": 0.00
+      "expectedStateTax": 0.0
     },
     {
       "name": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
@@ -42,7 +42,7 @@
       "pensionIncome": 70000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00
+      "expectedStateTax": 0.0
     },
     {
       "name": "MFJ, only the SPOUSE qualifies (spouse 65, no income of their own) and the income-bearing primary is 48 and does not qualify -- per-qualifying-spouse regression guard, forward-looking",
@@ -56,7 +56,7 @@
       "pensionIncome": 52000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 461.70
+      "expectedStateTax": 461.7
     },
     {
       "name": "single, age 60, large Roth conversion -- the highest-value fixture in the phase, the app invents state tax on the exact transaction it exists to optimize",
@@ -70,7 +70,7 @@
       "pensionIncome": 0,
       "iraWithdrawals": 0,
       "rothConversion": 200000,
-      "expectedStateTax": 0.00
+      "expectedStateTax": 0.0
     },
     {
       "name": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
@@ -84,7 +84,9 @@
       "pensionIncome": 0,
       "iraWithdrawals": 45000,
       "rothConversion": 0,
-      "expectedStateTax": 0.00
+      "expectedStateTax": 0.0
     }
-  ]
+  ],
+  "withheldPortionTreatmentNote": "RESOLVED 2026-08-05 with a direct Iowa DOR citation, replacing the earlier reasoned analogy to Illinois and Mississippi. Iowa DOR Retirement Income Tax Guidance (https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance) lists 'Roth conversion income' by name among qualifying distributions, and its FAQ 'Iowa income tax was withheld on retirement income from a qualifying plan to a qualified recipient. What should I do?' states that such tax is ERRONEOUSLY WITHHELD and directs the taxpayer to request a refund from the plan administrator, file a new IA W-4P claiming exemption, and report any remaining amounts on the return. Iowa therefore does not treat the withheld portion as a taxable slice of the distribution; it treats the withholding itself as a mistake to be recovered. The exclusion covers the full distribution, so withheldPortionRemainsTaxable: false is correct and is now cited rather than inferred. This is the OPPOSITE of Pennsylvania, whose true rests on a PA cost-recovery mechanism under which only the net amount reaching the Roth is exempt; Iowa has no such mechanism.",
+  "nonQualifyingPlansNote": "Iowa DOR's qualifying list does NOT reach nonqualified deferred compensation under IRC section 409A or nonqualified annuities, which commonly carry code D in box 7 of Form 1099-R. The app has no field distinguishing those, so an Iowa holder of one would be UNDER-taxed by the exclusion. Not modelled, disclosed here, and a candidate for the Phase 6 per-state limitations text."
 }
