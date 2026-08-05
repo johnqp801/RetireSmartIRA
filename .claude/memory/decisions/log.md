@@ -4,6 +4,22 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-04 (later) — Stale rates, brackets and deductions jump the queue in Phase 5
+
+**Decision (John):** the base-value defects Phase 4 uncovered are corrected BEFORE the retirement-exemption tiers, reordering the Phase 5 sub-phases the spec laid out (5a values, 5b per-source, 5c attribution, 5d cross-path).
+
+**Rationale:** these hit every filer in the affected state, not only retirees. Utah carries 4.55% where the enrolled bill sets 4.45%, so it is stale against even the pre-cut rate; New Mexico runs the bracket table a bill signed 2024-03-06 deleted; Georgia's rate is 5.39% against 4.99%. A retirement-exemption error touches a subset of users; a wrong rate touches all of them.
+
+**None of this was knowable when the program was scoped.** The 2026-08-02 audit examined one of thirteen configuration dimensions, so it was structurally incapable of finding any of it. The reorder is a response to evidence Phase 4 produced, not a change of mind.
+
+**The lucky part, which reduces the cost of this decision to nearly nothing: Kansas rides WITH the new priority rather than against it.** Steve's promised fix is a missing personal exemption, which is a base-value defect, so it belongs in the first sweep. The written commitment does not slip. Iowa is a retirement exclusion plus the hardcoded 59.5 gate and does not ride along, so it needs to be pulled forward deliberately or it becomes the promise that slips.
+
+**Full base-value list from the Phase 4 catalogue:** UT, NM and GA (rates), NE, OR, OK and SC (deductions and brackets), AR and OK (top rates), IN, KS and OH (personal exemptions and per-exemption credits), OH (a $332 bracket base amount).
+
+**What this changes about risk, and it deserves stating plainly.** Phases 1 through 3 all ended with the same property: the model got richer and no number moved. Phase 5 is the first phase where numbers move, and the base-value sweep moves them for EVERY filer in a dozen states rather than for retirees only. The 1,020-value frozen baseline will move for the first time in this program, and it should be re-captured deliberately with each movement attributable to a named golden case, not regenerated wholesale.
+
+**Watch for the traps Phase 4 recorded:** OK, AR and SC compute their expected values against the app's own configured brackets, so those cases go green while the state stays wrong. Fixing the base values in exactly those three states will require re-deriving their golden expectations at the same time, or the pins become meaningless.
+
 ## 2026-08-04 — Phase 4 covers all 51 jurisdictions, and the whole program ships as one build 64
 
 **Decision (John):** hold the seven-phase program as specced. Golden scenarios for all remaining 46

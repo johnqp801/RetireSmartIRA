@@ -810,3 +810,34 @@ changed across the entire phase. Phase 4 corrected no tax value. `git status --s
 git -C /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase4 add RetireSmartIRATests/ .claude/memory/roadmap/2026-08-04-state-tax-phase4-ledger.md
 git -C /Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase4 commit -m "test(state-tax): all 51 jurisdictions covered, defect catalogue closed"
 ```
+
+---
+
+## SCOPE DECISION, 2026-08-04, AFTER this ledger was written
+
+**John decided that stale rates, brackets and deductions jump the queue in Phase 5**, ahead of the
+retirement-exemption tiers the spec sequenced (5a values, 5b per-source, 5c attribution, 5d cross-path).
+
+Reason: they hit EVERY filer in the affected state, not only retirees. Utah, New Mexico and Georgia
+are the headline three. None was knowable when the program was scoped, because the 2026-08-02 audit
+examined one of thirteen configuration dimensions.
+
+**Kansas rides WITH this priority, not against it.** Steve's promised fix is a missing personal
+exemption, which is a base-value defect. The written commitment does not slip. **Iowa does NOT ride
+along** (it is a retirement exclusion plus the hardcoded 59.5 gate), so pull it forward deliberately
+or it becomes the promise that slips.
+
+**Base-value states from the catalogue below:** UT, NM, GA (rates); NE, OR, OK, SC (deductions and
+brackets); AR, OK (top rates); IN, KS, OH (personal exemptions and per-exemption credits); OH (a $332
+bracket base amount).
+
+**This is the first phase where numbers move.** Phases 1 through 3 each ended with the model richer
+and no value changed. The base-value sweep moves numbers for every filer in a dozen states. Re-capture
+the 1,020-value frozen baseline deliberately, with each movement attributable to a named golden case,
+rather than regenerating it wholesale.
+
+**Do not fix OK, AR or SC base values without re-deriving their golden expectations in the same
+change.** Those three compute expected values against the app's CONFIGURED brackets, so correcting the
+brackets without correcting the expectations turns a meaningful pin into a meaningless one. See the
+PHASE 5 WARNING in their fixtures.
+
