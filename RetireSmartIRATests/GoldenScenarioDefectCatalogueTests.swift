@@ -200,6 +200,58 @@ struct GoldenScenarioDefectCatalogueTests {
                 out of Task 3's scope. Revisit when Phase 6's disclosure work decides
                 which.
                 """
+        ),
+        UnpinnedDefect(
+            state: "MA",
+            summary: """
+                Massachusetts excludes a Massachusetts state or local employee
+                CONTRIBUTORY pension from Massachusetts gross income (mass.gov, Tax
+                Treatment of Government Pensions in Massachusetts). A NONCONTRIBUTORY
+                municipal pension is on none of that guidance's enumerated exempt
+                categories and stays ordinary taxable income. The Phase 5b Task 4 rule
+                ships `matchSources: ["ownStateOrLocal", "uniformedServices"]` at
+                `definedBenefit`, and `RetirementPlanClassification` has no
+                contributory axis, so a Massachusetts resident holding a
+                noncontributory municipal pension is granted the full exclusion and is
+                UNDER-taxed. Measured: $0.00 against $3,000.00 on the fixture's own
+                $60,000 single filer at the flat 5% rate. The direction is
+                under-taxation, which is the dangerous direction, and it is recorded
+                here rather than avoided because the alternative was to leave the three
+                CITED Massachusetts corrections (MA-1, MA-3, MA-4) undelivered to
+                protect a category the fixture's own source note states is an inference
+                from a closed list rather than a sentence on the page. It is REACHABLE
+                by a real user, unlike the Kansas entry above: the picker's "Government
+                pension, my own state or locality" row is the only row such a person
+                can honestly select, and it writes exactly the classification the rule
+                matches.
+                """,
+            blockedOn: """
+                NOT EXPRESSIBLE, the same blocker kind as the Kansas entry above but
+                for a different reason, and the reason is why no golden case can hold
+                it. The contributory and noncontributory Massachusetts municipal
+                households are described by the SAME `RetirementPlanClassification`:
+                `(definedBenefit, ownStateOrLocal)`. Every field that would describe
+                one describes the other. A golden case for the noncontributory
+                household would therefore carry inputs byte-identical to MA-1's and a
+                contradictory `expectedStateTax` ($3,000.00 against MA-1's $0.00), so
+                the fixture set would assert a contradiction rather than a defect.
+                Writing it was attempted in Task 4 and rejected for that reason.
+                Resolving it needs a THIRD classification axis, employee-contributory
+                against employer-funded, on `RetirementPlanClassification`, matched by
+                `PerSourceExemptionRule`, with a picker affordance so a real user can
+                state it and a migration default for every saved row that cannot. That
+                axis is not Massachusetts-only and must not be designed from
+                Massachusetts alone: Hawaii's golden fixture (Phase 5b Task 5) turns on
+                the same axis in the OPPOSITE direction (employer-funded exempt,
+                employee-funded taxable) and currently proxies it through
+                `PlanStructure`, a different forced fit for the same missing dimension.
+                Two jurisdictions with two incompatible proxies is a missing dimension,
+                not a quirk. Revisit once Hawaii's authority-derived fixture has been
+                read, and design the axis against both; the phase's own precedent is
+                that a shared classification axis lands in the model task
+                (`isSurvivorBenefit`, Task 1) and is consumed by the jurisdiction tasks,
+                not invented by one of them.
+                """
         )
     ]
 

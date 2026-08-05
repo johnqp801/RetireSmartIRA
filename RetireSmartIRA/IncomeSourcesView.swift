@@ -1318,6 +1318,32 @@ struct IncomeSourcesView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+
+                            // Phase 5b Task 4. PROPOSED COPY, awaiting John's
+                            // approval, and deliberately modelled on the
+                            // Hawaii caption directly above rather than
+                            // invented: both disclose the SAME missing axis,
+                            // employee-contributory against employer-funded,
+                            // which `RetirementPlanClassification` does not
+                            // carry. Hawaii's runs toward over-taxation and
+                            // Massachusetts's toward UNDER-taxation, which is
+                            // the more serious direction and is why this ships
+                            // now rather than waiting: the Task 4 rule excludes
+                            // an own-state defined-benefit pension outright,
+                            // and a noncontributory Massachusetts municipal
+                            // pension is indistinguishable from a contributory
+                            // one on every field the picker writes. The
+                            // durable record is
+                            // GoldenScenarioDefectCatalogueTests.knownButUnpinned;
+                            // this is the only surface that reaches the
+                            // affected user. Delete both together if a
+                            // contributory axis is added.
+                            if dataManager.selectedState == .massachusetts {
+                                Label("Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated.",
+                                      systemImage: "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
 

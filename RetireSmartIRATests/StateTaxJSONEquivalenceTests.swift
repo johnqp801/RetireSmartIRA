@@ -571,6 +571,17 @@ struct StateTaxJSONEquivalenceTests {
     ///   `pensionExemption`, or `stateDeduction`). Every scenario with
     ///   nonzero `income` therefore diverges from the frozen 4.55% legacy
     ///   rate; only "zero income" (0 x anything = 0) does not.
+    /// - Massachusetts: NOT here, for Kansas's second reason and only that
+    ///   one. Phase 5b Task 4's correction is entirely
+    ///   `perSourceExemptions`, and the single `.pension` row this grid
+    ///   builds is constructed WITHOUT a classification, so it infers
+    ///   `(unknown, unknown)`. Massachusetts's rule names `ownStateOrLocal`
+    ///   and `uniformedServices` at `definedBenefit`, none of which is
+    ///   `.unknown`, so `matchedPerSourceRule` returns `nil` for that row
+    ///   through BOTH configs and the correction is invisible to this grid.
+    ///   MEASURED, not reasoned: Task 4 temporarily added `.massachusetts`
+    ///   to the list below and the "at least one scenario diverged"
+    ///   assertion failed with "None diverged", then reverted it.
     static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .newMexico, .georgia, .utah]
 }
 
@@ -658,7 +669,16 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///   Credit, Retirement Credit) remain Phase 5b.
     /// - Indiana: Phase 5a Task 7, `personalExemption` added (IT-40 Booklet
     ///   2025, page 24, Schedule 3 line 1).
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana]
+    /// - Massachusetts: Phase 5b Task 4 added
+    ///   `retirementExemptions.perSourceExemptions` and
+    ///   `retirementExemptions.unclassifiedPensionDisclosure` (mass.gov, Tax
+    ///   Treatment of Government Pensions in Massachusetts: a Massachusetts
+    ///   state or local employee CONTRIBUTORY pension and U.S. military
+    ///   retired pay are excluded from Massachusetts gross income). Both
+    ///   fields are absent from the frozen legacy table, so the re-encoded
+    ///   documents now differ. Massachusetts is deliberately NOT added to
+    ///   `layerAProvenDivergentJurisdictions`; see that declaration.
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana, .massachusetts]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different

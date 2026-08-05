@@ -23,8 +23,23 @@
     "pensionExemption" : {
       "kind" : "none"
     },
+    "perSourceExemptions" : [
+      {
+        "matchSources" : [
+          "ownStateOrLocal",
+          "uniformedServices"
+        ],
+        "matchStructures" : [
+          "definedBenefit"
+        ],
+        "treatment" : {
+          "kind" : "full"
+        }
+      }
+    ],
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "Massachusetts excludes a contributory Massachusetts state or local pension and U.S. military retired pay from state tax with no dollar cap, but {scope} taxes your pension in full until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "flatRate",
