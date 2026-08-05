@@ -222,18 +222,43 @@ struct StateTaxBehaviorBaselineTests {
                 The scenario grid changed size. If that was intended, bump this literal \
                 in the same commit as the regenerated fixture and say why.
                 """)
+        let movements = try BaselineMovementLedger.movements()
         for scenario in Self.scenarios {
             let k = Self.key(state, scenario)
-            let expected = try #require(baseline[k], "no baseline entry for \(k)")
+            let frozen = try #require(baseline[k], "no baseline entry for \(k)")
             let actual = Self.computedTax(state: state, scenario: scenario)
-            #expect(
-                actual == expected,
-                """
-                \(k): computed \(actual), baseline \(expected).
-                Phase 3a is behavior-inert. A moved value is a defect in the \
-                change that moved it, NOT a reason to regenerate this fixture.
-                """
-            )
+
+            if let moved = movements[k] {
+                // A DELIBERATE, ATTRIBUTED movement. The frozen file is never
+                // edited; this record carries the new value and its authority.
+                #expect(moved.before == frozen,
+                        """
+                        \(k): the movement ledger records a `before` of \(moved.before) \
+                        but the frozen baseline holds \(frozen). The ledger is describing \
+                        a starting point that never existed. Fix the ledger, never the \
+                        frozen file.
+                        """)
+                #expect(actual == moved.after,
+                        """
+                        \(k): computed \(actual), ledger records \(moved.after).
+                        This value is under deliberate correction and has moved AGAIN, \
+                        or moved to somewhere other than recorded. Diagnose which before \
+                        touching either file.
+                        Golden case: \(moved.goldenCase)
+                        """)
+            } else {
+                #expect(
+                    actual == frozen,
+                    """
+                    \(k): computed \(actual), baseline \(frozen).
+                    This value moved with NO entry in the movement ledger, so nothing \
+                    authorises it. Either the change that moved it is a defect, or it is \
+                    a real correction that must be recorded in \
+                    statetax-behavior-movements-2026.json naming the golden case behind it. \
+                    Do NOT regenerate the frozen baseline.
+                    """
+                )
+            }
         }
     }
 }
