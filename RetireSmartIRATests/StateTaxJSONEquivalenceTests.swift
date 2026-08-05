@@ -542,7 +542,13 @@ struct StateTaxJSONEquivalenceTests {
     ///   `scenarioRothConversionAmount`, `pensionIncome`, and
     ///   `primaryAge`/`spouseAge` directly, all of which this grid varies;
     ///   9 of its 10 scenarios (all but "zero income") diverge.
-    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa]
+    /// - Utah: Phase 5a Task 6 corrects `taxSystem.rate`, a flat rate applied
+    ///   to every dollar of Utah taxable income with no exemption or
+    ///   deduction field to absorb it (UT ships no `personalExemption`,
+    ///   `pensionExemption`, or `stateDeduction`). Every scenario with
+    ///   nonzero `income` therefore diverges from the frozen 4.55% legacy
+    ///   rate; only "zero income" (0 x anything = 0) does not.
+    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .utah]
 }
 
 // MARK: - PHASE 1 GATE, Layer B: structural equivalence (decode is lossless)
@@ -606,7 +612,11 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///
     /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
     ///   special session).
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa]
+    /// - Utah: Phase 5a Task 6, `taxSystem.rate` corrected from a stale
+    ///   4.55% to the TY2026-enacted 4.45% (enrolled S.B. 60, 2026 General
+    ///   Session). Rate only; Utah's two unmodeled credits (Taxpayer Tax
+    ///   Credit, Retirement Credit) remain Phase 5b.
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .utah]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different
