@@ -1314,3 +1314,42 @@ catalogue as a wall.
 **The shape the axis must satisfy, established across Tasks 4 and 5.** Massachusetts needs a
 CATEGORICAL contributory fact; Hawaii needs a PROPORTION. A boolean serves Massachusetts and serves
 Hawaii only at its two endpoints, and the wrong endpoint fails toward under-taxation at up to 11%.
+
+---
+
+## 2026-08-05: Arizona ships, and a capped per-source treatment is banned phase-wide
+
+**Decisions.** Arizona's per-source rules ship. Its disclosure sentence is approved as written (the
+option that warns a private pensioner classifying may RAISE their number, since Arizona is the first
+state in this phase whose unclassified default is wrong in BOTH directions). AZ-4 stays PINNED rather
+than being made green.
+
+**Why AZ-4 stays pinned, measured rather than argued.** Setting `exemptionAppliesPerIndividual: true`
+turns AZ-4 green and simultaneously grants $5,000 to an MFJ household where only ONE spouse holds the
+qualifying pension. That flag doubles on the AGE gate, whereas Arizona conditions doubling on each
+spouse RECEIVING qualifying income. The trade is $37.50 of over-taxation against $62.50 of
+under-taxation, and a new golden case pins the consequence, so flipping the flag now turns AZ-4 green
+and that case red. A reviewer reproduced the arithmetic independently. AZ-4 also could not be pinned
+even against a correct engine: the fixture schema has no owner field, so its two rows are one
+taxpayer's two pensions.
+
+**THE FINDING THAT CONSTRAINS THE REST OF THE PHASE.** `PerSourceExemptionRule.treatment` is evaluated
+INSIDE the per-row loop (`TaxCalculationEngine.swift:619-627`, `DataManager.swift:891-899`), so a
+capped treatment caps PER PENSION ROW rather than per household. Design doc section 3.4a names this the
+single largest correctness risk in the phase, and the codebase has shipped exactly that bug once
+before, in New York's $20,000 exclusion. The natural one-rule-per-form-line Arizona implementation
+walks straight into it.
+
+Arizona avoided it by routing the cap through the existing POOLED `pensionExemption` and using
+per-source rules only to keep non-qualifying sources OUT of the pool, plus a sweep asserting no shipped
+rule in any of the 51 configs carries a capped treatment.
+
+**The cost, and Tasks 7, 8 and 9 must be briefed on it:** that pattern generalizes ONLY to a
+jurisdiction with exactly ONE capped pool. A state needing two different caps on two different source
+groups cannot be expressed this way and will force an engine change or a deferral. Idaho, Vermont and
+DC all have capped exclusions.
+
+**Phase 6 candidates from this task.** `PerSourceExemptionRule.treatment` is still typed as the full
+`ExemptionLevel`, so the sweep is a test-level guard on the configs, not a structural guarantee. The
+durable fix is either a narrower treatment type or grouping matched rows by rule and applying the
+treatment once per rule. Both are production Swift, which this phase's constraints restrict.

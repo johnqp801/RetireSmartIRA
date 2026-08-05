@@ -1,16 +1,52 @@
-# RESUME HERE: State Tax Phase 5b, ready to run Task 6 (Arizona)
+# RESUME HERE: State Tax Phase 5b, ready to run Task 7 (North Carolina)
 
-**Tasks 1, 2, 3, 3b, 4 and 5 are complete.** Kansas is fully correct. Massachusetts is correct for the
-cases the model can express and ships with a disclosed under-taxation gap. Hawaii is a decided
-disclosure item. Tasks 6 through 10 remain: Arizona, North Carolina, Idaho, Vermont-and-DC, and close.
+**Tasks 1, 2, 3, 3b, 4, 5 and 6 are complete.** Kansas and Arizona are correct for what the model can
+express. Massachusetts likewise, shipping with a disclosed under-taxation gap. Hawaii is a decided
+disclosure item that ships no rule. Tasks 7 through 10 remain: North Carolina, Idaho, Vermont-and-DC,
+and close.
 
-**Task 6 is Arizona, and Phase 4 flagged it as PASSING ON WRONG LAW today:** every civilian amount in
-its fixtures is under the $2,500 cap, so an uncapped federal-civilian rule leaves the cases green while
-being wrong above the cap. Read that warning in the fixture BEFORE writing the rule and consider adding
-a case above the cap. Arizona also has two inherited label problems recorded further down this file:
-scenario 3 keeps `federalCivilian` on a uniformed-services row, and scenario 4 carries an
-`otherStateOrLocal` row for what is almost certainly Arizona's OWN system (Form 140 Line 29a covers US
-government plus Arizona state and local), with NO disclosure prose of its own.
+## READ THIS BEFORE BRIEFING TASKS 7, 8 OR 9. IT CONSTRAINS ALL THREE.
+
+**A CAPPED PER-SOURCE TREATMENT IS BANNED, and the ban is currently only a test.**
+`PerSourceExemptionRule.treatment` is evaluated INSIDE the per-row loop
+(`TaxCalculationEngine.swift:619-627`, `DataManager.swift:891-899`), so a `.partial` treatment caps PER
+PENSION ROW rather than per household. Design doc section 3.4a names this the single largest
+correctness risk in the phase, and this codebase HAS SHIPPED THAT BUG ONCE, in New York's $20,000
+exclusion. The natural one-rule-per-form-line implementation walks straight into it. Task 6 found this,
+a reviewer confirmed every part of it against the code, and the two loop comments asserting the
+invariant turned out to be true only of the configs, not of the code.
+
+**Arizona's workaround:** route the cap through the existing POOLED `pensionExemption` and use
+per-source rules only to keep non-qualifying sources OUT of the pool. A sweep now asserts no shipped
+rule in any of the 51 configs carries a capped treatment.
+
+**IT GENERALIZES ONLY TO A JURISDICTION WITH EXACTLY ONE CAPPED POOL.** A state needing two different
+caps on two different source groups cannot be expressed this way and will force an engine change or a
+deferral. **Idaho, Vermont and DC ALL have capped exclusions.** Triage each against this before its
+task starts, rather than discovering it mid-task.
+
+Phase 6 candidates from the same finding: `treatment` is still typed as the full `ExemptionLevel`, so
+the sweep is a test-level guard rather than a structural guarantee; the durable fix is a narrower
+treatment type, or grouping matched rows by rule and applying the treatment once per rule.
+
+## TASK 6 (ARIZONA) OUTCOME
+
+Three defects fixed (measured: $396.25, $0.00, $1,453.75), four guard cases added including the
+ABOVE-CAP case Phase 4 said was missing, and the two inherited relabels done (AZ-3 to
+`uniformedServices`, AZ-4's second row to `ownStateOrLocal`). Disclosure sentence APPROVED by John.
+
+**AZ-4 STAYS PINNED and that is correct.** `exemptionAppliesPerIndividual: true` turns it green while
+granting $5,000 to an MFJ household where only ONE spouse holds the qualifying pension: the flag
+doubles on the AGE gate, Arizona conditions doubling on each spouse RECEIVING qualifying income. The
+trade is $37.50 of over-taxation against $62.50 of under-taxation, and a new golden case pins it, so
+flipping the flag turns AZ-4 green and that case red. AZ-4 also could not be pinned even against a
+correct engine, because the fixture schema has NO OWNER FIELD, so its two rows are one taxpayer's two
+pensions.
+
+**Arizona is the first non-New-York config to name a jurisdiction-specific source.** It only works
+because a Task 3 review changed `jurisdictionNamedSources` from a `Set` to a `[PlanSource: USState]`
+comparing `== state`. Under the old version, Arizona residents would have had the own-state picker row
+suppressed and the Line 29a allowance would be unreachable for an ASRS retiree.
 
 
 
