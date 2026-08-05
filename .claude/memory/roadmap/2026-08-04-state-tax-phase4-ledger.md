@@ -841,3 +841,34 @@ change.** Those three compute expected values against the app's CONFIGURED brack
 brackets without correcting the expectations turns a meaningful pin into a meaningless one. See the
 PHASE 5 WARNING in their fixtures.
 
+### Iowa is pulled forward too (decided 2026-08-04, after the above)
+
+Iowa joins the first Phase 5 wave beside the base values and Kansas, so both written promises to
+Steve land together rather than one riding the reorder and one slipping behind it.
+
+**Iowa is a SINGLE JSON FILE EDIT.** Verified against the shipped config, not assumed. Phase 3a turned
+every piece of Iowa's fix into a config field, so no Swift change is needed. In
+`RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-IA.json` under `retirementExemptions`:
+
+| Field | Shipped today | Needs |
+|---|---|---|
+| `distributionMinAge` | 59 | 55 |
+| `regularExemptionMinAge` | 0 | 55 |
+| `pensionExemption` | `none` | full |
+| `iraWithdrawalExemption` | `none` | full |
+| `exemptionAttribution` | `household` | per-individual |
+| `rothConversionExemption` | ABSENT | added, age-gated at 55 |
+
+**The audit's description of Iowa is STALE and must not be re-derived from.** It called for three
+edits including two pieces of engine surgery, the hardcoded 59.5 gate at `TaxCalculationEngine.swift:570`
+and the hardcoded `switch state` over PA/IL/MS at `:672`. Phase 3a made both config-driven.
+
+**One value needs research, not copying.** Pennsylvania's rule is
+`{"minAge": 0, "withheldPortionRemainsTaxable": true}`, the `true` resting on PA DOR Ans 274. Iowa is
+the first age-gated member, so `minAge` is 55, and whether Iowa taxes the withheld portion is a
+separate question for the Iowa DOR. Copying Pennsylvania's flag unchecked is the exact class of
+plausible guess this program exists to eliminate.
+
+**The tests already exist.** Iowa's fixture carries six cases: the standard four, a large Roth
+conversion, the 55-to-58 age band the old gate failed independently, and the per-qualifying-spouse
+case that exposes the household-wide grant. Phase 5 makes them green rather than designing them.

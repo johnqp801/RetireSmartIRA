@@ -4,6 +4,50 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-04 (later still): Iowa is pulled forward alongside the base-value sweep
+
+**Decision (John):** Iowa does not wait for the retirement-exemption tiers. It is corrected in the
+first wave of Phase 5, beside the stale base values and Kansas.
+
+**Rationale:** it is the highest-value fixture in the entire program. Iowa excludes retirement income
+from age 55 including Roth conversion income BY NAME, with no cap and no income limit, and the app
+has none of it. For a Roth conversion planning tool that invents state tax on the exact transaction
+the product exists to optimise, roughly $7,600 on a $200,000 conversion. It is also a written promise
+to Steve Nicolai, and leaving it in the deprioritised tier work was the specific way it would have
+become the second broken promise after the caret fix.
+
+**IOWA IS NOW A SINGLE JSON FILE EDIT, verified against the shipped config rather than assumed.**
+This is Phase 3a paying off: every piece of Iowa's fix became a config field in that phase, so no
+Swift changes are required. In `RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-IA.json`,
+under `retirementExemptions`, today's shipped values are:
+
+  distributionMinAge: 59            needs 55
+  regularExemptionMinAge: 0         needs 55
+  pensionExemption: none            needs full
+  iraWithdrawalExemption: none      needs full
+  exemptionAttribution: household   needs per-individual (Iowa's exclusion is per-qualifying-spouse)
+  rothConversionExemption: ABSENT   needs adding
+
+The audit originally described this as three edits including two pieces of engine surgery: the
+hardcoded 59.5 gate at `TaxCalculationEngine.swift:570` and the hardcoded `switch state` over PA, IL
+and MS at `:672`. Both were turned into config by Phase 3a (`distributionMinAge` and
+`rothConversionExemption`), so that description is now stale. Do not re-derive Iowa's cost from the
+audit memo.
+
+**One value must be researched rather than copied.** Pennsylvania's rule is
+`{"minAge": 0, "withheldPortionRemainsTaxable": true}`, where the `true` comes from PA DOR Ans 274.
+Iowa would be the first AGE-GATED member of that rule, so `minAge` becomes 55, and whether Iowa
+likewise taxes the withheld portion is a separate question to establish from the Iowa DOR. Copying
+Pennsylvania's flag without checking would be exactly the kind of plausible-looking guess this
+program exists to eliminate.
+
+**The expectations already exist.** Iowa's golden fixture carries six cases, including a large Roth
+conversion, the 55-to-58 age band that the old hardcoded gate failed independently, and the
+per-qualifying-spouse case that exposes the household-wide `||` grant. Phase 5 does not need to design
+Iowa's tests; it needs to make them green.
+
+---
+
 ## 2026-08-04 (later): Stale rates, brackets and deductions jump the queue in Phase 5
 
 **Decision (John):** the base-value defects Phase 4 uncovered are corrected BEFORE the retirement-exemption tiers, reordering the Phase 5 sub-phases the spec laid out (5a values, 5b per-source, 5c attribution, 5d cross-path).
