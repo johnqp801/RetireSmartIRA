@@ -37,8 +37,8 @@
     },
     {
       "name": "MFJ, BOTH spouses 67+ (70/68) -- $48,000 cap for both qualifying, missing gate",
-      "source": "Same publication, same section: 'A married couple who file a joint return and are both at least 67 years old...may subtract up to $48,000 of retirement income, regardless of how much retirement income each spouse received' (confirmed via 2025 Schedule SB Instructions, I-0104 (R. 10-25), Line 16-17). Both spouses (70/68) qualify: cap = $48,000. Exclusion = min(80,000, 48,000) = 48,000. WI standard deduction (MFJ) $9,461. Taxable = 80,000-48,000-9,461 = 22,539. WI MFJ brackets: 3.5% to $19,580, 4.4% to $67,300. Tax = 19,580x.035 + 2,959x.044 = 685.30+130.196 = 815.50.",
-      "sourceURL": "https://www.revenue.wi.gov/DOR%20Publications/pb106.pdf",
+      "source": "The $48,000-with-both-spouses-67+ sentence does not appear in Publication 106; it is quoted from the load-bearing document, 2025 Schedule SB Instructions, I-0104 (R. 10-25), https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf, Line 16 -- 'Retirement Income Subtraction (Credits Restricted)' -- printed page 7 (footer '-7-'), which is also PDF page 7 of 17: 'If you (or your spouse if married and filing a joint return) were at least 67 years old as of December 31, 2025, you may subtract retirement income from a qualified retirement plan or individual retirement account (IRA) that is federally taxable...Individuals may subtract up to $24,000 of retirement income received. A married couple who file a joint return and are both as least 67 years old as of December 31, 2025, may subtract up to $48,000 of retirement income, regardless of how much retirement income each spouse received.' Both spouses (70/68) qualify: cap = $48,000. Exclusion = min(80,000, 48,000) = 48,000. WI standard deduction (MFJ) $9,461. Taxable = 80,000-48,000-9,461 = 22,539. WI MFJ brackets: 3.5% to $19,580, 4.4% to $67,300. Tax = 19,580x.035 + 2,959x.044 = 685.30+130.196 = 815.50.",
+      "sourceURL": "https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf",
       "filingStatus": "marriedFilingJointly",
       "primaryAge": 70,
       "spouseAge": 68,
@@ -56,8 +56,8 @@
     },
     {
       "name": "MFJ, only the spouse is 67+ (primary 60, spouse 72) -- household gate unlocks the $24,000 cap, missing gate",
-      "source": "Same publication, same section: eligibility is household-wide ('if you OR your spouse...were age 67 or older'), but the $48,000 doubled cap requires BOTH spouses to be 67+; with only the spouse qualifying, the cap stays at $24,000 (2025 Schedule SB Instructions, Line 16). Exclusion = min(55,000, 24,000) = 24,000. WI standard deduction (MFJ) $9,461. Taxable = 55,000-24,000-9,461 = 21,539. WI MFJ brackets: 3.5% to $19,580, 4.4% to $67,300. Tax = 19,580x.035 + 1,959x.044 = 685.30+86.196 = 771.50.",
-      "sourceURL": "https://www.revenue.wi.gov/DOR%20Publications/pb106.pdf",
+      "source": "Same load-bearing document as the prior case, 2025 Schedule SB Instructions, I-0104 (R. 10-25), https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf, Line 16, printed page 7 (footer '-7-') / PDF page 7 of 17: eligibility is household-wide ('If you (or your spouse if married and filing a joint return) were at least 67 years old...'), but the $48,000 doubled cap requires 'a married couple who file a joint return and are both...67 years old'; with only the spouse qualifying, the cap stays at the $24,000 individual figure. Exclusion = min(55,000, 24,000) = 24,000. WI standard deduction (MFJ) $9,461. Taxable = 55,000-24,000-9,461 = 21,539. WI MFJ brackets: 3.5% to $19,580, 4.4% to $67,300. Tax = 19,580x.035 + 1,959x.044 = 685.30+86.196 = 771.50.",
+      "sourceURL": "https://www.revenue.wi.gov/TaxForms2025/2025-ScheduleSB-inst.pdf",
       "filingStatus": "marriedFilingJointly",
       "primaryAge": 60,
       "spouseAge": 72,

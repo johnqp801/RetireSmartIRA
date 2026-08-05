@@ -65,7 +65,7 @@
     },
     {
       "name": "MFJ, both 65+, one spouse's defined-benefit pension plus defined-contribution income mixed on the same return",
-      "source": "Same two sources combined: the $30,000 defined-benefit pension is fully exempt (Ala. Admin. Code 810-3-19-.04); the $15,000 defined-contribution distribution gets the $6,000 age-65 exclusion (Schedule RS Line 10), leaving $9,000 taxable. AL standard deduction (MFJ) $8,500. Taxable = (30,000-30,000) + (15,000-6,000) - 8,500 = 9,000-8,500 = 500. AL MFJ brackets: 2% to $1,000. Tax = 500x.02 = 10.00. Same structure-blindness defect as above, compounded: the flat pensionExemption (.none) excludes NOTHING from either row, missing both the unconditional DB exemption and the capped DC exclusion.",
+      "source": "Same two sources combined: the $30,000 defined-benefit pension is fully exempt (Ala. Admin. Code 810-3-19-.04, https://admincode.legislature.state.al.us/api/chapter/810-3-19); the $15,000 defined-contribution distribution gets the $6,000 age-65 exclusion (Schedule RS Line 10), leaving $9,000 taxable. AL standard deduction (MFJ) $8,500. Taxable = (30,000-30,000) + (15,000-6,000) - 8,500 = 9,000-8,500 = 500. AL MFJ brackets: 2% to $1,000. Tax = 500x.02 = 10.00. Same structure-blindness defect as above, compounded: the flat pensionExemption (.none) excludes NOTHING from either row, missing both the unconditional DB exemption and the capped DC exclusion.",
       "sourceURL": "https://www.revenue.alabama.gov/wp-content/uploads/2024/01/23schrsinstr.pdf",
       "filingStatus": "marriedFilingJointly",
       "primaryAge": 68,

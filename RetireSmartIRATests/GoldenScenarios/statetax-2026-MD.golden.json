@@ -22,21 +22,21 @@
       }
     },
     {
-      "name": "single, age 70, pension plus Social Security -- overstated, the app never offsets the exclusion by Social Security received",
-      "source": "Same worksheet, Line 3: 'Enter your total Social Security and/or Railroad Retirement benefits...whether or not you included any portion of these amounts in your federal adjusted gross income,' and Line 4: 'Subtract Line 3 from Line 2 to determine your tentative exclusion.' This filer is 70 (qualifies) with $30,000 pension and $20,000 of Social Security received. Line 2 (maximum, using $41,200, the figure I personally verified on this worksheet -- see note below) minus Line 3 ($20,000) = Line 4 tentative exclusion $21,200. Line 5 = lesser of Line 1 ($30,000) or Line 4 ($21,200) = $21,200. Federal AGI is $50,000 (30,000 pension + 20,000 Social Security); Social Security is Maryland-exempt (socialSecurityExempt: true), so it is removed first: 50,000-20,000 = 30,000 pension remains. MD standard deduction (single) $3,350. Taxable = 30,000-21,200-3,350 = 5,450. MD brackets: 2%/3%/4%/4.75% as above. Tax = 20+30+40+2,450x.0475 = 20+30+40+116.375 = 206.38. NOTE ON THE $41,200 FIGURE: this is the amount I personally verified is printed on this worksheet at the URL above; Bloomberg Tax (citing 'Md. Comptroller, Tax Guidance, 04/08/26', a page I could not open myself because marylandcomptroller.gov and marylandtaxes.gov serve that specific guidance through a JavaScript-rendered ServiceNow portal that neither curl nor an automated fetch tool executes) reports the TY2026 figure is $40,600 instead. The $600 difference does not change this case's classification either way -- the SS-offset defect below is the point of this case, and it is present at either cap value.",
+      "name": "single, age 70, pension plus Social Security large enough to exhaust the cap under EITHER candidate TY2026 figure -- overstated, the app never offsets the exclusion by Social Security received",
+      "source": "REVISED: the worksheet PDF at the URL below carries an embedded document title of '2025 Pension Exclusion Computation Worksheet 13A' (confirmed via `pdfinfo`), meaning the $41,200 printed on it is MARYLAND'S TY2025 FIGURE, not TY2026's -- consistent with, not contradicting, Bloomberg Tax's report (citing 'Md. Comptroller, Tax Guidance, 04/08/26', https://services.marylandcomptroller.gov/taxes/en/maryland-pension-exclusion?id=kb_article_view&sys_kb_id=c005cb361b97d290168d6424604bcb01) that TY2026's figure dropped to $40,600. That guidance page renders through a JavaScript-driven ServiceNow portal that neither curl nor WebFetch can execute (confirmed again on this pass, identical byte-for-byte JS shell returned both ways), so as of this writing there is no independently confirmable primary source for EITHER candidate TY2026 dollar figure. Rather than assert a dollar value that rests on a figure now known to be the prior year's, this case is restructured (per the phase's robustness standard already used in scenarios 1, 3 and 4) so its result does not depend on which candidate cap applies: Social Security received ($50,000) EXCEEDS BOTH $41,200 and $40,600 by a wide margin, so worksheet 13A's own mechanism -- Line 2 (maximum allowable exclusion, https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf, whichever cap applies) minus Line 3 ('Enter your total Social Security and/or Railroad Retirement benefits...whether or not you included any portion of these amounts in your federal adjusted gross income') floored at 0, per Line 4 ('Subtract Line 3 from Line 2 to determine your tentative exclusion... If less than 0, enter 0') -- yields a tentative exclusion of $0 under either cap. Line 5 (lesser of Line 1's $25,000 pension or Line 4's $0 tentative exclusion) = $0: the real exclusion is zero, full stop, regardless of which TY2026 cap figure is eventually confirmed. Federal AGI is $75,000 (25,000 pension + 50,000 Social Security); Social Security is Maryland-exempt (socialSecurityExempt: true), so it is removed first: 75,000-50,000 = 25,000 pension remains. MD standard deduction (single) $3,350. Taxable = 25,000-0-3,350 = 21,650. MD brackets: 2%/3%/4%/4.75% as above. Tax = 20+30+40+18,650x.0475 = 20+30+40+886.375 = 976.38.",
       "sourceURL": "https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf",
       "filingStatus": "single",
       "primaryAge": 70,
       "spouseAge": null,
-      "federalAGI": 50000,
-      "taxableSocialSecurity": 20000,
-      "pensionIncome": 30000,
+      "federalAGI": 75000,
+      "taxableSocialSecurity": 50000,
+      "pensionIncome": 25000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 206.38,
+      "expectedStateTax": 976.38,
       "knownDefect": {
         "tier": "tier1",
-        "summary": "Maryland's pension exclusion has no mechanism reducing it by Social Security received (worksheet 13A Line 3-4), so the engine excludes the full $30,000 pension instead of the $21,200 the real worksheet allows once Social Security is subtracted from the cap; this OVERSTATES the exemption.",
+        "summary": "Maryland's pension exclusion has no mechanism reducing it by Social Security received (worksheet 13A Line 3-4), so the engine excludes the full $25,000 pension even though Social Security received ($50,000) exceeds either candidate TY2026 cap and real law's Line 4 floors the tentative exclusion at $0; this OVERSTATES the exemption.",
         "observedToday": 0.00
       }
     },
