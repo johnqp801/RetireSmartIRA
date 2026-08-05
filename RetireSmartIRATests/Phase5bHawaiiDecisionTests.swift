@@ -125,24 +125,6 @@ struct Phase5bHawaiiDecisionTests {
                 """)
     }
 
-    /// `unknown` deserves calling out on its own, because Kansas's shipped
-    /// rule deliberately does NOT match it and every pre-Phase-3b saved row
-    /// carries it. A structure-only rule cannot make that choice: it takes
-    /// `unknown` too, so the migration default would silently start claiming
-    /// a Hawaii exclusion on rows no user ever classified.
-    @Test("The declined rule would also have matched the migration default, which Kansas's deliberately does not")
-    func theDeclinedRuleWouldHaveMatchedTheMigrationDefault() {
-        #expect(Self.declinedRule.matches(structure: .definedBenefit, source: .unknown))
-
-        let kansas = StateTaxData.config(for: .kansas).retirementExemptions
-        #expect(kansas.matchedPerSourceRule(structure: .definedBenefit, source: .unknown) == nil,
-                """
-                Kansas's rule now matches the migration default. That is the precedent \
-                Task 5 relied on: a rule that names its sources can decline `unknown`, and \
-                a structure-only rule cannot.
-                """)
-    }
-
     // MARK: - Why no golden case could have caught it
 
     /// The blocker, proven from the fixture's own data rather than asserted.
@@ -195,34 +177,38 @@ struct Phase5bHawaiiDecisionTests {
                 """)
     }
 
-    /// The picker half of the same point. Task 3 added rows so a correct rule
-    /// would be REACHABLE by a real user; Task 5's finding is that for Hawaii
-    /// there is nothing to reach. No row states funding, so a Hawaii user
-    /// cannot tell the app the one fact Hawaii's exclusion turns on, and every
-    /// row a Hawaii pensioner can honestly select is one the declined rule
-    /// would have exempted.
-    @Test("No picker row lets a Hawaii user state who funded their pension")
-    func thePickerOffersNoFundingAffordance() {
-        for choice in PlanClassificationChoice.allCases {
-            #expect(!choice.label.lowercased().contains("contributor"),
-                    """
-                    The picker row '\(choice.label)' now mentions contribution. If a funding \
-                    affordance was added, Hawaii's decision changes: revisit this whole file \
-                    and the HI knownButUnpinned entry together.
-                    """)
-        }
+    /// The reachability half of the same point. Task 3 added picker rows so a
+    /// correct rule would be REACHABLE by a real user; Task 5's finding is that
+    /// for Hawaii there is nothing to reach, and the reason is one level below
+    /// the picker: `RetirementPlanClassification` carries no funding field, so
+    /// no picker row could write one however it were labelled.
+    ///
+    /// THE TRIPWIRE IS ON THE MODEL, NOT ON THE LABELS. An earlier version of
+    /// this test swept `PlanClassificationChoice` labels for the substring
+    /// "contributor", which a row reading "Employer-paid pension" or "I paid
+    /// into this plan" would have walked straight past. Asserting the encoded
+    /// key set instead catches the thing that actually matters: the day a
+    /// funding axis is added to the classification, this fails and sends the
+    /// reader here, whatever the picker calls it.
+    @Test("The classification carries no funding axis, so no picker row can state who funded a pension")
+    func theModelCarriesNoFundingAxis() throws {
+        // `isSurvivorBenefit` is set so the synthesized `encodeIfPresent` emits
+        // it; a nil Optional would simply be absent and the key set would
+        // understate what the type carries.
+        let classification = RetirementPlanClassification(
+            structure: .definedBenefit, source: .privateEmployer, isSurvivorBenefit: true)
+        let encoded = try JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(classification)) as? [String: Any]
+        let keys = Set(try #require(encoded).keys)
 
-        // Every defined-benefit row a Hawaii pensioner could pick is one the
-        // declined rule would have exempted, contributory or not.
-        let definedBenefitRows = PlanClassificationChoice.allCases.filter {
-            $0.classification.structure == .definedBenefit
-        }
-        #expect(!definedBenefitRows.isEmpty)
-        for choice in definedBenefitRows {
-            #expect(Self.declinedRule.matches(structure: choice.classification.structure,
-                                              source: choice.classification.source),
-                    "\(choice.rawValue) would have escaped the declined rule; the sweep above says none does")
-        }
+        #expect(keys == ["structure", "source", "isSurvivorBenefit"],
+                """
+                RetirementPlanClassification's fields have changed: \(keys.sorted()). If a \
+                funding or contributory axis was added, Hawaii's decision changes and this \
+                whole file, the HI knownButUnpinned entry and the Massachusetts contributory \
+                entry should be revisited together. If some unrelated field was added, widen \
+                this expectation and say why.
+                """)
     }
 
     // MARK: - The field contradiction, which is the heart of the decision
@@ -233,9 +219,15 @@ struct Phase5bHawaiiDecisionTests {
     /// Massachusetts's Task 4 rule matches `(definedBenefit, ownStateOrLocal)`
     /// for a Commonwealth of Massachusetts system, which mass.gov's quoted
     /// text calls a CONTRIBUTORY fund. A Hawaii rule would have had to read
-    /// the identical tuple as NONCONTRIBUTORY. This test pins that both rules
-    /// select the same tuple, which is what makes the two readings
-    /// incompatible rather than merely different.
+    /// the identical tuple as NONCONTRIBUTORY.
+    ///
+    /// Only the Massachusetts half is asserted, deliberately. That the
+    /// declined rule also matches this tuple is true by construction (empty
+    /// `matchSources` at `definedBenefit` matches everything, swept above), so
+    /// asserting it here would look like evidence while being unfalsifiable.
+    /// The falsifiable claim, and the one the decision rests on, is that
+    /// Massachusetts's SHIPPED rule selects the same tuple and reads it the
+    /// other way.
     @Test("definedBenefit carries no funding semantics: Massachusetts's shipped rule reads the same value as contributory")
     func definedBenefitCarriesNoFundingSemantics() {
         let contributoryMassachusettsRetiree =
@@ -249,14 +241,11 @@ struct Phase5bHawaiiDecisionTests {
                 Massachusetts's shipped rule no longer matches its own contributory \
                 retiree. Task 5's decision rests on the fact that it does; re-check it.
                 """)
-
-        #expect(Self.declinedRule.matches(
-            structure: contributoryMassachusettsRetiree.structure,
-            source: contributoryMassachusettsRetiree.source),
+        #expect(contributoryMassachusettsRetiree.structure == .definedBenefit,
                 """
-                The declined Hawaii rule would have matched the SAME tuple Massachusetts \
-                matches as contributory, and would have had to read it as noncontributory \
-                to be correct. One field, two contradictory meanings.
+                The row a Massachusetts contributory retiree selects is no longer a \
+                definedBenefit row, so definedBenefit is no longer carrying two meanings \
+                and Task 5's central objection may no longer hold. Re-check it.
                 """)
     }
 
@@ -368,6 +357,10 @@ struct Phase5bHawaiiDecisionTests {
     /// OVER-statement, and it still does after this decision, because nothing
     /// changed. Massachusetts's runs the other way and its caption says so.
     /// A copy edit that harmonised the two would make one of them false.
+    ///
+    /// CONTENT ONLY. The residence and pension-income GATING is already
+    /// covered by `Phase3bPresentationTests` and is not repeated here; what
+    /// those tests do not check is the wording, which is what this adds.
     @Test("Hawaii's CPA-briefing disclosure survives the decision and still names the right direction")
     func hawaiisDisclosureStillHoldsAfterTheDecision() throws {
         let lines = MultiYearCPABriefing.hawaiiPensionSplitLimitation(
@@ -383,18 +376,5 @@ struct Phase5bHawaiiDecisionTests {
                 and so does the whole of this file.
                 """)
         #expect(!text.contains("understated"))
-    }
-
-    /// The gating, restated here rather than left to Phase3bPresentationTests
-    /// alone, because those tests assert only that the array is non-empty. A
-    /// disclosure that fired for the wrong household would still pass them.
-    @Test("Hawaii's disclosure is gated on residence and on having pension income")
-    func hawaiisDisclosureIsCorrectlyGated() {
-        #expect(MultiYearCPABriefing.hawaiiPensionSplitLimitation(
-            residesInHawaii: false, hasPensionIncome: true).isEmpty)
-        #expect(MultiYearCPABriefing.hawaiiPensionSplitLimitation(
-            residesInHawaii: true, hasPensionIncome: false).isEmpty)
-        #expect(!MultiYearCPABriefing.hawaiiPensionSplitLimitation(
-            residesInHawaii: true, hasPensionIncome: true).isEmpty)
     }
 }

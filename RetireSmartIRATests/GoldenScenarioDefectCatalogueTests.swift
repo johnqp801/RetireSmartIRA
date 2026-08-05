@@ -321,24 +321,38 @@ struct GoldenScenarioDefectCatalogueTests {
                 Hawaii pension dollar is taxed at Hawaii's 12-bracket schedule. The
                 direction is OVER-taxation, the same direction as the Kansas TSP entry
                 above and the safer of the two errors available. The fully
-                employer-funded endpoint of this same defect IS pinned, by HI-1, HI-3
-                and HI-4, which is why this entry is about the middle of the range and
-                not about those three.
+                employer-funded ENDPOINT of this same defect IS pinned: by HI-1 and HI-3,
+                whose every row is that endpoint, and by the definedBenefit row of the
+                mixed household HI-4. This entry is about the MIDDLE of the range, which
+                none of them reaches.
                 """,
             blockedOn: """
                 BOTH blocker kinds at once, which no earlier entry in this list has, and
-                either one alone would be enough. Kind 1, NO ADMISSIBLE FIGURE: the
-                correct `expectedStateTax` depends on what share of a particular
-                household's pension the employer funded. That is a fact about one plan
-                and one participant, not a figure any published source states, so no
-                citable number exists to derive an expected value from.
-                Kind 2, NOT EXPRESSIBLE: the household cannot be described
-                distinguishably. A
-                contributory defined-benefit pension and the fully noncontributory one
-                HI-1 already pins are the SAME classification,
-                `(definedBenefit, privateEmployer)` (or the same pair at any other
-                source), so a fixture for the contributory household would carry inputs
-                byte-identical to HI-1's and a contradictory `expectedStateTax`.
+                either one alone would be enough.
+
+                Kind 2, NOT EXPRESSIBLE, is the harder one and it is squarely true: the
+                household cannot be described distinguishably. A contributory
+                defined-benefit pension and the fully noncontributory one HI-1 already
+                pins are the SAME classification, `(definedBenefit, privateEmployer)`,
+                because `RetirementPlanClassification` carries structure and source and
+                nothing about funding. A fixture for the contributory private-sector
+                household would therefore carry inputs byte-identical to HI-1's and a
+                contradictory `expectedStateTax`.
+
+                Kind 1, NO ADMISSIBLE FIGURE, needs stating carefully, because a loose
+                version of it would rule out the very axis this entry goes on to
+                recommend. It is NOT true that the arithmetic is unavailable in
+                principle: a golden fixture COULD carry a stipulated employer-funded
+                share as an INPUT, exactly as it carries `amount`, and the correct
+                `expectedStateTax` would then follow from Schedule J arithmetically, with
+                no new research and no unciteable number. What is missing is narrower and
+                more concrete, and these are the three things a model task has to solve:
+                a FIELD on the classification to hold the share, a PICKER AFFORDANCE so a
+                real user can supply it, and an answer to whether a real user CAN supply
+                it, since Schedule J makes the taxpayer compute the employer-funded
+                portion from cost basis rather than reading it off a 1099-R. A fixture
+                asserting a tax against a share no user can state or enter would assert
+                something unreachable, which is the Kansas TSP entry's failure mode above.
 
                 This is also the record of WHY Hawaii ships no rule, which is Phase 5b
                 Task 5's whole deliverable. Task 5 measured the alternative rather than
