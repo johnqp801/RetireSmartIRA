@@ -35,11 +35,37 @@ enum PlanStructure: String, Codable, CaseIterable {
 enum PlanSource: String, Codable, CaseIterable {
     /// NYS, NY localities, named NY public authorities.
     case nyStateOrLocal
-    /// US government civilian service.
+    /// US government civilian service: CSRS and FERS. Distinct from
+    /// `uniformedServices` (military retired pay) and `railroadRetirement`
+    /// (Railroad Retirement Board benefits), neither of which is an ordinary
+    /// federal civilian pension even though all three are federal in origin.
     case federalCivilian
+    /// Military retired pay. Distinct from `federalCivilian` (CSRS/FERS).
+    /// Phase 5b: Vermont, Arizona, Idaho, Massachusetts and Kansas each give
+    /// uniformed-services and federal-civilian pay different treatment;
+    /// before this case existed the two were indistinguishable, so no rule
+    /// could express that difference.
+    case uniformedServices
+    /// Railroad Retirement Board benefits. Phase 5b: neither a state system
+    /// nor an ordinary federal civilian pension, which is why it is its own
+    /// case rather than folded into `federalCivilian`. Kansas exempts it by
+    /// name.
+    case railroadRetirement
+    /// The taxpayer's OWN state of residence, or that state's localities:
+    /// their own state's public retirement system. This is what KPERS (the
+    /// Kansas Public Employees Retirement System) is for a Kansas resident.
+    /// Phase 5b: contrast with `otherStateOrLocal` below, which is a
+    /// DIFFERENT state's system. The two are a matched pair and a rule
+    /// naming one must never match the other. Before this case existed,
+    /// Kansas's own KPERS fixtures had to be labelled `otherStateOrLocal`,
+    /// the exact case whose entire reason for existing is to stop an
+    /// out-of-state pension from claiming a state's own exclusion.
+    case ownStateOrLocal
     /// A DIFFERENT state or its localities. NOT Line 26 eligible. This case
     /// exists specifically to stop an out-of-state public pension from
-    /// selecting New York's exclusion.
+    /// selecting New York's exclusion. Contrast with `ownStateOrLocal`
+    /// above, the taxpayer's OWN state system: the two are a matched pair
+    /// and a rule naming one must never match the other.
     case otherStateOrLocal
     /// A government employer whose jurisdiction was not established. The
     /// picker establishes jurisdiction for pensions, where it changes the
@@ -61,6 +87,25 @@ enum PlanSource: String, Codable, CaseIterable {
 struct RetirementPlanClassification: Codable, Equatable, Sendable {
     let structure: PlanStructure
     let source: PlanSource
+    /// Phase 5b: whether this classified source is a survivor benefit held
+    /// by someone other than the original plan participant, rather than the
+    /// participant's own pension. DC exempts a survivor benefit while taxing
+    /// the holder's own pension, and today both are `federalCivilian`,
+    /// indistinguishable without this flag.
+    ///
+    /// Defaults to `nil`, which is what every classification built before
+    /// this flag existed produces: `RetirementPlanClassification`'s
+    /// synthesized memberwise initializer carries the same `nil` default,
+    /// so no existing call site in `infer(incomeType:)` or
+    /// `infer(accountType:)` needed to change. Swift's synthesized
+    /// `Decodable` conformance decodes a missing key on an `Optional`
+    /// property as `nil` rather than throwing, so every fixture and every
+    /// user save written before this flag existed decodes unchanged.
+    ///
+    /// Domain model only in this phase, per this file's header: nothing yet
+    /// reads this flag when matching a `PerSourceExemptionRule`. Wiring it
+    /// into matching is later phase 5b task work.
+    let isSurvivorBenefit: Bool? = nil
 
     /// Migration inference for existing `IncomeSource` rows, per design doc
     /// section 3.6. Only `.rmd` maps to a specific classification. `.pension`

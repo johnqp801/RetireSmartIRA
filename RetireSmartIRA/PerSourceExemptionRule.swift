@@ -32,6 +32,15 @@ struct PerSourceExemptionRule: Codable, Sendable {
     /// never matches it: `matchSources.contains(.governmentUnspecified)` is
     /// false unless a rule author literally lists that case, which no rule
     /// shipping in this phase does.
+    ///
+    /// Phase 5b: the identical `Set`-like containment reasoning is what
+    /// makes `ownStateOrLocal` and `otherStateOrLocal` mutually exclusive,
+    /// and `uniformedServices`, `railroadRetirement` and `federalCivilian`
+    /// mutually exclusive. Each is a distinct `PlanSource` case, so a rule
+    /// naming one is never satisfied by a row carrying another; no
+    /// special-case code is needed here for that to hold, which is also why
+    /// this function's body did not need to change to add them. See
+    /// `Phase5bModelExtensionTests` for the exclusivity proof.
     func matches(structure: PlanStructure, source: PlanSource) -> Bool {
         let sourceMatches = matchSources.isEmpty || matchSources.contains(source)
         let structureMatches = matchStructures.isEmpty || matchStructures.contains(structure)
