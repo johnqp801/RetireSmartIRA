@@ -463,6 +463,23 @@ struct StateTaxJSONEquivalenceTests {
             }
             let fromJSON = stateTax(using: jsonConfig)
             let fromLegacy = stateTax(using: legacyConfig)
+            // Phase 5 jurisdictions on `phase5CorrectedJurisdictions`
+            // (StateTaxJSONStructuralEquivalenceTests, Layer B) are
+            // DELIBERATELY corrected in the bundled JSON while
+            // `configs2026Legacy` stays frozen at pre-Phase-5 law. This
+            // scenario grid was written for Phase 1's pure-migration
+            // guarantee and was never updated for that divergence, so a
+            // corrected jurisdiction whose fix happens to be exercised by
+            // one of these scenarios (Iowa's is; Kansas's personalExemption
+            // fix is not, which is why Kansas alone never tripped this gate)
+            // now legitimately disagrees with the frozen legacy table. The
+            // golden fixture and the baseline movement ledger are the
+            // authoritative, attributed record of what changed and why for
+            // those states, so this identity check is skipped for them
+            // rather than silently weakened for everyone.
+            if StateTaxJSONStructuralEquivalenceTests.phase5CorrectedJurisdictions.contains(state) {
+                continue
+            }
             #expect(
                 fromJSON == fromLegacy,
                 """
@@ -536,7 +553,7 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///
     /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
     ///   special session).
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas]
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different

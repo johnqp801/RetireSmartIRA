@@ -28,12 +28,7 @@
       "pensionIncome": 0,
       "iraWithdrawals": 55000,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Iowa's config carries no retirement-income exclusion at all (pensionExemption and iraWithdrawalExemption both .none), so the engine taxes a qualifying 60-year-old's full IRA withdrawal as ordinary income instead of excluding it entirely under HF 2317.",
-        "observedToday": 1478.20
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
@@ -47,12 +42,7 @@
       "pensionIncome": 70000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Same missing-exclusion defect as the single case: Iowa's config has no pension exclusion at any age, so a fully-qualifying MFJ couple's pension income is taxed in full instead of excluded entirely.",
-        "observedToday": 1436.40
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "MFJ, only the SPOUSE qualifies (spouse 65, no income of their own) and the income-bearing primary is 48 and does not qualify -- per-qualifying-spouse regression guard, forward-looking",
@@ -80,12 +70,7 @@
       "pensionIncome": 0,
       "iraWithdrawals": 0,
       "rothConversion": 200000,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Iowa's config has no rothConversionExemption set at all, so the engine treats a Roth conversion -- named explicitly as qualifying by Iowa DOR guidance -- as fully taxable ordinary income, inventing state tax on the specific transaction the product exists to recommend.",
-        "observedToday": 6988.20
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
@@ -99,12 +84,7 @@
       "pensionIncome": 0,
       "iraWithdrawals": 45000,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Same missing-exclusion defect as the other Iowa cases (pensionExemption/iraWithdrawalExemption both .none today), pinned separately at age 56 so Phase 5's fix is checked against the engine's hardcoded distributionMinAge=59 gate, not just against the exclusion's existence.",
-        "observedToday": 1098.20
-      }
+      "expectedStateTax": 0.00
     }
   ]
 }
