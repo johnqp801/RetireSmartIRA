@@ -1,4 +1,18 @@
-# RESUME HERE: State Tax Phase 5b, ready to run Task 5 (Hawaii)
+# RESUME HERE: State Tax Phase 5b, ready to run Task 6 (Arizona)
+
+**Tasks 1, 2, 3, 3b, 4 and 5 are complete.** Kansas is fully correct. Massachusetts is correct for the
+cases the model can express and ships with a disclosed under-taxation gap. Hawaii is a decided
+disclosure item. Tasks 6 through 10 remain: Arizona, North Carolina, Idaho, Vermont-and-DC, and close.
+
+**Task 6 is Arizona, and Phase 4 flagged it as PASSING ON WRONG LAW today:** every civilian amount in
+its fixtures is under the $2,500 cap, so an uncapped federal-civilian rule leaves the cases green while
+being wrong above the cap. Read that warning in the fixture BEFORE writing the rule and consider adding
+a case above the cap. Arizona also has two inherited label problems recorded further down this file:
+scenario 3 keeps `federalCivilian` on a uniformed-services row, and scenario 4 carries an
+`otherStateOrLocal` row for what is almost certainly Arizona's OWN system (Form 140 Line 29a covers US
+government plus Arizona state and local), with NO disclosure prose of its own.
+
+
 
 ## TASK 4 (MASSACHUSETTS) IS COMPLETE, BUT MASSACHUSETTS IS NOT (commits `0bd68af`..`0a19cb8`)
 
@@ -23,7 +37,44 @@ alongside their rule; that obligation is unchanged and `rulesAndDisclosuresStayI
 entries, `theContributoryGapStaysRecorded`, and the caption are what make shipping defensible rather
 than merely convenient. Deleting any of them turns a disclosed tradeoff into a silent defect.
 
-## THE THING TASK 5 MUST RESOLVE RATHER THAN INHERIT
+## TASK 5 (HAWAII) IS COMPLETE, AND ITS DELIVERABLE IS A DECISION, NOT A RULE
+
+**Outcome (b): Hawaii ships NO `perSourceExemptions`, stays "disclosed, not modelled", and all three
+`knownDefect` blocks STAY.** The plan explicitly sanctioned this outcome. A reviewer upheld it and said
+it would have made the same call.
+
+**The method is the part worth copying.** The implementer did not argue the rule was wrong, it MEASURED:
+it temporarily shipped the declined rule (`matchStructures: ["definedBenefit"]`, empty `matchSources`),
+watched HI-1, HI-3 and HI-4 all go green at their published figures with NO fixture objecting, observed
+that the same rule grants a full Hawaii exclusion to every contributory defined-benefit pension, and
+then reverted. **The green outcome was available and it was wrong.** The reviewer reproduced the
+arithmetic independently ($266.00 and $2,107.20 both exact) and confirmed the revert was complete.
+
+**Why Hawaii could not trade the way Massachusetts did.** Schedule J's authorising sentence contains
+the word "only": the exclusion "applies only to amounts attributable to employer contributions". The
+declined rule matches precisely the population that word excludes, so the exclusion and the over-match
+come out of THE SAME quoted sentence. Massachusetts had an evidentiary asymmetry to trade on (quoted
+statute for the fixes, inference for the gap). Hawaii has none.
+
+**Direction settles it.** Today's Hawaii error is OVER-taxation, disclosed on two surfaces. The rule
+would have converted that into UNDISCLOSED UNDER-taxation at up to 11 percent, for the LARGER
+population (every contributory DB pensioner, including CSRS and FERS and essentially every public
+plan), to help the shrinking set of noncontributory private DB retirees.
+
+**The axis question Task 4 deferred here is now ANSWERED:** Massachusetts needs a CATEGORICAL
+contributory fact, Hawaii needs a PROPORTION. A boolean serves Massachusetts and serves Hawaii only at
+its two endpoints, and the wrong endpoint fails toward under-taxation.
+
+**DECIDED BY JOHN 2026-08-05: the axis is a PHASE 6 item.** It now sits with the two other "the model
+cannot say it" problems already routed there, the residence-relative `ownStateOrLocal` staleness and
+the disclosure that reaches only the input surface. **Do not read the `knownButUnpinned` catalogue as
+saying the proportion is unvalidatable.** A golden fixture could carry a stipulated employer-funded
+share as an INPUT; the real obstacles are a model field, a picker affordance, and whether a user can
+supply a share Schedule J makes the taxpayer compute from cost basis.
+
+---
+
+## THE THING TASK 5 RESOLVED RATHER THAN INHERITED (kept for the record)
 
 **Two fixtures on this branch assign OPPOSITE funding semantics to the same field.** HI-1's `source`
 says `definedBenefit` represents an employer-funded NONCONTRIBUTORY pension. MA-1's says

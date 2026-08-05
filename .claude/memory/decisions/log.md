@@ -1282,3 +1282,35 @@ classified.
 **Root cause, deliberately not fixed here.** The model has no employee-contributory axis. It was not
 built because Hawaii's Task 5 fixture turns on the same axis inverted, and designing it from four
 Massachusetts cases would have foreclosed Hawaii's. Task 5 decides it.
+
+---
+
+## 2026-08-05: The employee-contributory axis is a PHASE 6 item, and it now has an owner
+
+**Decision.** The employee-contributory model axis is assigned to Phase 6, alongside the two other
+"the model cannot say it" problems already routed there: the residence-relative staleness of
+`ownStateOrLocal`, and the unclassified-pension disclosure reaching only the input surface rather than
+the surfaces that CONSUME the wrong figure (State Comparison and the CPA briefing).
+
+**Why it needed a decision at all.** Task 4 deferred the axis to Task 5. Task 5 deferred it to "a model
+task" that does not exist in the Phase 5b plan. The deferral chain had no terminus, which is how a
+well-documented gap becomes permanent. Two live consequences sit behind it: Massachusetts ships with a
+reachable UNDER-taxation path that only this axis closes, and Hawaii's three defects stay open, which
+is the safe direction but still wrong on quoted law.
+
+**Why Phase 6 rather than a Phase 5b task after Task 9.** Designing a model field mid-phase, against
+jurisdictions that have not yet reported what they need, is precisely the mistake Task 4 avoided when
+it declined to build the axis from four Massachusetts cases. Phase 6 also already owns the two related
+problems, and all three want designing together.
+
+**A correction that must survive into Phase 6.** Task 5's rejection of building the axis was
+over-argued in one specific way, and the reviewer caught it before it hardened: the catalogue read as
+though no number could ever be cited. Not so. A golden fixture COULD carry a stipulated employer-funded
+share as an INPUT, exactly as it carries `amount`, and the expected value would follow arithmetically
+from Schedule J. The genuine obstacles are a model field, a picker affordance, and whether a real user
+can supply a share that Schedule J makes the taxpayer compute from cost basis. Do not read the
+catalogue as a wall.
+
+**The shape the axis must satisfy, established across Tasks 4 and 5.** Massachusetts needs a
+CATEGORICAL contributory fact; Hawaii needs a PROPORTION. A boolean serves Massachusetts and serves
+Hawaii only at its two endpoints, and the wrong endpoint fails toward under-taxation at up to 11%.
