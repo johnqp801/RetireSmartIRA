@@ -4,7 +4,7 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
-## 2026-08-04 (later) — Stale rates, brackets and deductions jump the queue in Phase 5
+## 2026-08-04 (later): Stale rates, brackets and deductions jump the queue in Phase 5
 
 **Decision (John):** the base-value defects Phase 4 uncovered are corrected BEFORE the retirement-exemption tiers, reordering the Phase 5 sub-phases the spec laid out (5a values, 5b per-source, 5c attribution, 5d cross-path).
 
@@ -20,7 +20,7 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 **Watch for the traps Phase 4 recorded:** OK, AR and SC compute their expected values against the app's own configured brackets, so those cases go green while the state stays wrong. Fixing the base values in exactly those three states will require re-deriving their golden expectations at the same time, or the pins become meaningless.
 
-## 2026-08-04 — Phase 4 covers all 51 jurisdictions, and the whole program ships as one build 64
+## 2026-08-04: Phase 4 covers all 51 jurisdictions, and the whole program ships as one build 64
 
 **Decision (John):** hold the seven-phase program as specced. Golden scenarios for all remaining 46
 jurisdictions, then Phase 5 corrections, Phase 6 disclosure, Phase 7 release. No narrowing to the
@@ -42,13 +42,13 @@ exact pattern the caret fix already set.
 New York line 26 correction) and the caret fix wait on `main` for the length of Phase 4. Steve and Alan
 continue running an app where their reported items are broken.
 
-## 2026-08-04 — Caret fix extends to all nine numeric screens, not SettingsView alone
+## 2026-08-04: Caret fix extends to all nine numeric screens, not SettingsView alone
 
 **Decision (John):** close the §9 open question in the broad direction. `af45404` covers `SettingsView`
 only; the fix extends to `IncomeSourcesView`, `AccountsView`, `RothConversionView`, `QuarterlyTaxView`,
 `SSDataEntryView`, `TaxPlanningView`, `Year1EditorView` and `YearDetailEditor`.
 
-**Rationale:** the defect silently commits a wrong value with no validation — typing `8` into a field
+**Rationale:** the defect silently commits a wrong value with no validation. Typing `8` into a field
 showing `3` produces `0.83`, an 83% state tax rate. `IncomeSourcesView` is the sharpest remaining risk
 and income entry is not a screen where a silent corruption is acceptable. One line per screen makes the
 narrow option a false economy.
