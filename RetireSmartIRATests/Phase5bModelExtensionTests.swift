@@ -158,6 +158,47 @@ struct Phase5bModelExtensionTests {
         #expect(classification.isSurvivorBenefit == nil)
     }
 
+    @Test("isSurvivorBenefit is settable via the memberwise initializer and reads back as true")
+    func survivorFlagIsConstructibleAndReadsBack() {
+        // Before the fix, `isSurvivorBenefit` was declared `let ... = nil`,
+        // which the compiler drops from the synthesized memberwise
+        // initializer entirely: this line did not compile
+        // ("error: extra argument in call"). That non-compile was the RED
+        // proof; see the task report. After changing `let` to `var`, the
+        // property becomes an overridable default parameter and this both
+        // compiles and reads back the supplied value.
+        let classification = RetirementPlanClassification(
+            structure: .definedBenefit,
+            source: .federalCivilian,
+            isSurvivorBenefit: true
+        )
+        #expect(classification.isSurvivorBenefit == true)
+    }
+
+    @Test("Decoding JSON that explicitly sets isSurvivorBenefit true decodes it as true, not silently as nil")
+    func survivorFlagDecodesPresentKeyAsTrue() throws {
+        // This is the silently-lossy half of the finding: with `let ... =
+        // nil`, this exact JSON decoded successfully and produced `nil`,
+        // with no thrown error and no diagnostic. The compiler-warning half
+        // ("immutable property will not be decoded...") was the only
+        // signal, and only at compile time, not at the call site that
+        // actually loses data.
+        let json = """
+        {"structure": "definedBenefit", "source": "federalCivilian", "isSurvivorBenefit": true}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(RetirementPlanClassification.self, from: json)
+        #expect(decoded.isSurvivorBenefit == true)
+    }
+
+    @Test("Decoding JSON that omits isSurvivorBenefit defaults to nil, so every existing fixture and user save is unaffected")
+    func survivorFlagDecodesMissingKeyAsNil() throws {
+        let json = """
+        {"structure": "definedBenefit", "source": "federalCivilian"}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(RetirementPlanClassification.self, from: json)
+        #expect(decoded.isSurvivorBenefit == nil)
+    }
+
     @Test("infer(incomeType:) and infer(accountType:) still produce isSurvivorBenefit == nil")
     func inferenceStillProducesNilSurvivorFlag() {
         #expect(RetirementPlanClassification.infer(incomeType: .rmd).isSurvivorBenefit == nil)

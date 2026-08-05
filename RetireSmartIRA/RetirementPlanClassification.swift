@@ -94,18 +94,28 @@ struct RetirementPlanClassification: Codable, Equatable, Sendable {
     /// indistinguishable without this flag.
     ///
     /// Defaults to `nil`, which is what every classification built before
-    /// this flag existed produces: `RetirementPlanClassification`'s
-    /// synthesized memberwise initializer carries the same `nil` default,
-    /// so no existing call site in `infer(incomeType:)` or
-    /// `infer(accountType:)` needed to change. Swift's synthesized
-    /// `Decodable` conformance decodes a missing key on an `Optional`
-    /// property as `nil` rather than throwing, so every fixture and every
-    /// user save written before this flag existed decodes unchanged.
+    /// this flag existed produces. Declared `var` rather than `let`: a
+    /// stored property with a default value must be `var` for Swift to
+    /// include it in the synthesized memberwise initializer at all (as an
+    /// overridable default parameter) and for synthesized `Decodable` to
+    /// treat a present key as an overwrite rather than a value the type
+    /// can never actually hold. With `let`, both stayed silently inert: the
+    /// memberwise initializer rejected any argument for this property
+    /// outright, and decoding JSON that explicitly set
+    /// `"isSurvivorBenefit": true` still produced `nil`, with no error and
+    /// no diagnostic beyond a compiler warning at the declaration. `var`
+    /// fixes both: no existing call site in `infer(incomeType:)` or
+    /// `infer(accountType:)` needed to change, because the default is still
+    /// `nil` when the parameter is omitted; every fixture and every user
+    /// save written before this flag existed still decodes unchanged,
+    /// because a missing key still resolves to `nil`; and a present key
+    /// now decodes to the value it actually contains instead of being
+    /// silently discarded.
     ///
     /// Domain model only in this phase, per this file's header: nothing yet
     /// reads this flag when matching a `PerSourceExemptionRule`. Wiring it
     /// into matching is later phase 5b task work.
-    let isSurvivorBenefit: Bool? = nil
+    var isSurvivorBenefit: Bool? = nil
 
     /// Migration inference for existing `IncomeSource` rows, per design doc
     /// section 3.6. Only `.rmd` maps to a specific classification. `.pension`
