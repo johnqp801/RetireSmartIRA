@@ -88,3 +88,37 @@ Product name moved into the hook because shortening the body removed the only ot
 2. "The widow tax is real. You need to know how it affects you." — John's, then rejected as generic; instruction rather than information
 3. "If your spouse died this year, would your tax bill go up or down?" — strong pull, judged too blunt
 4. **John's own, adopted:** "You've heard the widow tax gets worse the more you have. I ran the numbers on three incomes. At the highest one, it isn't a tax at all. It's a discount."
+
+## Comment replies
+
+### Theresa Reed, 2026-08-04: the $50,000 question. REPLY SENT.
+
+She is a first-degree connection and a widow. She wrote that losing her husband's income cost far
+more than $50,000 and asked whether $50K was supposed to be the loss when a spouse dies.
+
+**She had generalised the top household's figure.** The article's real losses, from
+`WidowTaxArticleScenarioTests`: Household C $90,000 to $73,500 loses **$16,500**; Household B
+$180,000 to $150,000 loses **$30,000**; Household A $360,000 to $308,000 loses **$52,000**. There is
+no flat $50K, and only the highest-income household is near it.
+
+**The trap avoided, and it was not the arithmetic.** Do not assume a commenter like this was
+working-age. If her husband held a pension that ended at his death, a fully retired household could
+also lose far more than anything in the article. The sent text covers both without presuming which
+she is. It leads with the loss rather than the correction, names no product, and promises no
+follow-up piece.
+
+**SENT TEXT:**
+
+> Theresa, I'm sorry about your husband. Thank you for reading it, and for saying that.
+>
+> You're right, and it's a gap in the piece. All three households are already retired, and each one
+> keeps its pension and its savings, so what stops is mostly the smaller of the two Social Security
+> checks. That's a much gentler event than losing a salary, or losing a pension that ends at death.
+>
+> There also isn't a single $50,000 figure. The three households lose $16,500, $30,000 and $52,000.
+> The $52,000 is only the highest-income one, so that may be the number that stuck.
+>
+> What you went through is the bigger version of this and the piece doesn't reach it.
+
+**Watch for a follow-up.** Her opening line was "I am going to have to read through this later to
+better understand", so she may return with a second question after reading the article properly.

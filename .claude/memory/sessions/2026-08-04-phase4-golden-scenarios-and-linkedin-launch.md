@@ -12,15 +12,15 @@ Posted ~10:14 AM Tuesday from the personal profile, native image with the link i
 
 **What changed and what it cost.** The withheld-insight paragraph became a direct question, which is fine. The real delta is the link: the draft introduced it as "Three households worked all the way through, with the tables:" and as posted the shortened `lnkd.in` URL stands alone, so nothing on that line says what is on the other side of it. **If engagement arrives and clicks do not, that is the first thing to fix**, and it is still fixable in an edit or a first comment. Also dropped: "not the one this usually gets sold to" became "not the one you would expect", which removes the implied shot at advisors and is consistent with why hook candidate 1 was rejected.
 
-### Theresa Reed's comment, and the reply DRAFTED BUT NOT SENT
+### Theresa Reed's comment, and the reply SENT 2026-08-04
 
 A first-degree connection replied, disclosing that her husband died and that losing his income cost far more than $50,000. She asked whether $50K was supposed to be the income loss.
 
 **She had generalised the top household's figure.** The article's actual losses, from `WidowTaxArticleScenarioTests`: Household C $90,000 to $73,500 (loses **$16,500**), Household B $180,000 to $150,000 (loses **$30,000**), Household A $360,000 to $308,000 (loses **$52,000**). No flat $50K anywhere; the $52,000 is only the highest-income household.
 
-**The trap in replying, and it is not the arithmetic.** Do NOT assume she was working-age. If her husband held a pension that ended at his death, a fully retired household could also lose far more than anything in the article. The draft below is worded to cover both without presuming which she is.
+**The trap avoided, and it was not the arithmetic.** Do NOT assume she was working-age. If her husband held a pension that ended at his death, a fully retired household could also lose far more than anything in the article. The sent text covers both without presuming which she is.
 
-**Drafted reply, John's to send or change:**
+**SENT TEXT:**
 
 > Theresa, I'm sorry about your husband. Thank you for reading it, and for saying that.
 >
@@ -101,7 +101,7 @@ Nothing has shipped. `main` is well ahead of released 2.3.0.
 
 ## Next steps
 
-1. **Send Theresa's reply** (drafted above, unsent).
+1. ~~Send Theresa's reply~~ **SENT 2026-08-04.** Watch for a follow-up: her opening line was "I am going to have to read through this later to better understand".
 2. **Answer Steve on the Tax Summary point** (analysis done, no draft written yet).
 3. **Decide whether stale rates jump the queue in Phase 5.** UT, NM and GA hit every filer in those states. This is new information since the plan was approved.
 4. **Phase 5**, opening with the two-model confirmation protocol run against Phase 4's catalogue rather than against the audit memo.
