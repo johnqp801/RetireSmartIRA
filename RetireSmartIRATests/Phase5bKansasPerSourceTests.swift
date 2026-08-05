@@ -62,14 +62,34 @@ struct Phase5bKansasPerSourceTests {
 
     // MARK: - What the rule MUST match
 
+    /// The four sources Schedule S Line A14 names, and the ONE hand-written
+    /// list in this file. Everything below is derived from it, so a
+    /// `PlanSource` case added by a later Phase 5b task cannot slip past the
+    /// negative sweep: it lands in `sourcesLineA14DoesNotName` automatically
+    /// and is asserted against on the next run. Hand-maintaining the
+    /// negatives instead would be the same defect class the addendum flagged
+    /// for `priorityOrder`, and Task 1 has already demonstrated that new
+    /// cases do get added mid-phase.
+    static let sourcesLineA14Names: [PlanSource] = [
+        .ownStateOrLocal, .federalCivilian, .uniformedServices, .railroadRetirement
+    ]
+
+    /// DERIVED, never listed. Every `PlanSource` the Kansas rule must reject.
+    static let sourcesLineA14DoesNotName: [PlanSource] =
+        PlanSource.allCases.filter { !sourcesLineA14Names.contains($0) }
+
+    /// DERIVED, never listed. Every `PlanStructure` other than the one the
+    /// rule constrains itself to.
+    static let structuresOtherThanDefinedBenefit: [PlanStructure] =
+        PlanStructure.allCases.filter { $0 != .definedBenefit }
+
     /// The four sources Line A14 names. `uniformedServices` and
     /// `railroadRetirement` are here because no golden case reaches them:
     /// without this test the rule could name only two of the four and the
     /// whole suite would stay green while two thirds of the written promise
     /// went undelivered.
-    @Test("Every source Line A14 names is matched, as a defined-benefit pension", arguments: [
-        PlanSource.ownStateOrLocal, .federalCivilian, .uniformedServices, .railroadRetirement
-    ])
+    @Test("Every source Line A14 names is matched, as a defined-benefit pension",
+          arguments: Phase5bKansasPerSourceTests.sourcesLineA14Names)
     func namedSourcesAreMatched(source: PlanSource) {
         #expect(Self.kansasExemptions.matchedPerSourceRule(
             structure: .definedBenefit, source: source) != nil,
@@ -98,10 +118,14 @@ struct Phase5bKansasPerSourceTests {
     ///   - `unknown`: the migration default every pre-Phase-3b saved row
     ///     carries. Matching it would hand a full Kansas exclusion to every
     ///     unclassified pension in every existing user save.
-    @Test("No source outside Line A14's closed list is matched", arguments: [
-        PlanSource.otherStateOrLocal, .governmentUnspecified, .privateEmployer,
-        .individual, .nyStateOrLocal, .unknown
-    ])
+    ///
+    /// The argument list is DERIVED from `PlanSource.allCases`, not a
+    /// snapshot of the six cases that happen to exist today. A case a later
+    /// task adds is rejected by default and has to be deliberately moved
+    /// into `sourcesLineA14Names` to be exempted, which is a change a
+    /// reviewer sees.
+    @Test("No source outside Line A14's closed list is matched",
+          arguments: Phase5bKansasPerSourceTests.sourcesLineA14DoesNotName)
     func unnamedSourcesAreNotMatched(source: PlanSource) {
         #expect(Self.kansasExemptions.matchedPerSourceRule(
             structure: .definedBenefit, source: source) == nil,
@@ -126,9 +150,8 @@ struct Phase5bKansasPerSourceTests {
     /// does name Thrift Savings Plans inside its federal category, and a TSP
     /// is defined-contribution, so a Kansas TSP holder is still taxed. That
     /// is a disclosed under-match, not something to close by guessing.
-    @Test("A named source in a NON-definedBenefit structure is not matched", arguments: [
-        PlanStructure.definedContribution, .ira, .unknown
-    ])
+    @Test("A named source in a NON-definedBenefit structure is not matched",
+          arguments: Phase5bKansasPerSourceTests.structuresOtherThanDefinedBenefit)
     func namedSourceInAnotherStructureIsNotMatched(structure: PlanStructure) {
         #expect(Self.kansasExemptions.matchedPerSourceRule(
             structure: structure, source: .ownStateOrLocal) == nil,
@@ -216,6 +239,108 @@ struct Phase5bKansasPerSourceTests {
                 "expected the full $1,432.31 for a non-annuity own-state plan, got \(tax)")
     }
 
+    // MARK: - Residence relativity on the State Comparison screen
+
+    /// Controller-authorized fix for the review's finding 3.
+    ///
+    /// `ownStateOrLocal` is the one residence-RELATIVE `PlanSource`. The
+    /// State Comparison screen evaluates ONE household's rows against all 51
+    /// configs, asking "what would I pay if I lived there". A Vermont
+    /// resident's VSERS pension is `ownStateOrLocal` to Vermont, but in the
+    /// hypothetical where they live in Kansas it is an OUT-of-state pension,
+    /// which Schedule S Line A14 does not name and does not exempt.
+    ///
+    /// The picker suppression does NOT close this. Vermont's config carries
+    /// no jurisdiction-named rule, so `options(for: .vermont)` offers the
+    /// own-state row and should: it is the correct classification for their
+    /// actual residence. The fix has to live where the hypothetical is
+    /// constructed, which is `DataManager.incomeSources(asResidentOf:)`.
+    @MainActor
+    static func makeVermontResidentWithOwnStatePension() -> DataManager {
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 2026 - 68; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.filingStatus = .single
+        dm.enableSpouse = false
+        dm.selectedState = .vermont
+        dm.incomeSources = [
+            IncomeSource(name: "VSERS", type: .pension, annualAmount: 40_000, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .ownStateOrLocal)
+        ]
+        return dm
+    }
+
+    @MainActor
+    @Test("A Vermont resident's own-state pension is reclassified as out-of-state when Kansas is the hypothetical")
+    func ownStatePensionIsNotInheritedByAnotherStatesConfig() {
+        let dm = Self.makeVermontResidentWithOwnStatePension()
+
+        let mapped = dm.incomeSources(asResidentOf: .kansas)
+        #expect(mapped.first?.planSource == .otherStateOrLocal,
+                """
+                Viewing Kansas asks what this household would pay LIVING in Kansas, \
+                where a Vermont state pension is an out-of-state pension. Leaving it \
+                as ownStateOrLocal lets it claim Line A14, which names KPERS and \
+                federal plans only.
+                """)
+
+        let kansasTax = dm.calculateStateTaxFromGross(
+            grossIncome: 40_000, forState: .kansas, filingStatus: .single,
+            taxableSocialSecurity: 0)
+        #expect(abs(kansasTax - 1_432.31) < 0.01,
+                """
+                Same arithmetic as golden cases KS-3, KS-7 and KS-8: $40,000 minus the \
+                $3,605 standard deduction minus the $9,160 personal exemption = \
+                $27,235, taxed $1,432.31. Got \(kansasTax). $0.00 means a Vermont \
+                pension claimed Kansas's exclusion.
+                """)
+    }
+
+    /// The other half, and the one that would break the actual Kansas fix if
+    /// the mapping were applied unconditionally: for the taxpayer's OWN
+    /// residence the rows pass through untouched.
+    @MainActor
+    @Test("A resident's own rows are never remapped for their own state")
+    func ownStateMappingIsIdentityForTheActualResidence() {
+        let dm = Self.makeVermontResidentWithOwnStatePension()
+        #expect(dm.incomeSources(asResidentOf: .vermont).first?.planSource == .ownStateOrLocal)
+
+        // And the Kansas resident whose promise this task delivers still
+        // gets the exclusion on their own state, which is the whole point.
+        dm.selectedState = .kansas
+        #expect(dm.incomeSources(asResidentOf: .kansas).first?.planSource == .ownStateOrLocal)
+        let ownStateTax = dm.calculateStateTaxFromGross(
+            grossIncome: 40_000, forState: .kansas, filingStatus: .single,
+            taxableSocialSecurity: 0)
+        #expect(abs(ownStateTax) < 0.01,
+                "a Kansas resident's KPERS pension must still be fully exempt, got \(ownStateTax)")
+    }
+
+    /// The mirror trap again, on the new mapping. The breakdown recomputes
+    /// its own tax rather than reading `calculateStateTaxFromGross`, so a
+    /// mapping applied to one and not the other puts the displayed figure
+    /// and the computed figure on opposite sides of the out-of-state
+    /// question.
+    @MainActor
+    @Test("The breakdown mirror applies the residence mapping too, for both the resident and the hypothetical")
+    func breakdownMirrorAppliesTheResidenceMapping() {
+        let dm = Self.makeVermontResidentWithOwnStatePension()
+        for state in [USState.kansas, .vermont, .newYork, .california] {
+            let breakdown = dm.stateTaxBreakdown(forState: state, filingStatus: dm.filingStatus)
+            let computed = dm.calculateStateTaxFromGross(
+                grossIncome: dm.scenarioGrossIncome, forState: state,
+                filingStatus: dm.filingStatus,
+                taxableSocialSecurity: dm.scenarioTaxableSocialSecurity)
+            #expect(abs(breakdown.totalStateTax - computed) < 0.01,
+                    """
+                    \(state.abbreviation): breakdown \(breakdown.totalStateTax) against \
+                    computed \(computed). The residence mapping was applied to one path \
+                    and not the other.
+                    """)
+        }
+    }
+
     // MARK: - The DataManager breakdown mirror
 
     /// THE MIRROR CHECK the Task 3 brief requires.
@@ -236,11 +361,12 @@ struct Phase5bKansasPerSourceTests {
     /// rather than merely arriving at the right total by a different route.
     /// A mirror that agrees on the total while showing $0 exempted would
     /// still be a display defect a Kansas user would notice.
+    ///
+    /// Swept over `PlanSource.allCases`, matched and unmatched together, so
+    /// a case added by a later task is mirror-checked the moment it exists.
     @MainActor
-    @Test("The income-breakdown mirror agrees with the tax computation for every Kansas source", arguments: [
-        PlanSource.ownStateOrLocal, .federalCivilian, .uniformedServices, .railroadRetirement,
-        .otherStateOrLocal, .governmentUnspecified, .privateEmployer, .unknown
-    ])
+    @Test("The income-breakdown mirror agrees with the tax computation for every Kansas source",
+          arguments: PlanSource.allCases)
     func breakdownMirrorAgreesWithTheEngineForKansas(source: PlanSource) {
         let dm = DataManager(skipPersistence: true)
         var dob = DateComponents(); dob.year = 2026 - 68; dob.month = 1; dob.day = 1

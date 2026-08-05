@@ -26,20 +26,28 @@ import SwiftUI
 /// Phase 5b jurisdictions (Vermont, Arizona, Idaho, Massachusetts) inherit a
 /// picker that can express their rules.
 ///
-/// The addition is ADDITIVE: no existing case's `rawValue` (what
-/// `Identifiable`/`Picker` tag on) and no existing case's `classification`
-/// changed, so nothing already persisted moves. The three new rows are
-/// INSERTED rather than appended, which changes display POSITION but
-/// preserves the relative order of all nine original rows.
+/// The addition is ADDITIVE: no existing case's `classification` changed, so
+/// no row a user already saved means anything different than it did before.
+/// `RetirementPlanClassification` is what persists, on `IncomeSource` and
+/// `IRAAccount`; this enum is a presentation type held in `@State` and is
+/// never encoded. The three new rows are INSERTED rather than appended,
+/// which changes display POSITION but preserves the relative order of all
+/// nine original rows.
 ///
-/// KNOWN OVERLAP, reported not solved: for a New York resident,
+/// THE OVERLAP, and what is done about it: for a New York resident,
 /// `nyGovernmentPension` and `ownStateGovernmentPension` describe the same
-/// pension, and only the first one selects New York's Line 26 exclusion.
-/// `nyStateOrLocal` predates `ownStateOrLocal` and is the jurisdiction-named
-/// form of what is now expressible generically. Collapsing the two is a
-/// migration that touches New York's shipped config, New York's fixtures and
-/// existing user saves, so it is deliberately NOT done here. See the Task 3
-/// report.
+/// pension, and only the FIRST selects New York's Line 26 exclusion, because
+/// New York's shipped rule names `nyStateOrLocal`. Picking the newer and
+/// arguably more natural row would drop a $60,000 NYSLRS pension to New
+/// York's ordinary capped $20,000 exclusion: $40,000 taxed that should be
+/// $0, two taps away, on the one jurisdiction that has been prompting users
+/// to classify at all. `options(for:selected:)` below suppresses the
+/// own-state row for exactly those residents, driven by live config.
+///
+/// That is a MITIGATION, not the fix. The structural fix is to collapse
+/// `nyStateOrLocal` into `ownStateOrLocal` and retire the jurisdiction-named
+/// case, which touches New York's shipped config, New York's fixtures and
+/// existing user saves, and is deliberately deferred. See the Task 3 report.
 enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     case nyGovernmentPension
     case ownStateGovernmentPension
@@ -62,8 +70,9 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// The three Phase 5b rows carry PROPOSED working copy that John has not
     /// approved. They are deliberately plain rather than clever so renaming
     /// them is a one-line change with no behavioral consequence: nothing
-    /// keys on a label, and the persisted value is the case's `rawValue`,
-    /// not its text.
+    /// keys on a label, and what a row PERSISTS is the
+    /// `RetirementPlanClassification` its `classification` returns, not any
+    /// text and not the case's `rawValue`.
     var label: String {
         switch self {
         case .nyGovernmentPension: return "Government pension, New York State or local"
@@ -161,6 +170,48 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// their plan kind (task 6 brief, step 1).
     static func showsPickerFor(accountType: AccountType) -> Bool {
         !accountType.isRothType && !accountType.isInherited
+    }
+
+    /// `PlanSource` cases that name ONE specific jurisdiction outright,
+    /// rather than describing a jurisdiction relative to where the taxpayer
+    /// lives. `nyStateOrLocal` is the only one, and it predates
+    /// `ownStateOrLocal`: it is the jurisdiction-named form of what Phase 5b
+    /// made expressible generically. Data rather than a `state == .newYork`
+    /// check, so retiring the case (the structural fix this file's enum doc
+    /// comment describes) is a one-line deletion here and nowhere else.
+    static let jurisdictionNamedSources: Set<PlanSource> = [.nyStateOrLocal]
+
+    /// Whether `state`'s OWN configuration already names its own
+    /// jurisdiction in a per-source rule, which makes the generic own-state
+    /// row a trap for that state's residents rather than a convenience:
+    /// their own state's exclusion is reachable only through the
+    /// jurisdiction-named row, so offering both invites them to pick the one
+    /// that silently costs them the exclusion.
+    ///
+    /// Reads the live config, in the same spirit as
+    /// `residenceHasPerSourceRules` below, so it needs no edit when a
+    /// jurisdiction ships or retires such a rule.
+    static func residenceNamesItsOwnJurisdiction(_ state: USState) -> Bool {
+        StateTaxData.config(for: state).retirementExemptions.perSourceExemptions.contains { rule in
+            rule.matchSources.contains { jurisdictionNamedSources.contains($0) }
+        }
+    }
+
+    /// The rows to offer a resident of `state`. `allCases` for everyone
+    /// except a resident whose own config names its own jurisdiction, who
+    /// does not see the generic own-state row at all.
+    ///
+    /// `selected` is the picker's CURRENT selection and is never filtered
+    /// out even when it would otherwise be suppressed. Without that, a row
+    /// already carrying `ownStateOrLocal` would open with a selection that
+    /// matches no tag in the list, which SwiftUI renders as a blank picker
+    /// and which would silently rewrite the row's classification on the next
+    /// save. Suppression is about what a user can newly CHOOSE, never about
+    /// hiding what they already chose.
+    static func options(for state: USState,
+                        selected: PlanClassificationChoice? = nil) -> [PlanClassificationChoice] {
+        guard residenceNamesItsOwnJurisdiction(state) else { return allCases }
+        return allCases.filter { $0 != .ownStateGovernmentPension || $0 == selected }
     }
 
     /// The label an account row or detail view should show in place of
@@ -1229,7 +1280,8 @@ struct IncomeSourcesView: View {
                     if incomeType == .pension {
                         Section("What kind of pension is this?") {
                             Picker("Plan type", selection: $planChoice) {
-                                ForEach(PlanClassificationChoice.allCases) { choice in
+                                ForEach(PlanClassificationChoice.options(
+                                    for: dataManager.selectedState, selected: planChoice)) { choice in
                                     Text(choice.label).tag(choice)
                                 }
                             }

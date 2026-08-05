@@ -55,11 +55,23 @@ struct Phase3bPresentationTests {
         #expect(stillPresentInOrder == original)
     }
 
-    /// A picker row's persisted identity is its `rawValue`, not its label or
-    /// its position. Pinning the nine original raw values means a rename of
-    /// a case (which would silently orphan every row a user already saved)
-    /// fails here rather than in the field.
-    @Test("The nine original rows keep their persisted raw values")
+    /// CORRECTED after review: these raw values are NOT a persistence
+    /// surface, and an earlier version of this comment wrongly said a rename
+    /// would "orphan every row a user already saved". It would not.
+    /// `PlanClassificationChoice` is a presentation type held only in
+    /// `@State` (`AccountsView.swift`, `IncomeSourcesView.swift`) and is
+    /// never encoded; what persists on `IncomeSource` and `IRAAccount` is
+    /// the `RetirementPlanClassification` that `classification` returns, and
+    /// `pickerClassificationsMatchSpec` above is what protects it.
+    ///
+    /// The test is kept for the smaller, true reason: `rawValue` is the
+    /// case's `Identifiable` `id` and therefore its `ForEach`/`Picker` view
+    /// identity, so pinning the nine names makes a rename during a future
+    /// refactor a deliberate, reviewed edit rather than a silent one, and
+    /// forecloses the day someone DOES decide to persist the picker's
+    /// literal choice (which `accountDisplayName`'s doc comment already
+    /// contemplates as the way to disambiguate the 401(k) / 403(b) pair).
+    @Test("The nine original rows keep their raw values, which are their view identity")
     func originalRawValuesAreUnchanged() {
         #expect(PlanClassificationChoice.nyGovernmentPension.rawValue == "nyGovernmentPension")
         #expect(PlanClassificationChoice.federalCivilianPension.rawValue == "federalCivilianPension")
@@ -325,6 +337,75 @@ struct Phase3bPresentationTests {
     func residenceHasPerSourceRulesReflectsLiveConfig() {
         #expect(PlanClassificationChoice.residenceHasPerSourceRules(.newYork))
         #expect(!PlanClassificationChoice.residenceHasPerSourceRules(.california))
+    }
+
+    // MARK: - Phase 5b Task 3: the own-state row is suppressed where it is a trap
+
+    /// Controller-authorized mitigation for the review's findings 1 and 3.
+    ///
+    /// New York's shipped rule names `nyStateOrLocal`, not `ownStateOrLocal`.
+    /// A NYSLRS retiree offered both rows who picks the newer, more natural
+    /// "my own state or locality" drops a $60,000 pension from a full
+    /// exclusion to New York's ordinary capped $20,000 one: $40,000 taxed
+    /// that should be $0, two taps away, on the ONE jurisdiction that has
+    /// been prompting users to classify at all. The row is therefore not
+    /// offered to New York residents.
+    @Test("A resident of a state that names its own jurisdiction is not offered the generic own-state row")
+    func ownStateRowIsSuppressedWhereTheStateNamesItsOwnJurisdiction() {
+        #expect(PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.newYork))
+        let options = PlanClassificationChoice.options(for: .newYork)
+        #expect(!options.contains(.ownStateGovernmentPension))
+        #expect(options.contains(.nyGovernmentPension),
+                "the jurisdiction-named row is the one that DOES select New York's exclusion")
+        #expect(options.count == PlanClassificationChoice.allCases.count - 1,
+                "suppression must remove exactly one row, not filter anything else out")
+    }
+
+    /// The other side, and the reason this is config-driven rather than a
+    /// `state == .newYork` check: Kansas names no jurisdiction-named source
+    /// (its rule uses the generic `ownStateOrLocal`), so a Kansas resident
+    /// must still be able to select KPERS. Suppressing it there would
+    /// reintroduce the exact defect the whole addendum exists to fix.
+    @Test("A Kansas resident is still offered the own-state row, which is how KPERS is selected at all")
+    func ownStateRowIsOfferedWhereTheStateUsesTheGenericSource() {
+        #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.kansas))
+        #expect(PlanClassificationChoice.options(for: .kansas).contains(.ownStateGovernmentPension))
+        #expect(PlanClassificationChoice.options(for: .kansas) == PlanClassificationChoice.allCases)
+    }
+
+    /// A state with no per-source rules at all is unaffected: nothing is
+    /// suppressed anywhere except where a jurisdiction-named rule exists.
+    @Test("A state with no per-source rules offers the full list")
+    func noPerSourceRulesMeansNoSuppression() {
+        #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.california))
+        #expect(PlanClassificationChoice.options(for: .california) == PlanClassificationChoice.allCases)
+    }
+
+    /// Suppression governs what a user can newly CHOOSE, never what they
+    /// already chose. A row that somehow carries `ownStateOrLocal` in New
+    /// York (imported data, a residence change after classifying, a future
+    /// build) must still find its own selection in the list. Without this,
+    /// the Picker's selection matches no tag, SwiftUI renders it blank, and
+    /// the next save silently rewrites the row's classification.
+    @Test("A selection that would be suppressed is still offered, so the picker never renders blank")
+    func anExistingOwnStateSelectionSurvivesSuppression() {
+        let options = PlanClassificationChoice.options(
+            for: .newYork, selected: .ownStateGovernmentPension)
+        #expect(options.contains(.ownStateGovernmentPension))
+        #expect(options == PlanClassificationChoice.allCases)
+
+        // And selecting anything else does NOT resurrect it.
+        #expect(!PlanClassificationChoice.options(for: .newYork, selected: .privateEmployerPension)
+            .contains(.ownStateGovernmentPension))
+    }
+
+    /// The suppression list is data, not a hardcoded state. This pins that
+    /// it names the one legacy jurisdiction-named case and nothing else, so
+    /// retiring `nyStateOrLocal` (the structural fix) is a one-line deletion
+    /// that this test reports rather than a silent behavior change.
+    @Test("The jurisdiction-named source list is exactly the one legacy case")
+    func jurisdictionNamedSourcesIsExactlyTheLegacyCase() {
+        #expect(PlanClassificationChoice.jurisdictionNamedSources == [.nyStateOrLocal])
     }
 
     /// The addendum's "confirm it, do not modify it" item.

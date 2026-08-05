@@ -142,6 +142,43 @@ struct GoldenScenarioDefectCatalogueTests {
                 Revisit when ssa.gov becomes reachable from this environment, or when
                 Missouri DOR publishes the 2026 MO-A form.
                 """
+        ),
+        UnpinnedDefect(
+            state: "KS",
+            summary: """
+                Kansas's Schedule S Line A14 exempts federal retirement benefits
+                "including Thrift Savings Plans" by name, inside the same federal
+                category the Phase 5b Task 3 rule implements. A TSP is a
+                defined-contribution plan, and that rule ships
+                `matchStructures: ["definedBenefit"]`, so a Kansas resident holding a
+                TSP is taxed in full on it. The direction is UNDER-exemption, i.e. the
+                app over-taxes, which is the opposite direction from every other
+                finding in this file. The constraint is deliberate and is the safer of
+                the two errors available: Line A14 names "Kansas Public Employees'
+                Retirement (KPERS) ANNUITIES", not the separate KPERS 457
+                deferred-compensation plan, so dropping the structure constraint to
+                reach TSP would simultaneously grant an unauthorised full exclusion to
+                every government salary-reduction plan. See the KS-5 fixture's own
+                source string, which quotes the A14 language, and
+                Phase5bKansasPerSourceTests.namedSourceInAnotherStructureIsNotMatched,
+                which pins the constraint this entry records the cost of.
+                """,
+            blockedOn: """
+                NOT a missing dollar figure, unlike the Missouri entry above: this one
+                is blocked on EXPRESSIVENESS, and this list is widened by exactly one
+                kind of blocker to hold it rather than letting a real, measured
+                under-exemption live only in a task report. No golden case can pin it,
+                because no fixture can describe the household: `PlanClassificationChoice`
+                has no row writing a federal DEFINED-CONTRIBUTION plan, so a Kansas TSP
+                holder cannot classify one through the app at all, and a fixture
+                asserting a tax for a classification no user can select would assert
+                something unreachable. Resolving it needs a product decision, not
+                research: either a picker row for a federal defined-contribution plan
+                plus a second Kansas rule scoped to it, or an explicit decision that
+                federal TSP stays unmodelled and is disclosed to Kansas users. Both are
+                out of Task 3's scope. Revisit when Phase 6's disclosure work decides
+                which.
+                """
         )
     ]
 

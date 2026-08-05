@@ -305,7 +305,10 @@ struct AddAccountView: View {
                 if PlanClassificationChoice.showsPickerFor(accountType: accountType) {
                     Section("What kind of retirement account is this?") {
                         Picker("Plan type", selection: $planChoice) {
-                            ForEach(PlanClassificationChoice.allCases) { choice in
+                            // Phase 5b Task 3: same suppression as the income-row
+                            // picker. See PlanClassificationChoice.options(for:selected:).
+                            ForEach(PlanClassificationChoice.options(
+                                for: dataManager.selectedState, selected: planChoice)) { choice in
                                 Text(choice.label).tag(choice)
                             }
                         }

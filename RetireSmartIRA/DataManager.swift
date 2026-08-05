@@ -545,7 +545,42 @@ class DataManager {
         // Apply the user's local/city income tax rate ONLY to their own state — a cross-state
         // comparison (a hypothetical other state) must not inherit the home locality's rate.
         let localRate = (state == selectedState) ? localIncomeTaxRate : 0
-        return TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction, localIncomeTaxRate: localRate)
+        return TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources(asResidentOf: state), currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction, localIncomeTaxRate: localRate)
+    }
+
+    /// The taxpayer's income rows as they would be classified IF they lived
+    /// in `state`. Identity for their actual residence.
+    ///
+    /// Phase 5b Task 3. `PlanSource.ownStateOrLocal` is the one
+    /// residence-RELATIVE case in the enum: it means "the taxpayer's own
+    /// state retirement system", which is KPERS to a Kansas resident and
+    /// VSERS to a Vermont resident. Every other case is absolute. A
+    /// cross-state comparison asks "what would I pay if I lived in `state`",
+    /// and in that hypothetical an existing own-state pension becomes an
+    /// OUT-of-state pension, which is exactly what `otherStateOrLocal`
+    /// describes. Handing the row through unmapped lets a Vermont resident's
+    /// VSERS pension claim Kansas's Schedule S Line A14 exclusion, which
+    /// Kansas grants only to KPERS and to named federal plans.
+    ///
+    /// This is the SAME rule, at the SAME seam, as the `localIncomeTaxRate`
+    /// line directly above it: a residence-relative attribute must not be
+    /// inherited by a hypothetical other state. That line has been here
+    /// since v1.8.3; this one generalises it from a rate to a
+    /// classification.
+    ///
+    /// Numerically inert for every household that exists today. No shipped
+    /// fixture drives this path with `ownStateOrLocal`, neither frozen
+    /// scenario grid classifies its rows at all, and no user save can carry
+    /// the value because the picker row that writes it ships in this same
+    /// change.
+    func incomeSources(asResidentOf state: USState) -> [IncomeSource] {
+        guard state != selectedState else { return incomeSources }
+        return incomeSources.map { row in
+            guard row.planSource == .ownStateOrLocal else { return row }
+            var reclassified = row
+            reclassified.planSource = .otherStateOrLocal
+            return reclassified
+        }
     }
 
     /// Sum of scenario-level retirement-distribution income subject to state-level
@@ -825,7 +860,16 @@ class DataManager {
         // pooled totals, since `matchedPerSourceRule` then returns `nil` for
         // every row.
         let isMarried = filingStatus == .marriedFilingJointly
-        let qualifyingPensionRows = incomeSources.filter { $0.type == .pension && ownerQualifies($0.owner) }
+        // Phase 5b Task 3: the per-source partition, and ONLY the per-source
+        // partition, reads rows through the residence mapping, mirroring
+        // `calculateStateTax(income:forState:)`. The gross `pensionIncome` /
+        // `rmdSourceIncome` totals above deliberately keep reading the raw
+        // rows: they are amounts, not classifications, and the mapping never
+        // changes an amount. Failing to mirror this here would put the
+        // breakdown display and the computed tax on opposite sides of the
+        // out-of-state question for anyone viewing another state.
+        let residenceMappedSources = incomeSources(asResidentOf: state)
+        let qualifyingPensionRows = residenceMappedSources.filter { $0.type == .pension && ownerQualifies($0.owner) }
         var pooledPensionIncome = 0.0
         var perSourceExcludedPension = 0.0
         for row in qualifyingPensionRows {
@@ -837,7 +881,7 @@ class DataManager {
                 pooledPensionIncome += row.annualAmount
             }
         }
-        let qualifyingRMDRows = incomeSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }
+        let qualifyingRMDRows = residenceMappedSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }
         var pooledRmdIncome = 0.0
         var perSourceExcludedRMD = 0.0
         for row in qualifyingRMDRows {
