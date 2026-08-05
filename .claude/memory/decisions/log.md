@@ -4,6 +4,40 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-04 (Phase 5a): the legacy Swift table is frozen at pre-correction law, and the equivalence gate is scoped
+
+**Decision (John):** narrow the Phase 1 JSON-versus-legacy equivalence test to jurisdictions Phase 5
+has NOT corrected, and document `configs2026Legacy` as a frozen emergency fallback holding
+pre-correction law. Do not update it alongside each correction, and do not delete it.
+
+**The situation, found when the first tax value in the program was corrected.** `StateTaxData.swift`
+carries `configs2026Legacy`, a 1,651-line hardcoded table whose own comment says "Not the production
+path after Task 11." It is nonetheless LIVE: `config(for:)` tries the JSON, then the legacy table,
+then `preconditionFailure`. A Phase 1 test asserts the two tables are identical, so correcting
+Kansas's JSON alone turned that gate red.
+
+**Why not update both** (the rejected alternative that looks safest): it makes all 35 corrections
+double-edits, and this project already carries a scar from hand-duplicated data. The DataManager
+breakdown mirror drifted five times on a single branch ([[datamanager-breakdown-mirror]]). An
+equivalence test is a real seam, but 35 paired edits is 35 chances to write one of them wrong.
+
+**Why not delete it** (the alternative with the strongest precedent): Phase 2 removed the California
+fallback on the principle that a confident wrong answer is worse than none, and a stale table is the
+same disease. But `preconditionFailure` traps in RELEASE as well as debug, so deleting the table means
+a bundling failure crashes the app rather than serving slightly stale tax numbers. For a shipped
+consumer app that trade is worse, and it is a different judgement from Phase 2's, where the fallback
+served ANOTHER STATE'S data. Stale-but-own-state is not the same error as confident-but-wrong-state.
+
+**The residual risk, which must be disclosed rather than left implicit:** if the bundled JSON ever
+fails to load, a user in a corrected state silently gets pre-Phase-5 law. That is the honest cost of
+this choice and it belongs in the legacy table's own doc comment, not only in this log.
+
+**Consequence for the Phase 5a plan:** its confinement rule said the production diff must stay inside
+`Resources/StateTaxData/2026/`. That rule is amended to also permit a doc-comment-only change to the
+`configs2026Legacy` declaration. Any other Swift change still means the scope boundary was crossed.
+
+---
+
 ## 2026-08-04 (later still): Phase 4's golden scenarios stand in for the two-model confirmation protocol
 
 **Decision (John):** Phase 5 does NOT run the spec's two-model parameter protocol (spec 3.4 Layer 1,
