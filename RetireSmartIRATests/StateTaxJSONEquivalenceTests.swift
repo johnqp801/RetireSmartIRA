@@ -542,7 +542,11 @@ struct StateTaxJSONEquivalenceTests {
     ///   `scenarioRothConversionAmount`, `pensionIncome`, and
     ///   `primaryAge`/`spouseAge` directly, all of which this grid varies;
     ///   9 of its 10 scenarios (all but "zero income") diverge.
-    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa]
+    /// - Georgia: Phase 5a Task 5 touches `taxSystem.rate` and
+    ///   `stateDeduction`, both of which apply to every scenario with any
+    ///   positive taxable income; 9 of its 10 scenarios (all but "zero
+    ///   income", which computes $0 either way) diverge.
+    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .georgia]
 }
 
 // MARK: - PHASE 1 GATE, Layer B: structural equivalence (decode is lossless)
@@ -606,7 +610,11 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///
     /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
     ///   special session).
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa]
+    /// - Georgia: Phase 5a Task 5, `taxSystem.rate` corrected from 0.0539 to
+    ///   0.0499 and `stateDeduction` raised from $12,000/$24,000 to
+    ///   $15,000/$30,000 (HB 463, Economic Growth and Tax Relief Act of
+    ///   2026, signed 2026-05-11).
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .georgia]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different

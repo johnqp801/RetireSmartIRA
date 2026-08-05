@@ -14,12 +14,7 @@
       "pensionIncome": 20000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 249.50,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-GA.json's config still carries the pre-HB463 rate (0.0539) and fixed standard deduction ($12,000/$24,000); Georgia's Economic Growth and Tax Relief Act of 2026 cut the rate to 4.99% and raised the standard deduction to $15,000/$30,000 retroactive to January 1, 2026, confirmed on Georgia DOR's own 'Important Tax Updates' page. The retirement-exclusion age/dollar mechanics the 2026-08-02 audit checked are unaffected and correct in every case in this file; only the rate and the deduction are stale.",
-        "observedToday": 431.20
-      }
+      "expectedStateTax": 249.50
     },
     {
       "name": "single, age 63, squarely in the 62-64 tier: $35,000 exclusion cap exercised",
@@ -33,12 +28,7 @@
       "pensionIncome": 60000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 499.00,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Same stale rate/deduction mechanism as the first scenario in this file (RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-GA.json's config still carries 0.0539 and the $12,000 single standard deduction). The 62-64 age-tier $35,000 exclusion cap this case exercises for the first time in this file is applied correctly; only the rate and the deduction are stale.",
-        "observedToday": 700.70
-      }
+      "expectedStateTax": 499.00
     },
     {
       "name": "single, age 66, above $65,000 cap: excess retirement income is taxed",
@@ -52,12 +42,7 @@
       "pensionIncome": 100000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 998.00,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Same stale rate/deduction mechanism as the first scenario in this file; the $65,000 age-65+ exclusion cap and its correct application to this single filer are unaffected.",
-        "observedToday": 1239.70
-      }
+      "expectedStateTax": 998.00
     },
     {
       "name": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
@@ -71,12 +56,7 @@
       "pensionIncome": 200000,
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 1996.00,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Same stale rate/deduction mechanism as the first scenario in this file. The per-individual doubling this case exercises (exemptionAppliesPerIndividual, pensionAndIRAShareSingleCap) is correctly configured and produces the right $130,000 combined cap -- unlike Colorado and Kentucky in this same batch, Georgia's MFJ attribution is not broken.",
-        "observedToday": 2479.40
-      }
+      "expectedStateTax": 1996.00
     },
     {
       "name": "MFJ, only primary spouse qualifies (65+ with pension); spouse is 55 and still working",
@@ -91,12 +71,7 @@
       "iraWithdrawals": 0,
       "rothConversion": 0,
       "otherOrdinaryIncome": 50000,
-      "expectedStateTax": 1247.50,
-      "knownDefect": {
-        "tier": "tier1",
-        "summary": "Same stale rate/deduction mechanism as the first scenario in this file; the single-qualifying-spouse exclusion mechanic is correctly configured and unaffected.",
-        "observedToday": 1670.90
-      }
+      "expectedStateTax": 1247.50
     }
   ]
 }

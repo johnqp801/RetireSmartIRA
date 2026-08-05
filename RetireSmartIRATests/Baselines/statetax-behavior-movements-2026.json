@@ -142,5 +142,157 @@
     "state": "IA",
     "goldenCase": "single, age 60, IRA withdrawal fully excluded under HF 2317 -- the app's .none/.none invents Iowa tax on retirement income",
     "justification": "Age 63 clears Iowa's 55-year gate (Iowa has no separate early-age tier), so the $40,000 IRA distribution scalar is fully excluded under HF 2317; the taxable Social Security portion is unaffected since Iowa already exempted Social Security."
+  },
+  {
+    "key": "GA|single 55, distributions only",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Georgia's flat rate was 5.39% against the corrected 4.99%, and the standard deduction was $12,000 single against the corrected $15,000, per HB 463 (Economic Growth and Tax Relief Act of 2026, signed 2026-05-11, Georgia DOR's Important Tax Updates page). Age 55 is below Georgia's 62-64 early tier, so no retirement income exclusion applies to this IRA distribution scalar either way; only the rate and deduction move this value, the same mechanism the golden case documents for a filer below the 62 floor."
+  },
+  {
+    "key": "GA|single 58, distributions only",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Same stale rate/deduction correction as age 55; age 58 is still below Georgia's 62-64 early tier, so the IRA distribution scalar has no exclusion to lose. Only the rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 59, distributions only",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Same stale rate/deduction correction; age 59 is still below Georgia's 62-64 early tier, so the IRA distribution scalar has no exclusion to lose. Only the rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 55 rmd rows not scenario distributions",
+    "before": 3234.0,
+    "after": 2994.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "The .rmd-typed income row is age 55, below Georgia's 62-64 early tier, so it has no exclusion to lose regardless of which income path carries it. Only the stale rate and deduction move this value, identically to the scalar-distribution scenarios at the same age."
+  },
+  {
+    "key": "GA|MFJ 57 with spouse 61",
+    "before": 6468.0,
+    "after": 5988.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Primary 57 and spouse 61 are both below Georgia's 62-64 early tier (which starts at 62), so neither independently qualifies and the $50,000 distribution scalar has no exclusion to lose under IT-511's 'each must qualify on a separate basis' rule. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 61 with spouse 56",
+    "before": 6468.0,
+    "after": 5988.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Primary 61 and spouse 56 are both below Georgia's 62-64 early tier, so neither qualifies and the $50,000 distribution scalar has no exclusion to lose. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 56 with spouse 55, both below the gate",
+    "before": 6468.0,
+    "after": 5988.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Both spouses (56 and 55) are below Georgia's 62-64 early tier, so neither qualifies and the $50,000 distribution scalar has no exclusion to lose. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 54 conversion 80k",
+    "before": 7546.000000000001,
+    "after": 6986.0,
+    "state": "GA",
+    "goldenCase": "single, age 60, below the 62 floor: no retirement income exclusion",
+    "justification": "Age 54 is below Georgia's 62-64 early tier, so the $30,000 distribution scalar has no exclusion to lose; Georgia's config carries no rothConversionExemption field, so the $80,000 conversion is fully taxable regardless of age or rate. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 62 conversion 100k no withholding",
+    "before": 7546.000000000001,
+    "after": 6986.0,
+    "state": "GA",
+    "goldenCase": "single, age 63, squarely in the 62-64 tier: $35,000 exclusion cap exercised",
+    "justification": "Age 62 clears Georgia's 62-64 early tier, so the $20,000 distribution scalar sits entirely under the $35,000 cap and is fully excluded, the same mechanism the golden case exercises. Georgia's config carries no rothConversionExemption field, so the $100,000 conversion is fully taxable either way; only the stale rate and deduction, plus the now-correctly-applied tier exclusion, move this value."
+  },
+  {
+    "key": "GA|single 62 conversion 100k with 22k withheld",
+    "before": 7546.000000000001,
+    "after": 6986.0,
+    "state": "GA",
+    "goldenCase": "single, age 63, squarely in the 62-64 tier: $35,000 exclusion cap exercised",
+    "justification": "Identical to the no-withholding case: Georgia has no rothConversionExemption field, so the withheld amount is not a distinguishing input and both scenarios compute the same result. Age 62 clears the 62-64 tier so the $20,000 distribution scalar is fully excluded; only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 63 in the early age tier",
+    "before": 1994.3000000000002,
+    "after": 1846.3,
+    "state": "GA",
+    "goldenCase": "single, age 63, squarely in the 62-64 tier: $35,000 exclusion cap exercised",
+    "justification": "Age 63 falls squarely in Georgia's 62-64 tier; the $40,000 distribution scalar exceeds the $35,000 cap so $5,000 remains taxable, the exact mechanism the golden case exercises. The taxable Social Security portion is unaffected since Georgia already exempts Social Security. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 65 pension, total 95k",
+    "before": 1617.0,
+    "after": 1497.0,
+    "state": "GA",
+    "goldenCase": "single, age 66, above $65,000 cap: excess retirement income is taxed",
+    "justification": "Age 65 clears the 65+ regular tier; the $80,000 pension exceeds the $65,000 cap so $15,000 remains taxable, the same excess-above-cap mechanism the golden case exercises. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 68 pension, total 120k",
+    "before": 2964.5,
+    "after": 2744.5,
+    "state": "GA",
+    "goldenCase": "single, age 66, above $65,000 cap: excess retirement income is taxed",
+    "justification": "Age 68 clears the 65+ regular tier; the $100,000 pension exceeds the $65,000 cap so $35,000 remains taxable, the same excess-above-cap mechanism the golden case exercises. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|single 68 pension, total 140k",
+    "before": 4042.5000000000005,
+    "after": 3742.5,
+    "state": "GA",
+    "goldenCase": "single, age 66, above $65,000 cap: excess retirement income is taxed",
+    "justification": "Age 68 clears the 65+ regular tier; the $110,000 pension exceeds the $65,000 cap so $45,000 remains taxable, the same excess-above-cap mechanism the golden case exercises. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 68 both qualify, pension + IRA",
+    "before": 754.6,
+    "after": 698.6,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Both spouses (68 and 67) are 65+, so the per-individual doubling this golden case documents applies here too: combined cap $130,000 against $100,000 of pension plus IRA distribution, fully excluded. Only the stale rate and deduction move this value; the doubling mechanic is unaffected and correct."
+  },
+  {
+    "key": "GA|MFJ 68 pension, total 120k",
+    "before": 431.20000000000005,
+    "after": 399.2,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Both spouses are 68 and 65+, so the same per-individual doubling applies: combined cap $130,000 against the $110,000 pension, fully excluded. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 68 pension, total 140k",
+    "before": 1509.2,
+    "after": 1397.2,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Same as the MFJ $120k case at the same ages: the $110,000 pension is fully excluded under the $130,000 combined cap. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ 68 pension, total 200k over the cliff",
+    "before": 4743.200000000001,
+    "after": 4391.2,
+    "state": "GA",
+    "goldenCase": "MFJ, both spouses 65+ and both have their own retirement income: the per-individual doubling IS correctly configured for GA",
+    "justification": "Georgia's retirement exclusion has no income cliff or income limit, unlike the NJ-style phaseout this scenario is named for; both spouses clear 65+ so the $110,000 pension is fully excluded under the $130,000 combined cap regardless of the $200,000 total. Only the stale rate and deduction move this value."
+  },
+  {
+    "key": "GA|MFJ status but spouse disabled, 66",
+    "before": 1563.1000000000001,
+    "after": 1447.1,
+    "state": "GA",
+    "goldenCase": "MFJ, only primary spouse qualifies (65+ with pension); spouse is 55 and still working",
+    "justification": "With enableSpouse false, only the primary (66, 65+) is counted, the same single-qualifying-spouse mechanic the golden case exercises; the $80,000 pension exceeds the $65,000 individual cap so $15,000 remains taxable. Only the stale rate and deduction move this value."
   }
 ]

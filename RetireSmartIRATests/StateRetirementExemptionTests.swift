@@ -116,16 +116,23 @@ struct StateRetirementExemptionTests {
         #expect(tax == 0, "GA partial exemption should cover $50K (under $65K cap). Got \(tax)")
     }
 
-    @Test("GA: retirement-age $80K IRA distribution → state tax on $15K excess")
+    @Test("GA: retirement-age $100K IRA distribution → state tax on the $35K excess above the $65K cap")
     func gaRetirementAgeIRAExceedsCap() {
-        let dm = makeDM(state: .georgia, birthYear: 1961, extraWithdrawal: 80_000)
+        // HB 463 (Economic Growth and Tax Relief Act of 2026, signed
+        // 2026-05-11) raised GA's single standard deduction to $15,000 for
+        // TY2026 (Georgia DOR, Important Tax Updates page). The original
+        // $80K figure here landed exactly on that deduction's new
+        // zero-crossing point ($80K - $65K cap = $15K excess, minus the
+        // $15K deduction = $0 taxable), which stopped this test from
+        // discriminating "some tax" from "no tax." $100K restores that
+        // margin: $100K - $65K cap = $35K excess, minus the $15K deduction
+        // = $20K taxable.
+        let dm = makeDM(state: .georgia, birthYear: 1961, extraWithdrawal: 100_000)
         let tax = dm.scenarioStateTax
-        // $80K - $65K cap = $15K exemption-eligible amount remains exposed.
-        // After GA's $12K single standard deduction → $3K taxable * 5.39% ≈ $162.
         // We bound loosely since the exact computation depends on
         // standard-deduction interaction with the exemption.
-        #expect(tax > 0, "GA should still tax the $15K above the $65K cap. Got \(tax)")
-        #expect(tax < 1_000, "GA tax should reflect only the excess, not the full $80K. Got \(tax)")
+        #expect(tax > 0, "GA should still tax the $35K above the $65K cap. Got \(tax)")
+        #expect(tax < 2_000, "GA tax should reflect only the excess, not the full $100K. Got \(tax)")
     }
 
     // MARK: - Age threshold edge cases
@@ -785,11 +792,15 @@ struct StateRetirementExemptionTests {
         dm.yourExtraWithdrawal = 60_000
 
         let tax = dm.scenarioStateTax
-        // $60K IRA at age 64. Only $35K exempt. Remaining $25K subject to GA
-        // state deduction ($12K single) + 5.39% flat rate. After deductions:
-        // taxable ≈ $25K - $12K = $13K. Tax ≈ $13K × 0.0539 = $701. Allow
+        // $60K IRA at age 64. Only $35K exempt. Remaining $25K subject to GA's
+        // corrected TY2026 standard deduction ($15K single) and 4.99% flat
+        // rate, per HB 463 (Economic Growth and Tax Relief Act of 2026,
+        // signed 2026-05-11; Georgia DOR, Important Tax Updates page). After
+        // deductions: taxable = $25K - $15K = $10K. Tax = $10K × 0.0499 =
+        // $499, matching this app's own golden fixture (statetax-2026-GA.
+        // golden.json, "single, age 63, squarely in the 62-64 tier"). Allow
         // wide margin since state deduction handling may vary.
-        #expect(tax > 500 && tax < 1500,
+        #expect(tax > 400 && tax < 600,
                 "GA age 64 should partially tax IRA. Got \(tax)")
     }
 
@@ -1034,9 +1045,9 @@ struct StateRetirementExemptionTests {
     }
 
     /// O.C.G.A. § 48-7-27(a)(5) is a SINGLE retirement-income exclusion
-    /// (not separate caps for pension and IRA). At age 65+ with $40K
-    /// pension + $40K IRA, only $65K combined should exempt.
-    @Test("GA single age 65, \\$40K pension + \\$40K IRA → \\$65K shared cap (not \\$65K + \\$65K)")
+    /// (not separate caps for pension and IRA). At age 65+ with $50K
+    /// pension + $50K IRA, only $65K combined should exempt.
+    @Test("GA single age 65, \\$50K pension + \\$50K IRA → \\$65K shared cap (not \\$65K + \\$65K)")
     func gaSharedCapBothIncomeTypes() {
         let dm = DataManager(skipPersistence: true)
         var dob = DateComponents(); dob.year = 1961; dob.month = 1; dob.day = 1
@@ -1045,14 +1056,28 @@ struct StateRetirementExemptionTests {
         dm.selectedState = .georgia
         dm.filingStatus = .single
         dm.incomeSources = [
-            IncomeSource(name: "Pension", type: .pension, annualAmount: 40_000)
+            IncomeSource(name: "Pension", type: .pension, annualAmount: 50_000)
         ]
-        dm.yourExtraWithdrawal = 40_000
+        dm.yourExtraWithdrawal = 50_000
 
         let tax = dm.scenarioStateTax
-        // Total retirement income: $40K + $40K = $80K.
-        // Single GA exclusion: $65K → $15K state-taxable retirement.
-        // GA $12K state deduction → $3K taxable at 5.39% ≈ $162.
+        // Total retirement income: $50K + $50K = $100K.
+        // Single GA exclusion: $65K → $35K state-taxable retirement.
+        // HB 463 (Economic Growth and Tax Relief Act of 2026, signed
+        // 2026-05-11) raised GA's TY2026 single standard deduction to $15K
+        // and cut the flat rate to 4.99% (Georgia DOR, Important Tax
+        // Updates page): $35K - $15K = $20K taxable, tax = $20K × 0.0499 =
+        // $998, matching this app's own golden fixture
+        // (statetax-2026-GA.golden.json, "single, age 66, above $65,000
+        // cap"). The original $40K + $40K = $80K figure landed exactly on
+        // HB 463's new zero-crossing point (($80K - $65K cap) - $15K
+        // deduction = $0), which stopped this test from discriminating
+        // the shared-cap fix from the pre-fix double-cap bug (both would
+        // now compute $0 on $80K, since $80K is also under the buggy
+        // $130K double cap). $50K + $50K restores that margin: it stays
+        // under the $130K double cap (so the pre-fix bug would still show
+        // $0) while clearing the new $80K zero-crossing point (so the
+        // shared-cap fix shows non-zero tax).
         // Pre-fix engine would have given separate $65K caps = $130K cap →
         // $0 taxable retirement → $0 tax. Post-fix must show non-zero tax.
         #expect(tax > 100,
