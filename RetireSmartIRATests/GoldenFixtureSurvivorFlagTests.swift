@@ -73,37 +73,78 @@ struct GoldenFixtureSurvivorFlagTests {
                 """)
     }
 
+    /// Expected flag, per CASE and per ROW POSITION within that case.
+    ///
+    /// Keyed on a distinguishing substring of each scenario's name rather than
+    /// on its index, so reordering the fixture does not silently re-point an
+    /// expectation at the wrong case. Each substring must match exactly one
+    /// scenario, which `dcFixtureFlagsEachSurvivorRowByCase` asserts.
+    ///
+    /// `nil` means the key is absent, which is the only correct encoding for
+    /// "not a survivor benefit": absent means not stated, and no row may
+    /// assert `false`.
+    static let dcExpectedFlags: [(nameContains: String, flags: [Bool?])] = [
+        // DC-1: survivor, but aged 55, so the age gate makes it taxable. Still
+        // a survivor benefit, and flagged, because it is the case that proves
+        // the age gate does the work.
+        ("age 55", [true]),
+        // DC-2: survivor, 65, the District's own government pension.
+        ("age 65 (62+)", [true]),
+        // DC-3: MFJ, both spouses survivors.
+        ("both survivors", [true, true]),
+        // DC-4: survivor spouse, then the other spouse's OWN private pension.
+        ("one spouse (65)", [true, nil]),
+        // DC-5: the holder's OWN federal civilian pension. The designated
+        // NEGATIVE of DC's survivor rule. It must never carry the flag.
+        ("OWN federal civil service pension", [nil])
+    ]
+
     /// The fixture-level guard. The unit tests above prove the TYPE can carry
     /// the flag; this proves DC's actual bundled file does, end to end through
     /// `GoldenScenario.load`. Without it, someone could delete the field from
     /// the type and only the unit tests would notice, while DC's fixture went
     /// back to carrying its survivor stipulation in prose alone.
     ///
-    /// Counts rather than names: DC-1 (age 55, fails the age gate), DC-2 (age
-    /// 65), DC-3 (both MFJ spouses) and DC-4 (one of two spouses) contribute
-    /// five survivor rows between them. DC-4's second row is the other
-    /// spouse's OWN private pension and DC-5 is the holder's OWN federal
-    /// civilian pension, so exactly two rows must carry no flag.
-    @Test("DC's bundled fixture carries the survivor flag on its survivor rows and only those")
-    func dcFixtureCarriesTheFlag() throws {
+    /// Asserts CASE IDENTITY, not totals. An earlier version of this test
+    /// asserted only that the file carried five flagged rows and two unflagged
+    /// ones, and that was not good enough: DC-1's row and DC-5's row are
+    /// byte-identical apart from the flag, so SWAPPING the two leaves both
+    /// counts unchanged and a count-based test green, with DC-5 (the survivor
+    /// rule's designated negative) wrongly flagged and DC-1 wrongly bare. That
+    /// swap is not hypothetical. It is the exact slip that happened while this
+    /// fixture was being edited, caught by reading the file back rather than
+    /// by any test. This version fails on it.
+    @Test("DC's bundled fixture flags each survivor row, case by case, and never DC-5")
+    func dcFixtureFlagsEachSurvivorRowByCase() throws {
         let file = try GoldenScenario.load(abbreviation: "DC")
-        let rows = file.scenarios.flatMap { $0.classifiedPensionSources ?? [] }
-        let survivors = rows.filter { $0.isSurvivorBenefit == true }
-        let unflagged = rows.filter { $0.isSurvivorBenefit == nil }
+        #expect(file.scenarios.count == Self.dcExpectedFlags.count,
+                """
+                DC's fixture has \(file.scenarios.count) scenarios, but this test carries \
+                \(Self.dcExpectedFlags.count) expectations. A case was added or removed \
+                without deciding what its survivor flag should be.
+                """)
 
-        #expect(survivors.count == 5,
-                """
-                DC's fixture carries \(survivors.count) survivor-flagged rows, expected 5. \
-                If the flag stopped decoding, this is where it shows up: the JSON still \
-                says "isSurvivorBenefit": true and the loaded value would be nil.
-                """)
-        #expect(unflagged.count == 2,
-                """
-                DC's fixture carries \(unflagged.count) unflagged rows, expected 2 (DC-4's \
-                private-pension spouse and DC-5's own federal civilian pension). A third \
-                would mean a survivor row lost its flag; a first would mean an own-pension \
-                row wrongly gained one, which is the distinction DC's rule turns on.
-                """)
+        for expectation in Self.dcExpectedFlags {
+            let matches = file.scenarios.filter { $0.name.contains(expectation.nameContains) }
+            #expect(matches.count == 1,
+                    """
+                    "\(expectation.nameContains)" matches \(matches.count) DC scenarios, \
+                    expected exactly 1. A renamed case would otherwise drop out of this \
+                    sweep silently, taking its flag assertion with it.
+                    """)
+            guard let scenario = matches.first else { continue }
+            let flags = (scenario.classifiedPensionSources ?? []).map(\.isSurvivorBenefit)
+            #expect(flags == expectation.flags,
+                    """
+                    DC / \(scenario.name)
+                    survivor flags \(flags), expected \(expectation.flags).
+                    A `true` where `nil` belongs means an OWN pension is being claimed as a \
+                    survivor benefit, which is exactly the distinction D.C. Code \
+                    47-1803.02(a)(2)(N)(ii) turns on.
+                    """)
+        }
+
+        let rows = file.scenarios.flatMap { $0.classifiedPensionSources ?? [] }
         #expect(rows.allSatisfy { $0.isSurvivorBenefit != false },
                 "No DC row should assert isSurvivorBenefit: false; absent means not stated.")
     }
@@ -116,7 +157,13 @@ struct GoldenFixtureSurvivorFlagTests {
     func onlyDCUsesTheFlagToday() throws {
         var offenders: [String] = []
         for abbreviation in GoldenScenarioCoverageTests.covered where abbreviation != "DC" {
-            guard let file = try? GoldenScenario.load(abbreviation: abbreviation) else { continue }
+            // `try`, not `try?`: a fixture that stops decoding must fail this
+            // sweep, not drop out of it. Every abbreviation in `covered` is
+            // guaranteed to load by
+            // `GoldenScenarioCoverageTests.everyJurisdictionHasAFixture`, so
+            // a throw here is a real regression, and swallowing it would make
+            // this test quietly stop checking whatever file broke.
+            let file = try GoldenScenario.load(abbreviation: abbreviation)
             for scenario in file.scenarios {
                 for row in scenario.classifiedPensionSources ?? []
                 where row.isSurvivorBenefit != nil {
