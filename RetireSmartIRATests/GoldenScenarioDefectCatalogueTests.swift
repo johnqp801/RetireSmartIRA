@@ -306,6 +306,68 @@ struct GoldenScenarioDefectCatalogueTests {
                 MILITARY exclusion must not be written against `federalCivilian`,
                 because mass.gov treats federal civilian pay under a separate heading.
                 """
+        ),
+        UnpinnedDefect(
+            state: "HI",
+            summary: """
+                Hawaii's pension exclusion applies to the EMPLOYER-FUNDED PORTION of a
+                pension: "The pension exclusion applies only to amounts attributable to
+                employer contributions" (Hawaii Schedule J Instructions, REV 2025, page
+                2, quoted in full by the HI-1 golden case). A PARTIALLY employer-funded
+                pension, which is what every contributory defined-benefit plan is,
+                therefore carries a partial exclusion. This app applies NONE of it: no
+                field on `RetirementPlanClassification` records who funded a plan, so
+                `statetax-2026-HI.json` ships no `perSourceExemptions` at all and every
+                Hawaii pension dollar is taxed at Hawaii's 12-bracket schedule. The
+                direction is OVER-taxation, the same direction as the Kansas TSP entry
+                above and the safer of the two errors available. The fully
+                employer-funded endpoint of this same defect IS pinned, by HI-1, HI-3
+                and HI-4, which is why this entry is about the middle of the range and
+                not about those three.
+                """,
+            blockedOn: """
+                BOTH blocker kinds at once, which no earlier entry in this list has, and
+                either one alone would be enough. Kind 1, NO ADMISSIBLE FIGURE: the
+                correct `expectedStateTax` depends on what share of a particular
+                household's pension the employer funded. That is a fact about one plan
+                and one participant, not a figure any published source states, so no
+                citable number exists to derive an expected value from.
+                Kind 2, NOT EXPRESSIBLE: the household cannot be described
+                distinguishably. A
+                contributory defined-benefit pension and the fully noncontributory one
+                HI-1 already pins are the SAME classification,
+                `(definedBenefit, privateEmployer)` (or the same pair at any other
+                source), so a fixture for the contributory household would carry inputs
+                byte-identical to HI-1's and a contradictory `expectedStateTax`.
+
+                This is also the record of WHY Hawaii ships no rule, which is Phase 5b
+                Task 5's whole deliverable. Task 5 measured the alternative rather than
+                arguing it: a rule of `matchStructures: ["definedBenefit"]` with an empty
+                `matchSources` was temporarily added to the shipped Hawaii config, and
+                the golden suite reported HI-1, HI-3 and HI-4 as ALL THREE matching their
+                published form ($0.00, $0.00, $266.00) with no fixture objecting, while
+                that rule silently granted a full Hawaii exclusion to every contributory
+                defined-benefit pension including every federal civilian annuity. Trading
+                a disclosed over-taxation for an undisclosed under-taxation over a larger
+                population is the wrong direction, and the plan's own Step 3 ("if the
+                fixture set has no case that would catch that, ADD one") cannot be
+                satisfied here, per kind 2 above.
+
+                Resolving it needs the SAME third axis the Massachusetts contributory
+                entry above names, and Task 5's finding is that the two jurisdictions do
+                not want the same shape of it: Massachusetts needs a CATEGORICAL fact
+                (contributory excluded, noncontributory taxable, mass.gov's own closed
+                list), while Hawaii needs a PROPORTION. A boolean axis designed from
+                Massachusetts would be exactly right for Massachusetts and right only at
+                the two endpoints for Hawaii, silently wrong for every partially
+                employer-funded plan in between, which is most of them. Design it against
+                both, in a model task, per this phase's own precedent that a shared
+                classification axis lands in the model task (`isSurvivorBenefit`, Task 1)
+                and is consumed by the jurisdiction tasks rather than invented by one of
+                them. Until then Hawaii stays "disclosed, not modelled" per Phase 4, and
+                the disclosure is live in two places: `IncomeSourcesView.swift`'s Hawaii
+                caption and `MultiYearCPABriefing.hawaiiPensionSplitLimitation`.
+                """
         )
     ]
 
