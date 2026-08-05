@@ -1,0 +1,113 @@
+{
+  "state": "ID",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single filer, CSRS pension, age 60 (below the general 65 threshold, not disabled): correctly no deduction either way -- contrast/regression case",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7, 'Line 8 Retirement Benefits Deduction', 'Part One - Age, Disability, and Marital/Filing Status': 'The recipients must be at least age 65 or be classified as disabled and be at least age 62.' At age 60 and not disabled, this taxpayer fails Part One entirely, so no deduction is available regardless of the pension's source. Arithmetic: federal standard deduction (age 60, not 65+, no OBBBA senior bonus) = $16,100 base only. $40,000 - $16,100 = $23,900 taxable x 5.3% flat rate = $1,266.70.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1266.70
+    },
+    {
+      "name": "single filer, CSRS pension, age 68 (above the general 65 threshold): qualifies for the Retirement Benefits Deduction, engine grants nothing",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7-8: Part One (age 65+ satisfied at 68), Part Two 'Qualified Retirement Benefits': 'Civil Service Employees: Retirement annuities paid by the U.S. Civil Service Retirement System (CSRS)...To qualify for the deduction, the employee must have established eligibility before 1984.' Page 7, Line 8a: maximum deductible for 2025 is $48,216 single, reduced dollar-for-dollar by Social Security/Railroad Retirement Act benefits received (none in this fixture). This fixture stipulates the CSRS eligibility (established before 1984) in prose, as ClassifiedPensionSource has no field for it. Arithmetic: standard deduction (age 68, 65+) = $16,100 base + $2,050 age-65 addition + $6,000 full OBBBA senior bonus (MAGI $40,000 under the $75,000 threshold) = $24,150. $40,000 - $24,150 = $15,850 before the retirement deduction. The $40,000 CSRS pension is eligible up to the lesser of itself or $48,216, i.e. the full $40,000, which exceeds the $15,850 remaining and floors taxable income at $0. Tax = $0.00.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 68,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "CSRS retirement annuities qualify for Idaho's Retirement Benefits Deduction (Form 39R Line 8) once the recipient is 65+; statetax-2026-ID.json has no perSourceExemptions and pensionExemption is 'none', so the engine grants no deduction at all.",
+        "observedToday": 840.05
+      }
+    },
+    {
+      "name": "single filer, military retired pay, age 63: Idaho's Retirement Benefits Deduction for service members uses a SEPARATE, more lenient age gate (62, or any age if disabled) than the general 65 threshold -- qualifies here where a CSRS pension at the same age would not",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7-8, 'Line 8e. The Idaho Retirement Benefits Deduction for Retired Service Members. You must meet at least one of the following: Classified as disabled (any age), or Age 62 or older, or...' -- a distinct, more lenient age test than Part One's general 65-or-62-disabled gate, which does not apply to Line 8e. This app's PlanSource enum has no case for military retired pay distinct from federal civilian service; 'federalCivilian' is used as the closest available label, disclosed as an imprecise fit. Arithmetic: standard deduction (age 63, under 65, no age addition, no OBBBA bonus) = $16,100 base only. $40,000 - $16,100 = $23,900 before the retirement deduction. The $40,000 military pension is eligible up to the lesser of itself or $48,216, exceeding the $23,900 remaining, flooring taxable income at $0. Tax = $0.00.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 63,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Retired service members qualify for Idaho's Retirement Benefits Deduction at age 62 (not 65) per Form 39R Line 8e, a distinct gate from Part One's general rule; the engine has no age-tiered or per-source retirement deduction of any kind for ID, granting nothing. PHASE 5 WARNING: this file's only under-62 case is ID-1 (age 60), so a single age-62 gate applied to (federalCivilian, definedBenefit) would turn all five ID cases in this file green while encoding 62 as the CSRS civilian gate too, when the real CSRS gate is 65 (ID-2's own citation, Form 39R Part One). A green ID suite does NOT mean Idaho's age gates are correct.",
+        "observedToday": 1266.70
+      }
+    },
+    {
+      "name": "MFJ, both spouses 68/70 with CSRS pensions totaling $80,000: exceeds the $72,324 MFJ deduction cap -- tests the income-limited cap straddle",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7, Line 8a: 'Married filing jointly...$72,324' maximum for 2025. Arithmetic: standard deduction (both 65+, MAGI $80,000 under $150,000 MFJ threshold) = $32,200 base + $1,650 x 2 age-65 additions + $6,000 x 2 full OBBBA senior bonuses = $47,500. $80,000 - $47,500 = $32,500 before the retirement deduction. Combined CSRS pensions of $80,000 are eligible only up to the $72,324 MFJ cap, which still exceeds the $32,500 remaining and floors taxable income at $0. Tax = $0.00.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 70,
+      "federalAGI": 80000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 45000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both spouses' CSRS pensions qualify for the MFJ Retirement Benefits Deduction (capped at $72,324); the engine grants nothing, taxing the full $80,000 household income.",
+        "observedToday": 1722.50
+      }
+    },
+    {
+      "name": "MFJ, one spouse's CSRS pension qualifies (age 68) and the other spouse's private pension does not (age 55, and private pensions are never on Idaho's qualifying list regardless of age): one spouse qualifies",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7-8, Part Two 'Qualified Retirement Benefits' -- a closed list (CSRS/FSRDS, PERSI firefighters, certain Idaho police, retired service members); a private-employer pension is not on it at any age. Arithmetic: standard deduction (primary 68, 65+; spouse 55, not 65+; MAGI $70,000 under thresholds) = $32,200 base + $1,650 age-65 addition (primary only) + $6,000 OBBBA senior bonus (primary only) = $39,850. $70,000 - $39,850 = $30,150 before the retirement deduction. The $40,000 CSRS pension is eligible up to the lesser of itself or $72,324, exceeding the $30,150 remaining, flooring taxable income at $0; the $30,000 private pension is not eligible at all but the floor already reached $0 regardless. Tax = $0.00.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 55,
+      "federalAGI": 70000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 30000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Only the CSRS spouse's pension should be deductible; the engine grants no retirement deduction at all for ID, taxing the full $70,000 household income.",
+        "observedToday": 1597.95
+      }
+    }
+  ]
+}

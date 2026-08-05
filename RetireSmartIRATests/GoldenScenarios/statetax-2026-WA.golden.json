@@ -1,0 +1,101 @@
+{
+  "state": "WA",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "SCHEMA LIMITATION (see batch report): single, gain below the standard deduction -- coincidental $0 match, not a retirement-income case at all, filing status/age vary in place of a nonexistent age threshold",
+      "source": "Washington has no general income tax and no retirement-income exemption of any kind to test; this app's engine models Washington as capitalGainsTreatment: .noStateTax with taxSystem: .specialLimited (RetireSmartIRA/StateTaxData.swift line 650-661, code comment: 'Washington: No general income tax. 7% capital gains tax on gains > $250K (long-term only) ... WA cap gains tax handled separately') and TaxCalculationEngine.swift line 396 routes .specialLimited straight to tax = 0, with no separate capital-gains code path anywhere in the engine -- the comment describes a tax the engine does not actually compute. Washington DOES levy a real long-term capital gains excise tax (RCW 82.87, enacted by ESSB 5096, 2021), confirmed via the official Washington Department of Revenue page (dor.wa.gov/taxes-rates/other-taxes/capital-gains-tax, fetched directly, no 403): 'The standard deduction for 2025 is $278,000... per year per individual, married couple, or domestic partnership. The standard deduction amount is adjusted for inflation annually.' The 2026 standard deduction has NOT been published as of this research (checked directly on the same DOR page and via search); this fixture uses the 2025 figure ($278,000) and states that explicitly rather than projecting a 2026 number, per this task's Washington instruction. SCHEMA LIMITATION: GoldenScenario (RetireSmartIRATests/GoldenScenario.swift) has no field for capital gains -- pensionIncome, iraWithdrawals, rothConversion and taxableSocialSecurity are all retirement-account concepts that do not apply to a brokerage-account long-term capital gain, and otherOrdinaryIncome is documented as 'Ordinary income,' which a capital gain is not. This fixture carries the gain amount in otherOrdinaryIncome SOLELY to satisfy the federalAGI shape invariant (federalAGI = sum of declared components); it is not a claim that this is ordinary income, wage income, or retirement income, and it is exactly the kind of case the batch instructions direct be flagged as a schema limitation rather than silently worked around. This fixture is not exercised by GoldenScenarioCrossPathTests.pathsAgree because `agreeing` (GoldenScenarioCrossPathTests.swift:50) is a hardcoded list, ['PA', 'IL', 'MS']; Washington's absence from that suite is automatic and definitional, not a consequence of carrying its gain in otherOrdinaryIncome or of any other field choice in this fixture -- WA would be excluded from `agreeing` regardless of which field carried the dollar figure, since the multi-year runner also has no capital-gains concept to exercise here. Arithmetic: gross long-term capital gain = $150,000, below the $278,000 standard deduction, so taxable gain = $0 and real WA tax = $0.00 -- this happens to COINCIDE with the engine's $0 output, but for an entirely different reason (the engine thinks WA has no tax at all; the real law computes a $0 result via a deduction against an actual tax). No knownDefect is recorded for this case because the numbers match, even though the underlying reasoning does not.",
+      "sourceURL": "https://dor.wa.gov/taxes-rates/other-taxes/capital-gains-tax",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 150000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 150000,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "SCHEMA LIMITATION (see batch report): single, gain above the standard deduction, entirely within the 7% tier",
+      "source": "Same WA DOR sources and same schema-limitation caveat as the first WA case in this file (see that case's source for the full explanation; not repeated in full here). New Tiered Rates special notice (dor.wa.gov/forms-publications/publications-subject/special-notices/new-tiered-rates-washingtons-capital-gains-tax, Issue Date June 30, 2025, official WA DOR page, fetched directly): 'Your first $1 million in taxable Washington capital gains is subject to tax at a rate of 7%,' citing ESSB 5813, Chapter 421, Laws of 2025 (signed, enacted -- this is the bill that added the 9.9% tier this task's brief describes; the base 7% tier predates it, from ESSB 5096/RCW 82.87, 2021). Arithmetic: gross gain = $400,000. Taxable gain = 400,000 - 278,000 (2025 standard deduction, 2026 not yet published) = $122,000, entirely within the $1-$1,000,000 tier at 7%. Tax = 122,000 x 7% = $8,540.00. The engine reports $0 (capitalGainsTreatment: .noStateTax, taxSystem: .specialLimited), a full miss of a real, nonzero tax liability.",
+      "sourceURL": "https://dor.wa.gov/forms-publications/publications-subject/special-notices/new-tiered-rates-washingtons-capital-gains-tax",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 400000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 400000,
+      "expectedStateTax": 8540.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "WA's capital gains excise tax (RCW 82.87) is not modeled at all; capitalGainsTreatment is hardcoded to .noStateTax and taxSystem .specialLimited always returns $0 regardless of any realized long-term capital gain.",
+        "observedToday": 0.0
+      }
+    },
+    {
+      "name": "SCHEMA LIMITATION (see batch report): MFJ, same total gain as the single case above, proving the $278,000 standard deduction is ONE deduction per RETURN, not doubled for joint filers",
+      "source": "Same WA DOR sources and schema-limitation caveat as the first two WA cases in this file. The DOR capital gains tax page states the standard deduction is '$278,000... per year per individual, married couple, or domestic partnership' -- a single flat figure regardless of filing status, unlike a typical income tax where the deduction doubles for a joint return. This case uses the SAME total gain ($400,000) as the prior single-filer case specifically to demonstrate that fact: the tax is identical. Arithmetic: gross gain = $400,000 (community/joint asset). Taxable gain = 400,000 - 278,000 = $122,000 (same deduction, not doubled). Tax = 122,000 x 7% = $8,540.00, identical to the single-filer case above. The engine again reports $0.",
+      "sourceURL": "https://dor.wa.gov/taxes-rates/other-taxes/capital-gains-tax",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 67,
+      "spouseAge": 64,
+      "federalAGI": 400000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 400000,
+      "expectedStateTax": 8540.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism as the single-filer $400,000-gain case: WA's capital gains excise tax is entirely unmodeled, so the engine returns $0 regardless of filing status or gain amount.",
+        "observedToday": 0.0
+      }
+    },
+    {
+      "name": "SCHEMA LIMITATION (see batch report): MFJ, gain crosses into the 9.9% tier above $1,000,000 of taxable gain",
+      "source": "Same WA DOR sources and schema-limitation caveat as the other WA cases in this file. New Tiered Rates special notice: 'Any amount of Washington capital gains exceeding $1 million is subject to a 7% tax, plus an additional 2.9% tax' (i.e. 9.9% total on the excess above $1,000,000 of TAXABLE gain, not gross gain) -- table on the same page: '7% | $1 | $1,000,000' and '9.9% | $1,000,001 | And up.' Arithmetic: gross gain = $1,500,000. Taxable gain = 1,500,000 - 278,000 = $1,222,000. First $1,000,000 of taxable gain at 7% = $70,000. Remaining $222,000 at 9.9% = $21,978. Total = 70,000 + 21,978 = $91,978.00. The engine again reports $0, a much larger miss than the 7%-only cases above.",
+      "sourceURL": "https://dor.wa.gov/forms-publications/publications-subject/special-notices/new-tiered-rates-washingtons-capital-gains-tax",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 68,
+      "federalAGI": 1500000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 1500000,
+      "expectedStateTax": 91978.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism, now spanning both tiers: WA's capital gains excise tax (7% then 9.9% above $1M taxable gain) is entirely unmodeled, so the engine returns $0 regardless of tier.",
+        "observedToday": 0.0
+      }
+    },
+    {
+      "name": "SCHEMA LIMITATION (see batch report): single, gross gain set so taxable gain lands EXACTLY at the $1,000,000 tier boundary",
+      "source": "Same WA DOR sources and schema-limitation caveat as the other WA cases in this file. This is the batch's fifth case, testing the precise tier boundary rather than an income-based phase-out (Washington's capital gains tax has no age threshold or phase-out to exercise a fifth case against; this fixture instead tests the two-tier cliff at exactly $1,000,000 of taxable gain, the nearest analogous edge). Arithmetic: gross gain = $1,278,000. Taxable gain = 1,278,000 - 278,000 = $1,000,000 exactly, entirely within the 7% tier ('$1' to '$1,000,000' per the DOR tier table) with none of it reaching the 9.9% tier. Tax = 1,000,000 x 7% = $70,000.00. The engine again reports $0.",
+      "sourceURL": "https://dor.wa.gov/forms-publications/publications-subject/special-notices/new-tiered-rates-washingtons-capital-gains-tax",
+      "filingStatus": "single",
+      "primaryAge": 68,
+      "spouseAge": null,
+      "federalAGI": 1278000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 1278000,
+      "expectedStateTax": 70000.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism, at the exact 7%/9.9% tier boundary: WA's capital gains excise tax is entirely unmodeled, so the engine returns $0 regardless of where the gain falls relative to the $1,000,000 tier threshold.",
+        "observedToday": 0.0
+      }
+    }
+  ]
+}

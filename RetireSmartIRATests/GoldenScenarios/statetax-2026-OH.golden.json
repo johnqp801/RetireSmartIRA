@@ -1,0 +1,101 @@
+{
+  "state": "OH",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 58 (below the senior-credit 65 threshold), pension only, retirement income credit alone",
+      "source": "2025 Ohio IT 1040 booklet (dam.assets.ohio.gov/image/upload/v1767095693/tax.ohio.gov/forms/ohio_individual/individual/2025/it1040-booklet.pdf), printed page 19, '2025 Ohio Income Tax Brackets for Ohio IT 1040' table, TY2025 row: '0 - $26,050: 0.000% of Ohio taxable nonbusiness income' and '$26,050 - $100,000: $342.00 plus 2.750% of the amount in excess of $26,050.' The TY2026 rate is DIFFERENT: H.B. 96 (136th General Assembly, signed by Governor DeWine June 30, 2025, enacted as the FY2026-2027 operating budget) collapsed the top bracket so that ALL income over $26,050 is taxed at a flat 2.75% with a fixed base amount, and separately suspended the annual inflation indexing of the $26,050 threshold and the personal exemption table for TY2025 and TY2026. The TY2026 rate is confirmed by the Legislative Service Commission's bill analysis (H.B. 96, As Passed by the Senate, 136th General Assembly, printed page 484): 'For 2026, the bill further reduces the rate of the top bracket so that a flat rate of 2.75% applies to all income over $26,050,' with the TY2026 table on the same page reading 'More than $26,050: $332 plus 2.75% of the amount over $26,050.' This $332 base amount is a real, documented artifact of Ohio's bracket history (the IT1040 booklet's own worked 'Mitchell' example on printed page 19 computes TY2025 tax the same way: base amount plus 2.75% of the excess) and is NOT modeled anywhere in this app's engine, which has only two brackets (0% to $26,050, then a bare 2.75% with no base amount): TaxCalculationEngine.progressiveTax computes cumulative marginal tax with no per-bracket constant term. Ohio IT 1040 line 4 (2025 IT 1040 booklet printed page 17, 'Line 4 - Personal and Dependent Exemptions'): exemption amount by MAGI band, $40,001-$80,000 -> $2,150 per exemption; H.B. 96 Section 757.120(A) suspends inflation indexing for TY2025-2026 so this table is unchanged for TY2026. Retirement Income Credit (2025 IT 1040 booklet printed page 28, 'Line 2 - Retirement Income Credit'): requires 'Your MAGI less exemptions is less than $100,000' and pension/profit-sharing/retirement-plan income (traditional IRAs and 401(k) plans are named examples) included in Ohio AGI; credit amount from Table 2 (printed page 44): '$8,001 or more -> $200,' capped at $200 per RETURN. Senior Citizen Credit (printed page 28, 'Line 4'): requires age 65+ at year end and MAGI less exemptions under $100,000; not available here (primaryAge 58). Both credits and the Schedule of Credits itself require whole-dollar entries: 'Use only black ink. Use whole dollars only' (2025 Ohio Schedule of Credits, embedded in the official 1040-bundle.pdf at dam.assets.ohio.gov/image/upload/v1758139620/tax.ohio.gov/forms/ohio_individual/individual/2025/1040-bundle.pdf, page 1 of the Schedule of Credits). Arithmetic: Ohio AGI = federalAGI = $50,000 (no SS, no additions/subtractions). Exemption band $40,001-$80,000 -> $2,150 (1 exemption, single). IT 1040 line 5/7 taxable nonbusiness income = 50,000 - 2,150 = $47,850. Line 8a tax = $332 + 2.75% x (47,850 - 26,050) = 332 + 2.75% x 21,800 = 332 + 599.50 = 931.50, rounded per whole-dollar convention (round up at .50) = $932. Retirement income credit: qualifying retirement income $50,000 (pension) -> Table 2 top tier -> $200; MAGI-exemptions = $47,850 is under $100,000, so eligible. Senior credit: $0 (age 58 < 65). Total credits = $200. Tax after credits = 932 - 200 = $732.",
+      "sourceURL": "https://dam.assets.ohio.gov/image/upload/v1767095693/tax.ohio.gov/forms/ohio_individual/individual/2025/it1040-booklet.pdf",
+      "filingStatus": "single",
+      "primaryAge": 58,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 732.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "OH's $332 TY2026 bracket base amount, its MAGI-banded personal exemption (IT1040 line 4), and its retirement income credit (up to $200/return) are all unmodeled; the engine applies a bare 2.75% marginal rate to unreduced federalAGI with no credit.",
+        "observedToday": 658.625
+      }
+    },
+    {
+      "name": "single, age 70 (above the senior-credit threshold), pension only, retirement income credit plus senior citizen credit",
+      "source": "Same TY2026 bracket ($332 base + 2.75% of excess over $26,050, LSC H.B. 96 bill analysis printed page 484) and same MAGI-band personal exemption table (2025 IT 1040 booklet printed page 17: $40,001-$80,000 -> $2,150) as the age-58 case in this file. Retirement Income Credit (2025 IT 1040 booklet printed page 28, Table 2 on printed page 44): qualifying pension income $60,000 -> top tier ($8,001+) -> $200; MAGI-exemptions under $100,000 -> eligible. Senior Citizen Credit (printed page 28, Line 4): 'You were 65 or older at the end of the tax year' and MAGI less exemptions under $100,000 -> $50 per return (R.C. 5747.055(F)). Arithmetic: Ohio AGI = $60,000. Exemption band $40,001-$80,000 -> $2,150. Taxable nonbusiness income = 60,000 - 2,150 = $57,850. Line 8a = 332 + 2.75% x (57,850 - 26,050) = 332 + 2.75% x 31,800 = 332 + 874.50 = 1,206.50, rounds to $1,207 (whole-dollar, round-half-up). Credits: retirement $200 + senior $50 = $250. Tax after credits = 1,207 - 250 = $957.",
+      "sourceURL": "https://dam.assets.ohio.gov/image/upload/v1767095693/tax.ohio.gov/forms/ohio_individual/individual/2025/it1040-booklet.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 957.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism as the age-58 OH case: the $332 bracket base amount, the MAGI-banded personal exemption, and BOTH the retirement income credit and the $50 senior citizen credit are unmodeled.",
+        "observedToday": 933.625
+      }
+    },
+    {
+      "name": "MFJ, both spouses 65+, household retirement income credit and senior credit are capped PER RETURN not doubled",
+      "source": "Same TY2026 bracket and exemption-table sources as the two single cases above; MAGI band for exemption is $40,001-$80,000 -> $2,150 PER exemption, so 2 exemptions (both spouses) = $4,300 (2025 IT 1040 booklet printed page 17). Retirement Income Credit (printed page 28): 'Use Table 2 ... to determine your credit based on your and your spouse's (if filing jointly) TOTAL eligible retirement income. ... The maximum credit per return is $200' -- this is a single combined household cap, not $200 per spouse, even though both spouses have qualifying pension income here. Senior Citizen Credit (printed page 28): 'The credit is equal to $50 per return' -- the Schedule of Credits form (1040-bundle.pdf) has exactly one line for this credit on a joint return, so both spouses being 65+ does not double it. Arithmetic: combined pension = $50,000 (primary) + $30,000 (spouse) = $80,000 = federalAGI. Ohio AGI = $80,000, which falls in the $40,001-$80,000 exemption band (inclusive of $80,000) -> $2,150 x 2 = $4,300. Taxable nonbusiness income = 80,000 - 4,300 = $75,700. Line 8a = 332 + 2.75% x (75,700 - 26,050) = 332 + 2.75% x 49,650 = 332 + 1,365.375, rounds to 332+1,365=$1,697 (whole-dollar convention applied to the 2.75% sub-computation before adding the base, consistent with entering whole-dollar amounts on each line). Retirement credit: household total $80,000 -> Table 2 top tier -> $200 (capped, not doubled). Senior credit: both spouses 65+, still $50 (not doubled). Total credits = $250. Tax after credits = 1,697 - 250 = $1,447.",
+      "sourceURL": "https://dam.assets.ohio.gov/image/upload/v1767095693/tax.ohio.gov/forms/ohio_individual/individual/2025/it1040-booklet.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 66,
+      "federalAGI": 80000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1447.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism, doubled exemption count for MFJ: the $332 bracket base, the per-exemption MAGI-banded personal exemption, and the household-capped retirement and senior credits are all unmodeled.",
+        "observedToday": 1483.625
+      }
+    },
+    {
+      "name": "MFJ, only primary is 65+, senior credit still available (per-return, not per-spouse) but retirement credit is not age-gated at all",
+      "source": "Same TY2026 bracket and exemption-table sources as the other OH cases in this file. This case exercises the matrix's case-4 dimension (only one spouse crosses the age gate). Ohio's Retirement Income Credit (2025 IT 1040 booklet printed page 28, 'Line 2') has NO age requirement at all -- eligibility is MAGI-under-$100,000 plus qualifying pension/IRA/401(k) income, regardless of either spouse's age -- so it is unaffected by which spouse is 65+. The Senior Citizen Credit (printed page 28, 'Line 4') requires only that 'You were 65 or older,' and because the Ohio Schedule of Credits carries this as a single per-return line (1040-bundle.pdf), this fixture treats it as available whenever at least one spouse on the joint return is 65+ (interpretation noted in the batch report: the instructions do not explicitly address a joint return where only one spouse qualifies, but the form structure -- one line, no per-spouse split -- supports this reading). Arithmetic: combined pension = $40,000 (primary) + $25,000 (spouse) = $65,000 = federalAGI. Ohio AGI = $65,000, exemption band $40,001-$80,000 -> $2,150 x 2 = $4,300. Taxable nonbusiness income = 65,000 - 4,300 = $60,700. Line 8a = 332 + 2.75% x (60,700 - 26,050) = 332 + 2.75% x 34,650 = 332 + 953.375, rounds to 332+953=$1,285. Retirement credit: household total $65,000 -> Table 2 top tier -> $200 (not age-gated, both spouses' pension income counts). Senior credit: primary is 65+, spouse is not -> $50 (per return). Total credits = $250. Tax after credits = 1,285 - 250 = $1,035.",
+      "sourceURL": "https://dam.assets.ohio.gov/image/upload/v1767095693/tax.ohio.gov/forms/ohio_individual/individual/2025/it1040-booklet.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 60,
+      "federalAGI": 65000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 65000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1035.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same mechanism; the engine has no notion of the age-gated senior credit being available whenever at least one MFJ spouse is 65+, because it does not model the credit at all.",
+        "observedToday": 1071.125
+      }
+    },
+    {
+      "name": "single, age 66, a $40,000 Roth conversion pushes MAGI over the $100,000 cliff and destroys BOTH credits entirely",
+      "source": "Same TY2026 bracket ($332 base + 2.75%) and exemption-table sources as the other OH cases in this file. This is the batch's required fifth case: Ohio's retirement income credit and senior citizen credit both use a hard MAGI-less-exemptions cliff at $100,000 (2025 IT 1040 booklet printed page 28: 'Your MAGI less exemptions is less than $100,000'), not a gradual phase-out, so crossing it eliminates BOTH credits completely rather than reducing them. Arithmetic: pension $70,000 + Roth conversion $40,000 = federalAGI $110,000. Ohio AGI = $110,000, exemption band $80,001-$749,999 -> $1,900 (1 exemption, single). Taxable nonbusiness income = 110,000 - 1,900 = $108,100. Line 8a = 332 + 2.75% x (108,100 - 26,050) = 332 + 2.75% x 82,050 = 332 + 2,256.375, rounds to 332+2,256=$2,588. MAGI-exemptions = $108,100, which is over $100,000, so BOTH the retirement income credit (which would otherwise have been $200 on $70,000 of qualifying pension income) and the senior citizen credit (which would otherwise have been $50, primaryAge 66 >= 65) are $0. Tax after credits = $2,588 (no credits apply).",
+      "sourceURL": "https://dam.assets.ohio.gov/image/upload/v1767095693/tax.ohio.gov/forms/ohio_individual/individual/2025/it1040-booklet.pdf",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 110000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 70000,
+      "iraWithdrawals": 0,
+      "rothConversion": 40000,
+      "expectedStateTax": 2588.00,
+      "knownDefect": {
+        "tier": "tier4",
+        "summary": "Same bracket-base and exemption gap as the other OH cases; the credits' hard $100,000 MAGI cliff has no engine-side counterpart to lose in the first place, since neither credit is modeled at any income.",
+        "observedToday": 2308.625
+      }
+    }
+  ]
+}

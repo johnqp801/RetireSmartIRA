@@ -1,0 +1,77 @@
+{
+  "state": "MD",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 50, not 65 or disabled -- overstated, the app grants the pension exclusion with no age gate at all",
+      "source": "Maryland Comptroller, Pension Exclusion Computation Worksheet (13A), https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf, header instruction: 'Review carefully the age and disability requirements in the instructions before completing this worksheet' -- Line 1 admits only 'Qualifying pension and retirement annuity' from a filer who is 65+ or totally disabled (also confirmed in Technical Bulletin No. 51, https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/legal-publications/technical-bulletins/tb-51.pdf: 'Maryland's maximum pension exclusion...is available to taxpayers if [age 65+ or disabled]'). This filer is 50, not disabled, so no exclusion applies. MD standard deduction (single) $3,350 (StateTaxData.swift). Taxable = 30,000-3,350 = 26,650. MD brackets (single): 2% to $1,000, 3% to $2,000, 4% to $3,000, 4.75% above (to $100,000). Tax = 1,000x.02+1,000x.03+1,000x.04+23,650x.0475 = 20+30+40+1,123.375 = 1,213.38. The app's config sets no regularExemptionMinAge for Maryland (defaults to 0), so pensionExemption's $41,200 cap applies unconditionally regardless of age.",
+      "sourceURL": "https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1213.38,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Maryland's config sets no regularExemptionMinAge, so the pension exclusion applies unconditionally to a 50-year-old (the worksheet requires age 65+ or disabled); this OVERSTATES the exemption.",
+        "observedToday": 0.00
+      }
+    },
+    {
+      "name": "single, age 70, pension plus Social Security large enough to exhaust the cap under EITHER candidate TY2026 figure -- overstated, the app never offsets the exclusion by Social Security received",
+      "source": "REVISED: the worksheet PDF at the URL below carries an embedded document title of '2025 Pension Exclusion Computation Worksheet 13A' (confirmed via `pdfinfo`), meaning the $41,200 printed on it is MARYLAND'S TY2025 FIGURE, not TY2026's -- consistent with, not contradicting, Bloomberg Tax's report (citing 'Md. Comptroller, Tax Guidance, 04/08/26', https://services.marylandcomptroller.gov/taxes/en/maryland-pension-exclusion?id=kb_article_view&sys_kb_id=c005cb361b97d290168d6424604bcb01) that TY2026's figure dropped to $40,600. That guidance page renders through a JavaScript-driven ServiceNow portal that neither curl nor WebFetch can execute (confirmed again on this pass, identical byte-for-byte JS shell returned both ways), so as of this writing there is no independently confirmable primary source for EITHER candidate TY2026 dollar figure. Rather than assert a dollar value that rests on a figure now known to be the prior year's, this case is restructured (per the phase's robustness standard already used in scenarios 1, 3 and 4) so its result does not depend on which candidate cap applies: Social Security received ($50,000) EXCEEDS BOTH $41,200 and $40,600 by a wide margin, so worksheet 13A's own mechanism -- Line 2 (maximum allowable exclusion, https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf, whichever cap applies) minus Line 3 ('Enter your total Social Security and/or Railroad Retirement benefits...whether or not you included any portion of these amounts in your federal adjusted gross income') floored at 0, per Line 4 ('Subtract Line 3 from Line 2 to determine your tentative exclusion... If less than 0, enter 0') -- yields a tentative exclusion of $0 under either cap. Line 5 (lesser of Line 1's $25,000 pension or Line 4's $0 tentative exclusion) = $0: the real exclusion is zero, full stop, regardless of which TY2026 cap figure is eventually confirmed. Federal AGI is $75,000 (25,000 pension + 50,000 Social Security); Social Security is Maryland-exempt (socialSecurityExempt: true), so it is removed first: 75,000-50,000 = 25,000 pension remains. MD standard deduction (single) $3,350. Taxable = 25,000-0-3,350 = 21,650. MD brackets: 2%/3%/4%/4.75% as above. Tax = 20+30+40+18,650x.0475 = 20+30+40+886.375 = 976.38.",
+      "sourceURL": "https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 75000,
+      "taxableSocialSecurity": 50000,
+      "pensionIncome": 25000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 976.38,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Maryland's pension exclusion has no mechanism reducing it by Social Security received (worksheet 13A Line 3-4), so the engine excludes the full $25,000 pension even though Social Security received ($50,000) exceeds either candidate TY2026 cap and real law's Line 4 floors the tentative exclusion at $0; this OVERSTATES the exemption.",
+        "observedToday": 0.00
+      }
+    },
+    {
+      "name": "MFJ, both spouses 65+, combined income under $25,000 -- both sides agree, chosen to sit under BOTH the app's $41,200 figure and the possibly-lower TY2026 $40,600 figure",
+      "source": "Same worksheet: both spouses (68/66) clear the age-65 gate. At $25,000 combined pension income (no Social Security), the amount is under either candidate cap ($41,200, verified on this worksheet, or $40,600, per Bloomberg Tax's citation of MD Comptroller guidance I could not independently open -- see the note in the prior case), so the classification here is robust to that unresolved $600 ambiguity: the full $25,000 is excluded under either figure. MD standard deduction (MFJ) $6,700. Taxable = 25,000-25,000-6,700, floored at $0. Tax = $0.00.",
+      "sourceURL": "https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 66,
+      "federalAGI": 25000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 25000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00
+    },
+    {
+      "name": "MFJ, only the spouse is 65+ and has no income of their own; the income-bearing primary is 50 -- overstated, missing age gate visible in the MFJ pattern",
+      "source": "Same worksheet: the $28,000 pension here is attributable to the primary (age 50, not 65 or disabled), so none of it qualifies; the spouse (age 68) has no pension income of their own to which the exclusion could apply. Correct exclusion = $0. MD standard deduction (MFJ) $6,700. Taxable = 28,000-6,700 = 21,300. MD MFJ brackets (same structure as single but wider bands): 2% to $1,000, 3% to $2,000, 4% to $3,000, 4.75% above (to $150,000). Tax = 20+30+40+18,300x.0475 = 20+30+40+869.25 = 959.25. Because Maryland's exclusion IS active today (unlike Iowa/Virginia/Rhode Island's MFJ-one-qualifies cases in this phase, which pass because those states currently have zero exclusion configured), Maryland's missing age gate is immediately visible here: the engine grants the exclusion regardless of which spouse's income it is.",
+      "sourceURL": "https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/forms/worksheets/Pension-Exclusion-Worksheet.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 50,
+      "spouseAge": 68,
+      "federalAGI": 28000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 28000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 959.25,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Maryland's config sets no regularExemptionMinAge and has no per-spouse income attribution, so the pension exclusion is granted against the non-qualifying primary's own income simply because the spouse is 65+; this OVERSTATES the exemption.",
+        "observedToday": 0.00
+      }
+    }
+  ]
+}

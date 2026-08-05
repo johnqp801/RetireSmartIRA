@@ -17,6 +17,7 @@
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
+      "otherOrdinaryIncome": 20000,
       "expectedStateTax": 487.75
     },
     {

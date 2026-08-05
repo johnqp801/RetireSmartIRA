@@ -1,0 +1,140 @@
+{
+  "state": "VT",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single filer, CSRS pension, AGI $40,000 (below the $55,000 full-exemption threshold): qualifies for the full $10,000 CSRS/Other Retirement System exclusion, engine grants nothing",
+      "source": "Vermont 2025 Schedule IN-112 Instructions, page 2, 'RETIREMENT INCOME EXEMPTION WORKSHEET', Section I: income from 'the Civil Service Retirement System' qualifies; question 3: 'Single...is your AGI less than $55,000?...Yes. You qualify for a full exemption...enter your eligible retirement system income or $10,000, whichever is less.' Arithmetic: $10,000 (lesser of $40,000 pension or the $10,000 cap) fully excluded. $40,000 - $7,850 single standard deduction - $10,000 exclusion = $22,150 taxable, entirely inside VT's 3.35% first bracket (threshold $47,900). $22,150 x 3.35% = $742.03.",
+      "sourceURL": "https://tax.vermont.gov/sites/tax/files/documents/IN-112-Instr-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 63,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 742.03,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "CSRS income up to $10,000 qualifies for VT's Retirement Income Exemption when AGI is under $55,000/$70,000; statetax-2026-VT.json has no perSourceExemptions and pensionExemption is 'none', so the engine grants no exclusion. CANNOT_VERIFY: this file's VT-1 (CSRS, capped at $10,000) and VT-5 (military, uncapped and fully exempt) both require the SAME (planSource: federalCivilian, planStructure: definedBenefit) pair to receive contradictory treatment; no single PerSourceExemptionRule can satisfy both, and neither age nor AGI separates them. This file cannot be fully satisfied by any StateTaxData configuration until PlanSource gains a distinct uniformed-services case.",
+        "observedToday": 1077.03
+      }
+    },
+    {
+      "name": "single filer, CSRS pension, AGI $60,000 (between the $55,000 full and $65,000 zero thresholds): tests the LINEAR phase-out shape specifically",
+      "source": "Vermont 2025 Schedule IN-112 Instructions, page 2, Section II 'Calculating your Partial Retirement Income Exemption': for single filers with AGI $55,000-$65,000, Line 4 enter $65,000, Line 6 = Line4-AGI, Line 7 = Line6/$10,000 (the retained fraction), Line 8 = lesser of Line7 or 1, then the eligible retirement income (capped at $10,000) is multiplied by that fraction. Arithmetic: fraction = ($65,000-$60,000)/$10,000 = 0.5. Exclusion = min($60,000,$10,000) x 0.5 = $5,000. $60,000 - $7,850 standard deduction - $5,000 = $47,150 taxable, still inside VT's 3.35% first bracket. $47,150 x 3.35% = $1,579.53.",
+      "sourceURL": "https://tax.vermont.gov/sites/tax/files/documents/IN-112-Instr-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 60000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1579.53,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Same missing mechanism as the case above; this fixture specifically pins the linear phase-out band's magnitude ($5,000 of the $10,000 cap retained at AGI $60,000), not just the full-exemption case.",
+        "observedToday": 1885.15
+      }
+    },
+    {
+      "name": "MFJ, both spouses have CSRS pensions totaling $65,000 (below the $70,000 MFJ full-exemption threshold): both qualify for the shared $10,000 household exclusion",
+      "source": "Vermont 2025 Schedule IN-112 Instructions, page 2, Section I question 3: 'Married filing jointly...is your AGI less than $70,000?...Yes. You qualify for a full exemption.' The worksheet provides ONE $10,000 line for the joint return, not a per-spouse doubled figure. Arithmetic: $10,000 (lesser of $65,000 combined pension or the $10,000 cap) fully excluded. $65,000 - $15,700 MFJ standard deduction - $10,000 = $39,300 taxable, inside VT's MFJ 3.35% first bracket (threshold $80,200). $39,300 x 3.35% = $1,316.55.",
+      "sourceURL": "https://tax.vermont.gov/sites/tax/files/documents/IN-112-Instr-2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 64,
+      "federalAGI": 65000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 30000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1316.55,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both spouses' combined CSRS income up to $10,000 qualifies for the shared exclusion; the engine grants none, taxing the full $65,000 household income.",
+        "observedToday": 1651.55
+      }
+    },
+    {
+      "name": "MFJ, one spouse's CSRS pension is exclusion-eligible and the other spouse's private pension is not (private employment is Social-Security-covered, which VT's Other Retirement System exclusion explicitly excludes): one spouse qualifies",
+      "source": "Vermont 2025 Schedule IN-112 Instructions, page 2: the CSRS/Other Retirement System exclusion applies 'only to benefits that are based on earnings not covered by the Social Security Act', which a private-employer pension is not. Arithmetic: AGI $55,000 is under the $70,000 MFJ full-exemption threshold. $10,000 (lesser of the $30,000 CSRS pension or the $10,000 cap) is excluded; the $25,000 private pension is not eligible at all. $55,000 - $15,700 MFJ standard deduction - $10,000 = $29,300 x 3.35% = $981.55.",
+      "sourceURL": "https://tax.vermont.gov/sites/tax/files/documents/IN-112-Instr-2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 60,
+      "federalAGI": 55000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 30000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 25000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 981.55,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Only the CSRS spouse's income (up to $10,000) should be excluded; the engine excludes neither spouse's pension, taxing the full $55,000 -- the identical figure the fully-covered MFJ case above produces at the same total income.",
+        "observedToday": 1316.55
+      }
+    },
+    {
+      "name": "single filer, U.S. military retired pay, AGI $100,000 (below the NEW $125,000 full-exemption threshold): 2025's Act 71 made this exclusion FULL and UNCAPPED, a much larger benefit than the $10,000 CSRS exclusion -- huge gap versus the engine",
+      "source": "Act 71 (S.51), signed into law June 25, 2025, effective for the 2025 tax year onward (claimed starting with returns filed in 2026): Vermont 2025 Schedule IN-112 Instructions, page 3-4, 'MILITARY RETIREMENT INCOME EXEMPTION WORKSHEET' and Line 13 instructions: 'For taxpayers of any filing status with adjusted gross income equal to or less than $125,000, all military retirement and survivor benefit income is exempt.' This is a SEPARATE, uncapped exclusion from the $10,000 CSRS/Other Retirement System exclusion above, and (unlike CSRS) does not distinguish single from MFJ for the full-exemption threshold. Arithmetic: the entire $100,000 military pension is excluded (uncapped, AGI $100,000 is under $125,000), leaving $0 in remaining income after the $7,850 standard deduction has nothing left to act on. Tax = $0.00.",
+      "sourceURL": "https://tax.vermont.gov/sites/tax/files/documents/IN-112-Instr-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 100000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 100000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "This app's PlanSource enum has no case for military retired pay distinct from federal civilian service (used here as the closest available label, disclosed as imprecise); more materially, statetax-2026-VT.json models neither VT retirement exclusion at all, so the engine taxes the full $100,000 military pension exactly as ordinary income. CANNOT_VERIFY: this file's VT-5 (military, uncapped and fully exempt) and VT-1 (CSRS, capped at $10,000) both require the SAME (planSource: federalCivilian, planStructure: definedBenefit) pair to receive contradictory treatment; no single PerSourceExemptionRule can satisfy both, and neither age nor AGI separates them. This file cannot be fully satisfied by any StateTaxData configuration until PlanSource gains a distinct uniformed-services case.",
+        "observedToday": 4525.15
+      }
+    },
+    {
+      "name": "single filer, U.S. military retired pay, AGI $150,000 (between the $125,000 full and $175,000 zero thresholds): tests Act 71's own linear phase-out shape, uncapped (unlike CSRS's $10,000 cap)",
+      "source": "Act 71 (S.51), Vermont 2025 Schedule IN-112 Instructions, page 3, 'MILITARY RETIREMENT INCOME EXEMPTION WORKSHEET', Section II: Line 5 (Phaseout Threshold) = $175,000, Line 6 = Line5-AGI, Line 7 = Line6/$50,000, Line 8 = lesser of Line7 or 1, Line 10 = Line8 x Line9 (the full military income, uncapped). Arithmetic: fraction = ($175,000-$150,000)/$50,000 = 0.5. Exclusion = $150,000 x 0.5 = $75,000 (not capped at $10,000, unlike CSRS). $150,000 - $7,850 standard deduction - $75,000 = $67,150 taxable. VT single brackets: 3.35% to $47,900 ($1,604.65), 6.6% on the remaining $19,250 ($1,270.50). Total $2,875.15.",
+      "sourceURL": "https://tax.vermont.gov/sites/tax/files/documents/IN-112-Instr-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 62,
+      "spouseAge": null,
+      "federalAGI": 150000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 150000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 2875.15,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Same missing military exclusion as the case above, pinned specifically in Act 71's linear phase-out band (AGI $150,000, 50% of the pension retained as excludable). The gap here ($5,211.50) is the single largest dollar defect measured in this batch.",
+        "observedToday": 8086.65
+      }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "state": "IN",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, moderate income, flat 2.95% rate net of the personal exemption",
+      "source": "Indiana Department of Revenue, Departmental Notice #1 (R46 / 01-26, effective Jan. 1, 2026), page 2: 'For 2026, the state adjusted gross income tax rate for individuals is 2.95%.' Indiana has no state standard deduction (config stateDeduction .none is correct), but IT-40 Booklet 2025, page 24, Schedule 3 'Line 1 -- Exemptions for taxpayer, spouse': 'If you are married filing jointly, enter $2,000 on this line. All other filers* should enter $1,000 on this line.' Indiana also fully excludes federally-taxable Social Security (searched and confirmed via IN DOR 'Indiana Deductions from Income': 'Indiana allows a tax deduction for any Social Security or railroad retirement benefits included in federal adjusted gross income', consistent with the audit's socialSecurityExempt true). primaryAge 55 is under 65, so no Schedule 3 line 4/5 age-65 additional exemptions apply. Indiana taxable income = 45,000 - 1,000 (single exemption) = 44,000. Tax = 44,000 * 0.0295 = 1,298.00. No age threshold or AGI phase-out gates IN's retirement-income treatment (pensionExemption/iraWithdrawalExemption both .none per the audit), so this case and the next vary income rather than age.",
+      "sourceURL": "https://www.in.gov/dor/files/dn01.pdf",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 45000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1298.00,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Not a retirement-exclusion defect (the audit's .none is correct); IN's $1,000/$2,000 personal exemption (IT-40 Schedule 3 line 1) is not modeled anywhere in the engine, so the full federalAGI is taxed at 2.95% with no subtraction.",
+        "observedToday": 1327.5
+      }
+    },
+    {
+      "name": "single, high income with IRA withdrawal and Roth conversion, flat 2.95% rate net of the personal exemption",
+      "source": "Same 2.95% rate (IN DOR Departmental Notice #1, page 2) and same $1,000 single exemption (IT-40 Booklet 2025, page 24, Schedule 3 line 1). Indiana taxable income = 130,000 - 1,000 = 129,000. Tax = 129,000 * 0.0295 = 3,805.50.",
+      "sourceURL": "https://www.in.gov/dor/files/dn01.pdf",
+      "filingStatus": "single",
+      "primaryAge": 62,
+      "spouseAge": null,
+      "federalAGI": 130000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 30000,
+      "rothConversion": 40000,
+      "expectedStateTax": 3805.50,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same mechanism as the low-income IN case: the $1,000 single personal exemption is entirely unmodeled.",
+        "observedToday": 3835.0
+      }
+    },
+    {
+      "name": "MFJ, both spouses present, moderate combined income including Social Security, flat 2.95% rate net of the doubled personal exemption",
+      "source": "This is the batch's MFJ 'both spouses present' case; IN has no age-gated retirement exclusion for either spouse to qualify for, so both are simply present. IT-40 Booklet 2025, page 24, Schedule 3 line 1: married filing jointly enters $2,000. Indiana excludes federally-taxable Social Security (same IN DOR 'Indiana Deductions from Income' source as the single cases), so state income before the exemption is 95,000 - 30,000 = 65,000; Indiana taxable income = 65,000 - 2,000 = 63,000. Tax = 63,000 * 0.0295 = 1,858.50.",
+      "sourceURL": "https://www.in.gov/dor/files/dn01.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 58,
+      "spouseAge": 56,
+      "federalAGI": 95000,
+      "taxableSocialSecurity": 30000,
+      "pensionIncome": 65000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1858.50,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same mechanism, doubled for MFJ: the $2,000 married personal exemption is entirely unmodeled.",
+        "observedToday": 1917.5
+      }
+    },
+    {
+      "name": "MFJ, highest income in the batch, flat 2.95% rate net of the doubled personal exemption",
+      "source": "Same 2.95% rate and same $2,000 MFJ exemption (IT-40 Booklet 2025, page 24, Schedule 3 line 1). Indiana taxable income = 220,000 - 2,000 = 218,000. Tax = 218,000 * 0.0295 = 6,431.00.",
+      "sourceURL": "https://www.in.gov/dor/files/dn01.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 60,
+      "spouseAge": 58,
+      "federalAGI": 220000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 100000,
+      "iraWithdrawals": 60000,
+      "rothConversion": 60000,
+      "expectedStateTax": 6431.00,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same mechanism as the other three IN cases: the $2,000 married personal exemption is entirely unmodeled.",
+        "observedToday": 6490.0
+      }
+    }
+  ]
+}

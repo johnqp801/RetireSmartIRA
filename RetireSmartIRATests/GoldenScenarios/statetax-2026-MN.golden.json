@@ -1,0 +1,101 @@
+{
+  "state": "MN",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "PREVIOUSLY UNAUDITED (see batch report): single, age 55 (below the 65+ additional standard deduction), ordinary non-qualifying pension plus Social Security subtraction",
+      "source": "Minnesota was not in any tier of the audit driving this phase and appeared on no confirmed-correct list either -- this file is a NEW finding, not a confirmation. BRACKETS AND STANDARD DEDUCTION: Minnesota Department of Revenue official press release, 'Minnesota income tax brackets, standard deduction and dependent exemption amounts for tax year 2026' (revenue.state.mn.us/press-release/2025-12-16/..., fetched directly), confirms this app's engine (statetax-2026-MN.json) already has the CORRECT TY2026 brackets (single: 5.35% to $33,310, 6.80% to $109,430, 7.85% to $203,150, 9.85% above) and the correct TY2026 base standard deduction ($15,300 single, $30,600 MFJ) -- both match the engine exactly, so this is not a source of divergence in this file. What the engine is MISSING is the additional standard deduction for filers 65+ or blind: Minnesota Department of Revenue, 'Tax Year 2026 Inflation-Adjusted Amounts' (revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf, Tax Research Division, December 1, 2025), Minnesota Statutes 290.0123, 'Additional Standard Deduction for Aged or Blind': Single/HOH $2,000, Married $1,600 -- not exercised in THIS case since primaryAge 55 < 65 (exercised in the age-70 case below). SOCIAL SECURITY SUBTRACTION: same inflation-adjusted-amounts document, Minnesota Statutes 290.0132 Subd. 26, 'Simplified Subtraction, Phase-out Threshold': Single/HOH $86,410. Independently corroborated by the live DOR 'Social Security Benefit Subtraction' page (revenue.state.mn.us/social-security-benefit-subtraction, though that page's own stated figures are for TY2025, not TY2026 -- the inflation-adjusted-amounts PDF is used here as the authoritative TY2026 source). PENSION: this app's engine models pensionExemption: .none for MN, which is CORRECT for an ordinary (non-qualifying) pension -- Minnesota only subtracts pension income from a narrow list of specific non-Social-Security-covered public plans (Schedule M1QPEN); this fixture's pension is an ordinary one and legitimately gets no subtraction under real law either, so pensionExemption: .none is not itself a defect here. Arithmetic: federalAGI = $30,000 pension + $15,000 taxable Social Security = $45,000. Social Security subtraction: AGI $45,000 is well under the $86,410 threshold, so the full $15,000 of taxable SS is subtracted. MN AGI = 45,000 - 15,000 = $30,000. Standard deduction: $15,300 (single, age 55, no aged addition). MN taxable income = 30,000 - 15,300 = $14,700, entirely within the first bracket. Tax = 14,700 x 5.35% = $786.45.",
+      "sourceURL": "https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 15000,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 786.45,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "MN's Social Security subtraction (simplified method, full below $86,410 single MAGI) is entirely unmodeled; socialSecurityExempt is hardcoded false with no income-gated subtraction path, so the engine taxes the full $15,000 of Social Security.",
+        "observedToday": 1588.95
+      }
+    },
+    {
+      "name": "PREVIOUSLY UNAUDITED (see batch report): single, age 70 (65+ additional standard deduction now applies), same income composition as the age-55 case",
+      "source": "Same TY2026 bracket, standard deduction, and Social Security subtraction sources as the age-55 case in this file. This case isolates Minnesota's own age-65 mechanism, the 'Additional Standard Deduction for Aged or Blind' (revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf, Minnesota Statutes 290.0123): Single/HOH $2,000 -- NOT modeled anywhere in this app's engine, whose stateDeduction.kind is 'fixed' (a flat $15,300/$30,600 with no age-conditional addition at all, unlike the .conformsToFederal branch other states use which the test harness already handles for the federal age-65 amount). Arithmetic: federalAGI = $45,000 (same $30,000 pension + $15,000 taxable SS as the age-55 case). Social Security subtraction: full $15,000 (AGI well under the $86,410 threshold). MN AGI = $30,000. Standard deduction: $15,300 (base) + $2,000 (aged addition, age 70 >= 65) = $17,300. MN taxable income = 30,000 - 17,300 = $12,700. Tax = 12,700 x 5.35% = $679.45 -- $107.00 less than the age-55 case above, entirely attributable to the aged addition ($2,000 x 5.35% = $107.00).",
+      "sourceURL": "https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 15000,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 679.45,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same missing Social Security subtraction as the age-55 case, PLUS MN's own $2,000 aged (65+) additional standard deduction (Minn. Stat. 290.0123) is unmodeled; the engine's stateDeduction is a flat fixed() amount with no age-conditional addition, so it produces the IDENTICAL wrong figure for age 55 and age 70 even though real law differs by $107.",
+        "observedToday": 1588.95
+      }
+    },
+    {
+      "name": "PREVIOUSLY UNAUDITED (see batch report): MFJ, both spouses 65+ with qualifying public pensions, household-capped Public Pension Subtraction plus doubled aged addition zero out the household's tax",
+      "source": "Same TY2026 bracket and standard-deduction sources as the other MN cases in this file. QUALIFIED PUBLIC PENSION SUBTRACTION: Minnesota Statutes 290.0132 Subd. 34, per the same 'Tax Year 2026 Inflation-Adjusted Amounts' document: Maximum Subtraction, Married Joint $27,690; Phase-out Threshold, Married Joint $110,780. Mechanics confirmed against the 2024 Schedule M1QPEN worksheet (revenue.state.mn.us/sites/default/files/2024-12/m1qpen-24.pdf, the most recent version of this form this research could retrieve, whose structure and dollar-figure PLACEMENT -- not its dollar figures, which are superseded by the TY2026 inflation-adjusted-amounts document -- is used here): Line 1 total qualified pension payments (capped at the maximum), and eligibility requires the pension be from a specifically-listed non-Social-Security-covered public plan (PERA, TRA, etc.) where 'Your payments are not based on service for which you also earned credit toward Social Security benefits.' This is a HOUSEHOLD-level cap, not per-spouse: the 2024 form's own worked example combines both spouses' qualifying pensions into one Line 1 total before applying the single $26,340 (2024)/$27,690 (2026) MFJ cap. Both spouses here (primaryAge 66, spouseAge 68) are basic members of a qualifying MN public pension plan and are 65+. Arithmetic: combined qualifying pension = $30,000 (primary) + $20,000 (spouse) = $50,000 = federalAGI (no Social Security in this case). Pension subtraction: min($50,000, $27,690 MFJ cap) = $27,690; AGI $50,000 is under the $110,780 phase-out threshold, so no reduction, full $27,690. MN AGI = 50,000 - 27,690 = $22,310. Standard deduction: $30,600 (base MFJ) + 2 x $1,600 (aged addition, both spouses 65+) = $33,800. MN taxable income = 22,310 - 33,800 = -11,490, floored to $0. Tax = $0.00 -- a legitimate, fully-derived result: this household's combined pension subtraction and doubled aged addition together exceed its income entirely.",
+      "sourceURL": "https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 68,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "MN's Qualified Public Pension Subtraction (Minn. Stat. 290.0132 Subd. 34, household-capped at $27,690 MFJ) and its doubled $1,600-per-spouse aged addition are both unmodeled; the engine taxes the full $50,000 pension against only the flat $30,600 base deduction.",
+        "observedToday": 1037.9
+      }
+    },
+    {
+      "name": "PREVIOUSLY UNAUDITED (see batch report): MFJ, only primary has a qualifying public pension and is 65+; spouse's ordinary pension does not count toward the subtraction at all",
+      "source": "Same TY2026 bracket, standard-deduction, and Public Pension Subtraction sources as the other MN cases in this file. This is the batch's case-4: primaryAge 70 is a basic member of a qualifying MN public pension plan (65+, subtraction-eligible AND aged-addition-eligible); spouseAge 62 has an ORDINARY private-employer 401(k) pension, which does not qualify for the Public Pension Subtraction at all (Schedule M1QPEN eligibility requires the specific listed non-Social-Security-covered plans) and is also under 65 so contributes no aged addition. Arithmetic: primary's qualifying pension $45,000 + spouse's non-qualifying pension $25,000 = federalAGI $70,000. Pension subtraction Line 1 = $45,000 (ONLY the qualifying portion; the spouse's $25,000 never enters this calculation). min($45,000, $27,690 MFJ cap) = $27,690; AGI $70,000 is under the $110,780 phase-out threshold, so full $27,690, no reduction. MN AGI = 70,000 - 27,690 = $42,310. Standard deduction: $30,600 (base MFJ) + 1 x $1,600 (aged addition, primary only) = $32,200. MN taxable income = 42,310 - 32,200 = $10,110. Tax = 10,110 x 5.35% = $540.885, rounded to the nearest cent = $540.89.",
+      "sourceURL": "https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 62,
+      "federalAGI": 70000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 70000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 540.89,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same mechanism; the engine cannot represent that only the qualifying spouse's pension counts toward the Public Pension Subtraction and only the qualifying spouse's age contributes an aged addition, because it models neither at all.",
+        "observedToday": 2107.9
+      }
+    },
+    {
+      "name": "PREVIOUSLY UNAUDITED (see batch report): single, age 70, a $50,000 Roth conversion pushes AGI into the Public Pension Subtraction's phase-out band and into a higher bracket",
+      "source": "Same TY2026 bracket, standard-deduction, and Public Pension Subtraction sources as the other MN cases in this file. This is the batch's required fifth (phase-out) case. QUALIFIED PUBLIC PENSION SUBTRACTION phase-out mechanics (2024 Schedule M1QPEN, revenue.state.mn.us/sites/default/files/2024-12/m1qpen-24.pdf, Lines 6-10; dollar figures superseded by the TY2026 inflation-adjusted-amounts document): above the phase-out threshold, the subtraction is reduced 10% (of the capped amount) for every $2,000 of AGI over the threshold, rounding the number of $2,000 steps UP. Single maximum subtraction (TY2026) = $13,850; phase-out threshold (TY2026, single/HOH) = $86,410. Arithmetic: qualifying pension $50,000 plus a $50,000 Roth conversion = federalAGI $100,000. Pension subtraction Line 1 = min($50,000, $13,850) = $13,850 (the Roth conversion itself is not qualifying pension income and does not enter Line 1). Line 6 (excess over threshold) = 100,000 - 86,410 = $13,590. Line 7 (steps, rounded up) = ceil(13,590 / 2,000) = 7. Line 8 (reduction %) = 7 x 10% = 70%. Line 9 (reduction amount) = 70% x 13,850 = $9,695. Line 10 (final subtraction) = 13,850 - 9,695 = $4,155. MN AGI = 100,000 - 4,155 = $95,845. Standard deduction: $15,300 (base single) + $2,000 (aged addition, age 70 >= 65) = $17,300. MN taxable income = 95,845 - 17,300 = $78,545, which crosses into the second bracket ($33,311-$109,430 @ 6.80%; tax at $33,310 = 33,310 x 5.35% = $1,782.085). Tax = 1,782.085 + 6.80% x (78,545 - 33,310) = 1,782.085 + 6.80% x 45,235 = 1,782.085 + 3,075.98 = $4,858.065, rounded to the nearest cent = $4,858.07 (or $4,858.06 under round-half-to-even; this fixture uses standard round-half-up, noted explicitly here per the batch's rounding-consistency practice).",
+      "sourceURL": "https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 100000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 0,
+      "rothConversion": 50000,
+      "expectedStateTax": 4858.07,
+      "knownDefect": {
+        "tier": "unclassified",
+        "summary": "Same missing Public Pension Subtraction and aged addition as the other MN cases; the subtraction's own phase-out (10% per $2,000 of AGI over $86,410) has no engine-side counterpart to partially lose in the first place.",
+        "observedToday": 5276.605
+      }
+    }
+  ]
+}

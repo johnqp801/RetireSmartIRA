@@ -1,0 +1,77 @@
+{
+  "state": "LA",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, UNDER 65 -- isolates the missing age gate alone, no MFJ/per-individual complication",
+      "source": "2025 Louisiana IT-540i Instructions, Schedule E, printed page 6, code '06E - Annual Retirement Income Exemption for Taxpayers 65 Years of Age or Older': 'Up to $12,000 of your annual retirement income may be exempted from state taxation if your filing status is single, head of household, married filing separately, or qualifying surviving spouse, and you are 65 years of age or older.' No other Schedule E code grants a general pension/IRA exclusion below 65 (codes 02E-05E are narrow, named-system carve-outs -- state employees', teachers', federal, and other specifically-exempted retirement systems -- not a general exclusion). TaxCalculationEngine's LA config sets regularExemptionMinAge: 0, so today's engine applies the $12,000 cap unconditionally regardless of age; this case isolates that missing gate alone with a single filer well under 65 (no spouse, so the also-missing exemptionAppliesPerIndividual flag cannot enter the computation). Scenario: primary, age 50, IRA distribution $30,000 (reported as pensionIncome per this schema's convention for non-classified retirement income). Correct exclusion = $0 (under 65, no general exclusion exists). Standard deduction $12,500 single (configured, independently confirmed against the same instructions, page 1, 'Louisiana Standard Deduction - Line 8': '$12,500 for individuals filing single and married filing separate'). Louisiana's flat 3% rate (Act 11 of the 2024 Third Extraordinary Legislative Session, same page 1, 'Your Louisiana Income Tax - Line 11': 'changed the income tax rate to a flat tax rate of 3%', independently confirmed and matching the configured taxSystem exactly). Louisiana taxable income = 30,000 - 12,500 - 0 = 17,500. tax = 17,500 * 0.03 = 525.00.",
+      "sourceURL": "https://dam.ldr.la.gov/taxforms/IT540i-WEB-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 525.00,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "regularExemptionMinAge is 0, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-LA.json's config applies the 65-or-older $12,000 exclusion unconditionally to a filer well under 65, who is entitled to no general retirement-income exclusion at all under La. R.S. 47:44.1 -- the missing age gate alone, isolated from the per-individual flag by using a single filer.",
+        "observedToday": 165.00
+      }
+    },
+    {
+      "name": "single, 65 OR OLDER, same pension amount as the prior case for a controlled comparison -- the gate is moot above the threshold so this establishes the baseline the age-gate case diverges from",
+      "source": "Same IT-540i Instructions, code 06E, printed page 6 (see prior case for the full quote). Pension $30,000 (same amount as the prior case, only age differs) exceeds the $12,000 cap, so $12,000 is excluded under both correct law and today's engine -- the age gate is moot once the filer clears 65. Standard deduction $12,500 single (configured). Louisiana taxable income = 30,000 - 12,500 - 12,000 = 5,500. tax = 5,500 * 0.03 = 165.00.",
+      "sourceURL": "https://dam.ldr.la.gov/taxforms/IT540i-WEB-2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 30000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 30000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 165.00
+    },
+    {
+      "name": "MFJ, BOTH spouses 65+ and BOTH received their own annual retirement income -- isolates the missing exemptionAppliesPerIndividual flag alone, because both being 65+ means the (also missing) age gate would be moot even if it existed",
+      "source": "Same IT-540i Instructions, code 06E, printed page 6: 'If your filing status is married filing jointly, both you and your spouse are age 65 years or older, and each of you received annual retirement income, up to $12,000 of the annual retirement income that each taxpayer receives may be exempt from state taxation.' The Worksheet for Code 06E computes columns (a) taxpayer and (b) spouse SEPARATELY, each capped at $12,000, then instructs: 'add the amounts on Lines 5(a) and 5(b) above and enter the result... as 06E' -- an explicit sum of two independent per-person caps, not one household cap. Scenario: primary, age 70, pension $40,000 from her own former employer; spouse, age 72, pension $40,000 from his own former employer, pooled pensionIncome = $80,000. Correct exclusion = $12,000 (primary, capped) + $12,000 (spouse, capped) = $24,000. Standard deduction $25,000 married (configured). Louisiana taxable income = 80,000 - 25,000 - 24,000 = 31,000. tax = 31,000 * 0.03 = 930.00.",
+      "sourceURL": "https://dam.ldr.la.gov/taxforms/IT540i-WEB-2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 72,
+      "federalAGI": 80000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 930.00,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "exemptionAppliesPerIndividual is false, so RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-LA.json's config applies the $12,000 cap once household-wide instead of once per spouse, halving the correct $24,000 MFJ exclusion when both spouses are 65+ and each received their own qualifying income.",
+        "observedToday": 1290.00
+      }
+    },
+    {
+      "name": "MFJ, only ONE spouse 65+, and the non-qualifying spouse ALSO has substantial retirement income of her own -- the case that stops a naive gate+flag fix, because pooling unattributed income still shelters the non-qualifying spouse's ineligible dollars",
+      "source": "Same IT-540i Instructions, code 06E, printed page 6: 'For each taxpayer 65 or older, enter the amount from Line 3 or Line 4, whichever is less' -- a taxpayer under 65 simply has no line to enter, i.e. $0 exemption for their own retirement income, regardless of the other spouse's age or how much retirement income they personally received. Scenario: primary, age 70, pension $9,000 from her own former employer (qualifies, below her own $12,000 cap, so fully excluded); spouse, age 58, pension $34,000 from his own former employer (does not qualify at all, so his full $34,000 stays taxable), pooled pensionIncome = $43,000. Correct exclusion = $9,000 (primary only; spouse contributes $0). Today's engine (regularExemptionMinAge: 0, exemptionAppliesPerIndividual: false) applies a single unconditional $12,000 cap to the pooled $43,000, over-sheltering $3,000 of the ineligible spouse's income. This is worth pinning explicitly because even a Phase 5 fix that adds BOTH regularExemptionMinAge: 65 AND exemptionAppliesPerIndividual: true would still fail this case without ALSO switching exemptionAttribution to gate pooled income by owner: TaxCalculationEngine.swift's ageQualifiesForExemption would correctly find bothSpousesQualify == false (spouse is 58), so the multiplier stays 1 and the SAME unconditional $12,000 cap applies to the same pooled $43,000 -- identical to today's wrong figure, because the pool itself is never split by which spouse the income belongs to. Standard deduction $25,000 married (configured). Louisiana taxable income = 43,000 - 25,000 - 9,000 = 9,000. tax = 9,000 * 0.03 = 270.00.",
+      "sourceURL": "https://dam.ldr.la.gov/taxforms/IT540i-WEB-2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 70,
+      "spouseAge": 58,
+      "federalAGI": 43000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 43000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 270.00,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "Both the missing age gate and the pooled, unattributed income model are wrong together: today's engine excludes $12,000 from the pooled total regardless of either spouse's age, over-sheltering the ineligible under-65 spouse's own retirement income instead of excluding only the 65+ spouse's own $9,000.",
+        "observedToday": 180.00
+      }
+    }
+  ]
+}

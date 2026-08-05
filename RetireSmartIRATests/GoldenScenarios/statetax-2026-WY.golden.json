@@ -1,0 +1,62 @@
+{
+  "state": "WY",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, lower income, no age threshold or phase-out exists so cases vary income instead of age",
+      "source": "Wyoming has no individual income tax and therefore no form to derive a figure from. Wyoming's own Department of Revenue site does not carry a single dedicated page stating this in one sentence, so the primary source used here is the Wyoming Legislature's Joint Revenue (interim) Committee publication 'Wyoming Tax Structure: A comparison to selected other states' (May 10, 2021, prepared by LSO Budget/Fiscal staff), Slide 5 'Major Components of Wyoming Tax Structure', which lists Wyoming's tax categories (Property Taxes, General Sales Taxes, Other Taxes) alongside the explicit lines 'No Individual Income Taxes' and 'No Corporate Income Taxes'. expectedStateTax = $0 follows directly. This case is a single filer with pension income only. No age threshold or AGI phase-out exists in Wyoming law, so per the batch matrix rule this case and the next vary income rather than age.",
+      "sourceURL": "https://wyoleg.gov/InterimCommittee/2021/03-202105102-6.wyotaxstructurecomparisontootherstatesLSO.pdf",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 40000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "single, higher income including a Roth conversion, no age threshold or phase-out exists so cases vary income instead of age",
+      "source": "Same primary source as the prior case: Wyoming Legislature LSO 'Wyoming Tax Structure' comparison (May 10, 2021), Slide 5, 'No Individual Income Taxes.' This case raises income well above the prior one and adds an IRA withdrawal and a Roth conversion, exactly the kind of income a multi-year conversion plan produces, to confirm the $0 result holds regardless of composition, not just for plain pension income.",
+      "sourceURL": "https://wyoleg.gov/InterimCommittee/2021/03-202105102-6.wyotaxstructurecomparisontootherstatesLSO.pdf",
+      "filingStatus": "single",
+      "primaryAge": 72,
+      "spouseAge": null,
+      "federalAGI": 120000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 40000,
+      "rothConversion": 20000,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "MFJ, both spouses present, moderate combined income including Social Security",
+      "source": "Same primary source: Wyoming Legislature LSO 'Wyoming Tax Structure' comparison, Slide 5, 'No Individual Income Taxes' (the slide is not filing-status-scoped; Wyoming levies no individual income tax on any household). This is the MFJ 'both spouses qualifying' case in the batch matrix; because Wyoming has no age-gated exemption there is nothing to qualify for, so both spouses are simply present with retirement ages. Income mix adds taxable Social Security to the pension/IRA combination exercised in the single cases.",
+      "sourceURL": "https://wyoleg.gov/InterimCommittee/2021/03-202105102-6.wyotaxstructurecomparisontootherstatesLSO.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 65,
+      "spouseAge": 63,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 20000,
+      "pensionIncome": 50000,
+      "iraWithdrawals": 20000,
+      "rothConversion": 0,
+      "expectedStateTax": 0
+    },
+    {
+      "name": "MFJ, only one spouse retirement-aged, highest combined income in the batch",
+      "source": "Same primary source: Wyoming Legislature LSO 'Wyoming Tax Structure' comparison, Slide 5. This is the batch's 'MFJ, only one spouse qualifying' case; Wyoming has no per-spouse age gate for its (nonexistent) income tax, so there is no attribution rule to trip, but the case is included anyway per the matrix so a later phase adding an age gate has a case waiting. Highest income in the batch (pension + IRA withdrawal + Roth conversion) to stress the largest plausible single-year total against the $0 expectation.",
+      "sourceURL": "https://wyoleg.gov/InterimCommittee/2021/03-202105102-6.wyotaxstructurecomparisontootherstatesLSO.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 67,
+      "spouseAge": 45,
+      "federalAGI": 150000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 80000,
+      "iraWithdrawals": 30000,
+      "rothConversion": 40000,
+      "expectedStateTax": 0
+    }
+  ]
+}

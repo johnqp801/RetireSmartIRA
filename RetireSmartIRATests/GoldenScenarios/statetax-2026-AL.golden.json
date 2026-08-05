@@ -1,0 +1,90 @@
+{
+  "state": "AL",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 50, defined-contribution/IRA income, not yet 65 -- both sides agree (structure axis not yet reached at this age)",
+      "source": "Alabama Schedule RS Instructions (2023, Alabama Dept. of Revenue, https://www.revenue.alabama.gov/wp-content/uploads/2024/01/23schrsinstr.pdf), Part II, Line 10: 'Retirement Exclusion - Select the box whether the primary taxpayer is 65 years of age or older and they receive taxable retirement income? If you select Yes, the [taxpayer] is eligible for an exclusion of retirement income up to $6,000...If you select No, the [taxpayer] does not qualify for the retirement exclusion.' This 401(k)/IRA-type distribution (classified definedContribution/privateEmployer, per the design's PlanStructure axis) is NOT a defined-benefit pension, and this filer is 50 (not 65), so no exclusion applies at all. AL standard deduction (single) $3,000 (StateTaxData.swift). Taxable = 20,000-3,000 = 17,000. AL brackets: 2% to $500, 4% to $3,000, 5% above. Tax = 500x.02+2,500x.04+14,000x.05 = 10+100+700 = 810.00. The app's flat pensionExemption is .none regardless of structure or age, so it also gives $0 exclusion here -- correct by coincidence, since the structure axis (DB vs DC) has not yet been reached.",
+      "sourceURL": "https://www.revenue.alabama.gov/wp-content/uploads/2024/01/23schrsinstr.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 20000, "planStructure": "definedContribution", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 810.00
+    },
+    {
+      "name": "single, age 70, defined-contribution/IRA income -- understated, the app is structure-blind so it misses the $6,000 DC exclusion",
+      "source": "Same Schedule RS instructions, same Line 10: age 70 clears the 65-year gate for the defined-contribution exclusion. Exclusion = min(20,000, 6,000) = 6,000. AL standard deduction (single) $3,000. Taxable = 20,000-6,000-3,000 = 11,000. AL brackets: 2% to $500, 4% to $3,000, 5% above. Tax = 500x.02+2,500x.04+8,000x.05 = 10+100+400 = 510.00. The app's config uses the flat pensionExemption field (currently .none) for ALL classified pension rows regardless of planStructure, because Alabama's perSourceExemptions list is empty -- the structure axis this rule keys on (definedBenefit vs definedContribution) is not wired up for Alabama at all.",
+      "sourceURL": "https://www.revenue.alabama.gov/wp-content/uploads/2024/01/23schrsinstr.pdf",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 20000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 20000, "planStructure": "definedContribution", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 510.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Alabama's perSourceExemptions is empty, so classifiedPensionSources rows fall through to the flat pensionExemption (.none) regardless of planStructure, missing the $6,000-per-person age-65 defined-contribution exclusion (Schedule RS Line 10); this UNDERSTATES the exemption for defined-contribution/IRA income.",
+        "observedToday": 810.00
+      }
+    },
+    {
+      "name": "single, age 70, DEFINED-BENEFIT pension -- the clearest structure-blindness defect, a fully-exempt pension taxed in full",
+      "source": "Ala. Admin. Code r. 810-3-19-.04(1) (Alabama Dept. of Revenue, https://admincode.legislature.state.al.us/api/chapter/810-3-19, section 810-3-19-.04, 'Defined Benefit Plans'): 'Payments made to a retiree or his designated beneficiary under a \"defined benefit plan,\" as defined by IRC Section 414(j)...are exempt from Alabama income tax for an individual resident taxpayer, to the extent such payment would be taxable for federal income tax purposes.' No age requirement, no dollar cap -- the full $50,000 defined-benefit pension is exempt. AL standard deduction (single) $3,000. Taxable = 50,000-50,000-3,000, floored at $0. Tax = $0.00. Because Alabama's perSourceExemptions is empty, this row is pooled into the flat pensionExemption (.none) exactly like the defined-contribution case above -- the engine cannot distinguish a fully-exempt defined-benefit pension from a capped defined-contribution distribution at all.",
+      "sourceURL": "https://admincode.legislature.state.al.us/api/chapter/810-3-19",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Alabama's perSourceExemptions is empty, so a fully-exempt defined-benefit pension (Ala. Admin. Code 810-3-19-.04, unconditional, no age gate, no cap) is pooled into the flat pensionExemption (.none) and taxed as ordinary income in full; this is the clearest single instance of the structure-blindness defect in this batch.",
+        "observedToday": 2310.00
+      }
+    },
+    {
+      "name": "MFJ, both 65+, one spouse's defined-benefit pension plus defined-contribution income mixed on the same return",
+      "source": "Same two sources combined: the $30,000 defined-benefit pension is fully exempt (Ala. Admin. Code 810-3-19-.04, https://admincode.legislature.state.al.us/api/chapter/810-3-19); the $15,000 defined-contribution distribution gets the $6,000 age-65 exclusion (Schedule RS Line 10), leaving $9,000 taxable. AL standard deduction (MFJ) $8,500. Taxable = (30,000-30,000) + (15,000-6,000) - 8,500 = 9,000-8,500 = 500. AL MFJ brackets: 2% to $1,000. Tax = 500x.02 = 10.00. Same structure-blindness defect as above, compounded: the flat pensionExemption (.none) excludes NOTHING from either row, missing both the unconditional DB exemption and the capped DC exclusion.",
+      "sourceURL": "https://www.revenue.alabama.gov/wp-content/uploads/2024/01/23schrsinstr.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 65,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 30000, "planStructure": "definedBenefit", "planSource": "privateEmployer"},
+        {"amount": 15000, "planStructure": "definedContribution", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 10.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same structure-blindness defect at the MFJ scale, compounded across a mixed DB+DC household: the engine's flat pensionExemption (.none) excludes nothing from either the fully-exempt defined-benefit pension or the capped defined-contribution distribution.",
+        "observedToday": 1745.00
+      }
+    }
+  ]
+}

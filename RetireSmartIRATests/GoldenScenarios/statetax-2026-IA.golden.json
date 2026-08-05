@@ -1,0 +1,110 @@
+{
+  "state": "IA",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, age 50, below the 55 threshold: correctly fully taxable, both sides agree",
+      "source": "Iowa DOR 'Retirement Income Tax Guidance', https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance, FAQ 'Who qualifies for the retirement income exclusion?': 'To qualify for the retirement income exclusion, the taxpayer must be: 55 years of age or older on December 31 of the tax year, or Disabled, or...'. This filer is 50 and not disabled, so none of the exclusion applies to any of the $40,000 IRA withdrawal; it is ordinary taxable income under Iowa's 3.8% flat rate (Iowa Code 422.5A). Federal standard deduction (conformsToFederal, engine TaxYearConfig.standardDeductionSingle) $16,100, no age-65 addition (age 50), no OBBBA senior bonus (requires age 65+). Iowa taxable income = 40,000 - 16,100 = 23,900. Tax = 23,900 x 0.038 = 908.20. The engine's config also gives $0 exclusion at every age today (pensionExemption/iraWithdrawalExemption both .none, unconditionally), so this case matches the engine for the wrong reason (no age gate exists yet either way) as well as for the right one (real law also denies this filer).",
+      "sourceURL": "https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 40000,
+      "rothConversion": 0,
+      "expectedStateTax": 908.20
+    },
+    {
+      "name": "single, age 60, IRA withdrawal fully excluded under HF 2317 -- the app's .none/.none invents Iowa tax on retirement income",
+      "source": "Same guidance page, same FAQ: age 60 clears the '55 years of age or older' gate. 'What retirement income qualifies for the exclusion?' lists 'Traditional individual retirement accounts (IRA) authorized under section 408(a)' by name, with no dollar cap and no income limit stated anywhere on the page. The full $55,000 IRA withdrawal is excluded. Federal standard deduction (conformsToFederal) $16,100 (age 60, no 65+ addition, no OBBBA bonus). Iowa taxable income before the exclusion = 55,000 - 16,100 = 38,900; the $55,000 exclusion exceeds that, so Iowa taxable income floors at $0. Tax = $0.00. The app ships .none for both pensionExemption and iraWithdrawalExemption (StateTaxData.swift, Iowa block: '// IA phased out retirement exclusion with flat tax'), which is the wrong claim -- HF 2317 (2022), effective 2023, replaced a phased-out OLD partial exclusion with a NEW full exclusion; the exclusion itself was not phased out.",
+      "sourceURL": "https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 55000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 55000,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Iowa's config carries no retirement-income exclusion at all (pensionExemption and iraWithdrawalExemption both .none), so the engine taxes a qualifying 60-year-old's full IRA withdrawal as ordinary income instead of excluding it entirely under HF 2317.",
+        "observedToday": 1478.20
+      }
+    },
+    {
+      "name": "MFJ, both spouses 55+ (62/58), pension income fully excluded",
+      "source": "Same guidance page, same two FAQs: both spouses clear the age-55 gate ('If both spouses meet one of the above conditions, the taxpayers may exclude all eligible retirement income'), and a defined-benefit/IPERS-style pension is explicitly listed as qualifying ('Defined benefit plans, pension plans...including IPERS'). Federal standard deduction (conformsToFederal, MFJ) $32,200 (TaxYearConfig.standardDeductionMFJ); neither spouse is 65 so no age-65 addition and no OBBBA senior bonus. Iowa taxable income before exclusion = 70,000 - 32,200 = 37,800; the $70,000 exclusion exceeds that, so Iowa taxable income floors at $0. Tax = $0.00.",
+      "sourceURL": "https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 62,
+      "spouseAge": 58,
+      "federalAGI": 70000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 70000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same missing-exclusion defect as the single case: Iowa's config has no pension exclusion at any age, so a fully-qualifying MFJ couple's pension income is taxed in full instead of excluded entirely.",
+        "observedToday": 1436.40
+      }
+    },
+    {
+      "name": "MFJ, only the SPOUSE qualifies (spouse 65, no income of their own) and the income-bearing primary is 48 and does not qualify -- per-qualifying-spouse regression guard, forward-looking",
+      "source": "Same guidance page, 'Who qualifies' FAQ: 'For married couples, the retirement income exclusion is only applicable to a spouse who meets one of the above conditions. If one spouse does not meet one of the above conditions, retirement income attributable to that spouse is not eligible for the exclusion.' The $52,000 pension is attributable to the primary filer (age 48, does not qualify); the spouse (age 65, qualifies) has no income of their own to exclude. Correct exclusion = $0. Federal standard deduction (conformsToFederal, MFJ) = base $32,200 + age-65 addition for the ONE qualifying (65+) spouse $1,650 (TaxYearConfig.additionalDeduction65MFJ) + OBBBA senior bonus for that one qualifying senior, full $6,000 since federal AGI $52,000 is under the $150,000 MFJ phaseout threshold = 32,200+1,650+6,000 = 39,850. Iowa taxable income = 52,000-39,850 = 12,150. Tax = 12,150 x 0.038 = 461.70. TaxCalculationEngine.swift:657-658 currently grants the household exclusion whenever EITHER spouse clears distributionMinAge ('primaryAge >= exemptions.distributionMinAge || (enableSpouse && spouseAge >= exemptions.distributionMinAge)'), which is Iowa's per-qualifying-spouse rule violated by construction -- a wrongly-household-wide engine would exclude the primary's income just because the spouse is 65+. That specific defect is currently LATENT: Iowa's exemption is .none/.none regardless of age, so today the engine coincidentally lands on the same $461.70 as this correctly-derived figure. This fixture exists so that when Phase 5 ships Iowa's exclusion using the default .household attribution instead of .perQualifyingSpouse, this case turns red and catches it.",
+      "sourceURL": "https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 48,
+      "spouseAge": 65,
+      "federalAGI": 52000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 52000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 461.70
+    },
+    {
+      "name": "single, age 60, large Roth conversion -- the highest-value fixture in the phase, the app invents state tax on the exact transaction it exists to optimize",
+      "source": "Same guidance page, 'What retirement income qualifies for the exclusion?' FAQ lists 'Roth conversion income' by name among qualifying distributions, with no dollar cap and no income limit. Age 60 clears the 55-year gate. Full $200,000 Roth conversion is excluded. Federal standard deduction (conformsToFederal) $16,100 (age 60, no 65+ addition/bonus). Iowa taxable income before exclusion = 200,000 - 16,100 = 183,900; the $200,000 exclusion exceeds that, so Iowa taxable income floors at $0. Tax = $0.00. The app's current .none/.none instead taxes the entire conversion at Iowa's flat 3.8% rate on the post-deduction amount, inventing roughly $7,000 of state tax on a Roth conversion this app exists to recommend, for an Iowan the app should be telling to convert aggressively.",
+      "sourceURL": "https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance",
+      "filingStatus": "single",
+      "primaryAge": 60,
+      "spouseAge": null,
+      "federalAGI": 200000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 0,
+      "rothConversion": 200000,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Iowa's config has no rothConversionExemption set at all, so the engine treats a Roth conversion -- named explicitly as qualifying by Iowa DOR guidance -- as fully taxable ordinary income, inventing state tax on the specific transaction the product exists to recommend.",
+        "observedToday": 6988.20
+      }
+    },
+    {
+      "name": "single, age 56, in the 55-58 band -- exercises the engine's hardcoded 59 distributionMinAge gate independently of the config",
+      "source": "Same guidance page, same FAQ: the taxpayer need only be '55 years of age or older on December 31 of the tax year'; there is no secondary 59 1/2 gate anywhere in Iowa's rule. Age 56 clears Iowa's real threshold. The full $45,000 IRA withdrawal is excluded. Federal standard deduction (conformsToFederal) $16,100 (age 56, no 65+ addition/bonus). Iowa taxable income before exclusion = 45,000-16,100 = 28,900; the $45,000 exclusion exceeds that, so Iowa taxable income floors at $0. Tax = $0.00. RetirementIncomeExemptions.distributionMinAge defaults to 59 and governs when scenarioRetirementDistributions (the IRA-withdrawal scalar this fixture uses) becomes exemption-eligible (TaxCalculationEngine.swift:654-658); Iowa's config does not override it to 55. Kept as a fixture distinct from the age-60 case above so that once Phase 5 sets iraWithdrawalExemption and regularExemptionMinAge for Iowa but forgets to also lower distributionMinAge to 55, THIS case (and not the age-60 one) is what turns red.",
+      "sourceURL": "https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance",
+      "filingStatus": "single",
+      "primaryAge": 56,
+      "spouseAge": null,
+      "federalAGI": 45000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "iraWithdrawals": 45000,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier1",
+        "summary": "Same missing-exclusion defect as the other Iowa cases (pensionExemption/iraWithdrawalExemption both .none today), pinned separately at age 56 so Phase 5's fix is checked against the engine's hardcoded distributionMinAge=59 gate, not just against the exclusion's existence.",
+        "observedToday": 1098.20
+      }
+    }
+  ]
+}

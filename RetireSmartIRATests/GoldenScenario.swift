@@ -41,6 +41,30 @@ struct GoldenScenario: Codable {
     /// PA/IL/MS/NJ fixture, which keeps using the flat scalar unchanged.
     let classifiedPensionSources: [ClassifiedPensionSource]?
 
+    /// Present only when the engine is KNOWN to disagree with `expectedStateTax`.
+    /// Absent (nil) means the jurisdiction is expected to match its own form.
+    let knownDefect: KnownDefect?
+
+    /// Ordinary income carried by `federalAGI` that no other field on this
+    /// fixture represents, DECLARED so the shape invariant can stay an exact
+    /// equality instead of an inequality.
+    ///
+    /// DECLARATIVE ONLY. It is never summed into anything and never reaches an
+    /// engine: `federalAGI` remains the single number the single-year runner
+    /// passes in. Wiring this into the runner would change New York's shipped
+    /// fixture values, which Phase 4 forbids.
+    ///
+    /// No fixture sets this field yet. It exists for New York's first fixture,
+    /// whose `federalAGI` of $90,000 stands against a $70,000 classified
+    /// government pension, leaving $20,000 of unrelated ordinary income
+    /// currently described only in that fixture's prose `source` string. A
+    /// later task moves that $20,000 into this field.
+    ///
+    /// A fixture with a nonzero value here can never join
+    /// `GoldenScenarioCrossPathTests.agreeing`, because the multi-year runner
+    /// derives AGI from the components and is structurally blind to this income.
+    let otherOrdinaryIncome: Double?
+
     var resolvedFilingStatus: FilingStatus {
         filingStatus == "marriedFilingJointly" ? .marriedFilingJointly : .single
     }
@@ -54,6 +78,29 @@ struct ClassifiedPensionSource: Codable {
     let amount: Double
     let planStructure: String
     let planSource: String
+}
+
+/// Records that a jurisdiction's shipped behavior is KNOWN to disagree with
+/// its own published form, so the disagreement is pinned rather than silently
+/// tolerated.
+///
+/// Phase 4 writes fixtures to CORRECT LAW, which means roughly 29 jurisdictions
+/// are expected to disagree with the engine. Without this block the suite would
+/// go red across the board and the phase could not gate. With it, every defect
+/// is a named, pinned, citable record and the suite stays green.
+///
+/// `observedToday` is the figure the engine ACTUALLY produces right now. It is
+/// not an endorsement. It exists so that any drift in a defective state fails a
+/// test, and so Phase 5 can measure its own correction against a real baseline
+/// rather than a remembered one.
+struct KnownDefect: Codable {
+    /// "tier1" | "tier2" | "tier3" | "tier4" | "unclassified", matching the
+    /// tiers in `.claude/memory/roadmap/2026-08-02-full-50-state-verification.md`.
+    let tier: String
+    /// One sentence naming the mechanism, not the symptom.
+    let summary: String
+    /// Today's engine output for this scenario, measured, never predicted.
+    let observedToday: Double
 }
 
 struct GoldenScenarioFile: Codable {

@@ -1,0 +1,91 @@
+{
+  "state": "HI",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single filer, fully employer-funded (noncontributory) private-sector pension: fully exempt under HI law regardless of employer type, engine taxes it in full -- disclosed-not-modelled per Phase 3b, pinned to correct law here",
+      "source": "Hawaii Schedule J (Form N-11/N-15/N-40) Instructions, REV 2025, page 2, under 'WHO MUST USE THIS FORM': 'The pension exclusion applies only to amounts attributable to employer contributions...' and item 3: 'A pension plan to which NO employee contributions were made (i.e. the employer paid for the entire cost of the pension) if distributions are made after retiring or after attaining the age of 73...The entire amount is NOT subject to Hawaii taxation and need not be reported.' Hawaii's rule keys on WHO FUNDED the plan, not on employer type (government vs. private) -- a private-sector noncontributory pension qualifies exactly as a public one would. This app's PlanStructure axis is used as the proxy: 'definedBenefit' represents an employer-funded, noncontributory pension (no employee salary-deferral), which this app was scoped in Phase 3b as 'disclosed, not modelled' rather than given a perSourceExemptions entry. Arithmetic: $50,000 fully excluded, leaving $0 state taxable income after the $8,000 single standard deduction, tax = $0.00.",
+      "sourceURL": "https://files.hawaii.gov/tax/forms/current/schj_i.pdf",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Hawaii's pension exclusion turns on whether the EMPLOYEE contributed, not on employer type; statetax-2026-HI.json has no perSourceExemptions (Phase 3b scoped Hawaii as disclosed-not-modelled), so the engine taxes this fully employer-funded pension at HI's 12-bracket schedule as if it were ordinary income.",
+        "observedToday": 2107.20
+      }
+    },
+    {
+      "name": "single filer, 401(k) elective-deferral distribution: correctly fully taxable (employee-funded), engine also taxes it fully -- contrast/regression case",
+      "source": "Hawaii Schedule J (Form N-11/N-15/N-40) Instructions, REV 2025, page 2, in the paragraph immediately preceding 'WHO MUST USE THIS FORM': 'The pension exclusion applies only to amounts attributable to employer contributions.' A 401(k) elective-deferral distribution funded entirely by the employee's own salary-reduction contributions has no employer-contribution component, so under this rule 0% of the distribution qualifies for the pension exclusion and the full amount is taxable. (The same page's item 6 under 'WHO MUST USE THIS FORM' describes a 401(k) with an employer-matching or profit-sharing component as a 'hybrid plan which is partly pension and partly deferred compensation' -- confirming that only an employer-funded portion, if any, is ever excludable; here there is none.) Arithmetic: $50,000 fully taxable, $50,000 - $8,000 single standard deduction = $42,000 taxable, taxed at HI's 12-bracket single schedule: 1.4% to $9,600 ($134.40), 3.2% to $14,400 ($153.60), 5.5% to $19,200 ($264.00), 6.4% to $24,000 ($307.20), 6.8% to $36,000 ($816.00), 7.2% on the remaining $6,000 ($432.00). Total $2,107.20.",
+      "sourceURL": "https://files.hawaii.gov/tax/forms/current/schj_i.pdf",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedContribution", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 2107.20
+    },
+    {
+      "name": "MFJ, both spouses have fully employer-funded noncontributory pensions: fully exempt under HI law, engine taxes the full household income",
+      "source": "Hawaii Schedule J Instructions, REV 2025, page 2 (see single-filer case above for the exact quote). No dollar cap and no per-taxpayer limit is stated for the noncontributory-pension exclusion. Arithmetic: $40,000 + $35,000 = $75,000, all fully excluded, leaving $0 taxable after the $16,000 MFJ standard deduction, tax = $0.00.",
+      "sourceURL": "https://files.hawaii.gov/tax/forms/current/schj_i.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 68,
+      "federalAGI": 75000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "privateEmployer"},
+        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "governmentUnspecified"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 0.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both spouses' noncontributory pensions should be fully excluded; the engine has no perSourceExemptions for HI, taxing the full $75,000 household income.",
+        "observedToday": 2466.40
+      }
+    },
+    {
+      "name": "MFJ, one spouse's noncontributory pension is exempt and the other spouse's 401(k) deferral distribution is not: one spouse qualifies",
+      "source": "Hawaii Schedule J Instructions, REV 2025, page 2 (noncontributory exclusion) and pages 1-2 (elective-deferral distributions taxable). Arithmetic: $40,000 employer-funded pension fully excluded; $35,000 401(k) distribution fully taxable. $75,000 - $16,000 MFJ standard deduction - $40,000 exclusion = $19,000 taxable, entirely inside HI's MFJ 1.4% first bracket (threshold $19,200). $19,000 x 1.4% = $266.00.",
+      "sourceURL": "https://files.hawaii.gov/tax/forms/current/schj_i.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 64,
+      "federalAGI": 75000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "privateEmployer"},
+        {"amount": 35000, "planStructure": "definedContribution", "planSource": "privateEmployer"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 266.00,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "The noncontributory-pension spouse's income should be excluded while the 401(k)-deferral spouse's distribution stays taxable; the engine excludes neither (no perSourceExemptions for HI), taxing the full $75,000 -- the identical figure the fully-exempt MFJ case above produces, because the engine is blind to the funding-source distinction entirely.",
+        "observedToday": 2466.40
+      }
+    }
+  ]
+}
