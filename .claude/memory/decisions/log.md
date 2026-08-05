@@ -1228,3 +1228,23 @@ made P6 reachable through a spouse, so it should not sit indefinitely.
   the last commit. A green build is NOT evidence the app is running your code.
 - Finish a merge in its own editor, or close the editor first and then commit; completing it
   out-of-band leaves a stale `MERGE_HEAD` that silently makes the next commit a merge commit.
+
+---
+
+## 2026-08-05: Phase 5b Task 3 also adds all three plan-classification picker options
+
+**Decision.** Task 3 (Kansas) extends `PlanClassificationChoice` in
+`RetireSmartIRA/IncomeSourcesView.swift` with options that write `ownStateOrLocal`,
+`uniformedServices` and `railroadRetirement`, all three at once, rather than adding only the one
+Kansas needs or deferring the picker to a later task.
+
+**Rationale.** Task 1 added those three `PlanSource` cases but the user-facing picker is driven by a
+separate enum whose nine options were unchanged since Phase 3b, so a correct Kansas rule matching
+`ownStateOrLocal` (and correctly NOT matching `otherStateOrLocal`) would have turned every Kansas
+golden case green while a real KPERS holder, whose only government-pension option writes
+`otherStateOrLocal`, still got no exemption. That would have made Task 10's "Steve can be told so
+without qualification" claim false. Doing all three at once means Tasks 4, 6, 8 and 9 inherit a picker
+that can express what their rules need, instead of editing the same reverse-lookup priority list five
+separate times.
+
+**Found by** controller code audit before Task 3 was dispatched. The plan never mentions the picker.

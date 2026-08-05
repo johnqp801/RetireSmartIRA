@@ -87,7 +87,7 @@ it BY MUTATION rather than by reading**, the reviewer performing the swap itself
 
 ---
 
-## BLOCKING DECISION FOR TASK 3, NOT YET ANSWERED BY JOHN
+## DECIDED 2026-08-05 BY JOHN: OPTION 1, Task 3 adds ALL THREE picker options now
 
 **The picker cannot express the three `PlanSource` cases Task 1 added, so a CORRECT Kansas rule would
 be unreachable by every real user.** Found by controller code audit before Task 3 was dispatched, and
@@ -110,18 +110,14 @@ Note the UI gate itself is already data-driven and needs no change:
 `perSourceExemptions` block turns the picker on for Kansas automatically. The gap is purely that the
 picker's OPTIONS cannot produce the new cases.
 
-The four options put to John, unanswered:
-1. Task 3 adds all three picker options at once, so Tasks 4 through 9 inherit a UI that can express
-   them. Widens Task 3 into production SwiftUI plus the `choice(for:)` reverse-lookup priority list.
-   Only option under which Kansas is genuinely deliverable the moment Task 3 ends.
-2. Task 3 adds only `ownStateOrLocal`; later tasks add theirs. Picker gets edited five times.
-3. Task 3 ships config only; one dedicated picker task runs before Task 10 so the Kansas claim stays
-   honest.
-4. Task 3 ships config only; the gap becomes a Phase 6 disclosure item and Task 10 states plainly that
-   Kansas is correct in the engine but not yet selectable in the app.
+**John chose option 1 on 2026-08-05:** Task 3 adds all three picker options at once, so Tasks 4, 6, 8
+and 9 inherit a picker that can express what their rules need rather than editing the same
+`choice(for:)` reverse-lookup priority list five separate times. **This widens Task 3 beyond the plan's
+config-shaped assumption into production SwiftUI.** Logged in `.claude/memory/decisions/log.md`.
 
-**Do not dispatch Task 3 without deciding this.** A Task 3 that ignores it produces a green suite and an
-undelivered promise, which is the exact failure mode this whole verification program exists to prevent.
+The three rejected options, kept so the reasoning is not re-litigated: adding only `ownStateOrLocal`
+now; deferring the whole picker to a dedicated task before Task 10; deferring it to Phase 6 with Task
+10 stating plainly that Kansas is correct in the engine but not selectable in the app.
 
 ---
 
