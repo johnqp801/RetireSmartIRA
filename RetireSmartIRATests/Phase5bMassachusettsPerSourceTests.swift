@@ -248,6 +248,35 @@ struct Phase5bMassachusettsPerSourceTests {
                 """)
     }
 
+    /// The DISCLOSED UNDER-MATCH, pinned so its cost is a number rather than a
+    /// sentence in a report.
+    ///
+    /// mass.gov's enumerated exempt list includes federal CONTRIBUTORY pensions
+    /// and Railroad Retirement, and the shipped rule names neither, so both are
+    /// taxed in full today. The omission is deliberate: the only statement of
+    /// those two categories on this branch is a paraphrase inside golden case
+    /// MA-2's `source` prose, and this task may not widen a rule from a
+    /// paraphrase. This test is the durable record of what that costs, cited by
+    /// the `knownButUnpinned` MA federal-civilian entry.
+    ///
+    /// It goes RED the day someone widens the rule, which is correct: widening
+    /// it must come with reviewed golden cases, and this test failing is what
+    /// forces that to be a deliberate, visible change rather than a quiet one.
+    @MainActor
+    @Test("A federal civilian or Railroad Retirement pension is taxed in full in Massachusetts today",
+          arguments: [PlanSource.federalCivilian, .railroadRetirement])
+    func federalCivilianIsTaxedInFullToday(source: PlanSource) {
+        let tax = Self.massachusettsTaxOnOnePension(source: source)
+        #expect(abs(tax - 3_000.00) < 0.01,
+                """
+                \(source): expected the full $3,000.00 the shipped rule produces today, \
+                got \(tax). $0.00 means the Massachusetts rule was widened onto this \
+                category. That may well be CORRECT under mass.gov's enumerated exempt \
+                list, but it must arrive with a reviewed golden case pinning the figure, \
+                and the knownButUnpinned entry for it must be deleted in the same change.
+                """)
+    }
+
     /// The structure guard, end to end. A Massachusetts state employee's 457
     /// plan carries `ownStateOrLocal` with a `definedContribution` structure
     /// and must be taxed in full.
@@ -389,15 +418,20 @@ struct Phase5bMassachusettsPerSourceTests {
     /// touch Massachusetts sees only a green suite.
     @Test("The contributory-axis gap stays recorded as a known-but-unpinned defect")
     func theContributoryGapStaysRecorded() throws {
+        // Massachusetts has TWO entries in this list and they record OPPOSITE
+        // directions, so this must select on content, not on `state == "MA"`.
+        // A `.first { $0.state == "MA" }` would silently start asserting
+        // against the federal-civilian entry if the two were ever reordered.
         let entry = try #require(
-            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first { $0.state == "MA" },
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "MA" && $0.summary.contains("NONCONTRIBUTORY")
+            },
             """
             The Massachusetts contributory-axis gap is no longer recorded. Either the \
             axis was actually added, in which case this test should be replaced by a \
             golden case for the noncontributory household, or a real, reachable \
             under-taxation was silently dropped from the catalogue.
             """)
-        #expect(entry.summary.contains("NONCONTRIBUTORY"))
         #expect(entry.blockedOn.contains("contributory"))
 
         // And the gap is real, not merely described: the rule DOES match the

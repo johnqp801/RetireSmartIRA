@@ -109,13 +109,21 @@ struct GoldenScenarioDefectCatalogueTests {
     ///      could be written but its expected value could not be derived. The
     ///      Missouri entry below. Resolved by a source becoming reachable.
     ///
-    ///   2. NOT EXPRESSIBLE. The household itself cannot be described in the
-    ///      app's model, so the fixture cannot be written at all and a fixture
-    ///      asserting a tax for it would assert something unreachable. The
-    ///      Kansas TSP entry below: no `PlanClassificationChoice` row writes a
-    ///      federal defined-contribution plan, so no user can classify one and
-    ///      no fixture can pin what happens when they do. Resolved by a product
-    ///      decision, not by research.
+    ///   2. NOT EXPRESSIBLE. The household cannot be described in the app's
+    ///      model well enough for a fixture to assert a tax for it. Two ways
+    ///      that happens, and a contributor should check theirs against both:
+    ///      the household cannot be described AT ALL, so a fixture would
+    ///      assert something unreachable (the Kansas TSP entry below: no
+    ///      `PlanClassificationChoice` row writes a federal
+    ///      defined-contribution plan, so no user can classify one); or it can
+    ///      be described but NOT DISTINGUISHABLY from a household the state
+    ///      taxes differently, so a fixture for it would carry inputs
+    ///      identical to an existing case and a contradictory
+    ///      `expectedStateTax` (the Massachusetts contributory entry below:
+    ///      `(definedBenefit, ownStateOrLocal)` describes the exempt
+    ///      contributory pension and the taxable noncontributory one
+    ///      identically). Both are resolved by a product decision, not by
+    ///      research.
     ///
     /// What both share, and what actually defines the category: a defect
     /// measured against a state's own published form, whose mechanism is cited,
@@ -251,6 +259,52 @@ struct GoldenScenarioDefectCatalogueTests {
                 that a shared classification axis lands in the model task
                 (`isSurvivorBenefit`, Task 1) and is consumed by the jurisdiction tasks,
                 not invented by one of them.
+                """
+        ),
+        UnpinnedDefect(
+            state: "MA",
+            summary: """
+                mass.gov's Tax Treatment of Government Pensions in Massachusetts
+                enumerates a closed list of exempt pension categories, and that list
+                includes FEDERAL CONTRIBUTORY pensions and RAILROAD RETIREMENT
+                alongside the two categories the Phase 5b Task 4 rule implements. The
+                shipped rule names `ownStateOrLocal` and `uniformedServices` only, so a
+                Massachusetts resident holding a CSRS or FERS annuity, or a Railroad
+                Retirement benefit, is taxed in full on it. Measured: $3,000.00 against
+                $0.00 on the fixture's own $60,000 single filer at the flat 5% rate,
+                pinned by
+                `Phase5bMassachusettsPerSourceTests.federalCivilianIsTaxedInFullToday`.
+                The direction is UNDER-exemption, i.e. the app over-taxes, the same
+                direction as the Kansas TSP entry above and the opposite of the
+                Massachusetts contributory entry above it. The omission is deliberate
+                and is the safer of the two errors available, but it is an error and it
+                is not disclosed to the affected user anywhere in the app.
+                """,
+            blockedOn: """
+                NEITHER blocker kind above fits exactly, and saying which it is closest
+                to is more useful than forcing it. It is NOT kind 2: the household is
+                fully expressible, `PlanClassificationChoice.federalCivilianPension`
+                writes `(definedBenefit, federalCivilian)` and a user can select it
+                today, so a golden case COULD be written. It is kind 1 in shape but not
+                in substance: what is missing is not a dollar amount (the figure is
+                $0.00 if the category is exempt) but a REVIEWED derivation of the rule
+                itself. The only statement of these two categories anywhere on this
+                branch is a paraphrase inside golden case MA-2's own `source` prose, not
+                a quoted primary source, and Phase 4's discipline is that every
+                `expectedStateTax` was derived from the jurisdiction's published
+                authority by a reviewer who independently opened the document. Task 4's
+                shared procedure forbids researching the law again, so this task could
+                not supply that derivation and deliberately did not widen the rule from
+                a paraphrase. Note also that mass.gov's category is federal
+                CONTRIBUTORY, so the same missing contributory axis recorded in the
+                entry above applies here too, even though every federal civilian annuity
+                is in practice contributory. Resolved by a reviewed primary-source pass
+                over mass.gov adding MA golden cases for a federal civilian pension and
+                a Railroad Retirement benefit, after which the rule can be widened to
+                whatever those cases support. Note the MA-4 fixture's warning is NOT in
+                conflict with this and must not be read as one: it says only that the
+                MILITARY exclusion must not be written against `federalCivilian`,
+                because mass.gov treats federal civilian pay under a separate heading.
                 """
         )
     ]
