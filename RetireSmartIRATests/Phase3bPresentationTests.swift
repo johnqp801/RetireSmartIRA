@@ -97,13 +97,19 @@ struct Phase3bPresentationTests {
         #expect(PlanClassificationChoice.notSure.label == "Not sure")
     }
 
-    /// PROPOSED working copy, Phase 5b Task 3. Unlike the nine rows above,
-    /// these three labels were NOT approved by John, and the Task 3 report
-    /// lists them for renaming. This test exists so a rename is a deliberate
-    /// two-file edit rather than a silent drift, and so that every row has a
-    /// non-empty label whatever the eventual wording.
-    @Test("Phase 5b's three new rows carry their PROPOSED working labels")
-    func newPickerLabelsAreTheProposedWorkingCopy() {
+    /// Phase 5b Task 3 introduced these three labels as working copy, and
+    /// John APPROVED them AS IS on 2026-08-05, so they now stand on the same
+    /// footing as the nine rows above: approved, live, user-visible copy.
+    ///
+    /// The test is KEPT rather than retired, and pinning the exact strings is
+    /// what it is for. Approval is precisely what makes drift worth catching:
+    /// before it, a rename was expected and this test only made one
+    /// deliberate; after it, any change to these strings is a change to
+    /// approved copy and is John's decision, not a maintainer's. The
+    /// non-empty sweep over `allCases` still covers every row whatever its
+    /// wording.
+    @Test("Phase 5b's three new rows carry their approved labels, byte for byte")
+    func newPickerLabelsAreApprovedAndPinned() {
         #expect(PlanClassificationChoice.ownStateGovernmentPension.label == "Government pension, my own state or locality")
         #expect(PlanClassificationChoice.uniformedServicesPension.label == "Military retired pay")
         #expect(PlanClassificationChoice.railroadRetirementPension.label == "Railroad Retirement benefits")

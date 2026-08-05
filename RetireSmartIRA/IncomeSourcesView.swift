@@ -67,12 +67,15 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// Plain-English row label, spec section 3.2 column 1, verbatim for the
     /// nine original rows.
     ///
-    /// The three Phase 5b rows carry PROPOSED working copy that John has not
-    /// approved. They are deliberately plain rather than clever so renaming
-    /// them is a one-line change with no behavioral consequence: nothing
-    /// keys on a label, and what a row PERSISTS is the
-    /// `RetirementPlanClassification` its `classification` returns, not any
-    /// text and not the case's `rawValue`.
+    /// The three Phase 5b rows were introduced by Task 3 as working copy and
+    /// were APPROVED AS IS by John on 2026-08-05, so all twelve rows are now
+    /// approved user-facing copy. They remain deliberately plain rather than
+    /// clever, and a rename would still be a one-line change with no
+    /// behavioral consequence: nothing keys on a label, and what a row
+    /// PERSISTS is the `RetirementPlanClassification` its `classification`
+    /// returns, not any text and not the case's `rawValue`. Their exact
+    /// strings are pinned by
+    /// `Phase3bPresentationTests.newPickerLabelsAreApprovedAndPinned`.
     var label: String {
         switch self {
         case .nyGovernmentPension: return "Government pension, New York State or local"
@@ -1319,8 +1322,8 @@ struct IncomeSourcesView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            // Phase 5b Task 4. PROPOSED COPY, awaiting John's
-                            // approval, and deliberately modelled on the
+                            // Phase 5b Task 4. Copy APPROVED by John on
+                            // 2026-08-05, and deliberately modelled on the
                             // Hawaii caption directly above rather than
                             // invented: both disclose the SAME missing axis,
                             // employee-contributory against employer-funded,
