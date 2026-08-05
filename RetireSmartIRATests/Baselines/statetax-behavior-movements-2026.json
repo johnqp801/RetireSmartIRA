@@ -142,5 +142,157 @@
     "state": "IA",
     "goldenCase": "single, age 60, IRA withdrawal fully excluded under HF 2317 -- the app's .none/.none invents Iowa tax on retirement income",
     "justification": "Age 63 clears Iowa's 55-year gate (Iowa has no separate early-age tier), so the $40,000 IRA distribution scalar is fully excluded under HF 2317; the taxable Social Security portion is unaffected since Iowa already exempted Social Security."
+  },
+  {
+    "key": "NM|single 55, distributions only",
+    "before": 2660.5,
+    "after": 2411.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "New Mexico House Bill 252 (Laws 2024, Chapter 67, Section 5) replaced the pre-HB252 5-bracket 1.7%-5.9% single schedule with the enacted 6-bracket 1.5%-5.9% schedule effective TY2025; this baseline scenario calls calculateStateTax directly on its income with no state standard deduction or PIT-ADJ exemption applied, so it exercises the corrected single bracket table alone, the same mechanism golden case 1 isolates."
+  },
+  {
+    "key": "NM|single 58, distributions only",
+    "before": 2660.5,
+    "after": 2411.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction as the age-55 case; the corrected single table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|single 59, distributions only",
+    "before": 2660.5,
+    "after": 2411.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction as the age-55 case; the corrected single table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|MFJ 57 with spouse 61",
+    "before": 5472.0,
+    "after": 5069.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 (Laws 2024, Chapter 67, Section 5) bracket-schedule replacement, applied to the married-filing-jointly table (enacted 6-bracket 1.5%-5.9% schedule, first bracket not over $8,000 at 1.5%, confirmed against the enrolled bill text HB0252TRS.pdf printed page 16); this baseline scenario calls calculateStateTax directly with no state standard deduction or PIT-ADJ exemption applied, so it exercises the corrected married bracket table alone, the mechanism this golden case's own source field cites."
+  },
+  {
+    "key": "NM|MFJ 61 with spouse 56",
+    "before": 5472.0,
+    "after": 5069.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|MFJ 56 with spouse 55, both below the gate",
+    "before": 5472.0,
+    "after": 5069.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|MFJ 68 both qualify, pension + IRA",
+    "before": 6354.0,
+    "after": 5951.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|MFJ status but spouse disabled, 66",
+    "before": 4198.0,
+    "after": 3807.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "filingStatus is marriedFilingJointly here (enableSpouse merely disables spouse-attributed exemption logic this harness never exercises), so the corrected married bracket table applies, the same HB252 mechanism as the other MFJ baseline scenarios."
+  },
+  {
+    "key": "NM|single 65 pension, total 95k",
+    "before": 4375.5,
+    "after": 4113.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
+  },
+  {
+    "key": "NM|single 68 pension, total 120k",
+    "before": 5600.5,
+    "after": 5338.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
+  },
+  {
+    "key": "NM|single 68 pension, total 140k",
+    "before": 6580.5,
+    "after": 6318.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected single table alone determines its tax."
+  },
+  {
+    "key": "NM|MFJ 68 pension, total 120k",
+    "before": 5374.0,
+    "after": 4971.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|MFJ 68 pension, total 140k",
+    "before": 6354.0,
+    "after": 5951.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax."
+  },
+  {
+    "key": "NM|MFJ 68 pension, total 200k over the cliff",
+    "before": 9294.0,
+    "after": 8891.0,
+    "state": "NM",
+    "goldenCase": "MFJ, only primary is 65+, combined AGI between the single ($28,500) and MFJ ($51,000) thresholds -- carrier for the isMarried-hardcode mutant, independent of Virginia's Task-6 carrier",
+    "justification": "Same HB252 married-bracket-schedule correction as the other MFJ baseline scenarios; the corrected married table alone determines this scenario's tax, unaffected by the $200,000 income level since New Mexico's schedule has no separate cliff mechanism of its own."
+  },
+  {
+    "key": "NM|single 62 conversion 100k no withholding",
+    "before": 7560.5,
+    "after": 7298.0,
+    "state": "NM",
+    "goldenCase": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
+    "justification": "Same HB252 single-bracket-schedule correction, isolated by the same golden case that pins a Roth-conversion-driven income level against the corrected single table; this baseline scenario applies no state standard deduction or PIT-ADJ exemption, so the corrected table alone determines its tax."
+  },
+  {
+    "key": "NM|single 62 conversion 100k with 22k withheld",
+    "before": 7560.5,
+    "after": 7298.0,
+    "state": "NM",
+    "goldenCase": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
+    "justification": "Same HB252 single-bracket-schedule correction as the no-withholding case; New Mexico's config carries no Roth-conversion-withholding treatment for this harness to differentiate, so both scenarios move identically."
+  },
+  {
+    "key": "NM|single 54 conversion 80k",
+    "before": 6580.5,
+    "after": 6318.0,
+    "state": "NM",
+    "goldenCase": "single, age 70, a $30,000 Roth conversion pushes AGI above BOTH the PIT-ADJ exemption cliff and further into the correct HB252 bracket schedule",
+    "justification": "Same HB252 single-bracket-schedule correction, isolated by the same golden Roth-conversion case against the corrected single table."
+  },
+  {
+    "key": "NM|single 55 rmd rows not scenario distributions",
+    "before": 2660.5,
+    "after": 2411.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction as the age-55 distributions case; the corrected single table alone determines this scenario's tax regardless of income-row composition."
+  },
+  {
+    "key": "NM|single 63 in the early age tier",
+    "before": 4130.5,
+    "after": 3868.0,
+    "state": "NM",
+    "goldenCase": "single, age 55 (below 65, no PIT-ADJ age exemption), stale pre-HB252 bracket schedule is the dominant gap",
+    "justification": "Same HB252 single-bracket-schedule correction; New Mexico has no separate early-age tier of its own, so the corrected single table alone determines this scenario's tax."
   }
 ]

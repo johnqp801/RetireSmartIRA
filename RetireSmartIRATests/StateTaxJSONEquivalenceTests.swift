@@ -542,7 +542,13 @@ struct StateTaxJSONEquivalenceTests {
     ///   `scenarioRothConversionAmount`, `pensionIncome`, and
     ///   `primaryAge`/`spouseAge` directly, all of which this grid varies;
     ///   9 of its 10 scenarios (all but "zero income") diverge.
-    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa]
+    /// - New Mexico: Phase 5a Task 4 replaced the entire bracket schedule
+    ///   (both `single` and `married`) with the enacted HB252 (Laws 2024,
+    ///   Chapter 67) table. This grid's `income` values are passed straight
+    ///   into `calculateStateTax` with no state standard deduction, so every
+    ///   nonzero-income scenario recomputes against different thresholds;
+    ///   9 of its 10 scenarios (all but "zero income") diverge.
+    static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .newMexico]
 }
 
 // MARK: - PHASE 1 GATE, Layer B: structural equivalence (decode is lossless)
@@ -606,7 +612,14 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///
     /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
     ///   special session).
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa]
+    /// - Iowa: Phase 5a Task 3, retirement-income exclusion corrected (HF
+    ///   2317).
+    /// - New Mexico: Phase 5a Task 4, `taxSystem.single` and
+    ///   `taxSystem.married` bracket schedules replaced with the enacted
+    ///   HB252 table (Laws 2024, Chapter 67, Section 5), effective TY2025;
+    ///   the pre-HB252 schedule that was deleted from law now lives on only
+    ///   in `configs2026Legacy`.
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different
