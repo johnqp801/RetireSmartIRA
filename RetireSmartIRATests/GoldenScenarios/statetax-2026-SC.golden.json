@@ -1,0 +1,82 @@
+{
+  "state": "SC",
+  "taxYear": 2026,
+  "scenarios": [
+    {
+      "name": "single, UNDER 65 -- exposes an ADDITIONAL, related age-tier defect on the SAME retirement deduction this batch covers (not the brief's headline $15,000 finding, but squarely an age-gate defect on the retirement exemption)",
+      "source": "2025 SC1040 Instructions, printed page 8, 'Line p-1 through line p-3: Retirement deduction': 'An individual who is under age 65 may claim a retirement deduction up to $3,000 on qualified retirement income from their own plan. An individual who is age 65 or older during the tax year may claim a retirement deduction up to $10,000 on qualified retirement income from their own plan.' TaxCalculationEngine's SC config sets regularExemptionMinAge: 0 and no earlyAgeTier, so today's engine applies the 65-or-older $10,000 level unconditionally with no under-65 gate to the smaller $3,000 tier at all. This is a genuine, MEASURED, primary-source-verified defect on the retirement-deduction age structure -- the same mechanism family (age gate) this batch is chartered to find -- distinct from the brief's headline finding (the entirely separate $15,000 age-65 deduction, covered by the next three cases). Scenario: primary, age 50, pension $60,000 (same amount as the next case, only age differs, for a controlled comparison). Correct exclusion = min(60,000, 3,000) = $3,000. Standard deduction: SC's stateDeduction is .conformsToFederal (single, under 65, no OBBBA senior bonus since age < 65) = federal standard deduction $16,100 (TaxCalculationEngine.TaxYearConfig, 2026). SC taxable income = 60,000 - 16,100 - 3,000 = 40,900. SC1040 Tax Rate Schedule (SC1040TT, printed page 4, 'used for any filing status', two effective bands: 1.99% up to $30,000, then 6% minus a $642 constant above $100,000 -- OUT-OF-SCOPE FINDING, not pinned as a knownDefect: TaxCalculationEngine's SC config carries a top rate of 5.21% above $30,000, not the 6%-with-$642-offset structure the SC1040TT actually uses; this fixture computes against the CONFIGURED bracket table on both sides of the comparison so the only variable exercised is the retirement-deduction age-tier defect this case targets): tax = 0.0199*30,000 + 0.0521*(40,900-30,000) = 597.00 + 567.89 = 1,164.89.",
+      "sourceURL": "https://dor.sc.gov/sites/dor/files/forms/SC1040Instr_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 50,
+      "spouseAge": null,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1164.89,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "regularExemptionMinAge is 0 with no earlyAgeTier configured, so StateTaxData.swift's SC config applies the 65-or-older $10,000 retirement-deduction level unconditionally instead of gating a filer under 65 to the correct $3,000 level. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing the retirement-deduction age gate and/or the missing $15,000 age-65 deduction alone will turn these cases green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
+        "observedToday": 800.19
+      }
+    },
+    {
+      "name": "single, 65+, same pension amount as the prior case -- retirement-deduction age tier is correctly moot here (both sides agree it is $10,000), so this case isolates the brief's headline finding: the entirely separate $15,000 age-65 deduction has no field in the engine at all",
+      "source": "Same SC1040 Instructions retirement-deduction quote (see prior case) establishes the $10,000 cap applies identically under correct law and today's engine once the filer is 65+ (the age-tier defect from the prior case is moot here). The SEPARATE deduction: printed page 10, 'Line q: Age 65 and older deduction': 'Beginning in the tax year a resident taxpayer reaches age 65, they are entitled to a deduction of $15,000 against any South Carolina income... Reduce the age 65 and older deduction claimed on line q-1... by: any individual retirement deduction claimed on line p-1.' Worksheet for taxpayer (line q-1): '1. Age 65 and older deduction amount ... $15,000' minus '2. Retirement income deduction (line p-1)'. No field in RetirementIncomeExemptions models this second, separate deduction at all -- it is not a variant of pensionExemption/iraWithdrawalExemption, it applies against ANY income, not just retirement income. Scenario: primary, age 68, pension $60,000. Retirement deduction (both sides, age-tier moot here) = $10,000. Age-65 deduction (correct law only) = $15,000 - $10,000 already claimed = $5,000, applied against the remaining SC income. Correct total exclusion = 10,000 + 5,000 = $15,000. Standard deduction: conformsToFederal, single, 65+ (base $16,100 + age-65 addition $2,050 + full OBBBA senior bonus $6,000, since MAGI $60,000 is under the $75,000 single phaseout threshold) = $24,150. SC taxable income = 60,000 - 24,150 - 15,000 = 20,850. tax = 20,850 * 0.0199 = 414.915, rounds to 414.92 (or 414.91 under round-half-to-even; this fixture records the conventional round-half-up figure per the same convention the ND fixtures use).",
+      "sourceURL": "https://dor.sc.gov/sites/dor/files/forms/SC1040Instr_2025.pdf",
+      "filingStatus": "single",
+      "primaryAge": 68,
+      "spouseAge": null,
+      "federalAGI": 60000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 60000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 414.92,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "No field in RetirementIncomeExemptions models South Carolina's separate $15,000 age-65 deduction against any income; today's engine applies only the $10,000 retirement deduction and nothing further. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing this deduction alone will turn this case green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
+        "observedToday": 514.42
+      }
+    },
+    {
+      "name": "MFJ, BOTH spouses 68+ -- pins the SELF-INTERACTION the brief calls out (each spouse's own $15,000 age-65 deduction reduced by that SAME spouse's own $10,000 retirement deduction, summed per person) together with the missing per-individual flag on BOTH layers",
+      "source": "Same SC1040 Instructions: Line p-1/p-2 are separate worksheets for taxpayer and spouse, each capped at $10,000 (65+) 'on qualified retirement income from their own plan'; Line q-1/q-2 are likewise separate worksheets, 'Line q-1 applies to the taxpayer whose name appears first on the return. Line q-2 applies to the spouse whose name appears second on the return', each starting at $15,000 and 'reduced by any individual retirement deduction claimed on line p-1 and line p-2' respectively (i.e. EACH spouse's own $15,000 is reduced by THAT SAME spouse's own $10,000, not the household's combined retirement deduction). Scenario: primary, age 68, pension $70,000 from her own former employer; spouse, age 70, pension $70,000 from his own former employer, pooled pensionIncome = $140,000. Correct exclusion, per spouse: $10,000 (retirement deduction, capped) + ($15,000 - $10,000) = $5,000 (age-65 deduction, net) = $15,000 per spouse, $30,000 total. Standard deduction: conformsToFederal, MFJ, both 65+ (base $32,200 + age-65 addition $1,650 x 2 + full OBBBA senior bonus $6,000 x 2, since MAGI $140,000 is under the $150,000 MFJ phaseout threshold) = $47,500. SC taxable income = 140,000 - 47,500 - 30,000 = 62,500. tax = 0.0199*30,000 + 0.0521*(62,500-30,000) = 597.00 + 1,693.25 = 2,290.25.",
+      "sourceURL": "https://dor.sc.gov/sites/dor/files/forms/SC1040Instr_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 70,
+      "federalAGI": 140000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 140000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 2290.25,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "exemptionAppliesPerIndividual is false AND the $15,000 age-65 deduction has no field at all, so today's engine applies only a single household-wide $10,000 retirement deduction instead of $15,000 per spouse (their own $10,000 retirement deduction plus their own $5,000 net age-65 deduction), summed. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing both defects above will turn this case green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
+        "observedToday": 3332.25
+      }
+    },
+    {
+      "name": "MFJ, only ONE spouse 65+ -- BOTH layers' per-person tiers apply unequally: the 68-year-old draws her own $10,000+$5,000=$15,000, the 55-year-old draws only his own under-65 $3,000 retirement deduction and no age-65 deduction at all",
+      "source": "Same SC1040 Instructions retirement-deduction and age-65-deduction quotes (see prior two cases). Scenario: primary, age 68, pension $70,000 from her own former employer (retirement deduction $10,000 + net age-65 deduction $5,000 = $15,000); spouse, age 55, pension $20,000 from his own former employer (under-65 retirement deduction only, $3,000; no age-65 deduction exists below 65), pooled pensionIncome = $90,000. Correct exclusion = $15,000 + $3,000 = $18,000. Standard deduction: conformsToFederal, MFJ, only primary 65+ (base $32,200 + age-65 addition $1,650 x 1 + OBBBA senior bonus $6,000 x 1 qualifying senior, MAGI $90,000 under the $150,000 threshold) = $39,850. SC taxable income = 90,000 - 39,850 - 18,000 = 32,150. tax = 0.0199*30,000 + 0.0521*(32,150-30,000) = 597.00 + 112.015 = 709.015, rounds to 709.02 (or 709.01 under round-half-to-even; see the rounding note on this fixture's second case).",
+      "sourceURL": "https://dor.sc.gov/sites/dor/files/forms/SC1040Instr_2025.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 55,
+      "federalAGI": 90000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 90000,
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 709.02,
+      "knownDefect": {
+        "tier": "tier3",
+        "summary": "The under-65 age-tier gate on the retirement deduction is missing (regularExemptionMinAge: 0) AND the $15,000 age-65 deduction has no field at all, so today's engine applies a single unconditional $10,000 to the pooled $90,000 instead of $15,000 for the qualifying spouse plus $3,000 for the non-qualifying spouse. PHASE 5 WARNING: expectedStateTax in every case of this fixture is computed against the CONFIGURED bracket table (a two-bracket 1.99%/5.21% structure switching at $30,000), not South Carolina's real published SC1040TT Tax Rate Schedule (6% minus a $642 constant, applying above $100,000; see the out-of-scope finding in case 1's source string). Fixing both defects above will turn this case green, but South Carolina's own bracket table will still be wrong for higher-income filers. Green here does NOT mean South Carolina is correct.",
+        "observedToday": 1125.82
+      }
+    }
+  ]
+}
