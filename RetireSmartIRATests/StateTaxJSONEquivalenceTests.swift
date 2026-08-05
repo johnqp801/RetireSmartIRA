@@ -503,10 +503,23 @@ struct StateTaxJSONEquivalenceTests {
         // listed in `layerAProvenDivergentJurisdictions` -- assert instead
         // that AT LEAST ONE scenario actually diverged, closing that hole.
         //
-        // Kansas is deliberately NOT in that list: none of the 10 scenarios
-        // above read `postExemptionDeduction` from config, so Kansas
-        // computes identically through both tables whether its
-        // `personalExemption` correction is present, reverted, or garbled.
+        // Kansas is deliberately NOT in that list, and Phase 5b Task 3
+        // re-measured that call rather than inheriting it. Two reasons, both
+        // still true after Task 3 shipped Kansas's `perSourceExemptions`
+        // rule. First, none of the 10 scenarios above read
+        // `postExemptionDeduction` from config, so Kansas computes
+        // identically through both tables whether its `personalExemption`
+        // correction is present, reverted, or garbled. Second, the only
+        // `.pension` row this grid builds is constructed WITHOUT a
+        // classification, so `IncomeSource.init` infers
+        // `(unknown, unknown)` (`RetirementPlanClassification
+        // .infer(incomeType:)` returns unknown/unknown for every type except
+        // `.rmd`), and Kansas's rule names four specific government sources,
+        // none of which is `.unknown`. `matchedPerSourceRule` therefore
+        // returns `nil` for that row through BOTH configs and the per-source
+        // correction is invisible here too. MEASURED, not reasoned: Task 3
+        // temporarily added `.kansas` to the list below and this assertion
+        // failed with "None diverged", then reverted it.
         // A "must diverge" assertion would fail Kansas forever in its
         // correct state, so it stays on the plain skip above with no
         // further check here; its correction is guarded by Layer B
@@ -621,7 +634,13 @@ struct StateTaxJSONStructuralEquivalenceTests {
     /// someone edited the legacy table to match it. Both need fixing.
     ///
     /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
-    ///   special session).
+    ///   special session). Phase 5b Task 3 added
+    ///   `retirementExemptions.perSourceExemptions` on top of that
+    ///   (Schedule S Line A14: KPERS, federal civilian, uniformed services
+    ///   and Railroad Retirement fully exempt). Kansas was ALREADY on this
+    ///   list, so Task 3 changed no membership here; it re-verified that
+    ///   Kansas still belongs, which it does, now for two independent
+    ///   reasons rather than one.
     /// - Iowa: Phase 5a Task 3, retirement-income exclusion corrected (HF
     ///   2317).
     /// - New Mexico: Phase 5a Task 4, `taxSystem.single` and

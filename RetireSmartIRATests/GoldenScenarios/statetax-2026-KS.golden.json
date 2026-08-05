@@ -65,12 +65,7 @@
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "KPERS is enumerated as fully exempt on Schedule S Line A14, but statetax-2026-KS.json has no perSourceExemptions entries at all, so the engine pools this pension into ordinary taxable income exactly as it would a private pension.",
-        "observedToday": 1432.31
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "MFJ, both spouses have exempt pensions (KPERS + federal civil service): fully exempt under KS law, engine taxes the full household income (defect 2 of 2, both spouses qualify)",
@@ -88,12 +83,7 @@
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "Both KPERS and federal-civilian pensions are enumerated as fully exempt on Schedule S Line A14; the engine's empty perSourceExemptions for KS excludes neither, taxing the full $50,000 household income exactly as it would ordinary wages.",
-        "observedToday": 1218.88
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "MFJ, one spouse's KPERS pension is exempt and the other spouse's private pension is not: only one spouse's income qualifies (COMBINED case -- entangles both KS defects; will not go green from either fix alone, see knownDefect.summary)",
@@ -111,12 +101,7 @@
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "COMBINED CASE: this scenario entangles BOTH Kansas defects and will not go green until both fixes land, so a Phase 5 implementer should not expect it to turn green from either fix alone. With ONLY the per-source fix applied (KPERS excluded, personal exemption still missing): $25,000 private pension minus $8,240 MFJ standard deduction = $16,760 taxable x 5.2% = $871.52, not $0.00. With ONLY the personal-exemption fix applied (SB1 exemption present, per-source still missing): $50,000 minus $8,240 standard deduction minus $18,320 personal exemption = $23,440 taxable x 5.2% = $1,218.88, not $0.00. Only when both fixes are present does the KPERS exclusion plus the personal exemption exceed what remains of the private spouse's $25,000, flooring taxable income at $0.00. The single-mechanism cases that isolate each defect independently are KS-1 and KS-2 (personal exemption alone) and KS-3, KS-4, and KS-5 (per-source rule alone); this case is kept as a deliberate integration check, not a substitute for those. As of the Phase 5a Task 2 correction, the personal-exemption fix is present but the per-source fix is not, so the engine now produces $1,218.88, the ONLY-personal-exemption-fix figure predicted above, taxing the full $50,000 as ordinary income because it is still blind to the per-source mechanism.",
-        "observedToday": 1218.88
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "OUT-OF-STATE GUARD, do not simplify away: single filer, a CALIFORNIA public pension held by a Kansas resident, fully taxable -- the case that proves a Kansas rule exempting ownStateOrLocal does NOT also exempt otherStateOrLocal",
@@ -130,6 +115,23 @@
       "pensionIncome": 0,
       "classifiedPensionSources": [
         {"amount": 40000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1432.31
+    },
+    {
+      "name": "UNESTABLISHED-JURISDICTION GUARD, do not simplify away: single filer, a government pension whose employing jurisdiction was never established, fully taxable -- the case that proves a Kansas rule exempting ownStateOrLocal does NOT also exempt governmentUnspecified",
+      "source": "2025 Individual Income Tax Booklet (ip25.pdf), page 12, Schedule S Instructions, Line A14 'Retirement benefits specifically exempt from Kansas Income Tax'. Line A14 is a CLOSED list of NAMED Kansas public plans and NAMED federal plans (the full enumeration is quoted in the private-pension case above). A pension known only to come from 'a government employer', with no jurisdiction established, is on none of those named categories: naming a plan is what puts it on the list, so an unidentified government plan has no A14 subtraction available and stays in federal AGI, fully taxable, exactly as a private-employer pension does. Kansas grants no residual exemption for government pensions in general, so nothing else can reach this income either. THIS IS ALSO A CODEBASE INVARIANT, not only a Kansas one: PlanSource.governmentUnspecified's own doc comment states that 'no rule may match this case as though it were a specific jurisdiction', and PerSourceExemptionRule.matches enforces it structurally, since a rule that names specific sources can only be satisfied by containment. WHY THIS CASE EXISTS: the out-of-state guard immediately above defends ONE of the two ways a Kansas rule could over-match, otherStateOrLocal. It does not defend the other. A Kansas rule written with an EMPTY matchSources ('any source'), or one that listed governmentUnspecified outright, would turn every KPERS case green AND silently exempt this pension too, and before this case existed nothing in the fixture set would have noticed. Inputs are deliberately identical to the private-pension contrast case and the out-of-state guard (single, age 68, $40,000 defined-benefit pension, $40,000 federal AGI) so the ONLY difference across the four age-68 single cases is planSource, which is the axis under test. Arithmetic, identical to those cases: $40,000 minus $3,605 single standard deduction minus $9,160 single personal exemption = $27,235 taxable. Kansas single brackets: $23,000 x 5.2% = $1,196.00, plus ($27,235 - $23,000) = $4,235 x 5.58% = $236.313. Total $1,432.313, rounded $1,432.31. There is no knownDefect block here and there must never be one: the Kansas rule added in Phase 5b Task 3 names four specific sources and governmentUnspecified is not among them, so the engine taxes this pension in full, which is the CORRECT answer.",
+      "sourceURL": "https://www.ksrevenue.gov/pdf/ip25.pdf",
+      "filingStatus": "single",
+      "primaryAge": 68,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "governmentUnspecified"}
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,

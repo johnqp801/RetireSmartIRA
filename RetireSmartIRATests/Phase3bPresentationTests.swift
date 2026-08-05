@@ -19,15 +19,57 @@ struct Phase3bPresentationTests {
 
     // MARK: - 3.2 The picker: exact rows, exact order, exact mappings
 
-    @Test("The picker is exactly the nine rows of spec 3.2, in order")
+    /// Phase 5b Task 3 grew this list from nine rows to twelve. The three
+    /// additions are INSERTED, not appended, so the relative order of the
+    /// nine original rows is unchanged and no existing row's `rawValue` or
+    /// `classification` moved. That "additive" property is what this test
+    /// and `pickerAdditionIsPurelyAdditive` below assert separately: this
+    /// one pins the full list, that one pins the nine originals in
+    /// isolation, so a future edit that quietly re-tuples an existing row
+    /// while updating this literal still fails.
+    @Test("The picker is exactly the twelve rows of spec 3.2 as extended by Phase 5b, in order")
     func pickerRowsExactlyMatchSpec() {
         let expected: [PlanClassificationChoice] = [
-            .nyGovernmentPension, .federalCivilianPension, .otherStateGovernmentPension,
+            .nyGovernmentPension, .ownStateGovernmentPension, .federalCivilianPension,
+            .uniformedServicesPension, .railroadRetirementPension,
+            .otherStateGovernmentPension,
             .privateEmployerPension, .governmentSalaryReduction, .privateSalaryReduction,
             .employer401k, .ira, .notSure
         ]
         #expect(PlanClassificationChoice.allCases == expected)
-        #expect(PlanClassificationChoice.allCases.count == 9)
+        #expect(PlanClassificationChoice.allCases.count == 12)
+    }
+
+    /// The nine original rows keep their relative display order after the
+    /// Phase 5b insertion. Filtering `allCases` down to them and comparing
+    /// against spec 3.2's order proves the insertion reordered nothing,
+    /// independently of wherever the three new rows were placed.
+    @Test("Phase 5b's three new rows are additive: the nine spec-3.2 rows keep their relative order")
+    func pickerAdditionIsPurelyAdditive() {
+        let original: [PlanClassificationChoice] = [
+            .nyGovernmentPension, .federalCivilianPension, .otherStateGovernmentPension,
+            .privateEmployerPension, .governmentSalaryReduction, .privateSalaryReduction,
+            .employer401k, .ira, .notSure
+        ]
+        let stillPresentInOrder = PlanClassificationChoice.allCases.filter { original.contains($0) }
+        #expect(stillPresentInOrder == original)
+    }
+
+    /// A picker row's persisted identity is its `rawValue`, not its label or
+    /// its position. Pinning the nine original raw values means a rename of
+    /// a case (which would silently orphan every row a user already saved)
+    /// fails here rather than in the field.
+    @Test("The nine original rows keep their persisted raw values")
+    func originalRawValuesAreUnchanged() {
+        #expect(PlanClassificationChoice.nyGovernmentPension.rawValue == "nyGovernmentPension")
+        #expect(PlanClassificationChoice.federalCivilianPension.rawValue == "federalCivilianPension")
+        #expect(PlanClassificationChoice.otherStateGovernmentPension.rawValue == "otherStateGovernmentPension")
+        #expect(PlanClassificationChoice.privateEmployerPension.rawValue == "privateEmployerPension")
+        #expect(PlanClassificationChoice.governmentSalaryReduction.rawValue == "governmentSalaryReduction")
+        #expect(PlanClassificationChoice.privateSalaryReduction.rawValue == "privateSalaryReduction")
+        #expect(PlanClassificationChoice.employer401k.rawValue == "employer401k")
+        #expect(PlanClassificationChoice.ira.rawValue == "ira")
+        #expect(PlanClassificationChoice.notSure.rawValue == "notSure")
     }
 
     @Test("Each row's label matches spec 3.2 column 1, verbatim")
@@ -41,6 +83,21 @@ struct Phase3bPresentationTests {
         #expect(PlanClassificationChoice.employer401k.label == "Employer 401(k)")
         #expect(PlanClassificationChoice.ira.label == "IRA")
         #expect(PlanClassificationChoice.notSure.label == "Not sure")
+    }
+
+    /// PROPOSED working copy, Phase 5b Task 3. Unlike the nine rows above,
+    /// these three labels were NOT approved by John, and the Task 3 report
+    /// lists them for renaming. This test exists so a rename is a deliberate
+    /// two-file edit rather than a silent drift, and so that every row has a
+    /// non-empty label whatever the eventual wording.
+    @Test("Phase 5b's three new rows carry their PROPOSED working labels")
+    func newPickerLabelsAreTheProposedWorkingCopy() {
+        #expect(PlanClassificationChoice.ownStateGovernmentPension.label == "Government pension, my own state or locality")
+        #expect(PlanClassificationChoice.uniformedServicesPension.label == "Military retired pay")
+        #expect(PlanClassificationChoice.railroadRetirementPension.label == "Railroad Retirement benefits")
+        for choice in PlanClassificationChoice.allCases {
+            #expect(!choice.label.isEmpty, "\(choice) has no label")
+        }
     }
 
     @Test("Each row's classification matches spec 3.2 columns 2 and 3, exactly")
@@ -63,6 +120,51 @@ struct Phase3bPresentationTests {
                 == RetirementPlanClassification(structure: .ira, source: .individual))
         #expect(PlanClassificationChoice.notSure.classification
                 == RetirementPlanClassification(structure: .unknown, source: .unknown))
+    }
+
+    /// The point of the addendum: a Kansas KPERS holder must be able to
+    /// SELECT `ownStateOrLocal`. Before Task 3 the only government-pension
+    /// option was `otherStateOrLocal`, the one source a correct Kansas rule
+    /// must reject, so every Kansas golden case could have gone green while
+    /// a real KPERS holder still received no exclusion.
+    @Test("Phase 5b's three new rows write the three PlanSource cases Task 1 added")
+    func newPickerRowsWriteTheNewPlanSources() {
+        #expect(PlanClassificationChoice.ownStateGovernmentPension.classification
+                == RetirementPlanClassification(structure: .definedBenefit, source: .ownStateOrLocal))
+        #expect(PlanClassificationChoice.uniformedServicesPension.classification
+                == RetirementPlanClassification(structure: .definedBenefit, source: .uniformedServices))
+        #expect(PlanClassificationChoice.railroadRetirementPension.classification
+                == RetirementPlanClassification(structure: .definedBenefit, source: .railroadRetirement))
+    }
+
+    /// The matched pair, from the picker's side rather than the rule's. The
+    /// own-state row and the other-state row must write DIFFERENT sources,
+    /// because Kansas's rule exempts the first and taxes the second and the
+    /// user's selection is the only thing that tells them apart.
+    @Test("The own-state row and the other-state row write different, non-interchangeable sources")
+    func ownStateAndOtherStateRowsAreDistinct() {
+        let own = PlanClassificationChoice.ownStateGovernmentPension.classification.source
+        let other = PlanClassificationChoice.otherStateGovernmentPension.classification.source
+        #expect(own == .ownStateOrLocal)
+        #expect(other == .otherStateOrLocal)
+        #expect(own != other)
+    }
+
+    /// Every picker row writes a DISTINCT classification, except the one
+    /// documented `.employer401k` / `.privateSalaryReduction` collision that
+    /// `choice(for:)` resolves deliberately. A second, undocumented
+    /// collision would make `choice(for:)` silently unable to round-trip one
+    /// of the colliding rows, which is the failure mode the priority array
+    /// exists to manage.
+    @Test("No two picker rows write the same classification, except the one documented pair")
+    func pickerRowsWriteDistinctClassifications() {
+        let rows = PlanClassificationChoice.allCases.filter { $0 != .privateSalaryReduction }
+        for (i, a) in rows.enumerated() {
+            for b in rows.dropFirst(i + 1) {
+                #expect(a.classification != b.classification,
+                        "\(a) and \(b) write the same classification")
+            }
+        }
     }
 
     @Test("The out-of-state government pension row does NOT map to New York's exclusion")
@@ -223,6 +325,23 @@ struct Phase3bPresentationTests {
     func residenceHasPerSourceRulesReflectsLiveConfig() {
         #expect(PlanClassificationChoice.residenceHasPerSourceRules(.newYork))
         #expect(!PlanClassificationChoice.residenceHasPerSourceRules(.california))
+    }
+
+    /// The addendum's "confirm it, do not modify it" item.
+    /// `residenceHasPerSourceRules` reads the live config, so shipping
+    /// Kansas's `perSourceExemptions` in Phase 5b Task 3 turns the
+    /// classification prompt on for Kansas residents with no code change at
+    /// all. This is the test that proves the claim rather than asserting it
+    /// in a comment.
+    @Test("Shipping Kansas's per-source rule turns the classification prompt on for Kansas, with no code change")
+    func kansasNowCarriesAPerSourceRule() {
+        #expect(PlanClassificationChoice.residenceHasPerSourceRules(.kansas))
+
+        let unclassifiedPension = IncomeSource(
+            name: "KPERS", type: .pension, annualAmount: 40_000)
+        #expect(PlanClassificationChoice.shouldPromptForClassification(
+            source: unclassifiedPension,
+            residenceHasPerSourceRules: PlanClassificationChoice.residenceHasPerSourceRules(.kansas)))
     }
 
     // MARK: - Whole-branch review Fix 2: two pension rows for one owner

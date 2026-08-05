@@ -13,9 +13,39 @@ import SwiftUI
 /// two-dimension mappings per spec section 3.2 -- do not add, remove, or
 /// reorder without updating the spec. This is the ONLY place in the app a
 /// user sets `RetirementPlanClassification`.
+///
+/// Phase 5b Task 3 (controller addendum) added three rows:
+/// `ownStateGovernmentPension`, `uniformedServicesPension` and
+/// `railroadRetirementPension`. Task 1 added the three `PlanSource` cases
+/// they write, but nothing in this picker could write any of them, so a
+/// Kansas KPERS holder had exactly one government-pension option, "another
+/// state or locality", which writes `otherStateOrLocal` -- the one case a
+/// correct Kansas rule must NOT match. Every Kansas golden case would have
+/// gone green while a real KPERS holder still received no exclusion. All
+/// three rows land together, not just the one Kansas needs, so the later
+/// Phase 5b jurisdictions (Vermont, Arizona, Idaho, Massachusetts) inherit a
+/// picker that can express their rules.
+///
+/// The addition is ADDITIVE: no existing case's `rawValue` (what
+/// `Identifiable`/`Picker` tag on) and no existing case's `classification`
+/// changed, so nothing already persisted moves. The three new rows are
+/// INSERTED rather than appended, which changes display POSITION but
+/// preserves the relative order of all nine original rows.
+///
+/// KNOWN OVERLAP, reported not solved: for a New York resident,
+/// `nyGovernmentPension` and `ownStateGovernmentPension` describe the same
+/// pension, and only the first one selects New York's Line 26 exclusion.
+/// `nyStateOrLocal` predates `ownStateOrLocal` and is the jurisdiction-named
+/// form of what is now expressible generically. Collapsing the two is a
+/// migration that touches New York's shipped config, New York's fixtures and
+/// existing user saves, so it is deliberately NOT done here. See the Task 3
+/// report.
 enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     case nyGovernmentPension
+    case ownStateGovernmentPension
     case federalCivilianPension
+    case uniformedServicesPension
+    case railroadRetirementPension
     case otherStateGovernmentPension
     case privateEmployerPension
     case governmentSalaryReduction
@@ -26,11 +56,21 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Plain-English row label, spec section 3.2 column 1, verbatim.
+    /// Plain-English row label, spec section 3.2 column 1, verbatim for the
+    /// nine original rows.
+    ///
+    /// The three Phase 5b rows carry PROPOSED working copy that John has not
+    /// approved. They are deliberately plain rather than clever so renaming
+    /// them is a one-line change with no behavioral consequence: nothing
+    /// keys on a label, and the persisted value is the case's `rawValue`,
+    /// not its text.
     var label: String {
         switch self {
         case .nyGovernmentPension: return "Government pension, New York State or local"
+        case .ownStateGovernmentPension: return "Government pension, my own state or locality"
         case .federalCivilianPension: return "Government pension, federal civilian"
+        case .uniformedServicesPension: return "Military retired pay"
+        case .railroadRetirementPension: return "Railroad Retirement benefits"
         case .otherStateGovernmentPension: return "Government pension, another state or locality"
         case .privateEmployerPension: return "Private employer pension"
         case .governmentSalaryReduction: return "403(b) or 457, government employer"
@@ -47,8 +87,24 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
         switch self {
         case .nyGovernmentPension:
             return RetirementPlanClassification(structure: .definedBenefit, source: .nyStateOrLocal)
+        case .ownStateGovernmentPension:
+            // Phase 5b Task 3. The taxpayer's OWN state system: KPERS to a
+            // Kansas resident. The matched pair of `.otherStateGovernmentPension`
+            // below, and the reason Kansas's rule can exempt one without
+            // exempting the other.
+            return RetirementPlanClassification(structure: .definedBenefit, source: .ownStateOrLocal)
         case .federalCivilianPension:
             return RetirementPlanClassification(structure: .definedBenefit, source: .federalCivilian)
+        case .uniformedServicesPension:
+            // Phase 5b Task 3. Military retired pay, distinct from CSRS/FERS:
+            // Vermont, Arizona, Idaho, Massachusetts and Kansas each treat
+            // the two differently, and Kansas is the first to ship a rule.
+            return RetirementPlanClassification(structure: .definedBenefit, source: .uniformedServices)
+        case .railroadRetirementPension:
+            // Phase 5b Task 3. Railroad Retirement Board benefits, which
+            // Kansas's Schedule S Line A14 exempts by name, neither a state
+            // system nor an ordinary federal civilian pension.
+            return RetirementPlanClassification(structure: .definedBenefit, source: .railroadRetirement)
         case .otherStateGovernmentPension:
             // The row that exists specifically to stop an out-of-state
             // public pension from selecting New York's exclusion (spec
@@ -81,9 +137,19 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// explicit priority list rather than `allCases`' declaration/display
     /// order (which follows spec section 3.2 and lists the 403(b) row
     /// first).
+    ///
+    /// THIS ARRAY IS HAND-MAINTAINED AND DOES NOT USE `allCases`. A case
+    /// omitted from it does not fail to compile: it silently falls through
+    /// to `.notSure`, so an already-correctly-classified row would display
+    /// as unclassified the moment a user opened it to edit. The three
+    /// Phase 5b Task 3 rows are listed here for that reason.
+    /// `Phase3bPresentationTests.reverseLookupRoundTrips` sweeps `allCases`
+    /// and is the test that catches an omission.
     static func choice(for classification: RetirementPlanClassification) -> PlanClassificationChoice {
         let priorityOrder: [PlanClassificationChoice] = [
-            .nyGovernmentPension, .federalCivilianPension, .otherStateGovernmentPension,
+            .nyGovernmentPension, .ownStateGovernmentPension, .federalCivilianPension,
+            .uniformedServicesPension, .railroadRetirementPension,
+            .otherStateGovernmentPension,
             .privateEmployerPension, .governmentSalaryReduction, .employer401k,
             .privateSalaryReduction, .ira, .notSure
         ]
@@ -186,10 +252,15 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     }
 
     /// Whether `state`'s configuration carries any per-source exemption
-    /// rule at all. Empty for every jurisdiction except New York today
-    /// (spec section 3.3). Reads the live config rather than hardcoding
-    /// "New York" so this stays correct the day a second jurisdiction
-    /// ships one.
+    /// rule at all. Reads the live config rather than hardcoding "New York"
+    /// so this stays correct the day a second jurisdiction ships one (spec
+    /// section 3.3).
+    ///
+    /// That day arrived in Phase 5b Task 3: Kansas now ships
+    /// `perSourceExemptions` too, so this function returns `true` for Kansas
+    /// with NO change to its body, and the classification prompt turns on
+    /// for Kansas residents automatically. Verified, not assumed, by
+    /// `Phase3bPresentationTests`.
     static func residenceHasPerSourceRules(_ state: USState) -> Bool {
         !StateTaxData.config(for: state).retirementExemptions.perSourceExemptions.isEmpty
     }
@@ -1162,7 +1233,7 @@ struct IncomeSourcesView: View {
                                     Text(choice.label).tag(choice)
                                 }
                             }
-                            Text("Some states, including New York, tax government and private pensions differently. Answering helps this app compute your state tax correctly.")
+                            Text("Some states, including New York and Kansas, tax government and private pensions differently. Answering helps this app compute your state tax correctly.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 

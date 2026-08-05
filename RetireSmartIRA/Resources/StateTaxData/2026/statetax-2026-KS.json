@@ -29,6 +29,22 @@
     "pensionExemption" : {
       "kind" : "none"
     },
+    "perSourceExemptions" : [
+      {
+        "matchSources" : [
+          "ownStateOrLocal",
+          "federalCivilian",
+          "uniformedServices",
+          "railroadRetirement"
+        ],
+        "matchStructures" : [
+          "definedBenefit"
+        ],
+        "treatment" : {
+          "kind" : "full"
+        }
+      }
+    ],
     "regularExemptionMinAge" : 0,
     "socialSecurityExempt" : true
   },
