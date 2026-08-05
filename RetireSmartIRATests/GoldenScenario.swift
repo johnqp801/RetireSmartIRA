@@ -78,6 +78,34 @@ struct ClassifiedPensionSource: Codable {
     let amount: Double
     let planStructure: String
     let planSource: String
+    /// Phase 5b Task 2: whether this row is a SURVIVOR benefit rather than the
+    /// holder's own pension. Mirrors `RetirementPlanClassification
+    /// .isSurvivorBenefit`, which Task 1 added to the production type. DC
+    /// exempts a survivor benefit at 62 or over while taxing the holder's own
+    /// pension, and both are `federalCivilian`, so nothing in the fixture
+    /// could tell them apart before this field existed.
+    ///
+    /// FIXTURE SCHEMA ONLY IN THIS TASK. Nothing consumes it yet: the chain
+    /// from here to a matching rule (a field on `IncomeSource`/`IRAAccount`,
+    /// `matchIsSurvivorBenefit` on `PerSourceExemptionRule`, a parameter on
+    /// `matches()`, a pass-through in `DataManager.matchedPerSourceRule`, and
+    /// a bridge in `GoldenScenarioSingleYearTests.singleYearStateTax`) is
+    /// Task 9's work. The field is added here so DC's fixture can STATE the
+    /// fact in structured form instead of prose, which is what Task 9 will
+    /// then read.
+    ///
+    /// Declared `var` with a `nil` default for the same reason the production
+    /// property is (see `RetirementPlanClassification.isSurvivorBenefit`): a
+    /// `let` with an initial value is treated as already initialised, so
+    /// Swift excludes it from the synthesized `init(from:)` entirely and a
+    /// fixture setting the key would decode to `nil` anyway. That failure is
+    /// silent, and it is the SAME failure class this field exists to fix.
+    /// It was measured before the field was added: a row whose JSON set
+    /// `"isSurvivorBenefit": true` decoded and re-encoded as
+    /// `{"planSource":...,"amount":...,"planStructure":...}`, the key gone
+    /// with no error. `GoldenFixtureSurvivorFlagTests` pins both halves now:
+    /// a present key decodes to its value, an absent key decodes to `nil`.
+    var isSurvivorBenefit: Bool? = nil
 }
 
 /// Records that a jurisdiction's shipped behavior is KNOWN to disagree with
