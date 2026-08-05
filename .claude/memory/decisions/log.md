@@ -4,6 +4,38 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-04 (later still): Phase 4's golden scenarios stand in for the two-model confirmation protocol
+
+**Decision (John):** Phase 5 does NOT run the spec's two-model parameter protocol (spec 3.4 Layer 1,
+GPT-5 and Gemini 3 Pro cold and independent with calibration probes) against the 118 pinned defects.
+Phase 4's evidence is accepted as discharging that gate. Genuine external confirmation is reserved for
+anything WITHOUT a golden case, which today means Missouri's unpinned public-pension cap and Montana.
+
+**Rationale:** the protocol was designed when the sole basis for correcting a state was a single-source
+research memo. Phase 4 replaced that basis. Every correction now carries a golden scenario whose
+expected value was derived from that jurisdiction's own published form, with a citation that a second
+agent independently opened and checked clause by clause and page by page. The spec anticipated exactly
+this, saying the protocol would "confirm a finding that has already been demonstrated, rather than
+being the thing that discovers it."
+
+**Honest limitation stated at decision time:** Claude cannot run that protocol. There are no GPT-5 or
+Gemini tools in this environment, and dispatching more Claude subagents would NOT satisfy it, because
+same-model reviewers share correlated errors and breaking that correlation is the entire point of a
+two-model rule. So the real choice was between Phase 4's evidence and John running an external pass
+himself, not between Phase 4's evidence and an in-session substitute.
+
+**This is a deliberate spec amendment, recorded rather than silently skipped.** Spec 3.4's consensus
+rule and spec 4a's Phase 5 gate both name the protocol. Anyone reading those sections later should
+read this entry beside them.
+
+**What still holds from the protocol, and must not be lost:** its calibration probes caught a real
+class of error, and Phase 4 reproduced that catch independently. Colorado's dead SB25-136 was verified
+as Postponed Indefinitely rather than enacted; Kentucky's unenacted HB 146 was likewise resisted;
+Vermont's Act 71 was confirmed by bill number and signing date. The discipline the probes existed to
+enforce survived; only the mechanism changed.
+
+---
+
 ## 2026-08-04 (later still): Iowa is pulled forward alongside the base-value sweep
 
 **Decision (John):** Iowa does not wait for the retirement-exemption tiers. It is corrected in the
