@@ -87,6 +87,44 @@ it BY MUTATION rather than by reading**, the reviewer performing the swap itself
 
 ---
 
+## BLOCKING DECISION FOR TASK 3, NOT YET ANSWERED BY JOHN
+
+**The picker cannot express the three `PlanSource` cases Task 1 added, so a CORRECT Kansas rule would
+be unreachable by every real user.** Found by controller code audit before Task 3 was dispatched, and
+the plan never mentions it.
+
+Kansas's rule must match `ownStateOrLocal` and must NOT match `otherStateOrLocal`, which is the entire
+point of the guard case Task 2 added. But the user-facing picker is driven by a SEPARATE enum,
+`PlanClassificationChoice`, at `RetireSmartIRA/IncomeSourcesView.swift:1160`, and its nine options are
+unchanged since Phase 3b. None writes `ownStateOrLocal`, `uniformedServices` or `railroadRetirement`. A
+Kansas user classifying a KPERS pension has exactly one government-pension option, "other state
+government pension", which writes `otherStateOrLocal` at `IncomeSourcesView.swift:57`.
+
+**Consequence if this is not addressed:** every Kansas golden case goes green, the suite is fully
+honest, and a real KPERS holder still gets no exemption. **Task 10 Step 4 would then claim Kansas is
+complete and "Steve can be told so without qualification", and that claim would be FALSE.** The same
+gap blocks MA, VT, AZ and ID later in this phase, so it is not Kansas-specific.
+
+Note the UI gate itself is already data-driven and needs no change:
+`IncomeSourcesView.residenceHasPerSourceRules` reads the live config, so shipping a Kansas
+`perSourceExemptions` block turns the picker on for Kansas automatically. The gap is purely that the
+picker's OPTIONS cannot produce the new cases.
+
+The four options put to John, unanswered:
+1. Task 3 adds all three picker options at once, so Tasks 4 through 9 inherit a UI that can express
+   them. Widens Task 3 into production SwiftUI plus the `choice(for:)` reverse-lookup priority list.
+   Only option under which Kansas is genuinely deliverable the moment Task 3 ends.
+2. Task 3 adds only `ownStateOrLocal`; later tasks add theirs. Picker gets edited five times.
+3. Task 3 ships config only; one dedicated picker task runs before Task 10 so the Kansas claim stays
+   honest.
+4. Task 3 ships config only; the gap becomes a Phase 6 disclosure item and Task 10 states plainly that
+   Kansas is correct in the engine but not yet selectable in the app.
+
+**Do not dispatch Task 3 without deciding this.** A Task 3 that ignores it produces a green suite and an
+undelivered promise, which is the exact failure mode this whole verification program exists to prevent.
+
+---
+
 ## WHAT TASKS 3, 4, 6, 7 AND 9 INHERIT, and it is not all in the fixtures
 
 1. **`ownStateOrLocal` IS RESIDENCE-RELATIVE BUT STORED AS A STATIC LABEL, and this is the biggest open
