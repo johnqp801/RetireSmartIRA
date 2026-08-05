@@ -268,6 +268,18 @@ struct StateTaxBehaviorBaselineTests {
 /// StateTaxDataGeneratorTests.swift for why the env var needs the
 /// TEST_RUNNER_ prefix and why ENABLE_APP_SANDBOX=NO is required.
 ///
+/// AS OF PHASE 5, THE FROZEN FILE IS IMMUTABLE. A deliberate movement of a
+/// computed value belongs in statetax-behavior-movements-2026.json, attributed
+/// to a named golden case, never in a regenerated frozen file. Running this
+/// test OVERWRITES statetax-behavior-baseline-2026.json wholesale, which
+/// destroys the evidence every phase gate since Phase 3a depends on: four
+/// phases proved no value moved, and Phase 5's movement ledger only means
+/// anything when it is measured against this exact file. The ONLY legitimate
+/// use of this test is establishing a fresh frozen baseline for a genuinely
+/// new tax year. It is never a way to turn a red gate green, and `generate`
+/// below refuses to run while the movement ledger holds anything, because a
+/// non-empty ledger means a phase is mid-flight.
+///
 ///     TEST_RUNNER_STATE_TAX_BASELINE=1 xcodebuild test -scheme RetireSmartIRA \
 ///         -destination 'platform=macOS' \
 ///         -only-testing:RetireSmartIRATests/StateTaxBehaviorBaselineGeneratorTests \
@@ -278,6 +290,22 @@ struct StateTaxBehaviorBaselineGeneratorTests {
     @Test("Generate the frozen behavior baseline",
           .enabled(if: ProcessInfo.processInfo.environment["STATE_TAX_BASELINE"] == "1"))
     func generate() throws {
+        // A non-empty ledger means a phase is mid-flight: those movements were
+        // measured against the CURRENT frozen file, and regenerating it out
+        // from under them would silently strand every one of them and destroy
+        // the evidence the phase gates depend on. Refuse rather than warn.
+        let movements = try BaselineMovementLedger.movements()
+        guard movements.isEmpty else {
+            Issue.record("""
+                Refusing to regenerate: statetax-behavior-movements-2026.json \
+                holds \(movements.count) recorded movement(s). Regenerating the \
+                frozen baseline now would strand them and destroy the evidence \
+                this phase's gates depend on. This test is only for a genuinely \
+                new tax year's baseline, established once the current phase's \
+                movements have been folded in and the ledger cleared back to [].
+                """)
+            return
+        }
         var baseline: [String: Double] = [:]
         for state in USState.allCases {
             for scenario in StateTaxBehaviorBaselineTests.scenarios {

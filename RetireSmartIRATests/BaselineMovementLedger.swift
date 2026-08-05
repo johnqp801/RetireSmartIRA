@@ -50,6 +50,9 @@ struct BaselineMovementLedgerTests {
     @Test("The ledger loads and every entry is well formed")
     func ledgerIsWellFormed() throws {
         let movements = try BaselineMovementLedger.movements()
+        // Golden fixtures are loaded once per state and reused, since several
+        // movements typically land in the same jurisdiction.
+        var fixtures: [String: GoldenScenarioFile] = [:]
         for (key, m) in movements {
             #expect(m.key == key, "\(key): entry key disagrees with its map key")
             #expect(!m.goldenCase.isEmpty,
@@ -59,6 +62,42 @@ struct BaselineMovementLedgerTests {
                     "\(key): recorded as moved but before and after agree")
             #expect(key.hasPrefix(m.state + "|"),
                     "\(key): state \(m.state) does not match the key's prefix")
+
+            // The attribution chain is a moved value pointing at a golden case,
+            // which itself points at a state's published form. `goldenCase` was
+            // previously validated only as non-empty text, so a typo or an
+            // invented-sounding name broke the chain with every test still
+            // green. This closes that: the named case must actually exist in
+            // that state's own golden fixture.
+            let fixture: GoldenScenarioFile
+            if let cached = fixtures[m.state] {
+                fixture = cached
+            } else {
+                do {
+                    fixture = try GoldenScenario.load(abbreviation: m.state)
+                    fixtures[m.state] = fixture
+                } catch {
+                    Issue.record("""
+                        \(key): movement claims golden case "\(m.goldenCase)" in \
+                        \(m.state), but \(m.state) has no golden fixture at all \
+                        (\(error)). A jurisdiction with no golden coverage has no \
+                        published form for this movement to point at, so the \
+                        attribution chain has nothing on the other end. Add the \
+                        golden fixture before recording a movement here, or do \
+                        not move this value yet.
+                        """)
+                    continue
+                }
+            }
+            #expect(fixture.scenarios.contains(where: { $0.name == m.goldenCase }),
+                    """
+                    \(key): movement names golden case "\(m.goldenCase)", but no \
+                    scenario with that name exists in \
+                    statetax-2026-\(m.state).golden.json. Either the name is a \
+                    typo for a case that was written, or it names a case that \
+                    was never written. Fix the name, or write the golden case \
+                    first: a name that does not resolve is not an attribution.
+                    """)
         }
     }
 }
