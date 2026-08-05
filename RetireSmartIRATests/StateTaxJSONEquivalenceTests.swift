@@ -582,6 +582,21 @@ struct StateTaxJSONEquivalenceTests {
     ///   MEASURED, not reasoned: Task 4 temporarily added `.massachusetts`
     ///   to the list below and the "at least one scenario diverged"
     ///   assertion failed with "None diverged", then reverted it.
+    /// - Arizona: NOT here, for Kansas's second reason and only that one.
+    ///   Phase 5b Task 6's correction is entirely `perSourceExemptions` (plus
+    ///   the disclosure sentence, which is not numeric); it deliberately left
+    ///   `pensionExemption` at `.partial(2500)` and
+    ///   `exemptionAppliesPerIndividual` at `false`, so the only numeric lever
+    ///   it added fires on CLASSIFIED rows. The single `.pension` row this grid
+    ///   builds is constructed WITHOUT a classification, so it infers
+    ///   `(unknown, unknown)`. Arizona's Line 29b rule names `uniformedServices`
+    ///   and its Line 29a denial rule names `privateEmployer`,
+    ///   `otherStateOrLocal` and `nyStateOrLocal`; `.unknown` is none of them,
+    ///   so `matchedPerSourceRule` returns `nil` for that row through BOTH
+    ///   configs and the correction is invisible to this grid. MEASURED, not
+    ///   reasoned: Task 6 temporarily added `.arizona` to the list below and
+    ///   the "at least one scenario diverged" assertion failed with
+    ///   `observedDivergence` at line 533, then reverted it.
     static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .newMexico, .georgia, .utah]
 }
 
@@ -678,7 +693,18 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///   fields are absent from the frozen legacy table, so the re-encoded
     ///   documents now differ. Massachusetts is deliberately NOT added to
     ///   `layerAProvenDivergentJurisdictions`; see that declaration.
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana, .massachusetts]
+    /// - Arizona: Phase 5b Task 6 added
+    ///   `retirementExemptions.perSourceExemptions` and
+    ///   `retirementExemptions.unclassifiedPensionDisclosure` (Arizona Form 140
+    ///   Instructions, Line 29a: the $2,500 exclusion covers U.S. government
+    ///   plus Arizona state and local pensions ONLY, and Line 29b: uniformed
+    ///   services retired pay is excluded in full under a separate, uncapped
+    ///   line). `pensionExemption` itself is UNCHANGED at `.partial(2500)`, and
+    ///   so is `exemptionAppliesPerIndividual`; the correction lives entirely
+    ///   in the two new fields, which are absent from the frozen legacy table,
+    ///   so the re-encoded documents now differ. Arizona is deliberately NOT
+    ///   added to `layerAProvenDivergentJurisdictions`; see that declaration.
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana, .massachusetts, .arizona]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different

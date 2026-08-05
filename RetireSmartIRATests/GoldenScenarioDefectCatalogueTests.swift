@@ -140,6 +140,43 @@ struct GoldenScenarioDefectCatalogueTests {
 
     static let knownButUnpinned: [UnpinnedDefect] = [
         UnpinnedDefect(
+            state: "AZ",
+            summary: """
+                Arizona's UNCLASSIFIED-pension default still grants the Line 29a
+                $2,500 allowance to a pension of any source. Phase 5b Task 6 shipped
+                Arizona's per-source rules but deliberately left
+                `pensionExemption` at `.partial(2500)` and deliberately did NOT
+                name `.unknown` in the Line 29a denial rule, following New York's
+                precedent rather than Kansas's: New York likewise leaves its blanket
+                $20,000 exclusion applying to unclassified rows and warns through
+                `unclassifiedPensionDisclosure`. The consequence is that a private
+                pension the user has not yet classified keeps a $2,500 subtraction
+                Arizona Form 140 Line 29a does not grant it, understating tax by up
+                to $2,500 x 2.5% = $62.50. The alternative, denying `.unknown`,
+                would have RAISED tax for every existing Arizona user who has not
+                classified, including genuine government pensioners entitled to the
+                allowance, so the defect was left in place and disclosed rather than
+                traded for a different one.
+                """,
+            blockedOn: """
+                NOT EXPRESSIBLE AS A GOLDEN CASE, for the same reason Hawaii's
+                contributory household is not. The two households that would pin the
+                two halves of this carry BYTE-IDENTICAL inputs: an unclassified
+                PRIVATE pension and an unclassified GOVERNMENT pension are both
+                `(unknown, unknown)` with the same amount, age, filing status and
+                AGI, and their correct Arizona tax differs ($396.25 against $346.25
+                at the AZ-1 income shape). A fixture case can assert one or the
+                other, never both, and asserting either would encode a fact the
+                inputs do not carry. Resolved not by a fixture but by the user
+                classifying, which Arizona now prompts for: shipping
+                `perSourceExemptions` is what makes
+                `PlanClassificationChoice.shouldPromptForClassification` fire for
+                Arizona residents, and `unclassifiedPensionDisclosure` is what tells
+                them why it matters. Revisit if a later phase makes the unclassified
+                state itself unreachable.
+                """
+        ),
+        UnpinnedDefect(
             state: "MO",
             summary: """
                 Missouri's public pension exemption is coded `.full` (unlimited) in

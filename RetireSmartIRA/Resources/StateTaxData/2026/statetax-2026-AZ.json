@@ -24,8 +24,36 @@
       "kind" : "partial",
       "maxExempt" : 2500
     },
+    "perSourceExemptions" : [
+      {
+        "matchSources" : [
+          "uniformedServices"
+        ],
+        "matchStructures" : [
+          "definedBenefit"
+        ],
+        "treatment" : {
+          "kind" : "full"
+        }
+      },
+      {
+        "matchSources" : [
+          "privateEmployer",
+          "otherStateOrLocal",
+          "nyStateOrLocal"
+        ],
+        "matchStructures" : [
+          "definedBenefit",
+          "definedContribution"
+        ],
+        "treatment" : {
+          "kind" : "none"
+        }
+      }
+    ],
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "Arizona excludes U.S. military retired pay in full and allows up to $2,500 for a federal, Arizona state or local government pension, but {scope} applies the $2,500 allowance to any pension until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "flatRate",
