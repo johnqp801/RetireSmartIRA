@@ -46,7 +46,7 @@
 
     ],
     "knownLimitations" : [
-
+      "North Carolina exempts a state, local or federal government pension under the Bailey settlement if you had five or more years of creditable service by August 12, 1989. This app does not model that vesting date, so if you qualify your North Carolina state tax may be overstated."
     ],
     "lastVerified" : "",
     "primarySources" : [

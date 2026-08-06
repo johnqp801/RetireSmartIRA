@@ -84,6 +84,100 @@ struct StateAccuracyContentTests {
         #expect(IncomeSourcesView.massachusettsContributoryCaption.contains("understated"))
     }
 
+    // MARK: - Gate 2: the move to config is lossless
+
+    /// Gate 2, TEMPORARY. Proves the relocation was lossless. Once merged, the
+    /// permanent assertions are the structural ones in Gate 1; John may approve
+    /// a copy change later without fighting this snapshot.
+    ///
+    /// Reads the RENDERED string, not the stored one. Hawaii's stored sentence
+    /// carries a scope token and is 212 characters; neither of the two approved
+    /// wordings it produces is, so an assertion against the stored form would
+    /// fail by construction. See `hawaiiSentenceServesBothSurfaces` below.
+    ///
+    /// DC's survivor-toggle caption is deliberately absent. It is not a
+    /// limitation: it is the instruction for a control ("Turn this on only
+    /// for..."), it renders inside the survivor-toggle branch rather than
+    /// alongside the other captions, and moving it into `knownLimitations`
+    /// would show it to every DC resident whether or not the toggle is on
+    /// screen. It stays a view static.
+    @MainActor
+    @Test("Each moved caption reproduces byte for byte from its new home in config")
+    func movedCaptionsAreByteIdentical() {
+        let cases: [(USState, String)] = [
+            (.hawaii, IncomeSourcesView.hawaiiEmployerFundedCaption),
+            (.massachusetts, IncomeSourcesView.massachusettsContributoryCaption),
+            (.northCarolina, IncomeSourcesView.northCarolinaBaileyCaption),
+            (.idaho, IncomeSourcesView.idahoRetirementBenefitsDeductionCaption),
+            (.vermont, IncomeSourcesView.vermontRetirementExclusionCaption)
+        ]
+        for (state, expected) in cases {
+            #expect(StateAccuracyContent.limitations(for: state).contains(expected),
+                    "\(state.abbreviation)'s caption did not survive the move to config")
+        }
+    }
+
+    /// Hawaii's caption and `MultiYearCPABriefing.hawaiiPensionSplitLimitation`
+    /// are the SAME approved sentence differing in exactly one word: the caption
+    /// says "This app does not model", the briefing says "This plan does not
+    /// model". They are 208 and 209 characters. Both are John's copy, both are
+    /// pinned, and one stored string cannot equal both.
+    ///
+    /// So the stored string equals NEITHER: it carries `{scope}` where they
+    /// differ, and each surface substitutes its own word, which is the
+    /// mechanism Phase 5b already uses for `unclassifiedPensionDisclosure`.
+    /// The two literals below were extracted from the parent commit rather
+    /// than retyped.
+    ///
+    /// This is the only collision of its kind. A normalized sweep of every
+    /// string literal of 60 characters or more across `RetireSmartIRA/`, with
+    /// Swift's multi-line concatenations joined and "this app|plan|figure"
+    /// folded together, found no other sentence shared by two surfaces.
+    @MainActor
+    @Test("Hawaii's one stored sentence renders both approved wordings, and neither surface sees the token")
+    func hawaiiSentenceServesBothSurfaces() throws {
+        let stored = try #require(
+            StateTaxData.config(for: .hawaii).verification.knownLimitations.first {
+                $0.contains(UnclassifiedPensionDisclosure.scopeToken)
+            },
+            "Hawaii ships no scope-token limitation, so it cannot serve both surfaces")
+
+        let tokenCount = stored.components(
+            separatedBy: UnclassifiedPensionDisclosure.scopeToken).count - 1
+        #expect(tokenCount == 1, "expected exactly one scope token, found \(tokenCount)")
+
+        let inApp = try #require(
+            StateAccuracyContent.surfaceDependentLimitations(for: .hawaii, scope: .app).first)
+        #expect(inApp == IncomeSourcesView.hawaiiEmployerFundedCaption)
+        #expect(inApp ==
+            "Hawaii excludes the employer-funded portion of a pension from state tax. This app does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.")
+
+        let inBriefing = try #require(
+            MultiYearCPABriefing.hawaiiPensionSplitLimitation(
+                residesInHawaii: true, hasPensionIncome: true).first)
+        #expect(inBriefing ==
+            "Hawaii excludes the employer-funded portion of a pension from state tax. This plan does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.")
+
+        // The two differ in one word and nothing else.
+        #expect(inApp.replacingOccurrences(of: "app", with: "plan") == inBriefing)
+    }
+
+    /// The failure mode a token buys: an unsubstituted `{scope}` reaching a
+    /// user. Swept over every jurisdiction and both surfaces, not just the one
+    /// that carries a token today, so a sentence added in a later task is
+    /// covered without editing this test.
+    @Test("No rendered limitation reaches a user carrying an unsubstituted token")
+    func renderedLimitationsCarryNoToken() {
+        for state in USState.allCases {
+            for scope in [StateAccuracyContent.LimitationScope.app, .plan] {
+                for line in StateAccuracyContent.limitations(for: state, scope: scope) {
+                    #expect(!line.contains(UnclassifiedPensionDisclosure.scopeToken),
+                            "\(state.abbreviation) leaked a scope token to a user: \(line)")
+                }
+            }
+        }
+    }
+
     // MARK: - Gate 4: verification metadata completeness
 
     /// Gate 4. Every covered jurisdiction must state which tax year its
@@ -107,15 +201,23 @@ struct StateAccuracyContentTests {
     ///
     /// Sorted so the failure list is stable run to run and can be worked
     /// straight down; `Set` iteration order is not.
+    ///
+    /// The expected year is READ, not restated. `StateTaxData.config(for:)`
+    /// resolves `StateTaxDataLoader.defaultTaxYear`, so the assertion and its
+    /// message name the same thing the loader named. Written as a literal
+    /// `2026` this gate would keep validating 2026 after a 2027 directory was
+    /// added and `config(for:)` had moved on to it, while its own failure
+    /// message claimed it was checking "the config's own year".
     @Test("Every covered jurisdiction carries a tax year, a verified date and an HTTPS source")
     func coveredJurisdictionsCarryCompleteVerification() {
+        let dataYear = StateTaxDataLoader.defaultTaxYear
         let ordered = StateAccuracyContent.coveredJurisdictions
             .sorted { $0.abbreviation < $1.abbreviation }
 
         for state in ordered {
             let v = StateTaxData.config(for: state).verification
-            #expect(v.taxYear == 2026,
-                    "\(state.abbreviation) verification.taxYear must state the config's own year")
+            #expect(v.taxYear == dataYear,
+                    "\(state.abbreviation) verification.taxYear must state the year its config is loaded for, \(dataYear)")
             #expect(!v.lastVerified.isEmpty, "\(state.abbreviation) has no lastVerified")
             #expect(v.primarySources.contains { $0.contains("https://") },
                     "\(state.abbreviation) has no HTTPS primary source")
@@ -165,6 +267,32 @@ struct StateAccuracyContentTests {
                 Only in the rationale: \
                 \(expected.subtracting(StateAccuracyContent.coveredJurisdictions).map(\.abbreviation).sorted()).
                 """)
-        #expect(StateAccuracyContent.coveredJurisdictions.count == 15)
+        // No count assertion follows. Set equality already fixes the count,
+        // and a bare `== 15` would put back the hardcoded number this test
+        // exists to replace with a derivation, with no failure message.
+    }
+
+    // MARK: - The taxYear sentinel
+
+    /// `taxYear == 0` means "this file stated no year". It is not a year and
+    /// has no rendering: thirty-six jurisdictions carry it today, so a header
+    /// interpolating `taxYear` would read "Pennsylvania tax treatment, 0".
+    ///
+    /// `statedTaxYear` is the accessor every renderer must use, which turns
+    /// that from a copy defect nobody would catch into a nil the author of the
+    /// page has to answer for. What to SHOW when it is nil is user-facing copy
+    /// and therefore John's; this type picks no fallback string.
+    @Test("The taxYear sentinel is nil through the accessor renderers must use")
+    func theTaxYearSentinelIsAnOptionalWhereItIsRead() {
+        #expect(StateVerification.unverified.taxYear == 0)
+        #expect(StateVerification.unverified.statedTaxYear == nil)
+
+        // Pennsylvania is outside coveredJurisdictions and states no year, so
+        // it is the live example Task 6's header has to handle.
+        #expect(StateTaxData.config(for: .pennsylvania).verification.statedTaxYear == nil)
+
+        // Georgia is the one jurisdiction populated today.
+        #expect(StateTaxData.config(for: .georgia).verification.statedTaxYear
+                == StateTaxDataLoader.defaultTaxYear)
     }
 }

@@ -13,7 +13,8 @@ import Foundation
 /// a file that omits `taxYear` inside it decodes to the `0` sentinel. Neither
 /// is a compile error and neither can be made into one while the data ships as
 /// JSON. `StateAccuracyContentTests` is where a covered jurisdiction's missing
-/// provenance actually fails the build.
+/// provenance actually fails the suite. A test failure, not a build failure:
+/// the code compiles and the app runs either way.
 struct StateVerification: Codable, Equatable, Sendable {
     /// The tax year whose law this configuration states, e.g. `2026`.
     ///
@@ -27,6 +28,23 @@ struct StateVerification: Codable, Equatable, Sendable {
     /// value any file should ship. `StateAccuracyContentTests` fails a covered
     /// jurisdiction that leaves it at `0`.
     let taxYear: Int
+
+    /// The stated tax year, or `nil` when the file stated none.
+    ///
+    /// EVERY RENDERER MUST READ THIS, NOT `taxYear`. `0` is not a year and has
+    /// no sensible rendering. Thirty-six jurisdictions carry it today, so an
+    /// accuracy-page header interpolating `taxYear` directly would read
+    /// "Pennsylvania tax treatment, 0" for most of the country, and it would
+    /// do so silently, because nothing about an `Int` invites the author to
+    /// ask what `0` means. Making the sentinel an `Optional` at the one place
+    /// a renderer touches it turns that from a copy defect nobody would catch
+    /// into a question the compiler asks.
+    ///
+    /// What to SHOW when it is `nil` is deliberately not decided here. That is
+    /// user-facing copy and therefore John's to approve, and it belongs with
+    /// the rest of the accuracy page's wording rather than buried in a data
+    /// type.
+    var statedTaxYear: Int? { taxYear == 0 ? nil : taxYear }
 
     /// ISO `yyyy-MM-dd`. Empty string means never verified.
     ///

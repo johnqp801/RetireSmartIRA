@@ -427,6 +427,11 @@ struct IncomeSourcesView: View {
     /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
     /// surface that reaches the affected user. Delete both together if a Bailey
     /// vesting axis is ever added.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
     static let northCarolinaBaileyCaption =
         "North Carolina exempts a state, local or federal government pension under the "
         + "Bailey settlement if you had five or more years of creditable service by "
@@ -468,6 +473,11 @@ struct IncomeSourcesView: View {
     /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
     /// surface that reaches the affected user. Delete both together if those axes
     /// are ever added.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
     static let idahoRetirementBenefitsDeductionCaption =
         "Idaho deducts certain retirement benefits from state tax, including Civil "
         + "Service (CSRS) annuities, some Idaho police and firefighter pensions, and "
@@ -514,6 +524,11 @@ struct IncomeSourcesView: View {
     /// The durable record is Vermont's six `knownDefect` blocks in
     /// `statetax-2026-VT.golden.json` and `Phase5bVermontDecisionTests`. Delete
     /// all three together if Vermont's exclusions are ever modelled.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
     static let vermontRetirementExclusionCaption =
         "Vermont exempts up to $10,000 of Civil Service Retirement System income for "
         + "filers under $55,000 of income ($70,000 if married filing jointly), and under "
@@ -568,6 +583,11 @@ struct IncomeSourcesView: View {
     /// `StateAccuracyContentTests` covers this one) and must be reconciled
     /// deliberately, not by assuming a copy-paste slip, if the captions are ever
     /// consolidated into one config field.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
     static let hawaiiEmployerFundedCaption =
         "Hawaii excludes the employer-funded portion of a pension from state tax. This "
         + "app does not model the split between employer-funded and employee-contributed "
@@ -597,6 +617,11 @@ struct IncomeSourcesView: View {
     /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
     /// surface that reaches the affected user. Delete both together if a
     /// contributory axis is added.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
     static let massachusettsContributoryCaption =
         "Massachusetts excludes a contributory state or local pension but taxes a "
         + "noncontributory one. This app does not model that distinction, so if your "
@@ -1614,71 +1639,41 @@ struct IncomeSourcesView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            if dataManager.selectedState == .hawaii {
-                                Label(IncomeSourcesView.hawaiiEmployerFundedCaption,
-                                      systemImage: "info.circle")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            // Phase 5b Task 4. Copy APPROVED by John on
-                            // 2026-08-05; see IncomeSourcesView
-                            // .massachusettsContributoryCaption for why it is
-                            // modelled on the Hawaii caption above and why its
-                            // direction is the opposite one. Massachusetts runs
-                            // toward UNDER-taxation, the only caption in this
-                            // group that does.
-                            if dataManager.selectedState == .massachusetts {
-                                Label(IncomeSourcesView.massachusettsContributoryCaption,
-                                      systemImage: "info.circle")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            // Phase 5b Task 7. Copy APPROVED by John on
-                            // 2026-08-05; see IncomeSourcesView
-                            // .northCarolinaBaileyCaption for why North Carolina
-                            // ships a caption and no rule, and what this text
-                            // must not be turned into. (That cross-reference
-                            // used to read "why it ships unapproved", written
-                            // before John's approval landed three lines above
-                            // and left uncorrected when it did.)
-                            // Direction is the opposite of Massachusetts's
-                            // directly above: North Carolina applies no Bailey
-                            // exclusion at all, so its error runs toward
-                            // OVER-taxation.
-                            if dataManager.selectedState == .northCarolina {
-                                Label(IncomeSourcesView.northCarolinaBaileyCaption,
-                                      systemImage: "info.circle")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            // Phase 5b Task 8. Copy APPROVED by John on
-                            // 2026-08-05; see IncomeSourcesView
-                            // .idahoRetirementBenefitsDeductionCaption for why
-                            // Idaho ships a caption and no rule. Same direction
-                            // as North Carolina directly above, OVER-taxation:
-                            // Idaho applies no Retirement Benefits Deduction at
-                            // all today.
-                            if dataManager.selectedState == .idaho {
-                                Label(IncomeSourcesView.idahoRetirementBenefitsDeductionCaption,
-                                      systemImage: "info.circle")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            // Phase 5b Task 9. Copy APPROVED by John on
-                            // 2026-08-05, as written; see IncomeSourcesView
-                            // .vermontRetirementExclusionCaption for why
-                            // Vermont ships a caption and no rule, and for the
-                            // two shapes that were measured and declined. Same
-                            // direction as North Carolina and Idaho above,
-                            // OVER-taxation: Vermont applies neither exclusion
-                            // today, and its gap is the largest in this phase.
-                            if dataManager.selectedState == .vermont {
-                                Label(IncomeSourcesView.vermontRetirementExclusionCaption,
-                                      systemImage: "info.circle")
+                            // FIVE HARDCODED STATE BRANCHES USED TO STAND HERE,
+                            // one each for Hawaii, Massachusetts, North
+                            // Carolina, Idaho and Vermont, each rendering that
+                            // state's caption static. All five sentences now
+                            // live in the resident's own configuration under
+                            // `verification.knownLimitations`, which is the one
+                            // place a limitation sentence is written, and this
+                            // loop renders whatever that state ships. Adding a
+                            // jurisdiction is a data change with no code change.
+                            //
+                            // The caption statics above SURVIVE and are still
+                            // approved copy, but they are no longer what this
+                            // screen reads. They are the pinned record that the
+                            // move was lossless, asserted by
+                            // `StateAccuracyContentTests.movedCaptionsAreByteIdentical`
+                            // and by the direction assertions in
+                            // `Phase5bNorthCarolinaDecisionTests`,
+                            // `Phase5bIdahoDecisionTests` and
+                            // `Phase5bVermontDecisionTests`. EDITING ONE OF THEM
+                            // NO LONGER CHANGES WHAT A USER SEES; edit the JSON
+                            // and the static together, which is what those gates
+                            // force.
+                            //
+                            // SCOPE NOTE for whoever populates the remaining
+                            // covered jurisdictions: everything in a state's
+                            // `knownLimitations` renders HERE, inside "What kind
+                            // of pension is this?", and this loop does not
+                            // filter. A limitation about brackets or standard
+                            // deductions is true but does not belong under a
+                            // pension picker; if such a sentence is authored,
+                            // this loop needs a way to tell the two apart before
+                            // that state's config carries it.
+                            ForEach(StateAccuracyContent.limitations(for: dataManager.selectedState),
+                                    id: \.self) { limitation in
+                                Label(limitation, systemImage: "info.circle")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

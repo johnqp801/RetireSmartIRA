@@ -735,6 +735,69 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///   that declaration.
     static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana, .massachusetts, .arizona, .districtOfColumbia]
 
+    /// Jurisdictions whose bundled JSON diverges from the frozen legacy table
+    /// in `verification` ALONE, with every computed field still byte-identical.
+    ///
+    /// THESE ARE NOT TAX CORRECTIONS and no number moved for any of them. The
+    /// per-state accuracy disclosure work moved four approved pension-editor
+    /// captions into `verification.knownLimitations`, so that a limitation
+    /// sentence is written in exactly one place and the editor renders it from
+    /// the resident's own config. `configs2026Legacy` builds every entry with
+    /// `verification` defaulted to `.unverified` and has no way to carry a
+    /// sentence, so the two documents necessarily differ. Massachusetts's
+    /// caption moved the same way and needs no entry here, being already on
+    /// `phase5CorrectedJurisdictions`.
+    ///
+    /// WHY NOT ADD THESE FOUR TO `phase5CorrectedJurisdictions`. That set
+    /// flips the assertion to "must diverge" and thereafter excuses the
+    /// jurisdiction from the byte-identity check entirely, which is the
+    /// objection `Phase5bNewYorkMilitaryTests.theLegacyMirrorWasUpdatedToo`
+    /// records against doing it to New York. Membership HERE excuses nothing:
+    /// the branch below still demands byte-identity of everything except
+    /// `verification`, so a decode that dropped, defaulted or reordered any
+    /// computed field still fails exactly as it would for the other 38 states.
+    ///
+    /// WHY NOT MIRROR THE SENTENCES INTO `configs2026Legacy`, which is that
+    /// same New York precedent's remedy. Because it would put John's approved
+    /// copy in two places, which is the precise duplication this feature
+    /// exists to remove, and because the frozen table is a snapshot of
+    /// pre-JSON tax LAW, not a second home for disclosure copy.
+    ///
+    /// FOR WHOEVER AUTHORS THE REMAINING SENTENCES: of the fifteen covered
+    /// jurisdictions, New York and Missouri are on neither set, so populating
+    /// their `knownLimitations` will fail Layer B until they are added here.
+    static let disclosureOnlyDivergentJurisdictions: Set<USState> = [
+        .hawaii, .northCarolina, .idaho, .vermont
+    ]
+
+    /// A config re-encoded with `verification` stripped, so "the disclosure
+    /// metadata diverged" can be told apart from "a computed field diverged".
+    private static func encodedWithoutVerification(_ config: StateTaxConfig) throws -> Data {
+        struct NotAJSONObject: Error {}
+        let data = try makeEncoder().encode(config)
+        guard var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NotAJSONObject()
+        }
+        object.removeValue(forKey: "verification")
+        return try JSONSerialization.data(withJSONObject: object,
+                                          options: [.sortedKeys, .prettyPrinted])
+    }
+
+    @Test("A jurisdiction cannot be both a Phase 5 correction and a disclosure-only divergence")
+    func theTwoDivergenceSetsAreDisjoint() {
+        let both = Self.phase5CorrectedJurisdictions
+            .intersection(Self.disclosureOnlyDivergentJurisdictions)
+        #expect(both.isEmpty,
+                """
+                \(both.map(\.abbreviation).sorted()) appear on both divergence sets. The \
+                two make incompatible claims: phase5CorrectedJurisdictions says the tax \
+                math legitimately moved away from the frozen table, and \
+                disclosureOnlyDivergentJurisdictions says it provably did not. A \
+                jurisdiction on both would get the weaker of the two checks by accident \
+                of branch order.
+                """)
+    }
+
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different
     /// serialization convention.
@@ -787,6 +850,30 @@ struct StateTaxJSONStructuralEquivalenceTests {
                 corrections). Byte-identical here means either the correction was \
                 reverted from the JSON or the legacy table was edited to match it; both \
                 are failures that need fixing, not this test.
+                """
+            )
+        } else if Self.disclosureOnlyDivergentJurisdictions.contains(state) {
+            #expect(
+                jsonEncoded != legacyEncoded,
+                """
+                \(state.abbreviation) is listed in disclosureOnlyDivergentJurisdictions, \
+                so its bundled JSON is expected to carry a verification.knownLimitations \
+                sentence the frozen legacy table cannot. Byte-identical here means the \
+                sentence was dropped from the JSON, which silently removes the only \
+                disclosure a \(state.abbreviation) pension holder sees.
+                """
+            )
+            let jsonMath = try Self.encodedWithoutVerification(jsonConfig)
+            let legacyMath = try Self.encodedWithoutVerification(legacyConfig)
+            #expect(
+                jsonMath == legacyMath,
+                """
+                \(state.abbreviation) is listed as a DISCLOSURE-ONLY divergence, but the \
+                two documents still differ once `verification` is removed from both, so \
+                something other than the disclosure metadata moved. Either a computed \
+                field was changed without being recorded as a correction, or decode \
+                dropped, defaulted or reordered one.
+                First divergence: \(Self.firstDivergence(jsonMath, legacyMath))
                 """
             )
         } else {

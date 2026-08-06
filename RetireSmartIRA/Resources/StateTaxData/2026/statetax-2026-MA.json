@@ -78,7 +78,7 @@
 
     ],
     "knownLimitations" : [
-
+      "Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated."
     ],
     "lastVerified" : "",
     "primarySources" : [

@@ -416,9 +416,24 @@ enum MultiYearCPABriefing {
     /// employer-funded portion of a pension, a split this app does not
     /// model either before or after classification, so this is gated on
     /// pension income alone, not on classification state.
+    ///
+    /// THE SENTENCE IS NO LONGER WRITTEN HERE. It lives in
+    /// `statetax-2026-HI.json` under `verification.knownLimitations`, which is
+    /// now the one place a limitation sentence is written, and the pension
+    /// editor renders the same stored string. The two surfaces differ by one
+    /// word, "This plan does not model" here against "This app does not model"
+    /// on screen, so the stored sentence carries `{scope}` and each surface
+    /// substitutes its own noun. Both wordings are John's, approved as
+    /// written, and this change reproduces both byte for byte;
+    /// `StateAccuracyContentTests.hawaiiSentenceServesBothSurfaces` pins that.
+    ///
+    /// Reads `surfaceDependentLimitations`, not all of Hawaii's limitations.
+    /// This function is gated on pension income and is about the
+    /// employer-funded split specifically; taking the whole list would widen
+    /// it silently to whatever a later task adds to Hawaii's config.
     static func hawaiiPensionSplitLimitation(residesInHawaii: Bool, hasPensionIncome: Bool) -> [String] {
         guard residesInHawaii, hasPensionIncome else { return [] }
-        return ["Hawaii excludes the employer-funded portion of a pension from state tax. This plan does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated."]
+        return StateAccuracyContent.surfaceDependentLimitations(for: .hawaii, scope: .plan)
     }
 
     /// Selected-approach vs Recommended-plan deltas for the CPA briefing header. Zero across the

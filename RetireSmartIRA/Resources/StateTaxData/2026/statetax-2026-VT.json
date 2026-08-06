@@ -81,7 +81,7 @@
 
     ],
     "knownLimitations" : [
-
+      "Vermont exempts up to $10,000 of Civil Service Retirement System income for filers under $55,000 of income ($70,000 if married filing jointly), and under 2025's Act 71 exempts military retired pay in full under $125,000 of income. This app applies neither exemption, so if you qualify your Vermont state tax may be overstated."
     ],
     "lastVerified" : "",
     "primarySources" : [

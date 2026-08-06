@@ -34,6 +34,17 @@ enum StateTaxDataLoader {
         }
     }
 
+    /// The tax year `configs2026`, and therefore `StateTaxData.config(for:)`,
+    /// resolves.
+    ///
+    /// Declared so the year is stated once. A gate that wants to assert a
+    /// config states its own year can read this instead of restating `2026`,
+    /// which is what `StateAccuracyContentTests` does: written as a literal,
+    /// such a gate would go on validating 2026 after a 2027 directory was
+    /// added and the accessor had moved on to it, while its failure message
+    /// still claimed to be checking the config's own year.
+    static let defaultTaxYear = 2026
+
     /// Decodes every jurisdiction for `taxYear`.
     ///
     /// Throws rather than substituting a default. The table this replaces
@@ -184,7 +195,7 @@ enum StateTaxDataLoader {
     /// only reaches production because `assertionFailure` compiles to a
     /// no-op there.
     static let configs2026: [USState: StateTaxConfig] = {
-        let result = resolveConfigs(taxYear: 2026)
+        let result = resolveConfigs(taxYear: defaultTaxYear)
         if !result.fallbackStates.isEmpty {
             let names = result.fallbackStates.map(\.abbreviation).joined(separator: ", ")
             assertionFailure("State tax data failed to load for \(names); fell back to configs2026Legacy for those states only.")
