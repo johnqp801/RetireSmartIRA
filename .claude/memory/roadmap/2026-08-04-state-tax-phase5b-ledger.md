@@ -567,14 +567,19 @@ silent. Deleting any of them converts a disclosed tradeoff into an undisclosed d
 
 ## Full suite gate
 
-Run at the committed state with `tools/run-tests.sh` in the foreground.
+Run at the committed state (`faf79b1`) with `tools/run-tests.sh` in the foreground, timeout 600000.
+The wrapper's own header confirmed it built THIS worktree at THAT commit.
 
 ```
-2,020 Swift Testing tests in 304 suites + 509 XCTest, 0 failures
+Swift Testing:  Test run with 2020 tests in 304 suites passed
+XCTest:         Executed 509 tests, with 0 failures (0 unexpected)
+PASS. 2529 test(s) ran, no failures.
 ```
 
-6 pre-existing env-gated skips. See the closing note in this file for the exact result line at
-the close commit.
+6 pre-existing env-gated skips. **No `MultiYearPerfTests` flake on this run**, so the wrapper's
+isolation re-run was not triggered and there is nothing to qualify.
+
+Commit at close: `faf79b1` (the ledger and the resume update), plus this gate line.
 
 ## Em dash check
 
