@@ -5,9 +5,18 @@ import Foundation
 /// EXISTS BECAUSE A SURFACE HAS TO CHOOSE. Every limitation a state ships
 /// rendered, unfiltered, inside the pension editor's "What kind of pension is
 /// this?" section. That was harmless while every stored sentence was about a
-/// pension, which was true of all six that existed before this field, Georgia's
-/// included: its $70,000 figure is the TY2027 RETIREMENT-INCOME EXCLUSION, not
-/// the $15,000/$30,000 standard deduction its wording suggests.
+/// pension, which was true of the five approved captions that existed before
+/// this field.
+///
+/// THE SIXTH, GEORGIA'S, WAS THE FIRST DEMONSTRATION THAT IT WOULD NOT STAY
+/// TRUE, and it was withdrawn from production on 2026-08-06 rather than
+/// retopiced. It carried `pension`, so it rendered under "What kind of pension
+/// is this?", and it was not about a pension: it was about a TY2027 change to
+/// the retirement-income exclusion, and it described that $70,000 as a standard
+/// deduction when Georgia's standard deduction is $15,000/$30,000. It also
+/// predated the readers this feature built for it and was never approved as
+/// user-facing copy. See the GA entry in `StateAccuracyContentTests
+/// .limitationBasis`; the TY2027 fact itself is kept in the roadmap memory.
 ///
 /// It stopped being true when the remaining jurisdictions were authored. Utah's
 /// taxpayer tax credit and retirement credit, and New Mexico's age-65 Schedule

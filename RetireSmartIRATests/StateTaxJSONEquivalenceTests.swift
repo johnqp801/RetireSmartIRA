@@ -750,11 +750,14 @@ struct StateTaxJSONStructuralEquivalenceTests {
     /// moved the same way and needs no entry here, being already on
     /// `phase5CorrectedJurisdictions`.
     ///
-    /// WHY NOT ADD THESE FOUR TO `phase5CorrectedJurisdictions`. That set
+    /// WHY NOT ADD THESE SIX TO `phase5CorrectedJurisdictions`. That set
     /// flips the assertion to "must diverge" and thereafter excuses the
     /// jurisdiction from the byte-identity check entirely, which is the
     /// objection `Phase5bNewYorkMilitaryTests.theLegacyMirrorWasUpdatedToo`
-    /// records against doing it to New York. Membership HERE excuses nothing:
+    /// records against doing it to New York. That objection stands even though
+    /// New York has since joined the set BELOW: the comments it lives in were
+    /// corrected on 2026-08-06 to say so, because membership here and
+    /// membership there are not the same relief. Membership HERE excuses nothing:
     /// the branch below still demands byte-identity of everything except
     /// `verification`, so a decode that dropped, defaulted or reordered any
     /// computed field still fails exactly as it would for the other 38 states.

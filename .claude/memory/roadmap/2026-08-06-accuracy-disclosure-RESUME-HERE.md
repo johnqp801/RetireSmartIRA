@@ -1,7 +1,8 @@
 # RESUME HERE: Per-state accuracy disclosure, all eight tasks done. Nothing awaits John.
 
 **Branch `feature/state-accuracy-disclosure`, cut from `feature/state-tax-phase5b` @ `587b5c4`.
-NOT pushed, NOT merged.** Suite green: 2,076 Swift Testing in 306 suites + 509 XCTest, 0 failures.
+NOT pushed, NOT merged.** Suite green after the whole-branch review fixes: 2,077 Swift Testing in
+306 suites + 509 XCTest, 0 failures.
 
 **This file exists because the SDD ledger at `.superpowers/sdd/progress.md` is GITIGNORED.** That
 ledger is far richer; read it if the worktree still exists. So are the per-task reports it points at,
@@ -84,6 +85,49 @@ an affordance's accessibility label, are EXACTLY the approved presenters. Struct
 check for one symbol: a re-add under a different property name, in a different view, or through a
 wrapper still fails it. Verified by mutation.
 
+## GEORGIA'S FOURTEENTH SENTENCE IS GONE, AND GA NOW SHIPS AN EMPTY LIST
+**Removed 2026-08-06 by John's decision, before merge.** `statetax-2026-GA.json` carried the only
+limitation sentence on this branch that was neither one of the thirteen John approved nor one of the
+six approved captions. Four problems: it called the TY2027 $70,000 a STANDARD DEDUCTION when it is
+the retirement-income EXCLUSION and GA's standard deduction is $15,000/$30,000; it said "this
+config" on a user surface; it stated no over/under direction; and its `pension` topic put it inside
+the pension editor under "What kind of pension is this?", the exact placement `LimitationTopic` was
+introduced to prevent. It predated the branch and had NO production consumer; this branch built two
+readers for it. John: the fact that it predates the branch does not excuse this branch from
+activating it for users.
+
+**No replacement was shipped**, because John cannot approve wording that does not exist yet. Three
+PROPOSED drafts are in `.superpowers/sdd/whole-branch-fix-report.md`, unshipped.
+
+**The TY2027 fact is preserved** at
+`.claude/memory/roadmap/2026-08-02-full-50-state-verification.md`, under Georgia, now stated
+correctly and with the removal recorded.
+
+**A sweep of all 51 configs found no other unapproved sentence.** The 19 that ship are the 13
+approved sentences plus five of the six approved captions in config (HI, ID, VT, NC, MA); DC's
+survivor-toggle caption is still a Swift literal in `IncomeSourcesView` and is the sixth.
+
+**GEORGIA IS NOW THE THIRD STATE, with Iowa and Indiana, rendering a verified date, a primary source
+and "No known limitations are currently recorded".** In aggregate that reads closer to a clean bill
+than any single line of it claims. JOHN'S OPEN CALL. The design's optional second sentence ("State
+tax rules are complex, and this does not mean every unusual situation is represented") was
+deliberately left unshipped and unapproved, and stays that way.
+
+## RECORDED, NOT FIXED
+- **A per-state JSON decode failure now ERASES that state's disclosure.** `StateTaxDataLoader` turns
+  a decode throw into a per-state fallback to the frozen legacy table, whose `verification` is
+  `.unverified` with empty limitations, and the accompanying `assertionFailure` is a no-op in
+  release. At the merge base the five caption sentences were Swift literals that could not fail to
+  render; they now can. A release user hits the empty-state wording instead of the caption.
+- **Gate 3's coverage is three claims, not the page.** Per-spouse cap (2 jurisdictions), Social
+  Security (15), Roth conversions (4). Bracket rates, standard deduction, personal exemption,
+  pension and IRA exemption levels, per-source rules and age gates are NOT behaviour-backed.
+- **Four stale New York comments were corrected 2026-08-06** (`Phase5bNewYorkMilitaryTests` x2,
+  `StateTaxData.swift` x2). They said NY was on neither divergence list and therefore required
+  outright byte-identity; NY is now on `disclosureOnlyDivergentJurisdictions`, which excuses
+  `verification` alone. Their CONCLUSIONS were unchanged: the mirrored rule and the mirrored
+  disclosure are both computed fields and are still held to byte-identity.
+
 ## Remaining before merge
 1. **An independent review of Tasks 3 through 8.** The controller verified all six MECHANICALLY, by
    grep and by suite, and never ran a reviewer over them. Tasks 1 and 2 are the only reviewed ones on
@@ -99,9 +143,9 @@ wrapper still fails it. Verified by mutation.
 
 ## THE THINGS A FRESH SESSION MUST NOT LOSE
 1. **An empty `knownLimitations` NEVER renders as a clean bill of health.** Exact wording, specified
-   by John: "No known limitations are currently recorded for this state and tax year." IOWA AND
-   INDIANA SHIP EMPTY LISTS, so this is load-bearing INSIDE the covered set, not only for the 36
-   states outside it.
+   by John: "No known limitations are currently recorded for this state and tax year." GEORGIA,
+   IOWA AND INDIANA SHIP EMPTY LISTS, so this is load-bearing INSIDE the covered set, not only for
+   the 36 states outside it.
 2. **Gate 3 tests EFFECTIVE BEHAVIOUR, not a config echo.** If the page claims a per-spouse
    exclusion, the ENGINE must actually double it. A config echo would pass while the engine was wrong,
    which the predecessor branch shipped several times.

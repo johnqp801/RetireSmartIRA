@@ -94,6 +94,9 @@ Recording these matters as much as the defects, because two of them are traps.
 - **Oklahoma amount** — $10,000 stands. HB2190 ($40,000) is still in committee, not enacted.
 - **Kentucky** — $31,110 stands. HB 146 ($41,100) proposed, not enacted.
 - **Georgia** — $65,000 at 65+ / $35,000 at 62-64 correct for TY 2026. Rises to **$70,000 in TY 2027**; diary item.
+  - **THIS BULLET IS NOW THE DURABLE HOME OF THE TY2027 FACT.** To be exact about what rises: the $70,000 is the RETIREMENT-INCOME EXCLUSION. Georgia's standard deduction is a separate figure, $15,000 single / $30,000 married, and does not change with it.
+  - `statetax-2026-GA.json` carried a `verification.knownLimitations` sentence stating this, and that sentence was REMOVED from production on 2026-08-06. Four problems: it called the $70,000 a standard deduction; it said "this config" on a user-facing surface; it stated no over/under direction where every other sentence does; and it was tagged `pension`, so it rendered inside the pension editor under "What kind of pension is this?", which is the placement `LimitationTopic` exists to prevent. It predated the accuracy-disclosure branch, had NO production consumer until that branch built two readers for it, and was never among the thirteen sentences John approved.
+  - Georgia now ships an EMPTY limitations list, alongside Iowa and Indiana. A replacement sentence, if one is wanted, is John's copy to approve; three PROPOSED drafts are in `.superpowers/sdd/whole-branch-fix-report.md`.
 - **New Jersey** — stepped phaseout, correct.
 - **New York** — $20,000 amount and the per-individual flag correct. Only the government-pension track is missing.
 - **Illinois, Mississippi, Pennsylvania** — full exemption, correct.

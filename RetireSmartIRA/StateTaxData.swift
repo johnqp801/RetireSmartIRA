@@ -2103,15 +2103,19 @@ struct StateTaxData {
                 // MIRRORED HERE ON PURPOSE, following the Task 3b precedent
                 // set by `unclassifiedPensionDisclosure` below. New York is
                 // NOT on `phase5CorrectedJurisdictions`, so Layer B requires
-                // its JSON and this entry to re-encode BYTE-IDENTICALLY.
-                // Adding New York to that list would have been the other
-                // route and is worse: membership FLIPS `structurallyIdentical`
-                // into a must-diverge assertion, which permanently excuses New
-                // York from the byte-identity check that has guarded the
-                // canary jurisdiction since Phase 1. Mirroring also keeps the
-                // load-failure fallback correct, which matters more here than
-                // for a disclosure string: a user who hits that path would
-                // otherwise be over-taxed rather than merely unwarned.
+                // its JSON and this entry to re-encode BYTE-IDENTICALLY in
+                // every computed field. Since 2026-08-06 New York IS on
+                // `disclosureOnlyDivergentJurisdictions`, which excuses the
+                // `verification` block alone; this rule is not in it and is
+                // still held. Adding New York to `phase5CorrectedJurisdictions`
+                // would have been the other route and is worse: membership
+                // FLIPS `structurallyIdentical` into a must-diverge assertion,
+                // which permanently excuses New York from the byte-identity
+                // check that has guarded the canary jurisdiction since Phase 1.
+                // Mirroring also keeps the load-failure fallback correct, which
+                // matters more here than for a disclosure string: a user who
+                // hits that path would otherwise be over-taxed rather than
+                // merely unwarned.
                 perSourceExemptions: [
                     PerSourceExemptionRule(
                         matchSources: [.nyStateOrLocal, .federalCivilian, .uniformedServices],
@@ -2123,9 +2127,13 @@ struct StateTaxData {
                 // is mirrored here. New York is NOT in
                 // `phase5CorrectedJurisdictions`, so Layer B of the Phase 1
                 // gate requires its JSON and this entry to re-encode
-                // byte-identically; a field present in one and not the other
-                // fails that gate. Kansas needs no counterpart because Kansas
-                // IS on that list and is required to diverge.
+                // byte-identically in every computed field; a field present in
+                // one and not the other fails that gate. New York's 2026-08-06
+                // entry on `disclosureOnlyDivergentJurisdictions` does not
+                // relieve this: that set excuses `verification` only, and
+                // `unclassifiedPensionDisclosure` is a top-level field.
+                // Kansas needs no counterpart because Kansas IS on
+                // `phase5CorrectedJurisdictions` and is required to diverge.
                 //
                 // This is also the fallback a user actually sees if the
                 // bundled JSON fails to load, so leaving it out would mean

@@ -857,15 +857,24 @@ struct StateAccuracyContentTests {
     /// The empty state is load-bearing INSIDE the covered set, not only for the
     /// thirty-six jurisdictions outside it.
     ///
-    /// Iowa and Indiana were both Phase 5 corrections, both carry complete
-    /// verification metadata, and both ship ZERO limitation sentences. A reader
-    /// who reached an Iowa page through a "how accurate is this" affordance is
-    /// exactly the reader most likely to read silence as a guarantee, and Iowa
-    /// is a state whose withheld-portion treatment is an open question with its
-    /// own Department of Revenue.
+    /// Georgia, Iowa and Indiana were all Phase 5 corrections, all carry
+    /// complete verification metadata, and all ship ZERO limitation sentences.
+    /// A reader who reached an Iowa page through a "how accurate is this"
+    /// affordance is exactly the reader most likely to read silence as a
+    /// guarantee, and Iowa is a state whose withheld-portion treatment is an
+    /// open question with its own Department of Revenue.
     ///
-    /// Asserted as a property over the covered set rather than against Iowa and
-    /// Indiana by name, so a jurisdiction whose last sentence is removed by a
+    /// GEORGIA JOINED ON 2026-08-06, which is this assertion doing its job: its
+    /// one unapproved sentence was withdrawn from production, and the count
+    /// below is what forced that removal to be acknowledged here rather than
+    /// passing in silence. Georgia is now a third state rendering a verified
+    /// date, a primary source and "no known limitations are currently
+    /// recorded", which in aggregate reads closer to a clean bill than any one
+    /// line of it claims. That aggregate is John's open call; the design's
+    /// optional second sentence remains unshipped and unapproved.
+    ///
+    /// Asserted as a property over the covered set rather than against the
+    /// three by name, so a jurisdiction whose last sentence is removed by a
     /// future correction is covered without editing this test.
     @Test("A covered jurisdiction with no recorded limitations makes no claim either")
     func coveredJurisdictionsWithEmptyListsClaimNothing() {
@@ -879,7 +888,7 @@ struct StateAccuracyContentTests {
             #expect(!text.lowercased().contains("verified"),
                     "\(state.abbreviation): an empty list must not borrow the verification stamp as a completeness claim")
         }
-        #expect(checked == ["IA", "IN"],
+        #expect(checked == ["GA", "IA", "IN"],
                 "the covered jurisdictions shipping empty lists changed: \(checked)")
     }
 
@@ -1363,7 +1372,7 @@ struct StateAccuracyContentTests {
                     """)
         }
 
-        // Deliberately a literal, for the same reason `["IA", "IN"]` is one
+        // Deliberately a literal, for the same reason `["GA", "IA", "IN"]` is one
         // above: a jurisdiction that gains or loses a per-spouse cap has to be
         // acknowledged here rather than quietly changing what this gate covers,
         // and an empty sweep would otherwise pass in silence.
@@ -1612,12 +1621,19 @@ struct StateAccuracyContentTests {
         "DC": (.unpinnedCatalogue, 2),
         "GA": (.disclosureOnly(reason: """
             Georgia's configuration is correct for TY2026 and no golden case disagrees with the \
-            state's own form. The sentence records that the retirement-income exclusion rises \
-            again in TY2027 and that this file does not encode the later year, which is a \
-            statement about the config's SCOPE rather than a defect in it. It belongs on a page \
-            that heads with a tax year, because that header is already telling the reader these \
-            rules are year-specific.
-            """), 1),
+            state's own form. It shipped ONE sentence, about the TY2027 retirement-income \
+            exclusion, and that sentence was REMOVED on 2026-08-06: it was factually garbled \
+            (it called the $70,000 a standard deduction when Georgia's standard deduction is \
+            $15,000/$30,000 and the $70,000 is the exclusion), it said "this config" on a user \
+            surface, it stated no direction where every other sentence says overstated or \
+            understated, and its "pension" topic put it inside the pension editor under "What \
+            kind of pension is this?", which is the placement LimitationTopic exists to \
+            prevent. It predates this branch and had no production consumer; this branch built \
+            two readers for it, and it is not among the thirteen sentences John approved. \
+            Georgia now ships zero, and the underlying TY2027 fact is kept in \
+            .claude/memory/roadmap/2026-08-02-full-50-state-verification.md. A replacement is \
+            John's copy to approve, not an implementer's to write.
+            """), 0),
         "HI": (.unpinnedCatalogue, 1),
         "IA": (.disclosureOnly(reason: """
             Iowa was a Phase 5a correction and ships NO sentence. It is here so the table covers \

@@ -69,14 +69,22 @@
 //
 //  LAYER B. New York is NOT on `phase5CorrectedJurisdictions`, so
 //  `StateTaxJSONStructuralEquivalenceTests.structurallyIdentical` requires its
-//  bundled JSON and its `configs2026Legacy` entry to re-encode BYTE-IDENTICALLY.
-//  Task 3b hit this and its precedent is to MIRROR the change into the legacy
-//  table rather than to add New York to the list, because membership FLIPS that
-//  assertion into "must diverge" and permanently excuses the canary from the
-//  byte-identity check. This change follows that precedent, and the mirror
-//  matters more here than it did for a disclosure string: a user who hits the
-//  JSON-load-failure fallback would otherwise be over-taxed, not merely
-//  unwarned.
+//  bundled JSON and its `configs2026Legacy` entry to re-encode BYTE-IDENTICALLY
+//  in every COMPUTED field. Task 3b hit this and its precedent is to MIRROR the
+//  change into the legacy table rather than to add New York to the list,
+//  because membership FLIPS that assertion into "must diverge" and permanently
+//  excuses the canary from the byte-identity check. This change follows that
+//  precedent, and the mirror matters more here than it did for a disclosure
+//  string: a user who hits the JSON-load-failure fallback would otherwise be
+//  over-taxed, not merely unwarned.
+//
+//  UPDATED 2026-08-06. New York is now on the accuracy-disclosure branch's
+//  `disclosureOnlyDivergentJurisdictions`, so it is no longer on NEITHER list
+//  and the two documents are no longer required to be byte-identical outright.
+//  That set excuses `verification` ALONE and nothing else: everything outside
+//  it, this rule included, is still held to byte-identity, so the mirror below
+//  is still required and the argument above still holds. What changed is only
+//  the premise, not the conclusion.
 //
 //  RAILROAD RETIREMENT IS A SEPARATE QUESTION AND IS DELIBERATELY NOT SHIPPED.
 //  Task 3 added that picker row too, and it has the same shape of consequence,
@@ -160,10 +168,13 @@ struct Phase5bNewYorkMilitaryTests {
                 statetax-2026-NY.json and StateTaxData.configs2026Legacy's New York entry \
                 now disagree on matchSources. New York is NOT on \
                 phase5CorrectedJurisdictions, so Layer B requires them to re-encode \
-                byte-identically; Task 3b's precedent is to MIRROR a New York change into \
-                the legacy table rather than to add New York to that list, because \
-                membership flips structurallyIdentical into a must-diverge assertion and \
-                permanently excuses the canary from the check.
+                byte-identically in every computed field; being on \
+                disclosureOnlyDivergentJurisdictions since 2026-08-06 excuses `verification` \
+                alone and not this rule. Task 3b's precedent is to MIRROR a New York change \
+                into the legacy table rather than to add New York to \
+                phase5CorrectedJurisdictions, because membership there flips \
+                structurallyIdentical into a must-diverge assertion and permanently excuses \
+                the canary from the check.
                 """)
         #expect(Set(legacyRule.matchSources) == Self.sourcesLine26Names)
     }
