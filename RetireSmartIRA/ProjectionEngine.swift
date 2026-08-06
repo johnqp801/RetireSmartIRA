@@ -204,7 +204,11 @@ struct ProjectionEngine {
         // projection still runs, but that silently mis-taxes the household — assert in DEBUG so
         // bad input surfaces in tests/dev instead of producing a quietly-wrong plan. (A future
         // diagnostics channel on MultiYearStrategyResult should surface this to the user.)
-        let resolvedState = USState.allCases.first { $0.abbreviation == inputs.state }
+        // Read through `MultiYearStaticInputs.modelledState` rather than
+        // repeating the lookup here, so the state this engine taxes the plan in
+        // and the state the Multi-Year accuracy affordance names are provably
+        // the same jurisdiction. See that property's doc comment.
+        let resolvedState = inputs.modelledState
         assert(resolvedState != nil, "Unknown state abbreviation '\(inputs.state)' — defaulting to CA")
         let usState: USState = resolvedState ?? .california
 

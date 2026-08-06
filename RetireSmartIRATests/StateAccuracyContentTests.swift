@@ -696,6 +696,121 @@ struct StateAccuracyContentTests {
         #expect(header.noSourcesMessage == "No primary sources recorded.")
     }
 
+    // MARK: - Task 7: three entry points, three different states
+
+    /// The plan's own test, verbatim. One example per destination.
+    @Test("Each entry point resolves its own state, not the resident's")
+    func entryPointsResolveTheCorrectState() {
+        #expect(StateAccuracyContent.stateForComparisonSheet(inspecting: .oregon,
+                                                             resident: .california) == .oregon)
+        #expect(StateAccuracyContent.stateForSingleYearResults(resident: .california) == .california)
+        #expect(StateAccuracyContent.stateForMultiYear(scenarioState: .newYork,
+                                                       resident: .california) == .newYork)
+    }
+
+    /// The example above passes for a resolver that returns the resident
+    /// whenever the two happen to be equal, or that returns a hardcoded Oregon.
+    /// This one does not: it sweeps every ordered pair of the fifty-one
+    /// jurisdictions, so the comparison sheet is proved to follow the INSPECTED
+    /// state across 2,601 combinations including all fifty-one where the two
+    /// coincide.
+    ///
+    /// THE DEFECT THIS IS ABOUT is not a typo, it is a plausible-looking
+    /// convenience: reaching for `dataManager.selectedState` inside the
+    /// comparison sheet because it is already in scope there and reads like
+    /// "the user's state". A Californian browsing Oregon would then see
+    /// California's limitations printed under Oregon's tax figure, and every
+    /// sentence on the page would be true, about the wrong state.
+    @Test("The comparison sheet follows the inspected state for every pair of jurisdictions")
+    func comparisonSheetNeverFallsBackToTheResident() {
+        for inspected in USState.allCases {
+            for resident in USState.allCases {
+                #expect(StateAccuracyContent.stateForComparisonSheet(
+                    inspecting: inspected, resident: resident) == inspected,
+                    "inspecting \(inspected.abbreviation) while resident in \(resident.abbreviation) resolved the wrong state")
+                #expect(StateAccuracyContent.stateForMultiYear(
+                    scenarioState: inspected, resident: resident) == inspected,
+                    "a plan modelled in \(inspected.abbreviation) for a \(resident.abbreviation) resident resolved the wrong state")
+                #expect(StateAccuracyContent.stateForSingleYearResults(
+                    resident: resident) == resident)
+            }
+        }
+    }
+
+    /// The three destinations DISAGREE whenever the states they read differ,
+    /// which is the property that would be lost by collapsing them into one
+    /// resolver.
+    ///
+    /// Stated as its own assertion because the sweep above would still pass if
+    /// all three returned their first argument and the call sites all passed
+    /// the resident: the guarantee is about the resolvers being distinguishable
+    /// at all.
+    @Test("A comparison sheet and the single-year screen resolve different states when they should")
+    func theThreeDestinationsAreDistinguishable() {
+        let resident = USState.california
+        let inspected = USState.oregon
+        let modelled = USState.newYork
+
+        let comparison = StateAccuracyContent.stateForComparisonSheet(inspecting: inspected,
+                                                                       resident: resident)
+        let singleYear = StateAccuracyContent.stateForSingleYearResults(resident: resident)
+        let multiYear = StateAccuracyContent.stateForMultiYear(scenarioState: modelled,
+                                                               resident: resident)
+        #expect(comparison != singleYear)
+        #expect(multiYear != singleYear)
+        #expect(comparison != multiYear)
+    }
+
+    /// The Multi-Year entry point reads the state the ENGINE modelled, and this
+    /// is the accessor that makes those one thing rather than two.
+    ///
+    /// `ProjectionEngine` decides which jurisdiction to tax each projected year
+    /// in by resolving `inputs.state`; Task 7 pointed it at
+    /// `MultiYearStaticInputs.modelledState` so the accuracy page and the
+    /// figures it describes cannot resolve differently. Swept over all
+    /// fifty-one so no jurisdiction's abbreviation fails to round-trip, plus
+    /// the malformed case, where `ProjectionEngine` falls back to California
+    /// and the affordance therefore shows nothing.
+    @Test("The state the multi-year engine taxes in round-trips for every jurisdiction")
+    func modelledStateResolvesEveryAbbreviation() {
+        for state in USState.allCases {
+            #expect(Self.inputs(state: state.abbreviation).modelledState == state,
+                    "\(state.abbreviation) does not resolve back to itself")
+        }
+        // The malformed case. `ProjectionEngine` taxes this plan as California
+        // and asserts in DEBUG; `MultiYearPlanView` shows no affordance for it,
+        // because a page headed with the resident's state would claim the
+        // figures came from rules that were never applied.
+        #expect(Self.inputs(state: "ZZ").modelledState == nil)
+    }
+
+    /// The smallest `MultiYearStaticInputs` that carries a state. Every other
+    /// field is inert here; only `state` is read.
+    private static func inputs(state: String) -> MultiYearStaticInputs {
+        MultiYearStaticInputs(
+            startingBalances: AccountSnapshot(traditional: 0, roth: 0, taxable: 0, hsa: 0),
+            primaryCurrentAge: 65,
+            spouseCurrentAge: nil,
+            filingStatus: .single,
+            state: state,
+            primarySSClaimAge: 67,
+            spouseSSClaimAge: nil,
+            primaryExpectedBenefitAtFRA: 0,
+            spouseExpectedBenefitAtFRA: nil,
+            primaryBirthYear: 1961,
+            spouseBirthYear: nil,
+            primaryWageIncome: 0,
+            spouseWageIncome: 0,
+            primaryPensionIncome: 0,
+            spousePensionIncome: 0,
+            primaryNetInvestmentIncome: 0,
+            acaEnrolled: false,
+            acaHouseholdSize: 1,
+            primaryMedicareEnrollmentAge: 65,
+            spouseMedicareEnrollmentAge: nil,
+            baselineAnnualExpenses: 0)
+    }
+
     /// Every jurisdiction's header is well formed, names itself, and claims
     /// nothing it has no basis for.
     @Test("Every jurisdiction's header is well formed and claims nothing unsupported")

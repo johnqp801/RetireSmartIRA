@@ -68,7 +68,13 @@ struct StateComparisonView: View {
                 breakdown: dataManager.stateTaxBreakdown(forState: item.state, filingStatus: dataManager.filingStatus),
                 currentStateBreakdown: dataManager.stateTaxBreakdown(forState: dataManager.selectedState, filingStatus: dataManager.filingStatus),
                 currentStateItem: currentStateItem,
-                hasUnclassifiedPension: hasUnclassifiedPension
+                hasUnclassifiedPension: hasUnclassifiedPension,
+                // The accuracy page reports bracket, deduction and exemption
+                // columns, every one of which is filing-status specific, and
+                // `StateTaxBreakdown` does not carry the status it was computed
+                // for. Passed rather than re-derived so the page describes the
+                // same column the figures above it came from.
+                filingStatus: dataManager.filingStatus
             )
         }
     }
@@ -590,8 +596,34 @@ private struct StateTaxDetailSheet: View {
     /// Phase 3b Task 6: whether the household has an unclassified pension.
     /// Drives `unclassifiedPensionLimitationBanner` below.
     let hasUnclassifiedPension: Bool
+    /// The filing status the figures on this sheet were computed for. The
+    /// accuracy page reports a filing-status-specific column and
+    /// `StateTaxBreakdown` does not carry one.
+    let filingStatus: FilingStatus
 
     @Environment(\.dismiss) private var dismiss
+    @State private var showingStateAccuracy = false
+
+    /// The jurisdiction this sheet's accuracy page describes: the state being
+    /// INSPECTED, never the resident.
+    ///
+    /// THIS IS THE FAILURE TASK 7 EXISTS TO PREVENT. A comparison sheet opened
+    /// on Oregon by a Californian must show Oregon's disclosure: the number on
+    /// this sheet is Oregon's tax, computed on the user's own income, and
+    /// California's limitations say nothing about it. Same asymmetry, and the
+    /// same reason, as `StateComparisonPresentation` above: this sheet is
+    /// viewed-state relative while the CPA briefing is residence relative.
+    ///
+    /// `currentStateBreakdown.state` is the resident, and it is passed so the
+    /// resolver's own signature records which of the two won. The body of the
+    /// sheet already uses that field the same way, comparing `item.state !=
+    /// currentStateBreakdown.state` to decide whether it is showing the user's
+    /// own state at all.
+    private var accuracyPageState: USState {
+        StateAccuracyContent.stateForComparisonSheet(
+            inspecting: item.state,
+            resident: currentStateBreakdown.state)
+    }
 
     /// Spec section 3.7 / task 6 brief step 3a: the viewed state's tax is
     /// COMPUTED here whenever this sheet shows that state's own breakdown,
@@ -644,6 +676,9 @@ private struct StateTaxDetailSheet: View {
                 .padding()
             }
             .background(Color(PlatformColor.systemGroupedBackground))
+            .sheet(isPresented: $showingStateAccuracy) {
+                StateAccuracyView(state: accuracyPageState, filingStatus: filingStatus)
+            }
             .navigationTitle(item.state.rawValue)
             #if os(iOS)
             #if !os(macOS)
@@ -667,9 +702,22 @@ private struct StateTaxDetailSheet: View {
                     .font(.title2)
                     .foregroundStyle(Color.UI.brandTeal)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.state.rawValue)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                    HStack(spacing: 6) {
+                        Text(item.state.rawValue)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        // Beside the state being inspected, and it opens that
+                        // state's page. See `accuracyPageState`.
+                        Button {
+                            showingStateAccuracy = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.callout)
+                                .foregroundStyle(Color.UI.brandTeal)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("State tax accuracy for \(accuracyPageState.rawValue)")
+                    }
                     Text(breakdown.taxSystemDescription)
                         .font(.callout)
                         .foregroundStyle(.secondary)

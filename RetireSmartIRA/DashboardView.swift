@@ -40,6 +40,9 @@ struct DashboardView: View {
     @State private var taxableIncomeExpanded = false
     @State private var totalTaxExpanded = false
     @State private var deductionExpanded = false
+    /// Presents the per-state accuracy page for the RESIDENT state. See
+    /// `stateTaxRow`.
+    @State private var showingStateAccuracy = false
 
     @Environment(\.availableWidth) private var availableWidth
     private var isWideLayout: Bool { horizontalSizeClass == .regular && availableWidth > 700 }
@@ -664,7 +667,7 @@ struct DashboardView: View {
                 // cliff crossings, unfavorable scenario deltas) — see
                 // docs/beta-feedback/2026-04-24-color-system-research.md.
                 taxRow(label: "Federal Tax", value: dataManager.scenarioFederalTax)
-                taxRow(label: "State Tax (\(dataManager.selectedState.abbreviation))", value: dataManager.scenarioStateTax)
+                stateTaxRow
 
                 if dataManager.scenarioNIITAmount > 0 {
                     taxRow(label: "NIIT (3.8% Surtax)", value: dataManager.scenarioNIITAmount)
@@ -697,6 +700,10 @@ struct DashboardView: View {
 
                 // Local tax note
                 InlineHint("State tax only \u{2014} local/city taxes (e.g. NYC) are not included.")
+            }
+            .sheet(isPresented: $showingStateAccuracy) {
+                StateAccuracyView(state: singleYearAccuracyState,
+                                  filingStatus: dataManager.filingStatus)
             }
 
             // IRMAA surcharge (separate from income tax — Medicare premium surcharge)
@@ -951,6 +958,51 @@ struct DashboardView: View {
                 .font(isBold ? .title3 : .subheadline)
                 .fontWeight(isBold ? .bold : .semibold)
                 .foregroundStyle(color ?? .primary)
+        }
+    }
+
+    /// The jurisdiction the single-year results page describes: where the
+    /// household LIVES.
+    ///
+    /// Resolved through `StateAccuracyContent`, whose signature for this
+    /// destination takes only `resident:`, because this screen has no viewed
+    /// state that could be handed over by mistake. The State Comparison sheet's
+    /// affordance resolves the INSPECTED state instead, and collapsing the two
+    /// would put a Californian's disclosure on an Oregon comparison column.
+    private var singleYearAccuracyState: USState {
+        StateAccuracyContent.stateForSingleYearResults(resident: dataManager.selectedState)
+    }
+
+    /// The state tax line, with the affordance that opens the per-state
+    /// accuracy page.
+    ///
+    /// Both the label's abbreviation and the page read `singleYearAccuracyState`,
+    /// so the state named on the row and the state the page describes cannot
+    /// drift apart.
+    ///
+    /// Deliberately not folded into `taxRow(label:value:)`. That helper is used
+    /// by ten other rows that have no accuracy page, and giving it an optional
+    /// trailing control would put a branch nine callers never take into the one
+    /// place every tax figure on this screen is formatted.
+    private var stateTaxRow: some View {
+        let state = singleYearAccuracyState
+        return HStack {
+            Text("State Tax (\(state.abbreviation))")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button {
+                showingStateAccuracy = true
+            } label: {
+                Image(systemName: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(Color.UI.brandTeal)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("State tax accuracy for \(state.rawValue)")
+            Spacer()
+            Text(dataManager.scenarioStateTax, format: .currency(code: "USD"))
+                .font(.subheadline)
+                .fontWeight(.semibold)
         }
     }
 

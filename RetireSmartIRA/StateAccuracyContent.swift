@@ -41,6 +41,71 @@ enum StateAccuracyContent {
         .iowa, .newMexico, .georgia, .utah, .indiana
     ]
 
+    // MARK: - Which jurisdiction each entry point describes
+
+    // THREE ENTRY POINTS, THREE DIFFERENT STATES, and getting this wrong is the
+    // failure these three functions exist to prevent: a State Comparison sheet
+    // opened on Oregon must never show California's disclosure because
+    // California is where the user lives.
+    //
+    // THE ASYMMETRY IS DELIBERATE and is the same one Phase 5b established for
+    // the unclassified-pension disclosure. `StateComparisonPresentation` gates
+    // on the VIEWED state, because the sheet computes and shows that state's own
+    // tax whether or not the viewer lives there; `MultiYearCPABriefing
+    // .unclassifiedPensionLimitation` gates on RESIDENCE, because a briefing
+    // describes the household's own plan rather than a column they are
+    // browsing. Collapsing the two would either silence the sheet for the
+    // non-resident comparer it exists to warn, or put another state's mechanics
+    // into a document about the user's own plan.
+    //
+    // WHY THREE ONE-LINE FUNCTIONS RATHER THAN ONE. Each takes only the states
+    // its own destination has, and names them, so a call site cannot hand over
+    // the wrong one without the label saying so. `stateForSingleYearResults`
+    // takes no viewed state at all, because that screen has none; the other two
+    // take both and each returns the one its own destination is about. A single
+    // `state(for:)` taking a destination enum would make all three call sites
+    // pass the same two arguments and put the choice back inside a switch
+    // nobody reads.
+
+    /// The single-year results screen shows the household's own tax, so its
+    /// accuracy page describes where the household LIVES.
+    ///
+    /// There is no viewed state on this screen, and this signature is why one
+    /// cannot arrive here by mistake.
+    static func stateForSingleYearResults(resident: USState) -> USState {
+        resident
+    }
+
+    /// The State Comparison detail sheet shows the tax of the state being
+    /// INSPECTED, computed for the user's own income, so its accuracy page
+    /// describes that state and not the resident's.
+    ///
+    /// `resident` is taken and deliberately unused. It is what makes the choice
+    /// legible at the call site and testable here: a reader of
+    /// `stateForComparisonSheet(inspecting: item.state, resident: ...)` can see
+    /// which one wins without opening this file, and
+    /// `comparisonSheetNeverFallsBackToTheResident` proves the resident never
+    /// leaks into the answer.
+    static func stateForComparisonSheet(inspecting inspected: USState,
+                                        resident _: USState) -> USState {
+        inspected
+    }
+
+    /// The Multi-Year plan's projected state tax is computed in the state the
+    /// ENGINE modelled, so its accuracy page describes that state.
+    ///
+    /// `scenarioState` comes from the built `MultiYearStaticInputs`, resolved
+    /// through `MultiYearStaticInputs.modelledState`, which is the same
+    /// expression `ProjectionEngine` uses to decide which jurisdiction to tax
+    /// the plan in. It is NOT re-read from `DataManager`. Today the adapter
+    /// fills it from the resident state so the two agree; taking it from the
+    /// inputs means that if they ever stop agreeing, the page follows the
+    /// engine rather than the address on file.
+    static func stateForMultiYear(scenarioState: USState,
+                                  resident _: USState) -> USState {
+        scenarioState
+    }
+
     // MARK: - Limitation sentences
 
     /// Which surface is rendering a limitation sentence.
