@@ -958,16 +958,20 @@ struct StateAccuracyContentTests {
         #expect(header.noSourcesMessage == "No primary sources recorded.")
     }
 
-    // MARK: - Task 7: three entry points, three different states
+    // MARK: - Task 7: two entry points, two different states
 
-    /// The plan's own test, verbatim. One example per destination.
+    // A THIRD ENTRY POINT, ON THE MULTI-YEAR TAB, WAS REMOVED BEFORE MERGE, and
+    // `noMultiYearSurfacePresentsTheAccuracyPage` below is what keeps it gone.
+    // The assertions in this section are unchanged for the two that ship: they
+    // still prove each resolves its own state and that the two disagree.
+
+    /// The plan's own test, verbatim minus the removed multi-year destination.
+    /// One example per surviving destination.
     @Test("Each entry point resolves its own state, not the resident's")
     func entryPointsResolveTheCorrectState() {
         #expect(StateAccuracyContent.stateForComparisonSheet(inspecting: .oregon,
                                                              resident: .california) == .oregon)
         #expect(StateAccuracyContent.stateForSingleYearResults(resident: .california) == .california)
-        #expect(StateAccuracyContent.stateForMultiYear(scenarioState: .newYork,
-                                                       resident: .california) == .newYork)
     }
 
     /// The example above passes for a resolver that returns the resident
@@ -990,49 +994,43 @@ struct StateAccuracyContentTests {
                 #expect(StateAccuracyContent.stateForComparisonSheet(
                     inspecting: inspected, resident: resident) == inspected,
                     "inspecting \(inspected.abbreviation) while resident in \(resident.abbreviation) resolved the wrong state")
-                #expect(StateAccuracyContent.stateForMultiYear(
-                    scenarioState: inspected, resident: resident) == inspected,
-                    "a plan modelled in \(inspected.abbreviation) for a \(resident.abbreviation) resident resolved the wrong state")
                 #expect(StateAccuracyContent.stateForSingleYearResults(
                     resident: resident) == resident)
             }
         }
     }
 
-    /// The three destinations DISAGREE whenever the states they read differ,
+    /// The two destinations DISAGREE whenever the states they read differ,
     /// which is the property that would be lost by collapsing them into one
     /// resolver.
     ///
     /// Stated as its own assertion because the sweep above would still pass if
-    /// all three returned their first argument and the call sites all passed
-    /// the resident: the guarantee is about the resolvers being distinguishable
+    /// both returned their first argument and the call sites all passed the
+    /// resident: the guarantee is about the resolvers being distinguishable
     /// at all.
     @Test("A comparison sheet and the single-year screen resolve different states when they should")
-    func theThreeDestinationsAreDistinguishable() {
+    func theTwoDestinationsAreDistinguishable() {
         let resident = USState.california
         let inspected = USState.oregon
-        let modelled = USState.newYork
 
         let comparison = StateAccuracyContent.stateForComparisonSheet(inspecting: inspected,
                                                                        resident: resident)
         let singleYear = StateAccuracyContent.stateForSingleYearResults(resident: resident)
-        let multiYear = StateAccuracyContent.stateForMultiYear(scenarioState: modelled,
-                                                               resident: resident)
         #expect(comparison != singleYear)
-        #expect(multiYear != singleYear)
-        #expect(comparison != multiYear)
     }
 
-    /// The Multi-Year entry point reads the state the ENGINE modelled, and this
-    /// is the accessor that makes those one thing rather than two.
-    ///
     /// `ProjectionEngine` decides which jurisdiction to tax each projected year
-    /// in by resolving `inputs.state`; Task 7 pointed it at
-    /// `MultiYearStaticInputs.modelledState` so the accuracy page and the
-    /// figures it describes cannot resolve differently. Swept over all
-    /// fifty-one so no jurisdiction's abbreviation fails to round-trip, plus
-    /// the malformed case, where `ProjectionEngine` falls back to California
-    /// and the affordance therefore shows nothing.
+    /// in by resolving `inputs.state` through
+    /// `MultiYearStaticInputs.modelledState`, so any surface that ever names
+    /// the state a multi-year figure was computed in reads the same expression
+    /// rather than a second copy of it. Swept over all fifty-one so no
+    /// jurisdiction's abbreviation fails to round-trip, plus the malformed
+    /// case, where `ProjectionEngine` falls back to California and asserts in
+    /// DEBUG.
+    ///
+    /// KEPT AFTER THE MULTI-YEAR AFFORDANCE WAS REMOVED. Its subject is the
+    /// engine's own state resolution, which still ships; the affordance was
+    /// only its second reader.
     @Test("The state the multi-year engine taxes in round-trips for every jurisdiction")
     func modelledStateResolvesEveryAbbreviation() {
         for state in USState.allCases {
@@ -1040,9 +1038,10 @@ struct StateAccuracyContentTests {
                     "\(state.abbreviation) does not resolve back to itself")
         }
         // The malformed case. `ProjectionEngine` taxes this plan as California
-        // and asserts in DEBUG; `MultiYearPlanView` shows no affordance for it,
-        // because a page headed with the resident's state would claim the
-        // figures came from rules that were never applied.
+        // and asserts in DEBUG. Any future surface naming this plan's state has
+        // to treat `nil` as "say nothing", because a page headed with the
+        // resident's state would claim the figures came from rules that were
+        // never applied.
         #expect(Self.inputs(state: "ZZ").modelledState == nil)
     }
 
@@ -1073,7 +1072,197 @@ struct StateAccuracyContentTests {
             baselineAnnualExpenses: 0)
     }
 
+    // MARK: - The Multi-Year tab presents no accuracy page
+
+    // WHY THIS GATE EXISTS. Task 7 put an info affordance beside the Multi-Year
+    // tab's `State` delta tag, opening the per-state accuracy page. The whole
+    // branch review removed it before merge, because THE PAGE CANNOT EXPLAIN
+    // THE NUMBER IT SITS BESIDE: it prints the jurisdiction's standard
+    // deduction and personal exemption as modelled facts, and the multi-year
+    // path applies neither. `ProjectionEngine.computeStateTax` hands
+    // `TaxCalculationEngine.calculateStateTax` a raw federal AGI with no
+    // `postExemptionDeduction`, where the single-year caller
+    // `DataManager.calculateStateTax` subtracts both first. Kansas MFJ is about
+    // $1,482 a year of phantom state tax on that path; Idaho MFJ both 67 about
+    // $2,517.
+    //
+    // RESTORING THE AFFORDANCE DEPENDS ON one of these landing first:
+    //   1. the engine gap being closed, so the page's deduction and exemption
+    //      lines are true of multi-year figures too; or
+    //   2. a path-aware disclosure page, with its own path-specific copy and
+    //      its own behavioural tests.
+    // If the route is (1), AN END-TO-END MULTI-YEAR BEHAVIOUR PROBE MUST LAND
+    // BEFORE THE AFFORDANCE IS RESTORED. Gate 3 below cannot stand in for one;
+    // see the note on its own MARK.
+    //
+    // WHY IT IS A SOURCE SWEEP RATHER THAN A SYMBOL CHECK. There is no runtime
+    // handle on "which view can open this sheet": SwiftUI presentation is a
+    // modifier on a body, and asserting against one property name would pass
+    // the moment someone re-added the affordance under a different name, in a
+    // different view, or through a wrapper. What is invariant is that opening
+    // the page means CONSTRUCTING `StateAccuracyView` somewhere, and that an
+    // affordance for it carries the shared accessibility label. So the gate
+    // sweeps every production source and asserts the set of files doing either
+    // is EXACTLY the approved set, which fails on any new presenter anywhere,
+    // not only on the multi-year ones.
+
+    /// The only production files entitled to construct `StateAccuracyView`.
+    /// Its own file appears because of its `#Preview` blocks.
+    static let filesEntitledToPresentTheAccuracyPage: Set<String> = [
+        "StateAccuracyView.swift",
+        "DashboardView.swift",
+        "StateComparisonView.swift"
+    ]
+
+    /// The only production files entitled to carry an accuracy affordance's
+    /// accessibility label. `StateAccuracyView.swift` is NOT among them: it
+    /// carries the navigation title "State tax accuracy", which is a different
+    /// string and is not an affordance.
+    static let filesEntitledToCarryTheAffordanceLabel: Set<String> = [
+        "DashboardView.swift",
+        "StateComparisonView.swift"
+    ]
+
+    /// The Multi-Year tab's own presentation files, checked by name as well as
+    /// by the sweep above. Redundant on purpose: the sweep is the gate, and
+    /// this names the surfaces the removal was about, so a failure here says
+    /// what happened instead of only which set differed.
+    static let multiYearPresentationFiles: [String] = [
+        "MultiYearPlanView.swift",
+        "ApproachComparisonView.swift",
+        "MultiYearStrategyManager.swift"
+    ]
+
+    /// Marker for constructing the page. A presentation cannot avoid it.
+    static let accuracyPagePresentationMarker = "StateAccuracyView("
+
+    /// Marker for an affordance that opens the page. Every shipped entry point
+    /// carries it, and VoiceOver users depend on it, so an affordance that
+    /// dropped it to evade this gate would be a different, worse defect.
+    static let accuracyAffordanceLabelMarker = "State tax accuracy for "
+
+    /// Every `.swift` file under the production target, by base name.
+    ///
+    /// Read from the checkout through `#filePath`, the same way
+    /// `TaxsimOracleTests` and `Phase3bPersistenceTests` reach their fixtures,
+    /// because the subject is Swift source rather than data and nothing in the
+    /// built product carries it.
+    private static func productionSources() throws -> [(name: String, text: String)] {
+        struct ProductionTreeMissing: Error { let path: String }
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // RetireSmartIRATests
+            .deletingLastPathComponent()   // repo root
+            .appendingPathComponent("RetireSmartIRA")
+        guard let walker = FileManager.default.enumerator(atPath: root.path) else {
+            throw ProductionTreeMissing(path: root.path)
+        }
+        var files: [(name: String, text: String)] = []
+        for case let relative as String in walker where relative.hasSuffix(".swift") {
+            let url = root.appendingPathComponent(relative)
+            files.append((name: url.lastPathComponent,
+                          text: try String(contentsOf: url, encoding: .utf8)))
+        }
+        return files
+    }
+
+    @Test("No Multi-Year surface presents the per-state accuracy page")
+    func noMultiYearSurfacePresentsTheAccuracyPage() throws {
+        let sources = try Self.productionSources()
+
+        // NON-VACUITY. A sweep that found nothing would pass every assertion
+        // below while proving nothing at all, which is the failure mode of
+        // every source-reading gate.
+        #expect(sources.count > 100,
+                """
+                The production source sweep found only \(sources.count) files. It resolves the \
+                tree from #filePath, so a moved test file or a renamed target makes this gate \
+                vacuous rather than red. Fix the path before trusting anything below.
+                """)
+        let names = sources.map(\.name)
+        #expect(Set(names).count == names.count,
+                """
+                Two production files share a base name, so the sets below are ambiguous about \
+                which one they mean. Key this gate on the relative path instead.
+                """)
+
+        var presenting: Set<String> = []
+        var labelling: Set<String> = []
+        for file in sources {
+            if file.text.contains(Self.accuracyPagePresentationMarker) {
+                presenting.insert(file.name)
+            }
+            if file.text.contains(Self.accuracyAffordanceLabelMarker) {
+                labelling.insert(file.name)
+            }
+        }
+
+        #expect(presenting == Self.filesEntitledToPresentTheAccuracyPage,
+                """
+                The set of production files constructing StateAccuracyView changed. \
+                Added: \(presenting.subtracting(Self.filesEntitledToPresentTheAccuracyPage).sorted()). \
+                Missing: \(Self.filesEntitledToPresentTheAccuracyPage.subtracting(presenting).sorted()). \
+                If this is the Multi-Year affordance coming back, read the note above this test \
+                first: the page states a standard deduction and a personal exemption that the \
+                multi-year path does not apply, so it contradicts the figure it would sit \
+                beside. Close that engine gap and land an end-to-end multi-year behaviour probe \
+                before adding the entry point, or ship a path-aware page instead. If this is a \
+                new, legitimate entry point on some other surface, add its file here \
+                deliberately.
+                """)
+
+        #expect(labelling == Self.filesEntitledToCarryTheAffordanceLabel,
+                """
+                The set of production files carrying an accuracy affordance's accessibility \
+                label changed. \
+                Added: \(labelling.subtracting(Self.filesEntitledToCarryTheAffordanceLabel).sorted()). \
+                Missing: \(Self.filesEntitledToCarryTheAffordanceLabel.subtracting(labelling).sorted()). \
+                A missing entry means a shipped entry point lost its VoiceOver label; an added \
+                one means a new affordance exists.
+                """)
+
+        // The named multi-year surfaces, checked individually so the failure
+        // names the tab rather than a set difference. Requiring each file to
+        // EXIST means a rename cannot silently drop it from coverage.
+        for name in Self.multiYearPresentationFiles {
+            let file = try #require(sources.first { $0.name == name },
+                                    """
+                                    \(name) no longer exists under the production target. It was \
+                                    one of the Multi-Year tab's presentation files when the \
+                                    accuracy affordance was removed from it. If it was renamed, \
+                                    rename it here too; the sweep above still holds the real \
+                                    gate, but this list stops naming the right surfaces.
+                                    """)
+            #expect(!file.text.contains(Self.accuracyPagePresentationMarker),
+                    "\(name) constructs StateAccuracyView. The Multi-Year tab presents no accuracy page; see the note above this test.")
+            #expect(!file.text.contains(Self.accuracyAffordanceLabelMarker),
+                    "\(name) carries an accuracy affordance's accessibility label. The Multi-Year tab presents no accuracy page; see the note above this test.")
+        }
+    }
+
     // MARK: - Task 8, Gate 3: rendering fidelity against EFFECTIVE BEHAVIOUR
+    //
+    // WHAT GATE 3 DOES NOT COVER, stated here so its existence is not mistaken
+    // for coverage of the page as a whole.
+    //
+    // 1. IT IS NOT A MULTI-YEAR GATE. Both probes below call
+    //    `TaxCalculationEngine.calculateStateTax` with an `income` the probe
+    //    ITSELF already reduced by the state standard deduction, and pass
+    //    `postExemptionDeduction` explicitly. That is the SINGLE-YEAR caller's
+    //    contract, reproduced faithfully from `DataManager.calculateStateTax`,
+    //    and re-verified here. The multi-year caller
+    //    (`ProjectionEngine.computeStateTax`) does NEITHER, which is why the
+    //    Multi-Year accuracy affordance was removed before merge and why a
+    //    green Gate 3 could not have caught it. When that engine gap is closed,
+    //    a true end-to-end multi-year behaviour probe has to be written; this
+    //    one cannot be adapted by changing an argument.
+    //
+    // 2. IT PROBES THREE CLAIMS, NOT THE PAGE. The per-spouse cap (two
+    //    jurisdictions), Social Security (fifteen) and Roth conversions (four).
+    //    Bracket rates, the standard deduction, the personal exemption, pension
+    //    and IRA exemption levels, per-source rules and age gates are NOT
+    //    behaviour-backed. That set is not academic: the STANDARD-DEDUCTION
+    //    claim was among the unprobed ones, and it is the one that turned out
+    //    to be wrong on the multi-year path.
 
     /// NOT AN ECHO TEST, and that is the whole point of this gate.
     ///

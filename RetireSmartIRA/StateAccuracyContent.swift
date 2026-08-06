@@ -43,10 +43,20 @@ enum StateAccuracyContent {
 
     // MARK: - Which jurisdiction each entry point describes
 
-    // THREE ENTRY POINTS, THREE DIFFERENT STATES, and getting this wrong is the
-    // failure these three functions exist to prevent: a State Comparison sheet
+    // TWO ENTRY POINTS, TWO DIFFERENT STATES, and getting this wrong is the
+    // failure these functions exist to prevent: a State Comparison sheet
     // opened on Oregon must never show California's disclosure because
     // California is where the user lives.
+    //
+    // A THIRD RESOLVER, `stateForMultiYear`, WAS REMOVED BEFORE MERGE along
+    // with the Multi-Year tab's affordance. Not because it resolved the wrong
+    // state, which it did not, but because the page it opened contradicts the
+    // figure it sat beside: the multi-year path applies neither the state
+    // standard deduction nor the personal exemption the page reports as
+    // modelled. Restoring the resolver is the last step of restoring the
+    // affordance, not the first; the preconditions are recorded in
+    // `ApproachComparisonView` and gated by
+    // `StateAccuracyContentTests.noMultiYearSurfacePresentsTheAccuracyPage`.
     //
     // THE ASYMMETRY IS DELIBERATE and is the same one Phase 5b established for
     // the unclassified-pension disclosure. `StateComparisonPresentation` gates
@@ -58,14 +68,14 @@ enum StateAccuracyContent {
     // non-resident comparer it exists to warn, or put another state's mechanics
     // into a document about the user's own plan.
     //
-    // WHY THREE ONE-LINE FUNCTIONS RATHER THAN ONE. Each takes only the states
+    // WHY TWO ONE-LINE FUNCTIONS RATHER THAN ONE. Each takes only the states
     // its own destination has, and names them, so a call site cannot hand over
     // the wrong one without the label saying so. `stateForSingleYearResults`
-    // takes no viewed state at all, because that screen has none; the other two
-    // take both and each returns the one its own destination is about. A single
-    // `state(for:)` taking a destination enum would make all three call sites
-    // pass the same two arguments and put the choice back inside a switch
-    // nobody reads.
+    // takes no viewed state at all, because that screen has none;
+    // `stateForComparisonSheet` takes both and returns the one its destination
+    // is about. A single `state(for:)` taking a destination enum would make
+    // both call sites pass the same two arguments and put the choice back
+    // inside a switch nobody reads.
 
     /// The single-year results screen shows the household's own tax, so its
     /// accuracy page describes where the household LIVES.
@@ -89,21 +99,6 @@ enum StateAccuracyContent {
     static func stateForComparisonSheet(inspecting inspected: USState,
                                         resident _: USState) -> USState {
         inspected
-    }
-
-    /// The Multi-Year plan's projected state tax is computed in the state the
-    /// ENGINE modelled, so its accuracy page describes that state.
-    ///
-    /// `scenarioState` comes from the built `MultiYearStaticInputs`, resolved
-    /// through `MultiYearStaticInputs.modelledState`, which is the same
-    /// expression `ProjectionEngine` uses to decide which jurisdiction to tax
-    /// the plan in. It is NOT re-read from `DataManager`. Today the adapter
-    /// fills it from the resident state so the two agree; taking it from the
-    /// inputs means that if they ever stop agreeing, the page follows the
-    /// engine rather than the address on file.
-    static func stateForMultiYear(scenarioState: USState,
-                                  resident _: USState) -> USState {
-        scenarioState
     }
 
     // MARK: - Limitation sentences

@@ -73,27 +73,11 @@ struct MultiYearPlanView: View {
         (manager.baselineProjection ?? []).filter { $0.taxBreakdown.irmaa > 0 }.count
     }
 
-    /// The jurisdiction the Multi-Year tab's accuracy affordance describes: the
-    /// state the ENGINE modelled this plan in, not the address on file.
-    ///
-    /// `manager.modelledState` is recorded from the `MultiYearStaticInputs` the
-    /// engine was handed, resolved through the same accessor `ProjectionEngine`
-    /// uses to pick the jurisdiction it taxes each projected year in. Today
-    /// `MultiYearInputAdapter` fills that from `dataManager.selectedState`, so
-    /// the two agree; reading the engine's copy means that if a later release
-    /// lets a plan model a state the household does not live in, this follows
-    /// the plan rather than the address, with no change here.
-    ///
-    /// `nil` until the first compute lands, and for a state abbreviation that
-    /// resolves to nothing, which `ProjectionEngine` silently taxes as
-    /// California. `ApproachComparisonView` shows no affordance for `nil`
-    /// rather than naming a jurisdiction the figures did not come from.
-    private var multiYearAccuracyState: USState? {
-        manager.modelledState.map {
-            StateAccuracyContent.stateForMultiYear(scenarioState: $0,
-                                                   resident: dataManager.selectedState)
-        }
-    }
+    // THIS TAB PRESENTS NO PER-STATE ACCURACY PAGE. The affordance that used to
+    // resolve a jurisdiction here was removed before merge, because the page
+    // states a standard deduction and a personal exemption that the multi-year
+    // path does not apply. The full reasoning, and what restoring it depends
+    // on, is recorded in `ApproachComparisonView` beside the tag it sat on.
 
     // Future-dollars vs present-value toggle. Shared by the compact (stacked) and regular
     // (side-by-side) header layouts. Only shown once there's a plan to display.
@@ -214,9 +198,7 @@ struct MultiYearPlanView: View {
                             comparison: cmp,
                             effectiveHeirWeight: legacyEnabled ? manager.selectedHeirWeight : 0,
                             units: units,
-                            showHeirs: legacyEnabled,
-                            accuracyState: multiYearAccuracyState,
-                            filingStatus: dataManager.filingStatus)
+                            showHeirs: legacyEnabled)
                     }
                     if let baseline = manager.baselineProjection, !baseline.isEmpty {
                         TaxImpactChartView(model: TaxImpactChart(plan: activePath, doingNothing: baseline))

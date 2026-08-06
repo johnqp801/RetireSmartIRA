@@ -39,17 +39,18 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     let filingStatus: FilingStatus  // existing 1.9 enum
     let state: String               // 2-letter postal code (e.g., "CA")
     // The jurisdiction this plan's state tax is actually computed in, resolved
-    // from `state`. `nil` for an abbreviation no `USState` carries.
+    // from `state`. `nil` for an abbreviation no `USState` carries, which
+    // `ProjectionEngine` turns into a fallback to California plus a DEBUG
+    // assertion, so a `nil` here is a plan taxed as California.
     //
-    // ONE EXPRESSION, TWO READERS, ON PURPOSE. `ProjectionEngine` resolves the
-    // state it taxes each projected year in, and the Multi-Year tab's accuracy
-    // affordance names the state whose rules it is describing. Those two must
-    // be the same jurisdiction or the page describes a state the figures were
-    // not computed in, so they read one accessor rather than repeating the
-    // lookup. Note what `ProjectionEngine` does with `nil`: it falls back to
-    // California and asserts in DEBUG, so a `nil` here is a plan taxed as
-    // California, and the accuracy affordance shows nothing rather than
-    // claiming the resident's rules were applied.
+    // ONE EXPRESSION SO A SECOND READER CANNOT DISAGREE WITH THE ENGINE. Its
+    // only reader today is `ProjectionEngine`, which resolves the state it
+    // taxes each projected year in. It was hoisted out of that function for the
+    // Multi-Year tab's accuracy affordance, which had to name the same
+    // jurisdiction the figures were computed in; that affordance was removed
+    // before merge (see `ApproachComparisonView`), and the accessor is kept
+    // because any future surface describing this plan's state tax has the same
+    // obligation and should read the engine's own expression, not repeat it.
     var modelledState: USState? { USState.allCases.first { $0.abbreviation == state } }
     let localIncomeTaxRate: Double   // user-entered local/city income tax rate (fraction); 0 = none
 

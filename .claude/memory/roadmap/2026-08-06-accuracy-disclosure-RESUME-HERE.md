@@ -27,7 +27,8 @@ is 2.3.0 build 63; everything since is on `main` unreleased.
   verification metadata for 14 jurisdictions, and a `topic` per limitation.
 - **Task 5** (`3074127`): the factual half, generated from live config.
 - **Task 6** (`870324c`): `StateAccuracyView`, and an empty state that claims nothing.
-- **Task 7** (`d107b0d`): three entry points, each resolving its own state.
+- **Task 7** (`d107b0d`): three entry points, each resolving its own state. **THE MULTI-YEAR ONE WAS
+  REMOVED BEFORE MERGE, see the section below; two ship.**
 - **Task 8** (`fee5c8f`): behaviour-backed fidelity and bidirectional completeness gates.
 - **Roth conversion statement** (`d3a7d9e`): the four configs rendered as three shapes.
 
@@ -47,16 +48,47 @@ branch. A reader arriving here does not have to work out which batch is still op
 The rejected alternatives for each are kept in the per-task reports under `.superpowers/sdd/`,
 retitled so they read as a decision already made rather than as options still open.
 
+## THE MULTI-YEAR ENTRY POINT IS GONE, AND HERE IS WHAT RESTORING IT COSTS
+**Removed 2026-08-06 by John's decision, in the whole-branch review, before merge.** Two entry
+points ship: single-year results (resident's state) and State Comparison (the INSPECTED state).
+
+**Why.** `ProjectionEngine.computeStateTax` calls
+`TaxCalculationEngine.calculateStateTax(income: federalAGI, ...)` and omits `postExemptionDeduction`.
+That engine function does NOT apply `config.stateDeduction` itself; the caller must, and the
+single-year caller `DataManager.calculateStateTax` does. So the multi-year projection taxes a base
+still containing the whole state standard deduction and personal exemption, and for a
+`.conformsToFederal` state carries no federal deduction across either. **Kansas MFJ is about $1,482
+a year of phantom state tax. Idaho MFJ both 67 is about $2,517.** The affordance sat beside that
+number and opened a page printing "Standard deduction: $8,240" and "Personal exemption: $18,320".
+John: *"An absent explanation is better than an explanation that contradicts the number it
+accompanies."*
+
+**RESTORING IT DEPENDS ON, and neither is a view change:**
+1. the engine gap above being fixed, so the page's deduction and exemption lines are true of
+   multi-year figures too; **or**
+2. a genuinely path-aware disclosure page, with its own path-specific copy and its own behavioural
+   tests.
+
+**AND, on route 1, AN END-TO-END MULTI-YEAR BEHAVIOUR PROBE MUST LAND BEFORE THE AFFORDANCE COMES
+BACK.** Gate 3 cannot stand in for one: both of its probes call the engine with income the probe
+itself already reduced by the state deduction, so they encode and re-verify the SINGLE-YEAR
+contract. A green Gate 3 could never have caught this.
+
+**The engine gap is NOT fixed and is out of scope for this branch:** it moves the frozen 1,020-value
+behaviour baseline under `RetireSmartIRATests/Baselines/`. It is recorded in code at
+`ProjectionEngine.computeStateTax`'s doc comment.
+
+**The gate.** `StateAccuracyContentTests.noMultiYearSurfacePresentsTheAccuracyPage` sweeps every
+production `.swift` file and asserts the set constructing `StateAccuracyView`, and the set carrying
+an affordance's accessibility label, are EXACTLY the approved presenters. Structural rather than a
+check for one symbol: a re-add under a different property name, in a different view, or through a
+wrapper still fails it. Verified by mutation.
+
 ## Remaining before merge
 1. **An independent review of Tasks 3 through 8.** The controller verified all six MECHANICALLY, by
    grep and by suite, and never ran a reviewer over them. Tasks 1 and 2 are the only reviewed ones on
    this branch. This is the largest open risk, and it is a process gap, not a known defect.
-2. **The multi-year entry point has no always-on-screen home.** The plan assumed a "Multi-year plan
-   state tax row" that does not exist: the Multi-Year tab's table has no state column. The affordance
-   went on the only state tax figure the tab prints, the `State (KS)` delta tag in
-   `ApproachComparisonView`, which appears only once an approach comparison exists. So a multi-year
-   user may never see the entry point. Detail in `.superpowers/sdd/task-7-8-report.md` section 2.
-3. **The Iowa `effectiveAge` candidate limitation sentence, not authored.** The engine gates Iowa's
+2. **The Iowa `effectiveAge` candidate limitation sentence, not authored.** The engine gates Iowa's
    Roth conversion age on `effectiveAge`, the HOUSEHOLD MAXIMUM, not on the converting owner's age
    (`TaxCalculationEngine.swift:862` and its comment, which flags the question as undecided pending
    Iowa's Phase 5a golden scenario). The approved copy says "from age 55" and is silent about whose
@@ -73,11 +105,18 @@ retitled so they read as a decision already made rather than as options still op
 2. **Gate 3 tests EFFECTIVE BEHAVIOUR, not a config echo.** If the page claims a per-spouse
    exclusion, the ENGINE must actually double it. A config echo would pass while the engine was wrong,
    which the predecessor branch shipped several times.
+   **BUT DO NOT MISTAKE ITS EXISTENCE FOR COVERAGE.** It probes three claims: the per-spouse cap (2
+   jurisdictions), Social Security (15) and Roth conversions (4). Bracket rates, the standard
+   deduction, the personal exemption, pension and IRA exemption levels, per-source rules and age
+   gates are NOT behaviour-backed. That is not academic: the STANDARD-DEDUCTION claim was among the
+   unprobed ones and it is the one that turned out to be wrong on the multi-year path. And every
+   probe is single-year by construction. Both limits are recorded above Gate 3's own MARK.
 3. **`taxYear` 0 and empty `lastVerified` are what the 36 uncovered states carry.** Task 3 added the
    optional accessor `statedTaxYear` and deliberately chose NO fallback string, because that copy was
    John's. Task 6's fallbacks are now approved; the rule that no year is ever INVENTED still stands.
 4. **Each entry point resolves a different state.** State Comparison uses the INSPECTED state, not the
-   resident's. A comparison sheet for Oregon must never show California's disclosure.
+   resident's. A comparison sheet for Oregon must never show California's disclosure. Both surviving
+   resolvers were re-verified after the multi-year removal, including the 2,601-pair sweep.
 5. **Layer B**: `disclosureOnlyDivergentJurisdictions` exists so populating `verification` does not
    force a state onto `phase5CorrectedJurisdictions`, which would permanently excuse the
    byte-identity check. Any newly populated state must join it.

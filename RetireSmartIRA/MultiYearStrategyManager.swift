@@ -30,18 +30,11 @@ final class MultiYearStrategyManager: ObservableObject {
     @Published private(set) var isComputingFrontier: Bool = false
     @Published var selectedHeirWeight: Double = 0   // 0 = owner-optimal (today's recommendation)
     private var frontierWorkTask: Task<HeirFrontierResult, Never>?
-    /// The jurisdiction the engine actually taxed the most recently built plan
-    /// in, or `nil` before the first compute.
-    ///
-    /// RECORDED FROM THE BUILT INPUTS, NOT READ FROM `DataManager`, and that is
-    /// the whole point. The Multi-Year tab's accuracy affordance describes the
-    /// state the projected tax was computed in. Today `MultiYearInputAdapter`
-    /// fills `inputs.state` from the resident state, so this equals
-    /// `dataManager.selectedState`; taking it from the inputs means that if a
-    /// later release lets a plan model a state the household does not live in,
-    /// the page follows the engine rather than the address on file, with no
-    /// change here or at the call site.
-    @Published private(set) var modelledState: USState?
+    // A `modelledState` publisher lived here, recording the jurisdiction the
+    // engine taxed the most recently built plan in. Its only reader was the
+    // Multi-Year tab's per-state accuracy affordance, removed before merge; see
+    // `ApproachComparisonView`. `MultiYearStaticInputs.modelledState` is the
+    // accessor to re-publish from if that affordance ever comes back.
 
     @Published private(set) var approachComparison: ApproachComparison?
     @Published private(set) var isComputingComparison: Bool = false
@@ -366,7 +359,6 @@ final class MultiYearStrategyManager: ObservableObject {
         let inputs = MultiYearInputAdapter.build(
             from: dataManager, scenarioState: scenarioStateManager,
             assumptions: assumptions, excludeYear1Overrides: false)
-        recordModelledState(from: inputs)
         if approachComparison == nil { isComputingComparison = true }
         comparisonWorkTask?.cancel()
         let work = Task.detached(priority: .utility) {
@@ -385,17 +377,6 @@ final class MultiYearStrategyManager: ObservableObject {
     }
 
     // MARK: - Internal compute
-
-    /// Publishes `modelledState` from a freshly built input set.
-    ///
-    /// Guarded on inequality because `@Published` republishes on every
-    /// assignment regardless of value, and this runs on every compute and every
-    /// approach-comparison refresh. The state changes about once a lifetime;
-    /// re-rendering the whole tab for it would be pure churn.
-    private func recordModelledState(from inputs: MultiYearStaticInputs) {
-        let resolved = inputs.modelledState
-        if modelledState != resolved { modelledState = resolved }
-    }
 
     private func performCompute() async {
         if self.computeFailed { self.computeFailed = false }
@@ -425,7 +406,6 @@ final class MultiYearStrategyManager: ObservableObject {
                 excludeYear1Overrides: true
               )
             : nil
-        recordModelledState(from: currentInputs)
 
         // Build baseline action map (one entry per horizon year, each with []).
         // ProjectionEngine.project() iterates actionsPerYear.keys, so an empty dict

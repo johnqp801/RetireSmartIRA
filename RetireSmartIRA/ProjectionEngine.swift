@@ -205,9 +205,10 @@ struct ProjectionEngine {
         // bad input surfaces in tests/dev instead of producing a quietly-wrong plan. (A future
         // diagnostics channel on MultiYearStrategyResult should surface this to the user.)
         // Read through `MultiYearStaticInputs.modelledState` rather than
-        // repeating the lookup here, so the state this engine taxes the plan in
-        // and the state the Multi-Year accuracy affordance names are provably
-        // the same jurisdiction. See that property's doc comment.
+        // repeating the lookup here, so any surface that has to name the state
+        // this plan's figures were computed in reads the engine's own
+        // expression instead of a second copy of it. See that property's doc
+        // comment.
         let resolvedState = inputs.modelledState
         assert(resolvedState != nil, "Unknown state abbreviation '\(inputs.state)' — defaulting to CA")
         let usState: USState = resolvedState ?? .california
@@ -1591,6 +1592,28 @@ struct ProjectionEngine {
 
     /// Compute state tax using TaxCalculationEngine.calculateStateTax.
     /// Builds minimal IncomeSource list for retirement exemption logic.
+    ///
+    /// KNOWN GAP AGAINST THE SINGLE-YEAR PATH, RECORDED 2026-08-06 AND NOT
+    /// FIXED HERE. `TaxCalculationEngine.calculateStateTax` does not apply
+    /// `config.stateDeduction` itself; that is the caller's job, and the
+    /// single-year caller does it (`DataManager.calculateStateTax` subtracts
+    /// the state standard or itemized deduction and passes the personal
+    /// exemption as `postExemptionDeduction`). This call below does neither: it
+    /// passes a raw `federalAGI` and no `postExemptionDeduction`, so a
+    /// multi-year projection taxes a base that still contains the whole state
+    /// standard deduction and personal exemption, and for a
+    /// `.conformsToFederal` state carries no federal deduction across either.
+    /// Measured: Kansas MFJ about $1,482 a year of phantom state tax, Idaho MFJ
+    /// both aged 67 about $2,517.
+    ///
+    /// Fixing it moves the frozen 1,020-value behaviour baseline under
+    /// `RetireSmartIRATests/Baselines/`, which is why it was scoped out of the
+    /// accuracy-disclosure branch rather than fixed there. Two consequences a
+    /// fix must carry with it: the Multi-Year tab's per-state accuracy
+    /// affordance was REMOVED because of this gap and may be restored once it
+    /// closes (see `ApproachComparisonView`), and an end-to-end multi-year
+    /// behaviour probe must land before that restoration, because Gate 3 in
+    /// `StateAccuracyContentTests` probes the single-year contract only.
     private func computeStateTax(
         federalAGI: Double,
         taxableSS: Double,

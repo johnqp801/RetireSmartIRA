@@ -11,26 +11,36 @@ struct ApproachComparisonView: View {
     /// When legacy planning is off, the heir metric is hidden (owner-lifetime-only view).
     var showHeirs: Bool = true
 
-    /// The jurisdiction the accuracy affordance beside the State delta should
-    /// describe, already resolved by the caller, or `nil` to show no affordance.
-    ///
-    /// RESOLVED BY THE CALLER, on purpose. `MultiYearPlanView` is the only
-    /// place that holds both the state the engine modelled and the state the
-    /// household lives in, so it is the only place the wrong one could be
-    /// chosen, and therefore the place `StateAccuracyContent.stateForMultiYear`
-    /// is called. This view does not read `DataManager` and must not start.
-    ///
-    /// `nil` before the engine has produced a plan, and for an input state no
-    /// `USState` resolves: `ProjectionEngine` silently taxes that plan as
-    /// California, so offering a page here would name a jurisdiction the
-    /// figures were not computed in.
-    var accuracyState: USState? = nil
-
-    /// Filing status the accuracy page reports its bracket, deduction and
-    /// exemption columns for. Ignored when `accuracyState` is `nil`.
-    var filingStatus: FilingStatus = .single
-
-    @State private var showingStateAccuracy = false
+    // NO PER-STATE ACCURACY AFFORDANCE ON THIS SURFACE, AND THAT IS DELIBERATE.
+    // An earlier revision of this view put an info button beside the `State`
+    // delta tag below, opening `StateAccuracyView` for the jurisdiction the
+    // engine modelled the plan in. It was removed before merge because the page
+    // CONTRADICTS the number it would have sat beside.
+    //
+    // The page prints this state's standard deduction and personal exemption as
+    // modelled facts. The multi-year path does not apply either: see
+    // `ProjectionEngine.computeStateTax`, which hands
+    // `TaxCalculationEngine.calculateStateTax` a raw federal AGI and no
+    // `postExemptionDeduction`, where the single-year path at
+    // `DataManager.calculateStateTax` subtracts both first. Kansas MFJ is about
+    // $1,482 a year of phantom state tax on that path; Idaho MFJ both 67 about
+    // $2,517.
+    //
+    // RESTORING THE AFFORDANCE DEPENDS ON one of two things landing first,
+    // neither of which is a view change:
+    //   1. the engine gap being fixed, so the page's deduction and exemption
+    //      lines are true of the multi-year figures too, or
+    //   2. a genuinely path-aware disclosure page, which needs its own
+    //      path-specific copy and its own behavioural tests.
+    // AND, if the route is (1), an end-to-end multi-year behaviour probe must
+    // land BEFORE the affordance comes back. Gate 3 in
+    // `StateAccuracyContentTests` cannot stand in for one: both of its probes
+    // call the engine with income the probe itself already reduced by the state
+    // deduction, which is the single-year contract.
+    //
+    // `StateAccuracyContentTests.noMultiYearSurfacePresentsTheAccuracyPage`
+    // fails if an affordance is added back to any multi-year surface. Read it
+    // before deleting this comment.
 
     private var titleSuffix: String { units == .presentValue ? " (present value)" : "" }
     private var rmdLabel: String { units == .presentValue ? "Peak forced RMD (nominal)" : "Peak forced RMD" }
@@ -87,11 +97,6 @@ struct ApproachComparisonView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
-        .sheet(isPresented: $showingStateAccuracy) {
-            if let accuracyState {
-                StateAccuracyView(state: accuracyState, filingStatus: filingStatus)
-            }
-        }
     }
 
     private var selectedVsAnchorHeadline: String {
@@ -150,7 +155,7 @@ struct ApproachComparisonView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     deltaTag("Federal", d.federal)
-                    stateDeltaTag(d.state)
+                    deltaTag("State", d.state)
                     deltaTag("IRMAA", d.irmaa)
                     deltaTag("ACA", d.aca)
                     deltaTag("NIIT", d.niit)
@@ -158,41 +163,6 @@ struct ApproachComparisonView: View {
             }
         }
         .padding(.top, 4)
-    }
-
-    /// The state tax delta, carrying the Multi-Year tab's accuracy affordance.
-    ///
-    /// THIS IS THE MULTI-YEAR TAB'S STATE TAX FIGURE. The plan's Task 7 calls
-    /// it "the multi-year plan state tax row", which does not exist under that
-    /// name: the ladder shows conversion, AGI and IRMAA per year, and the plan
-    /// summary shows a lifetime total. This tag is the one place the tab prints
-    /// a number that is specifically state income tax, so it is where the
-    /// affordance belongs, per the design's "beside the state tax figure, at
-    /// the moment the number is visible". See the task report.
-    ///
-    /// Falls back to the plain, untappable tag when no state resolved, rather
-    /// than offering a page about a jurisdiction the figure may not belong to.
-    @ViewBuilder
-    private func stateDeltaTag(_ value: Double) -> some View {
-        if let accuracyState {
-            Button {
-                showingStateAccuracy = true
-            } label: {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 3) {
-                        Text("State (\(accuracyState.abbreviation))")
-                            .font(.caption2).foregroundStyle(.secondary)
-                        Image(systemName: "info.circle")
-                            .font(.caption2).foregroundStyle(Color.UI.brandTeal)
-                    }
-                    Text(signedDollars(value)).font(.caption).monospacedDigit()
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("State tax accuracy for \(accuracyState.rawValue)")
-        } else {
-            deltaTag("State", value)
-        }
     }
 
     private func deltaTag(_ label: String, _ value: Double) -> some View {
