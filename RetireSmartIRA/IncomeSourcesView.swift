@@ -157,6 +157,27 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// Phase 5b Task 3 rows are listed here for that reason.
     /// `Phase3bPresentationTests.reverseLookupRoundTrips` sweeps `allCases`
     /// and is the test that catches an omission.
+    ///
+    /// MATCHED ON STRUCTURE AND SOURCE ONLY, which is a whole-branch review
+    /// fix and is load-bearing rather than cosmetic. Task 9 gave
+    /// `RetirementPlanClassification` a THIRD stored property,
+    /// `isSurvivorBenefit`, so its synthesized `==` now compares that too,
+    /// while every entry in the list below carries `nil` for it. A whole-value
+    /// `==` therefore falls through to `.notSure` for any survivor-flagged
+    /// classification: an already-correctly-classified DC survivor annuity
+    /// would open in the editor displaying as unclassified, and saving would
+    /// rewrite it. That is exactly the silent fallthrough this doc comment
+    /// warns about two paragraphs up, arriving through a route the warning did
+    /// not anticipate, and `reverseLookupRoundTrips` cannot catch it because
+    /// every case it sweeps carries `nil`.
+    ///
+    /// It is unreachable TODAY only by luck of the two call sites: both
+    /// construct the classification from `planStructure` and `planSource`
+    /// alone, and `IRAAccount` has no survivor field at all. This function is
+    /// the wrong place to depend on that. The survivor fact is not something
+    /// the twelve-row picker expresses in the first place -- it is a separate
+    /// toggle beside it -- so the reverse lookup should never have been
+    /// consulting it.
     static func choice(for classification: RetirementPlanClassification) -> PlanClassificationChoice {
         let priorityOrder: [PlanClassificationChoice] = [
             .nyGovernmentPension, .ownStateGovernmentPension, .federalCivilianPension,
@@ -165,7 +186,10 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
             .privateEmployerPension, .governmentSalaryReduction, .employer401k,
             .privateSalaryReduction, .ira, .notSure
         ]
-        return priorityOrder.first(where: { $0.classification == classification }) ?? .notSure
+        return priorityOrder.first(where: {
+            $0.classification.structure == classification.structure
+                && $0.classification.source == classification.source
+        }) ?? .notSure
     }
 
     /// Whether the picker should be offered at all for `accountType`. Roth
@@ -1541,8 +1565,12 @@ struct IncomeSourcesView: View {
 
                             // Phase 5b Task 7. Copy APPROVED by John on
                             // 2026-08-05; see IncomeSourcesView
-                            // .northCarolinaBaileyCaption for why it ships
-                            // unapproved and what it must not be turned into.
+                            // .northCarolinaBaileyCaption for why North Carolina
+                            // ships a caption and no rule, and what this text
+                            // must not be turned into. (That cross-reference
+                            // used to read "why it ships unapproved", written
+                            // before John's approval landed three lines above
+                            // and left uncorrected when it did.)
                             // Direction is the opposite of Massachusetts's
                             // directly above: North Carolina applies no Bailey
                             // exclusion at all, so its error runs toward

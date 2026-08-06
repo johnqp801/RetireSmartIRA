@@ -403,4 +403,65 @@ struct Phase5bKansasPerSourceTests {
                 user.
                 """)
     }
+
+    // MARK: - The unpinned defect this task shipped with
+
+    /// The deletion guard the Kansas entry has been missing since Task 3.
+    ///
+    /// Added by the Phase 5b whole-branch review, which found that three of the
+    /// eleven `knownButUnpinned` entries had no guard while the close-out ledger
+    /// asserted all eleven did, and that this file was named among the ones
+    /// holding guards while containing no reference to the catalogue at all.
+    /// `GoldenScenarioDefectCatalogueTests.knownButUnpinnedIsWellFormed` asserts
+    /// only that the array is non-empty and that each entry's two strings are
+    /// non-blank, so an entry deletes silently.
+    ///
+    /// NON-VACUOUS: it re-derives the condition from the SHIPPED config and the
+    /// live picker rather than restating the entry, so the entry cannot outlive
+    /// the defect either. Kansas's rule still constrains structure, and no picker
+    /// row can write a federal defined-contribution plan, which is exactly the
+    /// pair that makes the gap real and unpinnable.
+    @Test("The Kansas TSP gap stays recorded as a known-but-unpinned defect")
+    func theThriftSavingsPlanGapStaysRecorded() throws {
+        let entry = try #require(
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "KS" && $0.summary.contains("Thrift Savings Plans")
+            },
+            """
+            Kansas's Thrift Savings Plan gap is no longer recorded. Schedule S Line A14
+            exempts federal retirement benefits "including Thrift Savings Plans" by name,
+            and the shipped rule matches definedBenefit only, so a Kansas TSP holder is
+            still taxed in full. If a federal defined-contribution picker row and a second
+            Kansas rule were added, replace this test with the golden case that pins them;
+            if not, a real measured over-taxation was dropped from the catalogue.
+            """)
+        #expect(entry.blockedOn.contains("EXPRESSIVENESS"))
+
+        // Leg 1: the structure constraint that causes it is still shipped. A
+        // TSP is defined-contribution, and Line A14's federal category is what
+        // the rule implements.
+        #expect(Self.kansasExemptions.matchedPerSourceRule(
+            structure: .definedContribution, source: .federalCivilian) == nil,
+                """
+                Kansas's rule now matches a federal DEFINED-CONTRIBUTION plan. That would \
+                reach TSP, which resolves this entry, but it also reaches every government \
+                salary-reduction plan including the KPERS 457 that Line A14 does NOT name. \
+                Delete this test and the entry only alongside a golden case pinning both.
+                """)
+
+        // Leg 2: the blocker itself. No picker row writes a federal
+        // defined-contribution plan, so no user can classify one and no fixture
+        // can describe the household. Derived from `allCases`, so a row added
+        // later fails this rather than sliding past it.
+        let federalDefinedContribution = RetirementPlanClassification(
+            structure: .definedContribution, source: .federalCivilian)
+        #expect(!PlanClassificationChoice.allCases.contains {
+            $0.classification == federalDefinedContribution
+        }, """
+            A picker row now writes a federal defined-contribution plan, so a Kansas TSP \
+            holder can describe their plan and the "not expressible" blocker this entry \
+            records is gone. Write the golden case and widen the Kansas rule, or say why \
+            not, and update the entry in the same change.
+            """)
+    }
 }

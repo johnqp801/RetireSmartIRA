@@ -204,6 +204,42 @@ struct Phase5bNorthCarolinaDecisionTests {
                 """)
     }
 
+    /// The REFLECTIVE TRIPWIRE, added by the Phase 5b whole-branch review.
+    ///
+    /// Everything else in this file is keyed to today's vocabulary: the sweeps
+    /// iterate `PlanSource.allCases`, and `theDeclinedRuleCannotBeNarrowedToThe
+    /// BaileyClass` fires if the PICKER gains a Bailey-specific row. Both are
+    /// real, and neither notices a new MATCHING DIMENSION on
+    /// `PerSourceExemptionRule`, which is how `matchIsSurvivorBenefit` and
+    /// `matchMinAge` actually arrived in Task 9.
+    ///
+    /// That route is the one that matters here. North Carolina's entire blocker
+    /// is that the model cannot say "five or more years of creditable service as
+    /// of August 12, 1989", so the day a rule can consult a fact beyond source
+    /// and structure is the day this decision should be re-measured rather than
+    /// re-read. Idaho's equivalent assertion has already earned its keep once,
+    /// firing on Task 9's first full-suite run and legitimately re-opening a
+    /// decided jurisdiction.
+    @Test("No new per-source matching dimension has arrived that could carry Bailey membership")
+    func noPerSourceMatchingDimensionCanCarryBaileyMembership() {
+        let fields = Set(Mirror(reflecting: Self.declinedRule).children.compactMap(\.label))
+        #expect(fields == ["matchSources", "matchStructures",
+                           "matchIsSurvivorBenefit", "matchMinAge", "treatment"],
+                """
+                PerSourceExemptionRule's stored properties are now \(fields). Task 7 \
+                declined a Bailey rule because the only dimensions available were SOURCE \
+                and STRUCTURE, and every North Carolina public retiree writes the same \
+                pair whether or not they are Bailey-vested. If a dimension arrived that \
+                can carry a vesting or class-membership fact, re-open North Carolina \
+                against it, by Task 5's method: ship the rule temporarily, record which \
+                cases go green and at what figures, and revert if the green outcome is \
+                wrong. Note also that `matchMinAge` alone is NOT such a dimension and must \
+                not be pressed into service as one: the Bailey class is defined by service \
+                credit as of a fixed date, not by age, and a retiree can be inside it at \
+                any age from 60 upward and outside it at any age at all.
+                """)
+    }
+
     // MARK: - Why no golden case could have caught it
 
     /// The blocker, proven from the fixture's own data rather than asserted,

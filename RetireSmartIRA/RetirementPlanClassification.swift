@@ -112,9 +112,25 @@ struct RetirementPlanClassification: Codable, Equatable, Sendable {
     /// now decodes to the value it actually contains instead of being
     /// silently discarded.
     ///
-    /// Domain model only in this phase, per this file's header: nothing yet
-    /// reads this flag when matching a `PerSourceExemptionRule`. Wiring it
-    /// into matching is later phase 5b task work.
+    /// WIRED IN PHASE 5b TASK 9, which is the correction to what this comment
+    /// used to say. Task 1 introduced the flag as domain model only and this
+    /// paragraph read "nothing yet reads this flag when matching a
+    /// `PerSourceExemptionRule`", which stopped being true two tasks before the
+    /// branch closed. It is now read end to end: `PerSourceExemptionRule
+    /// .matchIsSurvivorBenefit` matches on it, `TaxCalculationEngine` and the
+    /// `DataManager` breakdown mirror both pass it into matching,
+    /// `MultiYearInputAdapter` carries it onto the pooled classification and
+    /// `ProjectionEngine` forwards it into each projected year. The District of
+    /// Columbia is the one jurisdiction whose shipped rule consults it today
+    /// (D.C. Code Section 47-1803.02(a)(2)(N)(ii)), and
+    /// `PlanClassificationChoice.residenceUsesSurvivorDimension` derives the
+    /// picker affordance from live config rather than naming DC.
+    ///
+    /// `Bool?` rather than a `Bool` defaulting to false, deliberately: a
+    /// migrated record has never been ASKED the question, and `false` would
+    /// assert "known not to be a survivor benefit". `matches()` distinguishes
+    /// the two, and a `nil` row fails a `true` condition CLOSED, which is the
+    /// safe direction.
     var isSurvivorBenefit: Bool? = nil
 
     /// Migration inference for existing `IncomeSource` rows, per design doc

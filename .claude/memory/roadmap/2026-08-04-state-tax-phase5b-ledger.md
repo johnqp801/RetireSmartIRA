@@ -68,9 +68,12 @@ blocks ADDED:     1   ID (ID-8, the cap guard the Task 8 review demanded)
 net:            -11
 ```
 
-Golden scenarios overall went from 207 to 218 across the same 50 fixtures: **11 new cases, of
-which 10 are guards that carry no `knownDefect` at all** (AZ 4, KS 2, ID 2, DC 1, NC 1) and one
-is the new Idaho pin. A jurisdiction that was corrected can therefore show a raw case count that
+Golden scenarios overall went from 207 to 219 across the same 50 fixtures: **12 new cases, of
+which 11 are guards that carry no `knownDefect` at all** (AZ 4, KS 2, ID 2, DC 1, NC 1, NY 1) and
+one is the new Idaho pin. NY-5, the military-retired-pay case, was added by the whole-branch
+review and is the only one that pins a CORRECTION rather than guarding an existing answer: it
+fails against the pre-review rule at an observed $3,183.00 against its published $487.75. A
+jurisdiction that was corrected can therefore show a raw case count that
 went UP while its defect count went down; Arizona went from 5 cases to 9 while losing three of
 its four defects, and Idaho gained three cases while losing none.
 
@@ -82,9 +85,15 @@ DC, Kansas and Massachusetts do not appear because their counts are zero. They j
 and Indiana from Phase 5a. **Six of 51 jurisdictions now carry no pinned defect at all.**
 
 The known-but-unpinned catalogue moved further than the pin count did: **1 entry at Phase 5a
-close (Missouri), 11 at Phase 5b close** (AZ x2, DC, HI, ID, KS, MA x2, MO, NC x2). Ten of those
-eleven were written by this phase. Read that as the phase's real output as much as the minus
-eleven: most of what 5b learned is a defect no fixture can hold.
+close (Missouri), 13 at Phase 5b close** (AZ x2, DC x2, HI, ID, KS, MA x2, MO, NC x2, NY). Twelve
+of those thirteen were written by this phase. Read that as the phase's real output as much as the
+minus eleven: most of what 5b learned is a defect no fixture can hold.
+
+The last two arrived at the WHOLE-BRANCH REVIEW rather than from a jurisdiction task, which is
+itself the finding: both are defects that fell BETWEEN tasks and that no single task's review
+could see. New York's is the Railroad Retirement question Task 3's new picker row created; the
+District's second is the NON-RESIDENT survivor case, where the toggle that writes the flag is
+residence-gated while State Comparison computes DC's column for everybody.
 
 ## The four jurisdictions that SHIPPED A RULE, with their authority
 
@@ -338,10 +347,40 @@ User-facing, which the plan did not anticipate at all:
 | `MultiYearPlanView.swift` | Task 3b: the call site. |
 
 Shipped config: `statetax-2026-KS.json`, `-MA.json`, `-AZ.json`, `-DC.json` each gain
-`perSourceExemptions` and an `unclassifiedPensionDisclosure` sentence; `-NY.json` gains only the
-sentence, hoisted out of Swift so New York stops being special-cased. New York's live copy was
-proven byte-identical by extraction from the parent commit and full `==`, then proven capable of
-failing by a reverted one-space mutation.
+`perSourceExemptions` and an `unclassifiedPensionDisclosure` sentence; `-NY.json` gains the
+sentence, hoisted out of Swift so New York stops being special-cased, and then, at the
+whole-branch review, `uniformedServices` on its existing rule. New York's live copy was proven
+byte-identical by extraction from the parent commit and full `==`, then proven capable of failing
+by a reverted one-space mutation.
+
+**NEW YORK'S RULE CHANGED AT THE CLOSE, and the reason is the most important single finding of
+the whole-branch review.** Task 3 added the "Military retired pay" picker row to EVERY
+jurisdiction. New York's rule named `nyStateOrLocal` and `federalCivilian` only, so before Task 3
+a New York military retiree's best available pick was "Government pension, federal civilian",
+which matched, and the uncapped Line 26 exclusion applied BY ACCIDENT. After Task 3 the honest
+pick wrote `uniformedServices`, matched nothing, and fell back to the CAPPED $20,000 Line 29
+exclusion: roughly $2,200 a year on a $60,000 pension, two taps away, on the canary jurisdiction.
+Every New York golden case stayed green, because none carried such a row. **The branch replaced a
+right-by-accident answer with a wrong one and nothing recorded it.**
+
+The rule was WIDENED rather than the picker row suppressed. Widening is correct law by the
+authority NY-1 already quotes (Line 26 reaches "an officer, employee, or beneficiary of an officer
+or employee of ... the United States", and a retired service member is one), so it needed no
+research Step 1 forbids; it also closes the type-versus-source divergence, since
+`MilitaryRetirementExemption.exemption(for: "NY")` already returned `.fullyExempt`. Suppression
+would have required a New-York-specific hardcode in the file Task 3b spent a task de-special-casing
+and would have left the user describing military retired pay as a federal civilian pension, which
+is a landmine in the five states that treat the two differently.
+
+**Layer B was handled by MIRRORING into `configs2026Legacy`, per Task 3b's precedent**, not by
+adding New York to `phase5CorrectedJurisdictions`. Membership FLIPS `structurallyIdentical` into a
+must-diverge assertion and would permanently excuse the canary from the byte-identity check that
+has guarded it since Phase 1. Mirroring also keeps the load-failure fallback correct, which matters
+more for a rule than for a disclosure string: a user on that path would otherwise be over-taxed
+rather than merely unwarned. Railroad Retirement was deliberately NOT widened alongside it and is
+recorded in `knownButUnpinned` instead; New York's fixture cites no provision covering it, and the
+quoted Line 26 list argues against folding it in, because a railroad retiree was an employee of a
+private carrier rather than of the United States.
 
 **Why the expectation failed, in three steps.** (1) Task 3: a controller audit before dispatch
 found `PlanClassificationChoice`, the enum driving the user-facing picker, is SEPARATE from
@@ -527,19 +566,43 @@ silent. Deleting any of them converts a disclosed tradeoff into an undisclosed d
 - **`Phase5bUnclassifiedPensionDisclosureTests.rulesAndDisclosuresStayInLockstep`.** It is the
   only thing binding the disclosure gate to the rules gate. Removing it silently reopens the
   Kansas defect for every jurisdiction added after it. A reviewer confirmed it genuinely fires.
-- **All eleven `knownButUnpinned` entries and their deletion guards**, in
+- **All THIRTEEN `knownButUnpinned` entries and their deletion guards**, in
   `Phase5bArizonaPerSourceTests`, `Phase5bKansasPerSourceTests`,
   `Phase5bMassachusettsPerSourceTests`, `Phase5bHawaiiDecisionTests`,
-  `Phase5bNorthCarolinaDecisionTests`, `Phase5bIdahoDecisionTests` and `Phase5bDCSurvivorTests`.
-  DC's guard is explicitly non-vacuous.
+  `Phase5bNorthCarolinaDecisionTests`, `Phase5bIdahoDecisionTests`, `Phase5bDCSurvivorTests`,
+  `Phase5bNewYorkMilitaryTests` and, for Missouri alone, `GoldenScenarioDefectCatalogueTests`
+  itself. DC's two guards are both explicitly non-vacuous.
+
+  **CORRECTED BY THE WHOLE-BRANCH REVIEW, 2026-08-05.** This entry previously said "all eleven"
+  and named `Phase5bKansasPerSourceTests` among the files holding guards. Both halves were
+  false, and this was the one document the next phase acts on. THREE of the eleven had NO
+  deletion guard at all: Kansas's TSP entry (that file contained no reference to the catalogue),
+  the Massachusetts FEDERAL-CIVILIAN entry (the only Massachusetts guard selects on
+  `summary.contains("NONCONTRIBUTORY")`, so it guards the OTHER Massachusetts entry), and
+  Missouri's, inherited from Phase 5a and never given one.
+  `knownButUnpinnedIsWellFormed` asserts only that the array is non-empty and that each entry's
+  two strings are non-blank, so all three deleted in silence. The three guards were added, and
+  the count is now thirteen because the review also added two entries: New York's Railroad
+  Retirement question and the District's NON-RESIDENT survivor case. Missouri's guard lives in
+  the catalogue file for want of a Missouri suite; move it the moment one exists.
 - **The four captions** (Hawaii, Massachusetts, North Carolina, Idaho) plus Vermont's and DC's
   proposed ones. For Hawaii, North Carolina, Idaho and Vermont the caption is the ONLY surface
   that reaches the affected user at all.
 - **Idaho's reflective tripwire** in `Phase5bIdahoDecisionTests`, which re-opens Idaho if a second
   pooled cap, a phase-out or a new matching dimension ever arrives. It has already earned its keep
   once, firing on Task 9's first full-suite run.
-- **Vermont's equivalent** in `Phase5bVermontDecisionTests`.
-- **The frozen 1,020-value baseline.** Untouched by this phase.
+- **Vermont's equivalent** in `Phase5bVermontDecisionTests`, and the two the whole-branch review
+  added to `Phase5bHawaiiDecisionTests` and `Phase5bNorthCarolinaDecisionTests`. Those two
+  jurisdictions previously carried only `PlanSource.allCases` sweeps plus, for Hawaii, a
+  reflection over `RetirementPlanClassification`'s encoded keys. Neither fires on a new MATCHING
+  DIMENSION arriving on `PerSourceExemptionRule`, which is how `matchIsSurvivorBenefit` and
+  `matchMinAge` actually arrived in Task 9 and how Idaho was legitimately re-opened. All four
+  no-rule decisions now carry the same tripwire shape.
+- **The frozen 1,020-value baseline.** Untouched by this phase, INCLUDING by the whole-branch
+  review's New York correction. The baseline grid builds its pension rows with no classification,
+  so they infer `(unknown, unknown)`, and widening `matchSources` cannot match `.unknown`. The
+  movement ledger is still empty of New York entries and this phase still records zero baseline
+  movements.
 
 ## Method findings worth carrying
 

@@ -773,8 +773,17 @@ struct Phase5bDCSurvivorTests {
     /// the defect either.
     @Test("The DC pre-existing-row defect stays recorded, and its condition still holds")
     func theSilentlyOverTaxedExistingRowDefectStaysRecorded() throws {
+        // The District now has TWO entries in this list and they describe
+        // DIFFERENT populations (a DC resident whose row predates Task 9, and
+        // every survivor annuitant who does not live in the District), so this
+        // must select on content rather than on `state == "DC"`. A plain
+        // `.first { $0.state == "DC" }` would silently start asserting against
+        // whichever entry happened to be written first, which is the hazard
+        // the Massachusetts pair already documents.
         let entry = try #require(
-            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first { $0.state == "DC" },
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "DC" && $0.summary.contains("before Phase 5b Task 9")
+            },
             """
             DC's known-but-unpinned defect is gone from the catalogue. A DC survivor whose
             pension row predates this task carries isSurvivorBenefit nil, gets no exclusion,
@@ -802,6 +811,95 @@ struct Phase5bDCSurvivorTests {
                 That would resolve the catalogued defect, but it would do it by granting \
                 the exclusion to every DC federal pension, which subparagraph (N)(ii) does \
                 not.
+                """)
+    }
+
+    /// The SECOND DC entry's deletion guard, for the population the first one
+    /// does not reach: everybody who does not live in the District.
+    ///
+    /// Added by the Phase 5b whole-branch review. The survivor toggle in
+    /// `IncomeSourcesView` is the only writer of `IncomeSource.isSurvivorBenefit`
+    /// and both the control and the save path gate on
+    /// `residenceUsesSurvivorDimension(dataManager.selectedState)`, i.e. on
+    /// RESIDENCE, while `StateComparisonView` computes DC's column for a
+    /// non-resident. So a California survivor annuitant cannot record the fact
+    /// and DC's column overstates her tax, permanently, with no disclosure:
+    /// `showsUnclassifiedPensionLimitation` is false because her pension is
+    /// perfectly classified.
+    ///
+    /// NON-VACUOUS BY CONSTRUCTION. It re-derives all three legs from live code
+    /// rather than restating the entry: the affordance is residence-gated, DC's
+    /// rule still needs the flag, and the resulting DC figure is the full,
+    /// unexcluded one. Any fix to any leg fails it and sends the reader here.
+    @MainActor
+    @Test("The DC non-resident survivor gap stays recorded, and all three of its legs still hold")
+    func theNonResidentSurvivorGapStaysRecorded() throws {
+        let entry = try #require(
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "DC" && $0.summary.contains("THE NON-RESIDENT CASE")
+            },
+            """
+            The DC non-resident survivor gap is no longer recorded. It is a DIFFERENT
+            population from the pre-existing-row entry: that one closes for any DC
+            resident who re-opens their pension row, this one never closes for anybody,
+            because the survivor toggle is never shown to a non-resident at all. If an
+            affordance or a viewed-state disclosure was actually added, delete this test
+            in the SAME change and say which surface now reaches her.
+            """)
+        #expect(entry.blockedOn.contains("StateComparisonPresentation"))
+
+        // Leg 1: the affordance is residence-gated, so a non-resident is never
+        // asked. Swept rather than asserted for California alone, so this stays
+        // honest the day a second jurisdiction ships a survivor rule.
+        for state in USState.allCases where state != .districtOfColumbia {
+            #expect(!PlanClassificationChoice.residenceUsesSurvivorDimension(state),
+                    """
+                    \(state.abbreviation) now shows the survivor toggle. If a second \
+                    jurisdiction shipped a survivor rule, that is fine and this sweep \
+                    should name it; if the gate was widened so everyone is asked, the \
+                    catalogued gap is closed and this test and its entry go together.
+                    """)
+        }
+        #expect(PlanClassificationChoice.residenceUsesSurvivorDimension(.districtOfColumbia),
+                "DC itself must still ask, or the rule is unreachable for residents too")
+
+        // Leg 2: DC's rule still requires the flag, so a row that could never
+        // carry it gets nothing.
+        #expect(Self.dcExemptions.matchedPerSourceRule(
+            structure: .definedBenefit, source: .federalCivilian,
+            isSurvivorBenefit: nil, age: 65) == nil)
+
+        // Leg 3: the cost, MEASURED through the same breakdown path State
+        // Comparison reads, at DC-2's shape. A California resident's stored row
+        // is handed to DC's column with `isSurvivorBenefit` nil, because nothing
+        // could have set it.
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 2026 - 65; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.filingStatus = .single
+        dm.enableSpouse = false
+        dm.selectedState = .california
+        dm.incomeSources = [
+            IncomeSource(name: "Survivor annuity", type: .pension, annualAmount: 50_000,
+                         owner: .primary, planStructure: .definedBenefit,
+                         planSource: .federalCivilian, isSurvivorBenefit: nil)
+        ]
+        let asDCResident = dm.incomeSources(asResidentOf: .districtOfColumbia)
+        #expect(asDCResident.first?.isSurvivorBenefit == nil,
+                """
+                The residence remapping now supplies a survivor flag. It remaps planSource \
+                only, by design; if that changed, the non-resident gap may be closed and \
+                this entry re-checked.
+                """)
+
+        let dcColumn = dm.stateTaxBreakdown(forState: .districtOfColumbia, filingStatus: .single)
+        #expect(abs(dcColumn.totalStateTax - 1_924.00) < 0.01,
+                """
+                DC's column for a non-resident survivor reports \(dcColumn.totalStateTax), \
+                expected the full $1,924.00 that DC-2 pins as the PRE-correction figure. \
+                $0.00 means she can now reach the exclusion, which would resolve the \
+                catalogued gap: delete this test and its entry together and say how.
                 """)
     }
 }

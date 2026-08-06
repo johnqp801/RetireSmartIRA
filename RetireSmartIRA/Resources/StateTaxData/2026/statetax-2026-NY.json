@@ -29,7 +29,8 @@
       {
         "matchSources" : [
           "nyStateOrLocal",
-          "federalCivilian"
+          "federalCivilian",
+          "uniformedServices"
         ],
         "matchStructures" : [
           "definedBenefit"

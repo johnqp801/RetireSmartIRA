@@ -586,9 +586,19 @@ class DataManager {
     /// to identity because the state now MATCHES. Schedule S Line A14 then
     /// matches and a Vermont pension takes Kansas's full exclusion at the
     /// user's actual residence. It is the same defect reached by MOVING
-    /// instead of by COMPARING, it goes further live with Tasks 4, 8 and 9
-    /// (Massachusetts, Idaho and Vermont all plan `ownStateOrLocal` rules),
-    /// and it is recorded rather than solved. See the Task 3 report.
+    /// instead of by COMPARING, and it is recorded rather than solved. See the
+    /// Task 3 report.
+    ///
+    /// ITS REACH, corrected at the close of Phase 5b. This paragraph used to
+    /// say the defect "goes further live with Tasks 4, 8 and 9 (Massachusetts,
+    /// Idaho and Vermont all plan `ownStateOrLocal` rules)", which was a
+    /// forecast and two thirds of it did not happen: Idaho and Vermont each
+    /// shipped NO rule by reviewed decision. The jurisdictions naming
+    /// `ownStateOrLocal` today are KANSAS, MASSACHUSETTS and the DISTRICT OF
+    /// COLUMBIA, and the reach grows with every jurisdiction added rather than
+    /// with any particular planned task. Closing it needs a new STORED field
+    /// recording the residence at classification time; the Phase 5b close-out
+    /// ledger carries it as the most important open question on the branch.
     func incomeSources(asResidentOf state: USState) -> [IncomeSource] {
         guard state != selectedState else { return incomeSources }
         return incomeSources.map { row in

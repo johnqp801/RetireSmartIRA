@@ -2058,9 +2058,58 @@ struct StateTaxData {
                 // is never treated as a specific jurisdiction (design doc
                 // section 3.1). This is the design's own regression test for
                 // the flat `.governmentPension` case it was revised away from.
+                //
+                // `.uniformedServices` ADDED BY THE PHASE 5b WHOLE-BRANCH
+                // REVIEW, and it is a correction of something this branch
+                // itself broke rather than a new jurisdiction task. Task 3
+                // added the "Military retired pay" picker row to EVERY
+                // jurisdiction. Before it existed, a New York military
+                // retiree's best available pick was "Government pension,
+                // federal civilian", which this rule matched, so the uncapped
+                // Line 26 exclusion was reached BY ACCIDENT. After it, the
+                // natural pick wrote `.uniformedServices`, which this rule did
+                // not name, and the pension silently fell back to the capped
+                // $20,000 Line 29 exclusion: roughly $2,200 a year on a
+                // $60,000 pension, two taps away.
+                //
+                // The authority is the SAME sentence already quoted by the
+                // NY-1 golden case, not new research: Line 26 eligibility runs
+                // to "an officer, employee, or beneficiary of an officer or
+                // employee of" NYS, a NY locality, certain named NY public
+                // authorities, "or the United States". A retired member of the
+                // uniformed services is an officer or employee of the United
+                // States drawing a federal government pension, so military
+                // retired pay was always inside the quoted list; only the
+                // model's vocabulary was too coarse to say so before Task 1
+                // split `.uniformedServices` out of `.federalCivilian`. It
+                // also makes the app's two encodings of one fact agree:
+                // `MilitaryRetirementExemption.exemption(for: "NY")` already
+                // returns `.fullyExempt`, so before this change the answer
+                // depended on which screen the money was entered from.
+                //
+                // `.railroadRetirement` is deliberately NOT added, and that is
+                // a recorded gap rather than an oversight: the quoted list is
+                // CLOSED, a railroad retiree was an employee of a private
+                // carrier rather than of the United States, and New York's
+                // fixture cites no provision covering Railroad Retirement
+                // Board benefits at all. See the NY entry in
+                // `GoldenScenarioDefectCatalogueTests.knownButUnpinned`.
+                //
+                // MIRRORED HERE ON PURPOSE, following the Task 3b precedent
+                // set by `unclassifiedPensionDisclosure` below. New York is
+                // NOT on `phase5CorrectedJurisdictions`, so Layer B requires
+                // its JSON and this entry to re-encode BYTE-IDENTICALLY.
+                // Adding New York to that list would have been the other
+                // route and is worse: membership FLIPS `structurallyIdentical`
+                // into a must-diverge assertion, which permanently excuses New
+                // York from the byte-identity check that has guarded the
+                // canary jurisdiction since Phase 1. Mirroring also keeps the
+                // load-failure fallback correct, which matters more here than
+                // for a disclosure string: a user who hits that path would
+                // otherwise be over-taxed rather than merely unwarned.
                 perSourceExemptions: [
                     PerSourceExemptionRule(
-                        matchSources: [.nyStateOrLocal, .federalCivilian],
+                        matchSources: [.nyStateOrLocal, .federalCivilian, .uniformedServices],
                         matchStructures: [.definedBenefit],
                         treatment: .full)
                 ],

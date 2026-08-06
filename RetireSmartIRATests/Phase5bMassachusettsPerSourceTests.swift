@@ -447,4 +447,56 @@ struct Phase5bMassachusettsPerSourceTests {
                 this test and the knownButUnpinned entry together.
                 """)
     }
+
+    /// The SECOND Massachusetts entry's deletion guard, which was missing.
+    ///
+    /// Added by the Phase 5b whole-branch review. `federalCivilianIsTaxedInFullToday`
+    /// above pins the FIGURE this entry records the cost of, and its doc comment
+    /// says the entry cites it, but it never touches the catalogue, so it is not
+    /// a deletion guard. The only guard in this file selects on
+    /// `summary.contains("NONCONTRIBUTORY")` and therefore guards the OTHER
+    /// Massachusetts entry. That left the federal-civilian and Railroad
+    /// Retirement gap deletable in silence, since
+    /// `knownButUnpinnedIsWellFormed` checks only non-emptiness.
+    ///
+    /// Selects on content for the same reason its sibling does: Massachusetts
+    /// has two entries recording OPPOSITE directions, so `state == "MA"` alone
+    /// would assert against whichever came first.
+    @Test("The Massachusetts federal-civilian and Railroad Retirement gap stays recorded")
+    func theFederalCivilianGapStaysRecorded() throws {
+        let entry = try #require(
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "MA" && $0.summary.contains("FEDERAL CONTRIBUTORY")
+            },
+            """
+            The Massachusetts federal-civilian and Railroad Retirement gap is no longer
+            recorded. mass.gov's enumerated exempt list includes both categories and the
+            shipped rule names neither, so a CSRS or FERS annuitant is over-taxed by
+            $3,000.00 at the fixture's $60,000 single-filer shape. If the rule was widened
+            it must arrive with reviewed golden cases, and this entry is deleted in that
+            same change; if not, a measured over-taxation was silently dropped.
+            """)
+        #expect(entry.blockedOn.contains("REVIEWED derivation"))
+
+        // Non-vacuous: the two categories the entry names are still unmatched by
+        // the shipped rule, re-derived from live config rather than restated.
+        for source in [PlanSource.federalCivilian, .railroadRetirement] {
+            #expect(Self.massachusettsExemptions.matchedPerSourceRule(
+                structure: .definedBenefit, source: source) == nil,
+                    """
+                    Massachusetts's shipped rule now matches \(source). That may well be \
+                    correct under mass.gov's enumerated exempt list, but it must arrive \
+                    with a reviewed golden case pinning the figure, and this test and the \
+                    knownButUnpinned entry are deleted in the same change.
+                    """)
+        }
+
+        // And both categories are picker-reachable, which is what makes the gap
+        // a live user-facing one rather than a theoretical hole in the config.
+        let options = PlanClassificationChoice.options(for: .massachusetts, selected: nil)
+        for choice in [PlanClassificationChoice.federalCivilianPension, .railroadRetirementPension] {
+            #expect(options.contains(choice),
+                    "\(choice.rawValue) is no longer offered to a Massachusetts resident")
+        }
+    }
 }

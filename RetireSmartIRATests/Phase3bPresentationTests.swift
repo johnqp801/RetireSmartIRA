@@ -223,6 +223,44 @@ struct Phase3bPresentationTests {
         }
     }
 
+    /// The blind spot in the sweep above, closed by the Phase 5b whole-branch
+    /// review.
+    ///
+    /// `choice(for:)` used to compare WHOLE classifications against a
+    /// hand-maintained list, and Task 9 gave `RetirementPlanClassification` a
+    /// third stored property, so its synthesized `==` began comparing
+    /// `isSurvivorBenefit` as well. Every entry in that list carries `nil`, so
+    /// any survivor-flagged classification fell through to `.notSure`: an
+    /// already-correctly-classified DC survivor annuity would have opened in
+    /// the editor displaying as unclassified, and saving would have rewritten
+    /// it. The sweep above cannot see it, because every case it sweeps carries
+    /// `nil` too, which is precisely why this test iterates the SAME cases with
+    /// the flag set.
+    ///
+    /// Unreachable through today's two call sites, both of which build the
+    /// classification from structure and source alone. Pinned anyway: the
+    /// survivor fact is a separate toggle beside the picker rather than
+    /// something the twelve rows express, so the reverse lookup must not
+    /// consult it, and a third call site that passed a whole stored
+    /// classification would otherwise reintroduce the bug silently.
+    @Test("Reverse lookup ignores the survivor flag, which no picker row expresses",
+          arguments: [true, false])
+    func reverseLookupIgnoresTheSurvivorFlag(flag: Bool) {
+        for choice in PlanClassificationChoice.allCases where choice != .privateSalaryReduction {
+            var flagged = choice.classification
+            flagged.isSurvivorBenefit = flag
+            #expect(PlanClassificationChoice.choice(for: flagged) == choice,
+                    """
+                    \(choice) with isSurvivorBenefit \(flag) resolved to \
+                    \(PlanClassificationChoice.choice(for: flagged)) instead of itself. \
+                    A whole-value `==` against the priority list does this: every entry \
+                    there carries nil, so a flagged classification matches none of them \
+                    and falls through to .notSure, displaying a correctly classified \
+                    pension as unclassified.
+                    """)
+        }
+    }
+
     @Test("Reverse lookup of an unrecognised classification falls back to Not sure")
     func reverseLookupUnrecognisedFallsBackToNotSure() {
         // governmentUnspecified paired with .ira never appears in the picker

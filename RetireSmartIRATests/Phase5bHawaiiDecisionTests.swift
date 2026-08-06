@@ -211,6 +211,65 @@ struct Phase5bHawaiiDecisionTests {
                 """)
     }
 
+    /// The OTHER half of the same tripwire, added by the Phase 5b whole-branch
+    /// review, and the half Hawaii was missing.
+    ///
+    /// `theModelCarriesNoFundingAxis` above watches
+    /// `RetirementPlanClassification`, which is where Hawaii's own entry
+    /// RECOMMENDS the funding axis should land. That is the likely arrival
+    /// route and it is genuinely covered. It is not the only one: a funding
+    /// dimension could equally arrive as a new MATCHING dimension on
+    /// `PerSourceExemptionRule`, which is exactly how `matchIsSurvivorBenefit`
+    /// and `matchMinAge` arrived in Task 9, and neither of those touched the
+    /// classification's encoded key set at all.
+    ///
+    /// That distinction is not hypothetical: `matchMinAge`'s arrival is what
+    /// legitimately re-opened Idaho, through the equivalent assertion in
+    /// `Phase5bIdahoDecisionTests`. Hawaii's blocker is the axis Phase 6 is
+    /// chartered to build, so it should be woken by either route rather than
+    /// only the expected one.
+    @Test("No new per-source matching dimension has arrived that could express Hawaii's funding split")
+    func noPerSourceMatchingDimensionCanExpressTheFundingSplit() {
+        let probe = PerSourceExemptionRule(
+            matchSources: [.privateEmployer], matchStructures: [.definedBenefit],
+            treatment: .full)
+        let fields = Set(Mirror(reflecting: probe).children.compactMap(\.label))
+        #expect(fields == ["matchSources", "matchStructures",
+                           "matchIsSurvivorBenefit", "matchMinAge", "treatment"],
+                """
+                PerSourceExemptionRule's stored properties are now \(fields). Task 5 \
+                declined a Hawaii rule because the only dimensions available were SOURCE \
+                and STRUCTURE, and Schedule J's exclusion turns on WHO FUNDED the plan and \
+                in what PROPORTION. If a dimension arrived that can carry an \
+                employer-funded share, or a categorical contributory fact, re-open Hawaii \
+                against it: the Task 5 method is to ship the rule temporarily, record which \
+                cases go green and at what figures, and revert if the green outcome is \
+                wrong. Hawaii's knownButUnpinned entry and the Massachusetts contributory \
+                entry move together with it. If the new dimension is unrelated to funding, \
+                widen this expectation and say why.
+                """)
+
+        // And the one dimension that DOES exist alongside source and structure
+        // is source-blind about funding: `treatment` says how much to exclude,
+        // never on what basis. A `.partial` here would cap PER PENSION ROW,
+        // which is banned phase-wide, so it cannot be pressed into service as a
+        // proportion either.
+        let proportionAttempt = PerSourceExemptionRule(
+            matchSources: [], matchStructures: [.definedBenefit],
+            treatment: .partial(maxExempt: 25_000))
+        let twoRows = (0..<2).reduce(0.0) { total, _ in
+            total + proportionAttempt.treatment.excludedAmount(
+                eligibleIncome: 25_000, totalGrossIncome: 100_000, isMarried: false)
+        }
+        #expect(twoRows == 50_000,
+                """
+                Two $25,000 rows drew \(twoRows) from a `.partial(25000)` treatment. The \
+                per-row evaluation is why a capped per-source treatment is banned \
+                phase-wide, and it is also why `treatment` cannot stand in for Hawaii's \
+                employer-funded proportion.
+                """)
+    }
+
     // MARK: - The field contradiction, which is the heart of the decision
 
     /// `PlanStructure.definedBenefit` cannot carry funding semantics, because

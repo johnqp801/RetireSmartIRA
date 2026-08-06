@@ -826,6 +826,141 @@ struct GoldenScenarioDefectCatalogueTests {
                 is the narrower option. Until then this entry and the survivor toggle in
                 the pension editor are the record.
                 """
+        ),
+        UnpinnedDefect(
+            state: "DC",
+            summary: """
+                THE NON-RESIDENT CASE. DC's survivor rule is UNREACHABLE for every user
+                who does not live in the District, so the DC column of State Comparison
+                overstates DC's tax for every survivor annuitant in the other fifty
+                jurisdictions. This is a DIFFERENT and PERMANENT population from the
+                pre-existing-row entry above, which is why it is a separate entry: that
+                one closes for any DC resident who re-opens their pension row, and this
+                one never closes for anybody, because the control that would close it is
+                not shown to them at all.
+
+                THE MECHANISM, in three steps, each one deliberate on its own.
+                `IncomeSourcesView`'s survivor toggle is the ONLY writer of
+                `IncomeSource.isSurvivorBenefit`, and both the control and the save path
+                are gated on
+                `PlanClassificationChoice.residenceUsesSurvivorDimension(dataManager
+                .selectedState)`, i.e. on RESIDENCE. `StateComparisonView` nevertheless
+                computes every jurisdiction's tax for a non-resident, and Phase 5b Task
+                3b established that State Comparison is VIEWED-STATE relative while the
+                CPA briefing is RESIDENCE relative, and that the asymmetry is deliberate.
+                So a California widow aged 65 holding a federal survivor annuity has no
+                way to record that she is a survivor, her stored row carries
+                `isSurvivorBenefit == nil`, and DC's rule correctly declines to match a
+                row that was never asked. DC's column computes as though subparagraph
+                (N)(ii) did not exist: $1,924.00 at DC-2's shape, against the $0.00 DC-2
+                pins as correct for that household.
+
+                AND NOTHING DISCLOSES IT. `StateComparisonPresentation
+                .showsUnclassifiedPensionLimitation` gates on `hasUnclassifiedPension`,
+                and this pension is perfectly classified as a federal civilian
+                defined-benefit pension. The survivor fact is not a missing answer to a
+                question she declined to answer; it is a question the app never puts to
+                her, because she lives somewhere else.
+
+                DIRECTION: over-statement of DC, which is the safe direction for a
+                comparison grid. Nobody is shown a tax lower than it is. The cost is a
+                user who rules the District out of a relocation shortlist on a number
+                that is $1,924.00 a year too high.
+                """,
+            blockedOn: """
+                A PRODUCT DECISION ABOUT WHO IS ASKED A QUESTION, not research, and not
+                anything a golden case could hold. `GoldenScenarioSingleYearTests` drives
+                one jurisdiction's config against one household's rows and has no notion
+                of residence at all, so it cannot express "the row could not have carried
+                this flag because of where the taxpayer lives". The defect is in the
+                AFFORDANCE, one layer above every surface a fixture reaches, which is the
+                same place Task 3's Kansas finding lived: a green suite and an
+                undelivered fix.
+
+                THE OBVIOUS REPAIR IS NOT OBVIOUSLY RIGHT, which is why the whole-branch
+                review recorded this rather than shipping it. Changing the gate to "ANY
+                jurisdiction ships a survivor rule" would put a third question, and the
+                DC-specific caption approved by John on 2026-08-05, in front of every user
+                in all fifty-one jurisdictions, for a fact that cannot move a single
+                dollar of their own tax. That is precisely the noise
+                `residenceUsesSurvivorDimension`'s own doc comment declines to make and
+                `shouldPromptForClassification` declines before it. Narrower shapes exist
+                (ask only once a user opens State Comparison; ask only for the
+                jurisdictions actually on screen; disclose rather than ask) and every one
+                of them needs new user-facing copy, which is out of scope for a review
+                fix and is John's to approve.
+
+                THE SMALLER OPTION, and the one to weigh first: extend
+                `StateComparisonPresentation` with a viewed-state limitation that fires
+                for a CLASSIFIED pension when the VIEWED state's shipped rules consult a
+                dimension the row leaves nil. That is the same extension the
+                pre-existing-row entry above asks for, but keyed to the viewed state
+                rather than to residence, so the two want one mechanism with two gates,
+                exactly as `showsUnclassifiedPensionLimitation` and
+                `MultiYearCPABriefing.unclassifiedPensionLimitation` already are. Build
+                them together in Phase 6, or neither.
+                """
+        ),
+        UnpinnedDefect(
+            state: "NY",
+            summary: """
+                New York's treatment of RAILROAD RETIREMENT benefits is unresolved, and
+                the Phase 5b whole-branch review left it at the status quo rather than
+                guessing, following the Arizona railroad precedent above.
+
+                New York's rule now names `nyStateOrLocal`, `federalCivilian` and
+                `uniformedServices` at `definedBenefit`. `railroadRetirement` is named by
+                none of them, so a row carrying it falls through to the pooled
+                `pensionExemption`, New York's capped $20,000 Line 29 exclusion. The
+                capped answer is unlikely to be right: 45 U.S.C. 231m is generally read
+                as barring state taxation of Railroad Retirement Board benefits outright,
+                and Kansas's Schedule S Line A14 exempts them by name, which is why
+                `PlanSource.railroadRetirement` exists at all. If that reading holds for
+                New York, the direction is UNDER-exemption, i.e. the app over-taxes,
+                on everything above $20,000.
+
+                THIS BRANCH CREATED THE REACHABLE FORM OF IT, which is why it is recorded
+                here rather than inherited silently. Phase 5b Task 3 added the "Railroad
+                Retirement benefits" picker row to every jurisdiction. Before it existed,
+                a New York railroad retiree's nearest pick was "Government pension,
+                federal civilian", which New York's rule matched and which produced the
+                uncapped exclusion; after it, the honest pick produces the capped one. So
+                the new row can move this user in the OVER-taxation direction by up to
+                the whole pension above $20,000, on the same mechanism the military row
+                moved them by, and the military half was fixable from the fixture's own
+                authority while this half is not.
+                """,
+            blockedOn: """
+                NO AUTHORITY IN THE FIXTURE, the same blocker as Arizona's railroad entry
+                above and resolved the same way. statetax-2026-NY.golden.json carries no
+                railroad scenario and cites no New York provision covering these
+                benefits; its five cases quote IT-201 Line 26, Line 29 and tax.ny.gov's
+                "Information for retired persons" only. Step 1 of the shared procedure
+                makes the golden fixture the specification and forbids re-researching the
+                law, and neither available answer is derivable from what the fixture
+                cites.
+
+                AND THE QUOTED SENTENCE ARGUES AGAINST THE EASY GUESS, which is worth
+                recording because it is the reason `railroadRetirement` was NOT added
+                alongside `uniformedServices` in the same change. Line 26 eligibility is a
+                CLOSED list: an officer, employee, or beneficiary of an officer or
+                employee of NYS, a NY locality, certain named NY public authorities, or
+                the United States. A retired member of the uniformed services is squarely
+                inside it, which is what authorised the military widening. A railroad
+                retiree is not: the Railroad Retirement Board administers the benefit, but
+                the person was an employee of a private carrier, not of the United States.
+                Whatever exempts these benefits in New York is therefore a DIFFERENT
+                mechanism from Line 26 (federal preemption, reached through a separate
+                subtraction), and encoding it as a Line 26 per-source rule would put an
+                uncited claim into a shipped config.
+
+                Resolve by adding a New York golden case derived from New York's own
+                published treatment of Railroad Retirement benefits and the federal
+                preemption question, then naming `railroadRetirement` in whichever rule
+                that case supports. The identical question is open for Arizona and
+                Massachusetts, so a single reviewed pass over 45 U.S.C. 231m and the three
+                states' forms would close all three at once, and should.
+                """
         )
     ]
 
@@ -840,6 +975,57 @@ struct GoldenScenarioDefectCatalogueTests {
         for entry in Self.knownButUnpinned {
             #expect(!entry.summary.isEmpty, "\(entry.state): unpinned defect with no mechanism named")
             #expect(!entry.blockedOn.isEmpty, "\(entry.state): unpinned defect with no stated blocker")
+        }
+    }
+
+    /// Missouri's deletion guard, which the entry has been missing since Phase
+    /// 5a and which the Phase 5b whole-branch review added.
+    ///
+    /// The test above is deliberately weak: it asserts the ARRAY is non-empty
+    /// and that each entry's two strings are non-blank, so any INDIVIDUAL entry
+    /// deletes in silence. Every other entry is guarded from its jurisdiction's
+    /// own Phase 5b test file. Missouri has none, because Missouri was never a
+    /// Phase 5b jurisdiction: it is the one entry this list inherited rather
+    /// than wrote, and it is the oldest and therefore the likeliest to be
+    /// tidied away by someone who no longer remembers why it is here.
+    ///
+    /// It lives in this file for want of a Missouri suite, which is weaker than
+    /// the others only in that a deleter has the entry and the guard on screen
+    /// at once. It is not weaker in what it PROVES: the condition is re-derived
+    /// from Missouri's shipped configuration, so the entry cannot outlive the
+    /// defect either. Move it to a Missouri suite the moment one exists.
+    @Test("Missouri's uncapped public-pension exemption stays recorded as a known-but-unpinned defect")
+    func theMissouriPublicPensionCapGapStaysRecorded() throws {
+        let entry = try #require(
+            Self.knownButUnpinned.first {
+                $0.state == "MO" && $0.summary.contains("Social Security benefit")
+            },
+            """
+            Missouri's public-pension cap defect is no longer recorded. MO-A 2025 Part 3
+            Section A Line 2 caps the exemption at the LESSER of the pension received or
+            each individual's own maximum Social Security benefit, reduced by any Social
+            Security deduction the same person claims; this app codes it as unlimited,
+            measured at $0.00 against a correct $6,157.41 for a $150,000 / $120,000 MFJ
+            public-pension household. If a Missouri golden case now pins that figure,
+            delete this test alongside the entry and say which case replaced it. If not,
+            a confirmed defect was dropped from the phase's inheritance.
+            """)
+        // Substrings must not straddle a line break in the entry's multiline
+        // literal, which is why this selects short, single-line fragments
+        // rather than whole sentences.
+        #expect(entry.blockedOn.contains("ssa.gov"))
+
+        // The condition, re-derived from the shipped config rather than
+        // restated: Missouri's pooled pension exemption is still UNCAPPED, which
+        // is the whole mechanism the entry describes.
+        let missouri = StateTaxData.config(for: .missouri).retirementExemptions
+        if case .full = missouri.pensionExemption {} else {
+            Issue.record("""
+                Missouri's pensionExemption is no longer `.full`. If it was capped against \
+                the MO-A Line 2 maximum, this entry is resolved and must be deleted with \
+                this test, and the correction needs a golden case and a baseline-movement \
+                ledger record like every other Phase 5 correction.
+                """)
         }
     }
 }
