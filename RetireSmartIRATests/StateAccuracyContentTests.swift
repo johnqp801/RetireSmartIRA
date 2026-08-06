@@ -48,11 +48,17 @@ struct StateAccuracyContentTests {
 
     /// The hoist must not have introduced a dash character into approved copy,
     /// and must not have disturbed the three captions that were already statics.
-    /// The direction word in each is load-bearing: Hawaii and DC run toward
-    /// over-taxation, Massachusetts toward UNDER-taxation, and a copy edit that
-    /// harmonised them would invert one.
+    ///
+    /// The dash and whitespace sweep covers all six. The direction pin covers
+    /// only the two captions that carry a direction word, and it is those two
+    /// that are load-bearing: Hawaii runs toward OVER-taxation and Massachusetts
+    /// toward UNDER-taxation, so a copy edit that harmonised the pair would
+    /// invert one of them. The other four say nothing about direction. DC's in
+    /// particular is a scoping instruction ("turn this on only for..."), so
+    /// there is no direction here for a test to pin, and this comment does not
+    /// claim one.
     @MainActor
-    @Test("All six pension-editor captions are dash-free and keep their direction")
+    @Test("All six pension-editor captions are dash-free, and the Hawaii and Massachusetts directions stay opposed")
     func captionsKeepTheirDirection() {
         let all = [
             IncomeSourcesView.hawaiiEmployerFundedCaption,
@@ -69,8 +75,96 @@ struct StateAccuracyContentTests {
             #expect(caption == caption.trimmingCharacters(in: .whitespacesAndNewlines))
         }
 
+        // One pin per direction, symmetrically. Hawaii previously also carried
+        // a negative assertion that it does NOT contain "understated"; that
+        // bought nothing the positive pin does not already give, and
+        // Massachusetts never had its mirror image, so the asymmetry read as
+        // meaningful when it was not.
         #expect(IncomeSourcesView.hawaiiEmployerFundedCaption.contains("overstated"))
-        #expect(!IncomeSourcesView.hawaiiEmployerFundedCaption.contains("understated"))
         #expect(IncomeSourcesView.massachusettsContributoryCaption.contains("understated"))
+    }
+
+    // MARK: - Gate 4: verification metadata completeness
+
+    /// Gate 4. Every covered jurisdiction must state which tax year its
+    /// configuration describes, when it was last verified, and at least one
+    /// primary source that can be opened.
+    ///
+    /// SCOPED DELIBERATELY, and widening it is the one-line change below.
+    /// `StateAccuracyContent.coveredJurisdictions` holds fifteen of the
+    /// fifty-one jurisdictions. Twenty-one further states carry pinned defects
+    /// but are NOT in the set, so a green run here is not a statement that the
+    /// other thirty-six are clean; it is a statement that the fifteen this
+    /// release authors pages for carry complete provenance. Extending the gate
+    /// to all fifty-one would require sourcing thirty-six more states' primary
+    /// references, which is separate work that has not been scoped.
+    ///
+    /// WHAT ENFORCES THIS. Nothing at compile time. The configurations are
+    /// JSON, so a jurisdiction that omits `taxYear` decodes to the `0` sentinel
+    /// and a jurisdiction that omits `lastVerified` or `primarySources` fails
+    /// at decode. Either way the failure surfaces here, in a test, and this
+    /// test is the only gate on completeness.
+    ///
+    /// Sorted so the failure list is stable run to run and can be worked
+    /// straight down; `Set` iteration order is not.
+    @Test("Every covered jurisdiction carries a tax year, a verified date and an HTTPS source")
+    func coveredJurisdictionsCarryCompleteVerification() {
+        let ordered = StateAccuracyContent.coveredJurisdictions
+            .sorted { $0.abbreviation < $1.abbreviation }
+
+        for state in ordered {
+            let v = StateTaxData.config(for: state).verification
+            #expect(v.taxYear == 2026,
+                    "\(state.abbreviation) verification.taxYear must state the config's own year")
+            #expect(!v.lastVerified.isEmpty, "\(state.abbreviation) has no lastVerified")
+            #expect(v.primarySources.contains { $0.contains("https://") },
+                    "\(state.abbreviation) has no HTTPS primary source")
+        }
+    }
+
+    /// Pins WHY the covered set holds the fifteen it holds, so that adding or
+    /// removing a jurisdiction has to be a deliberate act rather than a drift.
+    ///
+    /// The set is exactly the union of three groups, each of which already
+    /// exists in the test target and is maintained independently of this file:
+    ///
+    /// 1. the jurisdictions Phase 5 corrected, whose bundled JSON has already
+    ///    diverged from the frozen legacy table;
+    /// 2. the jurisdictions carrying a `knownButUnpinned` catalogue entry;
+    /// 3. the six states whose pension editor shows a caption, because Task 3
+    ///    moves those captions into `verification.knownLimitations` and a
+    ///    caption cannot render from a config the gate does not cover.
+    ///
+    /// Vermont is in the set only through group 3, and Georgia, Iowa and
+    /// Indiana only through group 1. The plan's own note said every member was
+    /// traceable to "a pinned defect or a knownButUnpinned entry", which is not
+    /// true of those four; this test states the actual rule.
+    @Test("The covered set is exactly the Phase 5 corrections, the unpinned catalogue and the caption states")
+    func coveredSetMatchesItsStatedRationale() {
+        let unpinned = Set(GoldenScenarioDefectCatalogueTests.knownButUnpinned.compactMap { entry in
+            USState.allCases.first { $0.abbreviation == entry.state }
+        })
+
+        /// The six states whose pension editor carries a caption today. Pinned
+        /// as a literal because `IncomeSourcesView` branches on these states in
+        /// its view body rather than declaring them as a set.
+        let captionStates: Set<USState> = [
+            .hawaii, .massachusetts, .districtOfColumbia,
+            .northCarolina, .idaho, .vermont
+        ]
+
+        let expected = StateTaxJSONStructuralEquivalenceTests.phase5CorrectedJurisdictions
+            .union(unpinned)
+            .union(captionStates)
+
+        #expect(StateAccuracyContent.coveredJurisdictions == expected,
+                """
+                The covered set no longer matches its stated rationale. \
+                Only in coveredJurisdictions: \
+                \(StateAccuracyContent.coveredJurisdictions.subtracting(expected).map(\.abbreviation).sorted()). \
+                Only in the rationale: \
+                \(expected.subtracting(StateAccuracyContent.coveredJurisdictions).map(\.abbreviation).sorted()).
+                """)
+        #expect(StateAccuracyContent.coveredJurisdictions.count == 15)
     }
 }

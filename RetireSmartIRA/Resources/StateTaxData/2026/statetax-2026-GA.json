@@ -62,6 +62,7 @@
     "primarySources" : [
       "Georgia DOR, Important Tax Updates: https://dor.georgia.gov/taxes/important-tax-updates",
       "Gov. Kemp signing announcement: https://gov.georgia.gov/press-releases/2026-05-11/gov-kemp-signs-legislation-lowering-taxes-and-supporting-economic-growth"
-    ]
+    ],
+    "taxYear" : 2026
   }
 }
