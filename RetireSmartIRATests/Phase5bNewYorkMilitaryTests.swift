@@ -22,9 +22,20 @@
 //
 //    AFTER Task 3: the honest pick writes `uniformedServices`,
 //    `matchedPerSourceRule` returns nil, the row pools into `pensionIncome`, and
-//    New York's CAPPED $20,000 Line 29 exclusion applies instead. Roughly $2,200
-//    a year on a $60,000 pension, two taps away, on the one jurisdiction that
-//    has been prompting users to classify at all.
+//    New York's CAPPED $20,000 Line 29 exclusion applies instead. Two taps away,
+//    on the one jurisdiction that has been prompting users to classify at all.
+//
+//  WHAT IT COSTS depends on the household's other income, so this file pins it
+//  at TWO shapes rather than quoting one round number. A single filer at 65
+//  whose ONLY income is a $60,000 military pension paid $1,563.00 and now pays
+//  $0.00. At NY-5's shape, $70,000 of pension plus $20,000 of other ordinary
+//  income, it is $3,183.00 against $487.75, a delta of $2,695.25, because the
+//  $40,000 the cap fails to exclude sits wholly in the 5.4% band there rather
+//  than partly below it. Both are asserted in
+//  `militaryRetiredPayIsUncappedInNewYork` below. An earlier draft of this file
+//  said "roughly $2,200 a year on a $60,000 pension", which reproduces from
+//  NEITHER shape; it was narrative imprecision in derivation-grade
+//  surroundings, and it is recorded here rather than quietly deleted.
 //
 //  Every New York golden case stayed green throughout, because none of them
 //  carried a `uniformedServices` row. Task 3's own doc comment worked out this
@@ -112,9 +123,9 @@ struct Phase5bNewYorkMilitaryTests {
                 """
                 New York's rule names \(rule.matchSources). Dropping `uniformedServices` \
                 re-opens the defect this file documents: the "Military retired pay" picker \
-                row falls through to the CAPPED $20,000 Line 29 exclusion, costing roughly \
-                $2,200 a year on a $60,000 pension. Adding anything else needs an authority \
-                the New York fixture actually carries.
+                row falls through to the CAPPED $20,000 Line 29 exclusion, costing $1,563.00 \
+                a year on a $60,000-only household and $2,695.25 at NY-5's shape. Adding \
+                anything else needs an authority the New York fixture actually carries.
                 """)
         #expect(rule.matchStructures == [.definedBenefit],
                 """
@@ -235,6 +246,32 @@ struct Phase5bNewYorkMilitaryTests {
                 An out-of-state public pension produced \(outOfState), expected the capped \
                 $3,183.00. $487.75 means the rule was widened onto `otherStateOrLocal`, \
                 which Line 26's closed eligibility list does not reach.
+                """)
+
+        // THE SECOND SHAPE, pinned because the cost is not one number and an
+        // earlier draft of this file quoted one that reproduced from neither.
+        // A single filer at 65 whose ONLY income is a $60,000 military pension:
+        // $60,000 less the capped $20,000 less the $8,000 standard deduction
+        // leaves $32,000 taxable, which walks to $331.50 + $140.80 + $113.30
+        // plus $18,100 at 5.4% = $977.40, i.e. $1,563.00. Hand-derived from the
+        // bracket schedule, not read off the engine.
+        let sixtyOnlyCapped = Self.newYorkTaxOnOnePension(
+            source: .otherStateOrLocal, pension: 60_000, other: 0)
+        #expect(abs(sixtyOnlyCapped - 1_563.00) < 0.01,
+                """
+                The capped path on a $60,000-only household produced \(sixtyOnlyCapped), \
+                expected $1,563.00. This is the figure the pre-widening defect actually \
+                cost that household, and it is pinned so the narrative in this file, in \
+                NY-5's source string and in statetax data's comment cannot drift from \
+                arithmetic that reproduces.
+                """)
+        let sixtyOnlyMilitary = Self.newYorkTaxOnOnePension(
+            source: .uniformedServices, pension: 60_000, other: 0)
+        #expect(sixtyOnlyMilitary == 0.0,
+                """
+                A $60,000 military pension as a household's only income produced \
+                \(sixtyOnlyMilitary), expected $0.00: the Line 26 subtraction exceeds the \
+                income, so New York taxable income floors at zero.
                 """)
     }
 
@@ -365,7 +402,15 @@ struct Phase5bNewYorkMilitaryTests {
     @Test("New York's Railroad Retirement question stays recorded as a known-but-unpinned defect")
     func theRailroadRetirementQuestionStaysRecorded() throws {
         let entry = try #require(
-            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first { $0.state == "NY" },
+            // Selected on CONTENT, not on `state == "NY"` alone. New York has
+            // one entry today, so a bare state match is correct right now and
+            // becomes wrong the moment a second lands, which this entry's own
+            // text invites by naming a future New York golden case as the
+            // resolution. Same hazard the Massachusetts pair documents and the
+            // District's two now avoid.
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "NY" && $0.summary.contains("RAILROAD RETIREMENT benefits is unresolved")
+            },
             """
             New York's Railroad Retirement gap is no longer recorded. If a New York golden
             case derived from New York's own published treatment was added and the rule

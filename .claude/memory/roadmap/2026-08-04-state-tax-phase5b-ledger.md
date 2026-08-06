@@ -359,7 +359,21 @@ jurisdiction. New York's rule named `nyStateOrLocal` and `federalCivilian` only,
 a New York military retiree's best available pick was "Government pension, federal civilian",
 which matched, and the uncapped Line 26 exclusion applied BY ACCIDENT. After Task 3 the honest
 pick wrote `uniformedServices`, matched nothing, and fell back to the CAPPED $20,000 Line 29
-exclusion: roughly $2,200 a year on a $60,000 pension, two taps away, on the canary jurisdiction.
+exclusion. The cost depends on the household's other income, so it is stated at two shapes rather
+than as one round number: a single filer at 65 whose ONLY income is a $60,000 military pension
+paid $1,563.00 and now pays $0.00; at NY-5's shape ($70,000 pension plus $20,000 of other
+ordinary income) it is $3,183.00 against $487.75, a delta of $2,695.25. Both are pinned by
+`Phase5bNewYorkMilitaryTests`. Two taps away either way, on the canary jurisdiction.
+
+**A correction worth carrying as a method note.** An earlier draft of this paragraph, of the
+shipped comment in `StateTaxData.swift` and of NY-5's own `source` string all said "roughly $2,200
+a year on a $60,000 pension". That figure does not reproduce from the inputs beside it: it holds
+only with $20,000 of unstated other income pushing the uncapped slice into the 5.4% band. Nothing
+asserted on it and every load-bearing figure was exact, so it was narrative imprecision, but it
+sat in derivation-grade surroundings where a reader is entitled to assume every number reproduces.
+An independent verifier caught it after the figure had already been repeated to John. **A dollar
+figure in a fixture, a config comment or this ledger must be re-derivable from the inputs stated
+next to it, or it must name the shape it belongs to.**
 Every New York golden case stayed green, because none carried such a row. **The branch replaced a
 right-by-accident answer with a wrong one and nothing recorded it.**
 

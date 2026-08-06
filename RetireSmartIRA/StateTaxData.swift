@@ -2069,8 +2069,13 @@ struct StateTaxData {
                 // Line 26 exclusion was reached BY ACCIDENT. After it, the
                 // natural pick wrote `.uniformedServices`, which this rule did
                 // not name, and the pension silently fell back to the capped
-                // $20,000 Line 29 exclusion: roughly $2,200 a year on a
-                // $60,000 pension, two taps away.
+                // $20,000 Line 29 exclusion. What that costs, at two shapes,
+                // both hand-derived from the bracket schedule above and pinned
+                // by `Phase5bNewYorkMilitaryTests`: a single filer at 65 whose
+                // ONLY income is a $60,000 military pension paid $1,563.00 and
+                // now pays $0.00; at NY-5's shape ($70,000 pension plus
+                // $20,000 of other ordinary income) the figures are $3,183.00
+                // and $487.75, a delta of $2,695.25. Two taps away either way.
                 //
                 // The authority is the SAME sentence already quoted by the
                 // NY-1 golden case, not new research: Line 26 eligibility runs
