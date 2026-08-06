@@ -1403,3 +1403,31 @@ no production consumer at all. The four captions are hand-written `if selectedSt
 view and render only inside the pension edit sheet, so a user who entered their pension before moving
 never sees one. Phase 6's disclosure taxonomy should read the defect catalogue rather than fixture
 presence.
+
+---
+
+## 2026-08-05: Phase 5b closes with all user-facing copy approved; Vermont's hold call still open
+
+**Approved.** DC's `unclassifiedPensionDisclosure` sentence, DC's survivor toggle label and its
+explanatory caption, and Vermont's caption. That is every piece of user-facing copy Phase 5b produced:
+the Kansas, Massachusetts, Arizona and DC disclosure sentences, the Hawaii, Massachusetts, North
+Carolina, Idaho and Vermont captions, DC's survivor toggle, and the three plan-classification picker
+rows Task 3 added.
+
+**The DC survivor toggle is worth singling out.** It is the only control this phase added that ASKS the
+user a question rather than warning them, it is the sole route to DC's exclusion, and a wrong answer
+moves their tax in either direction. It was also mandatory rather than polish: without it every DC
+golden case would have gone green while no real survivor annuitant could reach the rule, which is
+exactly the failure Task 3 caught for Kansas.
+
+**STILL OPEN, the only unresolved item in the phase: Vermont hold versus ship.** Vermont carries the
+largest single dollar gap in the phase, $5,211.50 a year at VT-6's shape, and ships nothing. The
+available config-only shape would turn four cases green with roughly $335 of bounded over-match, but it
+over-exempts FERS retirees (a growing population) to serve CSRS retirees (a class closed since 1984),
+which is the same population logic that decided North Carolina. The better fix, an income-gated
+military rule implementing Act 71's quoted $125,000 sentence, corrects $4,525.15 with NO under-taxation
+anywhere, but is blocked on which income basis the gate compares against, and no Vermont fixture pins
+it. Write VT-7 first if it is ever built: AGI $130,000, expected $172.53.
+
+**Implementer, reviewer and controller all recommend HOLD** and taking the income-gated shape as a
+Phase 6 model task. John has not answered.
