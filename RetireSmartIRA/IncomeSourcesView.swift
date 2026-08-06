@@ -520,6 +520,87 @@ struct IncomeSourcesView: View {
         + "2025's Act 71 exempts military retired pay in full under $125,000 of income. "
         + "This app applies neither exemption, so if you qualify your Vermont state tax "
         + "may be overstated."
+
+    /// Phase 5b Task 9. The District of Columbia's survivor-annuity caption, the
+    /// explanation sitting under the "I receive this as a survivor or beneficiary"
+    /// toggle.
+    ///
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with the toggle
+    /// label itself and DC's `unclassifiedPensionDisclosure` sentence in
+    /// `statetax-2026-DC.json`.
+    ///
+    /// HOISTED from an inline view-body literal by the per-state accuracy
+    /// disclosure work, which changed the text not at all. It had no test seam
+    /// before that; two Phase 5b reviews recorded the absence of one for this
+    /// caption and for Hawaii's and Massachusetts's below. The byte-identity gate
+    /// that proves the later move to `StateVerification.knownLimitations` is
+    /// lossless cannot be written against a literal buried in a `body`.
+    ///
+    /// The second sentence is the load-bearing one and is not decoration: DC
+    /// excludes a survivor annuity but taxes an annuitant's OWN pension in full,
+    /// so a reader who turns the toggle on for their own pension gets a wrong
+    /// number in the confident direction. Rewording is a one-line change here plus
+    /// the assertions in `Phase5bDCSurvivorTests` and
+    /// `StateAccuracyContentTests`.
+    static let districtOfColumbiaSurvivorToggleCaption =
+        "The District of Columbia excludes a DC or federal government survivor annuity "
+        + "from tax once the survivor is 62 or older, but taxes an annuitant's own "
+        + "pension in full. Turn this on only for a pension paid to you as someone "
+        + "else's survivor or beneficiary."
+
+    /// Hawaii's employer-funded-split caption, shown to any Hawaii resident in the
+    /// pension editor.
+    ///
+    /// HOISTED from an inline view-body literal by the per-state accuracy
+    /// disclosure work, which changed the text not at all.
+    ///
+    /// DIRECTION: overstated. Hawaii excludes the employer-funded portion and this
+    /// app models no split, so it taxes the whole pension and every error runs
+    /// toward over-taxation, exactly like North Carolina, Idaho and Vermont and
+    /// unlike Massachusetts below. Harmonising this with the Massachusetts caption
+    /// would invert one of them.
+    ///
+    /// NOT the same string as
+    /// `MultiYearCPABriefing.hawaiiPensionSplitLimitation`, which discloses the
+    /// same gap on the CPA-briefing surface and says "This plan does not model"
+    /// where this one says "This app does not model". The two are pinned by
+    /// different tests (`Phase5bHawaiiDecisionTests` covers the briefing string,
+    /// `StateAccuracyContentTests` covers this one) and must be reconciled
+    /// deliberately, not by assuming a copy-paste slip, if the captions are ever
+    /// consolidated into one config field.
+    static let hawaiiEmployerFundedCaption =
+        "Hawaii excludes the employer-funded portion of a pension from state tax. This "
+        + "app does not model the split between employer-funded and employee-contributed "
+        + "amounts, so your Hawaii state tax may be overstated."
+
+    /// Phase 5b Task 4. Massachusetts's contributory-against-noncontributory
+    /// caption.
+    ///
+    /// **APPROVED BY JOHN ON 2026-08-05.** Deliberately modelled on the Hawaii
+    /// caption above rather than invented: both disclose the SAME missing axis,
+    /// employee-contributory against employer-funded, which
+    /// `RetirementPlanClassification` does not carry.
+    ///
+    /// HOISTED from an inline view-body literal by the per-state accuracy
+    /// disclosure work, which changed the text not at all.
+    ///
+    /// DIRECTION: understated, and it is the ONLY caption in this group that runs
+    /// that way. Hawaii's runs toward over-taxation and Massachusetts's toward
+    /// UNDER-taxation, which is the more serious direction and is why it shipped
+    /// when it did: the Task 4 rule excludes an own-state defined-benefit pension
+    /// outright, and a noncontributory Massachusetts municipal pension is
+    /// indistinguishable from a contributory one on every field the picker writes.
+    /// A copy edit that harmonised this with any caption around it would invert
+    /// it.
+    ///
+    /// The durable record is
+    /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
+    /// surface that reaches the affected user. Delete both together if a
+    /// contributory axis is added.
+    static let massachusettsContributoryCaption =
+        "Massachusetts excludes a contributory state or local pension but taxes a "
+        + "noncontributory one. This app does not model that distinction, so if your "
+        + "pension is noncontributory your Massachusetts state tax may be understated."
     @Environment(DataManager.self) var dataManager
     @State private var showingAddIncome = false
     @State private var selectedIncomeSource: IncomeSource?
@@ -1507,10 +1588,13 @@ struct IncomeSourcesView: View {
                                 .foregroundStyle(.secondary)
 
                             // Phase 5b Task 9. Toggle label and caption
-                            // APPROVED by John on 2026-08-05, as written.
-                            // Rewording either is a one-line change here plus
-                            // the assertions in
-                            // Phase5bDCSurvivorTests.
+                            // APPROVED by John on 2026-08-05, as written. The
+                            // caption text now lives in IncomeSourcesView
+                            // .districtOfColumbiaSurvivorToggleCaption; reword
+                            // it there, plus the assertions in
+                            // Phase5bDCSurvivorTests and
+                            // StateAccuracyContentTests. The toggle LABEL is
+                            // still a literal below and is approved copy too.
                             //
                             // Shown only where a jurisdiction's shipped rules
                             // consult the survivor dimension, which today is
@@ -1525,39 +1609,27 @@ struct IncomeSourcesView: View {
                             if PlanClassificationChoice.residenceUsesSurvivorDimension(dataManager.selectedState) {
                                 Toggle("I receive this as a survivor or beneficiary",
                                        isOn: $isSurvivorBenefit)
-                                Text("The District of Columbia excludes a DC or federal government survivor annuity from tax once the survivor is 62 or older, but taxes an annuitant's own pension in full. Turn this on only for a pension paid to you as someone else's survivor or beneficiary.")
+                                Text(IncomeSourcesView.districtOfColumbiaSurvivorToggleCaption)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
 
                             if dataManager.selectedState == .hawaii {
-                                Label("Hawaii excludes the employer-funded portion of a pension from state tax. This app does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.",
+                                Label(IncomeSourcesView.hawaiiEmployerFundedCaption,
                                       systemImage: "info.circle")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
 
                             // Phase 5b Task 4. Copy APPROVED by John on
-                            // 2026-08-05, and deliberately modelled on the
-                            // Hawaii caption directly above rather than
-                            // invented: both disclose the SAME missing axis,
-                            // employee-contributory against employer-funded,
-                            // which `RetirementPlanClassification` does not
-                            // carry. Hawaii's runs toward over-taxation and
-                            // Massachusetts's toward UNDER-taxation, which is
-                            // the more serious direction and is why this ships
-                            // now rather than waiting: the Task 4 rule excludes
-                            // an own-state defined-benefit pension outright,
-                            // and a noncontributory Massachusetts municipal
-                            // pension is indistinguishable from a contributory
-                            // one on every field the picker writes. The
-                            // durable record is
-                            // GoldenScenarioDefectCatalogueTests.knownButUnpinned;
-                            // this is the only surface that reaches the
-                            // affected user. Delete both together if a
-                            // contributory axis is added.
+                            // 2026-08-05; see IncomeSourcesView
+                            // .massachusettsContributoryCaption for why it is
+                            // modelled on the Hawaii caption above and why its
+                            // direction is the opposite one. Massachusetts runs
+                            // toward UNDER-taxation, the only caption in this
+                            // group that does.
                             if dataManager.selectedState == .massachusetts {
-                                Label("Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated.",
+                                Label(IncomeSourcesView.massachusettsContributoryCaption,
                                       systemImage: "info.circle")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
