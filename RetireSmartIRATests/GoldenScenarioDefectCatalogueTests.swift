@@ -560,11 +560,81 @@ struct GoldenScenarioDefectCatalogueTests {
                 moves their own tax by 3.99% of the pension in whichever direction they
                 guessed, with nothing to cross-check them.
 
-                Also unresolved and NOT guessed at, following Task 6's railroad precedent:
-                the North Carolina fixture carries no `uniformedServices` case and cites no
-                North Carolina provision covering military retired pay, and Step 1 forbids
-                re-researching the law, so Task 7 left the status quo rather than inventing
-                a citation. Same for `railroadRetirement` and `governmentUnspecified`.
+                Military retired pay is NOT one of the open questions here, and an earlier
+                draft of this entry wrongly said it was. North Carolina's answer is already
+                shipped: `MilitaryRetirementExemption.stateTaxableAmount` returns
+                `.fullyExempt` for "NC". What is open is that the shipped answer is reachable
+                by only ONE of the two paths a user has, which is its own catalogue entry
+                below. `railroadRetirement` and `governmentUnspecified` remain genuinely
+                uncited in the North Carolina fixture, and Step 1 forbids re-researching the
+                law, so Task 7 left those at the status quo rather than inventing a citation,
+                following Task 6's railroad precedent.
+                """
+        ),
+        UnpinnedDefect(
+            state: "NC",
+            summary: """
+                MILITARY RETIRED PAY HAS TWO PATHS IN NORTH CAROLINA WITH OPPOSITE ANSWERS,
+                and the divergence is reachable by a real user today. It predates Phase 5b
+                Task 7 and was found by that task's own mirror sweep.
+
+                Path 1, by INCOME TYPE. `MilitaryRetirementExemption.stateTaxableAmount`
+                returns `.fullyExempt` for "NC" ("North Carolina, full exemption enacted
+                2021"), consumed by `TaxCalculationEngine` and mirrored in `DataManager`, for
+                rows whose `IncomeSource.type` is `.militaryRetirement`.
+                `IncomeSourcesView`'s `stateTreatmentHint` renders a green "Fully exempt from
+                North Carolina state tax" badge for them. Result: $0 of North Carolina tax.
+
+                Path 2, by CLASSIFICATION. Phase 5b Task 3 added the "Military retired pay"
+                picker row, which writes `(definedBenefit, uniformedServices)` onto a
+                `.pension` row. North Carolina ships no `perSourceExemptions`, so nothing
+                reads that classification and the income is taxed in full.
+                `Phase5bNorthCarolinaDecisionTests.northCarolinaIsUnaffectedByClassification`
+                MEASURES $1,486.27 for `uniformedServices` at a $50,000 pension, single, age
+                70. That test asserts the figure deliberately, because inertness is Task 7's
+                deliverable, but the figure contradicts path 1 for the same money.
+
+                The two loops are disjoint (a row has exactly one `type`), so there is no
+                double exclusion and no arithmetic bug. The defect is that the ANSWER depends
+                on which screen the user entered the money from, and the pension picker is
+                offered unconditionally to every state
+                (`IncomeSourcesView.swift`, the `incomeType == .pension` section), so a North
+                Carolina user can reach the taxed path without doing anything unusual.
+                Direction: OVER-taxation by the full amount of the military pension, against
+                a state answer the app itself already displays as fully exempt.
+
+                Task 6 found and pinned the SAME divergence in Arizona
+                (`bothMilitaryRoutesAgree`), where it happened to resolve because Arizona's
+                new `uniformedServices` rule made the two paths agree. North Carolina has no
+                such rule and cannot get one from Task 7, so the divergence stays open here.
+                """,
+            blockedOn: """
+                NOT A GOLDEN-CASE DEFECT, which is why it needs this entry rather than a
+                fixture. The golden harness's `ClassifiedPensionSource` schema builds
+                `.pension` rows only; it has no way to express an `IncomeType`, so path 1 is
+                unreachable from `GoldenScenarioSingleYearTests` and the two paths cannot be
+                compared there at all. Arizona's equivalent is pinned in a hand-written
+                DataManager test, not in a fixture, for the same reason.
+
+                NOT FIXABLE BY TASK 7, and this is the point worth carrying forward. The
+                obvious repair is a North Carolina `perSourceExemptions` rule naming
+                `uniformedServices` at `full`, which would make the two paths agree. Task 7
+                cannot ship it: North Carolina's entire Task 7 finding is that its fixture
+                establishes the Bailey exclusion and nothing else, no fixture case or cited
+                provision covers military retired pay under the Bailey settlement, and Step 1
+                forbids re-researching the law. Shipping a `uniformedServices` rule on the
+                strength of `MilitaryRetirementExemption`'s own comment would also import
+                that table's authority, which no golden fixture has ever audited.
+
+                RESOLVE IT by deciding, in a task with authority to establish the law,
+                whether North Carolina's military exemption should be expressed as a
+                per-source rule. If yes, the two paths converge, this entry is deleted, and
+                `northCarolinaIsUnaffectedByClassification` must be narrowed to exclude
+                `uniformedServices` in the same change, since it currently asserts the taxed
+                figure for every source. The broader structural fix, which Task 6 also
+                gestured at, is that `IncomeType.militaryRetirement` and
+                `PlanSource.uniformedServices` are two encodings of one fact and one of them
+                should eventually be derived from the other.
                 """
         )
     ]

@@ -34,10 +34,13 @@
 //  these tests reproduce its consequences without shipping it.
 //
 //  THE POPULATION, which is the fact that decided it and which no fixture
-//  states: the Bailey class CLOSED on 1989-08-12 and can never gain a member,
-//  while its complement has grown with every North Carolina public hire for
-//  more than forty years and still does. Every North Carolina public employee
-//  retiring today, and in every future year, is outside the class.
+//  states: the Bailey class CLOSED in AUGUST 1984 and can never gain a member.
+//  Five years of creditable service by 1989-08-12 requires a hire date five
+//  years earlier, so the excluded group is everyone first hired from September
+//  1984, not September 1989. Its complement has grown with every North Carolina
+//  public hire for more than forty years and still does. Every North Carolina
+//  public employee retiring today, and in every future year, is outside the
+//  class.
 //
 //  WHAT THIS FILE DOES NOT DO: it does not re-derive North Carolina law. The
 //  golden fixture is the specification, per the shared procedure, and its
@@ -201,34 +204,6 @@ struct Phase5bNorthCarolinaDecisionTests {
                 """)
     }
 
-    /// The phase-wide cap ban, CONFIRMED rather than assumed, per the task
-    /// brief's instruction.
-    ///
-    /// Task 6 established that a `.partial` treatment inside a
-    /// `PerSourceExemptionRule` grants the cap once PER ROW, because
-    /// `treatment` is evaluated inside the engine's and the mirror's row loops,
-    /// and added `noShippedPerSourceRuleIsCapped` sweeping all 51 jurisdictions.
-    /// Bailey is uncapped, so the ban is NOT what blocks North Carolina, and
-    /// this test records that the blocker is the vesting axis alone. NCDOR:
-    /// "All distributions from a qualifying Bailey retirement account...are
-    /// exempt from state income tax regardless of the source of the funds
-    /// contained in the account", quoted in NC-3's own `source` field.
-    @Test("The declined rule is uncapped, so the phase-wide cap ban is not what blocks North Carolina")
-    func theCapBanIsNotWhatBlocksNorthCarolina() {
-        let isCapped: Bool
-        switch Self.declinedRule.treatment {
-        case .partial, .steppedPhaseoutByFilingStatus: isCapped = true
-        case .none, .full: isCapped = false
-        }
-        #expect(!isCapped,
-                """
-                The rule Task 7 declined is now capped. Bailey states no dollar cap, so a \
-                capped treatment would be wrong on the law before it was wrong on the \
-                per-row mechanics Task 6 documented. If Bailey turns out to have a cap, it \
-                belongs in `pensionExemption`, never in a per-source rule.
-                """)
-    }
-
     // MARK: - Why no golden case could have caught it
 
     /// The blocker, proven from the fixture's own data rather than asserted,
@@ -294,7 +269,7 @@ struct Phase5bNorthCarolinaDecisionTests {
                 $0.planSource == PlanSource.otherStateOrLocal.rawValue
             }
         }
-        let outOfState = try #require(guards.first,
+        #expect(!guards.isEmpty,
                 """
                 North Carolina's out-of-state guard case is gone. It is what fails if a \
                 future North Carolina rule names `otherStateOrLocal`, which would exempt \
@@ -302,14 +277,24 @@ struct Phase5bNorthCarolinaDecisionTests {
                 trap. Before Task 7's re-label all three Bailey rows carried that label, so \
                 this is the trap a rule-writer walks into by default. Restore it.
                 """)
-        #expect(outOfState.expectedStateTax > 0,
-                "The out-of-state guard must expect a POSITIVE tax; that is the whole assertion.")
-        #expect(outOfState.knownDefect == nil,
-                """
-                The out-of-state guard gained a knownDefect. The engine is CORRECT on this \
-                case today and must stay correct; a defect block here would mean North \
-                Carolina had started exempting an out-of-state pension.
-                """)
+        // Asserted over EVERY otherStateOrLocal case, not just the first. A
+        // `guards.first` check would let a second, weaker out-of-state case
+        // added later shadow this one and silently stop guarding anything.
+        for outOfState in guards {
+            #expect(outOfState.expectedStateTax > 0,
+                    """
+                    \(outOfState.name): an out-of-state public pension expects \
+                    \(outOfState.expectedStateTax). North Carolina taxes it in full at every \
+                    vesting date, so a zero here means a rule has started exempting another \
+                    state's pension.
+                    """)
+            #expect(outOfState.knownDefect == nil,
+                    """
+                    \(outOfState.name) gained a knownDefect. The engine is CORRECT on the \
+                    out-of-state case today and must stay correct; a defect block here would \
+                    mean North Carolina had started exempting an out-of-state pension.
+                    """)
+        }
     }
 
     // MARK: - The decision stays inert, and stays recorded
@@ -373,23 +358,123 @@ struct Phase5bNorthCarolinaDecisionTests {
     /// is deleted, so a future green suite cannot mean "North Carolina is fine".
     @Test("North Carolina's Bailey gap stays recorded as a known-but-unpinned defect")
     func theBaileyGapStaysRecorded() throws {
+        // Selected by SUMMARY, not merely by state: North Carolina now carries
+        // TWO unpinned entries (Bailey, and the military type-versus-source
+        // divergence below), so a `first { $0.state == "NC" }` lookup would pass
+        // on the wrong one if this one were deleted.
         let entry = try #require(
-            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first { $0.state == "NC" },
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "NC" && $0.summary.contains("BAILEY")
+            },
             """
             North Carolina's Bailey gap is no longer recorded. Either a vesting axis was \
             actually added, in which case this test should be replaced by golden cases for \
             the vested and non-vested households, or a real, cited over-taxation was \
             silently dropped from the catalogue.
             """)
-        #expect(entry.summary.contains("BAILEY"))
         #expect(entry.blockedOn.contains("NOT EXPRESSIBLE AS A GOLDEN CASE"))
         #expect(entry.summary.contains("disclosed NOWHERE"),
                 """
                 The NC entry no longer records that North Carolina's over-taxation is \
-                undisclosed. That is the one respect in which North Carolina is WEAKER \
-                than Hawaii, whose caption ships on two surfaces, and it is the Phase 6 \
-                item this decision leaves behind. It must not be quietly dropped.
+                undisclosed on the CPA briefing. The Income Sources caption shipped in Task \
+                7, but the briefing still carries no North Carolina line, so this is still \
+                only partly closed.
                 """)
+    }
+
+    /// The type-versus-source divergence found by this task's own mirror sweep,
+    /// kept as a durable record with its own deletion guard.
+    ///
+    /// North Carolina already answers military retired pay:
+    /// `MilitaryRetirementExemption.stateTaxableAmount` returns `.fullyExempt`
+    /// for "NC". But that path gates on `IncomeSource.type == .militaryRetirement`,
+    /// while Task 3's "Military retired pay" picker row writes
+    /// `(definedBenefit, uniformedServices)` onto a `.pension` row, which North
+    /// Carolina taxes in full because it ships no per-source rule. Same money,
+    /// two screens, opposite answers.
+    ///
+    /// This test MEASURES both paths rather than restating the entry, so it
+    /// fails the day either one moves, including the day someone ships the
+    /// `uniformedServices` rule that would close it.
+    @MainActor
+    @Test("North Carolina's two military paths still disagree, and the divergence stays recorded")
+    func theMilitaryTypeVersusSourceDivergenceStaysRecorded() throws {
+        // Path 1: by income TYPE. The shipped North Carolina answer.
+        #expect(MilitaryRetirementExemption.stateTaxableAmount(
+            gross: 50_000, stateCode: "NC", age: 70) == 0,
+                """
+                North Carolina no longer fully exempts military retired pay by income type. \
+                If that changed deliberately, this whole entry and the NC catalogue record \
+                need revisiting together.
+                """)
+
+        // Path 2: by CLASSIFICATION. Taxed in full, because NC ships no rule.
+        let dm = DataManager(skipPersistence: true)
+        var dob = DateComponents(); dob.year = 2026 - 70; dob.month = 1; dob.day = 1
+        dm.profile.birthDate = Calendar.current.date(from: dob)!
+        dm.profile.currentYear = 2026
+        dm.filingStatus = .single
+        dm.enableSpouse = false
+        dm.selectedState = .northCarolina
+        dm.incomeSources = [
+            IncomeSource(name: "Military pension", type: .pension, annualAmount: 50_000,
+                         owner: .primary, planStructure: .definedBenefit,
+                         planSource: .uniformedServices)
+        ]
+        let classified = dm.calculateStateTaxFromGross(
+            grossIncome: dm.scenarioGrossIncome, forState: .northCarolina,
+            filingStatus: .single, taxableSocialSecurity: dm.scenarioTaxableSocialSecurity)
+
+        #expect(abs(classified - Self.unexcludedNC1Tax) < 0.01,
+                """
+                The classified military path now reports \(classified) rather than \
+                \(Self.unexcludedNC1Tax). If a North Carolina `uniformedServices` rule \
+                shipped, the two paths have CONVERGED, which is the fix: delete the NC \
+                military entry from knownButUnpinned, delete this test, and narrow \
+                northCarolinaIsUnaffectedByClassification to exclude uniformedServices in \
+                the same change.
+                """)
+
+        let military = try #require(
+            GoldenScenarioDefectCatalogueTests.knownButUnpinned.first {
+                $0.state == "NC" && $0.summary.contains("TWO PATHS")
+            },
+            """
+            North Carolina's military type-versus-source divergence is no longer recorded. \
+            The two paths above still disagree, so this is a real, measured, reachable \
+            over-taxation that was silently dropped from the catalogue.
+            """)
+        #expect(military.blockedOn.contains("NOT A GOLDEN-CASE DEFECT"))
+    }
+
+    // MARK: - The disclosure that ships with this decision
+
+    /// The Income Sources caption, PROPOSED and awaiting John's approval.
+    ///
+    /// North Carolina was the only jurisdiction this phase touched with ZERO
+    /// disclosure on any surface. Task 4 shipped the Massachusetts caption three
+    /// lines above this one, in this same phase, and its comment block records
+    /// that it "is the only surface that reaches the affected user". The same
+    /// applies here, with the direction reversed: Massachusetts's error runs
+    /// toward UNDER-taxation, North Carolina's toward OVER-taxation.
+    ///
+    /// The DIRECTION word is the load-bearing part, exactly as in Hawaii's
+    /// caption. North Carolina applies no Bailey exclusion at all, so every
+    /// error runs toward over-taxation and "understated" would be false.
+    @MainActor
+    @Test("North Carolina's Income Sources caption ships and names the right direction")
+    func northCarolinaCaptionNamesTheRightDirection() {
+        let text = IncomeSourcesView.northCarolinaBaileyCaption
+        #expect(text.contains("Bailey"))
+        #expect(text.contains("overstated"),
+                """
+                North Carolina's caption no longer says the tax may be OVERSTATED. North \
+                Carolina applies no Bailey exclusion, so every error runs toward \
+                over-taxation; understated would be false. A copy edit that harmonised this \
+                with the Massachusetts caption directly above it would invert one of them.
+                """)
+        #expect(!text.contains("understated"))
+        #expect(!text.contains("—") && !text.contains("–"), "no em or en dash in user-facing copy")
     }
 
     // MARK: - Picker reachability, and what a North Carolina user is actually asked
@@ -422,26 +507,4 @@ struct Phase5bNorthCarolinaDecisionTests {
                 "The out-of-state row backs the guard case; a user must be able to select it.")
     }
 
-    /// The honest consequence of shipping no rule, asserted rather than left
-    /// implicit: North Carolina does NOT prompt for classification, because
-    /// `shouldPromptForClassification` gates on the residence carrying a
-    /// per-source rule that could change the answer.
-    ///
-    /// That is correct today, and it is the tripwire for the day a Bailey rule
-    /// ships: the prompt turns itself on, and the whole of this file must be
-    /// revisited in the same change.
-    @Test("North Carolina does not prompt for classification, because no rule could change the answer")
-    func northCarolinaDoesNotPromptForClassification() {
-        let unclassified = IncomeSource(
-            name: "Pension", type: .pension, annualAmount: 50_000, owner: .primary,
-            planStructure: .unknown, planSource: .unknown)
-        let hasRules = !Self.northCarolinaExemptions.perSourceExemptions.isEmpty
-        #expect(!PlanClassificationChoice.shouldPromptForClassification(
-            source: unclassified, residenceHasPerSourceRules: hasRules),
-                """
-                North Carolina now prompts a user to classify a pension. That only happens \
-                when the residence ships per-source rules, so a Bailey rule has landed and \
-                Phase5bNorthCarolinaDecisionTests is stale.
-                """)
-    }
 }

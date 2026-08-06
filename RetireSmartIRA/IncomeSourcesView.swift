@@ -356,6 +356,36 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
 }
 
 struct IncomeSourcesView: View {
+
+    /// Phase 5b Task 7. North Carolina's Bailey disclosure.
+    ///
+    /// **PROPOSED COPY, AWAITING JOHN'S APPROVAL.** Every other caption in this
+    /// section is approved (Hawaii pre-dates Phase 5b; Massachusetts's was
+    /// approved 2026-08-05). This one is not, and it ships now only because
+    /// North Carolina was the ONLY jurisdiction this phase touched carrying zero
+    /// disclosure on any surface: a Bailey-vested retiree is over-taxed by
+    /// $1,486.27 a year at the NC-1 fixture's shape with nothing on screen
+    /// telling them. Rewording it is a one-line change here plus the assertions
+    /// in `Phase5bNorthCarolinaDecisionTests.northCarolinaCaptionNamesTheRightDirection`.
+    ///
+    /// HOISTED to a static rather than written inline like the Hawaii and
+    /// Massachusetts captions, so it has a test seam. Task 5 recorded the
+    /// absence of one for those two as a gap to close in Phase 6; there is no
+    /// reason to add a third untestable literal in the meantime.
+    ///
+    /// It cannot be an `unclassifiedPensionDisclosure` sentence: that string is
+    /// in bidirectional lockstep with `perSourceExemptions`, which North
+    /// Carolina deliberately does not ship, and it would be false anyway,
+    /// because a North Carolina pension can be perfectly classified and still be
+    /// taxed wrongly. The durable record is the NC entry in
+    /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
+    /// surface that reaches the affected user. Delete both together if a Bailey
+    /// vesting axis is ever added.
+    static let northCarolinaBaileyCaption =
+        "North Carolina exempts a state, local or federal government pension under the "
+        + "Bailey settlement if you had five or more years of creditable service by "
+        + "August 12, 1989. This app does not model that vesting date, so if you qualify "
+        + "your North Carolina state tax may be overstated."
     @Environment(DataManager.self) var dataManager
     @State private var showingAddIncome = false
     @State private var selectedIncomeSource: IncomeSource?
@@ -1355,6 +1385,21 @@ struct IncomeSourcesView: View {
                             // contributory axis is added.
                             if dataManager.selectedState == .massachusetts {
                                 Label("Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated.",
+                                      systemImage: "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            // Phase 5b Task 7. PROPOSED copy, awaiting John's
+                            // approval; see IncomeSourcesView
+                            // .northCarolinaBaileyCaption for why it ships
+                            // unapproved and what it must not be turned into.
+                            // Direction is the opposite of Massachusetts's
+                            // directly above: North Carolina applies no Bailey
+                            // exclusion at all, so its error runs toward
+                            // OVER-taxation.
+                            if dataManager.selectedState == .northCarolina {
+                                Label(IncomeSourcesView.northCarolinaBaileyCaption,
                                       systemImage: "info.circle")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
