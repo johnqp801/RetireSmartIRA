@@ -132,6 +132,171 @@ enum StateAccuracyContent {
                                       with: scope.substitution)
     }
 
+    // MARK: - The limitations half
+
+    /// The exact sentence an empty `knownLimitations` renders as.
+    ///
+    /// JOHN'S WORDING, SPECIFIED CHARACTER FOR CHARACTER, and the most
+    /// load-bearing string in this feature. An empty array records what has not
+    /// been FOUND for a jurisdiction; it never records that nothing exists. The
+    /// 2026-08-02 audit found jurisdictions believed correct on their
+    /// retirement exclusions that were wrong on brackets, deductions, credits
+    /// and filing-status treatment, so silence here is ignorance, not a
+    /// clearance.
+    ///
+    /// A constant rather than a literal at its one use site so the tests assert
+    /// against the shipped string rather than a retyped copy of it, and so a
+    /// reviewer grepping for the sentence finds one definition.
+    ///
+    /// The design allows an optional second sentence ("State tax rules are
+    /// complex, and this does not mean every unusual situation is
+    /// represented"). It is NOT appended here: it is unapproved copy, and the
+    /// gate on this string is exact equality.
+    static let noRecordedLimitationsSentence =
+        "No known limitations are currently recorded for this state and tax year."
+
+    /// What the accuracy page says under "Known limitations" for `state`.
+    ///
+    /// Returns `noRecordedLimitationsSentence` when nothing is recorded, and the
+    /// jurisdiction's sentences otherwise, blank-line separated so a surface
+    /// that can only render one string still shows them as separate paragraphs.
+    ///
+    /// STRONGER LANGUAGE IS OUT OF SCOPE, deliberately. "No known limitations
+    /// were identified in our latest verification" would require a recorded
+    /// verification SCOPE, meaning a record of what was actually examined, and
+    /// an empty array is not that. Iowa and Indiana are the live proof that
+    /// this matters inside the covered set: both carry a verification date and
+    /// a primary source, and both ship no limitation sentence at all.
+    static func limitationsSummary(for state: USState,
+                                   scope: LimitationScope = .app) -> String {
+        let sentences = limitations(for: state, scope: scope)
+        guard !sentences.isEmpty else { return noRecordedLimitationsSentence }
+        return sentences.joined(separator: "\n\n")
+    }
+
+    // MARK: - The header
+
+    /// The provenance block at the top of the accuracy page.
+    ///
+    /// Built here rather than in the view because every field is a decision
+    /// about what the app is willing to claim, and those decisions have to be
+    /// assertable. `StateAccuracyView` renders these strings and composes none
+    /// of them.
+    struct Header: Equatable, Sendable {
+        /// State AND tax year, in ONE string.
+        ///
+        /// They travel together so that no layout change can separate them.
+        /// A bare "Iowa" beside "Verified August 2026" reads as a claim about
+        /// Iowa's current law generally, when the configuration describes a
+        /// single tax year.
+        let title: String
+
+        /// When this jurisdiction was last verified, or an explicit statement
+        /// that no date is recorded. Never blank, because a missing line reads
+        /// as an absent question rather than an unanswered one.
+        let verified: String
+
+        /// The jurisdiction's primary sources, split into a readable label and
+        /// a followable URL.
+        let sources: [Source]
+
+        /// Shown in place of `sources` when it is empty.
+        let noSourcesMessage: String
+
+        /// One primary source: what it is, and where to read it.
+        struct Source: Equatable, Identifiable, Sendable {
+            let label: String
+            let url: URL?
+            var id: String { label }
+        }
+    }
+
+    /// The provenance header for `state`.
+    ///
+    /// NO YEAR IS EVER INVENTED. A file that states no `taxYear` decodes to the
+    /// `0` sentinel, and `StateVerification.statedTaxYear` turns that into
+    /// `nil` precisely so this function has to answer for it. Thirty-six
+    /// jurisdictions are in that position. `StateTaxDataLoader` resolved their
+    /// files out of the 2026 directory, so printing 2026 here would be easy and
+    /// would be wrong: it would manufacture a provenance claim the data never
+    /// made, on the one page whose purpose is to separate what is known from
+    /// what is not.
+    ///
+    /// PROPOSED COPY, AWAITING JOHN: the three fallback strings for the
+    /// unknown cases, "tax year not recorded", "No verification date
+    /// recorded." and "No primary sources recorded." Task 3 added
+    /// `statedTaxYear` with deliberately NO fallback string because the wording
+    /// is John's to approve; these ship so the suite is green and the page
+    /// works, exactly as Task 4's sentences did. See the task report for the
+    /// alternatives considered.
+    static func header(for state: USState) -> Header {
+        let verification = StateTaxData.config(for: state).verification
+
+        let title: String
+        if let year = verification.statedTaxYear {
+            title = "\(state.rawValue) tax treatment, \(year)"
+        } else {
+            title = "\(state.rawValue) tax treatment, tax year not recorded"
+        }
+
+        let verified: String
+        if let formatted = verifiedDate(verification.lastVerified) {
+            verified = "Verified \(formatted)."
+        } else {
+            verified = "No verification date recorded."
+        }
+
+        return Header(title: title,
+                      verified: verified,
+                      sources: verification.primarySources.map(source(from:)),
+                      noSourcesMessage: "No primary sources recorded.")
+    }
+
+    /// `lastVerified` is stored ISO `yyyy-MM-dd`. Rendered as prose because a
+    /// disclosure page is read by people, not parsers.
+    ///
+    /// Parsed and formatted through a FIXED locale and time zone. A device
+    /// locale would make the shipped string differ per reader and make the test
+    /// that pins it flaky; a floating time zone would shift the date across a
+    /// day boundary for readers west of UTC, printing a verification date one
+    /// day earlier than the one recorded.
+    ///
+    /// Returns `nil` for an empty or unparseable value rather than echoing the
+    /// raw string, so the caller states the absence instead of showing
+    /// "Verified " followed by nothing.
+    private static func verifiedDate(_ isoDate: String) -> String? {
+        guard !isoDate.isEmpty else { return nil }
+        let parser = DateFormatter()
+        parser.locale = fixedLocale
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: isoDate) else { return nil }
+
+        let display = DateFormatter()
+        display.locale = fixedLocale
+        display.timeZone = TimeZone(identifier: "UTC")
+        display.dateFormat = "MMMM d, yyyy"
+        return display.string(from: date)
+    }
+
+    /// Splits a stored source, which is written "Description: https://url", into
+    /// a label a reader can scan and a URL they can open.
+    ///
+    /// Splits at the URL rather than at the last colon, because several
+    /// descriptions contain their own colons and one of them
+    /// ("D.C. Code Section 47-1803.02") would otherwise lose half its name.
+    private static func source(from stored: String) -> Header.Source {
+        guard let schemeStart = stored.range(of: "https://") else {
+            return Header.Source(label: stored, url: nil)
+        }
+        let label = String(stored[stored.startIndex..<schemeStart.lowerBound])
+            .trimmingCharacters(in: CharacterSet(charactersIn: " :"))
+        let address = String(stored[schemeStart.lowerBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return Header.Source(label: label.isEmpty ? address : label,
+                             url: URL(string: address))
+    }
+
     // MARK: - The factual half
 
     /// One labelled fact about how this app taxes a jurisdiction.

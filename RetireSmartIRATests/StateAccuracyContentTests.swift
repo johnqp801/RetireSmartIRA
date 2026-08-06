@@ -573,4 +573,174 @@ struct StateAccuracyContentTests {
         #expect(general.value == "No general exemption.")
     }
 
+    // MARK: - Task 6: the limitations half, and the empty state
+
+    /// THE SINGLE MOST IMPORTANT ASSERTION IN THIS FEATURE. An empty array
+    /// records what has not been FOUND, never what does not EXIST. The
+    /// 2026-08-02 audit found jurisdictions believed correct on their
+    /// retirement exclusions that were wrong on brackets, deductions, credits
+    /// and filing-status treatment.
+    ///
+    /// The wording is John's, specified exactly, and the negative assertions
+    /// below are the ones that matter: they fail if a later edit softens this
+    /// into a completeness claim.
+    @Test("An empty limitations list never reads as a clean bill of health")
+    func emptyLimitationsDoesNotClaimCompleteness() {
+        let text = StateAccuracyContent.limitationsSummary(for: .pennsylvania)
+        #expect(text == "No known limitations are currently recorded for this state and tax year.")
+        #expect(!text.lowercased().contains("no limitations"))
+        #expect(!text.lowercased().contains("fully modeled"))
+    }
+
+    /// The empty state is load-bearing INSIDE the covered set, not only for the
+    /// thirty-six jurisdictions outside it.
+    ///
+    /// Iowa and Indiana were both Phase 5 corrections, both carry complete
+    /// verification metadata, and both ship ZERO limitation sentences. A reader
+    /// who reached an Iowa page through a "how accurate is this" affordance is
+    /// exactly the reader most likely to read silence as a guarantee, and Iowa
+    /// is a state whose withheld-portion treatment is an open question with its
+    /// own Department of Revenue.
+    ///
+    /// Asserted as a property over the covered set rather than against Iowa and
+    /// Indiana by name, so a jurisdiction whose last sentence is removed by a
+    /// future correction is covered without editing this test.
+    @Test("A covered jurisdiction with no recorded limitations makes no claim either")
+    func coveredJurisdictionsWithEmptyListsClaimNothing() {
+        var checked: [String] = []
+        for state in StateAccuracyContent.coveredJurisdictions.sorted(by: { $0.abbreviation < $1.abbreviation }) {
+            guard StateAccuracyContent.limitations(for: state).isEmpty else { continue }
+            checked.append(state.abbreviation)
+            let text = StateAccuracyContent.limitationsSummary(for: state)
+            #expect(text == "No known limitations are currently recorded for this state and tax year.",
+                    "\(state.abbreviation) is covered, ships no limitation, and must still claim nothing")
+            #expect(!text.lowercased().contains("verified"),
+                    "\(state.abbreviation): an empty list must not borrow the verification stamp as a completeness claim")
+        }
+        #expect(checked == ["IA", "IN"],
+                "the covered jurisdictions shipping empty lists changed: \(checked)")
+    }
+
+    /// No jurisdiction, anywhere, produces a summary that reads as a clean bill
+    /// of health. The two phrases are the ones the plan names; "verified
+    /// complete" is the third way this has been phrased wrongly in review.
+    @Test("No jurisdiction's limitations summary claims completeness")
+    func noSummaryAnywhereClaimsCompleteness() {
+        for state in USState.allCases {
+            let text = StateAccuracyContent.limitationsSummary(for: state).lowercased()
+            for banned in ["no limitations", "fully modeled", "fully modelled",
+                           "verified complete", "no known issues"] {
+                #expect(!text.contains(banned),
+                        "\(state.abbreviation)'s summary contains \"\(banned)\"")
+            }
+        }
+    }
+
+    /// When a jurisdiction HAS limitations, the summary carries all of them and
+    /// is not the empty sentence. A summary that silently dropped a sentence
+    /// would be the same defect as the empty state, one jurisdiction at a time.
+    @Test("A populated summary carries every sentence the jurisdiction ships")
+    func populatedSummaryCarriesEverySentence() {
+        for state in USState.allCases {
+            let lines = StateAccuracyContent.limitations(for: state)
+            guard !lines.isEmpty else { continue }
+            let summary = StateAccuracyContent.limitationsSummary(for: state)
+            #expect(summary != "No known limitations are currently recorded for this state and tax year.",
+                    "\(state.abbreviation) ships \(lines.count) limitations but rendered the empty state")
+            for line in lines {
+                #expect(summary.contains(line),
+                        "\(state.abbreviation): the summary dropped a sentence: \(line)")
+            }
+            #expect(!summary.contains(UnclassifiedPensionDisclosure.scopeToken),
+                    "\(state.abbreviation): the summary leaked a scope token")
+        }
+    }
+
+    // MARK: - Task 6: the header
+
+    /// The header carries state AND tax year TOGETHER, in one string.
+    ///
+    /// Not a style preference. "Verified August 2026" beside a bare "Iowa"
+    /// reads as a claim about Iowa's current law generally, when the
+    /// configuration describes one tax year only. Keeping them in a single
+    /// string means no layout change can separate them.
+    @Test("The header names the state and the tax year in one string")
+    func headerCarriesStateAndTaxYearTogether() {
+        let header = StateAccuracyContent.header(for: .iowa)
+        #expect(header.title == "Iowa tax treatment, 2026")
+        #expect(header.verified == "Verified August 5, 2026.")
+        #expect(header.sources.count == 1)
+        #expect(header.sources.first?.label == "Iowa Department of Revenue, Retirement Income Tax Guidance")
+        #expect(header.sources.first?.url?.absoluteString ==
+                "https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance")
+    }
+
+    /// The `taxYear == 0` sentinel is what thirty-six jurisdictions carry, and
+    /// the failure this pins is a header reading "Pennsylvania tax treatment,
+    /// 0". It would ship silently, because nothing about an `Int` invites the
+    /// author to ask what `0` means.
+    ///
+    /// The replacement wording is PROPOSED and awaits John. What is NOT
+    /// negotiable is that the page never invents a year: `StateTaxDataLoader`
+    /// resolved this file from the 2026 directory, but the file itself states
+    /// no year, and printing 2026 here would manufacture a provenance claim the
+    /// data never made.
+    @Test("A jurisdiction stating no tax year says so, and no year is invented for it")
+    func headerHandlesTheMissingTaxYear() {
+        let header = StateAccuracyContent.header(for: .pennsylvania)
+        #expect(header.title == "Pennsylvania tax treatment, tax year not recorded")
+        #expect(!header.title.contains("0"))
+        #expect(!header.title.contains("2026"))
+        #expect(header.verified == "No verification date recorded.")
+        #expect(header.sources.isEmpty)
+        #expect(header.noSourcesMessage == "No primary sources recorded.")
+    }
+
+    /// Every jurisdiction's header is well formed, names itself, and claims
+    /// nothing it has no basis for.
+    @Test("Every jurisdiction's header is well formed and claims nothing unsupported")
+    func everyHeaderIsWellFormed() {
+        for state in USState.allCases {
+            let header = StateAccuracyContent.header(for: state)
+            let verification = StateTaxData.config(for: state).verification
+
+            #expect(header.title.hasPrefix("\(state.rawValue) tax treatment"),
+                    "\(state.abbreviation): the header does not name the state first: \(header.title)")
+
+            if let year = verification.statedTaxYear {
+                #expect(header.title == "\(state.rawValue) tax treatment, \(year)")
+            } else {
+                #expect(header.title.contains("not recorded"),
+                        "\(state.abbreviation): no stated year, so the header must say so: \(header.title)")
+            }
+
+            // A verification stamp is never implied where none exists.
+            if verification.lastVerified.isEmpty {
+                #expect(!header.verified.lowercased().contains("verified "),
+                        "\(state.abbreviation): claims a verification it does not have: \(header.verified)")
+            } else {
+                #expect(header.verified.hasPrefix("Verified "),
+                        "\(state.abbreviation): has a date but does not state it: \(header.verified)")
+                #expect(!header.verified.contains(verification.lastVerified),
+                        "\(state.abbreviation): the raw ISO date reached the page unformatted")
+            }
+
+            // Every stated source resolves to an HTTPS URL, so a "source" is
+            // never an unfollowable claim.
+            for source in header.sources {
+                #expect(!source.label.isEmpty, "\(state.abbreviation): a source has no label")
+                #expect(source.url?.scheme == "https",
+                        "\(state.abbreviation): source is not an https URL: \(source.label)")
+                #expect(!source.label.contains("https://"),
+                        "\(state.abbreviation): the URL leaked into the source label")
+            }
+
+            for text in [header.title, header.verified, header.noSourcesMessage] {
+                #expect(!text.contains("\u{2014}") && !text.contains("\u{2013}"),
+                        "\(state.abbreviation): em or en dash in header copy: \(text)")
+                #expect(!text.contains("  "), "\(state.abbreviation): doubled space: \(text)")
+                #expect(text == text.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+    }
 }
