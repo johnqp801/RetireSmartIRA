@@ -237,7 +237,10 @@ carries `{scope}`, each surface substitutes its own word, and the byte-identity 
 substituting "app" reproduces the caption and substituting "plan" reproduces the briefing string, both
 extracted from the parent commit.
 
-That keeps both approved wordings byte-identical while there is still only one sentence stored. **If any
+That keeps both approved wordings byte-identical while there is still only one sentence stored.
+**Assert the RENDERED string per surface, never the stored one.** The two Hawaii strings differ in
+length, 209 against 208, so a gate comparing the stored sentence to either literal fails by
+construction. **If any
 other jurisdiction turns out to have the same split, apply the same treatment rather than storing two
 strings.** Report every collision you find, because Task 1 found this one only by reading the file.
 
