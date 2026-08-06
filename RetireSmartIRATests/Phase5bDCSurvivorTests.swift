@@ -724,8 +724,15 @@ struct Phase5bDCSurvivorTests {
     /// Task 3b's lockstep sweep asserts a sentence EXISTS. This asserts it says
     /// the right things, which the sweep cannot.
     ///
-    /// PROPOSED COPY, AWAITING JOHN. Two alternatives were drafted and are
-    /// recorded in the Task 9 report. This one was recommended because it names
+    /// THE COPY IS APPROVED. Task 9 drafted three options and recommended this
+    /// one; John APPROVED it AS IS on 2026-08-05, so the shipped sentence in
+    /// `statetax-2026-DC.json` is approved user-facing copy and not a working
+    /// draft. Recorded here because that file is JSON and cannot carry a comment,
+    /// the same treatment Task 4's Massachusetts copy, Task 6's Arizona sentence
+    /// and Task 3's picker labels got. The two rejected alternatives stay in the
+    /// Task 9 report as the record of what was considered.
+    ///
+    /// It was recommended because it names
     /// both conditions a reader needs to test themselves against, the two
     /// employers and the age, rather than warning vaguely that something may be
     /// wrong. Rewording is a one-line change in `statetax-2026-DC.json` plus

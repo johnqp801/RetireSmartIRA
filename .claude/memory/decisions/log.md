@@ -1406,7 +1406,7 @@ presence.
 
 ---
 
-## 2026-08-05: Phase 5b closes with all user-facing copy approved; Vermont's hold call still open
+## 2026-08-05: Phase 5b closes with every item settled, copy approved and Vermont HELD
 
 **Approved.** DC's `unclassifiedPensionDisclosure` sentence, DC's survivor toggle label and its
 explanatory caption, and Vermont's caption. That is every piece of user-facing copy Phase 5b produced:
@@ -1420,7 +1420,9 @@ moves their tax in either direction. It was also mandatory rather than polish: w
 golden case would have gone green while no real survivor annuitant could reach the rule, which is
 exactly the failure Task 3 caught for Kansas.
 
-**STILL OPEN, the only unresolved item in the phase: Vermont hold versus ship.** Vermont carries the
+**DECIDED, and it was the last unresolved item in the phase: Vermont HOLD. Vermont ships no rule.**
+John accepted the unanimous recommendation on 2026-08-05, so Vermont keeps all six `knownDefect`
+blocks by decision rather than by default, alongside Hawaii, North Carolina and Idaho. Vermont carries the
 largest single dollar gap in the phase, $5,211.50 a year at VT-6's shape, and ships nothing. The
 available config-only shape would turn four cases green with roughly $335 of bounded over-match, but it
 over-exempts FERS retirees (a growing population) to serve CSRS retirees (a class closed since 1984),
@@ -1429,5 +1431,8 @@ military rule implementing Act 71's quoted $125,000 sentence, corrects $4,525.15
 anywhere, but is blocked on which income basis the gate compares against, and no Vermont fixture pins
 it. Write VT-7 first if it is ever built: AGI $130,000, expected $172.53.
 
-**Implementer, reviewer and controller all recommend HOLD** and taking the income-gated shape as a
-Phase 6 model task. John has not answered.
+**Implementer, reviewer and controller all recommended HOLD; John accepted it**, and the
+income-gated shape is deferred to a Phase 6 model task rather than abandoned. Vermont's $5,211.50
+gap is a known, disclosed cost of the hold, carried by its caption and its six pinned blocks.
+
+**With this, ZERO items await John in Phase 5b.**

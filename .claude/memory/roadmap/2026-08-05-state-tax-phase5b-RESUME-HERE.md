@@ -25,21 +25,35 @@ below Task 6 are kept as the history of how each decision was reached.
   defect no fixture can hold.
 - Suite at close: **2,020 Swift Testing in 304 suites + 509 XCTest, 0 failures.**
 
-## THE FOUR THINGS AWAITING JOHN. Nothing here is settled.
+## NOTHING AWAITS JOHN. Zero open items.
 
-All copy through Task 8 is approved. Task 9's is not, and the three copy items are IN THE TREE
-marked "PROPOSED COPY, AWAITING JOHN".
+**ALL PHASE 5b COPY IS APPROVED**, including Task 9's three, the last outstanding ones, approved by
+John on 2026-08-05 as written: DC's `unclassifiedPensionDisclosure` sentence in
+`statetax-2026-DC.json`, and DC's survivor toggle label plus its caption and Vermont's caption, both
+in `IncomeSourcesView.swift`. The markers are cleared from the tree. **Do not re-open the wording.**
 
-1. **DC's `unclassifiedPensionDisclosure` sentence** in `statetax-2026-DC.json`.
-2. **DC's survivor toggle label and its caption** in `IncomeSourcesView.swift`.
-3. **Vermont's caption** in `IncomeSourcesView.swift`.
-4. **The Vermont hold-versus-ship call.** Ship Option B (the CSRS shape: four cases green, roughly
-   $335 of bounded over-match, a disclosed FERS gap) the way Massachusetts shipped, or hold?
-   **Implementer, reviewer and controller ALL recommend HOLD**, and take Option D in a Phase 6
-   model task instead: it corrects the larger defect ($4,525.15 against roughly $335) with no
-   under-taxation at all. John has not answered.
+**AND THE LAST JUDGEMENT CALL IS DECIDED.**
 
-Alternatives drafted and rejected for each copy item are in Task 9's report, section 6.
+**DECIDED BY JOHN ON 2026-08-05: HOLD. Vermont ships no rule.** The recommendation was unanimous
+(implementer, reviewer, controller) and John accepted it. Vermont keeps all six `knownDefect` blocks
+BY DECISION rather than by default, alongside Hawaii, North Carolina and Idaho.
+
+The rejected shape is the config-only CSRS one: four cases green, roughly $335 of bounded
+over-match, but it over-exempts FERS retirees, a GROWING population, to serve CSRS retirees, a class
+CLOSED SINCE 1984. That is the same population logic that decided North Carolina.
+
+The preferred fix is DEFERRED, not abandoned: an income-gated military rule implementing Act 71's
+quoted $125,000 sentence corrects $4,525.15 a year with NO under-taxation anywhere. It is blocked on
+which income basis the gate compares against, a program-level decision no Vermont fixture pins.
+**If it is ever built, VT-7 goes in FIRST: AGI $130,000, expected $172.53.** It is the only case
+that discriminates the two readings, and a reviewer confirmed it yields three distinct values.
+
+Vermont still holds the largest single dollar gap in the phase, $5,211.50 a year at VT-6's shape.
+That is a KNOWN, DISCLOSED COST OF THE HOLD, carried by the caption and by the six pinned blocks,
+not an oversight.
+
+Alternatives drafted and rejected for each copy item are in Task 9's report, section 6, kept as the
+record of what was considered. **Do not read them as open options.**
 
 ## THE PHASE'S MOST IMPORTANT SINGLE FINDING: Vermont
 

@@ -360,25 +360,38 @@ config opting in.** Task 1 proved inertness with New York as the canary and 20 e
 proving both directions for every new-versus-old `PlanSource` pair. Every subsequent numeric
 movement is attributable to one of the four shipped `perSourceExemptions` blocks.
 
-## FOUR ITEMS ARE AWAITING JOHN. None of these is settled.
+## NOTHING AWAITS JOHN. Every item in this phase is settled.
 
-All Phase 5b copy through Task 8 is approved (Task 3's three picker labels, and the Massachusetts,
-Hawaii, North Carolina and Idaho captions and disclosure sentences). Task 9's is not. The three
-copy items below are SHIPPED IN THE TREE marked "PROPOSED COPY, AWAITING JOHN" in comments; the
-DC disclosure sentence lives in JSON and so carries its marker in the Task 9 report instead.
+**ALL PHASE 5b COPY IS APPROVED.** Task 3's three picker labels, the Massachusetts, Hawaii, North
+Carolina and Idaho captions and disclosure sentences, and, **approved by John on 2026-08-05 as
+written**, Task 9's three: DC's `unclassifiedPensionDisclosure` sentence in `statetax-2026-DC.json`,
+DC's survivor toggle label and its explanatory caption, and Vermont's caption, both in
+`IncomeSourcesView.swift`. The "PROPOSED COPY, AWAITING JOHN" markers are cleared from the tree. The
+alternatives drafted and rejected for each stay in Task 9 report section 6 as the record of what was
+considered, retitled so no later reader mistakes them for open options.
 
-1. **DC's `unclassifiedPensionDisclosure` sentence** in `statetax-2026-DC.json`. Two alternatives
-   were drafted and rejected; see Task 9 report section 6.1.
-2. **DC's survivor toggle label and its explanatory caption** in `IncomeSourcesView.swift`. One
-   alternative label was drafted and rejected as ambiguous about whose benefit. Section 6.2.
-3. **Vermont's caption** in `IncomeSourcesView.swift`. Two alternatives drafted and rejected.
-   Section 6.3.
-4. **The Vermont hold-versus-ship judgement call.** Should Vermont ship Option B (the CSRS shape,
-   four cases green, a bounded roughly $335 over-match) with a disclosed FERS gap, the way
-   Massachusetts shipped? **The implementer recommends HOLD. The reviewer recommends HOLD. The
-   controller agrees. John has not answered.** The reasoning for HOLD: take Option D in a Phase 6
-   model task instead, which is strictly better, correcting the larger defect ($4,525.15 against
-   roughly $335) with no under-taxation at all.
+**AND THE LAST JUDGEMENT CALL IS DECIDED.**
+
+**DECIDED BY JOHN ON 2026-08-05: HOLD. Vermont ships no rule.** The recommendation was unanimous
+(implementer, reviewer, controller) and John accepted it. Vermont keeps all six `knownDefect` blocks
+BY DECISION rather than by default, alongside Hawaii, North Carolina and Idaho.
+
+The rejected shape is the config-only CSRS one: four cases green, roughly $335 of bounded
+over-match, but it over-exempts FERS retirees, a GROWING population, to serve CSRS retirees, a class
+CLOSED SINCE 1984. That is the same population logic that decided North Carolina.
+
+The preferred fix is DEFERRED, not abandoned: an income-gated military rule implementing Act 71's
+quoted $125,000 sentence corrects $4,525.15 a year with NO under-taxation anywhere. It is blocked on
+which income basis the gate compares against, a program-level decision no Vermont fixture pins.
+**If it is ever built, VT-7 goes in FIRST: AGI $130,000, expected $172.53.** It is the only case
+that discriminates the two readings, and a reviewer confirmed it yields three distinct values.
+
+Vermont still holds the largest single dollar gap in the phase, $5,211.50 a year at VT-6's shape.
+That is a KNOWN, DISCLOSED COST OF THE HOLD, carried by the caption and by the six pinned blocks,
+not an oversight.
+
+**So the count of items awaiting John is ZERO.** A reader arriving here does not need to work that
+out from a list; there is no list.
 
 ## WHAT THE NEXT PHASE INHERITS, ORGANISED BY MISSING MODEL FIELD
 
@@ -591,5 +604,5 @@ file this task wrote or touched.
 - No pin, `knownDefect` block, frozen baseline or shipped config was touched by Task 10. This was
   a reporting task and it changed no tax behaviour.
 - No decided jurisdiction was re-opened.
-- Vermont was not shipped. It is awaiting John (item 4 above), and both the implementer and the
-  reviewer recommend HOLD.
+- Vermont was not shipped, and that is now a DECISION: John accepted the unanimous HOLD
+  recommendation on 2026-08-05. See the section above.

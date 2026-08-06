@@ -453,8 +453,12 @@ struct IncomeSourcesView: View {
 
     /// Phase 5b Task 9. Vermont's two retirement exclusions.
     ///
-    /// **PROPOSED COPY, AWAITING JOHN.** Two alternatives are recorded in the
-    /// Task 9 report. This one was recommended because it names both exclusions
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with the District
+    /// of Columbia's survivor toggle and caption below and DC's
+    /// `unclassifiedPensionDisclosure` sentence in `statetax-2026-DC.json`. Every
+    /// caption in this section is now approved copy. Two alternatives are recorded
+    /// in the Task 9 report as the record of what was considered and rejected.
+    /// This one was recommended because it names both exclusions
     /// and both income limits, so a reader can tell whether either applies to
     /// them, and because Vermont's two are very differently sized: $10,000
     /// capped for CSRS against an UNCAPPED exclusion for military retired pay.
@@ -1478,7 +1482,11 @@ struct IncomeSourcesView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
-                            // Phase 5b Task 9. PROPOSED COPY, awaiting John.
+                            // Phase 5b Task 9. Toggle label and caption
+                            // APPROVED by John on 2026-08-05, as written.
+                            // Rewording either is a one-line change here plus
+                            // the assertions in
+                            // Phase5bDCSurvivorTests.
                             //
                             // Shown only where a jurisdiction's shipped rules
                             // consult the survivor dimension, which today is
@@ -1560,8 +1568,8 @@ struct IncomeSourcesView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            // Phase 5b Task 9. PROPOSED COPY, awaiting John;
-                            // see IncomeSourcesView
+                            // Phase 5b Task 9. Copy APPROVED by John on
+                            // 2026-08-05, as written; see IncomeSourcesView
                             // .vermontRetirementExclusionCaption for why
                             // Vermont ships a caption and no rule, and for the
                             // two shapes that were measured and declined. Same

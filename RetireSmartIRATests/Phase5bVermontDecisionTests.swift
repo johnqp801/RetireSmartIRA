@@ -13,6 +13,14 @@
 //  Vermont's gap is the largest in this phase and a Vermont resident sees
 //  nothing about it on any other surface.
 //
+//  **DECIDED BY JOHN ON 2026-08-05: HOLD.** The recommendation was unanimous
+//  across implementer, reviewer and controller, and John accepted it. Vermont
+//  keeps its six blocks BY DECISION rather than by default, alongside Hawaii,
+//  North Carolina and Idaho, and its $5,211.50 gap at VT-6's shape is a known,
+//  disclosed cost of that hold rather than an oversight. This file is the record
+//  of a settled decision, not of an open question. Do not re-open it without new
+//  model capability; the two shapes below are why.
+//
 //  THE PLAN ASKED A QUESTION AND THIS IS THE ANSWER. Task 9's own text says
 //  Vermont and DC "were UNSATISFIABLE before Task 1 and they share the reason",
 //  and that if either is still unsatisfiable after Task 1's model extension,
@@ -63,20 +71,25 @@
 //       pinned $8,086.65, failing as `pinnedDefectMoved`. WRONG, and the fixture
 //       caught it exactly as the plan predicted it would.
 //
-//  A THIRD SHAPE EXISTS AND IS RECOMMENDED TO JOHN RATHER THAN SHIPPED. Task 9
+//  A THIRD SHAPE EXISTS AND IS DEFERRED TO PHASE 6 RATHER THAN ABANDONED. Task 9
 //  added `matchMinAge` to `PerSourceExemptionRule` for the District of Columbia.
 //  An income-gated sibling, `matchMaxIncome`, would let the military rule
 //  implement Act 71's quoted "adjusted gross income equal to or less than
 //  $125,000, all military retirement and survivor benefit income is exempt"
 //  exactly, turn VT-5 green, leave VT-6 correctly pinned, and introduce NO
 //  under-taxation anywhere. It was not built here for one reason, and it is a
-//  program-level decision rather than a Vermont one: the phase-out mechanism
+//  program-level decision rather than a Vermont one, which is why it is a Phase 6
+//  model task rather than something that could be settled here: the phase-out
+//  mechanism
 //  gates on the income figure passed to `calculateStateTax`, which callers have
 //  already reduced by the state standard deduction, so Vermont's config would
 //  carry $117,150 where Act 71 says $125,000. `AGIPhaseout`'s own doc comment
 //  flags that basis as unverified and defers it. Deciding it inside a
 //  jurisdiction task, by writing a non-statutory number into a config file,
-//  is the class of thing this program exists to catch. See the Task 9 report.
+//  is the class of thing this program exists to catch. IF IT IS EVER BUILT, VT-7
+//  GOES IN FIRST: AGI $130,000, expected $172.53. It is the only case that
+//  discriminates the two readings of the basis, confirmed by review to yield
+//  three distinct values. See the Task 9 report.
 //
 
 import Testing
@@ -341,8 +354,11 @@ struct Phase5bVermontDecisionTests {
     /// disclosure on any surface, therefore a caption is the whole delivery.
     /// This asserts it says the right things, and in the right DIRECTION.
     ///
-    /// PROPOSED COPY, AWAITING JOHN. See
-    /// `IncomeSourcesView.vermontRetirementExclusionCaption`.
+    /// THE COPY IS APPROVED, as written, by John on 2026-08-05. See
+    /// `IncomeSourcesView.vermontRetirementExclusionCaption`. John separately
+    /// DECIDED the underlying question the same day: HOLD, Vermont ships no rule,
+    /// accepting the unanimous recommendation. So this caption is not a placeholder
+    /// for a rule that is coming; it is the delivery.
     @Test("Vermont's caption names both exclusions, both limits and the right direction")
     func vermontCaptionNamesTheRightDirection() {
         let caption = IncomeSourcesView.vermontRetirementExclusionCaption
