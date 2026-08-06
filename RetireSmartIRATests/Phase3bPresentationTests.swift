@@ -19,15 +19,69 @@ struct Phase3bPresentationTests {
 
     // MARK: - 3.2 The picker: exact rows, exact order, exact mappings
 
-    @Test("The picker is exactly the nine rows of spec 3.2, in order")
+    /// Phase 5b Task 3 grew this list from nine rows to twelve. The three
+    /// additions are INSERTED, not appended, so the relative order of the
+    /// nine original rows is unchanged and no existing row's `rawValue` or
+    /// `classification` moved. That "additive" property is what this test
+    /// and `pickerAdditionIsPurelyAdditive` below assert separately: this
+    /// one pins the full list, that one pins the nine originals in
+    /// isolation, so a future edit that quietly re-tuples an existing row
+    /// while updating this literal still fails.
+    @Test("The picker is exactly the twelve rows of spec 3.2 as extended by Phase 5b, in order")
     func pickerRowsExactlyMatchSpec() {
         let expected: [PlanClassificationChoice] = [
-            .nyGovernmentPension, .federalCivilianPension, .otherStateGovernmentPension,
+            .nyGovernmentPension, .ownStateGovernmentPension, .federalCivilianPension,
+            .uniformedServicesPension, .railroadRetirementPension,
+            .otherStateGovernmentPension,
             .privateEmployerPension, .governmentSalaryReduction, .privateSalaryReduction,
             .employer401k, .ira, .notSure
         ]
         #expect(PlanClassificationChoice.allCases == expected)
-        #expect(PlanClassificationChoice.allCases.count == 9)
+        #expect(PlanClassificationChoice.allCases.count == 12)
+    }
+
+    /// The nine original rows keep their relative display order after the
+    /// Phase 5b insertion. Filtering `allCases` down to them and comparing
+    /// against spec 3.2's order proves the insertion reordered nothing,
+    /// independently of wherever the three new rows were placed.
+    @Test("Phase 5b's three new rows are additive: the nine spec-3.2 rows keep their relative order")
+    func pickerAdditionIsPurelyAdditive() {
+        let original: [PlanClassificationChoice] = [
+            .nyGovernmentPension, .federalCivilianPension, .otherStateGovernmentPension,
+            .privateEmployerPension, .governmentSalaryReduction, .privateSalaryReduction,
+            .employer401k, .ira, .notSure
+        ]
+        let stillPresentInOrder = PlanClassificationChoice.allCases.filter { original.contains($0) }
+        #expect(stillPresentInOrder == original)
+    }
+
+    /// CORRECTED after review: these raw values are NOT a persistence
+    /// surface, and an earlier version of this comment wrongly said a rename
+    /// would "orphan every row a user already saved". It would not.
+    /// `PlanClassificationChoice` is a presentation type held only in
+    /// `@State` (`AccountsView.swift`, `IncomeSourcesView.swift`) and is
+    /// never encoded; what persists on `IncomeSource` and `IRAAccount` is
+    /// the `RetirementPlanClassification` that `classification` returns, and
+    /// `pickerClassificationsMatchSpec` above is what protects it.
+    ///
+    /// The test is kept for the smaller, true reason: `rawValue` is the
+    /// case's `Identifiable` `id` and therefore its `ForEach`/`Picker` view
+    /// identity, so pinning the nine names makes a rename during a future
+    /// refactor a deliberate, reviewed edit rather than a silent one, and
+    /// forecloses the day someone DOES decide to persist the picker's
+    /// literal choice (which `accountDisplayName`'s doc comment already
+    /// contemplates as the way to disambiguate the 401(k) / 403(b) pair).
+    @Test("The nine original rows keep their raw values, which are their view identity")
+    func originalRawValuesAreUnchanged() {
+        #expect(PlanClassificationChoice.nyGovernmentPension.rawValue == "nyGovernmentPension")
+        #expect(PlanClassificationChoice.federalCivilianPension.rawValue == "federalCivilianPension")
+        #expect(PlanClassificationChoice.otherStateGovernmentPension.rawValue == "otherStateGovernmentPension")
+        #expect(PlanClassificationChoice.privateEmployerPension.rawValue == "privateEmployerPension")
+        #expect(PlanClassificationChoice.governmentSalaryReduction.rawValue == "governmentSalaryReduction")
+        #expect(PlanClassificationChoice.privateSalaryReduction.rawValue == "privateSalaryReduction")
+        #expect(PlanClassificationChoice.employer401k.rawValue == "employer401k")
+        #expect(PlanClassificationChoice.ira.rawValue == "ira")
+        #expect(PlanClassificationChoice.notSure.rawValue == "notSure")
     }
 
     @Test("Each row's label matches spec 3.2 column 1, verbatim")
@@ -41,6 +95,27 @@ struct Phase3bPresentationTests {
         #expect(PlanClassificationChoice.employer401k.label == "Employer 401(k)")
         #expect(PlanClassificationChoice.ira.label == "IRA")
         #expect(PlanClassificationChoice.notSure.label == "Not sure")
+    }
+
+    /// Phase 5b Task 3 introduced these three labels as working copy, and
+    /// John APPROVED them AS IS on 2026-08-05, so they now stand on the same
+    /// footing as the nine rows above: approved, live, user-visible copy.
+    ///
+    /// The test is KEPT rather than retired, and pinning the exact strings is
+    /// what it is for. Approval is precisely what makes drift worth catching:
+    /// before it, a rename was expected and this test only made one
+    /// deliberate; after it, any change to these strings is a change to
+    /// approved copy and is John's decision, not a maintainer's. The
+    /// non-empty sweep over `allCases` still covers every row whatever its
+    /// wording.
+    @Test("Phase 5b's three new rows carry their approved labels, byte for byte")
+    func newPickerLabelsAreApprovedAndPinned() {
+        #expect(PlanClassificationChoice.ownStateGovernmentPension.label == "Government pension, my own state or locality")
+        #expect(PlanClassificationChoice.uniformedServicesPension.label == "Military retired pay")
+        #expect(PlanClassificationChoice.railroadRetirementPension.label == "Railroad Retirement benefits")
+        for choice in PlanClassificationChoice.allCases {
+            #expect(!choice.label.isEmpty, "\(choice) has no label")
+        }
     }
 
     @Test("Each row's classification matches spec 3.2 columns 2 and 3, exactly")
@@ -63,6 +138,51 @@ struct Phase3bPresentationTests {
                 == RetirementPlanClassification(structure: .ira, source: .individual))
         #expect(PlanClassificationChoice.notSure.classification
                 == RetirementPlanClassification(structure: .unknown, source: .unknown))
+    }
+
+    /// The point of the addendum: a Kansas KPERS holder must be able to
+    /// SELECT `ownStateOrLocal`. Before Task 3 the only government-pension
+    /// option was `otherStateOrLocal`, the one source a correct Kansas rule
+    /// must reject, so every Kansas golden case could have gone green while
+    /// a real KPERS holder still received no exclusion.
+    @Test("Phase 5b's three new rows write the three PlanSource cases Task 1 added")
+    func newPickerRowsWriteTheNewPlanSources() {
+        #expect(PlanClassificationChoice.ownStateGovernmentPension.classification
+                == RetirementPlanClassification(structure: .definedBenefit, source: .ownStateOrLocal))
+        #expect(PlanClassificationChoice.uniformedServicesPension.classification
+                == RetirementPlanClassification(structure: .definedBenefit, source: .uniformedServices))
+        #expect(PlanClassificationChoice.railroadRetirementPension.classification
+                == RetirementPlanClassification(structure: .definedBenefit, source: .railroadRetirement))
+    }
+
+    /// The matched pair, from the picker's side rather than the rule's. The
+    /// own-state row and the other-state row must write DIFFERENT sources,
+    /// because Kansas's rule exempts the first and taxes the second and the
+    /// user's selection is the only thing that tells them apart.
+    @Test("The own-state row and the other-state row write different, non-interchangeable sources")
+    func ownStateAndOtherStateRowsAreDistinct() {
+        let own = PlanClassificationChoice.ownStateGovernmentPension.classification.source
+        let other = PlanClassificationChoice.otherStateGovernmentPension.classification.source
+        #expect(own == .ownStateOrLocal)
+        #expect(other == .otherStateOrLocal)
+        #expect(own != other)
+    }
+
+    /// Every picker row writes a DISTINCT classification, except the one
+    /// documented `.employer401k` / `.privateSalaryReduction` collision that
+    /// `choice(for:)` resolves deliberately. A second, undocumented
+    /// collision would make `choice(for:)` silently unable to round-trip one
+    /// of the colliding rows, which is the failure mode the priority array
+    /// exists to manage.
+    @Test("No two picker rows write the same classification, except the one documented pair")
+    func pickerRowsWriteDistinctClassifications() {
+        let rows = PlanClassificationChoice.allCases.filter { $0 != .privateSalaryReduction }
+        for (i, a) in rows.enumerated() {
+            for b in rows.dropFirst(i + 1) {
+                #expect(a.classification != b.classification,
+                        "\(a) and \(b) write the same classification")
+            }
+        }
     }
 
     @Test("The out-of-state government pension row does NOT map to New York's exclusion")
@@ -100,6 +220,44 @@ struct Phase3bPresentationTests {
         for choice in PlanClassificationChoice.allCases where choice != .privateSalaryReduction {
             #expect(PlanClassificationChoice.choice(for: choice.classification) == choice,
                      "\(choice) should round-trip")
+        }
+    }
+
+    /// The blind spot in the sweep above, closed by the Phase 5b whole-branch
+    /// review.
+    ///
+    /// `choice(for:)` used to compare WHOLE classifications against a
+    /// hand-maintained list, and Task 9 gave `RetirementPlanClassification` a
+    /// third stored property, so its synthesized `==` began comparing
+    /// `isSurvivorBenefit` as well. Every entry in that list carries `nil`, so
+    /// any survivor-flagged classification fell through to `.notSure`: an
+    /// already-correctly-classified DC survivor annuity would have opened in
+    /// the editor displaying as unclassified, and saving would have rewritten
+    /// it. The sweep above cannot see it, because every case it sweeps carries
+    /// `nil` too, which is precisely why this test iterates the SAME cases with
+    /// the flag set.
+    ///
+    /// Unreachable through today's two call sites, both of which build the
+    /// classification from structure and source alone. Pinned anyway: the
+    /// survivor fact is a separate toggle beside the picker rather than
+    /// something the twelve rows express, so the reverse lookup must not
+    /// consult it, and a third call site that passed a whole stored
+    /// classification would otherwise reintroduce the bug silently.
+    @Test("Reverse lookup ignores the survivor flag, which no picker row expresses",
+          arguments: [true, false])
+    func reverseLookupIgnoresTheSurvivorFlag(flag: Bool) {
+        for choice in PlanClassificationChoice.allCases where choice != .privateSalaryReduction {
+            var flagged = choice.classification
+            flagged.isSurvivorBenefit = flag
+            #expect(PlanClassificationChoice.choice(for: flagged) == choice,
+                    """
+                    \(choice) with isSurvivorBenefit \(flag) resolved to \
+                    \(PlanClassificationChoice.choice(for: flagged)) instead of itself. \
+                    A whole-value `==` against the priority list does this: every entry \
+                    there carries nil, so a flagged classification matches none of them \
+                    and falls through to .notSure, displaying a correctly classified \
+                    pension as unclassified.
+                    """)
         }
     }
 
@@ -225,6 +383,115 @@ struct Phase3bPresentationTests {
         #expect(!PlanClassificationChoice.residenceHasPerSourceRules(.california))
     }
 
+    // MARK: - Phase 5b Task 3: the own-state row is suppressed where it is a trap
+
+    /// Controller-authorized mitigation for the review's findings 1 and 3.
+    ///
+    /// New York's shipped rule names `nyStateOrLocal`, not `ownStateOrLocal`.
+    /// A NYSLRS retiree offered both rows who picks the newer, more natural
+    /// "my own state or locality" drops a $60,000 pension from a full
+    /// exclusion to New York's ordinary capped $20,000 one: $40,000 taxed
+    /// that should be $0, two taps away, on the ONE jurisdiction that has
+    /// been prompting users to classify at all. The row is therefore not
+    /// offered to New York residents.
+    @Test("A resident of a state that names its own jurisdiction is not offered the generic own-state row")
+    func ownStateRowIsSuppressedWhereTheStateNamesItsOwnJurisdiction() {
+        #expect(PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.newYork))
+        let options = PlanClassificationChoice.options(for: .newYork, selected: nil)
+        #expect(!options.contains(.ownStateGovernmentPension))
+        #expect(options.contains(.nyGovernmentPension),
+                "the jurisdiction-named row is the one that DOES select New York's exclusion")
+        #expect(options.count == PlanClassificationChoice.allCases.count - 1,
+                "suppression must remove exactly one row, not filter anything else out")
+    }
+
+    /// The other side, and the reason this is config-driven rather than a
+    /// `state == .newYork` check: Kansas names no jurisdiction-named source
+    /// (its rule uses the generic `ownStateOrLocal`), so a Kansas resident
+    /// must still be able to select KPERS. Suppressing it there would
+    /// reintroduce the exact defect the whole addendum exists to fix.
+    @Test("A Kansas resident is still offered the own-state row, which is how KPERS is selected at all")
+    func ownStateRowIsOfferedWhereTheStateUsesTheGenericSource() {
+        #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.kansas))
+        #expect(PlanClassificationChoice.options(for: .kansas, selected: nil).contains(.ownStateGovernmentPension))
+        #expect(PlanClassificationChoice.options(for: .kansas, selected: nil) == PlanClassificationChoice.allCases)
+    }
+
+    /// A state with no per-source rules at all is unaffected: nothing is
+    /// suppressed anywhere except where a jurisdiction-named rule exists.
+    @Test("A state with no per-source rules offers the full list")
+    func noPerSourceRulesMeansNoSuppression() {
+        #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.california))
+        #expect(PlanClassificationChoice.options(for: .california, selected: nil) == PlanClassificationChoice.allCases)
+    }
+
+    /// Suppression governs what a user can newly CHOOSE, never what they
+    /// already chose. A row that somehow carries `ownStateOrLocal` in New
+    /// York (imported data, a residence change after classifying, a future
+    /// build) must still find its own selection in the list. Without this,
+    /// the Picker's selection matches no tag, SwiftUI renders it blank, and
+    /// the next save silently rewrites the row's classification.
+    @Test("A selection that would be suppressed is still offered, so the picker never renders blank")
+    func anExistingOwnStateSelectionSurvivesSuppression() {
+        let options = PlanClassificationChoice.options(
+            for: .newYork, selected: .ownStateGovernmentPension)
+        #expect(options.contains(.ownStateGovernmentPension))
+        #expect(options == PlanClassificationChoice.allCases)
+
+        // And selecting anything else does NOT resurrect it.
+        #expect(!PlanClassificationChoice.options(for: .newYork, selected: .privateEmployerPension)
+            .contains(.ownStateGovernmentPension))
+    }
+
+    /// The suppression list is data, not a hardcoded state. This pins that
+    /// it names the one legacy jurisdiction-named case and nothing else, so
+    /// retiring `nyStateOrLocal` (the structural fix) is a one-line deletion
+    /// that this test reports rather than a silent behavior change.
+    /// It is a MAP, not a set: each jurisdiction-named source is keyed to
+    /// the state it names, so `residenceNamesItsOwnJurisdiction` can ask
+    /// whether a config names ITS OWN jurisdiction rather than merely
+    /// whether it names some jurisdiction. As a `Set` the association was
+    /// dropped and the predicate checked less than its name asserted.
+    @Test("The jurisdiction-named source map is exactly the one legacy case, keyed to its own state")
+    func jurisdictionNamedSourcesIsExactlyTheLegacyCase() {
+        #expect(PlanClassificationChoice.jurisdictionNamedSources == [.nyStateOrLocal: .newYork])
+        // Every other source is generic, naming no jurisdiction on its own.
+        for source in PlanSource.allCases where source != .nyStateOrLocal {
+            #expect(PlanClassificationChoice.jurisdictionNamedSources[source] == nil,
+                    "\(source) must not be treated as naming a jurisdiction")
+        }
+    }
+
+    /// The `== state` half of the predicate, which is what makes its name
+    /// true. New York names `nyStateOrLocal` and that source maps to New
+    /// York, so New York suppresses. No OTHER state suppresses on account of
+    /// New York's case, which is the association a `Set` could not express.
+    @Test("Only the state a jurisdiction-named source actually names suppresses on account of it")
+    func suppressionIsKeyedToTheNamedStateNotMerePresence() {
+        #expect(PlanClassificationChoice.residenceNamesItsOwnJurisdiction(.newYork))
+        for state in USState.allCases where state != .newYork {
+            #expect(!PlanClassificationChoice.residenceNamesItsOwnJurisdiction(state),
+                    "\(state.abbreviation) suppresses the own-state row, but only New York ships a rule naming its own jurisdiction. Either a new jurisdiction-named source shipped without being added to jurisdictionNamedSources, or the predicate regressed to checking mere presence.")
+        }
+    }
+
+    /// The addendum's "confirm it, do not modify it" item.
+    /// `residenceHasPerSourceRules` reads the live config, so shipping
+    /// Kansas's `perSourceExemptions` in Phase 5b Task 3 turns the
+    /// classification prompt on for Kansas residents with no code change at
+    /// all. This is the test that proves the claim rather than asserting it
+    /// in a comment.
+    @Test("Shipping Kansas's per-source rule turns the classification prompt on for Kansas, with no code change")
+    func kansasNowCarriesAPerSourceRule() {
+        #expect(PlanClassificationChoice.residenceHasPerSourceRules(.kansas))
+
+        let unclassifiedPension = IncomeSource(
+            name: "KPERS", type: .pension, annualAmount: 40_000)
+        #expect(PlanClassificationChoice.shouldPromptForClassification(
+            source: unclassifiedPension,
+            residenceHasPerSourceRules: PlanClassificationChoice.residenceHasPerSourceRules(.kansas)))
+    }
+
     // MARK: - Whole-branch review Fix 2: two pension rows for one owner
 
     @Test("A classified pension still prompts when its owner's other pension rows genuinely disagree")
@@ -315,54 +582,62 @@ struct Phase3bPresentationTests {
         }
     }
 
-    // MARK: - 3.7 The New York limitation wherever New York tax is computed
+    // MARK: - 3.7 The unclassified-pension limitation wherever that state's tax is computed
+    //
+    // Phase 5b Task 3b renamed both functions and moved their copy into each
+    // jurisdiction's own config. These New York cases are kept verbatim in
+    // substance: New York is still the jurisdiction whose behaviour must not
+    // change. What they could never catch, and what
+    // `Phase5bUnclassifiedPensionDisclosureTests` adds, is that a SECOND
+    // jurisdiction shipping a per-source rule also gets warned, and that New
+    // York's copy is byte-identical after the move.
 
-    @Test("StateComparisonView shows the New York limitation when viewing New York with an unclassified pension")
+    @Test("StateComparisonView shows the limitation when viewing New York with an unclassified pension")
     func stateComparisonShowsLimitationForUnclassifiedNewYorkPension() {
-        #expect(StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
+        #expect(StateComparisonPresentation.showsUnclassifiedPensionLimitation(
             viewedState: .newYork, hasUnclassifiedPension: true))
     }
 
     @Test("StateComparisonView omits the limitation once the pension is classified")
     func stateComparisonOmitsLimitationOnceClassified() {
-        #expect(!StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
+        #expect(!StateComparisonPresentation.showsUnclassifiedPensionLimitation(
             viewedState: .newYork, hasUnclassifiedPension: false))
     }
 
-    @Test("StateComparisonView omits the New York limitation for a different state's detail")
+    @Test("StateComparisonView omits the limitation for a state with no per-source rules")
     func stateComparisonOmitsLimitationForOtherStates() {
-        #expect(!StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
+        #expect(!StateComparisonPresentation.showsUnclassifiedPensionLimitation(
             viewedState: .california, hasUnclassifiedPension: true))
     }
 
-    // MARK: - CPA briefing: New York limitation
+    // MARK: - CPA briefing: the unclassified-pension limitation
 
-    @Test("The CPA briefing carries the New York limitation for a NY resident with an unclassified pension")
+    @Test("The CPA briefing carries the limitation for a NY resident with an unclassified pension")
     func cpaBriefingCarriesNewYorkLimitationWhenApplicable() {
-        let limitations = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: true, hasUnclassifiedPension: true)
+        let limitations = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .newYork, hasUnclassifiedPension: true)
         #expect(!limitations.isEmpty)
         #expect(limitations.allSatisfy { !$0.isEmpty })
     }
 
-    @Test("The CPA briefing omits the New York limitation for a non-NY resident")
+    @Test("The CPA briefing omits the New York limitation for a resident of a state with no rules")
     func cpaBriefingOmitsNewYorkLimitationOutsideNewYork() {
-        let limitations = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: false, hasUnclassifiedPension: true)
+        let limitations = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .california, hasUnclassifiedPension: true)
         #expect(limitations.isEmpty)
     }
 
-    @Test("The CPA briefing omits the New York limitation once the pension is classified")
+    @Test("The CPA briefing omits the limitation once the pension is classified")
     func cpaBriefingOmitsNewYorkLimitationOnceClassified() {
-        let limitations = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: true, hasUnclassifiedPension: false)
+        let limitations = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .newYork, hasUnclassifiedPension: false)
         #expect(limitations.isEmpty)
     }
 
     @Test("The rendered CPA briefing HTML contains the New York limitation text when applicable")
     func cpaBriefingHTMLContainsNewYorkLimitation() {
-        let extra = MultiYearCPABriefing.newYorkUnclassifiedPensionLimitation(
-            residesInNewYork: true, hasUnclassifiedPension: true)
+        let extra = MultiYearCPABriefing.unclassifiedPensionLimitation(
+            residenceState: .newYork, hasUnclassifiedPension: true)
         let model = Self.briefingModel(limitations: V2Disclosures.limitations + extra)
         let html = MultiYearCPABriefingHTML.build(model)
         for line in extra {
@@ -469,7 +744,10 @@ struct Phase3bPresentationTests {
 
     // MARK: - Test fixture
 
-    private static func briefingModel(limitations: [String]) -> CPABriefingModel {
+    /// Not `private`: `Phase5bUnclassifiedPensionDisclosureTests` renders the
+    /// Kansas disclosure through the same briefing model, and a second copy
+    /// of this fixture would be free to drift from this one.
+    static func briefingModel(limitations: [String]) -> CPABriefingModel {
         let row = YearRecommendation(
             year: 2026, agi: 120_000, acaMagi: nil, irmaaMagi: 120_000, taxableIncome: 95_000,
             taxBreakdown: TaxBreakdown(federal: 18_000, state: 4_000, irmaa: 1_200, acaPremiumImpact: 0),

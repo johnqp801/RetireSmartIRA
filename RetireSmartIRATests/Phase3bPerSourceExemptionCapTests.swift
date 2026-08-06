@@ -27,12 +27,24 @@ import Foundation
 @Suite("Phase 3b Task 4, Step 4a: per-source rules partition the shared cap, never evaluate it per row")
 struct Phase3bPerSourceExemptionCapTests {
 
-    /// NY's actual Section 612(c)(3-a) shape (design doc 3.3): government
-    /// pension excluded outright and independently, everything else sharing
-    /// ONE $20,000 cap, doubled once per return when both spouses
-    /// individually qualify. Flat 10% / no standard deduction, so every
-    /// expected value below is exact, hand-derived arithmetic rather than a
-    /// bracket walk.
+    /// A SYNTHETIC config in NY's Section 612(c)(3-a) CAP SHAPE (design doc
+    /// 3.3): government pension excluded outright and independently,
+    /// everything else sharing ONE $20,000 cap, doubled once per return when
+    /// both spouses individually qualify. Flat 10% / no standard deduction, so
+    /// every expected value below is exact, hand-derived arithmetic rather than
+    /// a bracket walk.
+    ///
+    /// NOT NEW YORK'S ACTUAL SHIPPED RULE, and this comment used to claim it
+    /// was. The whole-branch review widened New York's real `matchSources` to
+    /// `[.nyStateOrLocal, .federalCivilian, .uniformedServices]`, and this
+    /// helper deliberately keeps the narrower pair, because what it exercises
+    /// is the CAP MECHANICS (one pool, one cap, the per-individual doubling and
+    /// the independence of the per-source exclusion from the pooled one), none
+    /// of which turns on which sources the rule names. Leaving the claim
+    /// uncorrected would have made this a second, divergent description of New
+    /// York's rule living in the test target, so read the source list below as
+    /// "some matched source and some unmatched source", not as New York's.
+    /// `Phase5bNewYorkMilitaryTests` is what pins the real rule.
     static func nyShapedConfig() -> StateTaxConfig {
         StateTaxConfig(
             state: .newYork,

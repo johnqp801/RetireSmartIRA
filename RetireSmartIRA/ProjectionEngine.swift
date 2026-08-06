@@ -204,7 +204,12 @@ struct ProjectionEngine {
         // projection still runs, but that silently mis-taxes the household — assert in DEBUG so
         // bad input surfaces in tests/dev instead of producing a quietly-wrong plan. (A future
         // diagnostics channel on MultiYearStrategyResult should surface this to the user.)
-        let resolvedState = USState.allCases.first { $0.abbreviation == inputs.state }
+        // Read through `MultiYearStaticInputs.modelledState` rather than
+        // repeating the lookup here, so any surface that has to name the state
+        // this plan's figures were computed in reads the engine's own
+        // expression instead of a second copy of it. See that property's doc
+        // comment.
+        let resolvedState = inputs.modelledState
         assert(resolvedState != nil, "Unknown state abbreviation '\(inputs.state)' — defaulting to CA")
         let usState: USState = resolvedState ?? .california
 
@@ -1587,6 +1592,28 @@ struct ProjectionEngine {
 
     /// Compute state tax using TaxCalculationEngine.calculateStateTax.
     /// Builds minimal IncomeSource list for retirement exemption logic.
+    ///
+    /// KNOWN GAP AGAINST THE SINGLE-YEAR PATH, RECORDED 2026-08-06 AND NOT
+    /// FIXED HERE. `TaxCalculationEngine.calculateStateTax` does not apply
+    /// `config.stateDeduction` itself; that is the caller's job, and the
+    /// single-year caller does it (`DataManager.calculateStateTax` subtracts
+    /// the state standard or itemized deduction and passes the personal
+    /// exemption as `postExemptionDeduction`). This call below does neither: it
+    /// passes a raw `federalAGI` and no `postExemptionDeduction`, so a
+    /// multi-year projection taxes a base that still contains the whole state
+    /// standard deduction and personal exemption, and for a
+    /// `.conformsToFederal` state carries no federal deduction across either.
+    /// Measured: Kansas MFJ about $1,482 a year of phantom state tax, Idaho MFJ
+    /// both aged 67 about $2,517.
+    ///
+    /// Fixing it moves the frozen 1,020-value behaviour baseline under
+    /// `RetireSmartIRATests/Baselines/`, which is why it was scoped out of the
+    /// accuracy-disclosure branch rather than fixed there. Two consequences a
+    /// fix must carry with it: the Multi-Year tab's per-state accuracy
+    /// affordance was REMOVED because of this gap and may be restored once it
+    /// closes (see `ApproachComparisonView`), and an end-to-end multi-year
+    /// behaviour probe must land before that restoration, because Gate 3 in
+    /// `StateAccuracyContentTests` probes the single-year contract only.
     private func computeStateTax(
         federalAGI: Double,
         taxableSS: Double,
@@ -1616,7 +1643,17 @@ struct ProjectionEngine {
         // `matchedPerSourceRule` matches per row, so a nil classification (the default,
         // unchanged from before this task) resolves to `.unknown`/`.unknown` via
         // `IncomeSource.init`'s own inference, matching every jurisdiction other than New
-        // York exactly. Splitting by owner is otherwise numerically inert: every exemption
+        // York exactly.
+        //
+        // Phase 5b Task 9 review, IMPORTANT 1: the SURVIVOR FLAG is forwarded here too.
+        // The District of Columbia's rule (D.C. Code 47-1803.02(a)(2)(N)(ii)) is the
+        // first whose discriminant is not fully described by (structure, source), and
+        // dropping the flag here made it unreachable from Multi-Year while single-year
+        // applied it, so the two surfaces disagreed for the same household. The age half
+        // of that rule needs no work here: `matchMinAge` is evaluated against the ROW
+        // OWNER's age, and the `currentAge`/`spouseBirthYear` passed below are the real
+        // projected ages, so it re-evaluates correctly in every projected year as the
+        // household ages through 62. Splitting by owner is otherwise numerically inert: every exemption
         // below this point pools all `.pension` rows before applying any cap (Task 3/4), and
         // `ownerQualifies` treats every owner identically under `.household` attribution,
         // the only mode any jurisdiction ships (RetirementDistributionComponent.swift's file
@@ -1629,7 +1666,8 @@ struct ProjectionEngine {
                 annualAmount: primaryPensionIncome,
                 owner: .primary,
                 planStructure: primaryPensionClassification?.structure,
-                planSource: primaryPensionClassification?.source
+                planSource: primaryPensionClassification?.source,
+                isSurvivorBenefit: primaryPensionClassification?.isSurvivorBenefit
             ))
         }
         if spousePensionIncome > 0 {
@@ -1639,7 +1677,8 @@ struct ProjectionEngine {
                 annualAmount: spousePensionIncome,
                 owner: .spouse,
                 planStructure: spousePensionClassification?.structure,
-                planSource: spousePensionClassification?.source
+                planSource: spousePensionClassification?.source,
+                isSurvivorBenefit: spousePensionClassification?.isSurvivorBenefit
             ))
         }
         if totalTradWithdrawals > 0 {

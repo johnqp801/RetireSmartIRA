@@ -49,9 +49,10 @@
     "knownLimitations" : [
 
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "Iowa Department of Revenue, Retirement Income Tax Guidance: https://revenue.iowa.gov/taxes/tax-guidance/individual-income-tax/retirement-income-tax-guidance"
+    ],
+    "taxYear" : 2026
   }
 }

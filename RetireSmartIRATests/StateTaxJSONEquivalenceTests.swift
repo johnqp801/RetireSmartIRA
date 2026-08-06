@@ -503,10 +503,23 @@ struct StateTaxJSONEquivalenceTests {
         // listed in `layerAProvenDivergentJurisdictions` -- assert instead
         // that AT LEAST ONE scenario actually diverged, closing that hole.
         //
-        // Kansas is deliberately NOT in that list: none of the 10 scenarios
-        // above read `postExemptionDeduction` from config, so Kansas
-        // computes identically through both tables whether its
-        // `personalExemption` correction is present, reverted, or garbled.
+        // Kansas is deliberately NOT in that list, and Phase 5b Task 3
+        // re-measured that call rather than inheriting it. Two reasons, both
+        // still true after Task 3 shipped Kansas's `perSourceExemptions`
+        // rule. First, none of the 10 scenarios above read
+        // `postExemptionDeduction` from config, so Kansas computes
+        // identically through both tables whether its `personalExemption`
+        // correction is present, reverted, or garbled. Second, the only
+        // `.pension` row this grid builds is constructed WITHOUT a
+        // classification, so `IncomeSource.init` infers
+        // `(unknown, unknown)` (`RetirementPlanClassification
+        // .infer(incomeType:)` returns unknown/unknown for every type except
+        // `.rmd`), and Kansas's rule names four specific government sources,
+        // none of which is `.unknown`. `matchedPerSourceRule` therefore
+        // returns `nil` for that row through BOTH configs and the per-source
+        // correction is invisible here too. MEASURED, not reasoned: Task 3
+        // temporarily added `.kansas` to the list below and this assertion
+        // failed with "None diverged", then reverted it.
         // A "must diverge" assertion would fail Kansas forever in its
         // correct state, so it stays on the plain skip above with no
         // further check here; its correction is guarded by Layer B
@@ -558,6 +571,47 @@ struct StateTaxJSONEquivalenceTests {
     ///   `pensionExemption`, or `stateDeduction`). Every scenario with
     ///   nonzero `income` therefore diverges from the frozen 4.55% legacy
     ///   rate; only "zero income" (0 x anything = 0) does not.
+    /// - Massachusetts: NOT here, for Kansas's second reason and only that
+    ///   one. Phase 5b Task 4's correction is entirely
+    ///   `perSourceExemptions`, and the single `.pension` row this grid
+    ///   builds is constructed WITHOUT a classification, so it infers
+    ///   `(unknown, unknown)`. Massachusetts's rule names `ownStateOrLocal`
+    ///   and `uniformedServices` at `definedBenefit`, none of which is
+    ///   `.unknown`, so `matchedPerSourceRule` returns `nil` for that row
+    ///   through BOTH configs and the correction is invisible to this grid.
+    ///   MEASURED, not reasoned: Task 4 temporarily added `.massachusetts`
+    ///   to the list below and the "at least one scenario diverged"
+    ///   assertion failed with "None diverged", then reverted it.
+    /// - District of Columbia: NOT here, for Kansas's second reason PLUS a
+    ///   second, independent one of its own. Phase 5b Task 9's correction is
+    ///   entirely `perSourceExemptions` (plus the disclosure sentence, which is
+    ///   not numeric); it left `pensionExemption` at `.none`. Kansas's reason:
+    ///   the single `.pension` row this grid builds is constructed WITHOUT a
+    ///   classification, so it infers `(unknown, unknown)`, and DC's rule names
+    ///   `federalCivilian` and `ownStateOrLocal` at `definedBenefit`, none of
+    ///   which is `.unknown`. DC's own additional reason: that row also carries
+    ///   no `isSurvivorBenefit`, and DC's rule sets `matchIsSurvivorBenefit:
+    ///   true`, which a `nil` row never satisfies (see
+    ///   `PerSourceExemptionRule.matches`). Either reason alone is sufficient,
+    ///   so the rule is invisible to this grid twice over. MEASURED, not
+    ///   reasoned: Task 9 temporarily added `.districtOfColumbia` to the list
+    ///   below and the "at least one scenario diverged" assertion failed with
+    ///   `observedDivergence` at line 533, then reverted it.
+    /// - Arizona: NOT here, for Kansas's second reason and only that one.
+    ///   Phase 5b Task 6's correction is entirely `perSourceExemptions` (plus
+    ///   the disclosure sentence, which is not numeric); it deliberately left
+    ///   `pensionExemption` at `.partial(2500)` and
+    ///   `exemptionAppliesPerIndividual` at `false`, so the only numeric lever
+    ///   it added fires on CLASSIFIED rows. The single `.pension` row this grid
+    ///   builds is constructed WITHOUT a classification, so it infers
+    ///   `(unknown, unknown)`. Arizona's Line 29b rule names `uniformedServices`
+    ///   and its Line 29a denial rule names `privateEmployer`,
+    ///   `otherStateOrLocal` and `nyStateOrLocal`; `.unknown` is none of them,
+    ///   so `matchedPerSourceRule` returns `nil` for that row through BOTH
+    ///   configs and the correction is invisible to this grid. MEASURED, not
+    ///   reasoned: Task 6 temporarily added `.arizona` to the list below and
+    ///   the "at least one scenario diverged" assertion failed with
+    ///   `observedDivergence` at line 533, then reverted it.
     static let layerAProvenDivergentJurisdictions: Set<USState> = [.iowa, .newMexico, .georgia, .utah]
 }
 
@@ -621,7 +675,13 @@ struct StateTaxJSONStructuralEquivalenceTests {
     /// someone edited the legacy table to match it. Both need fixing.
     ///
     /// - Kansas: Phase 5a Task 2, `personalExemption` added (SB1, 2024
-    ///   special session).
+    ///   special session). Phase 5b Task 3 added
+    ///   `retirementExemptions.perSourceExemptions` on top of that
+    ///   (Schedule S Line A14: KPERS, federal civilian, uniformed services
+    ///   and Railroad Retirement fully exempt). Kansas was ALREADY on this
+    ///   list, so Task 3 changed no membership here; it re-verified that
+    ///   Kansas still belongs, which it does, now for two independent
+    ///   reasons rather than one.
     /// - Iowa: Phase 5a Task 3, retirement-income exclusion corrected (HF
     ///   2317).
     /// - New Mexico: Phase 5a Task 4, `taxSystem.single` and
@@ -639,7 +699,113 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///   Credit, Retirement Credit) remain Phase 5b.
     /// - Indiana: Phase 5a Task 7, `personalExemption` added (IT-40 Booklet
     ///   2025, page 24, Schedule 3 line 1).
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana]
+    /// - Massachusetts: Phase 5b Task 4 added
+    ///   `retirementExemptions.perSourceExemptions` and
+    ///   `retirementExemptions.unclassifiedPensionDisclosure` (mass.gov, Tax
+    ///   Treatment of Government Pensions in Massachusetts: a Massachusetts
+    ///   state or local employee CONTRIBUTORY pension and U.S. military
+    ///   retired pay are excluded from Massachusetts gross income). Both
+    ///   fields are absent from the frozen legacy table, so the re-encoded
+    ///   documents now differ. Massachusetts is deliberately NOT added to
+    ///   `layerAProvenDivergentJurisdictions`; see that declaration.
+    /// - Arizona: Phase 5b Task 6 added
+    ///   `retirementExemptions.perSourceExemptions` and
+    ///   `retirementExemptions.unclassifiedPensionDisclosure` (Arizona Form 140
+    ///   Instructions, Line 29a: the $2,500 exclusion covers U.S. government
+    ///   plus Arizona state and local pensions ONLY, and Line 29b: uniformed
+    ///   services retired pay is excluded in full under a separate, uncapped
+    ///   line). `pensionExemption` itself is UNCHANGED at `.partial(2500)`, and
+    ///   so is `exemptionAppliesPerIndividual`; the correction lives entirely
+    ///   in the two new fields, which are absent from the frozen legacy table,
+    ///   so the re-encoded documents now differ. Arizona is deliberately NOT
+    ///   added to `layerAProvenDivergentJurisdictions`; see that declaration.
+    /// - District of Columbia: Phase 5b Task 9 added
+    ///   `retirementExemptions.perSourceExemptions` and
+    ///   `retirementExemptions.unclassifiedPensionDisclosure` (D.C. Code
+    ///   Section 47-1803.02(a)(2)(N)(ii): survivor benefits received from the
+    ///   District or the federal government by persons 62 or older are excluded
+    ///   from DC gross income, with no dollar cap and no sunset clause). The
+    ///   rule is the first in the program to carry `matchIsSurvivorBenefit` and
+    ///   `matchMinAge`, both of which encode into the rule object, so the
+    ///   re-encoded documents differ by more than the frozen table's missing
+    ///   fields alone. `pensionExemption` stays `.none`: the general $3,000
+    ///   pension exclusion under subparagraph (N)(i) EXPIRED for tax years
+    ///   after 2014 and the app is already right to grant nothing for it. DC is
+    ///   deliberately NOT added to `layerAProvenDivergentJurisdictions`; see
+    ///   that declaration.
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana, .massachusetts, .arizona, .districtOfColumbia]
+
+    /// Jurisdictions whose bundled JSON diverges from the frozen legacy table
+    /// in `verification` ALONE, with every computed field still byte-identical.
+    ///
+    /// THESE ARE NOT TAX CORRECTIONS and no number moved for any of them. The
+    /// per-state accuracy disclosure work moved four approved pension-editor
+    /// captions into `verification.knownLimitations`, so that a limitation
+    /// sentence is written in exactly one place and the editor renders it from
+    /// the resident's own config, and then populated `taxYear`, `lastVerified`,
+    /// `primarySources` and further limitation sentences for the covered
+    /// jurisdictions. `configs2026Legacy` builds every entry with
+    /// `verification` defaulted to `.unverified` and has no way to carry any of
+    /// that, so the two documents necessarily differ. Massachusetts's caption
+    /// moved the same way and needs no entry here, being already on
+    /// `phase5CorrectedJurisdictions`.
+    ///
+    /// WHY NOT ADD THESE SIX TO `phase5CorrectedJurisdictions`. That set
+    /// flips the assertion to "must diverge" and thereafter excuses the
+    /// jurisdiction from the byte-identity check entirely, which is the
+    /// objection `Phase5bNewYorkMilitaryTests.theLegacyMirrorWasUpdatedToo`
+    /// records against doing it to New York. That objection stands even though
+    /// New York has since joined the set BELOW: the comments it lives in were
+    /// corrected on 2026-08-06 to say so, because membership here and
+    /// membership there are not the same relief. Membership HERE excuses nothing:
+    /// the branch below still demands byte-identity of everything except
+    /// `verification`, so a decode that dropped, defaulted or reordered any
+    /// computed field still fails exactly as it would for the other 38 states.
+    ///
+    /// WHY NOT MIRROR THE SENTENCES INTO `configs2026Legacy`, which is that
+    /// same New York precedent's remedy. Because it would put John's approved
+    /// copy in two places, which is the precise duplication this feature
+    /// exists to remove, and because the frozen table is a snapshot of
+    /// pre-JSON tax LAW, not a second home for disclosure copy.
+    ///
+    /// MISSOURI AND NEW YORK JOINED WHEN THE REMAINING SENTENCES WERE AUTHORED,
+    /// which the previous revision of this comment predicted. They were the
+    /// only two of the fifteen covered jurisdictions on neither divergence set:
+    /// the other eight covered states are Phase 5 corrections. Both now carry a
+    /// tax year, a verified date, a primary source and limitation sentences,
+    /// and NOTHING ELSE in either file moved, which the confinement assertion
+    /// below re-proves on every run rather than taking this comment's word.
+    static let disclosureOnlyDivergentJurisdictions: Set<USState> = [
+        .hawaii, .northCarolina, .idaho, .vermont, .missouri, .newYork
+    ]
+
+    /// A config re-encoded with `verification` stripped, so "the disclosure
+    /// metadata diverged" can be told apart from "a computed field diverged".
+    private static func encodedWithoutVerification(_ config: StateTaxConfig) throws -> Data {
+        struct NotAJSONObject: Error {}
+        let data = try makeEncoder().encode(config)
+        guard var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NotAJSONObject()
+        }
+        object.removeValue(forKey: "verification")
+        return try JSONSerialization.data(withJSONObject: object,
+                                          options: [.sortedKeys, .prettyPrinted])
+    }
+
+    @Test("A jurisdiction cannot be both a Phase 5 correction and a disclosure-only divergence")
+    func theTwoDivergenceSetsAreDisjoint() {
+        let both = Self.phase5CorrectedJurisdictions
+            .intersection(Self.disclosureOnlyDivergentJurisdictions)
+        #expect(both.isEmpty,
+                """
+                \(both.map(\.abbreviation).sorted()) appear on both divergence sets. The \
+                two make incompatible claims: phase5CorrectedJurisdictions says the tax \
+                math legitimately moved away from the frozen table, and \
+                disclosureOnlyDivergentJurisdictions says it provably did not. A \
+                jurisdiction on both would get the weaker of the two checks by accident \
+                of branch order.
+                """)
+    }
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different
@@ -693,6 +859,30 @@ struct StateTaxJSONStructuralEquivalenceTests {
                 corrections). Byte-identical here means either the correction was \
                 reverted from the JSON or the legacy table was edited to match it; both \
                 are failures that need fixing, not this test.
+                """
+            )
+        } else if Self.disclosureOnlyDivergentJurisdictions.contains(state) {
+            #expect(
+                jsonEncoded != legacyEncoded,
+                """
+                \(state.abbreviation) is listed in disclosureOnlyDivergentJurisdictions, \
+                so its bundled JSON is expected to carry a verification.knownLimitations \
+                sentence the frozen legacy table cannot. Byte-identical here means the \
+                sentence was dropped from the JSON, which silently removes the only \
+                disclosure a \(state.abbreviation) pension holder sees.
+                """
+            )
+            let jsonMath = try Self.encodedWithoutVerification(jsonConfig)
+            let legacyMath = try Self.encodedWithoutVerification(legacyConfig)
+            #expect(
+                jsonMath == legacyMath,
+                """
+                \(state.abbreviation) is listed as a DISCLOSURE-ONLY divergence, but the \
+                two documents still differ once `verification` is removed from both, so \
+                something other than the disclosure metadata moved. Either a computed \
+                field was changed without being recorded as a correction, or decode \
+                dropped, defaulted or reordered one.
+                First divergence: \(Self.firstDivergence(jsonMath, legacyMath))
                 """
             )
         } else {

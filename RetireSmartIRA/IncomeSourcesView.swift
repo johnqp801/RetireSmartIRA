@@ -13,9 +13,47 @@ import SwiftUI
 /// two-dimension mappings per spec section 3.2 -- do not add, remove, or
 /// reorder without updating the spec. This is the ONLY place in the app a
 /// user sets `RetirementPlanClassification`.
+///
+/// Phase 5b Task 3 (controller addendum) added three rows:
+/// `ownStateGovernmentPension`, `uniformedServicesPension` and
+/// `railroadRetirementPension`. Task 1 added the three `PlanSource` cases
+/// they write, but nothing in this picker could write any of them, so a
+/// Kansas KPERS holder had exactly one government-pension option, "another
+/// state or locality", which writes `otherStateOrLocal` -- the one case a
+/// correct Kansas rule must NOT match. Every Kansas golden case would have
+/// gone green while a real KPERS holder still received no exclusion. All
+/// three rows land together, not just the one Kansas needs, so the later
+/// Phase 5b jurisdictions (Vermont, Arizona, Idaho, Massachusetts) inherit a
+/// picker that can express their rules.
+///
+/// The addition is ADDITIVE: no existing case's `classification` changed, so
+/// no row a user already saved means anything different than it did before.
+/// `RetirementPlanClassification` is what persists, on `IncomeSource` and
+/// `IRAAccount`; this enum is a presentation type held in `@State` and is
+/// never encoded. The three new rows are INSERTED rather than appended,
+/// which changes display POSITION but preserves the relative order of all
+/// nine original rows.
+///
+/// THE OVERLAP, and what is done about it: for a New York resident,
+/// `nyGovernmentPension` and `ownStateGovernmentPension` describe the same
+/// pension, and only the FIRST selects New York's Line 26 exclusion, because
+/// New York's shipped rule names `nyStateOrLocal`. Picking the newer and
+/// arguably more natural row would drop a $60,000 NYSLRS pension to New
+/// York's ordinary capped $20,000 exclusion: $40,000 taxed that should be
+/// $0, two taps away, on the one jurisdiction that has been prompting users
+/// to classify at all. `options(for:selected:)` below suppresses the
+/// own-state row for exactly those residents, driven by live config.
+///
+/// That is a MITIGATION, not the fix. The structural fix is to collapse
+/// `nyStateOrLocal` into `ownStateOrLocal` and retire the jurisdiction-named
+/// case, which touches New York's shipped config, New York's fixtures and
+/// existing user saves, and is deliberately deferred. See the Task 3 report.
 enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     case nyGovernmentPension
+    case ownStateGovernmentPension
     case federalCivilianPension
+    case uniformedServicesPension
+    case railroadRetirementPension
     case otherStateGovernmentPension
     case privateEmployerPension
     case governmentSalaryReduction
@@ -26,11 +64,25 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Plain-English row label, spec section 3.2 column 1, verbatim.
+    /// Plain-English row label, spec section 3.2 column 1, verbatim for the
+    /// nine original rows.
+    ///
+    /// The three Phase 5b rows were introduced by Task 3 as working copy and
+    /// were APPROVED AS IS by John on 2026-08-05, so all twelve rows are now
+    /// approved user-facing copy. They remain deliberately plain rather than
+    /// clever, and a rename would still be a one-line change with no
+    /// behavioral consequence: nothing keys on a label, and what a row
+    /// PERSISTS is the `RetirementPlanClassification` its `classification`
+    /// returns, not any text and not the case's `rawValue`. Their exact
+    /// strings are pinned by
+    /// `Phase3bPresentationTests.newPickerLabelsAreApprovedAndPinned`.
     var label: String {
         switch self {
         case .nyGovernmentPension: return "Government pension, New York State or local"
+        case .ownStateGovernmentPension: return "Government pension, my own state or locality"
         case .federalCivilianPension: return "Government pension, federal civilian"
+        case .uniformedServicesPension: return "Military retired pay"
+        case .railroadRetirementPension: return "Railroad Retirement benefits"
         case .otherStateGovernmentPension: return "Government pension, another state or locality"
         case .privateEmployerPension: return "Private employer pension"
         case .governmentSalaryReduction: return "403(b) or 457, government employer"
@@ -47,8 +99,24 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
         switch self {
         case .nyGovernmentPension:
             return RetirementPlanClassification(structure: .definedBenefit, source: .nyStateOrLocal)
+        case .ownStateGovernmentPension:
+            // Phase 5b Task 3. The taxpayer's OWN state system: KPERS to a
+            // Kansas resident. The matched pair of `.otherStateGovernmentPension`
+            // below, and the reason Kansas's rule can exempt one without
+            // exempting the other.
+            return RetirementPlanClassification(structure: .definedBenefit, source: .ownStateOrLocal)
         case .federalCivilianPension:
             return RetirementPlanClassification(structure: .definedBenefit, source: .federalCivilian)
+        case .uniformedServicesPension:
+            // Phase 5b Task 3. Military retired pay, distinct from CSRS/FERS:
+            // Vermont, Arizona, Idaho, Massachusetts and Kansas each treat
+            // the two differently, and Kansas is the first to ship a rule.
+            return RetirementPlanClassification(structure: .definedBenefit, source: .uniformedServices)
+        case .railroadRetirementPension:
+            // Phase 5b Task 3. Railroad Retirement Board benefits, which
+            // Kansas's Schedule S Line A14 exempts by name, neither a state
+            // system nor an ordinary federal civilian pension.
+            return RetirementPlanClassification(structure: .definedBenefit, source: .railroadRetirement)
         case .otherStateGovernmentPension:
             // The row that exists specifically to stop an out-of-state
             // public pension from selecting New York's exclusion (spec
@@ -81,13 +149,47 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// explicit priority list rather than `allCases`' declaration/display
     /// order (which follows spec section 3.2 and lists the 403(b) row
     /// first).
+    ///
+    /// THIS ARRAY IS HAND-MAINTAINED AND DOES NOT USE `allCases`. A case
+    /// omitted from it does not fail to compile: it silently falls through
+    /// to `.notSure`, so an already-correctly-classified row would display
+    /// as unclassified the moment a user opened it to edit. The three
+    /// Phase 5b Task 3 rows are listed here for that reason.
+    /// `Phase3bPresentationTests.reverseLookupRoundTrips` sweeps `allCases`
+    /// and is the test that catches an omission.
+    ///
+    /// MATCHED ON STRUCTURE AND SOURCE ONLY, which is a whole-branch review
+    /// fix and is load-bearing rather than cosmetic. Task 9 gave
+    /// `RetirementPlanClassification` a THIRD stored property,
+    /// `isSurvivorBenefit`, so its synthesized `==` now compares that too,
+    /// while every entry in the list below carries `nil` for it. A whole-value
+    /// `==` therefore falls through to `.notSure` for any survivor-flagged
+    /// classification: an already-correctly-classified DC survivor annuity
+    /// would open in the editor displaying as unclassified, and saving would
+    /// rewrite it. That is exactly the silent fallthrough this doc comment
+    /// warns about two paragraphs up, arriving through a route the warning did
+    /// not anticipate, and `reverseLookupRoundTrips` cannot catch it because
+    /// every case it sweeps carries `nil`.
+    ///
+    /// It is unreachable TODAY only by luck of the two call sites: both
+    /// construct the classification from `planStructure` and `planSource`
+    /// alone, and `IRAAccount` has no survivor field at all. This function is
+    /// the wrong place to depend on that. The survivor fact is not something
+    /// the twelve-row picker expresses in the first place -- it is a separate
+    /// toggle beside it -- so the reverse lookup should never have been
+    /// consulting it.
     static func choice(for classification: RetirementPlanClassification) -> PlanClassificationChoice {
         let priorityOrder: [PlanClassificationChoice] = [
-            .nyGovernmentPension, .federalCivilianPension, .otherStateGovernmentPension,
+            .nyGovernmentPension, .ownStateGovernmentPension, .federalCivilianPension,
+            .uniformedServicesPension, .railroadRetirementPension,
+            .otherStateGovernmentPension,
             .privateEmployerPension, .governmentSalaryReduction, .employer401k,
             .privateSalaryReduction, .ira, .notSure
         ]
-        return priorityOrder.first(where: { $0.classification == classification }) ?? .notSure
+        return priorityOrder.first(where: {
+            $0.classification.structure == classification.structure
+                && $0.classification.source == classification.source
+        }) ?? .notSure
     }
 
     /// Whether the picker should be offered at all for `accountType`. Roth
@@ -95,6 +197,83 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     /// their plan kind (task 6 brief, step 1).
     static func showsPickerFor(accountType: AccountType) -> Bool {
         !accountType.isRothType && !accountType.isInherited
+    }
+
+    /// `PlanSource` cases that name ONE specific jurisdiction outright,
+    /// rather than describing a jurisdiction relative to where the taxpayer
+    /// lives. `nyStateOrLocal` is the only one, and it predates
+    /// `ownStateOrLocal`: it is the jurisdiction-named form of what Phase 5b
+    /// made expressible generically. Data rather than a `state == .newYork`
+    /// check, so retiring the case (the structural fix this file's enum doc
+    /// comment describes) is a one-line deletion here and nowhere else.
+    /// keyed to THE STATE IT NAMES, so the association survives the lookup.
+    ///
+    /// This was a `Set<PlanSource>` on review, which dropped the
+    /// source-to-state association and made
+    /// `residenceNamesItsOwnJurisdiction` check less than its name asserted:
+    /// it answered "does this state's config name ANY jurisdiction-named
+    /// source", not "does it name ITS OWN".
+    ///
+    /// THAT DIFFERENCE IS NOW LIVE, and Arizona is what exercises it. An
+    /// earlier version of this comment said nothing triggered it, on the
+    /// grounds that only New York's config named `nyStateOrLocal`. Phase 5b
+    /// Task 6 changed that: Arizona's Line 29a DENIAL rule names
+    /// `nyStateOrLocal`, because an Arizona resident can select the New York
+    /// picker row and a New York pension is not Line 29a income. Under the
+    /// old `Set` version, `residenceNamesItsOwnJurisdiction(.arizona)` would
+    /// answer true and `options(for: .arizona)` would suppress the generic
+    /// own-state row for every Arizona resident, making Arizona's own $2,500
+    /// allowance UNREACHABLE for an Arizona State Retirement System retiree.
+    /// The `== state` comparison is what keeps it false. Reverting this to a
+    /// `Set` now breaks Arizona;
+    /// `Phase5bArizonaPerSourceTests.arizonaDoesNotSuppressTheOwnStateRow`
+    /// is the test that catches it.
+    static let jurisdictionNamedSources: [PlanSource: USState] = [.nyStateOrLocal: .newYork]
+
+    /// Whether `state`'s OWN configuration already names its own
+    /// jurisdiction in a per-source rule, which makes the generic own-state
+    /// row a trap for that state's residents rather than a convenience:
+    /// their own state's exclusion is reachable only through the
+    /// jurisdiction-named row, so offering both invites them to pick the one
+    /// that silently costs them the exclusion.
+    ///
+    /// Reads the live config, in the same spirit as
+    /// `residenceHasPerSourceRules` below, so it needs no edit when a
+    /// jurisdiction ships or retires such a rule. The `== state` comparison
+    /// is what makes this "its own" rather than "any": a config naming some
+    /// OTHER state's jurisdiction-named source would not suppress here, and
+    /// should not, because the generic own-state row is still the only way
+    /// that state's residents could describe their own pension.
+    static func residenceNamesItsOwnJurisdiction(_ state: USState) -> Bool {
+        StateTaxData.config(for: state).retirementExemptions.perSourceExemptions.contains { rule in
+            rule.matchSources.contains { jurisdictionNamedSources[$0] == state }
+        }
+    }
+
+    /// The rows to offer a resident of `state`. `allCases` for everyone
+    /// except a resident whose own config names its own jurisdiction, who
+    /// does not see the generic own-state row at all.
+    ///
+    /// `selected` is the picker's CURRENT selection and is never filtered
+    /// out even when it would otherwise be suppressed. Without that, a row
+    /// already carrying `ownStateOrLocal` would open with a selection that
+    /// matches no tag in the list, which SwiftUI renders as a blank picker
+    /// and which would silently rewrite the row's classification on the next
+    /// save. Suppression is about what a user can newly CHOOSE, never about
+    /// hiding what they already chose.
+    ///
+    /// `selected` has NO DEFAULT VALUE, deliberately. It carried `= nil` on
+    /// review, which made the one form with a data-loss failure mode the
+    /// DEFAULT form: a call site added later could omit it with no compile
+    /// error, and no test would catch it, because the tests exercise the nil
+    /// form on purpose and therefore cannot also assert that production
+    /// never uses it. Requiring the argument moves that from "covered by
+    /// vigilance" to "foreclosed by the compiler". Pass `nil` explicitly
+    /// when there genuinely is no current selection.
+    static func options(for state: USState,
+                        selected: PlanClassificationChoice?) -> [PlanClassificationChoice] {
+        guard residenceNamesItsOwnJurisdiction(state) else { return allCases }
+        return allCases.filter { $0 != .ownStateGovernmentPension || $0 == selected }
     }
 
     /// The label an account row or detail view should show in place of
@@ -186,16 +365,267 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     }
 
     /// Whether `state`'s configuration carries any per-source exemption
-    /// rule at all. Empty for every jurisdiction except New York today
-    /// (spec section 3.3). Reads the live config rather than hardcoding
-    /// "New York" so this stays correct the day a second jurisdiction
-    /// ships one.
+    /// rule at all. Reads the live config rather than hardcoding "New York"
+    /// so this stays correct the day a second jurisdiction ships one (spec
+    /// section 3.3).
+    ///
+    /// That day arrived in Phase 5b Task 3: Kansas now ships
+    /// `perSourceExemptions` too, so this function returns `true` for Kansas
+    /// with NO change to its body, and the classification prompt turns on
+    /// for Kansas residents automatically. Verified, not assumed, by
+    /// `Phase3bPresentationTests`.
     static func residenceHasPerSourceRules(_ state: USState) -> Bool {
         !StateTaxData.config(for: state).retirementExemptions.perSourceExemptions.isEmpty
+    }
+
+    /// Phase 5b Task 9: whether `state` ships a per-source rule that consults
+    /// the SURVIVOR dimension, and therefore whether the pension editor should
+    /// ask the question at all.
+    ///
+    /// DERIVED FROM LIVE CONFIG, never a hardcoded `state == .districtOfColumbia`.
+    /// Task 3 established that precedent and the reason is the same one: a rule
+    /// no real user can select is a green suite and an undelivered fix, and a
+    /// hardcoded jurisdiction check goes stale the moment a second jurisdiction
+    /// ships a survivor rule. Today exactly one does, which
+    /// `Phase5bDCSurvivorTests.onlyTheDistrictAsksTheSurvivorQuestion` asserts
+    /// by sweeping `USState.allCases` rather than by naming DC.
+    ///
+    /// WHY THIS GATE EXISTS AT ALL: `isSurvivorBenefit` is a THIRD question on
+    /// top of the twelve-row plan-type picker, and for 50 of 51 jurisdictions
+    /// the answer cannot change a single dollar. Asking everyone would be the
+    /// noise `shouldPromptForClassification` already declines to make.
+    static func residenceUsesSurvivorDimension(_ state: USState) -> Bool {
+        StateTaxData.config(for: state).retirementExemptions.perSourceExemptions
+            .contains { $0.matchIsSurvivorBenefit != nil }
     }
 }
 
 struct IncomeSourcesView: View {
+
+    /// Phase 5b Task 7. North Carolina's Bailey disclosure.
+    ///
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with Idaho's
+    /// caption below. Every caption in this section is now approved copy (Hawaii
+    /// pre-dates Phase 5b; Massachusetts's was approved the same day). It ships
+    /// because North Carolina was the first jurisdiction this phase touched
+    /// carrying zero disclosure on any surface: a Bailey-vested retiree is
+    /// over-taxed by $1,486.27 a year at the NC-1 fixture's shape with nothing on
+    /// screen telling them. Rewording it is a one-line change here plus the
+    /// assertions in
+    /// `Phase5bNorthCarolinaDecisionTests.northCarolinaCaptionNamesTheRightDirection`.
+    ///
+    /// HOISTED to a static rather than written inline like the Hawaii and
+    /// Massachusetts captions, so it has a test seam. Task 5 recorded the
+    /// absence of one for those two as a gap to close in Phase 6; there is no
+    /// reason to add a third untestable literal in the meantime.
+    ///
+    /// It cannot be an `unclassifiedPensionDisclosure` sentence: that string is
+    /// in bidirectional lockstep with `perSourceExemptions`, which North
+    /// Carolina deliberately does not ship, and it would be false anyway,
+    /// because a North Carolina pension can be perfectly classified and still be
+    /// taxed wrongly. The durable record is the NC entry in
+    /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
+    /// surface that reaches the affected user. Delete both together if a Bailey
+    /// vesting axis is ever added.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
+    static let northCarolinaBaileyCaption =
+        "North Carolina exempts a state, local or federal government pension under the "
+        + "Bailey settlement if you had five or more years of creditable service by "
+        + "August 12, 1989. This app does not model that vesting date, so if you qualify "
+        + "your North Carolina state tax may be overstated."
+
+    /// Phase 5b Task 8. Idaho's Retirement Benefits Deduction disclosure.
+    ///
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with the North
+    /// Carolina caption above, whose situation Idaho's repeats: Idaho ships no rule,
+    /// so `shouldPromptForClassification` never fires for an Idaho resident (it
+    /// gates on `residenceHasPerSourceRules`) and
+    /// `UnclassifiedPensionDisclosure.text(for: .idaho)` is nil (it gates on the
+    /// config sentence, which is in bidirectional lockstep with the rules). That
+    /// leaves an Idaho resident with ZERO disclosure on every surface while
+    /// Idaho grants no Retirement Benefits Deduction at all, over-taxing a
+    /// qualifying retiree by up to $840.05 a year at the ID-2 fixture's shape.
+    ///
+    /// Two other wordings were drafted and are recorded in the Task 8 report; this
+    /// one was recommended because it names the three qualifying groups and BOTH
+    /// age gates, so a reader can tell whether it applies to them, rather than
+    /// warning vaguely that something may be wrong. Rewording is a one-line change
+    /// here plus the assertions in
+    /// `Phase5bIdahoDecisionTests.idahoCaptionNamesTheRightDirection`.
+    ///
+    /// DIRECTION: overstated. Idaho applies no part of the deduction today, so
+    /// every error runs toward over-taxation, exactly like North Carolina and
+    /// Hawaii and unlike Massachusetts. Harmonising this with the Massachusetts
+    /// caption would invert it.
+    ///
+    /// It cannot be an `unclassifiedPensionDisclosure` sentence, for the same two
+    /// reasons North Carolina's could not: that string is in bidirectional
+    /// lockstep with `perSourceExemptions`, which Idaho deliberately does not
+    /// ship, and it would be false anyway, because an Idaho pension can be
+    /// perfectly classified through the picker and still be taxed wrongly. The
+    /// facts Idaho's Form 39R Part Two needs, pre-1984 CSRS eligibility and
+    /// police-or-firefighter service within PERSI, are not on the classification
+    /// at all. The durable record is the ID entry in
+    /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
+    /// surface that reaches the affected user. Delete both together if those axes
+    /// are ever added.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
+    static let idahoRetirementBenefitsDeductionCaption =
+        "Idaho deducts certain retirement benefits from state tax, including Civil "
+        + "Service (CSRS) annuities, some Idaho police and firefighter pensions, and "
+        + "military retired pay, generally from age 65 or from age 62 for retired "
+        + "service members. This app does not apply that deduction, so if you qualify "
+        + "your Idaho state tax may be overstated."
+
+    /// Phase 5b Task 9. Vermont's two retirement exclusions.
+    ///
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with the District
+    /// of Columbia's survivor toggle and caption below and DC's
+    /// `unclassifiedPensionDisclosure` sentence in `statetax-2026-DC.json`. Every
+    /// caption in this section is now approved copy. Two alternatives are recorded
+    /// in the Task 9 report as the record of what was considered and rejected.
+    /// This one was recommended because it names both exclusions
+    /// and both income limits, so a reader can tell whether either applies to
+    /// them, and because Vermont's two are very differently sized: $10,000
+    /// capped for CSRS against an UNCAPPED exclusion for military retired pay.
+    /// A sentence that named only one would leave the larger gap invisible.
+    ///
+    /// WHY VERMONT SHIPS A CAPTION AND NO RULE, which is the same position
+    /// North Carolina and Idaho are in. Vermont's six pinned defects include the
+    /// single largest dollar gap measured in this phase, $5,211.50 a year at the
+    /// VT-6 fixture's shape, and a Vermont resident sees NOTHING about it today:
+    /// `shouldPromptForClassification` gates on `residenceHasPerSourceRules` and
+    /// Vermont ships none, and `UnclassifiedPensionDisclosure.text(for:
+    /// .vermont)` is nil because that string is in bidirectional lockstep with
+    /// the rules. This caption is the only surface that reaches the affected
+    /// user.
+    ///
+    /// It cannot be an `unclassifiedPensionDisclosure` sentence for the same two
+    /// reasons North Carolina's and Idaho's could not: the lockstep sweep would
+    /// fail it without a rule, and it would be false anyway, because a Vermont
+    /// pension can be perfectly classified through the picker and still be taxed
+    /// wrongly. Neither of the facts Vermont's Schedule IN-112 turns on is on
+    /// the classification: whether the CSRS-side earnings were covered by Social
+    /// Security, and the AGI phase-out band the exclusion sits in.
+    ///
+    /// DIRECTION: overstated. Vermont applies neither exclusion today, so every
+    /// error runs toward over-taxation, exactly like North Carolina, Idaho and
+    /// Hawaii and unlike Massachusetts. Harmonising this with the Massachusetts
+    /// caption would invert it.
+    ///
+    /// The durable record is Vermont's six `knownDefect` blocks in
+    /// `statetax-2026-VT.golden.json` and `Phase5bVermontDecisionTests`. Delete
+    /// all three together if Vermont's exclusions are ever modelled.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
+    static let vermontRetirementExclusionCaption =
+        "Vermont exempts up to $10,000 of Civil Service Retirement System income for "
+        + "filers under $55,000 of income ($70,000 if married filing jointly), and under "
+        + "2025's Act 71 exempts military retired pay in full under $125,000 of income. "
+        + "This app applies neither exemption, so if you qualify your Vermont state tax "
+        + "may be overstated."
+
+    /// Phase 5b Task 9. The District of Columbia's survivor-annuity caption, the
+    /// explanation sitting under the "I receive this as a survivor or beneficiary"
+    /// toggle.
+    ///
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with the toggle
+    /// label itself and DC's `unclassifiedPensionDisclosure` sentence in
+    /// `statetax-2026-DC.json`.
+    ///
+    /// HOISTED from an inline view-body literal by the per-state accuracy
+    /// disclosure work, which changed the text not at all. It had no test seam
+    /// before that; two Phase 5b reviews recorded the absence of one for this
+    /// caption and for Hawaii's and Massachusetts's below. The byte-identity gate
+    /// that proves the later move to `StateVerification.knownLimitations` is
+    /// lossless cannot be written against a literal buried in a `body`.
+    ///
+    /// The second sentence is the load-bearing one and is not decoration: DC
+    /// excludes a survivor annuity but taxes an annuitant's OWN pension in full,
+    /// so a reader who turns the toggle on for their own pension gets a wrong
+    /// number in the confident direction. Rewording is a one-line change here plus
+    /// the assertions in `Phase5bDCSurvivorTests` and
+    /// `StateAccuracyContentTests`.
+    static let districtOfColumbiaSurvivorToggleCaption =
+        "The District of Columbia excludes a DC or federal government survivor annuity "
+        + "from tax once the survivor is 62 or older, but taxes an annuitant's own "
+        + "pension in full. Turn this on only for a pension paid to you as someone "
+        + "else's survivor or beneficiary."
+
+    /// Hawaii's employer-funded-split caption, shown to any Hawaii resident in the
+    /// pension editor.
+    ///
+    /// HOISTED from an inline view-body literal by the per-state accuracy
+    /// disclosure work, which changed the text not at all.
+    ///
+    /// DIRECTION: overstated. Hawaii excludes the employer-funded portion and this
+    /// app models no split, so it taxes the whole pension and every error runs
+    /// toward over-taxation, exactly like North Carolina, Idaho and Vermont and
+    /// unlike Massachusetts below. Harmonising this with the Massachusetts caption
+    /// would invert one of them.
+    ///
+    /// NOT the same string as
+    /// `MultiYearCPABriefing.hawaiiPensionSplitLimitation`, which discloses the
+    /// same gap on the CPA-briefing surface and says "This plan does not model"
+    /// where this one says "This app does not model". The two are pinned by
+    /// different tests (`Phase5bHawaiiDecisionTests` covers the briefing string,
+    /// `StateAccuracyContentTests` covers this one) and must be reconciled
+    /// deliberately, not by assuming a copy-paste slip, if the captions are ever
+    /// consolidated into one config field.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
+    static let hawaiiEmployerFundedCaption =
+        "Hawaii excludes the employer-funded portion of a pension from state tax. This "
+        + "app does not model the split between employer-funded and employee-contributed "
+        + "amounts, so your Hawaii state tax may be overstated."
+
+    /// Phase 5b Task 4. Massachusetts's contributory-against-noncontributory
+    /// caption.
+    ///
+    /// **APPROVED BY JOHN ON 2026-08-05.** Deliberately modelled on the Hawaii
+    /// caption above rather than invented: both disclose the SAME missing axis,
+    /// employee-contributory against employer-funded, which
+    /// `RetirementPlanClassification` does not carry.
+    ///
+    /// HOISTED from an inline view-body literal by the per-state accuracy
+    /// disclosure work, which changed the text not at all.
+    ///
+    /// DIRECTION: understated, and it is the ONLY caption in this group that runs
+    /// that way. Hawaii's runs toward over-taxation and Massachusetts's toward
+    /// UNDER-taxation, which is the more serious direction and is why it shipped
+    /// when it did: the Task 4 rule excludes an own-state defined-benefit pension
+    /// outright, and a noncontributory Massachusetts municipal pension is
+    /// indistinguishable from a contributory one on every field the picker writes.
+    /// A copy edit that harmonised this with any caption around it would invert
+    /// it.
+    ///
+    /// The durable record is
+    /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
+    /// surface that reaches the affected user. Delete both together if a
+    /// contributory axis is added.
+    /// NO LONGER THE RENDER SOURCE. The pension editor reads this state's
+    /// `verification.knownLimitations` from its configuration; this static is
+    /// the pinned record that the move was byte-for-byte lossless, asserted by
+    /// `StateAccuracyContentTests.movedCaptionsAreByteIdentical`. Editing it
+    /// alone changes nothing a user sees: edit the JSON and this together.
+    static let massachusettsContributoryCaption =
+        "Massachusetts excludes a contributory state or local pension but taxes a "
+        + "noncontributory one. This app does not model that distinction, so if your "
+        + "pension is noncontributory your Massachusetts state tax may be understated."
     @Environment(DataManager.self) var dataManager
     @State private var showingAddIncome = false
     @State private var selectedIncomeSource: IncomeSource?
@@ -929,6 +1359,16 @@ struct IncomeSourcesView: View {
         /// when `incomeType == .pension` (see `saveIncome()`), so editing a
         /// non-pension row is byte-for-byte unaffected by this field.
         @State private var planChoice: PlanClassificationChoice
+        /// Phase 5b Task 9: the survivor-benefit answer, shown only where a
+        /// jurisdiction's rules actually consult it
+        /// (`PlanClassificationChoice.residenceUsesSurvivorDimension`).
+        ///
+        /// `Bool` here, `Bool?` on `IncomeSource`, and `saveIncome()` is where
+        /// the two meet. A SwiftUI `Toggle` has no third position, so an
+        /// unanswered question cannot be represented in the control; what
+        /// represents it is the question NOT BEING SHOWN. See `saveIncome()`
+        /// for the mapping, which never turns "never asked" into "no".
+        @State private var isSurvivorBenefit: Bool
 
         init(incomeToEdit: IncomeSource? = nil) {
             self.incomeToEdit = incomeToEdit
@@ -981,6 +1421,11 @@ struct IncomeSourcesView: View {
                 structure: incomeToEdit?.planStructure ?? .unknown,
                 source: incomeToEdit?.planSource ?? .unknown)
             _planChoice = State(initialValue: PlanClassificationChoice.choice(for: existingClassification))
+            // Phase 5b Task 9. A row that has never been asked (nil) opens with
+            // the toggle OFF, which is the only thing a two-position control
+            // can show. It is NOT saved as `false` unless the question was
+            // actually on screen; see `saveIncome()`.
+            _isSurvivorBenefit = State(initialValue: incomeToEdit?.isSurvivorBenefit ?? false)
         }
 
         /// True when editing an existing Social Security source that has a
@@ -1158,17 +1603,86 @@ struct IncomeSourcesView: View {
                     if incomeType == .pension {
                         Section("What kind of pension is this?") {
                             Picker("Plan type", selection: $planChoice) {
-                                ForEach(PlanClassificationChoice.allCases) { choice in
+                                ForEach(PlanClassificationChoice.options(
+                                    for: dataManager.selectedState, selected: planChoice)) { choice in
                                     Text(choice.label).tag(choice)
                                 }
                             }
-                            Text("Some states, including New York, tax government and private pensions differently. Answering helps this app compute your state tax correctly.")
+                            Text("Some states, including New York and Kansas, tax government and private pensions differently. Answering helps this app compute your state tax correctly.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
-                            if dataManager.selectedState == .hawaii {
-                                Label("Hawaii excludes the employer-funded portion of a pension from state tax. This app does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.",
-                                      systemImage: "info.circle")
+                            // Phase 5b Task 9. Toggle label and caption
+                            // APPROVED by John on 2026-08-05, as written. The
+                            // caption text now lives in IncomeSourcesView
+                            // .districtOfColumbiaSurvivorToggleCaption; reword
+                            // it there, plus the assertions in
+                            // Phase5bDCSurvivorTests and
+                            // StateAccuracyContentTests. The toggle LABEL is
+                            // still a literal below and is approved copy too.
+                            //
+                            // Shown only where a jurisdiction's shipped rules
+                            // consult the survivor dimension, which today is
+                            // the District of Columbia alone. Without this
+                            // control DC's rule would be UNREACHABLE: no
+                            // combination of the twelve picker rows can write
+                            // `isSurvivorBenefit`, so every DC golden case
+                            // would go green while a real survivor annuitant
+                            // received nothing. That is exactly the failure
+                            // Task 3 found for Kansas and the precedent it set
+                            // for adding an affordance here.
+                            if PlanClassificationChoice.residenceUsesSurvivorDimension(dataManager.selectedState) {
+                                Toggle("I receive this as a survivor or beneficiary",
+                                       isOn: $isSurvivorBenefit)
+                                Text(IncomeSourcesView.districtOfColumbiaSurvivorToggleCaption)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            // FIVE HARDCODED STATE BRANCHES USED TO STAND HERE,
+                            // one each for Hawaii, Massachusetts, North
+                            // Carolina, Idaho and Vermont, each rendering that
+                            // state's caption static. All five sentences now
+                            // live in the resident's own configuration under
+                            // `verification.knownLimitations`, which is the one
+                            // place a limitation sentence is written, and this
+                            // loop renders whatever that state ships. Adding a
+                            // jurisdiction is a data change with no code change.
+                            //
+                            // The caption statics above SURVIVE and are still
+                            // approved copy, but they are no longer what this
+                            // screen reads. They are the pinned record that the
+                            // move was lossless, asserted by
+                            // `StateAccuracyContentTests.movedCaptionsAreByteIdentical`
+                            // and by the direction assertions in
+                            // `Phase5bNorthCarolinaDecisionTests`,
+                            // `Phase5bIdahoDecisionTests` and
+                            // `Phase5bVermontDecisionTests`. EDITING ONE OF THEM
+                            // NO LONGER CHANGES WHAT A USER SEES; edit the JSON
+                            // and the static together, which is what those gates
+                            // force.
+                            //
+                            // PENSION-TOPIC SENTENCES ONLY, which is the whole
+                            // reason `StateLimitation` carries a topic. This
+                            // loop rendered a state's ENTIRE `knownLimitations`
+                            // list unfiltered, which was fine while all five
+                            // stored sentences were about pensions but stopped
+                            // being fine once the remaining jurisdictions were
+                            // authored: Utah ships two tax CREDITS and New
+                            // Mexico an age-65 EXEMPTION, none of which turns
+                            // on how a pension is classified and all of which
+                            // change tax for a qualifying filer holding no
+                            // pension at all. They are true, they render in
+                            // full on the per-state accuracy page, and under
+                            // "What kind of pension is this?" they would imply
+                            // that answering the picker moves them.
+                            //
+                            // Still a data change to add a jurisdiction: the
+                            // filter reads each sentence's own topic and this
+                            // file names no state.
+                            ForEach(StateAccuracyContent.pensionLimitations(for: dataManager.selectedState),
+                                    id: \.self) { limitation in
+                                Label(limitation, systemImage: "info.circle")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -1335,6 +1849,29 @@ struct IncomeSourcesView: View {
             let explicitStructure = classificationToSave?.structure
             let explicitSource = classificationToSave?.source
 
+            // Phase 5b Task 9: `Bool` control -> `Bool?` model, and the whole
+            // point is the third value.
+            //
+            //   question shown        -> save the toggle, true OR false. The
+            //                            user saw it and answered.
+            //   question NOT shown    -> keep whatever the row already carried,
+            //                            which is `nil` for every row that has
+            //                            never been asked.
+            //
+            // The second branch is what stops a Kansas resident's pension from
+            // being silently stamped "not a survivor benefit" by an editor that
+            // never asked, and what stops a DC resident who moves to Kansas from
+            // losing an answer they already gave. Also gated on `.pension`, the
+            // same way `classificationToSave` is: switching a row's type away
+            // from pension must not leave a stray survivor fact behind.
+            let survivorToSave: Bool?
+            if incomeType == .pension,
+               PlanClassificationChoice.residenceUsesSurvivorDimension(dataManager.selectedState) {
+                survivorToSave = isSurvivorBenefit
+            } else {
+                survivorToSave = incomeType == .pension ? incomeToEdit?.isSurvivorBenefit : nil
+            }
+
             if let existing = incomeToEdit,
                let index = dataManager.incomeSources.firstIndex(where: { $0.id == existing.id }) {
                 dataManager.incomeSources[index] = IncomeSource(
@@ -1342,7 +1879,8 @@ struct IncomeSourcesView: View {
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
                     ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
                     stateWithholdingMode: stMode, stateWithholdingPercent: statePercent,
-                    planStructure: explicitStructure, planSource: explicitSource
+                    planStructure: explicitStructure, planSource: explicitSource,
+                    isSurvivorBenefit: survivorToSave
                 )
             } else {
                 dataManager.incomeSources.append(IncomeSource(
@@ -1350,7 +1888,8 @@ struct IncomeSourcesView: View {
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
                     ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
                     stateWithholdingMode: stMode, stateWithholdingPercent: statePercent,
-                    planStructure: explicitStructure, planSource: explicitSource
+                    planStructure: explicitStructure, planSource: explicitSource,
+                    isSurvivorBenefit: survivorToSave
                 ))
             }
             dataManager.saveAllData()

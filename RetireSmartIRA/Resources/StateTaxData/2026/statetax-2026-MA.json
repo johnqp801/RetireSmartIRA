@@ -23,8 +23,23 @@
     "pensionExemption" : {
       "kind" : "none"
     },
+    "perSourceExemptions" : [
+      {
+        "matchSources" : [
+          "ownStateOrLocal",
+          "uniformedServices"
+        ],
+        "matchStructures" : [
+          "definedBenefit"
+        ],
+        "treatment" : {
+          "kind" : "full"
+        }
+      }
+    ],
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "Massachusetts excludes a contributory Massachusetts state or local pension and U.S. military retired pay from state tax with no dollar cap, but {scope} taxes your pension in full until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "flatRate",
@@ -63,11 +78,19 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated.",
+        "topic" : "pension"
+      },
+      {
+        "text" : "Massachusetts also excludes a contributory federal government pension and Railroad Retirement benefits from state tax, but this app taxes both in full, so if you receive either your Massachusetts state tax may be overstated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "Massachusetts Department of Revenue, Tax Treatment of Government Pensions in Massachusetts: https://www.mass.gov/info-details/tax-treatment-of-government-pensions-in-massachusetts"
+    ],
+    "taxYear" : 2026
   }
 }

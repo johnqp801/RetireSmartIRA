@@ -10,22 +10,39 @@ import SwiftUI
 import Charts
 
 /// Phase 3b Task 6 (design doc sections 3.4a and 3.7): pure predicate for
-/// whether the state-comparison detail sheet should show the "your New York
-/// number may be incomplete" limitation. New York tax is COMPUTED here
-/// whenever the sheet is showing New York's own breakdown, whether the
-/// viewer resides in New York (comparing their own number) or resides
-/// elsewhere and is comparing against New York (`StateComparisonView`
-/// computes every state's tax for a non-resident too), so this does not
-/// gate on residence, only on which state's breakdown is on screen.
+/// whether the state-comparison detail sheet should show the "this number
+/// may be incomplete" limitation. The viewed state's tax is COMPUTED here
+/// whenever the sheet is showing that state's own breakdown, whether the
+/// viewer resides there (comparing their own number) or resides elsewhere
+/// and is comparing against it (`StateComparisonView` computes every state's
+/// tax for a non-resident too), so this does not gate on residence, only on
+/// which state's breakdown is on screen.
+///
+/// THAT ASYMMETRY IS DELIBERATE and is the one thing to preserve when
+/// touching this. Its sibling on the CPA briefing
+/// (`MultiYearCPABriefing.unclassifiedPensionLimitation`) gates on
+/// RESIDENCE, because a briefing describes the household's own plan rather
+/// than a column they are browsing. Collapsing the two onto one gate would
+/// either silence this sheet for the non-resident comparer it exists to warn,
+/// or put another state's mechanics into a document about the user's own
+/// plan.
+///
+/// Phase 5b Task 3b: no longer New York only. The gate and the copy both come
+/// from the viewed state's own configuration, so Kansas (Task 3) is covered
+/// with no change here, and so are the jurisdictions tasks 4 through 9 add.
 enum StateComparisonPresentation {
-    static func showsUnclassifiedNewYorkPensionLimitation(viewedState: USState, hasUnclassifiedPension: Bool) -> Bool {
-        viewedState == .newYork && hasUnclassifiedPension
+    static func showsUnclassifiedPensionLimitation(viewedState: USState, hasUnclassifiedPension: Bool) -> Bool {
+        hasUnclassifiedPension && unclassifiedPensionLimitationText(viewedState: viewedState) != nil
     }
 
-    /// The limitation's copy, shared by the single call site so the wording
-    /// cannot drift between two inline literals.
-    static let unclassifiedNewYorkPensionLimitationText =
-        "Your pension is not yet classified as government or private in Income Sources. New York excludes a qualifying government pension from state tax with no dollar cap, but this figure applies the standard $20,000 pension exclusion until it is classified."
+    /// The limitation's copy for `viewedState`, or `nil` where that
+    /// jurisdiction has no per-source rule that could be going unused.
+    /// Shared with the CPA briefing through `UnclassifiedPensionDisclosure`,
+    /// so the wording cannot drift between the two surfaces the way two
+    /// inline literals could.
+    static func unclassifiedPensionLimitationText(viewedState: USState) -> String? {
+        UnclassifiedPensionDisclosure.text(for: viewedState, scope: .stateComparisonFigure)
+    }
 }
 
 struct StateComparisonView: View {
@@ -51,7 +68,13 @@ struct StateComparisonView: View {
                 breakdown: dataManager.stateTaxBreakdown(forState: item.state, filingStatus: dataManager.filingStatus),
                 currentStateBreakdown: dataManager.stateTaxBreakdown(forState: dataManager.selectedState, filingStatus: dataManager.filingStatus),
                 currentStateItem: currentStateItem,
-                hasUnclassifiedPension: hasUnclassifiedPension
+                hasUnclassifiedPension: hasUnclassifiedPension,
+                // The accuracy page reports bracket, deduction and exemption
+                // columns, every one of which is filing-status specific, and
+                // `StateTaxBreakdown` does not carry the status it was computed
+                // for. Passed rather than re-derived so the page describes the
+                // same column the figures above it came from.
+                filingStatus: dataManager.filingStatus
             )
         }
     }
@@ -130,9 +153,12 @@ struct StateComparisonView: View {
     /// review Fix 2) an owner whose pension rows genuinely disagree with
     /// each other -- the adapter falls back to unclassified treatment in
     /// that case too, with no `.unknown` row to trip the first half of this
-    /// check. Drives the New York limitation in `StateTaxDetailSheet`,
-    /// wherever New York tax is actually computed (both when New York is
-    /// the residence and when a non-resident is comparing against it).
+    /// check. Drives the unclassified-pension limitation in
+    /// `StateTaxDetailSheet`, wherever the VIEWED state's tax is actually
+    /// computed (both when that state is the residence and when a
+    /// non-resident is comparing against it). Phase 5b Task 3b: this is a
+    /// property of the HOUSEHOLD, not of any jurisdiction, so it needed no
+    /// change when the limitation stopped being New York only.
     private var hasUnclassifiedPension: Bool {
         dataManager.incomeSources.contains { $0.type == .pension && $0.planSource == .unknown }
             || PlanClassificationChoice.hasAnyMixedPensionClassification(in: dataManager.incomeSources)
@@ -568,27 +594,56 @@ private struct StateTaxDetailSheet: View {
     let currentStateBreakdown: StateTaxBreakdown
     let currentStateItem: StateComparisonItem?
     /// Phase 3b Task 6: whether the household has an unclassified pension.
-    /// Drives `newYorkPensionLimitationBanner` below.
+    /// Drives `unclassifiedPensionLimitationBanner` below.
     let hasUnclassifiedPension: Bool
+    /// The filing status the figures on this sheet were computed for. The
+    /// accuracy page reports a filing-status-specific column and
+    /// `StateTaxBreakdown` does not carry one.
+    let filingStatus: FilingStatus
 
     @Environment(\.dismiss) private var dismiss
+    @State private var showingStateAccuracy = false
 
-    /// Spec section 3.7 / task 6 brief step 3a: New York tax is COMPUTED
-    /// here whenever this sheet shows New York's own breakdown, whether the
-    /// viewer resides in New York or is a non-resident comparing against
-    /// it, so the number carries a visible limitation in both cases.
-    private var showsNewYorkPensionLimitation: Bool {
-        StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation(
-            viewedState: item.state, hasUnclassifiedPension: hasUnclassifiedPension)
+    /// The jurisdiction this sheet's accuracy page describes: the state being
+    /// INSPECTED, never the resident.
+    ///
+    /// THIS IS THE FAILURE TASK 7 EXISTS TO PREVENT. A comparison sheet opened
+    /// on Oregon by a Californian must show Oregon's disclosure: the number on
+    /// this sheet is Oregon's tax, computed on the user's own income, and
+    /// California's limitations say nothing about it. Same asymmetry, and the
+    /// same reason, as `StateComparisonPresentation` above: this sheet is
+    /// viewed-state relative while the CPA briefing is residence relative.
+    ///
+    /// `currentStateBreakdown.state` is the resident, and it is passed so the
+    /// resolver's own signature records which of the two won. The body of the
+    /// sheet already uses that field the same way, comparing `item.state !=
+    /// currentStateBreakdown.state` to decide whether it is showing the user's
+    /// own state at all.
+    private var accuracyPageState: USState {
+        StateAccuracyContent.stateForComparisonSheet(
+            inspecting: item.state,
+            resident: currentStateBreakdown.state)
+    }
+
+    /// Spec section 3.7 / task 6 brief step 3a: the viewed state's tax is
+    /// COMPUTED here whenever this sheet shows that state's own breakdown,
+    /// whether the viewer resides there or is a non-resident comparing
+    /// against it, so the number carries a visible limitation in both cases.
+    /// `item.state`, never the user's residence: see
+    /// `StateComparisonPresentation`.
+    private var unclassifiedPensionLimitationText: String? {
+        guard StateComparisonPresentation.showsUnclassifiedPensionLimitation(
+            viewedState: item.state, hasUnclassifiedPension: hasUnclassifiedPension) else { return nil }
+        return StateComparisonPresentation.unclassifiedPensionLimitationText(viewedState: item.state)
     }
 
     @ViewBuilder
-    private var newYorkPensionLimitationBanner: some View {
-        if showsNewYorkPensionLimitation {
+    private var unclassifiedPensionLimitationBanner: some View {
+        if let text = unclassifiedPensionLimitationText {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(Color.Semantic.amber)
-                Text(StateComparisonPresentation.unclassifiedNewYorkPensionLimitationText)
+                Text(text)
                     .font(.caption)
                     .foregroundStyle(Color.Semantic.amber)
             }
@@ -603,7 +658,7 @@ private struct StateTaxDetailSheet: View {
             ScrollView {
                 VStack(spacing: 16) {
                     stateHeaderSection
-                    newYorkPensionLimitationBanner
+                    unclassifiedPensionLimitationBanner
                     if item.state != currentStateBreakdown.state {
                         savingsHeadlineSection
                     }
@@ -621,6 +676,9 @@ private struct StateTaxDetailSheet: View {
                 .padding()
             }
             .background(Color(PlatformColor.systemGroupedBackground))
+            .sheet(isPresented: $showingStateAccuracy) {
+                StateAccuracyView(state: accuracyPageState, filingStatus: filingStatus)
+            }
             .navigationTitle(item.state.rawValue)
             #if os(iOS)
             #if !os(macOS)
@@ -644,9 +702,22 @@ private struct StateTaxDetailSheet: View {
                     .font(.title2)
                     .foregroundStyle(Color.UI.brandTeal)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.state.rawValue)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                    HStack(spacing: 6) {
+                        Text(item.state.rawValue)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        // Beside the state being inspected, and it opens that
+                        // state's page. See `accuracyPageState`.
+                        Button {
+                            showingStateAccuracy = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.callout)
+                                .foregroundStyle(Color.UI.brandTeal)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("State tax accuracy for \(accuracyPageState.rawValue)")
+                    }
                     Text(breakdown.taxSystemDescription)
                         .font(.callout)
                         .foregroundStyle(.secondary)

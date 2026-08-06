@@ -4,6 +4,80 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-06: the modelling caveat ships on EVERY state page, and two follow-ups are recorded
+
+**Decision (John):** the accuracy page's limitations section closes with one more approved sentence,
+on every state page rather than only on the empty state:
+
+> State tax rules are complex, and this does not mean every unusual situation is represented.
+
+**Rationale:** Georgia, Iowa and Indiana each render a verification date, a primary source and "No
+known limitations are currently recorded for this state and tax year"; every line is individually
+true, but together they read close to a warranty of completeness, and a page listing three
+limitations makes the same implicit claim about the rules it omits.
+
+**This INVERTS the design**, which offered the sentence as an optional follow-on to the empty state
+alone. It ships as a separate always-rendered element (`StateAccuracyContent.modellingCaveatSentence`)
+rather than as an append, so the empty-state wording John specified character for character keeps its
+own exact-equality gate.
+
+**Recorded, not built. Follow-up A, the decode fallback.** A per-state JSON decode failure currently
+falls back to a config whose `verification` is `.unverified` with empty limitations, so the page
+prints "No known limitations are currently recorded." **The rule: IT MUST NEVER FALL BACK TO "NO
+KNOWN LIMITATIONS", because that turns a loading failure into an accuracy claim.** John's wording for
+the correct fallback is "State modeling details are temporarily unavailable.", and his standard is
+that *"the eventual runtime behavior should fail visibly rather than silently."* Not a merge blocker:
+these are application-owned static files rather than uncontrolled server responses, and the suite
+already proves every bundled jurisdiction decodes.
+
+**Recorded, not built. Follow-up B, the claim-type behavioural matrix.** Gate 3 probes three claims
+by hand (per-spouse cap, Social Security, Roth conversions). The permanent replacement is a matrix
+over every claim TYPE the page can display, written out in
+`.claude/memory/roadmap/2026-08-06-accuracy-disclosure-RESUME-HERE.md`. John's lesson: *"rendering
+configuration accurately proves only what the data say, not what every calculation path does. The
+current branch is safe once its entry points are restricted to paths that have been verified;
+broader behavioural completeness can follow."*
+
+**Also corrected in the durable record on this date:** "six captions moved into config" was wrong
+everywhere it appeared. FIVE moved (HI, MA, NC, ID, VT); DC's survivor-toggle caption stays a Swift
+literal because it explains a control rather than describing a limitation. And the multi-year state
+tax defect lives in `ProjectionEngine.computeStateTax`, not in any `calculateMultiYearStateTax` (no
+such symbol exists) and not at the line numbers older ledgers cite.
+
+---
+
+## 2026-08-06: all Phase 5b and accuracy-disclosure copy is approved, as written
+
+**Decision (John):** approved, as written, every outstanding user-facing string on
+`feature/state-accuracy-disclosure`. Nothing on the branch awaits him. That covers Task 4's thirteen
+limitation sentences (AZ 2, DC 2, KS 1, MA 1, MO 2, NC 1, NM 1, NY 1, UT 2), Task 6's fallback
+strings for the unknown-data cases (the "tax year not recorded" page title, "No verification date
+recorded.", "No primary sources recorded.", and the "State tax accuracy" navigation title), Task 7's
+three accessibility labels of the form "State tax accuracy for <State>", the Roth conversion
+statement, and the multi-year delta tag change from `State` to `State (KS)`. It follows the
+2026-08-05 approval that closed Phase 5b's own copy.
+
+**Rationale:** the copy had been drafted, batched and shipped behind a green suite specifically so
+one review could clear it in a single pass, and holding it longer would have blocked a commitment
+already promised in writing to Steve Nicolai and Alan Levy.
+
+**The notable item is Pennsylvania's Roth conversion sentence:** "Not taxed by this state. Any part
+of the conversion withheld for federal tax does not reach the Roth account, so that part stays
+taxable." Pennsylvania exempts the conversion but NOT the portion withheld for federal tax, per DOR
+Answer 274, which holds the exemption reaches only what is actually deposited into the Roth. That is
+a distinction a user would not guess, it costs real money in a Roth conversion app, and the accuracy
+page is the only surface in the product that states it. The other three configured states are not
+uniform with it, so the renderer prints each from its own two fields rather than flattening them:
+Illinois and Mississippi gate on nothing, Iowa gates on age 55.
+
+**Kept deliberately unapproved, and still not shipping:** the optional second sentence on the
+empty-limitations string ("State tax rules are complex, and this does not mean every unusual
+situation is represented"). It was never put to John, it was not part of this approval, and the test
+gate on `noRecordedLimitationsSentence` is exact equality, so appending it later is a copy change
+requiring its own decision.
+
+---
+
 ## 2026-08-04 (Phase 5a): the legacy Swift table is frozen at pre-correction law, and the equivalence gate is scoped
 
 **Decision (John):** narrow the Phase 1 JSON-versus-legacy equivalence test to jurisdictions Phase 5
@@ -1228,3 +1302,211 @@ made P6 reachable through a spouse, so it should not sit indefinitely.
   the last commit. A green build is NOT evidence the app is running your code.
 - Finish a merge in its own editor, or close the editor first and then commit; completing it
   out-of-band leaves a stale `MERGE_HEAD` that silently makes the next commit a merge commit.
+
+---
+
+## 2026-08-05: Phase 5b Task 3 also adds all three plan-classification picker options
+
+**Decision.** Task 3 (Kansas) extends `PlanClassificationChoice` in
+`RetireSmartIRA/IncomeSourcesView.swift` with options that write `ownStateOrLocal`,
+`uniformedServices` and `railroadRetirement`, all three at once, rather than adding only the one
+Kansas needs or deferring the picker to a later task.
+
+**Rationale.** Task 1 added those three `PlanSource` cases but the user-facing picker is driven by a
+separate enum whose nine options were unchanged since Phase 3b, so a correct Kansas rule matching
+`ownStateOrLocal` (and correctly NOT matching `otherStateOrLocal`) would have turned every Kansas
+golden case green while a real KPERS holder, whose only government-pension option writes
+`otherStateOrLocal`, still got no exemption. That would have made Task 10's "Steve can be told so
+without qualification" claim false. Doing all three at once means Tasks 4, 6, 8 and 9 inherit a picker
+that can express what their rules need, instead of editing the same reverse-lookup priority list five
+separate times.
+
+**Found by** controller code audit before Task 3 was dispatched. The plan never mentions the picker.
+
+---
+
+## 2026-08-05: Massachusetts ships with a known, disclosed under-taxation path
+
+**Decision.** Phase 5b Task 4's Massachusetts per-source rule SHIPS as written. The section 13
+reversal was NOT taken. Both Massachusetts copy items are approved: the
+`unclassifiedPensionDisclosure` sentence and the pension-picker caption.
+
+**What shipping accepts.** A noncontributory municipal retiree who selects "Government pension, my own
+state or locality" receives $0.00 instead of $3,000.00. That is UNDER-taxation and it is reachable by
+a real user. No golden case can pin it, because such a case would carry inputs byte-identical to MA-1's
+with a contradictory expected value.
+
+**Rationale.** The three defects the rule fixes rest on quoted, affirmative statute text ("are excluded
+from Massachusetts gross income"). The new gap rests on a closed-list INFERENCE that the fixture's own
+source string flags as not stated verbatim. Reverting is not a safe state, it is a differently-wrong
+one: it keeps charging every Massachusetts public retiree a tax the statute says they do not owe, and
+M.G.L. c. 32 systems are contributory by statute while noncontributory municipal pensions are a small
+legacy category. "Over-taxation is the safe direction" is a tiebreaker for when the answer is unknown;
+here it is known and quoted for the large majority.
+
+**What makes it defensible rather than merely convenient.** The gap is recorded three ways: a
+`knownButUnpinned` catalogue entry, a test that fails if that entry is deleted, and a caption sitting
+directly under the picker on the screen where the affected user makes the costly choice.
+
+**Known remaining exposure, routed to Phase 6.** That caption is INPUT-SURFACE ONLY. State Comparison
+and the CPA briefing, the document handed to a preparer, both present $0.00 with no caveat, because
+the unclassified-pension disclosure fires only for an unclassified pension and this user has
+classified.
+
+**Root cause, deliberately not fixed here.** The model has no employee-contributory axis. It was not
+built because Hawaii's Task 5 fixture turns on the same axis inverted, and designing it from four
+Massachusetts cases would have foreclosed Hawaii's. Task 5 decides it.
+
+---
+
+## 2026-08-05: The employee-contributory axis is a PHASE 6 item, and it now has an owner
+
+**Decision.** The employee-contributory model axis is assigned to Phase 6, alongside the two other
+"the model cannot say it" problems already routed there: the residence-relative staleness of
+`ownStateOrLocal`, and the unclassified-pension disclosure reaching only the input surface rather than
+the surfaces that CONSUME the wrong figure (State Comparison and the CPA briefing).
+
+**Why it needed a decision at all.** Task 4 deferred the axis to Task 5. Task 5 deferred it to "a model
+task" that does not exist in the Phase 5b plan. The deferral chain had no terminus, which is how a
+well-documented gap becomes permanent. Two live consequences sit behind it: Massachusetts ships with a
+reachable UNDER-taxation path that only this axis closes, and Hawaii's three defects stay open, which
+is the safe direction but still wrong on quoted law.
+
+**Why Phase 6 rather than a Phase 5b task after Task 9.** Designing a model field mid-phase, against
+jurisdictions that have not yet reported what they need, is precisely the mistake Task 4 avoided when
+it declined to build the axis from four Massachusetts cases. Phase 6 also already owns the two related
+problems, and all three want designing together.
+
+**A correction that must survive into Phase 6.** Task 5's rejection of building the axis was
+over-argued in one specific way, and the reviewer caught it before it hardened: the catalogue read as
+though no number could ever be cited. Not so. A golden fixture COULD carry a stipulated employer-funded
+share as an INPUT, exactly as it carries `amount`, and the expected value would follow arithmetically
+from Schedule J. The genuine obstacles are a model field, a picker affordance, and whether a real user
+can supply a share that Schedule J makes the taxpayer compute from cost basis. Do not read the
+catalogue as a wall.
+
+**The shape the axis must satisfy, established across Tasks 4 and 5.** Massachusetts needs a
+CATEGORICAL contributory fact; Hawaii needs a PROPORTION. A boolean serves Massachusetts and serves
+Hawaii only at its two endpoints, and the wrong endpoint fails toward under-taxation at up to 11%.
+
+---
+
+## 2026-08-05: Arizona ships, and a capped per-source treatment is banned phase-wide
+
+**Decisions.** Arizona's per-source rules ship. Its disclosure sentence is approved as written (the
+option that warns a private pensioner classifying may RAISE their number, since Arizona is the first
+state in this phase whose unclassified default is wrong in BOTH directions). AZ-4 stays PINNED rather
+than being made green.
+
+**Why AZ-4 stays pinned, measured rather than argued.** Setting `exemptionAppliesPerIndividual: true`
+turns AZ-4 green and simultaneously grants $5,000 to an MFJ household where only ONE spouse holds the
+qualifying pension. That flag doubles on the AGE gate, whereas Arizona conditions doubling on each
+spouse RECEIVING qualifying income. The trade is $37.50 of over-taxation against $62.50 of
+under-taxation, and a new golden case pins the consequence, so flipping the flag now turns AZ-4 green
+and that case red. A reviewer reproduced the arithmetic independently. AZ-4 also could not be pinned
+even against a correct engine: the fixture schema has no owner field, so its two rows are one
+taxpayer's two pensions.
+
+**THE FINDING THAT CONSTRAINS THE REST OF THE PHASE.** `PerSourceExemptionRule.treatment` is evaluated
+INSIDE the per-row loop (`TaxCalculationEngine.swift:619-627`, `DataManager.swift:891-899`), so a
+capped treatment caps PER PENSION ROW rather than per household. Design doc section 3.4a names this the
+single largest correctness risk in the phase, and the codebase has shipped exactly that bug once
+before, in New York's $20,000 exclusion. The natural one-rule-per-form-line Arizona implementation
+walks straight into it.
+
+Arizona avoided it by routing the cap through the existing POOLED `pensionExemption` and using
+per-source rules only to keep non-qualifying sources OUT of the pool, plus a sweep asserting no shipped
+rule in any of the 51 configs carries a capped treatment.
+
+**The cost, and Tasks 7, 8 and 9 must be briefed on it:** that pattern generalizes ONLY to a
+jurisdiction with exactly ONE capped pool. A state needing two different caps on two different source
+groups cannot be expressed this way and will force an engine change or a deferral. Idaho, Vermont and
+DC all have capped exclusions.
+
+**Phase 6 candidates from this task.** `PerSourceExemptionRule.treatment` is still typed as the full
+`ExemptionLevel`, so the sweep is a test-level guard on the configs, not a structural guarantee. The
+durable fix is either a narrower treatment type or grouping matched rows by rule and applying the
+treatment once per rule. Both are production Swift, which this phase's constraints restrict.
+
+---
+
+## 2026-08-05: Idaho and North Carolina ship no rule; four captions approved
+
+**Decisions.** Idaho ships NO per-source rule and keeps all four `knownDefect` blocks. North Carolina
+ships no Bailey rule and is recorded as remaining unsatisfiable. Both captions are approved as written.
+That makes THREE jurisdictions in Phase 5b that deliberately ship nothing (Hawaii, North Carolina,
+Idaho) and it is the correct outcome in each case, not a shortfall.
+
+**Idaho, and the reason the decline nearly went the other way.** A reviewer found a THIRD option the
+implementer never evaluated: a military-only PARTIAL correction in Arizona's shipped shape (pooled
+deduction gated at 62, plus `.none` rules keeping every non-military source out of the pool). Walked
+across all seven golden cases it turns ID-3 GREEN, leaves ID-2, ID-4 and ID-5 pinned, and breaks
+nothing. One golden case going green is the phase's stated deliverable, so declining was a JUDGEMENT
+CALL, not the procedural foreclosure the first record claimed.
+
+**Why the decline still stands.** Idaho's Line 8a deduction is reduced dollar-for-dollar by Social
+Security and Railroad Retirement received, and the app does not model that. A single military retiree at
+65 with a $60,000 pension and $30,000 of Social Security has a real deduction of $18,216 rather than
+$48,216: roughly $935 a year of UNDISCLOSED UNDER-TAXATION. That is the COMMON case, not an edge case,
+since most Idaho military retirees draw Social Security. Household exemption attribution adds a second
+over-grant, and the `.none` list would have to enumerate nine sources by hand so any `PlanSource` added
+later falls silently INTO the pool. Under-taxation is the direction that decided Hawaii and North
+Carolina too.
+
+**The correction that matters more than the decision.** The catalogue entry claimed shipping was
+"foreclosed procedurally, not as a judgement call." True for the `federalCivilian` and `ownStateOrLocal`
+branches, where no catching case can be pinned. FALSE for `uniformedServices`, where an SS-offset case
+and an MFJ split-age case are both pinnable. That entry outlives the report and a future task would have
+read it and stopped looking.
+
+**Captions approved 2026-08-05:** North Carolina's Bailey caption and Idaho's Retirement Benefits
+Deduction caption, joining Hawaii's and Massachusetts's.
+
+**Amended after the review landed.** Idaho now keeps FIVE `knownDefect` blocks, not four: the review
+also asked for a cap guard case, and ID-8 (MFJ 68/70, $140,000 of CSRS pensions, expected $1,069.33,
+measured `observedToday` $4,902.50) was added. It is the only Idaho case where the $72,324 maximum
+changes the answer, since every other case floors taxable income at $0.00 whether the deduction is
+capped or not, so an UNCAPPED rule would have passed all of them. ID-4's name was corrected in the same
+change: it claimed to test the cap straddle and arithmetically cannot.
+
+**Escalated to Phase 6.** THREE surfaces gate disclosure on a jurisdiction shipping rules or having no
+fixture (`shouldPromptForClassification`, `UnclassifiedPensionDisclosure.text`,
+`GoldenScenarioCoverageTests.cannotVerify`), so the "fixture exists, defects pinned, rules deliberately
+zero" case is missed by all three, which is now Hawaii, North Carolina AND Idaho. `knownButUnpinned` has
+no production consumer at all. The four captions are hand-written `if selectedState ==` branches in one
+view and render only inside the pension edit sheet, so a user who entered their pension before moving
+never sees one. Phase 6's disclosure taxonomy should read the defect catalogue rather than fixture
+presence.
+
+---
+
+## 2026-08-05: Phase 5b closes with every item settled, copy approved and Vermont HELD
+
+**Approved.** DC's `unclassifiedPensionDisclosure` sentence, DC's survivor toggle label and its
+explanatory caption, and Vermont's caption. That is every piece of user-facing copy Phase 5b produced:
+the Kansas, Massachusetts, Arizona and DC disclosure sentences, the Hawaii, Massachusetts, North
+Carolina, Idaho and Vermont captions, DC's survivor toggle, and the three plan-classification picker
+rows Task 3 added.
+
+**The DC survivor toggle is worth singling out.** It is the only control this phase added that ASKS the
+user a question rather than warning them, it is the sole route to DC's exclusion, and a wrong answer
+moves their tax in either direction. It was also mandatory rather than polish: without it every DC
+golden case would have gone green while no real survivor annuitant could reach the rule, which is
+exactly the failure Task 3 caught for Kansas.
+
+**DECIDED, and it was the last unresolved item in the phase: Vermont HOLD. Vermont ships no rule.**
+John accepted the unanimous recommendation on 2026-08-05, so Vermont keeps all six `knownDefect`
+blocks by decision rather than by default, alongside Hawaii, North Carolina and Idaho. Vermont carries the
+largest single dollar gap in the phase, $5,211.50 a year at VT-6's shape, and ships nothing. The
+available config-only shape would turn four cases green with roughly $335 of bounded over-match, but it
+over-exempts FERS retirees (a growing population) to serve CSRS retirees (a class closed since 1984),
+which is the same population logic that decided North Carolina. The better fix, an income-gated
+military rule implementing Act 71's quoted $125,000 sentence, corrects $4,525.15 with NO under-taxation
+anywhere, but is blocked on which income basis the gate compares against, and no Vermont fixture pins
+it. Write VT-7 first if it is ever built: AGI $130,000, expected $172.53.
+
+**Implementer, reviewer and controller all recommended HOLD; John accepted it**, and the
+income-gated shape is deferred to a Phase 6 model task rather than abandoned. Vermont's $5,211.50
+gap is a known, disclosed cost of the hold, carried by its caption and its six pinned blocks.
+
+**With this, ZERO items await John in Phase 5b.**

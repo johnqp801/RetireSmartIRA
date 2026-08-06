@@ -11,6 +11,37 @@ struct ApproachComparisonView: View {
     /// When legacy planning is off, the heir metric is hidden (owner-lifetime-only view).
     var showHeirs: Bool = true
 
+    // NO PER-STATE ACCURACY AFFORDANCE ON THIS SURFACE, AND THAT IS DELIBERATE.
+    // An earlier revision of this view put an info button beside the `State`
+    // delta tag below, opening `StateAccuracyView` for the jurisdiction the
+    // engine modelled the plan in. It was removed before merge because the page
+    // CONTRADICTS the number it would have sat beside.
+    //
+    // The page prints this state's standard deduction and personal exemption as
+    // modelled facts. The multi-year path does not apply either: see
+    // `ProjectionEngine.computeStateTax`, which hands
+    // `TaxCalculationEngine.calculateStateTax` a raw federal AGI and no
+    // `postExemptionDeduction`, where the single-year path at
+    // `DataManager.calculateStateTax` subtracts both first. Kansas MFJ is about
+    // $1,482 a year of phantom state tax on that path; Idaho MFJ both 67 about
+    // $2,517.
+    //
+    // RESTORING THE AFFORDANCE DEPENDS ON one of two things landing first,
+    // neither of which is a view change:
+    //   1. the engine gap being fixed, so the page's deduction and exemption
+    //      lines are true of the multi-year figures too, or
+    //   2. a genuinely path-aware disclosure page, which needs its own
+    //      path-specific copy and its own behavioural tests.
+    // AND, if the route is (1), an end-to-end multi-year behaviour probe must
+    // land BEFORE the affordance comes back. Gate 3 in
+    // `StateAccuracyContentTests` cannot stand in for one: both of its probes
+    // call the engine with income the probe itself already reduced by the state
+    // deduction, which is the single-year contract.
+    //
+    // `StateAccuracyContentTests.noMultiYearSurfacePresentsTheAccuracyPage`
+    // fails if an affordance is added back to any multi-year surface. Read it
+    // before deleting this comment.
+
     private var titleSuffix: String { units == .presentValue ? " (present value)" : "" }
     private var rmdLabel: String { units == .presentValue ? "Peak forced RMD (nominal)" : "Peak forced RMD" }
     /// The lifetime-tax row always shows present value (see `ApproachUILogic.displayedLifetimeTax`),

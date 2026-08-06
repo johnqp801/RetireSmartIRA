@@ -43,11 +43,15 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "Idaho deducts certain retirement benefits from state tax, including Civil Service (CSRS) annuities, some Idaho police and firefighter pensions, and military retired pay, generally from age 65 or from age 62 for retired service members. This app does not apply that deduction, so if you qualify your Idaho state tax may be overstated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "Idaho State Tax Commission, Form 39R Instructions: https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf"
+    ],
+    "taxYear" : 2026
   }
 }

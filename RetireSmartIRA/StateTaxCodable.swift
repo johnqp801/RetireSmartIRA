@@ -300,6 +300,7 @@ extension RetirementIncomeExemptions: Codable {
         case rothConversionExemption
         case capitalGainsTreatment
         case perSourceExemptions
+        case unclassifiedPensionDisclosure
     }
 
     func encode(to encoder: Encoder) throws {
@@ -317,12 +318,25 @@ extension RetirementIncomeExemptions: Codable {
         try c.encodeIfPresent(agiPhaseout, forKey: .agiPhaseout)
         try c.encodeIfPresent(rothConversionExemption, forKey: .rothConversionExemption)
         try c.encode(capitalGainsTreatment, forKey: .capitalGainsTreatment)
-        // Omit the key entirely when empty (every jurisdiction except New
-        // York in this phase), rather than encode `[]`, so the key appears
-        // in New York's shipped file only -- Task 4's expected 51-file diff.
+        // Omit the key entirely when empty, rather than encode `[]`, so it
+        // appears only in the files of jurisdictions that actually ship a
+        // per-source rule and every other file stays byte-for-byte as it is.
+        // That was New York alone when this was written in Phase 3b; Phase 5b
+        // took it to FIVE, adding Kansas (Task 3), Massachusetts (Task 4),
+        // Arizona (Task 6) and the District of Columbia (Task 9). Hawaii, North
+        // Carolina, Idaho and Vermont each have a golden fixture and pinned
+        // defects and deliberately ship NO rule, so they stay on the omitted
+        // side by decision rather than by default.
         if !perSourceExemptions.isEmpty {
             try c.encode(perSourceExemptions, forKey: .perSourceExemptions)
         }
+        // Same reasoning, and the same five files: `unclassifiedPensionDisclosure`
+        // is in bidirectional lockstep with `perSourceExemptions`, which
+        // `Phase5bUnclassifiedPensionDisclosureTests.rulesAndDisclosuresStayInLockstep`
+        // enforces, so the two keys appear and disappear together.
+        // `encodeIfPresent` omits it rather than writing `null`, so the other
+        // 46 files stay byte-for-byte as they are.
+        try c.encodeIfPresent(unclassifiedPensionDisclosure, forKey: .unclassifiedPensionDisclosure)
     }
 
     init(from decoder: Decoder) throws {
@@ -346,7 +360,9 @@ extension RetirementIncomeExemptions: Codable {
                 RothConversionExemption.self, forKey: .rothConversionExemption),
             capitalGainsTreatment: try c.decodeIfPresent(CapGainsTreatment.self, forKey: .capitalGainsTreatment) ?? .followsFederal,
             perSourceExemptions: try c.decodeIfPresent(
-                [PerSourceExemptionRule].self, forKey: .perSourceExemptions) ?? []
+                [PerSourceExemptionRule].self, forKey: .perSourceExemptions) ?? [],
+            unclassifiedPensionDisclosure: try c.decodeIfPresent(
+                String.self, forKey: .unclassifiedPensionDisclosure)
         )
     }
 }

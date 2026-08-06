@@ -21,7 +21,7 @@
       "expectedStateTax": 346.25
     },
     {
-      "name": "single filer, private pension under $2,500: Line 29a is government-only, so no exclusion should apply, but the engine grants the $2,500 cap to any pension -- OVERSTATES the exclusion, understating tax",
+      "name": "single filer, private pension under $2,500: Line 29a is government-only, so no exclusion applies -- CORRECTED by Phase 5b Task 6",
       "source": "Arizona Form 140 2025 Instructions, page 14, 'Line 29a' (same section as above): the exclusion is scoped to the enumerated government sources; a private-employer pension is not on that list and receives no AZ subtraction. Arithmetic: same $24,150 standard deduction as the matching government-pension case above (identical age/MAGI). $40,000 - $24,150 = $15,850 taxable, with NO pension exclusion since this is a private pension. $15,850 x 2.5% = $396.25.",
       "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
       "filingStatus": "single",
@@ -36,15 +36,10 @@
       "iraWithdrawals": 0,
       "rothConversion": 0,
       "otherOrdinaryIncome": 38000,
-      "expectedStateTax": 396.25,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "AZ's $2,500 exclusion (Line 29a) is government-pensions-only, but statetax-2026-AZ.json applies pensionExemption.partial(2500) with no perSourceExemptions gate, so the engine wrongly grants the exclusion to this private pension, understating tax by exactly $2,000 x 2.5% = $50.00.",
-        "observedToday": 346.25
-      }
+      "expectedStateTax": 396.25
     },
     {
-      "name": "single filer, U.S. uniformed-services (military) retired pay: 100% exempt under a SEPARATE, uncapped line (29b), engine applies only the $2,500 cap -- UNDERSTATES the exclusion, overstating tax",
+      "name": "single filer, U.S. uniformed-services (military) retired pay: 100% exempt under a SEPARATE, uncapped line (29b) -- CORRECTED by Phase 5b Task 6",
       "source": "Arizona Form 140 2025 Instructions, page 15, 'Line 29b - Exclusion for Retired or Retainer Pay of the Uniformed Services of the United States': 'If you received benefits, annuities and pensions as retired or retainer pay of the uniformed services of the United States, you may subtract 100% of the amount you received.' Page 14, Line 29a instructions explicitly exclude military retired pay from the $2,500 line: 'NOTE: Do not enter any subtraction for pension income received from retired or retainer pay of the Uniformed Services. The allowable subtraction for this pension type is entered on line 29b.' Arithmetic (age 66, single, MAGI $40,000, all pension income): standard deduction $24,150 (same as above). $40,000 - $24,150 = $15,850 before the pension exclusion. The FULL $40,000 military pension is excluded under Line 29b (uncapped), which exceeds the $15,850 remaining, flooring taxable income at $0. Tax = $0.00.",
       "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
       "filingStatus": "single",
@@ -54,20 +49,15 @@
       "taxableSocialSecurity": 0,
       "pensionIncome": 0,
       "classifiedPensionSources": [
-        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "uniformedServices"}
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "This app's PlanSource enum has no case for U.S. uniformed-services retired pay distinct from federal civilian service (used here as the closest available label, disclosed as an imprecise fit); even set aside, statetax-2026-AZ.json models only Line 29a's $2,500 cap and has no Line 29b 100%-exclusion mechanism at all, so the engine excludes at most $2,500 of this fully-exempt $40,000 military pension, overstating tax in the OPPOSITE direction from the private-pension case above. PHASE 5 WARNING: every other federalCivilian amount in this file (AZ-1, AZ-4, AZ-5) is $2,000, under the real $2,500 civilian cap, so an uncapped-federalCivilian rule fixing this case would leave those three cases green while being wrong for any federal civilian retiree whose pension exceeds $2,500. A green AZ suite does NOT mean Arizona's per-source caps are correct.",
-        "observedToday": 333.75
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "MFJ, both spouses have government pensions each under the $2,500 individual cap: AZ doubles the cap per spouse, engine applies one household cap -- UNDERSTATES the exclusion",
-      "source": "Arizona Form 140 2025 Instructions, page 14, Line 29a: 'If both you and your spouse receive such pension income, each spouse may subtract the amount received or $2,500, whichever is less.' Arithmetic (ages 66/65, MFJ, MAGI $104,000): standard deduction = $32,200 base + $1,650 age-65 addition (primary) + $1,650 age-65 addition (spouse, also 65+) + $6,000 OBBBA senior bonus (primary, MAGI $104,000 under the $150,000 MFJ threshold) + $6,000 OBBBA senior bonus (spouse) = $47,500. $104,000 - $47,500 = $56,500 before the pension exclusion. Each spouse's $2,000 government pension is fully excluded on its OWN $2,500 cap (neither exceeds it), so $4,000 total is excluded. $56,500 - $4,000 = $52,500 x 2.5% = $1,312.50.",
+      "source": "Arizona Form 140 2025 Instructions, page 14, Line 29a: 'If both you and your spouse receive such pension income, each spouse may subtract the amount received or $2,500, whichever is less.' RE-LABELLED BY TASK 6: this case's second row read 'otherStateOrLocal' when the fixture was written, and for the expected figure below to be right that pension must QUALIFY under Line 29a, which covers US government pensions plus Arizona state and local pensions. So it is ARIZONA'S OWN system, while 'otherStateOrLocal' means a DIFFERENT state's. Task 6 re-labelled it to 'ownStateOrLocal', the case Phase 5b Task 1 added for exactly this, and added the out-of-state guard case that keeps the two apart (an Arizona resident holding another state's public pension, which now correctly receives no Arizona subtraction). Arithmetic (ages 66/65, MFJ, MAGI $104,000): standard deduction = $32,200 base + $1,650 age-65 addition (primary) + $1,650 age-65 addition (spouse, also 65+) + $6,000 OBBBA senior bonus (primary, MAGI $104,000 under the $150,000 MFJ threshold) + $6,000 OBBBA senior bonus (spouse) = $47,500. $104,000 - $47,500 = $56,500 before the pension exclusion. Each spouse's $2,000 government pension is fully excluded on its OWN $2,500 cap (neither exceeds it), so $4,000 total is excluded. $56,500 - $4,000 = $52,500 x 2.5% = $1,312.50.",
       "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
       "filingStatus": "marriedFilingJointly",
       "primaryAge": 66,
@@ -77,7 +67,7 @@
       "pensionIncome": 0,
       "classifiedPensionSources": [
         {"amount": 2000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
-        {"amount": 2000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+        {"amount": 2000, "planStructure": "definedBenefit", "planSource": "ownStateOrLocal"}
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
@@ -85,12 +75,12 @@
       "expectedStateTax": 1312.50,
       "knownDefect": {
         "tier": "tier2",
-        "summary": "AZ Form 140 grants each spouse an independent $2,500 cap on Line 29a, but statetax-2026-AZ.json sets exemptionAppliesPerIndividual to false, so the engine pools both spouses' government pensions under one shared $2,500 household cap instead of doubling it, overstating tax by $1,500 x 2.5% = $37.50.",
+        "summary": "NOT EXPRESSIBLE, AND TASK 6 MEASURED THE TEMPTING FIX RATHER THAN ARGUING ABOUT IT. AZ Form 140 grants each spouse an independent $2,500 cap on Line 29a, conditioned on each spouse RECEIVING qualifying pension income. The engine pools both spouses' government pensions under one shared $2,500 household cap, overstating tax by $1,500 x 2.5% = $37.50. The obvious fix, setting exemptionAppliesPerIndividual to true, does make this case green, and Task 6 declined it: that flag doubles the cap when both spouses clear the AGE gate, which is a different condition from Arizona's. It would hand a household where only ONE spouse holds a qualifying pension a $5,000 allowance where Arizona grants $2,500, understating that household's tax by $62.50. The non-doubling guard case added by Task 6 pins that consequence, so flipping the flag turns this case green and that one red. The real requirement is a PER-TAXPAYER cap, and exemptionAttribution is household-wide in this model: no row-level owner reaches the per-source partition, and the golden fixture schema has no owner field to express which spouse holds which pension, so even a correct per-taxpayer engine could not be pinned from this file. Deferred to Phase 6 with the attribution axis. This block stays rather than moving to the unpinned catalogue, because this case DOES pin it: the figure below is what the shipped engine computes today.",
         "observedToday": 1350.00
       }
     },
     {
-      "name": "MFJ, one spouse's government pension qualifies for the $2,500 cap and the other spouse's private pension does not: engine pools both under one cap regardless of source",
+      "name": "MFJ, one spouse's government pension qualifies for the $2,500 cap and the other spouse's private pension does not -- CORRECTED by Phase 5b Task 6",
       "source": "Arizona Form 140 2025 Instructions, page 14, Line 29a (government-pension-only, each qualifying spouse's own $2,500 cap). Arithmetic (ages 66/64, MFJ, MAGI $100,000): standard deduction = $32,200 base + $1,650 age-65 addition (primary only, spouse is 64) + $6,000 OBBBA senior bonus (primary only) = $39,850. $100,000 - $39,850 = $60,150 before the pension exclusion. Only the government-pension spouse's $2,000 is excludable (fully, under their own $2,500 cap); the private-pension spouse's $2,000 is not eligible for 29a at all. $60,150 - $2,000 = $58,150 x 2.5% = $1,453.75.",
       "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
       "filingStatus": "marriedFilingJointly",
@@ -106,12 +96,80 @@
       "iraWithdrawals": 0,
       "rothConversion": 0,
       "otherOrdinaryIncome": 96000,
-      "expectedStateTax": 1453.75,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "Only the government-pension spouse's $2,000 should be excluded; the engine pools both spouses' pensions ($4,000 total, government and private alike) under one $2,500 household cap regardless of source, granting $500 more exclusion than the government portion alone justifies and understating tax by $12.50 relative to the correct figure -- a smaller, opposite-signed error from combining the per-source miss (case 2) and the non-doubling miss (case 4).",
-        "observedToday": 1441.25
-      }
+      "expectedStateTax": 1453.75
+    },
+    {
+      "name": "single filer, federal civilian pension ABOVE the $2,500 cap: only $2,500 is excludable, the rest is taxed -- THE CAP GUARD, added by Phase 5b Task 6",
+      "source": "Arizona Form 140 2025 Instructions, page 14, 'Line 29a': 'subtract the amount you received or $2,500, whichever is less'. WHY THIS CASE EXISTS: every civilian pension amount in the five original AZ cases is $2,000, under the $2,500 cap, so an UNCAPPED federal-civilian rule and a correctly CAPPED one produce identical numbers on all five. Phase 4 flagged Arizona as passing on wrong law for exactly that reason. This case is the first in the file where the two answers differ: capped is $333.75, uncapped would be $146.25. Arithmetic (age 66, single, MAGI $40,000): standard deduction $16,100 + age-65 addition $2,050 + full OBBBA senior bonus $6,000 (MAGI $40,000 is under the $75,000 single phaseout threshold) = $24,150. $40,000 - $24,150 = $15,850 before the pension exclusion. The $10,000 CSRS pension qualifies under Line 29a but the subtraction is limited to $2,500. $15,850 - $2,500 = $13,350 x 2.5% = $333.75.",
+      "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 10000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 30000,
+      "expectedStateTax": 333.75
+    },
+    {
+      "name": "single filer, ANOTHER state's government pension: Line 29a covers U.S. and Arizona government only, so no exclusion -- THE OUT-OF-STATE GUARD, added by Phase 5b Task 6",
+      "source": "Arizona Form 140 2025 Instructions, page 14, 'Line 29a': the enumerated sources are the United States Government Service Retirement and Disability Fund and other federal systems, plus the Arizona State Retirement System and Arizona state and local systems. A California or other out-of-state public pension is not on that list and receives no Arizona subtraction. WHY THIS CASE EXISTS: no original AZ case carries a non-qualifying GOVERNMENT pension. Every non-qualifying amount in the file is a privateEmployer row, so a rule that exempted all government sources indiscriminately would leave all five green while handing an out-of-state public pension an exclusion Arizona does not grant. This is the same guard Kansas needed for KPERS, and it is the reason AZ-4's second row was re-labelled from otherStateOrLocal to ownStateOrLocal in this same change. Arithmetic: same $24,150 standard deduction as the case above (identical age and MAGI). $40,000 - $24,150 = $15,850 taxable, with NO pension exclusion. $15,850 x 2.5% = $396.25.",
+      "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 10000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 30000,
+      "expectedStateTax": 396.25
+    },
+    {
+      "name": "single filer with TWO qualifying government pensions: one taxpayer gets ONE $2,500 subtraction, not one per pension -- THE PER-TAXPAYER POOLING GUARD, added by Phase 5b Task 6",
+      "source": "Arizona Form 140 2025 Instructions, page 14, 'Line 29a': 'If you received pension income from any of the sources listed below, subtract the amount you received or $2,500, whichever is less.' The cap is on what the TAXPAYER received, not on each pension separately, so a retiree holding both a federal civilian pension and an Arizona State Retirement System pension subtracts $2,500 in total. WHY THIS CASE EXISTS: it is the only case in the file that distinguishes a cap applied ONCE to the pooled qualifying income from a cap applied per row. Per design doc section 3.4a, per-source rules partition and the cap machinery then runs once on the pooled remainder; a per-source rule carrying a `partial` treatment would instead evaluate the cap inside the row loop and exclude $4,000 here, giving $296.25. That is the per-component-cap bug section 3.4a exists to prevent, and this case is what catches it. Arithmetic: same $24,150 standard deduction as the two cases above. $40,000 - $24,150 = $15,850. Both pensions qualify, and together they exceed the single $2,500 cap, so $2,500 is excluded. $15,850 - $2,500 = $13,350 x 2.5% = $333.75.",
+      "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
+      "filingStatus": "single",
+      "primaryAge": 66,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 2000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 2000, "planStructure": "definedBenefit", "planSource": "ownStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 36000,
+      "expectedStateTax": 333.75
+    },
+    {
+      "name": "MFJ, only ONE spouse has a qualifying government pension and it exceeds the cap: that spouse subtracts $2,500 and the household gets no second allowance -- THE NON-DOUBLING GUARD, added by Phase 5b Task 6",
+      "source": "Arizona Form 140 2025 Instructions, page 14, 'Line 29a': 'If both you and your spouse receive such pension income, each spouse may subtract the amount received or $2,500, whichever is less.' The doubling is conditioned on BOTH spouses RECEIVING qualifying pension income. Here only one does, so the household subtracts $2,500 once. WHY THIS CASE EXISTS: it is the mirror image of the AZ-4 case above and the two together pin a model limitation that would otherwise be invisible. `exemptionAppliesPerIndividual` doubles the cap when both spouses clear the AGE gate, which is not the same condition Arizona states; setting it true would make AZ-4 go green and would simultaneously grant this household $5,000, understating its tax by $62.50 and giving $1,287.50. AZ-4 therefore stays pinned rather than being made green by a flag whose gate is the wrong one. Arithmetic (ages 66/65, MFJ, MAGI $104,000): standard deduction = $32,200 base + $1,650 age-65 addition (primary) + $1,650 age-65 addition (spouse) + $6,000 OBBBA senior bonus (primary, MAGI $104,000 under the $150,000 MFJ threshold) + $6,000 OBBBA senior bonus (spouse) = $47,500. $104,000 - $47,500 = $56,500 before the pension exclusion. The $6,000 federal civilian pension qualifies but is limited to $2,500. $56,500 - $2,500 = $54,000 x 2.5% = $1,350.00.",
+      "sourceURL": "https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 66,
+      "spouseAge": 65,
+      "federalAGI": 104000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 6000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "otherOrdinaryIncome": 98000,
+      "expectedStateTax": 1350.00
     }
   ]
 }

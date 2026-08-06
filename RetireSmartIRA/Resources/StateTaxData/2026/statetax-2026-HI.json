@@ -145,11 +145,15 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "Hawaii excludes the employer-funded portion of a pension from state tax. This {scope} does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "Hawaii Department of Taxation, Schedule J Instructions: https://files.hawaii.gov/tax/forms/current/schj_i.pdf"
+    ],
+    "taxYear" : 2026
   }
 }

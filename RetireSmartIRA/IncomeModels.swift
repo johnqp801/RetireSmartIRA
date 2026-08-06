@@ -102,6 +102,26 @@ struct IncomeSource: Identifiable, Codable {
     /// Same fallback rule as `planStructure`.
     var planSource: PlanSource
 
+    /// Phase 5b Task 9: whether this row is a SURVIVOR benefit, paid to
+    /// someone other than the plan participant who earned it, rather than the
+    /// holder's own pension. Mirrors
+    /// `RetirementPlanClassification.isSurvivorBenefit`, which Task 1 added to
+    /// the domain type.
+    ///
+    /// `nil` means the question has never been ASKED of this row, which is
+    /// true of every row saved before this field existed and of every row
+    /// created by a call site that does not pass it. It does NOT mean "no".
+    /// `PerSourceExemptionRule.matches` treats a `nil` here as satisfying
+    /// neither a `true` nor a `false` rule condition, so an unasked row never
+    /// claims an exclusion conditioned on the answer. See that method.
+    ///
+    /// Unlike `planStructure`/`planSource` this is genuinely optional rather
+    /// than "always has an inferred value": no `IncomeType` implies the
+    /// answer. A `.pension` row is equally likely to be either, which is the
+    /// whole reason D.C. Code Section 47-1803.02(a)(2)(N)(ii) could not be
+    /// expressed before this field existed.
+    var isSurvivorBenefit: Bool?
+
     /// Combined federal + state withholding for this source
     var totalWithholding: Double { federalWithholding + stateWithholding }
 
@@ -135,7 +155,7 @@ struct IncomeSource: Identifiable, Codable {
         return stateWithholding
     }
 
-    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil, federalWithholdingMode: FederalWithholdingMode? = nil, federalWithholdingPercent: Double = 0, stateWithholdingMode: FederalWithholdingMode? = nil, stateWithholdingPercent: Double = 0, planStructure: PlanStructure? = nil, planSource: PlanSource? = nil) {
+    init(id: UUID = UUID(), name: String, type: IncomeType, annualAmount: Double, federalWithholding: Double = 0, stateWithholding: Double = 0, owner: Owner = .primary, ssWithholdingRate: SSWithholdingRate? = nil, federalWithholdingMode: FederalWithholdingMode? = nil, federalWithholdingPercent: Double = 0, stateWithholdingMode: FederalWithholdingMode? = nil, stateWithholdingPercent: Double = 0, planStructure: PlanStructure? = nil, planSource: PlanSource? = nil, isSurvivorBenefit: Bool? = nil) {
         self.id = id
         self.name = name
         self.type = type
@@ -156,6 +176,10 @@ struct IncomeSource: Identifiable, Codable {
         let inferred = RetirementPlanClassification.infer(incomeType: type)
         self.planStructure = planStructure ?? inferred.structure
         self.planSource = planSource ?? inferred.source
+        // Deliberately NOT inferred from `type`. No IncomeType implies whether
+        // a pension is the holder's own or a survivor benefit; nil means
+        // unasked. See the property doc.
+        self.isSurvivorBenefit = isSurvivorBenefit
     }
 
     // MARK: - Data Migration
@@ -241,6 +265,14 @@ struct IncomeSource: Identifiable, Codable {
             PlanStructure.self, from: container, forKey: .planStructure, inferredFallback: inferred.structure)
         planSource = PlanClassificationUserSaveDecoding.decode(
             PlanSource.self, from: container, forKey: .planSource, inferredFallback: inferred.source)
+
+        // Phase 5b Task 9. A blob written before this field existed has no
+        // such key and decodes to nil, which is exactly "never asked". `try?`
+        // rather than `try` for the same reason every other lazily-migrated
+        // key above uses it: `PersistenceManager.loadAll` wraps this array's
+        // decode in `try?`, so one row throwing on a malformed value would
+        // silently discard EVERY stored income source.
+        isSurvivorBenefit = (try? container.decodeIfPresent(Bool.self, forKey: .isSurvivorBenefit)) ?? nil
     }
 
     /// Sentinel prefix applied to the `name` of legacy `.rothConversion` income
@@ -250,7 +282,7 @@ struct IncomeSource: Identifiable, Codable {
     static let legacyRothConversionSentinelPrefix = "__LEGACY_ROTH_CONVERSION__::"
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate, federalWithholdingMode, federalWithholdingPercent, stateWithholdingMode, stateWithholdingPercent, planStructure, planSource
+        case id, name, type, annualAmount, federalWithholding, stateWithholding, owner, taxWithholding, ssWithholdingRate, federalWithholdingMode, federalWithholdingPercent, stateWithholdingMode, stateWithholdingPercent, planStructure, planSource, isSurvivorBenefit
     }
 
     func encode(to encoder: Encoder) throws {
@@ -269,6 +301,10 @@ struct IncomeSource: Identifiable, Codable {
         try container.encode(stateWithholdingPercent, forKey: .stateWithholdingPercent)
         try container.encode(planStructure, forKey: .planStructure)
         try container.encode(planSource, forKey: .planSource)
+        // `encodeIfPresent`, so a row that was never asked writes no key at
+        // all and a save file round-trips byte-identically to one written
+        // before this field existed.
+        try container.encodeIfPresent(isSurvivorBenefit, forKey: .isSurvivorBenefit)
     }
 }
 

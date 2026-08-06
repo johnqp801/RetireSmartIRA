@@ -367,7 +367,36 @@ enum MultiYearInputAdapter {
         let rows = sources.filter { $0.type == .pension && $0.owner == owner }
         guard let first = rows.first else { return nil }
         guard !PlanClassificationChoice.hasMixedPensionClassification(in: sources, owner: owner) else { return nil }
-        return RetirementPlanClassification(structure: first.planStructure, source: first.planSource)
+        // Phase 5b Task 9 review, IMPORTANT 1. The survivor fact travels WITH the
+        // classification, or the District of Columbia's rule is unreachable from
+        // Multi-Year and the two surfaces disagree for the same household: single-year
+        // State Comparison and the income breakdown would drop a qualifying survivor
+        // annuity to $0 while every year of the projection kept taxing it in full.
+        // `RetirementPlanClassification` has carried this field since Task 1 and this
+        // was the site that dropped it.
+        //
+        // DC is the FIRST jurisdiction whose discriminant is not fully described by
+        // (structure, source). New York's, Kansas's, Massachusetts's and Arizona's
+        // rules all are, which is why none of them exposed this.
+        //
+        // AGREEMENT IS REQUIRED, exactly as it is for structure and source above.
+        // `hasMixedPensionClassification` compares only those two, so two rows can pass
+        // it while disagreeing about the survivor fact: one spouse's own CSRS annuity
+        // and a survivor annuity from the same system are both (definedBenefit,
+        // federalCivilian). Applying either row's flag to the POOLED total would
+        // misattribute the other row's dollars, so a disagreement falls back to `nil`
+        // ("never asked"), which claims no exclusion. That is the same conservative
+        // choice the guard above makes, and the same direction `matches()` takes for a
+        // nil flag.
+        //
+        // `hasMixedPensionClassification` itself is deliberately NOT widened: it also
+        // drives a user-facing "your pensions disagree" warning, and making that warning
+        // fire on a survivor mismatch is a copy decision, not a numeric one.
+        let survivorFlags = Set(rows.map { $0.isSurvivorBenefit })
+        return RetirementPlanClassification(
+            structure: first.planStructure,
+            source: first.planSource,
+            isSurvivorBenefit: survivorFlags.count == 1 ? first.isSurvivorBenefit : nil)
     }
 
     /// Sum annualAmount for all primary-owner income sources whose type contributes

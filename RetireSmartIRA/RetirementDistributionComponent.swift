@@ -34,6 +34,26 @@ struct RetirementDistributionComponent: Equatable, Sendable {
     let structure: PlanStructure
     let source: PlanSource
     let amount: Double
+
+    /// Phase 5b Task 9: whether this component is a SURVIVOR benefit. Same
+    /// three-valued meaning as `IncomeSource.isSurvivorBenefit`: `nil` means
+    /// the question was never asked, not "no".
+    ///
+    /// `var` with a default rather than `let` with a default, because Swift
+    /// excludes a `let` with an initial value from the synthesized memberwise
+    /// initializer entirely, which would make it impossible to construct a
+    /// component that carries the fact. That is Task 1's Critical finding in
+    /// its non-Codable form.
+    ///
+    /// NOTHING IN PRODUCTION CONSTRUCTS THIS TYPE TODAY -- `distributionComponents`
+    /// is `nil` at every production call site of
+    /// `TaxCalculationEngine.calculateStateTax`, verified by grep for
+    /// `RetirementDistributionComponent(` under `RetireSmartIRA/`. The field
+    /// exists so the engine's third per-source matching site passes a real
+    /// value rather than a hardcoded `nil`, and so a later task that starts
+    /// building components from accounts has a seam to fill instead of a
+    /// silent hole.
+    var isSurvivorBenefit: Bool? = nil
 }
 
 extension RetirementDistributionComponent {

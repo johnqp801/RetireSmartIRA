@@ -384,16 +384,30 @@ enum MultiYearCPABriefing {
         let deltaMedicareCost: Double
     }
 
-    /// Phase 3b Task 6 (design doc sections 3.4a and 3.7): mirrors
-    /// `StateComparisonPresentation.showsUnclassifiedNewYorkPensionLimitation`
-    /// for the CPA briefing, the other surface that computes a New York
-    /// number a user reads (`MultiYearCPABriefing renders figures a CPA
-    /// reads`, task 6 brief step 3a). Empty when the condition does not
-    /// hold, so an ordinary briefing (not New York, or the pension is
-    /// already classified) is unchanged from before this task.
-    static func newYorkUnclassifiedPensionLimitation(residesInNewYork: Bool, hasUnclassifiedPension: Bool) -> [String] {
-        guard residesInNewYork, hasUnclassifiedPension else { return [] }
-        return ["Your pension is not yet classified as government or private in Income Sources. New York excludes a qualifying government pension from state tax with no dollar cap, but this plan applies the standard $20,000 pension exclusion until it is classified."]
+    /// Phase 3b Task 6 (design doc sections 3.4a and 3.7): the companion to
+    /// `StateComparisonPresentation.showsUnclassifiedPensionLimitation` for
+    /// the CPA briefing, the other surface that computes a state number a
+    /// user reads (`MultiYearCPABriefing renders figures a CPA reads`, task
+    /// 6 brief step 3a). Empty when the condition does not hold, so an
+    /// ordinary briefing (a state with no per-source rule, or a pension that
+    /// is already classified) is unchanged.
+    ///
+    /// TAKES RESIDENCE, NOT A VIEWED STATE, and the two are not
+    /// interchangeable. A briefing describes the household's own multi-year
+    /// plan, computed for where they live; State Comparison shows a grid of
+    /// every state including ones the reader will never live in, and warns
+    /// on whichever column is open. Passing a viewed state here would put
+    /// another jurisdiction's mechanics into a document about this
+    /// household's own plan. `RetireSmartIRA/MultiYearPlanView.swift` passes
+    /// `dataManager.selectedState`.
+    ///
+    /// Phase 5b Task 3b: no longer New York only. The copy comes from the
+    /// residence state's own configuration.
+    static func unclassifiedPensionLimitation(residenceState: USState, hasUnclassifiedPension: Bool) -> [String] {
+        guard hasUnclassifiedPension,
+              let text = UnclassifiedPensionDisclosure.text(for: residenceState, scope: .cpaBriefingPlan)
+        else { return [] }
+        return [text]
     }
 
     /// Phase 3b Task 6 (design doc section 3.7, step 4): Hawaii's known
@@ -402,9 +416,24 @@ enum MultiYearCPABriefing {
     /// employer-funded portion of a pension, a split this app does not
     /// model either before or after classification, so this is gated on
     /// pension income alone, not on classification state.
+    ///
+    /// THE SENTENCE IS NO LONGER WRITTEN HERE. It lives in
+    /// `statetax-2026-HI.json` under `verification.knownLimitations`, which is
+    /// now the one place a limitation sentence is written, and the pension
+    /// editor renders the same stored string. The two surfaces differ by one
+    /// word, "This plan does not model" here against "This app does not model"
+    /// on screen, so the stored sentence carries `{scope}` and each surface
+    /// substitutes its own noun. Both wordings are John's, approved as
+    /// written, and this change reproduces both byte for byte;
+    /// `StateAccuracyContentTests.hawaiiSentenceServesBothSurfaces` pins that.
+    ///
+    /// Reads `surfaceDependentLimitations`, not all of Hawaii's limitations.
+    /// This function is gated on pension income and is about the
+    /// employer-funded split specifically; taking the whole list would widen
+    /// it silently to whatever a later task adds to Hawaii's config.
     static func hawaiiPensionSplitLimitation(residesInHawaii: Bool, hasPensionIncome: Bool) -> [String] {
         guard residesInHawaii, hasPensionIncome else { return [] }
-        return ["Hawaii excludes the employer-funded portion of a pension from state tax. This plan does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated."]
+        return StateAccuracyContent.surfaceDependentLimitations(for: .hawaii, scope: .plan)
     }
 
     /// Selected-approach vs Recommended-plan deltas for the CPA briefing header. Zero across the

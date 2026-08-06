@@ -29,7 +29,8 @@
       {
         "matchSources" : [
           "nyStateOrLocal",
-          "federalCivilian"
+          "federalCivilian",
+          "uniformedServices"
         ],
         "matchStructures" : [
           "definedBenefit"
@@ -40,7 +41,8 @@
       }
     ],
     "regularExemptionMinAge" : 59,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "New York excludes a qualifying government pension from state tax with no dollar cap, but {scope} applies the standard $20,000 pension exclusion until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "mirrorsFederal"
@@ -136,11 +138,16 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "New York may not tax Railroad Retirement benefits at all, but this app gives them only New York's $20,000 pension and annuity exclusion, so if that reading is right your New York state tax may be overstated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "New York State Department of Taxation and Finance, Information for retired persons: https://www.tax.ny.gov/pit/file/information_for_seniors.htm",
+      "New York State Form IT-201 Instructions: https://www.tax.ny.gov/forms/current-forms/it/it201i.htm"
+    ],
+    "taxYear" : 2026
   }
 }

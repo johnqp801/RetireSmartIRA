@@ -56,12 +56,13 @@
       "HB 463 (Economic Growth and Tax Relief Act of 2026), signed 2026-05-11"
     ],
     "knownLimitations" : [
-      "Georgia's standard deduction rises again to $70,000 for the retirement-income exclusion in TY2027; this config is TY2026 only and does not encode that increase."
+
     ],
     "lastVerified" : "2026-08-04",
     "primarySources" : [
       "Georgia DOR, Important Tax Updates: https://dor.georgia.gov/taxes/important-tax-updates",
       "Gov. Kemp signing announcement: https://gov.georgia.gov/press-releases/2026-05-11/gov-kemp-signs-legislation-lowering-taxes-and-supporting-economic-growth"
-    ]
+    ],
+    "taxYear" : 2026
   }
 }

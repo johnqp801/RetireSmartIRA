@@ -23,8 +23,25 @@
     "pensionExemption" : {
       "kind" : "none"
     },
+    "perSourceExemptions" : [
+      {
+        "matchSources" : [
+          "federalCivilian",
+          "ownStateOrLocal"
+        ],
+        "matchStructures" : [
+          "definedBenefit"
+        ],
+        "matchIsSurvivorBenefit" : true,
+        "matchMinAge" : 62,
+        "treatment" : {
+          "kind" : "full"
+        }
+      }
+    ],
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "The District of Columbia excludes a DC or federal government survivor benefit from tax with no dollar cap once the survivor is 62 or older, but {scope} taxes your pension in full until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "mirrorsFederal"
@@ -104,11 +121,19 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "The District of Columbia excludes a DC or federal government survivor annuity from tax once the survivor is 62 or older, but this app applies that exclusion only to a pension you have marked as a survivor benefit, so if you saved your pension before that question existed your District of Columbia state tax may be overstated until you re-open the pension and answer it.",
+        "topic" : "pension"
+      },
+      {
+        "text" : "This app asks whether a pension is a survivor annuity only of District of Columbia residents, so if you live elsewhere and compare states, the District's column may be overstated for a survivor annuity.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "D.C. Code Section 47-1803.02: https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02"
+    ],
+    "taxYear" : 2026
   }
 }

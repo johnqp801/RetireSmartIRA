@@ -545,7 +545,68 @@ class DataManager {
         // Apply the user's local/city income tax rate ONLY to their own state — a cross-state
         // comparison (a hypothetical other state) must not inherit the home locality's rate.
         let localRate = (state == selectedState) ? localIncomeTaxRate : 0
-        return TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources, currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction, localIncomeTaxRate: localRate)
+        return TaxCalculationEngine.calculateStateTax(income: income, forState: state, filingStatus: filingStatus, taxableSocialSecurity: taxableSocialSecurity, incomeSources: incomeSources(asResidentOf: state), currentAge: currentAge, enableSpouse: enableSpouse, spouseBirthYear: spouseBirthYear, currentYear: currentYear, scenarioRetirementDistributions: scenarioRetirementDistributions, scenarioRothConversionAmount: scenarioRothConversionAmount, scenarioRothConversionWithholdingAmount: scenarioRothConversionWithholdingAmount, postExemptionDeduction: postExemptionDeduction, localIncomeTaxRate: localRate)
+    }
+
+    /// The taxpayer's income rows as they would be classified IF they lived
+    /// in `state`. Identity for their actual residence.
+    ///
+    /// Phase 5b Task 3. `PlanSource.ownStateOrLocal` is the one
+    /// residence-RELATIVE case in the enum: it means "the taxpayer's own
+    /// state retirement system", which is KPERS to a Kansas resident and
+    /// VSERS to a Vermont resident. Every other case is absolute. A
+    /// cross-state comparison asks "what would I pay if I lived in `state`",
+    /// and in that hypothetical an existing own-state pension becomes an
+    /// OUT-of-state pension, which is exactly what `otherStateOrLocal`
+    /// describes. Handing the row through unmapped lets a Vermont resident's
+    /// VSERS pension claim Kansas's Schedule S Line A14 exclusion, which
+    /// Kansas grants only to KPERS and to named federal plans.
+    ///
+    /// This is the SAME rule, at the SAME seam, as the `localIncomeTaxRate`
+    /// line directly above it: a residence-relative attribute must not be
+    /// inherited by a hypothetical other state. That line has been here
+    /// since v1.8.3; this one generalises it from a rate to a
+    /// classification.
+    ///
+    /// Numerically inert for every household that exists today. FIVE golden
+    /// fixture scenarios DO carry `ownStateOrLocal` (Kansas KS-4, KS-5 and
+    /// KS-6 among them), so "no fixture carries the value" would be false;
+    /// what is true is that none of them reaches this function, because the
+    /// golden runner calls `TaxCalculationEngine.calculateStateTax` directly
+    /// and never constructs a `DataManager`. Neither frozen scenario grid
+    /// classifies its rows at all, and no user save can carry the value,
+    /// because the picker row that writes it ships in this same change.
+    ///
+    /// WHAT THIS DOES NOT FIX, and cannot without a new stored field:
+    /// `ownStateOrLocal` goes STALE on a residence change, and that route
+    /// errs toward UNDER-taxation. Nothing records the residence at
+    /// classification time. A Vermont resident classifies VSERS as
+    /// own-state (harmless while Vermont ships no rule), later changes
+    /// residence to Kansas in Settings, and the guard below short-circuits
+    /// to identity because the state now MATCHES. Schedule S Line A14 then
+    /// matches and a Vermont pension takes Kansas's full exclusion at the
+    /// user's actual residence. It is the same defect reached by MOVING
+    /// instead of by COMPARING, and it is recorded rather than solved. See the
+    /// Task 3 report.
+    ///
+    /// ITS REACH, corrected at the close of Phase 5b. This paragraph used to
+    /// say the defect "goes further live with Tasks 4, 8 and 9 (Massachusetts,
+    /// Idaho and Vermont all plan `ownStateOrLocal` rules)", which was a
+    /// forecast and two thirds of it did not happen: Idaho and Vermont each
+    /// shipped NO rule by reviewed decision. The jurisdictions naming
+    /// `ownStateOrLocal` today are KANSAS, MASSACHUSETTS and the DISTRICT OF
+    /// COLUMBIA, and the reach grows with every jurisdiction added rather than
+    /// with any particular planned task. Closing it needs a new STORED field
+    /// recording the residence at classification time; the Phase 5b close-out
+    /// ledger carries it as the most important open question on the branch.
+    func incomeSources(asResidentOf state: USState) -> [IncomeSource] {
+        guard state != selectedState else { return incomeSources }
+        return incomeSources.map { row in
+            guard row.planSource == .ownStateOrLocal else { return row }
+            var reclassified = row
+            reclassified.planSource = .otherStateOrLocal
+            return reclassified
+        }
     }
 
     /// Sum of scenario-level retirement-distribution income subject to state-level
@@ -817,19 +878,47 @@ class DataManager {
 
         // Phase 3b Task 4 (design doc 3.4a): partition BEFORE any pooling or
         // cap logic runs, mirroring the engine's identical partition. A
-        // matched row is excluded per its own rule's `treatment`,
-        // UNCONDITIONALLY (no age gate), and contributes NOTHING to the
+        // matched row is excluded per its own rule's `treatment`, with no age
+        // gate UNLESS THE RULE ITSELF CARRIES ONE (Phase 5b Task 9's
+        // `matchMinAge`, nil for New York, Kansas, Massachusetts and Arizona
+        // and 62 for the District of Columbia; evaluated against the ROW
+        // OWNER's age via `ageOf` below, mirroring the engine), and
+        // contributes NOTHING to the
         // pooled figures below. Single pass over the rows, never a cap
         // evaluated per row. Empty `exemptions.perSourceExemptions` (every
         // jurisdiction except New York) makes this reduce to exactly the old
         // pooled totals, since `matchedPerSourceRule` then returns `nil` for
         // every row.
         let isMarried = filingStatus == .marriedFilingJointly
-        let qualifyingPensionRows = incomeSources.filter { $0.type == .pension && ownerQualifies($0.owner) }
+        // Phase 5b Task 3: the per-source partition, and ONLY the per-source
+        // partition, reads rows through the residence mapping, mirroring
+        // `calculateStateTax(income:forState:)`. The gross `pensionIncome` /
+        // `rmdSourceIncome` totals above deliberately keep reading the raw
+        // rows: they are amounts, not classifications, and the mapping never
+        // changes an amount. Failing to mirror this here would put the
+        // breakdown display and the computed tax on opposite sides of the
+        // out-of-state question for anyone viewing another state.
+        let residenceMappedSources = incomeSources(asResidentOf: state)
+        // Phase 5b Task 9: mirror of TaxCalculationEngine's `ageOf`. The OWNER's
+        // own age, not `effectiveAge`, because a per-source rule's `matchMinAge`
+        // gates the person receiving the income (D.C. Code Section
+        // 47-1803.02(a)(2)(N)(ii)). Drift here would put the displayed
+        // breakdown and the computed tax on opposite sides of DC's age gate,
+        // which `StateTaxBreakdownTests.breakdownMatchesCalculation` catches.
+        func ageOf(_ owner: Owner) -> Int {
+            switch owner {
+            case .primary: return currentAge
+            case .spouse:  return enableSpouse ? spouseCurrentAge : currentAge
+            case .joint:   return enableSpouse ? max(currentAge, spouseCurrentAge) : currentAge
+            }
+        }
+        let qualifyingPensionRows = residenceMappedSources.filter { $0.type == .pension && ownerQualifies($0.owner) }
         var pooledPensionIncome = 0.0
         var perSourceExcludedPension = 0.0
         for row in qualifyingPensionRows {
-            if let rule = exemptions.matchedPerSourceRule(structure: row.planStructure, source: row.planSource) {
+            if let rule = exemptions.matchedPerSourceRule(
+                structure: row.planStructure, source: row.planSource,
+                isSurvivorBenefit: row.isSurvivorBenefit, age: ageOf(row.owner)) {
                 perSourceExcludedPension += rule.treatment.excludedAmount(
                     eligibleIncome: row.annualAmount, totalGrossIncome: income,
                     isMarried: isMarried, perIndividualMultiplier: 1.0)
@@ -837,11 +926,13 @@ class DataManager {
                 pooledPensionIncome += row.annualAmount
             }
         }
-        let qualifyingRMDRows = incomeSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }
+        let qualifyingRMDRows = residenceMappedSources.filter { $0.type == .rmd && ownerQualifies($0.owner) }
         var pooledRmdIncome = 0.0
         var perSourceExcludedRMD = 0.0
         for row in qualifyingRMDRows {
-            if let rule = exemptions.matchedPerSourceRule(structure: row.planStructure, source: row.planSource) {
+            if let rule = exemptions.matchedPerSourceRule(
+                structure: row.planStructure, source: row.planSource,
+                isSurvivorBenefit: row.isSurvivorBenefit, age: ageOf(row.owner)) {
                 perSourceExcludedRMD += rule.treatment.excludedAmount(
                     eligibleIncome: row.annualAmount, totalGrossIncome: income,
                     isMarried: isMarried, perIndividualMultiplier: 1.0)
@@ -889,16 +980,32 @@ class DataManager {
         // nil, `matchedDistroComponents` is empty and the adjusted scalar
         // equals the original, so `resolvePooledAmount` still takes its nil
         // short-circuit unchanged.
+        //
+        // NOT RESIDENCE-MAPPED, recorded deliberately (Phase 5b Task 3
+        // re-review). The pension/RMD partition above reads rows through
+        // `incomeSources(asResidentOf: state)`; this block does not, because
+        // a `RetirementDistributionComponent` arrives as a parameter rather
+        // than from `incomeSources` and this function has no equivalent
+        // mapping for it. Inert today: no PRODUCTION caller passes
+        // `distributionComponents` non-nil, only tests do, so
+        // `allDistroComponents` is always empty on every shipped path.
+        // Whichever task first supplies components in production inherits
+        // the obligation to map `ownStateOrLocal` here too, or a component
+        // will claim another state's own-state exclusion on the State
+        // Comparison screen exactly as an unmapped income row would have.
         let allDistroComponents = distributionComponents ?? []
-        let matchedDistroComponents = allDistroComponents.filter {
-            exemptions.matchedPerSourceRule(structure: $0.structure, source: $0.source) != nil
+        // Phase 5b Task 9: mirror of TaxCalculationEngine's `componentRule`.
+        // One closure, three call sites, so the survivor and age arguments
+        // cannot drift between the two filters and the sum.
+        func componentRule(_ component: RetirementDistributionComponent) -> PerSourceExemptionRule? {
+            exemptions.matchedPerSourceRule(
+                structure: component.structure, source: component.source,
+                isSurvivorBenefit: component.isSurvivorBenefit, age: ageOf(component.owner))
         }
-        let unmatchedDistroComponents = allDistroComponents.filter {
-            exemptions.matchedPerSourceRule(structure: $0.structure, source: $0.source) == nil
-        }
+        let matchedDistroComponents = allDistroComponents.filter { componentRule($0) != nil }
+        let unmatchedDistroComponents = allDistroComponents.filter { componentRule($0) == nil }
         let perSourceExcludedDistroComponents = matchedDistroComponents.reduce(0.0) { total, component in
-            guard let rule = exemptions.matchedPerSourceRule(
-                structure: component.structure, source: component.source) else { return total }
+            guard let rule = componentRule(component) else { return total }
             return total + rule.treatment.excludedAmount(
                 eligibleIncome: component.amount, totalGrossIncome: income,
                 isMarried: isMarried, perIndividualMultiplier: 1.0)

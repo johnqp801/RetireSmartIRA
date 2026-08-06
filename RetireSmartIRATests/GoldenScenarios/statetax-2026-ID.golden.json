@@ -43,7 +43,7 @@
     },
     {
       "name": "single filer, military retired pay, age 63: Idaho's Retirement Benefits Deduction for service members uses a SEPARATE, more lenient age gate (62, or any age if disabled) than the general 65 threshold -- qualifies here where a CSRS pension at the same age would not",
-      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7-8, 'Line 8e. The Idaho Retirement Benefits Deduction for Retired Service Members. You must meet at least one of the following: Classified as disabled (any age), or Age 62 or older, or...' -- a distinct, more lenient age test than Part One's general 65-or-62-disabled gate, which does not apply to Line 8e. This app's PlanSource enum has no case for military retired pay distinct from federal civilian service; 'federalCivilian' is used as the closest available label, disclosed as an imprecise fit. Arithmetic: standard deduction (age 63, under 65, no age addition, no OBBBA bonus) = $16,100 base only. $40,000 - $16,100 = $23,900 before the retirement deduction. The $40,000 military pension is eligible up to the lesser of itself or $48,216, exceeding the $23,900 remaining, flooring taxable income at $0. Tax = $0.00.",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7-8, 'Line 8e. The Idaho Retirement Benefits Deduction for Retired Service Members. You must meet at least one of the following: Classified as disabled (any age), or Age 62 or older, or...' -- a distinct, more lenient age test than Part One's general 65-or-62-disabled gate, which does not apply to Line 8e. RE-LABELLED IN TASK 8, and the re-label was value-neutral (measured: this case reports 1266.70 before and after, because Idaho ships no rule matching either label). This row read 'federalCivilian' only because the PlanSource enum had no case for military retired pay when this fixture was written. Phase 5b Task 1 ADDED that case, 'uniformedServices', and Task 8 moved this row onto it. Why it is load-bearing rather than tidy: Line 8e's service-member test (disabled at any age, or 62 or older) is MORE LENIENT than Part One's general 65-or-62-disabled gate, and every other CSRS row in this file (ID-1, ID-2, ID-4, ID-5) is on that general gate. While this row shared the 'federalCivilian' label with them, this case at 63 and ID-6 at 63 demanded CONTRADICTORY answers from one enum case, so no rule could satisfy both. They are now distinguishable. Task 8 nevertheless shipped NO Idaho rule, for reasons unrelated to the label: see Phase5bIdahoDecisionTests.swift. Arithmetic: standard deduction (age 63, under 65, no age addition, no OBBBA bonus) = $16,100 base only. $40,000 - $16,100 = $23,900 before the retirement deduction. The $40,000 military pension is eligible up to the lesser of itself or $48,216, exceeding the $23,900 remaining, flooring taxable income at $0. Tax = $0.00.",
       "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
       "filingStatus": "single",
       "primaryAge": 63,
@@ -52,7 +52,7 @@
       "taxableSocialSecurity": 0,
       "pensionIncome": 0,
       "classifiedPensionSources": [
-        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "uniformedServices"}
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
@@ -64,7 +64,7 @@
       }
     },
     {
-      "name": "MFJ, both spouses 68/70 with CSRS pensions totaling $80,000: exceeds the $72,324 MFJ deduction cap -- tests the income-limited cap straddle",
+      "name": "MFJ, both spouses 68/70 with CSRS pensions totaling $80,000, which is above the $72,324 MFJ maximum but the cap DOES NOT BIND observably here because taxable income floors at $0 either way -- see ID-8 for the case that does bind",
       "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7, Line 8a: 'Married filing jointly...$72,324' maximum for 2025. Arithmetic: standard deduction (both 65+, MAGI $80,000 under $150,000 MFJ threshold) = $32,200 base + $1,650 x 2 age-65 additions + $6,000 x 2 full OBBBA senior bonuses = $47,500. $80,000 - $47,500 = $32,500 before the retirement deduction. Combined CSRS pensions of $80,000 are eligible only up to the $72,324 MFJ cap, which still exceeds the $32,500 remaining and floors taxable income at $0. Tax = $0.00.",
       "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
       "filingStatus": "marriedFilingJointly",
@@ -107,6 +107,63 @@
         "tier": "tier2",
         "summary": "Only the CSRS spouse's pension should be deductible; the engine grants no retirement deduction at all for ID, taxing the full $70,000 household income.",
         "observedToday": 1597.95
+      }
+    },
+    {
+      "name": "single filer, CSRS pension, age 63 (between 62 and 65, not disabled): DENIED, because Part One's general gate is 65 and only the disabled reach it at 62 -- the discriminating case that separates a 62 gate from a 65 gate",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7, 'Line 8 Retirement Benefits Deduction', 'Part One - Age, Disability, and Marital/Filing Status': 'The recipients must be at least age 65 or be classified as disabled and be at least age 62.' At age 63 and NOT disabled, this taxpayer fails Part One, exactly as ID-1 does at 60. ADDED BY TASK 8 under shared-procedure Step 3 ('what would this rule wrongly match? If the fixture set has no case that would catch that, ADD one'). Phase 4 flagged that this file's only sub-65 CSRS case was ID-1 at age 60, so a single age-62 gate over (federalCivilian, definedBenefit) turned all five original cases green while encoding 62 as the CIVILIAN gate, when Part One's civilian gate is 65. That was MEASURED, not argued: a pooled pensionExemption with regularExemptionMinAge 62 was temporarily added to the shipped Idaho config and every one of ID-1 through ID-5 passed, while THIS case reported 0.00 against the 1266.70 Idaho law requires. The mutation was reverted. This case is what makes that rule unavailable to a future contributor. Its inputs are ID-3's inputs with one field changed, planSource federalCivilian instead of uniformedServices, which is the whole point: at the same age 63, Idaho denies the civilian and allows the service member, and the two are separable ONLY because Task 1 added the uniformedServices case. Arithmetic is ID-3's, unchanged: federal standard deduction (age 63, under 65, no age addition, no OBBBA senior bonus) = $16,100 base only. $40,000 - $16,100 = $23,900 taxable x 5.3% flat rate = $1,266.70.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 63,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1266.70
+    },
+    {
+      "name": "single filer, military retired pay, age 55 (below Line 8e's own 62 gate, not disabled): DENIED -- the guard that stops an UNGATED per-source military rule, the shape a rule-writer reaches for first",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7-8, 'Line 8e. The Idaho Retirement Benefits Deduction for Retired Service Members. You must meet at least one of the following: Classified as disabled (any age), or Age 62 or older, or...'. Line 8e is more lenient than Part One but it is NOT ageless: at 55 and not disabled this retiree fails 8e's own test and deducts nothing. ADDED BY TASK 8 under Step 3, guarding a DIFFERENT wrong rule from ID-6's. The model's per-source rules carry no age field at all (PerSourceExemptionRule has matchSources, matchStructures and treatment, nothing else) and TaxCalculationEngine.applyRetirementExemptions applies a matched rule 'UNCONDITIONALLY (no age gate)', so the obvious way to give ID-3 its lenient gate -- a perSourceExemptions rule matching uniformedServices with treatment full -- exempts military retired pay at EVERY age. That was MEASURED too: with that rule temporarily added to the shipped Idaho config, ID-3 passed and this case reported 0.00 against 1266.70. The mutation was reverted. This case matters because the population it protects is not marginal: a service member retiring at 20 years is routinely in their early forties, so the ungated rule is wrong for most military retirees for two decades each, in the under-taxation direction. Arithmetic: federal standard deduction (age 55, no age addition, no OBBBA senior bonus) = $16,100 base only. $40,000 - $16,100 = $23,900 taxable x 5.3% flat rate = $1,266.70.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "single",
+      "primaryAge": 55,
+      "spouseAge": null,
+      "federalAGI": 40000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "uniformedServices"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1266.70
+    },
+    {
+      "name": "MFJ, both spouses 68/70 with CSRS pensions totaling $140,000: the cap BINDS observably, separating a correct $72,324 maximum from an uncapped deduction",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7, Line 8a: 'Married filing jointly...$72,324' maximum for 2025. ADDED BY TASK 8 REVIEW under shared-procedure Step 3. ID-4 is NAMED a cap straddle but cannot test one: at its $80,000 of pensions, taxable income before the deduction is only $32,500, so it floors at $0 whether the deduction is capped at $72,324 or left uncapped at $80,000, and both a correct rule and a cap-less rule produce ID-4's published $0.00. This case raises the pensions until the difference is visible on the tax line. Arithmetic: standard deduction (both 65+, MAGI $140,000 under the $150,000 MFJ threshold, so both OBBBA senior bonuses are full) = $32,200 base + $1,650 x 2 age-65 additions + $6,000 x 2 senior bonuses = $47,500. $140,000 - $47,500 = $92,500 before the retirement deduction. Combined CSRS pensions of $140,000 are eligible only up to the $72,324 MFJ maximum, so $92,500 - $72,324 = $20,176 taxable x 5.3% flat rate = $1,069.33. An UNCAPPED rule would subtract the full $140,000 and floor taxable income at $0.00, so this case is what separates the two. The engine grants no Idaho retirement deduction at all today, so it currently taxes the whole $92,500.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 70,
+      "federalAGI": 140000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 80000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 60000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1069.33,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both spouses' CSRS pensions qualify for the MFJ Retirement Benefits Deduction, capped at $72,324; the engine grants nothing, taxing the full $92,500 of post-standard-deduction income. Same mechanism as ID-4, but this case additionally pins the CAP: a rule that granted the deduction UNCAPPED would report $0.00 here and would still pass ID-4, so this is the only Idaho case that can tell a correct $72,324 maximum from no maximum at all.",
+        "observedToday": 4902.50
       }
     }
   ]

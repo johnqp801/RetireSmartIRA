@@ -38,6 +38,20 @@ struct MultiYearStaticInputs: Equatable, Sendable {
     let spouseCurrentAge: Int?      // nil = single filer
     let filingStatus: FilingStatus  // existing 1.9 enum
     let state: String               // 2-letter postal code (e.g., "CA")
+    // The jurisdiction this plan's state tax is actually computed in, resolved
+    // from `state`. `nil` for an abbreviation no `USState` carries, which
+    // `ProjectionEngine` turns into a fallback to California plus a DEBUG
+    // assertion, so a `nil` here is a plan taxed as California.
+    //
+    // ONE EXPRESSION SO A SECOND READER CANNOT DISAGREE WITH THE ENGINE. Its
+    // only reader today is `ProjectionEngine`, which resolves the state it
+    // taxes each projected year in. It was hoisted out of that function for the
+    // Multi-Year tab's accuracy affordance, which had to name the same
+    // jurisdiction the figures were computed in; that affordance was removed
+    // before merge (see `ApproachComparisonView`), and the accessor is kept
+    // because any future surface describing this plan's state tax has the same
+    // obligation and should read the engine's own expression, not repeat it.
+    var modelledState: USState? { USState.allCases.first { $0.abbreviation == state } }
     let localIncomeTaxRate: Double   // user-entered local/city income tax rate (fraction); 0 = none
 
     // SS inputs

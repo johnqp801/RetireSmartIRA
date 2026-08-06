@@ -307,6 +307,41 @@ struct RetirementIncomeExemptions {
     /// version granted $20,000 to pension and another $20,000 to IRA.
     var perSourceExemptions: [PerSourceExemptionRule] = []
 
+    /// The jurisdiction-specific SECOND SENTENCE of the disclosure shown when
+    /// a household's pension is unclassified and this jurisdiction's
+    /// `perSourceExemptions` therefore cannot be applied to it. `nil` (the
+    /// default, and the value for the 49 jurisdictions that ship no
+    /// per-source rule) means neither disclosure surface fires.
+    ///
+    /// SHIPS WITH `perSourceExemptions`, ALWAYS. A jurisdiction carrying a
+    /// per-source rule and no sentence over-taxes an unclassified pension
+    /// with no warning at all, which is precisely the defect this field
+    /// exists to close: Kansas shipped a correct rule in Phase 5b Task 3 and
+    /// its holders got no warning, because both disclosure surfaces were
+    /// hardcoded to New York. `Phase5bUnclassifiedPensionDisclosureTests`
+    /// asserts the two travel together IN BOTH DIRECTIONS, so a later
+    /// jurisdiction task cannot ship a rule and silently forget the
+    /// sentence, and cannot ship a warning about a rule it does not have.
+    ///
+    /// WHY THE STATE'S OWN CONFIG RATHER THAN GENERIC COPY: the sentence
+    /// names that state's own mechanics and dollar figures ("the standard
+    /// $20,000 pension exclusion" in New York, a full KPERS exclusion in
+    /// Kansas). Generic copy naming no state and no figure was considered
+    /// and rejected on 2026-08-05, on the grounds that a vague warning does
+    /// not tell a user what to do about it.
+    ///
+    /// CARRIES `UnclassifiedPensionDisclosure.scopeToken`, exactly once. The
+    /// two surfaces that show this differ by one word: State Comparison
+    /// renders a FIGURE on screen, the CPA briefing describes a PLAN in a
+    /// document. Storing one sentence with a token, rather than two
+    /// sentences, is what keeps those two from drifting apart the way the
+    /// two hardcoded literals this replaced could have.
+    ///
+    /// The first sentence is jurisdiction-independent and lives in code, at
+    /// `UnclassifiedPensionDisclosure.leadSentence`, so 51 config files
+    /// cannot disagree about it.
+    var unclassifiedPensionDisclosure: String? = nil
+
     /// The first rule in `perSourceExemptions` whose `matches(structure:source:)`
     /// admits `(structure, source)`, or `nil` if none does. First match wins
     /// (design doc section 3.4a step 1). Centralized here, rather than
@@ -324,8 +359,35 @@ struct RetirementIncomeExemptions {
     /// any other case. No rule shipped in this phase does that (design doc
     /// section 3.1: "No rule may match `governmentUnspecified` as though it
     /// were a specific jurisdiction").
-    func matchedPerSourceRule(structure: PlanStructure, source: PlanSource) -> PerSourceExemptionRule? {
-        perSourceExemptions.first { $0.matches(structure: structure, source: source) }
+    ///
+    /// Phase 5b Task 9 added `isSurvivorBenefit` and `age`. `age` is the age of
+    /// the ROW'S OWNER, not the household maximum: see `matchMinAge`.
+    ///
+    /// BOTH DEFAULT TO `nil`, and the direction that omitting them fails in is
+    /// why that is acceptable. A rule carrying neither `matchIsSurvivorBenefit`
+    /// nor `matchMinAge` (New York's, Kansas's, Massachusetts's and Arizona's,
+    /// i.e. every rule shipped before this task) ignores both arguments
+    /// entirely, so the twenty-odd existing model-level tests that call this
+    /// with a bare `(structure:source:)` keep asserting exactly what they
+    /// asserted. A GATED rule reached from a call site that omitted them
+    /// matches NOTHING, so the failure mode of forgetting is that an exclusion
+    /// goes UNAPPLIED and the taxpayer is over-taxed, never that an exclusion
+    /// is handed to someone who has not earned it.
+    ///
+    /// What guards the six production call sites is not this signature but
+    /// `Phase5bDCSurvivorTests.engineAndDataManagerMirrorAgreeOnTheSurvivorExclusion`,
+    /// which runs one DC household through `TaxCalculationEngine.calculateStateTax`
+    /// and through the `DataManager.stateTaxBreakdown` mirror and requires both
+    /// to exclude it. A required parameter would only have forced each site to
+    /// write SOMETHING; it could not have forced the right age, which is the
+    /// mode this mirror has actually drifted in five times on this branch.
+    func matchedPerSourceRule(structure: PlanStructure, source: PlanSource,
+                              isSurvivorBenefit: Bool? = nil,
+                              age: Int? = nil) -> PerSourceExemptionRule? {
+        perSourceExemptions.first {
+            $0.matches(structure: structure, source: source,
+                       isSurvivorBenefit: isSurvivorBenefit, age: age)
+        }
     }
 
     /// Reduced exemption that applies only within a specific age band.
@@ -455,7 +517,16 @@ struct RetirementIncomeExemptions {
 /// code has never needed.
 extension PerSourceExemptionRule: Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
-        guard lhs.matchSources == rhs.matchSources, lhs.matchStructures == rhs.matchStructures else {
+        // Phase 5b Task 9 added matchIsSurvivorBenefit and matchMinAge. They
+        // are compared here because Layer B of the Phase 1 equivalence gate
+        // uses this operator to decide whether a JSON-decoded rule equals its
+        // frozen legacy counterpart: omitting them would let a rule that
+        // gained or lost a survivor or age condition compare EQUAL to one that
+        // did not, which is the silent-loss class this phase keeps catching.
+        guard lhs.matchSources == rhs.matchSources,
+              lhs.matchStructures == rhs.matchStructures,
+              lhs.matchIsSurvivorBenefit == rhs.matchIsSurvivorBenefit,
+              lhs.matchMinAge == rhs.matchMinAge else {
             return false
         }
         switch (lhs.treatment, rhs.treatment) {
@@ -1987,12 +2058,88 @@ struct StateTaxData {
                 // is never treated as a specific jurisdiction (design doc
                 // section 3.1). This is the design's own regression test for
                 // the flat `.governmentPension` case it was revised away from.
+                //
+                // `.uniformedServices` ADDED BY THE PHASE 5b WHOLE-BRANCH
+                // REVIEW, and it is a correction of something this branch
+                // itself broke rather than a new jurisdiction task. Task 3
+                // added the "Military retired pay" picker row to EVERY
+                // jurisdiction. Before it existed, a New York military
+                // retiree's best available pick was "Government pension,
+                // federal civilian", which this rule matched, so the uncapped
+                // Line 26 exclusion was reached BY ACCIDENT. After it, the
+                // natural pick wrote `.uniformedServices`, which this rule did
+                // not name, and the pension silently fell back to the capped
+                // $20,000 Line 29 exclusion. What that costs, at two shapes,
+                // both hand-derived from the bracket schedule above and pinned
+                // by `Phase5bNewYorkMilitaryTests`: a single filer at 65 whose
+                // ONLY income is a $60,000 military pension paid $1,563.00 and
+                // now pays $0.00; at NY-5's shape ($70,000 pension plus
+                // $20,000 of other ordinary income) the figures are $3,183.00
+                // and $487.75, a delta of $2,695.25. Two taps away either way.
+                //
+                // The authority is the SAME sentence already quoted by the
+                // NY-1 golden case, not new research: Line 26 eligibility runs
+                // to "an officer, employee, or beneficiary of an officer or
+                // employee of" NYS, a NY locality, certain named NY public
+                // authorities, "or the United States". A retired member of the
+                // uniformed services is an officer or employee of the United
+                // States drawing a federal government pension, so military
+                // retired pay was always inside the quoted list; only the
+                // model's vocabulary was too coarse to say so before Task 1
+                // split `.uniformedServices` out of `.federalCivilian`. It
+                // also makes the app's two encodings of one fact agree:
+                // `MilitaryRetirementExemption.exemption(for: "NY")` already
+                // returns `.fullyExempt`, so before this change the answer
+                // depended on which screen the money was entered from.
+                //
+                // `.railroadRetirement` is deliberately NOT added, and that is
+                // a recorded gap rather than an oversight: the quoted list is
+                // CLOSED, a railroad retiree was an employee of a private
+                // carrier rather than of the United States, and New York's
+                // fixture cites no provision covering Railroad Retirement
+                // Board benefits at all. See the NY entry in
+                // `GoldenScenarioDefectCatalogueTests.knownButUnpinned`.
+                //
+                // MIRRORED HERE ON PURPOSE, following the Task 3b precedent
+                // set by `unclassifiedPensionDisclosure` below. New York is
+                // NOT on `phase5CorrectedJurisdictions`, so Layer B requires
+                // its JSON and this entry to re-encode BYTE-IDENTICALLY in
+                // every computed field. Since 2026-08-06 New York IS on
+                // `disclosureOnlyDivergentJurisdictions`, which excuses the
+                // `verification` block alone; this rule is not in it and is
+                // still held. Adding New York to `phase5CorrectedJurisdictions`
+                // would have been the other route and is worse: membership
+                // FLIPS `structurallyIdentical` into a must-diverge assertion,
+                // which permanently excuses New York from the byte-identity
+                // check that has guarded the canary jurisdiction since Phase 1.
+                // Mirroring also keeps the load-failure fallback correct, which
+                // matters more here than for a disclosure string: a user who
+                // hits that path would otherwise be over-taxed rather than
+                // merely unwarned.
                 perSourceExemptions: [
                     PerSourceExemptionRule(
-                        matchSources: [.nyStateOrLocal, .federalCivilian],
+                        matchSources: [.nyStateOrLocal, .federalCivilian, .uniformedServices],
                         matchStructures: [.definedBenefit],
                         treatment: .full)
-                ]
+                ],
+                // Phase 5b Task 3b: mirrors the sentence now carried by
+                // statetax-2026-NY.json, for the same reason the rule above
+                // is mirrored here. New York is NOT in
+                // `phase5CorrectedJurisdictions`, so Layer B of the Phase 1
+                // gate requires its JSON and this entry to re-encode
+                // byte-identically in every computed field; a field present in
+                // one and not the other fails that gate. New York's 2026-08-06
+                // entry on `disclosureOnlyDivergentJurisdictions` does not
+                // relieve this: that set excuses `verification` only, and
+                // `unclassifiedPensionDisclosure` is a top-level field.
+                // Kansas needs no counterpart because Kansas IS on
+                // `phase5CorrectedJurisdictions` and is required to diverge.
+                //
+                // This is also the fallback a user actually sees if the
+                // bundled JSON fails to load, so leaving it out would mean
+                // that user silently loses the warning.
+                unclassifiedPensionDisclosure:
+                    "New York excludes a qualifying government pension from state tax with no dollar cap, but \(UnclassifiedPensionDisclosure.scopeToken) applies the standard $20,000 pension exclusion until it is classified."
             ),
             stateDeduction: .fixed(single: 8_000, married: 16_050)
         )

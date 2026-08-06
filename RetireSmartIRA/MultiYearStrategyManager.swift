@@ -30,6 +30,12 @@ final class MultiYearStrategyManager: ObservableObject {
     @Published private(set) var isComputingFrontier: Bool = false
     @Published var selectedHeirWeight: Double = 0   // 0 = owner-optimal (today's recommendation)
     private var frontierWorkTask: Task<HeirFrontierResult, Never>?
+    // A `modelledState` publisher lived here, recording the jurisdiction the
+    // engine taxed the most recently built plan in. Its only reader was the
+    // Multi-Year tab's per-state accuracy affordance, removed before merge; see
+    // `ApproachComparisonView`. `MultiYearStaticInputs.modelledState` is the
+    // accessor to re-publish from if that affordance ever comes back.
+
     @Published private(set) var approachComparison: ApproachComparison?
     @Published private(set) var isComputingComparison: Bool = false
     private var comparisonWorkTask: Task<ApproachComparison, Never>?

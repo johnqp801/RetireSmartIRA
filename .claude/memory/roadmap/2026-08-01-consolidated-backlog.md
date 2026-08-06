@@ -37,7 +37,7 @@ App: (50,000 − 8,240) × 5.2% = **$2,171.52**. Correct: subtract the **$18,320
 
 **Root cause is structural.** `StateTaxConfig` has no personal-exemption field. NJ's is a hardcoded special case (`DataManager.swift:659-671`, `postExemptionDeduction`); CA's are credits. Any state with a personal exemption that is not NJ or CA is a candidate. Audit GA, AL, MA, MS, VA, HI, IA, ME, NE, UT.
 
-**Connects to backlog I2**, which already records that multi-year `computeStateTax` (`ProjectionEngine.swift:1294-1335`) *drops* `postExemptionDeduction`. So the same defect exists twice: missing from the config, and dropped in the multi-year path even where it exists. **Fix both together or Kansas will be right in Scenarios and wrong in Multi-Year.**
+**Connects to backlog I2**, which already records that multi-year `ProjectionEngine.computeStateTax` *drops* `postExemptionDeduction`. **Location corrected 2026-08-06: the function is `ProjectionEngine.computeStateTax` and the defect is recorded in its own doc comment. Do not trust the line ranges older notes cite (`:1294-1335` here, `:1622-1634` in the Phase 2 ledger); both have drifted, and there is no `calculateMultiYearStateTax` symbol in this codebase.** So the same defect exists twice: missing from the config, and dropped in the multi-year path even where it exists. **Fix both together or Kansas will be right in Scenarios and wrong in Multi-Year.**
 
 ### 1b. 🔴 NY government-pension exclusion missing
 

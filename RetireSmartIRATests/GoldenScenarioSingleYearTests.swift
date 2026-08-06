@@ -78,9 +78,25 @@ struct GoldenScenarioSingleYearTests {
                     PlanStructure.self, from: Data("\"\(row.planStructure)\"".utf8))
                 let source = try! JSONDecoder().decode(
                     PlanSource.self, from: Data("\"\(row.planSource)\"".utf8))
+                // Phase 5b Task 9: the survivor flag Task 2 added to this
+                // fixture schema now REACHES production. Passed straight
+                // through, `nil` included: a row that does not state the fact
+                // must arrive as "never asked", not as `false`, because
+                // `PerSourceExemptionRule.matches` distinguishes the two and
+                // DC-5 (an unflagged own pension) is the guard that proves it.
+                //
+                // Every row is built with the default `owner: .primary`, so
+                // DC's `matchMinAge: 62` gate is evaluated against
+                // `primaryAge` for every fixture row including a spouse's. No
+                // bundled fixture can distinguish owner-age from primary-age
+                // (DC-3's spouse is 63 and DC-4's is 60 but holds the
+                // ineligible row), so the per-owner semantics are pinned in
+                // Swift instead, by
+                // `Phase5bDCSurvivorTests.theAgeGateReadsTheRowOwnersOwnAge`.
                 sources.append(IncomeSource(
                     name: "Pension \(index + 1)", type: .pension, annualAmount: row.amount,
-                    planStructure: structure, planSource: source))
+                    planStructure: structure, planSource: source,
+                    isSurvivorBenefit: row.isSurvivorBenefit))
             }
         } else if scenario.pensionIncome > 0 {
             sources.append(IncomeSource(name: "Pension", type: .pension,

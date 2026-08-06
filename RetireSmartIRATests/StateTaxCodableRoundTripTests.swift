@@ -8,10 +8,14 @@ struct StateTaxCodableRoundTripTests {
     @Test("StateVerification round-trips through JSON")
     func verificationRoundTrips() throws {
         let original = StateVerification(
+            taxYear: 2026,
             lastVerified: "2026-08-02",
             primarySources: ["https://www.ksrevenue.gov/webfile/help/scheduleS_A.html"],
             billReferences: ["SB 1 (2024 special session)"],
-            knownLimitations: ["Public pensions are not distinguished from private."]
+            knownLimitations: [
+                StateLimitation(text: "Public pensions are not distinguished from private.",
+                                topic: .pension)
+            ]
         )
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(StateVerification.self, from: data)
@@ -21,6 +25,7 @@ struct StateTaxCodableRoundTripTests {
     @Test("StateVerification defaults to unverified with empty collections")
     func verificationUnverifiedDefault() {
         let unverified = StateVerification.unverified
+        #expect(unverified.taxYear == 0, "an unverified stamp names no tax year")
         #expect(unverified.lastVerified == "")
         #expect(unverified.primarySources.isEmpty)
         #expect(unverified.knownLimitations.isEmpty)
@@ -502,10 +507,14 @@ struct StateTaxCodableRoundTripTests {
             ),
             stateDeduction: .conformsToFederal,
             verification: StateVerification(
+                taxYear: 2026,
                 lastVerified: "2026-08-02",
                 primarySources: ["https://revenue.iowa.gov/"],
                 billReferences: ["HF 2317 (signed 2022-03-01)"],
-                knownLimitations: ["Roth conversion income is not yet exempted."]
+                knownLimitations: [
+                    StateLimitation(text: "Roth conversion income is not yet exempted.",
+                                    topic: .pension)
+                ]
             )
         )
         let data = try JSONEncoder().encode(original)
@@ -551,6 +560,7 @@ struct StateTaxCodableRoundTripTests {
             safeHarborRule: .flatRate(1.10),
             currentYearSafeHarborRate: 0.95,
             verification: StateVerification(
+                taxYear: 2026,
                 lastVerified: "2026-08-02",
                 primarySources: ["https://www.revenue.pa.gov/"],
                 billReferences: [],
