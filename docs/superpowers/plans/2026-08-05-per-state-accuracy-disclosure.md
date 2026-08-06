@@ -51,7 +51,7 @@ Three captions are already `static let` (`northCarolinaBaileyCaption:430`, `idah
 - Test: `RetireSmartIRATests/StateAccuracyContentTests.swift` (new)
 
 **Interfaces:**
-- Produces: `PlanClassificationChoice.hawaiiEmployerFundedCaption`, `.massachusettsContributoryCaption`, `.districtOfColumbiaSurvivorToggleCaption`, all `static let String`, alongside the three that already exist.
+- Produces: `IncomeSourcesView.hawaiiEmployerFundedCaption`, `.massachusettsContributoryCaption`, `.districtOfColumbiaSurvivorToggleCaption`, all `static let String`, alongside the three that already exist.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -69,11 +69,11 @@ struct StateAccuracyContentTests {
     /// re-asserts the same strings from their new home.
     @Test("The three hoisted captions match the literals they replaced")
     func hoistedCaptionsAreUnchanged() {
-        #expect(PlanClassificationChoice.hawaiiEmployerFundedCaption ==
+        #expect(IncomeSourcesView.hawaiiEmployerFundedCaption ==
             "Hawaii excludes the employer-funded portion of a pension from state tax. This app does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.")
-        #expect(PlanClassificationChoice.massachusettsContributoryCaption ==
+        #expect(IncomeSourcesView.massachusettsContributoryCaption ==
             "Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated.")
-        #expect(PlanClassificationChoice.districtOfColumbiaSurvivorToggleCaption ==
+        #expect(IncomeSourcesView.districtOfColumbiaSurvivorToggleCaption ==
             "The District of Columbia excludes a DC or federal government survivor annuity from tax once the survivor is 62 or older, but taxes an annuitant's own pension in full. Turn this on only for a pension paid to you as someone else's survivor or beneficiary.")
     }
 }
@@ -210,11 +210,11 @@ The suite is RED at the end of this task, deliberately, and Task 4 turns it gree
     @Test("Each moved caption reproduces byte for byte from its new home in config")
     func movedCaptionsAreByteIdentical() {
         let cases: [(USState, String)] = [
-            (.hawaii, PlanClassificationChoice.hawaiiEmployerFundedCaption),
-            (.massachusetts, PlanClassificationChoice.massachusettsContributoryCaption),
-            (.northCarolina, PlanClassificationChoice.northCarolinaBaileyCaption),
-            (.idaho, PlanClassificationChoice.idahoRetirementBenefitsDeductionCaption),
-            (.vermont, PlanClassificationChoice.vermontRetirementExclusionCaption)
+            (.hawaii, IncomeSourcesView.hawaiiEmployerFundedCaption),
+            (.massachusetts, IncomeSourcesView.massachusettsContributoryCaption),
+            (.northCarolina, IncomeSourcesView.northCarolinaBaileyCaption),
+            (.idaho, IncomeSourcesView.idahoRetirementBenefitsDeductionCaption),
+            (.vermont, IncomeSourcesView.vermontRetirementExclusionCaption)
         ]
         for (state, expected) in cases {
             #expect(StateAccuracyContent.limitations(for: state).contains(expected),
@@ -224,6 +224,22 @@ The suite is RED at the end of this task, deliberately, and Task 4 turns it gree
 ```
 
 **DC's survivor-toggle caption is deliberately NOT in this list.** It explains a control rather than describing a limitation, so it stays a static in the view. Say so in the report if you disagree.
+
+**THE HAWAII COLLISION, found by Task 1 and not anticipated when this plan was written.**
+`MultiYearCPABriefing.hawaiiPensionSplitLimitation:421` carries the SAME sentence as Hawaii's caption
+except for one word: it says "This **plan**" where the caption says "This **app**", and it is pinned by
+a different test. **One `knownLimitations` string cannot hold both.**
+
+Use the mechanism this codebase already has for exactly this. Phase 5b's
+`unclassifiedPensionDisclosure` carries a `{scope}` token that resolves to "this figure" on State
+Comparison and "this plan" in the CPA briefing. Apply the same treatment: Hawaii's stored sentence
+carries `{scope}`, each surface substitutes its own word, and the byte-identity gate asserts that
+substituting "app" reproduces the caption and substituting "plan" reproduces the briefing string, both
+extracted from the parent commit.
+
+That keeps both approved wordings byte-identical while there is still only one sentence stored. **If any
+other jurisdiction turns out to have the same split, apply the same treatment rather than storing two
+strings.** Report every collision you find, because Task 1 found this one only by reading the file.
 
 - [ ] **Step 2: Run and confirm it fails**
 
@@ -243,7 +259,7 @@ Add each caption's exact string as an element of that state's `verification.know
 
 - [ ] **Step 4: Point the view at config**
 
-Replace each `if dataManager.selectedState == .hawaii { Label(PlanClassificationChoice.hawaiiEmployerFundedCaption, ...) }` branch with one loop over `StateAccuracyContent.limitations(for: dataManager.selectedState)`. Five hardcoded state branches become zero.
+Replace each `if dataManager.selectedState == .hawaii { Label(IncomeSourcesView.hawaiiEmployerFundedCaption, ...) }` branch with one loop over `StateAccuracyContent.limitations(for: dataManager.selectedState)`. Five hardcoded state branches become zero.
 
 - [ ] **Step 5: Run**
 
