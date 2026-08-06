@@ -1,9 +1,75 @@
-# RESUME HERE: State Tax Phase 5b, ready to run Task 7 (North Carolina)
+# RESUME HERE: State Tax Phase 5b is CLOSED. Four items await John.
 
-**Tasks 1, 2, 3, 3b, 4, 5 and 6 are complete.** Kansas and Arizona are correct for what the model can
-express. Massachusetts likewise, shipping with a disclosed under-taxation gap. Hawaii is a decided
-disclosure item that ships no rule. Tasks 7 through 10 remain: North Carolina, Idaho, Vermont-and-DC,
-and close.
+**ALL TEN TASKS ARE COMPLETE (1, 2, 3, 3b, 4, 5, 6, 7, 8, 9, 10) and each was reviewed.** The branch
+is `feature/state-tax-phase5b`, NOT merged and NOT pushed.
+
+**START WITH THE LEDGER, not this file:**
+`.claude/memory/roadmap/2026-08-04-state-tax-phase5b-ledger.md`. It is the durable record of what
+5b corrected, what it deliberately did not, the production-diff inventory, and what the next phase
+inherits organised BY MISSING MODEL FIELD. This file is the running resume log and the sections
+below Task 6 are kept as the history of how each decision was reached.
+
+## STATE AT CLOSE
+
+- **Defect cases: 99 across 32 jurisdictions at Phase 5a close, 88 across 29 at Phase 5b close.**
+  Net minus 11. Gross: 12 blocks deleted (AZ 3, DC 3, KS 3, MA 3), 1 added (Idaho's ID-8 cap
+  guard). 11 new golden scenarios, 10 of them guards carrying no defect. Derived, not remembered:
+  `grep -c '"knownDefect"' RetireSmartIRATests/GoldenScenarios/*.golden.json`.
+- **Kansas, Massachusetts and DC now carry ZERO pinned defects**, joining Iowa, Georgia and Indiana
+  from Phase 5a. Six of 51 jurisdictions are clean.
+- **Four jurisdictions ship a rule:** Kansas, Massachusetts, Arizona, District of Columbia.
+- **Four ship NOTHING by a reviewed decision:** Hawaii, North Carolina, Idaho, Vermont. Each keeps
+  all its `knownDefect` blocks, plus guard cases, a `knownButUnpinned` entry with a deletion guard,
+  and a caption. **These are decisions, not a to-do list. Do not re-open them.**
+- **`knownButUnpinned` went from 1 entry (Missouri) to 11.** Most of what this phase learned is a
+  defect no fixture can hold.
+- Suite at close: **2,020 Swift Testing in 304 suites + 509 XCTest, 0 failures.**
+
+## THE FOUR THINGS AWAITING JOHN. Nothing here is settled.
+
+All copy through Task 8 is approved. Task 9's is not, and the three copy items are IN THE TREE
+marked "PROPOSED COPY, AWAITING JOHN".
+
+1. **DC's `unclassifiedPensionDisclosure` sentence** in `statetax-2026-DC.json`.
+2. **DC's survivor toggle label and its caption** in `IncomeSourcesView.swift`.
+3. **Vermont's caption** in `IncomeSourcesView.swift`.
+4. **The Vermont hold-versus-ship call.** Ship Option B (the CSRS shape: four cases green, roughly
+   $335 of bounded over-match, a disclosed FERS gap) the way Massachusetts shipped, or hold?
+   **Implementer, reviewer and controller ALL recommend HOLD**, and take Option D in a Phase 6
+   model task instead: it corrects the larger defect ($4,525.15 against roughly $335) with no
+   under-taxation at all. John has not answered.
+
+Alternatives drafted and rejected for each copy item are in Task 9's report, section 6.
+
+## THE PHASE'S MOST IMPORTANT SINGLE FINDING: Vermont
+
+**Task 1's model extension dissolved exactly the source collision it was built for, and Vermont is
+STILL unsatisfiable, because the binding constraint was never sources.** Phase 4 recorded Vermont
+as unsatisfiable because its military and CSRS cases both had to carry `federalCivilian`; Task 2
+re-labelled VT-5 and VT-6 to `uniformedServices` from their own Act 71 citations, and the collision
+is genuinely gone. Vermont did not move.
+
+What actually blocks it: Vermont needs TWO exclusions with different CAPS and different AGI BANDS,
+and a jurisdiction carries one pooled cap and one `agiPhaseout`; and its CSRS exclusion applies
+"only to benefits not covered by the Social Security Act", which `federalCivilian` cannot express
+because that one case covers CSRS AND FERS. **Task 1 extended the WHO axis. Vermont's remainder
+lives on the HOW MUCH and WHEN axes.**
+
+Vermont carries the largest dollar gap in the phase: $5,211.50 a year at VT-6's shape. If Option D
+is ever built, write **VT-7 first**: AGI $130,000, expected **$172.53**. It is the only thing that
+would pin which income basis the gate compares against, and no current Vermont fixture does.
+
+## DO NOT DELETE THESE
+
+`Phase5bUnclassifiedPensionDisclosureTests.rulesAndDisclosuresStayInLockstep` (the only thing
+binding the disclosure gate to the rules gate); all eleven `knownButUnpinned` entries and their
+deletion guards; the six captions; Idaho's and Vermont's reflective tripwires (Idaho's has already
+fired once, on Task 9's first full-suite run, and correctly re-opened Idaho); the frozen
+1,020-value baseline.
+
+---
+
+# History: how each task got there (kept for the record)
 
 ## READ THIS BEFORE BRIEFING TASKS 7, 8 OR 9. IT CONSTRAINS ALL THREE.
 
@@ -28,6 +94,73 @@ task starts, rather than discovering it mid-task.
 Phase 6 candidates from the same finding: `treatment` is still typed as the full `ExemptionLevel`, so
 the sweep is a test-level guard rather than a structural guarantee; the durable fix is a narrower
 treatment type, or grouping matched rows by rule and applying the treatment once per rule.
+
+## TASK 9 (VERMONT AND DC) OUTCOME
+
+**DC ships its rule and carries zero defects.** `matchSources` `federalCivilian` and
+`ownStateOrLocal` at `definedBenefit`, `matchIsSurvivorBenefit: true`, `matchMinAge: 62`, treatment
+`full`, under D.C. Code Section 47-1803.02(a)(2)(N)(ii). Measured: DC-2 $1,924.00 to $0.00, DC-3
+$1,546.00 to $0.00, DC-4 $3,848.50 to $1,846.00. DC-6 was added as the Maryland survivor guard
+Task 2's reviewer said Task 9 owed DC.
+
+**`matchMinAge` had to be built and the brief's chain omitted it.** The per-source partition is
+unconditional on age, so DC-1 (a survivor at 55) fails without it, and `perQualifyingSpouse` cannot
+substitute because `ownerQualifies` returns true unconditionally for a single filer. It gates on
+the ROW OWNER's age, not the household maximum.
+
+**The picker toggle was MANDATORY, not polish.** No sequence of user actions could set
+`isSurvivorBenefit`, so every DC golden case would have gone green while a real survivor annuitant
+got nothing: Task 3's Kansas failure exactly. The toggle shows where live config consults the
+dimension (`residenceUsesSurvivorDimension`, never a hardcoded `== .districtOfColumbia`). The
+Bool-to-Bool? mapping is the careful part: a question shown saves the answer, a question NOT shown
+PRESERVES what the row had, so no editor stamps "not a survivor" on a question it did not ask.
+
+**Deviation from the brief, endorsed:** no field was added to `IRAAccount`. Nothing in production
+constructs a `RetirementDistributionComponent` from an account, and an unreachable PERSISTED field
+is dead data in every user's save file. It went on the in-memory component instead.
+
+**Vermont: see the summary near the top of this file.** Both candidate shapes were measured with
+Hawaii's method and both reverted. VT-6 caught the military rule exactly as the brief predicted.
+
+**Idaho was re-opened by this task and the decision survived.** Task 8's tripwire fired on the
+first full-suite run. Two of Idaho's three objections died (the age gate now exists;
+household attribution is moot because `matchMinAge` is per owner). The third survived and decided
+it: Line 8a's uncapped, SS-reduced maximum.
+
+## TASK 8 (IDAHO) OUTCOME
+
+**Idaho ships NO rule. Four defects stay and a FIFTH was added** (ID-8, the cap guard the review
+demanded: MFJ 68/70, $140,000 of CSRS, expected $1,069.33, observed $4,902.50). Every other Idaho
+case floors taxable income at $0.00 whether the deduction is capped or not, so an UNCAPPED rule
+would have passed all of them.
+
+**Idaho is the one decline that is a JUDGEMENT CALL rather than a procedural foreclosure, and the
+catalogue entry originally got that wrong.** For `federalCivilian` and `ownStateOrLocal` no
+catching case is pinnable. For `uniformedServices` a rule IS expressible and was measured green on
+ID-3 with nothing else moving. It was declined on Form 39R Line 8a's dollar-for-dollar reduction by
+Social Security and Railroad Retirement received, which the model does not carry: roughly $935 a
+year of UNDISCLOSED under-taxation in the COMMON case. Both that and the split-age joint return ARE
+pinnable, so a future task may legitimately reach a different conclusion. It should pin them first.
+
+## TASK 7 (NORTH CAROLINA) OUTCOME
+
+**North Carolina ships no Bailey rule. All three defects stay.** The declined rule was measured
+green on all three ($0.00, $0.00, $379.05) and reverted. NCDOR's sentence grants and limits in the
+same clause, which is Hawaii's structure rather than Massachusetts's. The Bailey class CLOSED in
+1989 and can only shrink; its complement grows with every hire. NC-5 was added as the only
+vesting-independent guard North Carolina can carry.
+
+**North Carolina is the one place weaker than Hawaii and it is recorded because it cuts against the
+decision:** Hawaii's over-taxation is disclosed on two surfaces, North Carolina's was disclosed
+nowhere, and a Bailey-vested retiree is over-taxed $1,486.27 a year. A caption now ships; the
+structural answer is a Phase 6 disclosure item.
+
+**Also found here, and it predates the phase:** North Carolina military retired pay has TWO PATHS
+WITH OPPOSITE ANSWERS. By `IncomeType`, `MilitaryRetirementExemption` returns `.fullyExempt` and
+the UI shows a green badge. By classification, the Task 3 picker row writes
+`(definedBenefit, uniformedServices)`, NC ships no rule, and the money is taxed in full: $1,486.27
+measured. The loops are disjoint so there is no arithmetic bug; the defect is that the answer
+depends on which screen the money was entered from.
 
 ## TASK 6 (ARIZONA) OUTCOME
 
@@ -186,16 +319,27 @@ VT) all plan to.** Routed to the Phase 6 re-confirm prompt.
 
 ---
 
-## Pick up exactly here
+## Pick up exactly here (UPDATED AT PHASE CLOSE, 2026-08-05)
 
-**Branch:** `feature/state-tax-phase5b`, local HEAD **`e5acef4`**. NOT pushed since `b0e23fe`, NOT merged.
+**Branch:** `feature/state-tax-phase5b`. **NOT pushed and NOT merged.**
 **Worktree:** `/Users/johnurban/Projects/RetireSmartIRA/.worktrees/state-tax-phase5b`
 **Plan:** `docs/superpowers/plans/2026-08-04-state-tax-phase5b-per-source.md` (on that branch)
-**Next task:** **Task 3, Kansas**, which COMPLETES the second half of the written promise to Steve Nicolai.
+**Branch point:** `c5a7bce`. `main` was merged IN at `b0039d3` for the test wrapper, so
+`git merge-base HEAD main` reports `378c110`. **Diff with `main...HEAD` (three dots), not two.**
 
-Suite on that branch: **1,885 Swift Testing in 295 suites + 509 XCTest, 0 failures**, 6 pre-existing env-gated skips.
+**Next actions, in order:**
+1. Get John's answers on the four items listed near the top of this file. The Vermont call is the
+   only one that changes code; the other three are copy approvals on strings already in the tree.
+2. Decide merge. The branch changes 15 production Swift files and 5 shipped configs, so this is a
+   real release-bearing change, not a docs merge. Nothing has shipped to users yet.
+3. Phase 6 scope: the ledger's "WHAT THE NEXT PHASE INHERITS" section, organised by missing model
+   field. The employee-contributory axis already has an owner (John assigned it 2026-08-05).
 
-`origin/main` is at `5024947`. Phases 1 through 5a are all merged and pushed.
+Suite at close: **2,020 Swift Testing in 304 suites + 509 XCTest, 0 failures**, 6 pre-existing
+env-gated skips. Run it with `tools/run-tests.sh` in the FOREGROUND, `timeout: 600000`.
+
+The stale original of this block said "next task: Task 3, Kansas" at HEAD `e5acef4`. All ten tasks
+are done.
 
 ---
 
@@ -361,9 +505,9 @@ Modify three fixtures. **This changes golden fixtures, which Phase 4 otherwise t
 
 ## Standing rules that cost real time when ignored
 
-- **RUN XCODEBUILD IN THE FOREGROUND with the Bash tool's `timeout: 600000`.** Five agents stalled by backgrounding a build, each costing a full turn. The 120 second default is not the ceiling. Do not use `run_in_background` or Monitor. **The durable fix is a wrapper script; nobody has written one.**
+- **RUN THE SUITE WITH `tools/run-tests.sh` IN THE FOREGROUND, `timeout: 600000`.** Five agents stalled by backgrounding a build, each costing a full turn. The 120 second default is not the ceiling. Do not use `run_in_background` or Monitor. **The wrapper NOW EXISTS** (`378c110`, merged into this branch at `b0039d3`): it supplies `-project` so a reset cwd cannot build a different worktree, refuses to report a false green when zero tests ran, and re-runs the known `MultiYearPerfTests` wall-clock flake in isolation to check the claim. Do not call `xcodebuild` directly.
 - **"Verify before you comply" belongs in every fix dispatch.** Seven separate times a subagent caught an error in the brief it was given, including two of mine that would have put false statements into fixtures. A reviewer finding is evidence, not fact, exactly like an implementer report.
 - **The frozen 1,020-value baseline stays frozen forever.** Movements go in `statetax-behavior-movements-2026.json` with a `goldenCase` that is machine-checked against real fixture names. `after` values are MEASURED from failure messages, never predicted.
-- **Two equivalence lists mean different things.** `phase5CorrectedJurisdictions` (KS, IA, NM, GA, UT, IN) asserts divergence from the frozen legacy Swift table. `layerAProvenDivergentJurisdictions` (IA, NM, GA, UT) asserts at least one scenario in a fixed grid diverges. Kansas and Indiana are deliberately in the first and NOT the second, because that grid never exercises a personal exemption.
+- **Two equivalence lists mean different things.** `phase5CorrectedJurisdictions` asserts divergence from the frozen legacy Swift table; at Phase 5b close it reads KS, IA, NM, GA, UT, IN, MA, AZ, DC. `layerAProvenDivergentJurisdictions` (IA, NM, GA, UT) asserts at least one scenario in a fixed grid diverges. Kansas, Indiana, Massachusetts and DC are deliberately in the first and NOT the second: that grid never exercises a personal exemption, and its pension row is built UNCLASSIFIED and infers to unknown/unknown, so no per-source rule can reach it. Each of those exclusions was MEASURED ("None diverged"), not assumed. Consequence recorded as a Minor: Massachusetts has ZERO Layer A coverage.
 - **NO EM DASH CHARACTERS** anywhere.
 - **A fixture can be citation-clean and still not carry enough.** New Mexico's married bracket table was only partially quoted, so its corrector had to fetch the enrolled bill. Expect this again.

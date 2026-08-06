@@ -3,6 +3,14 @@
 **Found:** 2026-08-05, Phase 5b Task 8 (Idaho) and its review. Confirmed against source.
 **For:** Phase 6 disclosure work. This is a STRUCTURAL finding, not an Idaho one.
 
+**AMENDED at Phase 5b close (Task 10).** Two counts below were written at Task 8 and Task 9 moved
+both. The category now holds **FOUR** jurisdictions, not three: Vermont joined Hawaii, North
+Carolina and Idaho, and it carries the largest gap of the four ($5,211.50 a year at VT-6's shape).
+`knownButUnpinned` now holds **eleven** entries, not eight: DC's was added by Task 9 and is the
+sharpest case in the file, because a DC survivor whose row predates Task 9 is over-taxed while
+being perfectly CLASSIFIED, so every gate listed below misses them for a second, independent
+reason. Nothing else in this note changed, and none of its recommendations were acted on.
+
 ## The shape
 
 Phase 5b produced a category that did not exist when the disclosure surfaces were
