@@ -454,6 +454,27 @@ enum StateAccuracyContent {
             label: "IRA and 401(k) exemption",
             value: iraExemptionDescription(exemptions, filingStatus: filingStatus)))
 
+        // DIRECTLY AFTER THE IRA LINE, AND THAT PLACEMENT IS THE POINT. A Roth
+        // conversion IS an IRA distribution, so the statement above is the one a
+        // reader will otherwise apply to it, and in two of the four
+        // jurisdictions carrying a rule it says the opposite of the truth. Iowa
+        // is the live proof: its IRA line reads "None. IRA and 401(k)
+        // withdrawals are taxed as ordinary income", while its conversion is
+        // exempt from age 55. A correction has to sit beside the statement it
+        // corrects, so it goes here rather than after the per-source rules,
+        // which are about pensions by source and say nothing about conversions.
+        //
+        // WHY IT IS ON THIS PAGE AT ALL. This is a Roth conversion planning
+        // app, and Pennsylvania exempts the conversion outright: a Pennsylvania
+        // household converting $200,000 assumes a state cost of roughly $6,140
+        // the engine never charges. Of everything a config holds, this is the
+        // fact most likely to change what a user decides to do.
+        if let conversionRule = exemptions.rothConversionExemption {
+            statements.append(Statement(
+                label: "Roth conversions",
+                value: rothConversionDescription(conversionRule)))
+        }
+
         if !exemptions.perSourceExemptions.isEmpty {
             statements.append(Statement(
                 label: "Rules by pension source",
@@ -593,6 +614,38 @@ enum StateAccuracyContent {
 
         sentences.append(contentsOf: ageQualifiers(exemptions))
         return sentences.joined(separator: " ")
+    }
+
+    /// How this app treats a Roth conversion in the year it is made.
+    ///
+    /// PROPOSED COPY, AWAITING JOHN, in the pattern Tasks 3 and 4 set: it ships
+    /// so the suite is green and the page is not silent, and the alternatives
+    /// are in the task report. The label is "Roth conversions" and the leading
+    /// clause is "Not taxed by this state", matching the Social Security
+    /// statement word for word so that two exemptions from the same state's tax
+    /// do not read as two different kinds of thing.
+    ///
+    /// THE FOUR CONFIGS ARE NOT UNIFORM and this renders each rather than
+    /// flattening them. Illinois and Mississippi gate on nothing. Pennsylvania
+    /// gates on nothing but keeps the withheld portion taxable, because DOR Ans
+    /// 274 holds the exemption reaches only what is actually deposited into the
+    /// Roth. Iowa gates on age 55 and is the only one that does. Printing the
+    /// Pennsylvania caveat on an Illinois page would understate an exemption
+    /// Illinois grants in full; dropping Iowa's age gate would offer a
+    /// 54 year old an exemption the engine will not give them.
+    ///
+    /// The two conditions compose, so a future config setting both renders both
+    /// without a fifth branch. No jurisdiction ships that combination today.
+    private static func rothConversionDescription(_ rule: RothConversionExemption) -> String {
+        var sentence = "Not taxed by this state"
+        if rule.minAge > 0 {
+            sentence += " from age \(rule.minAge)"
+        }
+        sentence += "."
+        if rule.withheldPortionRemainsTaxable {
+            sentence += " Any part of the conversion withheld for federal tax does not reach the Roth account, so that part stays taxable."
+        }
+        return sentence
     }
 
     /// New Jersey's is the only stepped exclusion that ships, and its shape is

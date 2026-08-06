@@ -536,11 +536,20 @@ struct StateAccuracyContentTests {
     /// sequence the tax is actually computed in, and a page that listed the
     /// per-source carve-out before the general exemption it overrides would
     /// invert the logic a reader is trying to follow.
+    ///
+    /// "Roth conversions" sits DIRECTLY AFTER "IRA and 401(k) exemption" and
+    /// before the per-source rules, because a conversion is an IRA distribution
+    /// and the IRA line is the one a reader would otherwise apply to it. Iowa is
+    /// the live proof: its IRA line says withdrawals are taxed as ordinary
+    /// income while its conversion is exempt from 55, so a reader who stopped at
+    /// the IRA line would draw the opposite conclusion. A correction has to be
+    /// adjacent to the statement it corrects.
     @Test("Statements appear in the order the tax is computed in")
     func statementsKeepTheirOrder() {
         let expected = ["Tax rates", "Standard deduction", "Personal exemption",
                         "Social Security", "Pension exemption",
-                        "IRA and 401(k) exemption", "Rules by pension source"]
+                        "IRA and 401(k) exemption", "Roth conversions",
+                        "Rules by pension source"]
         for state in USState.allCases {
             for status in FilingStatus.allCases {
                 let labels = StateAccuracyContent
@@ -571,6 +580,259 @@ struct StateAccuracyContentTests {
         // is excluded.
         let general = try #require(statements.first { $0.label == "Pension exemption" })
         #expect(general.value == "No general exemption.")
+    }
+
+    // MARK: - Roth conversion treatment
+
+    /// THE FOUR JURISDICTIONS CARRYING A `rothConversionExemption`, and the
+    /// authority for every figure asserted below is the bundled 2026 JSON, not
+    /// this test's memory of it. `expectedRothConversionStates` is asserted
+    /// against the live configs in `onlyTheConfiguredStatesStateARothRule`, so a
+    /// fifth jurisdiction gaining a rule fails there rather than passing
+    /// silently here.
+    private static let expectedRothConversionStates: Set<USState> =
+        [.iowa, .illinois, .mississippi, .pennsylvania]
+
+    /// PENNSYLVANIA IS THE SPECIMEN THAT MATTERS MOST. It exempts the conversion
+    /// outright, so a Pennsylvania household converting $200,000 currently
+    /// assumes a state cost of roughly $6,140 that the engine never charges, and
+    /// until this statement existed the one page built to say what the app
+    /// models was silent about it.
+    ///
+    /// Its config is ALSO the one that is not like the others: Ans 274 holds the
+    /// exemption reaches only the amount actually deposited into the Roth, so
+    /// `withheldPortionRemainsTaxable` is true and the sentence has to carry
+    /// that caveat or it overstates the exemption for anyone withholding federal
+    /// tax out of the conversion itself.
+    @Test("Pennsylvania's Roth conversion exemption reaches the page, withholding caveat and all")
+    func pennsylvaniaStatesItsRothConversionExemption() throws {
+        let statements = StateAccuracyContent.factualStatements(for: .pennsylvania,
+                                                                filingStatus: .single)
+        let line = try #require(statements.first { $0.label == "Roth conversions" })
+        #expect(line.value == "Not taxed by this state. Any part of the conversion withheld for federal tax does not reach the Roth account, so that part stays taxable.")
+    }
+
+    /// EACH OF THE FOUR RENDERS ITS OWN CONFIG, and the three distinct shapes
+    /// are the reason this is not one assertion repeated four times:
+    ///
+    ///   - Illinois and Mississippi: `minAge` 0, withholding does not reduce it.
+    ///   - Pennsylvania: `minAge` 0, withheld portion stays taxable.
+    ///   - Iowa: `minAge` 55, withholding does not reduce it. Iowa is the ONLY
+    ///     age-gated one, and it is also the only one whose rule exists solely
+    ///     in the bundled JSON and not in the frozen legacy Swift table, so a
+    ///     run that silently fell back to that table fails here.
+    ///
+    /// Flattening these into one sentence would print a Pennsylvania caveat on
+    /// an Illinois page and drop Iowa's age gate, which is the specific failure
+    /// a generated page is supposed to make impossible.
+    @Test("Each Roth conversion state renders its own config, not a shared assumption")
+    func eachRothConversionStateRendersItsOwnConfig() throws {
+        let expected: [USState: String] = [
+            .illinois: "Not taxed by this state.",
+            .mississippi: "Not taxed by this state.",
+            .pennsylvania: "Not taxed by this state. Any part of the conversion withheld for federal tax does not reach the Roth account, so that part stays taxable.",
+            .iowa: "Not taxed by this state from age 55."
+        ]
+        for (state, sentence) in expected {
+            for status in FilingStatus.allCases {
+                let statements = StateAccuracyContent.factualStatements(for: state,
+                                                                        filingStatus: status)
+                let line = try #require(statements.first { $0.label == "Roth conversions" },
+                                        "\(state.abbreviation) \(status.rawValue) states nothing about Roth conversions")
+                #expect(line.value == sentence,
+                        "\(state.abbreviation) \(status.rawValue): \(line.value)")
+            }
+        }
+    }
+
+    /// ABSENT IS OMITTED, swept across all fifty-one jurisdictions and both
+    /// filing statuses. A configuration that carries no `rothConversionExemption`
+    /// has not said the conversion is taxable, it has said nothing, and printing
+    /// "Roth conversions: taxed as ordinary income" for the other forty-seven
+    /// would assert a fact no config states on the one page built to separate
+    /// what is known from what is not.
+    ///
+    /// Asserted BIDIRECTIONALLY against the live configs, so this cannot pass by
+    /// agreeing with a stale literal: the set of states whose page carries the
+    /// statement must equal the set whose config carries the rule, which must in
+    /// turn equal the four named above.
+    @Test("Only the configured jurisdictions say anything about Roth conversions")
+    func onlyTheConfiguredStatesStateARothRule() {
+        var pageStates: Set<USState> = []
+        var configStates: Set<USState> = []
+        for state in USState.allCases {
+            if StateTaxData.config(for: state).retirementExemptions.rothConversionExemption != nil {
+                configStates.insert(state)
+            }
+            for status in FilingStatus.allCases {
+                let labels = StateAccuracyContent
+                    .factualStatements(for: state, filingStatus: status)
+                    .map(\.label)
+                if labels.contains("Roth conversions") { pageStates.insert(state) }
+            }
+        }
+        #expect(configStates == Self.expectedRothConversionStates,
+                "the set of configs carrying a Roth conversion rule moved: \(configStates.map(\.abbreviation).sorted())")
+        #expect(pageStates == configStates,
+                """
+                the page and the configuration disagree about which jurisdictions have a Roth \
+                conversion rule. Page: \(pageStates.map(\.abbreviation).sorted()). \
+                Config: \(configStates.map(\.abbreviation).sorted()).
+                """)
+    }
+
+    /// THE `.specialLimited` TRAP, RE-ASSERTED FOR THIS STATEMENT. Task 6 found
+    /// that New Hampshire and Washington configure a FULL pension exemption
+    /// against a system that levies no tax on the income this app models, so
+    /// rendering that field would have claimed an exemption from a tax that does
+    /// not exist. The fix was the `hasIncomeTax` guard, which returns a single
+    /// "Tax rates" statement and stops.
+    ///
+    /// The Roth statement is emitted AFTER that guard and therefore inherits it.
+    /// This test proves the inheritance two ways: no untaxed jurisdiction's page
+    /// mentions Roth conversions, and none of the four that do carry a rule is
+    /// an untaxed jurisdiction in the first place.
+    @Test("No jurisdiction without an income tax states a Roth conversion rule")
+    func untaxedJurisdictionsStateNothingAboutRothConversions() {
+        for state in USState.allCases {
+            let config = StateTaxData.config(for: state)
+            guard !config.taxSystem.hasIncomeTax else { continue }
+            for status in FilingStatus.allCases {
+                let labels = StateAccuracyContent
+                    .factualStatements(for: state, filingStatus: status)
+                    .map(\.label)
+                #expect(!labels.contains("Roth conversions"),
+                        "\(state.abbreviation) levies no tax on modelled income but its page states a Roth conversion rule")
+            }
+        }
+        for state in Self.expectedRothConversionStates {
+            #expect(StateTaxData.config(for: state).taxSystem.hasIncomeTax,
+                    "\(state.abbreviation) carries a Roth conversion rule against a system with no income tax on modelled income")
+        }
+    }
+
+    /// THE STATEMENT IS BACKED BY WHAT THE ENGINE DOES, in the same spirit as
+    /// the Social Security and per-spouse probes. A generated page proves only
+    /// that the SOURCE of a figure is the engine's own config; it does not prove
+    /// the engine acts on it. Here it does, and this is the assertion that says
+    /// so.
+    ///
+    /// Three claims, one per shape:
+    ///
+    ///   1. A $200,000 conversion costs a qualifying household NOTHING in state
+    ///      tax: the bill is identical to the same household with no conversion
+    ///      at all, and strictly lower than the same $260,000 of income with the
+    ///      conversion not declared as one. Both halves are needed. The equality
+    ///      alone would also hold if the engine ignored the income entirely, and
+    ///      the inequality alone would also hold if the exemption were partial.
+    ///   2. Federal withholding taken out of the conversion changes the tax in
+    ///      Pennsylvania and ONLY in Pennsylvania, which is exactly what its
+    ///      sentence's extra clause claims and what the other three sentences
+    ///      claim by omitting it.
+    ///   3. Iowa's exemption disappears below 55, which is what "from age 55"
+    ///      claims, and the other three keep theirs at 50, which is what their
+    ///      silence on age claims.
+    @Test("The Roth conversion statement is backed by what the engine does with a conversion")
+    func rothConversionStatementsMatchEngineBehaviour() {
+        for state in Self.expectedRothConversionStates.sorted(by: { $0.abbreviation < $1.abbreviation }) {
+            let rule = StateTaxData.config(for: state).retirementExemptions.rothConversionExemption
+
+            // No conversion at all.
+            let withoutConversion = Self.rothConversionProbe(state: state, conversion: 0,
+                                                             withholding: 0, age: 75)
+            // The same $200,000 in the state's base, NOT declared as a
+            // conversion. This is what the household would pay if the state
+            // taxed the conversion, and it is the control that proves the
+            // income was really there to be exempted.
+            let taxedAsOrdinary = Self.rothConversionProbe(state: state, conversion: 0,
+                                                           withholding: 0, age: 75,
+                                                           extraIncome: 200_000)
+            let exempted = Self.rothConversionProbe(state: state, conversion: 200_000,
+                                                    withholding: 0, age: 75)
+
+            #expect(taxedAsOrdinary > withoutConversion,
+                    "\(state.abbreviation): the probe's $200,000 never reached the state base, so nothing here is measuring an exemption")
+            #expect(abs(exempted - withoutConversion) < 0.01,
+                    """
+                    \(state.abbreviation)'s page says a Roth conversion is not taxed, but the \
+                    engine charged \(exempted) with a $200,000 conversion against \
+                    \(withoutConversion) with none.
+                    """)
+
+            let withWithholding = Self.rothConversionProbe(state: state, conversion: 200_000,
+                                                           withholding: 50_000, age: 75)
+            if rule?.withheldPortionRemainsTaxable == true {
+                #expect(withWithholding > exempted && withWithholding < taxedAsOrdinary,
+                        """
+                        \(state.abbreviation)'s page says the withheld portion stays taxable and \
+                        the rest does not, but the engine charged \(withWithholding) with $50,000 \
+                        withheld, against \(exempted) fully exempt and \(taxedAsOrdinary) fully \
+                        taxed.
+                        """)
+            } else {
+                #expect(abs(withWithholding - exempted) < 0.01,
+                        """
+                        \(state.abbreviation)'s page states no withholding caveat, but the engine \
+                        taxed the withheld portion: \(withWithholding) against \(exempted).
+                        """)
+            }
+
+            let atFifty = Self.rothConversionProbe(state: state, conversion: 200_000,
+                                                   withholding: 0, age: 50)
+            if let minAge = rule?.minAge, minAge > 50 {
+                #expect(abs(atFifty - taxedAsOrdinary) < 0.01,
+                        """
+                        \(state.abbreviation)'s page says the exemption applies from age \
+                        \(minAge), but a 50 year old was charged \(atFifty) rather than the \
+                        \(taxedAsOrdinary) an unexempted conversion costs.
+                        """)
+            } else {
+                #expect(abs(atFifty - exempted) < 0.01,
+                        """
+                        \(state.abbreviation)'s page states no age gate, but the engine withheld \
+                        the exemption from a 50 year old: \(atFifty) against \(exempted).
+                        """)
+            }
+        }
+    }
+
+    /// Same construction as `socialSecurityProbe`, single filer, varying only
+    /// the conversion, the withholding taken out of it, the age, and any
+    /// undeclared income standing in for the conversion.
+    ///
+    /// `income` INCLUDES the conversion, because it must: the engine subtracts
+    /// the exempt amount from the income it was handed, so a probe that declared
+    /// a conversion the income never contained would measure a subtraction
+    /// against a floor of zero and pass for every state.
+    private static func rothConversionProbe(state: USState,
+                                            conversion: Double,
+                                            withholding: Double,
+                                            age: Int,
+                                            extraIncome: Double = 0) -> Double {
+        let config = StateTaxData.config(for: state)
+        let stateStandardDeduction: Double
+        switch config.stateDeduction {
+        case .fixed(let single, _): stateStandardDeduction = single
+        case .none, .conformsToFederal: stateStandardDeduction = 0
+        }
+        let postExemptionDeduction = config.personalExemption?
+            .amount(filingStatus: .single, enableSpouse: false,
+                    primaryAge: age, spouseAge: age) ?? 0
+
+        return TaxCalculationEngine.calculateStateTax(
+            income: max(0, 60_000 + conversion + extraIncome - stateStandardDeduction),
+            forState: state,
+            filingStatus: .single,
+            taxableSocialSecurity: 0,
+            incomeSources: [],
+            currentAge: age,
+            enableSpouse: false,
+            spouseBirthYear: 2026 - age,
+            currentYear: 2026,
+            scenarioRetirementDistributions: 0,
+            scenarioRothConversionAmount: conversion,
+            scenarioRothConversionWithholdingAmount: withholding,
+            postExemptionDeduction: postExemptionDeduction)
     }
 
     // MARK: - Task 6: the limitations half, and the empty state
