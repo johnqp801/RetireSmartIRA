@@ -1,5 +1,11 @@
 # Per-State Accuracy Disclosure Implementation Plan
 
+> **COPY STATUS, 2026-08-06: EVERY user-facing string this plan produced is APPROVED by John, as
+> written.** That covers Task 4's thirteen limitation sentences, Task 6's four fallback strings,
+> Task 7's three accessibility labels, the Roth conversion statement, and the multi-year delta tag.
+> Where the steps below say new copy "ships flagged PROPOSED", read that as a description of how the
+> work was staged, not as an open question. Nothing in this plan awaits John.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give every jurisdiction a page answering "what tax treatment does this app apply for my state and tax year" and "what known limitations could affect that result", generated from the same config the engine consumes.

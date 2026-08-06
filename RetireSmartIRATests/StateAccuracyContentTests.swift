@@ -942,8 +942,8 @@ struct StateAccuracyContentTests {
     /// 0". It would ship silently, because nothing about an `Int` invites the
     /// author to ask what `0` means.
     ///
-    /// The replacement wording is PROPOSED and awaits John. What is NOT
-    /// negotiable is that the page never invents a year: `StateTaxDataLoader`
+    /// The replacement wording was APPROVED BY JOHN ON 2026-08-06, as written.
+    /// What is NOT negotiable is that the page never invents a year: `StateTaxDataLoader`
     /// resolved this file from the 2026 directory, but the file itself states
     /// no year, and printing 2026 here would manufacture a provenance claim the
     /// data never made.

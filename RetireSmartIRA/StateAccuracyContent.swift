@@ -287,13 +287,13 @@ enum StateAccuracyContent {
     /// made, on the one page whose purpose is to separate what is known from
     /// what is not.
     ///
-    /// PROPOSED COPY, AWAITING JOHN: the three fallback strings for the
-    /// unknown cases, "tax year not recorded", "No verification date
+    /// APPROVED BY JOHN ON 2026-08-06, as written: the three fallback strings
+    /// for the unknown cases, "tax year not recorded", "No verification date
     /// recorded." and "No primary sources recorded." Task 3 added
     /// `statedTaxYear` with deliberately NO fallback string because the wording
-    /// is John's to approve; these ship so the suite is green and the page
-    /// works, exactly as Task 4's sentences did. See the task report for the
-    /// alternatives considered.
+    /// was John's to approve; Task 6 drafted these, and they now stand as
+    /// shipped copy rather than as a proposal. The task report keeps the
+    /// alternatives that were considered and rejected.
     static func header(for state: USState) -> Header {
         let verification = StateTaxData.config(for: state).verification
 
@@ -618,9 +618,12 @@ enum StateAccuracyContent {
 
     /// How this app treats a Roth conversion in the year it is made.
     ///
-    /// PROPOSED COPY, AWAITING JOHN, in the pattern Tasks 3 and 4 set: it ships
-    /// so the suite is green and the page is not silent, and the alternatives
-    /// are in the task report. The label is "Roth conversions" and the leading
+    /// APPROVED BY JOHN ON 2026-08-06, as written, in the pattern Tasks 3 and 4
+    /// set: it ships as final copy, not as a proposal, and the task report keeps
+    /// the alternatives that were considered and rejected. The Pennsylvania
+    /// caveat is the notable one, because PA exempts the conversion but NOT the
+    /// portion withheld for federal tax, and this page is the only surface that
+    /// states that. The label is "Roth conversions" and the leading
     /// clause is "Not taxed by this state", matching the Social Security
     /// statement word for word so that two exemptions from the same state's tax
     /// do not read as two different kinds of thing.

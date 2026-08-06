@@ -131,9 +131,10 @@ struct StateVerification: Codable, Equatable, Sendable {
     /// into a question the compiler asks.
     ///
     /// What to SHOW when it is `nil` is deliberately not decided here. That is
-    /// user-facing copy and therefore John's to approve, and it belongs with
+    /// user-facing copy and was therefore John's to approve, and it belongs with
     /// the rest of the accuracy page's wording rather than buried in a data
-    /// type.
+    /// type. `StateAccuracyContent.header(for:)` holds that wording, "tax year
+    /// not recorded", APPROVED BY JOHN ON 2026-08-06.
     var statedTaxYear: Int? { taxYear == 0 ? nil : taxYear }
 
     /// ISO `yyyy-MM-dd`. Empty string means never verified.

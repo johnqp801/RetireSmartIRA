@@ -4,6 +4,38 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-06: all Phase 5b and accuracy-disclosure copy is approved, as written
+
+**Decision (John):** approved, as written, every outstanding user-facing string on
+`feature/state-accuracy-disclosure`. Nothing on the branch awaits him. That covers Task 4's thirteen
+limitation sentences (AZ 2, DC 2, KS 1, MA 1, MO 2, NC 1, NM 1, NY 1, UT 2), Task 6's fallback
+strings for the unknown-data cases (the "tax year not recorded" page title, "No verification date
+recorded.", "No primary sources recorded.", and the "State tax accuracy" navigation title), Task 7's
+three accessibility labels of the form "State tax accuracy for <State>", the Roth conversion
+statement, and the multi-year delta tag change from `State` to `State (KS)`. It follows the
+2026-08-05 approval that closed Phase 5b's own copy.
+
+**Rationale:** the copy had been drafted, batched and shipped behind a green suite specifically so
+one review could clear it in a single pass, and holding it longer would have blocked a commitment
+already promised in writing to Steve Nicolai and Alan Levy.
+
+**The notable item is Pennsylvania's Roth conversion sentence:** "Not taxed by this state. Any part
+of the conversion withheld for federal tax does not reach the Roth account, so that part stays
+taxable." Pennsylvania exempts the conversion but NOT the portion withheld for federal tax, per DOR
+Answer 274, which holds the exemption reaches only what is actually deposited into the Roth. That is
+a distinction a user would not guess, it costs real money in a Roth conversion app, and the accuracy
+page is the only surface in the product that states it. The other three configured states are not
+uniform with it, so the renderer prints each from its own two fields rather than flattening them:
+Illinois and Mississippi gate on nothing, Iowa gates on age 55.
+
+**Kept deliberately unapproved, and still not shipping:** the optional second sentence on the
+empty-limitations string ("State tax rules are complex, and this does not mean every unusual
+situation is represented"). It was never put to John, it was not part of this approval, and the test
+gate on `noRecordedLimitationsSentence` is exact equality, so appending it later is a copy change
+requiring its own decision.
+
+---
+
 ## 2026-08-04 (Phase 5a): the legacy Swift table is frozen at pre-correction law, and the equivalence gate is scoped
 
 **Decision (John):** narrow the Phase 1 JSON-versus-legacy equivalence test to jurisdictions Phase 5
