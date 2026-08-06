@@ -4,7 +4,7 @@
   "scenarios": [
     {
       "name": "single filer, Bailey-vested NC state government pension (stipulated: 5+ years creditable service as of 8/12/1989): fully exempt under the Bailey settlement, engine taxes it in full",
-      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits': 'the North Carolina Consolidated Judicial Retirement System, the Federal Employees' Retirement System, or the United States Civil Service Retirement System, if the retiree had five or more years of creditable service as of August 12, 1989' are exempt from NC income tax; a retiree entitled to the exclusion claims a deduction on 'Line 20, Form D-400, Schedule S 2025 Supplemental Schedule'. This fixture STIPULATES in prose (not in any structured field -- the model has no vesting-date field at all: a household with two government pensions of the identical PlanSource where only one is Bailey-vested cannot be expressed, because both rows decode to the same planSource with no way to distinguish them) that this taxpayer had 5+ years of creditable service in the NC state retirement system as of 8/12/1989, i.e. is Bailey-vested. LABEL STILL WRONG, RE-LABEL IN TASK 7: this row reads 'otherStateOrLocal' for a NORTH CAROLINA state retirement system, i.e. the taxpayer's OWN state. That was the only available label when this fixture was written; Phase 5b Task 1 ADDED 'ownStateOrLocal' for exactly this, and Task 2 re-labelled Kansas's KPERS rows onto it while deliberately leaving North Carolina's to Task 7, so the change lands together with whatever Task 7 decides about Bailey. It is the SAME mislabel Kansas carried: 'otherStateOrLocal' means a DIFFERENT state's system, and its whole purpose is to stop an out-of-state pension claiming a state's own exclusion, so an NC rule naming it would exempt a California public pension held by an NC resident. Re-label NC-1, NC-3 and NC-4 to 'ownStateOrLocal' and ADD an out-of-state guard case, exactly as Kansas did, whichever way Task 7 rules on the vesting-date axis. Arithmetic: $50,000 fully excluded, $0 state taxable income after the $12,750 single standard deduction, tax = $0.00.",
+      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits': 'the North Carolina Consolidated Judicial Retirement System, the Federal Employees' Retirement System, or the United States Civil Service Retirement System, if the retiree had five or more years of creditable service as of August 12, 1989' are exempt from NC income tax; a retiree entitled to the exclusion claims a deduction on 'Line 20, Form D-400, Schedule S 2025 Supplemental Schedule'. This fixture STIPULATES in prose (not in any structured field -- the model has no vesting-date field at all: a household with two government pensions of the identical PlanSource where only one is Bailey-vested cannot be expressed, because both rows decode to the same planSource with no way to distinguish them) that this taxpayer had 5+ years of creditable service in the NC state retirement system as of 8/12/1989, i.e. is Bailey-vested. RE-LABEL DONE, TASK 7 (2026-08-05): this row now reads 'ownStateOrLocal', the case Phase 5b Task 1 added for a taxpayer's OWN state system. It previously read 'otherStateOrLocal', which is definitionally a DIFFERENT state's system and whose whole purpose is to stop an out-of-state pension claiming a state's own exclusion; that was the only available label when this fixture was written, and Task 2 deliberately left North Carolina's re-label to Task 7 so it would land with whatever Task 7 decided about Bailey. The re-label was measured to move no computed value, because North Carolina ships no perSourceExemptions and so reads planSource for nothing. TASK 7 SHIPPED NO BAILEY RULE and this knownDefect block therefore STAYS: the only rule the model can express is keyed on source and structure, and it would exempt every North Carolina state and local pension rather than only the Bailey class, i.e. every NC public employee first hired after August 1984, who cannot have five years of creditable service by 8/12/1989 and is fully taxable. The quoted NCDOR sentence above both GRANTS the exclusion and LIMITS it by that vesting condition in the same clause, so the over-match is excluded by the very sentence that would authorise the rule; that is Hawaii's structure (Task 5), not Massachusetts's (Task 4). See Phase5bNorthCarolinaDecisionTests and the NC entry in GoldenScenarioDefectCatalogueTests.knownButUnpinned. Arithmetic: $50,000 fully excluded, $0 state taxable income after the $12,750 single standard deduction, tax = $0.00.",
       "sourceURL": "https://www.ncdor.gov/taxes-forms/individual-income-tax/filing-topics/bailey-decision-concerning-federal-state-and-local-retirement-benefits",
       "filingStatus": "single",
       "primaryAge": 70,
@@ -13,7 +13,7 @@
       "taxableSocialSecurity": 0,
       "pensionIncome": 0,
       "classifiedPensionSources": [
-        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "ownStateOrLocal"}
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
@@ -43,7 +43,7 @@
     },
     {
       "name": "MFJ, both spouses Bailey-vested NC state pensions (stipulated): fully exempt, engine taxes the full household income",
-      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits' (see single-filer case above for the exact quote). No dollar cap is stated -- 'All distributions from a qualifying Bailey retirement account...are exempt from state income tax regardless of the source of the funds contained in the account.' This fixture stipulates both spouses are Bailey-vested. LABEL STILL WRONG, RE-LABEL IN TASK 7: both rows read 'otherStateOrLocal' for North Carolina's OWN systems; see the single-filer case above for the instruction to re-label to 'ownStateOrLocal' and add an out-of-state guard case. Arithmetic: $40,000 + $35,000 = $75,000, all fully excluded, $0 taxable after the $25,500 MFJ standard deduction, tax = $0.00.",
+      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits' (see single-filer case above for the exact quote). No dollar cap is stated -- 'All distributions from a qualifying Bailey retirement account...are exempt from state income tax regardless of the source of the funds contained in the account.' This fixture stipulates both spouses are Bailey-vested. RE-LABEL DONE, TASK 7 (2026-08-05): both rows now read 'ownStateOrLocal' for North Carolina's OWN systems; see the single-filer case above for the full record, including why Task 7 shipped no Bailey rule and why this knownDefect block stays. Arithmetic: $40,000 + $35,000 = $75,000, all fully excluded, $0 taxable after the $25,500 MFJ standard deduction, tax = $0.00.",
       "sourceURL": "https://www.ncdor.gov/taxes-forms/individual-income-tax/filing-topics/bailey-decision-concerning-federal-state-and-local-retirement-benefits",
       "filingStatus": "marriedFilingJointly",
       "primaryAge": 70,
@@ -52,8 +52,8 @@
       "taxableSocialSecurity": 0,
       "pensionIncome": 0,
       "classifiedPensionSources": [
-        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"},
-        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "ownStateOrLocal"},
+        {"amount": 35000, "planStructure": "definedBenefit", "planSource": "ownStateOrLocal"}
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
@@ -66,7 +66,7 @@
     },
     {
       "name": "MFJ, one spouse's Bailey-vested NC pension is exempt and the other spouse's private pension is not: one spouse qualifies",
-      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits'. LABEL STILL WRONG, RE-LABEL IN TASK 7: the Bailey-vested row reads 'otherStateOrLocal' for a North Carolina OWN system; see the single-filer case above for the instruction to re-label to 'ownStateOrLocal' and add an out-of-state guard case. The private-pension row is correctly labelled and stays. Arithmetic: $40,000 Bailey-vested pension fully excluded; $35,000 private pension fully taxable. $75,000 - $25,500 MFJ standard deduction - $40,000 exclusion = $9,500 taxable x 3.99% = $379.05.",
+      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits'. RE-LABEL DONE, TASK 7 (2026-08-05): the Bailey-vested row now reads 'ownStateOrLocal' for a North Carolina OWN system; see the single-filer case above for the full record. The private-pension row was correctly labelled and is unchanged. Arithmetic: $40,000 Bailey-vested pension fully excluded; $35,000 private pension fully taxable. $75,000 - $25,500 MFJ standard deduction - $40,000 exclusion = $9,500 taxable x 3.99% = $379.05.",
       "sourceURL": "https://www.ncdor.gov/taxes-forms/individual-income-tax/filing-topics/bailey-decision-concerning-federal-state-and-local-retirement-benefits",
       "filingStatus": "marriedFilingJointly",
       "primaryAge": 70,
@@ -75,7 +75,7 @@
       "taxableSocialSecurity": 0,
       "pensionIncome": 0,
       "classifiedPensionSources": [
-        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"},
+        {"amount": 40000, "planStructure": "definedBenefit", "planSource": "ownStateOrLocal"},
         {"amount": 35000, "planStructure": "definedBenefit", "planSource": "privateEmployer"}
       ],
       "iraWithdrawals": 0,
@@ -86,6 +86,23 @@
         "summary": "The Bailey-vested spouse's pension should be excluded while the private-pension spouse's income stays taxable; the engine excludes neither (no perSourceExemptions for NC), taxing the full $75,000 -- the identical figure the fully-exempt MFJ case above produces.",
         "observedToday": 1975.05
       }
+    },
+    {
+      "name": "single filer, ANOTHER state's public pension held by an NC resident: never Bailey-covered at any vesting date, correctly fully taxable -- out-of-state guard case",
+      "source": "NCDOR 'Bailey Decision Concerning Federal, State and Local Retirement Benefits': the exclusion 'does not apply to retirement benefits paid to former teachers and state employees of OTHER states'. ADDED BY TASK 7 (2026-08-05) as the guard the single-filer case above called for, and it is the ONLY guard case North Carolina can carry. It is the only one that is VESTING-INDEPENDENT: an out-of-state public pension is fully taxable in North Carolina at every vesting date, so no correct Bailey rule, present or future, can ever make this case exempt, and its expected value asserts nothing the inputs do not carry. A guard case for a NON-Bailey-vested NORTH CAROLINA pension cannot be written, because its inputs would be byte-identical to the single-filer case above (same amount, structure, planSource, age, filing status and AGI) with a contradictory expectedStateTax; that is the blocker recorded in GoldenScenarioDefectCatalogueTests.knownButUnpinned. What this case catches: any future North Carolina perSourceExemptions rule that names 'otherStateOrLocal'. Before Task 7's re-label the three Bailey rows carried that very label, so the natural rule written to make them pass would have named it and handed a full North Carolina exclusion to a California public pension held by an NC resident. That is the Kansas/KPERS trap, and this case is what fails if anyone walks into it. NO knownDefect: the engine is CORRECT here today and must stay correct. Arithmetic: $50,000 - $12,750 single standard deduction = $37,250 taxable x 3.99% flat rate = $1,486.27 (IEEE-754 double, matching the engine's arithmetic to the cent), the same figure the private-sector case above produces from the same income shape.",
+      "sourceURL": "https://www.ncdor.gov/taxes-forms/individual-income-tax/filing-topics/bailey-decision-concerning-federal-state-and-local-retirement-benefits",
+      "filingStatus": "single",
+      "primaryAge": 70,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1486.27
     }
   ]
 }

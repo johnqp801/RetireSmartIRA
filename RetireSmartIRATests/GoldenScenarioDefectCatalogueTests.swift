@@ -457,6 +457,115 @@ struct GoldenScenarioDefectCatalogueTests {
                 the disclosure is live in two places: `IncomeSourcesView.swift`'s Hawaii
                 caption and `MultiYearCPABriefing.hawaiiPensionSplitLimitation`.
                 """
+        ),
+        UnpinnedDefect(
+            state: "NC",
+            summary: """
+                North Carolina's BAILEY exclusion is not modelled, and Phase 5b Task 7
+                deliberately shipped no rule for it. NCDOR exempts a pension from the
+                named North Carolina and federal retirement systems "if the retiree had
+                five or more years of creditable service as of August 12, 1989". The app
+                has no vesting axis, so the only rule it can express is keyed on
+                `planSource` and `planStructure`, and such a rule exempts EVERY North
+                Carolina state and local pension rather than only the Bailey class. The
+                three NC golden cases each STIPULATE Bailey vesting in prose because no
+                field can hold it, and their `knownDefect` blocks stay. Direction of the
+                CURRENT defect: North Carolina OVER-taxes a Bailey-vested retiree, worth
+                $1,486.27 a year at NC-1's shape ($50,000 pension, single, age 70).
+
+                Task 7 measured the alternative rather than arguing it, per Task 5's
+                standard. A rule of `matchSources: ["ownStateOrLocal", "federalCivilian"]`
+                at `matchStructures: ["definedBenefit"]`, treatment `full`, was temporarily
+                added to the shipped North Carolina config and the golden suite reported
+                ALL THREE defect cases as matching their published form ($0.00, $0.00,
+                $379.05), with the only guard in the set (NC-2, a private pension) raising
+                no objection. The mutation was reverted. The green outcome was available
+                and it is wrong: that rule silently exempts every North Carolina public
+                employee first hired after August 1984, who cannot have five years of
+                creditable service by 1989-08-12, and who is fully taxable on that pension
+                at North Carolina's 3.99% flat rate.
+
+                The class is CLOSED and can only shrink; its complement can only grow. To
+                have entered NC public service by August 1984 a person must be at least 60
+                in 2026, and at a normal entry age 64 to 67. Every NC public employee
+                retiring today, and in every future year, is outside the class. So the rule
+                would trade a bounded over-taxation of a closed, aging cohort for an
+                undisclosed UNDER-taxation of an open and growing one, which is the same
+                trade Task 5 declined for Hawaii.
+
+                The evidentiary shape is Hawaii's, not Massachusetts's. Task 4 shipped
+                Massachusetts because its corrections rested on quoted affirmative statute
+                while its residual gap rested on an inference. Here the GRANT and the LIMIT
+                are the same quoted NCDOR sentence: the conditional "if the retiree had
+                five or more years of creditable service as of August 12, 1989" does
+                exactly what the word "only" does in Hawaii's Schedule J sentence. No
+                source in the fixture exempts any North Carolina pension unconditionally,
+                so no narrower sub-rule escapes the over-match either.
+
+                THE ONE PLACE NORTH CAROLINA IS WEAKER THAN HAWAII, recorded because it
+                cuts against the decision above rather than for it. Task 5 could rest part
+                of Hawaii's case on the fact that Hawaii's over-taxation is DISCLOSED, on
+                two surfaces (`IncomeSourcesView.swift`'s Hawaii caption and
+                `MultiYearCPABriefing.hawaiiPensionSplitLimitation`). North Carolina's is
+                disclosed NOWHERE: grepping the production sources for "Bailey" or
+                "northCarolina" across `IncomeSourcesView`, `MultiYearCPABriefing` and
+                `UnclassifiedPensionDisclosure` returns nothing, confirming Task 2's
+                finding. So a Bailey-vested North Carolina retiree is over-taxed by
+                $1,486.27 at NC-1's shape with no on-screen warning at all. That does NOT
+                argue for shipping the wrong rule, which would replace a silent
+                over-taxation with a silent under-taxation over a larger group; it argues
+                for a DISCLOSURE, and it is a Phase 6 item. It cannot be an
+                `unclassifiedPensionDisclosure` sentence: that string is in bidirectional
+                lockstep with `perSourceExemptions`, and it would be false for North
+                Carolina anyway, because a North Carolina pension can be perfectly
+                classified and still be taxed wrongly. The right shape is a Hawaii-style
+                caption, which is user-facing copy needing John's approval, alongside the
+                caption-hoisting work Task 5 already deferred for Hawaii and Massachusetts.
+                """,
+            blockedOn: """
+                NOT EXPRESSIBLE AS A GOLDEN CASE, and the plan's Step 3 ("if the fixture
+                set has no case that would catch that, ADD one") therefore cannot be
+                satisfied, which forecloses shipping a rule procedurally and not merely as
+                a judgement call. The case that would catch the over-match is a
+                NON-Bailey-vested North Carolina state pension, and its inputs are
+                BYTE-IDENTICAL to NC-1's: `(definedBenefit, ownStateOrLocal)`, $50,000,
+                single, age 70, AGI $50,000. The two correct answers are $1,486.27 and
+                $0.00. A fixture can assert one or the other, never both. This is the same
+                blocker shape as Hawaii's contributory household and Arizona's unclassified
+                pension. `Phase5bNorthCarolinaDecisionTests
+                .noNorthCarolinaGoldenCaseCouldCatchTheVestingOverMatch` proves it from the
+                fixture's own bytes rather than asserting it.
+
+                What WOULD resolve it is a third classification axis carrying Bailey
+                membership. Unlike Hawaii's employer-funded PROPORTION, this one is
+                genuinely expressible and genuinely answerable: it is a boolean, a golden
+                fixture could carry it as an input the way it carries `amount`, and a
+                retiree entitled to the exclusion already claims it on Form D-400 Schedule
+                S Line 20, so many users can answer it from their own return. Task 7 did
+                NOT decline it as impossible. It declined it as out of scope for a
+                jurisdiction task, on this phase's own precedent that a shared
+                classification axis lands in the MODEL task (`isSurvivorBenefit`, Task 1)
+                and is consumed by the jurisdiction tasks rather than invented by one of
+                them, and because Task 1's axis is itself still unconsumed in production
+                (Task 9's work) in the very matching function and the five-times-drifted
+                `DataManager` mirror a second axis would have to change at the same time.
+
+                Weigh before building it: this axis would serve ONE jurisdiction and one
+                cohort whose correct-answer population declines monotonically to zero,
+                while becoming a permanent field in stored user data that cannot be removed
+                without a migration. It is also not a DATE axis despite the plan's framing.
+                "Five or more years of creditable service as of August 12, 1989" is a
+                service-credit computation, not a date a user holds, so the honest picker
+                question is a Bailey-membership boolean, and a user who guesses it wrong
+                moves their own tax by 3.99% of the pension in whichever direction they
+                guessed, with nothing to cross-check them.
+
+                Also unresolved and NOT guessed at, following Task 6's railroad precedent:
+                the North Carolina fixture carries no `uniformedServices` case and cites no
+                North Carolina provision covering military retired pay, and Step 1 forbids
+                re-researching the law, so Task 7 left the status quo rather than inventing
+                a citation. Same for `railroadRetirement` and `governmentUnspecified`.
+                """
         )
     ]
 
