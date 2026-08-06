@@ -1,4 +1,4 @@
-# RESUME HERE: State Tax Phase 5b is CLOSED. Four items await John.
+# RESUME HERE: State Tax Phase 5b is CLOSED. Nothing awaits John.
 
 **ALL TEN TASKS ARE COMPLETE (1, 2, 3, 3b, 4, 5, 6, 7, 8, 9, 10) and each was reviewed.** The branch
 is `feature/state-tax-phase5b`, NOT merged and NOT pushed.
