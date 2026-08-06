@@ -5,10 +5,13 @@
 //  Per-state accuracy disclosure, Task 1. The three captions below were inline
 //  string literals inside `IncomeSourcesView`'s view body until this task, which
 //  meant no test could reach them and no test did. Two Phase 5b reviews recorded
-//  that as a gap. Task 3 moves all six captions out to
+//  that as a gap. Task 3 moves FIVE of the six captions out to
 //  `StateVerification.knownLimitations` so a single config field is the one place
 //  a limitation sentence is written; that move is only provably lossless if the
-//  strings are pinned BEFORE it, which is what this file does.
+//  strings are pinned BEFORE it, which is what this file does. The sixth, the
+//  District of Columbia's survivor-toggle caption, deliberately stays a Swift
+//  literal in `IncomeSourcesView`: it is the instruction for a CONTROL rather
+//  than a description of a limitation. See `movedCaptionsAreByteIdentical`.
 //
 //  The literals here were extracted from the committed file rather than retyped,
 //  so a drifted apostrophe or a doubled space cannot enter through this file.
@@ -925,6 +928,181 @@ struct StateAccuracyContentTests {
             #expect(!summary.contains(UnclassifiedPensionDisclosure.scopeToken),
                     "\(state.abbreviation): the summary leaked a scope token")
         }
+    }
+
+    // MARK: - M5: the modelling caveat, on every state page
+
+    // WHY THIS SENTENCE EXISTS AND WHY IT IS UNCONDITIONAL.
+    //
+    // Georgia, Iowa and Indiana each render a verification date, a primary
+    // source and "No known limitations are currently recorded for this state
+    // and tax year." Every one of those lines is individually true. Read
+    // together they come close to a warranty of completeness, which is exactly
+    // what an empty `knownLimitations` array cannot support: it records what
+    // has not been FOUND, never what does not exist.
+    //
+    // John approved the caveat on 2026-08-06 and widened it to EVERY state
+    // page, which INVERTS the design's framing: spec section 1 offers it as an
+    // optional follow-on to the empty state alone. His reasoning is that a page
+    // listing three limitations makes the same implicit claim about the rules
+    // it does not list as an empty page makes about all of them, and that
+    // keeping it unconditional preserves the usefulness of "no known
+    // limitations are currently recorded" instead of hedging that sentence
+    // itself.
+    //
+    // WHY IT IS A SEPARATE STRING RATHER THAN A SECOND SENTENCE INSIDE
+    // `noRecordedLimitationsSentence`. The gate on that constant is EXACT
+    // EQUALITY, in three tests above, and John specified it character for
+    // character. Appending the caveat would fold two independently approved
+    // decisions into one pinned string, so a later edit to the caveat would
+    // have to move the pin on the empty-state wording. Kept apart, each is
+    // pinned on its own and neither edit can drag the other.
+
+    /// The caveat's exact wording, pinned the way the empty-state sentence is,
+    /// plus the proof that the two strings stay independent.
+    @Test("The modelling caveat is John's wording, and it is not folded into the empty state")
+    func modellingCaveatIsPinnedAndIndependent() {
+        #expect(StateAccuracyContent.modellingCaveatSentence ==
+            "State tax rules are complex, and this does not mean every unusual situation is represented.")
+
+        // Approved-copy hygiene, the same sweep the captions and the thirteen
+        // sentences get.
+        let caveat = StateAccuracyContent.modellingCaveatSentence
+        #expect(!caveat.contains("\u{2014}") && !caveat.contains("\u{2013}"),
+                "no em or en dash in user-facing copy")
+        #expect(!caveat.contains("  "), "no doubled space in user-facing copy")
+        #expect(caveat == caveat.trimmingCharacters(in: .whitespacesAndNewlines))
+        let isPureASCII = caveat.unicodeScalars.allSatisfy { $0.isASCII }
+        #expect(isPureASCII, "the caveat must stay pure ASCII")
+
+        // INDEPENDENCE, in both directions. The empty-state sentence keeps its
+        // exact wording, and no jurisdiction's summary absorbs the caveat.
+        #expect(StateAccuracyContent.noRecordedLimitationsSentence ==
+            "No known limitations are currently recorded for this state and tax year.")
+        for state in USState.allCases {
+            #expect(!StateAccuracyContent.limitationsSummary(for: state).contains(caveat),
+                    """
+                    \(state.abbreviation)'s limitations summary now carries the modelling caveat. \
+                    The caveat renders as its own element on the page, and the summary is pinned \
+                    by exact equality in three tests above; folding them together makes one string \
+                    carry two separately approved decisions.
+                    """)
+        }
+    }
+
+    /// THE CAVEAT RENDERS ON A STATE WITH LIMITATIONS AND ON A STATE WITHOUT,
+    /// and this test fails if it disappears from either.
+    ///
+    /// WHY IT READS SOURCE. Whether a SwiftUI `Text` is inside or outside an
+    /// `if` is a property of a view BODY, and a body has no runtime handle a
+    /// test can query: `some View` is opaque and the branch is resolved by the
+    /// framework at render time. Nothing about "renders in both arms" is
+    /// observable from a constructed `StateAccuracyView`. What IS invariant is
+    /// that an unconditional element sits OUTSIDE the conditional's braces in
+    /// the source, so the gate parses `limitationsSection` and asserts exactly
+    /// that. Same tool, and same reason, as
+    /// `noMultiYearSurfacePresentsTheAccuracyPage` below.
+    ///
+    /// It fails on all three ways this can regress: deleting the element,
+    /// moving it into the empty arm, and moving it into the populated arm. All
+    /// three were verified by mutation and reverted.
+    @Test("No modelling caveat is conditional on the state having limitations")
+    func noModellingCaveatIsConditionalOnHavingLimitations() throws {
+        let sources = try Self.productionSources()
+        let view = try #require(sources.first { $0.name == "StateAccuracyView.swift" },
+                                "StateAccuracyView.swift is gone from the production target")
+
+        let section = try #require(Self.bracedBody(of: "private var limitationsSection: some View {",
+                                                   in: view.text),
+                                   """
+                                   limitationsSection could not be parsed out of StateAccuracyView.swift. \
+                                   If it was renamed or restructured, update this gate deliberately \
+                                   rather than letting it go vacuous: it is the only thing proving the \
+                                   modelling caveat is not conditional.
+                                   """)
+
+        // NON-VACUITY. A section that parsed to something tiny, or that no
+        // longer contains the branch this gate is about, would pass every
+        // assertion below while proving nothing.
+        #expect(section.count > 400,
+                "limitationsSection parsed to \(section.count) characters, which is too small to be the real body")
+        #expect(section.contains("limitationsSummary(for: state)"),
+                "limitationsSection no longer renders the empty-state sentence")
+        #expect(section.contains("ForEach(limitations"),
+                "limitationsSection no longer renders the populated list")
+
+        let marker = "Text(StateAccuracyContent.modellingCaveatSentence)"
+        let occurrences = Self.occurrences(of: marker, in: section)
+        #expect(occurrences.count == 1,
+                """
+                limitationsSection renders the modelling caveat \(occurrences.count) times, expected \
+                exactly one. Zero means the sentence John approved on 2026-08-06 for every state page \
+                stopped shipping. More than one means it renders twice on some path, or that it was \
+                duplicated into both arms of the branch instead of being hoisted out of it.
+                """)
+        let caveatIndex = try #require(occurrences.first)
+
+        let conditional = try #require(Self.bracedBody(of: "if limitations.isEmpty {", in: section),
+                                       "the empty-versus-populated branch is gone from limitationsSection")
+        let conditionalStart = try #require(section.range(of: "if limitations.isEmpty {")?.lowerBound)
+        let conditionalEnd = try #require(section.range(of: conditional)?.upperBound)
+        // The else arm follows the if arm's closing brace, so the guarded span
+        // runs to the end of the LAST brace-matched block starting at the if.
+        let elseEnd = Self.bracedBody(of: "} else {", in: section)
+            .flatMap { section.range(of: $0)?.upperBound } ?? conditionalEnd
+
+        #expect(!(caveatIndex >= conditionalStart && caveatIndex <= elseEnd),
+                """
+                The modelling caveat moved INSIDE the empty-versus-populated branch in \
+                limitationsSection. It is approved for EVERY state page: a page listing three \
+                limitations makes the same implicit claim about the rules it omits as an empty page \
+                makes about all of them. Hoist it back out of the branch.
+                """)
+
+        // And it really is inside the section rather than merely after it.
+        #expect(caveatIndex > conditionalStart,
+                "the modelling caveat is rendered before the branch it is meant to close; that is fine visually but this gate assumes it follows, so update the gate deliberately")
+    }
+
+    /// The text between a marker ending in `{` and its brace-matched `}`,
+    /// braces included. Returns `nil` when the marker is absent or unbalanced,
+    /// which the callers turn into an explicit failure rather than a pass.
+    ///
+    /// Brace counting is enough here because the subject is one SwiftUI view
+    /// body in a file with no string literal containing a brace. The callers
+    /// assert non-vacuity so a future body that breaks that assumption fails
+    /// loudly instead of parsing to something meaningless.
+    /// Every start index at which `marker` appears in `text`, matched
+    /// literally. Written out rather than reaching for `ranges(of:)` so the
+    /// marker's parentheses and dots cannot be read as a pattern by any
+    /// overload resolution.
+    private static func occurrences(of marker: String, in text: String) -> [String.Index] {
+        var found: [String.Index] = []
+        var searchStart = text.startIndex
+        while let range = text.range(of: marker, range: searchStart..<text.endIndex) {
+            found.append(range.lowerBound)
+            searchStart = range.upperBound
+        }
+        return found
+    }
+
+    private static func bracedBody(of marker: String, in text: String) -> String? {
+        guard let markerRange = text.range(of: marker) else { return nil }
+        var depth = 0
+        var index = text.index(before: markerRange.upperBound)   // the marker's own `{`
+        while index < text.endIndex {
+            let character = text[index]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return String(text[markerRange.lowerBound...index])
+                }
+            }
+            index = text.index(after: index)
+        }
+        return nil
     }
 
     // MARK: - Task 6: the header

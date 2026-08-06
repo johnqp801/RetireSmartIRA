@@ -208,12 +208,35 @@ enum StateAccuracyContent {
     /// against the shipped string rather than a retyped copy of it, and so a
     /// reviewer grepping for the sentence finds one definition.
     ///
-    /// The design allows an optional second sentence ("State tax rules are
-    /// complex, and this does not mean every unusual situation is
-    /// represented"). It is NOT appended here: it is unapproved copy, and the
-    /// gate on this string is exact equality.
+    /// THE COMPLEXITY CAVEAT IS NOT APPENDED HERE, DELIBERATELY, and the reason
+    /// is the gate rather than the copy. `modellingCaveatSentence` was approved
+    /// by John on 2026-08-06 and now ships on every state page, but it ships as
+    /// a SEPARATE always-rendered element. Folding it into this constant would
+    /// make one string carry two decisions, and the assertions on this one are
+    /// exact equality. A future edit to the caveat would then have to move the
+    /// pin on the sentence John specified character for character. See
+    /// `modellingCaveatSentence` below.
     static let noRecordedLimitationsSentence =
         "No known limitations are currently recorded for this state and tax year."
+
+    /// The caveat that closes the limitations section on EVERY state page,
+    /// whether or not the jurisdiction ships a limitation sentence.
+    ///
+    /// JOHN'S WORDING, APPROVED 2026-08-06, CHARACTER FOR CHARACTER. The design
+    /// (section 1) offered it as an OPTIONAL follow-on to the empty state only.
+    /// John widened it to every page, which is the opposite framing, and the
+    /// reason is aggregate rather than per-line: Georgia, Iowa and Indiana each
+    /// render a verification date, a primary source and "no known limitations
+    /// are currently recorded", and while every one of those lines is
+    /// individually true, together they read close to a warranty of
+    /// completeness. A jurisdiction that DOES ship limitations makes the same
+    /// implicit claim about everything its list omits.
+    ///
+    /// So it is unconditional, and it is a constant rather than a view literal
+    /// for the same reason as the sentence above: so the shipped string is what
+    /// the tests read.
+    static let modellingCaveatSentence =
+        "State tax rules are complex, and this does not mean every unusual situation is represented."
 
     /// What the accuracy page says under "Known limitations" for `state`.
     ///
@@ -227,6 +250,11 @@ enum StateAccuracyContent {
     /// an empty array is not that. Iowa and Indiana are the live proof that
     /// this matters inside the covered set: both carry a verification date and
     /// a primary source, and both ship no limitation sentence at all.
+    ///
+    /// THIS STRING DOES NOT CARRY `modellingCaveatSentence`. The caveat renders
+    /// unconditionally, alongside a populated list as well as an empty one, so
+    /// it belongs to the SECTION rather than to this summary. A surface that
+    /// renders this string alone renders an incomplete section.
     static func limitationsSummary(for state: USState,
                                    scope: LimitationScope = .app) -> String {
         let sentences = limitations(for: state, scope: scope)

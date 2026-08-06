@@ -10,7 +10,7 @@
 
 **Goal:** Give every jurisdiction a page answering "what tax treatment does this app apply for my state and tax year" and "what known limitations could affect that result", generated from the same config the engine consumes.
 
-**Architecture:** `StateVerification.knownLimitations` becomes the single place a limitation sentence is written. The six pension-editor captions stop being hardcoded state branches and render from the resident's config. A new `StateAccuracyView` renders the factual half from `StateTaxConfig` and the limitations verbatim, reachable from three call sites that each resolve a DIFFERENT state.
+**Architecture:** `StateVerification.knownLimitations` becomes the single place a limitation sentence is written. **Five of the six pension-editor captions (HI, MA, NC, ID, VT)** stop being hardcoded state branches and render from the resident's config; DC's survivor-toggle caption stays a Swift literal because it explains a control rather than describing a limitation. A new `StateAccuracyView` renders the factual half from `StateTaxConfig` and the limitations verbatim, reachable from three call sites that each resolve a DIFFERENT state.
 
 **Tech Stack:** Swift 6, SwiftUI, Swift Testing plus XCTest, bundled JSON under `RetireSmartIRA/Resources/StateTaxData/2026/`.
 
@@ -40,7 +40,7 @@
 | `RetireSmartIRA/StateTaxVerification.swift` | Existing. Holds `StateVerification` (`lastVerified: String`, `primarySources: [String]`, `billReferences`, `knownLimitations: [String]`, `isVerified`, `.unverified`). Gains `taxYear` in Task 2. |
 | `RetireSmartIRA/StateAccuracyContent.swift` | NEW. Pure, view-free. Turns a `StateTaxConfig` into the ordered factual statements and the limitation list. Testable without SwiftUI. |
 | `RetireSmartIRA/StateAccuracyView.swift` | NEW. Renders `StateAccuracyContent`. No formatting logic of its own. |
-| `RetireSmartIRA/IncomeSourcesView.swift` | Modified. Six caption literals removed; captions render from config. |
+| `RetireSmartIRA/IncomeSourcesView.swift` | Modified. FIVE caption literals removed (HI, MA, NC, ID, VT); those captions render from config. DC's survivor-toggle caption stays a Swift literal here. |
 | `RetireSmartIRA/Resources/StateTaxData/2026/statetax-2026-*.json` | Modified. `verification.knownLimitations` populated for covered jurisdictions. |
 | `RetireSmartIRATests/StateAccuracyContentTests.swift` | NEW. Gates 1 to 4. |
 
@@ -199,15 +199,22 @@ The suite is RED at the end of this task, deliberately, and Task 4 turns it gree
 
 ---
 
-### Task 3: Move the six captions into config and render from there
+### Task 3: Move five of the six captions into config and render from there
+
+**AS SHIPPED, and this heading said "the six captions" until it was corrected on 2026-08-06:** five
+captions moved (HI, MA, NC, ID, VT). The District of Columbia's survivor-toggle caption did NOT move
+and stays a Swift literal in `IncomeSourcesView`. It is the instruction for a CONTROL rather than a
+description of a limitation, it renders inside the survivor-toggle branch, and putting it in
+`knownLimitations` would show it to every DC resident whether or not the toggle is on screen. DC's
+config sentences are two of Task 4's approved thirteen instead.
 
 **Files:**
 - Modify: `RetireSmartIRA/IncomeSourcesView.swift`
-- Modify: `statetax-2026-{HI,MA,NC,ID,VT,DC}.json`
+- Modify: `statetax-2026-{HI,MA,NC,ID,VT}.json`
 - Test: `RetireSmartIRATests/StateAccuracyContentTests.swift`
 
 **Interfaces:**
-- Consumes: the six caption statics from Task 1.
+- Consumes: five of the six caption statics from Task 1.
 - Produces: `StateAccuracyContent.limitations(for:) -> [String]`, reading `config.verification.knownLimitations`.
 
 - [ ] **Step 1: Write the migration byte-identity test**

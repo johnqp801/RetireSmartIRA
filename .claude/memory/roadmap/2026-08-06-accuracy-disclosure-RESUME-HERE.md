@@ -1,8 +1,8 @@
 # RESUME HERE: Per-state accuracy disclosure, all eight tasks done. Nothing awaits John.
 
 **Branch `feature/state-accuracy-disclosure`, cut from `feature/state-tax-phase5b` @ `587b5c4`.
-NOT pushed, NOT merged.** Suite green after the whole-branch review fixes: 2,077 Swift Testing in
-306 suites + 509 XCTest, 0 failures.
+NOT pushed, NOT merged.** Suite green after the whole-branch review fixes and M5: 2,079 Swift Testing
+in 306 suites + 509 XCTest, 0 failures.
 
 **This file exists because the SDD ledger at `.superpowers/sdd/progress.md` is GITIGNORED.** That
 ledger is far richer; read it if the worktree still exists. So are the per-task reports it points at,
@@ -21,9 +21,13 @@ is 2.3.0 build 63; everything since is on `main` unreleased.
 - **Task 1** (`8a67c35`, reviewed clean): hoisted three inline captions to statics so they could be
   asserted at all.
 - **Task 2** (`7c72664`, reviewed clean): `StateVerification.taxYear` plus the completeness gate.
-- **Task 3** (`987f653`, mechanically verified, FULL REVIEW NOT RUN): six captions moved into
-  `verification.knownLimitations`; Hawaii uses a `{scope}` token so one stored sentence renders both
-  approved wordings byte-identically.
+- **Task 3** (`987f653`, mechanically verified, FULL REVIEW NOT RUN): **FIVE captions moved into
+  `verification.knownLimitations` (HI, MA, NC, ID, VT), not six.** Six approved captions exist; the
+  District of Columbia's survivor-toggle caption is still a Swift literal in `IncomeSourcesView`,
+  deliberately, because it explains a CONTROL ("Turn this on only for...") rather than describing a
+  limitation, and moving it would show it to every DC resident whether or not the toggle is on
+  screen. Hawaii uses a `{scope}` token so one stored sentence renders both approved wordings
+  byte-identically.
 - **Task 4** (`2d863ee`, mechanically verified, FULL REVIEW NOT RUN): 13 new limitation sentences,
   verification metadata for 14 jurisdictions, and a `topic` per limitation.
 - **Task 5** (`3074127`): the factual half, generated from live config.
@@ -52,6 +56,14 @@ retitled so they read as a decision already made rather than as options still op
 ## THE MULTI-YEAR ENTRY POINT IS GONE, AND HERE IS WHAT RESTORING IT COSTS
 **Removed 2026-08-06 by John's decision, in the whole-branch review, before merge.** Two entry
 points ship: single-year results (resident's state) and State Comparison (the INSPECTED state).
+
+**THE LOCATION, STATED ONCE, because earlier notes got it wrong.** The defect is in
+**`ProjectionEngine.computeStateTax`**, a private function whose own doc comment records it. It is
+NOT in anything called `calculateMultiYearStateTax`: no such symbol exists in this codebase, and a
+sweep on 2026-08-06 found the name nowhere. Do not chase the line ranges older notes cite either
+(`ProjectionEngine.swift:1294-1335` in the consolidated backlog, `:1622-1634` in the Phase 2 ledger);
+both have drifted, the declaration sits near `:1617` today and will move again. Grep the function
+name, not a line.
 
 **Why.** `ProjectionEngine.computeStateTax` calls
 `TaxCalculationEngine.calculateStateTax(income: federalAGI, ...)` and omits `postExemptionDeduction`.
@@ -109,19 +121,72 @@ survivor-toggle caption is still a Swift literal in `IncomeSourcesView` and is t
 
 **GEORGIA IS NOW THE THIRD STATE, with Iowa and Indiana, rendering a verified date, a primary source
 and "No known limitations are currently recorded".** In aggregate that reads closer to a clean bill
-than any single line of it claims. JOHN'S OPEN CALL. The design's optional second sentence ("State
-tax rules are complex, and this does not mean every unusual situation is represented") was
-deliberately left unshipped and unapproved, and stays that way.
+than any single line of it claims. **SETTLED 2026-08-06 (M5). John approved the second sentence and
+made it UNCONDITIONAL, which inverts the spec:**
+
+> State tax rules are complex, and this does not mean every unusual situation is represented.
+
+It renders on EVERY state page, under a populated limitations list as well as an empty one, not only
+on the empty state the spec offered it for. John's reasoning: a page listing three limitations makes
+the same implicit claim about the rules it omits as an empty page makes about all of them, and
+keeping the caveat unconditional preserves the usefulness of "No known limitations are currently
+recorded" instead of hedging that sentence itself.
+
+**IT SHIPS AS A SEPARATE ELEMENT, NOT AS AN APPEND**, `StateAccuracyContent.modellingCaveatSentence`,
+rendered outside the empty-versus-populated branch in `StateAccuracyView.limitationsSection`. The gate
+on `noRecordedLimitationsSentence` is exact equality in three tests and John specified that wording
+character for character, so folding the caveat in would make one pinned string carry two separately
+approved decisions. Two gates: `modellingCaveatIsPinnedAndIndependent` pins the wording and asserts no
+jurisdiction's summary absorbs it, and `noModellingCaveatIsConditionalOnHavingLimitations` parses
+`limitationsSection` out of the view source and fails if the element is deleted or moved into either
+arm. All three regressions were verified by mutation.
 
 ## RECORDED, NOT FIXED
-- **A per-state JSON decode failure now ERASES that state's disclosure.** `StateTaxDataLoader` turns
-  a decode throw into a per-state fallback to the frozen legacy table, whose `verification` is
-  `.unverified` with empty limitations, and the accompanying `assertionFailure` is a no-op in
-  release. At the merge base the five caption sentences were Swift literals that could not fail to
-  render; they now can. A release user hits the empty-state wording instead of the caption.
-- **Gate 3's coverage is three claims, not the page.** Per-spouse cap (2 jurisdictions), Social
-  Security (15), Roth conversions (4). Bracket rates, standard deduction, personal exemption,
-  pension and IRA exemption levels, per-source rules and age gates are NOT behaviour-backed.
+
+### FOLLOW-UP A. The decode fallback must fail VISIBLY. NOT A MERGE BLOCKER.
+**A per-state JSON decode failure now ERASES that state's disclosure.** `StateTaxDataLoader` turns a
+decode throw into a per-state fallback to the frozen legacy table, whose `verification` is
+`.unverified` with empty limitations, and the accompanying `assertionFailure` is a no-op in release.
+At the merge base the five caption sentences were Swift literals that could not fail to render; they
+now can. A release user hits the empty-state wording instead of the caption.
+
+**THE RULE, AND IT IS ABSOLUTE: A LOAD FAILURE MUST NEVER FALL BACK TO "NO KNOWN LIMITATIONS." THAT
+TURNS A LOADING FAILURE INTO AN ACCURACY CLAIM.** The two states are not interchangeable. "No known
+limitations are currently recorded" asserts that a jurisdiction was looked at and nothing was
+written down. A failed decode asserts nothing at all, and printing the first in place of the second
+is the single worst thing this page can do.
+
+**John's words:** *"the eventual runtime behavior should fail visibly rather than silently."*
+
+**The approved fallback string, John's wording:**
+
+> State modeling details are temporarily unavailable.
+
+**Why it is not a merge blocker, in John's judgement:** these are application-owned static files
+bundled with the binary, not uncontrolled server responses, and the suite already proves every
+bundled jurisdiction decodes. The risk is a future authoring mistake, not a live one.
+
+### FOLLOW-UP B. The claim-type behavioural matrix. PERMANENT, and it replaces handpicked probes.
+**Gate 3's coverage today is three claims, not the page.** Per-spouse cap (2 jurisdictions), Social
+Security (15), Roth conversions (4). Bracket rates, standard deduction, personal exemption, pension
+and IRA exemption levels, per-source rules and age gates are NOT behaviour-backed.
+
+**The follow-up is a MATRIX, not more handpicked probes.** Every claim TYPE the page can display
+gets its own behavioural proof:
+
+| Claim displayed | Behavioural proof needed |
+|---|---|
+| Brackets | Income crossing every bracket boundary |
+| Standard deduction | Single, MFJ and age additions |
+| Personal exemption | Filing status and per-person attribution |
+| Social Security | Full, partial and phase-out behaviour |
+| Pension exclusion | Age, source, amount and spouse attribution |
+| IRA exclusion | Withdrawal and Roth-conversion treatment |
+| Local tax | Applicable and non-applicable locations |
+
+**John's lesson, in his words:** *"rendering configuration accurately proves only what the data say,
+not what every calculation path does. The current branch is safe once its entry points are restricted
+to paths that have been verified; broader behavioural completeness can follow."*
 - **Four stale New York comments were corrected 2026-08-06** (`Phase5bNewYorkMilitaryTests` x2,
   `StateTaxData.swift` x2). They said NY was on neither divergence list and therefore required
   outright byte-identity; NY is now on `disclosureOnlyDivergentJurisdictions`, which excuses
@@ -164,8 +229,14 @@ deliberately left unshipped and unapproved, and stays that way.
 5. **Layer B**: `disclosureOnlyDivergentJurisdictions` exists so populating `verification` does not
    force a state onto `phase5CorrectedJurisdictions`, which would permanently excuse the
    byte-identity check. Any newly populated state must join it.
-6. **The optional second sentence on the empty-limitations string is still UNAPPROVED and still does
-   not ship.** "State tax rules are complex, and this does not mean every unusual situation is
-   represented" was never put to John and was not part of the 2026-08-06 approval. The gate on
-   `noRecordedLimitationsSentence` is exact equality, so appending it is a copy change, not a tidy-up.
-   See `StateAccuracyContent.swift` above `noRecordedLimitationsSentence`.
+6. **The modelling caveat is APPROVED, UNCONDITIONAL, and SEPARATE.** "State tax rules are complex,
+   and this does not mean every unusual situation is represented" ships on every state page as
+   `StateAccuracyContent.modellingCaveatSentence`. **Do not "tidy" it into
+   `noRecordedLimitationsSentence`**, and do not make it conditional on the list being empty: both
+   are copy changes John decided against, and both fail gates. See `StateAccuracyContent.swift` above
+   the two constants, and the M5 section in this file.
+7. **The five-not-six caption count.** Five captions live in `verification.knownLimitations` (HI, MA,
+   NC, ID, VT). Six approved captions exist. DC's survivor-toggle caption is a Swift literal in
+   `IncomeSourcesView` on purpose: it explains a CONTROL, and in `knownLimitations` it would show to
+   every DC resident whether or not the toggle is on screen. Several documents said six; corrected
+   2026-08-06.

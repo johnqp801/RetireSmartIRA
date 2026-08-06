@@ -1665,7 +1665,7 @@ struct IncomeSourcesView: View {
                             // PENSION-TOPIC SENTENCES ONLY, which is the whole
                             // reason `StateLimitation` carries a topic. This
                             // loop rendered a state's ENTIRE `knownLimitations`
-                            // list unfiltered, which was fine while all six
+                            // list unfiltered, which was fine while all five
                             // stored sentences were about pensions but stopped
                             // being fine once the remaining jurisdictions were
                             // authored: Utah ships two tax CREDITS and New

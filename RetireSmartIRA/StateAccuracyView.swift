@@ -5,9 +5,12 @@ import SwiftUI
 ///
 /// COMPOSES NO COPY OF ITS OWN. Every string on screen comes from
 /// `StateAccuracyContent`, which is pure, view-free and tested. That split is
-/// not tidiness: the six pension-editor captions this feature consolidates were
-/// unreachable inline literals in a SwiftUI body, two Phase 5b reviews recorded
-/// that as a gap, and Task 1 of this plan existed only to undo it. Putting a
+/// not tidiness: the FIVE pension-editor captions this feature consolidates
+/// into config were unreachable literals in a SwiftUI body (six captions exist;
+/// the District of Columbia's survivor-toggle caption stays a Swift literal in
+/// `IncomeSourcesView` because it explains a CONTROL rather than describing a
+/// limitation), two Phase 5b reviews recorded that as a gap, and Task 1 of this
+/// plan existed only to undo it. Putting a
 /// dollar format, a plural, or an empty-state sentence back into this file
 /// would recreate the same untestable surface.
 ///
@@ -161,6 +164,14 @@ struct StateAccuracyView: View {
     /// Iowa and Indiana ship empty lists while carrying full verification
     /// metadata, so this path is reached inside the covered set and not only
     /// for the thirty-six jurisdictions outside it.
+    ///
+    /// `modellingCaveatSentence` SITS OUTSIDE THE BRANCH ON PURPOSE, and moving
+    /// it inside either arm is a copy change, not a layout tidy-up. John
+    /// approved it on 2026-08-06 for EVERY state page: a page listing three
+    /// limitations makes the same implicit claim about the rules it does not
+    /// list as an empty page makes about all of them.
+    /// `noModellingCaveatIsConditionalOnHavingLimitations` in
+    /// `StateAccuracyContentTests` reads this file and fails if it moves in.
     private var limitationsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Known limitations")
@@ -185,6 +196,12 @@ struct StateAccuracyView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+
+            Text(StateAccuracyContent.modellingCaveatSentence)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()

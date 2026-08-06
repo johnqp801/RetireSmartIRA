@@ -6,8 +6,10 @@ writing to Steve Nicolai and Alan Levy. His words: *"Communicate how accurate th
 per-state, per-income-type treatment text."* He then found a second state bug the following day, which
 is the argument for the feature.
 
-**Depends on `feature/state-tax-phase5b`.** This branch is cut from it. The six captions this design
-consolidates and the eleven `knownButUnpinned` entries it authors from exist only there.
+**Depends on `feature/state-tax-phase5b`.** This branch is cut from it. The six captions and the
+eleven `knownButUnpinned` entries this design authors from exist only there. **FIVE of the six were
+consolidated into config as shipped (HI, MA, NC, ID, VT); DC's survivor-toggle caption stays a Swift
+literal.** Corrected 2026-08-06; see section 4.
 
 ---
 
@@ -71,6 +73,16 @@ optionally followed by:
 
 > State tax rules are complex, and this does not mean every unusual situation is represented.
 
+**SUPERSEDED BY JOHN ON 2026-08-06, AND THE CHANGE IS THE OPPOSITE OF WHAT THIS SECTION SAYS.** The
+second sentence is approved and is NOT optional and NOT limited to the empty state: it renders on
+EVERY state page, under a populated limitations list as well as an empty one. Georgia, Iowa and
+Indiana each show a verification date, a primary source and the empty-state sentence, and while each
+line is individually true, together they read close to a warranty of completeness; a page listing
+three limitations makes the same implicit claim about the rules it omits. It ships as
+`StateAccuracyContent.modellingCaveatSentence`, a SEPARATE always-rendered element rather than an
+append to the sentence above, because the gate on the sentence above is exact equality and John
+specified it character for character.
+
 Stronger language ("no known limitations were identified in our latest verification") requires an
 explicit recorded verification SCOPE, not merely an empty array, and is out of scope here.
 
@@ -106,6 +118,9 @@ Today three separate places tell a user what the app cannot model, and a naive i
 fourth:
 
 1. **Six pension-editor captions**, hardcoded `if selectedState ==` branches in `IncomeSourcesView`.
+   **FIVE of them moved (HI, MA, NC, ID, VT).** The District of Columbia's survivor-toggle caption
+   stayed: it is the instruction for a CONTROL rather than a description of a limitation, and moving
+   it would show it to every DC resident whether or not the toggle is on screen.
 2. **Four `unclassifiedPensionDisclosure` sentences** in config, gated on the pension being unclassified.
 3. **Eleven `knownButUnpinned` catalogue entries**, with NO production consumer at all.
 
@@ -145,7 +160,7 @@ Sentences moved from existing captions carry their existing approval.
    - A corrected defect forces removal or revision of its limitation.
    - **No orphan disclosure survives after its underlying issue is fixed.**
 
-2. **Migration byte-identity, TEMPORARY.** Each of the six moved captions reproduces character for
+2. **Migration byte-identity, TEMPORARY.** Each of the five moved captions reproduces character for
    character after the move, asserted against the string extracted from the **parent commit** rather
    than the current tree. This gate exists to prove the relocation was lossless and is **not** a
    permanent freeze on the wording. Once migration lands, the permanent assertions pin **presence,

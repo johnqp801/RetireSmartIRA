@@ -4,6 +4,48 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-06: the modelling caveat ships on EVERY state page, and two follow-ups are recorded
+
+**Decision (John):** the accuracy page's limitations section closes with one more approved sentence,
+on every state page rather than only on the empty state:
+
+> State tax rules are complex, and this does not mean every unusual situation is represented.
+
+**Rationale:** Georgia, Iowa and Indiana each render a verification date, a primary source and "No
+known limitations are currently recorded for this state and tax year"; every line is individually
+true, but together they read close to a warranty of completeness, and a page listing three
+limitations makes the same implicit claim about the rules it omits.
+
+**This INVERTS the design**, which offered the sentence as an optional follow-on to the empty state
+alone. It ships as a separate always-rendered element (`StateAccuracyContent.modellingCaveatSentence`)
+rather than as an append, so the empty-state wording John specified character for character keeps its
+own exact-equality gate.
+
+**Recorded, not built. Follow-up A, the decode fallback.** A per-state JSON decode failure currently
+falls back to a config whose `verification` is `.unverified` with empty limitations, so the page
+prints "No known limitations are currently recorded." **The rule: IT MUST NEVER FALL BACK TO "NO
+KNOWN LIMITATIONS", because that turns a loading failure into an accuracy claim.** John's wording for
+the correct fallback is "State modeling details are temporarily unavailable.", and his standard is
+that *"the eventual runtime behavior should fail visibly rather than silently."* Not a merge blocker:
+these are application-owned static files rather than uncontrolled server responses, and the suite
+already proves every bundled jurisdiction decodes.
+
+**Recorded, not built. Follow-up B, the claim-type behavioural matrix.** Gate 3 probes three claims
+by hand (per-spouse cap, Social Security, Roth conversions). The permanent replacement is a matrix
+over every claim TYPE the page can display, written out in
+`.claude/memory/roadmap/2026-08-06-accuracy-disclosure-RESUME-HERE.md`. John's lesson: *"rendering
+configuration accurately proves only what the data say, not what every calculation path does. The
+current branch is safe once its entry points are restricted to paths that have been verified;
+broader behavioural completeness can follow."*
+
+**Also corrected in the durable record on this date:** "six captions moved into config" was wrong
+everywhere it appeared. FIVE moved (HI, MA, NC, ID, VT); DC's survivor-toggle caption stays a Swift
+literal because it explains a control rather than describing a limitation. And the multi-year state
+tax defect lives in `ProjectionEngine.computeStateTax`, not in any `calculateMultiYearStateTax` (no
+such symbol exists) and not at the line numbers older ledgers cite.
+
+---
+
 ## 2026-08-06: all Phase 5b and accuracy-disclosure copy is approved, as written
 
 **Decision (John):** approved, as written, every outstanding user-facing string on
