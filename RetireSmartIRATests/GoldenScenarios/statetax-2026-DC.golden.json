@@ -21,7 +21,7 @@
     },
     {
       "name": "single filer, age 65 (62+), survivor of a DC/federal government annuitant: fully exempt, uncapped, engine taxes it in full",
-      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(ii) (see above; no dollar cap and no sunset clause on this subparagraph, unlike (N)(i) below). Confirmed by DC OTR's 2024 D-40 Booklet, page 17, Schedule I 'Subtractions from DC Income', 'Line 12 DC and federal government survivor benefits': 'If you are an annuitant's survivor and 62 years of age or older as of December 31, 2024, enter the total survivor benefits (do not include Social Security survivor benefits).' The District's own government pension is labelled 'ownStateOrLocal' here: the taxpayer's OWN jurisdiction's public retirement system, which is what the District government is to a DC resident. Phase 5b Task 1 added that PlanSource case and Task 2 re-labelled this row onto it. It previously read 'otherStateOrLocal', disclosed at the time as 'the closest available generic' label; that was not merely imprecise, because 'otherStateOrLocal' means a DIFFERENT jurisdiction's system, so a DC rule written against it would have exempted a Maryland state pension held by a DC resident, which D.C. Code Section 47-1803.02(a)(2)(N)(ii) does not. The survivor-versus-own distinction is now a STRUCTURED field too, not only prose: 'isSurvivorBenefit': true on the row below. Task 1 added the flag to the production type RetirementPlanClassification and Task 2 added it to this fixture schema (ClassifiedPensionSource), after measuring that the schema silently DISCARDED the key before that -- a fixture setting it decoded and re-encoded with the key simply gone, no error raised. It matters because this file's DC-3/DC-4 (survivor) and DC-5 (own pension) share the (planSource: federalCivilian, planStructure: definedBenefit) pair for contradictory required treatment, and every party in those cases is 62 or older, so age cannot separate them either. DC-2's own row is no longer part of that particular collision, because the re-label above moved it onto ownStateOrLocal. It carries the flag regardless, because it IS a survivor benefit: the statute exempts survivor benefits from the District OR the federal government, so Task 9's rule has to match on the survivor fact across both sources rather than on either source alone (see DC-3/DC-4's knownDefect entries and the phase ledger's Bucket 4 for the full discussion). Nothing CONSUMES the flag yet: wiring it into PerSourceExemptionRule matching is Task 9's work, so this fixture's pinned figures are unmoved by carrying it. Arithmetic: $50,000 fully excluded, $0 taxable, tax = $0.00.",
+      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(ii) (see above; no dollar cap and no sunset clause on this subparagraph, unlike (N)(i) below). Confirmed by DC OTR's 2024 D-40 Booklet, page 17, Schedule I 'Subtractions from DC Income', 'Line 12 DC and federal government survivor benefits': 'If you are an annuitant's survivor and 62 years of age or older as of December 31, 2024, enter the total survivor benefits (do not include Social Security survivor benefits).' The District's own government pension is labelled 'ownStateOrLocal' here: the taxpayer's OWN jurisdiction's public retirement system, which is what the District government is to a DC resident. Phase 5b Task 1 added that PlanSource case and Task 2 re-labelled this row onto it. It previously read 'otherStateOrLocal', disclosed at the time as 'the closest available generic' label; that was not merely imprecise, because 'otherStateOrLocal' means a DIFFERENT jurisdiction's system, so a DC rule written against it would have exempted a Maryland state pension held by a DC resident, which D.C. Code Section 47-1803.02(a)(2)(N)(ii) does not. The survivor-versus-own distinction is now a STRUCTURED field too, not only prose: 'isSurvivorBenefit': true on the row below. Task 1 added the flag to the production type RetirementPlanClassification and Task 2 added it to this fixture schema (ClassifiedPensionSource), after measuring that the schema silently DISCARDED the key before that -- a fixture setting it decoded and re-encoded with the key simply gone, no error raised. It matters because this file's DC-3/DC-4 (survivor) and DC-5 (own pension) share the (planSource: federalCivilian, planStructure: definedBenefit) pair for contradictory required treatment, and every party in those cases is 62 or older, so age cannot separate them either. DC-2's own row is no longer part of that particular collision, because the re-label above moved it onto ownStateOrLocal. It carries the flag regardless, because it IS a survivor benefit: the statute exempts survivor benefits from the District OR the federal government, so Task 9's rule has to match on the survivor fact across both sources rather than on either source alone (see the phase ledger's Bucket 4 for the full discussion). Task 9 WIRED THE FLAG THROUGH TO PRODUCTION and shipped the rule: statetax-2026-DC.json now carries a perSourceExemptions entry naming federalCivilian and ownStateOrLocal at definedBenefit, with matchIsSurvivorBenefit true and matchMinAge 62, treatment full. The knownDefect blocks on this case and on DC-3 and DC-4 were deleted whole when that rule made all three match their published forms; the measured before-values are recorded in the Phase 5b Task 9 report and in RetireSmartIRATests/Baselines/statetax-behavior-movements-2026.json. Arithmetic: $50,000 fully excluded, $0 taxable, tax = $0.00.",
       "sourceURL": "https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02",
       "filingStatus": "single",
       "primaryAge": 65,
@@ -34,12 +34,7 @@
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "DC/federal government survivor benefits are fully excluded at age 62+ with no cap (D.C. Code 47-1803.02(a)(2)(N)(ii)); statetax-2026-DC.json has no perSourceExemptions, so the engine taxes the full $50,000.",
-        "observedToday": 1924.00
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "MFJ, both spouses 62+, both survivors of DC/federal government annuitants (stipulated): fully exempt, engine taxes the full household income",
@@ -57,12 +52,7 @@
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 0.00,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "Both spouses' DC/federal survivor benefits should be fully excluded; the engine has no perSourceExemptions for DC, taxing the full $55,000 household income. FORMER CANNOT_VERIFY, NOW RESOLVED: DC-3/DC-4 (survivor benefit) require full exemption for (planSource: federalCivilian, planStructure: definedBenefit), while DC-5 (own pension, same pair) requires that pair fully taxable, and both parties are 62 or older in every case, so age cannot separate them either. Phase 5b Task 1 added isSurvivorBenefit to the production type RetirementPlanClassification and Task 2 added it to this fixture's schema and set it on every survivor row here, so the two treatments now sit on distinguishable data and this file IS satisfiable. Task 9 writes the matching rule; nothing reads the flag yet, which is why the figure pinned here did not move when it was set.",
-        "observedToday": 1546.00
-      }
+      "expectedStateTax": 0.00
     },
     {
       "name": "MFJ, one spouse (65) is a DC/federal survivor and exempt, the other spouse (60) has a taxable private pension: one spouse qualifies",
@@ -80,12 +70,7 @@
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,
-      "expectedStateTax": 1846.00,
-      "knownDefect": {
-        "tier": "tier2",
-        "summary": "Only the survivor spouse's $30,000 should be excluded; the engine excludes nothing (no perSourceExemptions for DC), taxing the full $90,000 household income. FORMER CANNOT_VERIFY, NOW RESOLVED: DC-3/DC-4 (survivor benefit) require full exemption for (planSource: federalCivilian, planStructure: definedBenefit), while DC-5 (own pension, same pair) requires that pair fully taxable, and both parties are 62 or older in every case, so age cannot separate them either. Phase 5b Task 1 added isSurvivorBenefit to the production type RetirementPlanClassification and Task 2 added it to this fixture's schema and set it on every survivor row here, so the two treatments now sit on distinguishable data and this file IS satisfiable. Task 9 writes the matching rule; nothing reads the flag yet, which is why the figure pinned here did not move when it was set.",
-        "observedToday": 3848.50
-      }
+      "expectedStateTax": 1846.00
     },
     {
       "name": "single filer, age 65, OWN federal civil service pension (not a survivor benefit): the general $3,000 pension exclusion EXPIRED in 2015 -- correctly fully taxable, engine also taxes it fully -- MATCH, correcting an assumption in this batch's own brief",
@@ -99,6 +84,23 @@
       "pensionIncome": 0,
       "classifiedPensionSources": [
         {"amount": 50000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1924.00
+    },
+    {
+      "name": "single filer, age 65, MARYLAND state survivor annuity: 62+ and genuinely a survivor benefit, but NOT from the District or the federal government -- correctly fully taxable, and the out-of-state guard Task 9's rule owes DC",
+      "source": "D.C. Code Section 47-1803.02(a)(2)(N)(ii) excludes 'Survivor benefits received from the District of Columbia or the federal government by persons who are 62 years of age or older by the end of the taxable year'. A survivor annuity from the Maryland State Retirement and Pension System is received from NEITHER, so the District taxes it in full. Confirmed by DC OTR's 2024 D-40 Booklet, page 17, Schedule I: the only survivor line is 'Line 12 DC and federal government survivor benefits', and no line covers another state's system. THIS CASE EXISTS BECAUSE OF WHAT IT WOULD CATCH, not because DC is wrong about it today: it is the answer to Step 3's question 'what would this rule wrongly match?' for the Task 9 survivor rule. Task 2 re-labelled DC's two District-government rows from otherStateOrLocal to ownStateOrLocal, which left this file with NO out-of-state row at all and therefore no guard, and Task 2's reviewer recorded that Task 9 owed DC one. It is deliberately as close to DC-2 as the schema allows: same filing status, same age, same amount, same definedBenefit structure, and isSurvivorBenefit TRUE, differing ONLY in planSource. So it fails if a future author widens matchSources to include otherStateOrLocal, and it also proves the survivor flag alone is not sufficient: carrying the flag does not by itself select the exclusion. It carries NO knownDefect because the engine already agrees, both before Task 9's rule shipped and after it. Arithmetic, identical to DC-1 and DC-5: $50,000 - $14,600 single standard deduction = $35,400 taxable. DC brackets: 4% to $10,000 ($400.00), 6% on the remaining $25,400 ($1,524.00). Total $1,924.00.",
+      "sourceURL": "https://code.dccouncil.gov/us/dc/council/code/sections/47-1803.02",
+      "filingStatus": "single",
+      "primaryAge": 65,
+      "spouseAge": null,
+      "federalAGI": 50000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 50000, "planStructure": "definedBenefit", "planSource": "otherStateOrLocal", "isSurvivorBenefit": true}
       ],
       "iraWithdrawals": 0,
       "rothConversion": 0,

@@ -885,11 +885,26 @@ class DataManager {
         // breakdown display and the computed tax on opposite sides of the
         // out-of-state question for anyone viewing another state.
         let residenceMappedSources = incomeSources(asResidentOf: state)
+        // Phase 5b Task 9: mirror of TaxCalculationEngine's `ageOf`. The OWNER's
+        // own age, not `effectiveAge`, because a per-source rule's `matchMinAge`
+        // gates the person receiving the income (D.C. Code Section
+        // 47-1803.02(a)(2)(N)(ii)). Drift here would put the displayed
+        // breakdown and the computed tax on opposite sides of DC's age gate,
+        // which `StateTaxBreakdownTests.breakdownMatchesCalculation` catches.
+        func ageOf(_ owner: Owner) -> Int {
+            switch owner {
+            case .primary: return currentAge
+            case .spouse:  return enableSpouse ? spouseCurrentAge : currentAge
+            case .joint:   return enableSpouse ? max(currentAge, spouseCurrentAge) : currentAge
+            }
+        }
         let qualifyingPensionRows = residenceMappedSources.filter { $0.type == .pension && ownerQualifies($0.owner) }
         var pooledPensionIncome = 0.0
         var perSourceExcludedPension = 0.0
         for row in qualifyingPensionRows {
-            if let rule = exemptions.matchedPerSourceRule(structure: row.planStructure, source: row.planSource) {
+            if let rule = exemptions.matchedPerSourceRule(
+                structure: row.planStructure, source: row.planSource,
+                isSurvivorBenefit: row.isSurvivorBenefit, age: ageOf(row.owner)) {
                 perSourceExcludedPension += rule.treatment.excludedAmount(
                     eligibleIncome: row.annualAmount, totalGrossIncome: income,
                     isMarried: isMarried, perIndividualMultiplier: 1.0)
@@ -901,7 +916,9 @@ class DataManager {
         var pooledRmdIncome = 0.0
         var perSourceExcludedRMD = 0.0
         for row in qualifyingRMDRows {
-            if let rule = exemptions.matchedPerSourceRule(structure: row.planStructure, source: row.planSource) {
+            if let rule = exemptions.matchedPerSourceRule(
+                structure: row.planStructure, source: row.planSource,
+                isSurvivorBenefit: row.isSurvivorBenefit, age: ageOf(row.owner)) {
                 perSourceExcludedRMD += rule.treatment.excludedAmount(
                     eligibleIncome: row.annualAmount, totalGrossIncome: income,
                     isMarried: isMarried, perIndividualMultiplier: 1.0)
@@ -963,15 +980,18 @@ class DataManager {
         // will claim another state's own-state exclusion on the State
         // Comparison screen exactly as an unmapped income row would have.
         let allDistroComponents = distributionComponents ?? []
-        let matchedDistroComponents = allDistroComponents.filter {
-            exemptions.matchedPerSourceRule(structure: $0.structure, source: $0.source) != nil
+        // Phase 5b Task 9: mirror of TaxCalculationEngine's `componentRule`.
+        // One closure, three call sites, so the survivor and age arguments
+        // cannot drift between the two filters and the sum.
+        func componentRule(_ component: RetirementDistributionComponent) -> PerSourceExemptionRule? {
+            exemptions.matchedPerSourceRule(
+                structure: component.structure, source: component.source,
+                isSurvivorBenefit: component.isSurvivorBenefit, age: ageOf(component.owner))
         }
-        let unmatchedDistroComponents = allDistroComponents.filter {
-            exemptions.matchedPerSourceRule(structure: $0.structure, source: $0.source) == nil
-        }
+        let matchedDistroComponents = allDistroComponents.filter { componentRule($0) != nil }
+        let unmatchedDistroComponents = allDistroComponents.filter { componentRule($0) == nil }
         let perSourceExcludedDistroComponents = matchedDistroComponents.reduce(0.0) { total, component in
-            guard let rule = exemptions.matchedPerSourceRule(
-                structure: component.structure, source: component.source) else { return total }
+            guard let rule = componentRule(component) else { return total }
             return total + rule.treatment.excludedAmount(
                 eligibleIncome: component.amount, totalGrossIncome: income,
                 isMarried: isMarried, perIndividualMultiplier: 1.0)

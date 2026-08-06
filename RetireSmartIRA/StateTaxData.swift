@@ -359,8 +359,35 @@ struct RetirementIncomeExemptions {
     /// any other case. No rule shipped in this phase does that (design doc
     /// section 3.1: "No rule may match `governmentUnspecified` as though it
     /// were a specific jurisdiction").
-    func matchedPerSourceRule(structure: PlanStructure, source: PlanSource) -> PerSourceExemptionRule? {
-        perSourceExemptions.first { $0.matches(structure: structure, source: source) }
+    ///
+    /// Phase 5b Task 9 added `isSurvivorBenefit` and `age`. `age` is the age of
+    /// the ROW'S OWNER, not the household maximum: see `matchMinAge`.
+    ///
+    /// BOTH DEFAULT TO `nil`, and the direction that omitting them fails in is
+    /// why that is acceptable. A rule carrying neither `matchIsSurvivorBenefit`
+    /// nor `matchMinAge` (New York's, Kansas's, Massachusetts's and Arizona's,
+    /// i.e. every rule shipped before this task) ignores both arguments
+    /// entirely, so the twenty-odd existing model-level tests that call this
+    /// with a bare `(structure:source:)` keep asserting exactly what they
+    /// asserted. A GATED rule reached from a call site that omitted them
+    /// matches NOTHING, so the failure mode of forgetting is that an exclusion
+    /// goes UNAPPLIED and the taxpayer is over-taxed, never that an exclusion
+    /// is handed to someone who has not earned it.
+    ///
+    /// What guards the six production call sites is not this signature but
+    /// `Phase5bDCSurvivorTests.engineAndDataManagerMirrorAgreeOnTheSurvivorExclusion`,
+    /// which runs one DC household through `TaxCalculationEngine.calculateStateTax`
+    /// and through the `DataManager.stateTaxBreakdown` mirror and requires both
+    /// to exclude it. A required parameter would only have forced each site to
+    /// write SOMETHING; it could not have forced the right age, which is the
+    /// mode this mirror has actually drifted in five times on this branch.
+    func matchedPerSourceRule(structure: PlanStructure, source: PlanSource,
+                              isSurvivorBenefit: Bool? = nil,
+                              age: Int? = nil) -> PerSourceExemptionRule? {
+        perSourceExemptions.first {
+            $0.matches(structure: structure, source: source,
+                       isSurvivorBenefit: isSurvivorBenefit, age: age)
+        }
     }
 
     /// Reduced exemption that applies only within a specific age band.
@@ -490,7 +517,16 @@ struct RetirementIncomeExemptions {
 /// code has never needed.
 extension PerSourceExemptionRule: Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
-        guard lhs.matchSources == rhs.matchSources, lhs.matchStructures == rhs.matchStructures else {
+        // Phase 5b Task 9 added matchIsSurvivorBenefit and matchMinAge. They
+        // are compared here because Layer B of the Phase 1 equivalence gate
+        // uses this operator to decide whether a JSON-decoded rule equals its
+        // frozen legacy counterpart: omitting them would let a rule that
+        // gained or lost a survivor or age condition compare EQUAL to one that
+        // did not, which is the silent-loss class this phase keeps catching.
+        guard lhs.matchSources == rhs.matchSources,
+              lhs.matchStructures == rhs.matchStructures,
+              lhs.matchIsSurvivorBenefit == rhs.matchIsSurvivorBenefit,
+              lhs.matchMinAge == rhs.matchMinAge else {
             return false
         }
         switch (lhs.treatment, rhs.treatment) {

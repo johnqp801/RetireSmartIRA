@@ -582,6 +582,21 @@ struct StateTaxJSONEquivalenceTests {
     ///   MEASURED, not reasoned: Task 4 temporarily added `.massachusetts`
     ///   to the list below and the "at least one scenario diverged"
     ///   assertion failed with "None diverged", then reverted it.
+    /// - District of Columbia: NOT here, for Kansas's second reason PLUS a
+    ///   second, independent one of its own. Phase 5b Task 9's correction is
+    ///   entirely `perSourceExemptions` (plus the disclosure sentence, which is
+    ///   not numeric); it left `pensionExemption` at `.none`. Kansas's reason:
+    ///   the single `.pension` row this grid builds is constructed WITHOUT a
+    ///   classification, so it infers `(unknown, unknown)`, and DC's rule names
+    ///   `federalCivilian` and `ownStateOrLocal` at `definedBenefit`, none of
+    ///   which is `.unknown`. DC's own additional reason: that row also carries
+    ///   no `isSurvivorBenefit`, and DC's rule sets `matchIsSurvivorBenefit:
+    ///   true`, which a `nil` row never satisfies (see
+    ///   `PerSourceExemptionRule.matches`). Either reason alone is sufficient,
+    ///   so the rule is invisible to this grid twice over. MEASURED, not
+    ///   reasoned: Task 9 temporarily added `.districtOfColumbia` to the list
+    ///   below and the "at least one scenario diverged" assertion failed with
+    ///   `observedDivergence` at line 533, then reverted it.
     /// - Arizona: NOT here, for Kansas's second reason and only that one.
     ///   Phase 5b Task 6's correction is entirely `perSourceExemptions` (plus
     ///   the disclosure sentence, which is not numeric); it deliberately left
@@ -704,7 +719,21 @@ struct StateTaxJSONStructuralEquivalenceTests {
     ///   in the two new fields, which are absent from the frozen legacy table,
     ///   so the re-encoded documents now differ. Arizona is deliberately NOT
     ///   added to `layerAProvenDivergentJurisdictions`; see that declaration.
-    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana, .massachusetts, .arizona]
+    /// - District of Columbia: Phase 5b Task 9 added
+    ///   `retirementExemptions.perSourceExemptions` and
+    ///   `retirementExemptions.unclassifiedPensionDisclosure` (D.C. Code
+    ///   Section 47-1803.02(a)(2)(N)(ii): survivor benefits received from the
+    ///   District or the federal government by persons 62 or older are excluded
+    ///   from DC gross income, with no dollar cap and no sunset clause). The
+    ///   rule is the first in the program to carry `matchIsSurvivorBenefit` and
+    ///   `matchMinAge`, both of which encode into the rule object, so the
+    ///   re-encoded documents differ by more than the frozen table's missing
+    ///   fields alone. `pensionExemption` stays `.none`: the general $3,000
+    ///   pension exclusion under subparagraph (N)(i) EXPIRED for tax years
+    ///   after 2014 and the app is already right to grant nothing for it. DC is
+    ///   deliberately NOT added to `layerAProvenDivergentJurisdictions`; see
+    ///   that declaration.
+    static let phase5CorrectedJurisdictions: Set<USState> = [.kansas, .iowa, .newMexico, .georgia, .utah, .indiana, .massachusetts, .arizona, .districtOfColumbia]
 
     /// Matches the settings the Task 9 generator used to write the bundled
     /// files, so this is an apples-to-apples re-encoding, not a different

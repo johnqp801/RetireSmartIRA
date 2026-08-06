@@ -218,26 +218,93 @@ struct Phase5bIdahoDecisionTests {
                 """)
     }
 
-    /// THE HEART of why declined rule 2 was declined, stated structurally rather
-    /// than as prose: `PerSourceExemptionRule` carries no age dimension, so the
-    /// rule cannot be given Line 8e's "age 62 or older" test at all.
+    /// SUPERSEDED BY TASK 9, AND THE TRIPWIRE THAT SUPERSEDED IT WORKED.
     ///
-    /// Asserted by reflecting over the type's stored properties rather than by
-    /// restating the source, so it FAILS the day someone adds an age field,
-    /// which is precisely the day Idaho should be revisited.
-    @Test("A per-source rule has no age gate to give the Line 8e test to")
-    func theDeclinedMilitaryRuleHasNoAgeGateToGiveIt() {
-        let fields = Mirror(reflecting: Self.declinedMilitaryRule).children.compactMap(\.label)
-        #expect(Set(fields) == ["matchSources", "matchStructures", "treatment"],
+    /// Task 8 declined Idaho's military rule partly because
+    /// `PerSourceExemptionRule` carried no age dimension, and asserted that
+    /// structurally, by reflection, so it would FAIL the day someone added an
+    /// age field. Task 9 added `matchMinAge` (for D.C. Code Section
+    /// 47-1803.02(a)(2)(N)(ii), whose survivor exclusion starts at 62) and this
+    /// test fired on the first full-suite run, exactly as designed.
+    ///
+    /// IDAHO WAS RE-OPENED AND RE-MEASURED rather than silenced. Task 9
+    /// temporarily shipped declined rule 2 in its now-expressible form,
+    /// `matchSources: ["uniformedServices"]`, `matchStructures: ["definedBenefit"]`,
+    /// `matchMinAge: 62`, treatment `full`, against the really shipped Idaho
+    /// config, and reverted it. Measured result: ID-3 GOES GREEN at its
+    /// published $0.00, and NOTHING ELSE MOVES. ID-7 (military, age 55) stays
+    /// correctly denied, and ID-1 and ID-6 (civilians at 60 and 63) are
+    /// untouched, because `matchMinAge` gates the rule and not the pool.
+    ///
+    /// TWO OF TASK 8's THREE OBJECTIONS TO THAT RULE ARE NOW GONE. The age gate
+    /// exists. And the household-attribution objection ("an under-62 military
+    /// spouse inherits a 62-plus spouse's gate") is gone too, because
+    /// `matchMinAge` is evaluated against the ROW OWNER's own age rather than
+    /// the household maximum every pooled gate uses; see
+    /// `PerSourceExemptionRule.matchMinAge`.
+    ///
+    /// THE DECISION STILL HOLDS, on the one surviving objection, which is the
+    /// cap. Form 39R Line 8a is a CAPPED deduction ($48,216 single / $72,324
+    /// MFJ) reduced dollar-for-dollar by Social Security and Railroad
+    /// Retirement RECEIVED. `treatment: full` is uncapped, and a `.partial`
+    /// per-source treatment is banned phase-wide because `treatment` is
+    /// evaluated inside the engine's per-row loop and would cap PER ROW. So the
+    /// rule over-exempts a military pension above the maximum, and over-exempts
+    /// every military household receiving Social Security. Task 8 measured that
+    /// second one: $934.60 owed against $0.00 produced, for a single retiree at
+    /// 65 with a $60,000 pension and $30,000 of Social Security.
+    ///
+    /// Unlike the FERS over-match below, BOTH of those ARE pinnable: neither
+    /// case's inputs collide with an existing fixture. So Step 3 of the shared
+    /// procedure ("if the fixture set has no case that would catch that, ADD
+    /// one") is satisfiable for Idaho, and shipping this rule requires adding
+    /// them, at which point the rule fails them. That is why Task 9 did not
+    /// ship it either.
+    ///
+    /// The reflection assertion is KEPT and re-pointed at the surviving
+    /// blocker, so it fails the day a capped-but-not-per-row treatment or a
+    /// Social-Security-offset field arrives, which is the next day Idaho should
+    /// be revisited.
+    @Test("The per-source age gate now exists; Idaho's surviving blocker is the capped, SS-reduced maximum")
+    func theDeclinedMilitaryRuleNowHasAnAgeGateButStillNoCap() {
+        let fields = Set(Mirror(reflecting: Self.declinedMilitaryRule).children.compactMap(\.label))
+        #expect(fields == ["matchSources", "matchStructures",
+                           "matchIsSurvivorBenefit", "matchMinAge", "treatment"],
                 """
-                PerSourceExemptionRule's stored properties are now \(fields). Task 8 \
-                declined Idaho's military rule because the type had no age dimension, so \
-                `uniformedServices -> full` exempted military retired pay at EVERY age \
-                while Form 39R Line 8e grants it only from 62 (or at any age if disabled). \
-                If an age gate was just added, re-open Idaho: ID-7 is the case that pins \
-                the requirement, and the cap objection in \
-                theTwoAgeGatesCannotShareTheOneCap below must be resolved too.
+                PerSourceExemptionRule's stored properties are now \(fields). Task 9 left \
+                them at matchSources / matchStructures / matchIsSurvivorBenefit / \
+                matchMinAge / treatment. If a field arrived that can express Form 39R Line \
+                8a's HOUSEHOLD-level maximum, or its dollar-for-dollar reduction by Social \
+                Security and Railroad Retirement received, re-open Idaho a third time: \
+                those two are the only objections left, both are pinnable, and Step 3 \
+                requires the catching cases be ADDED before any such rule ships.
                 """)
+
+        // The age gate that arrived is genuinely usable for Line 8e, not merely
+        // present: a rule carrying it denies at 61 and grants at 62, and a row
+        // whose owner's age is unknown is denied rather than granted.
+        let gated = PerSourceExemptionRule(
+            matchSources: [.uniformedServices], matchStructures: [.definedBenefit],
+            matchMinAge: 62, treatment: .full)
+        #expect(!gated.matches(structure: .definedBenefit, source: .uniformedServices, age: 61))
+        #expect(gated.matches(structure: .definedBenefit, source: .uniformedServices, age: 62))
+        #expect(!gated.matches(structure: .definedBenefit, source: .uniformedServices, age: nil),
+                """
+                A gated rule matched a row whose owner's age is unknown. That direction \
+                matters: it must fail CLOSED (no exclusion, taxpayer over-taxed) rather \
+                than open.
+                """)
+
+        // And it is still true that `treatment` cannot carry the cap, which is
+        // what actually keeps Idaho unshipped.
+        if case .partial = Self.declinedMilitaryRule.treatment {
+            Issue.record("""
+                The declined Idaho rule now carries a capped per-source treatment. That is \
+                banned phase-wide: `treatment` is evaluated inside the engine's per-row \
+                loop, so a `.partial` caps PER PENSION ROW rather than per household. \
+                Phase3bPerSourceExemptionCapTests is the sweep that enforces it.
+                """)
+        }
     }
 
     /// The second, INDEPENDENT blocker, which survives even if both eligibility

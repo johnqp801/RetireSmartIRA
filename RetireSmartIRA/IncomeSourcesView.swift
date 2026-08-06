@@ -353,6 +353,27 @@ enum PlanClassificationChoice: String, CaseIterable, Identifiable {
     static func residenceHasPerSourceRules(_ state: USState) -> Bool {
         !StateTaxData.config(for: state).retirementExemptions.perSourceExemptions.isEmpty
     }
+
+    /// Phase 5b Task 9: whether `state` ships a per-source rule that consults
+    /// the SURVIVOR dimension, and therefore whether the pension editor should
+    /// ask the question at all.
+    ///
+    /// DERIVED FROM LIVE CONFIG, never a hardcoded `state == .districtOfColumbia`.
+    /// Task 3 established that precedent and the reason is the same one: a rule
+    /// no real user can select is a green suite and an undelivered fix, and a
+    /// hardcoded jurisdiction check goes stale the moment a second jurisdiction
+    /// ships a survivor rule. Today exactly one does, which
+    /// `Phase5bDCSurvivorTests.onlyTheDistrictAsksTheSurvivorQuestion` asserts
+    /// by sweeping `USState.allCases` rather than by naming DC.
+    ///
+    /// WHY THIS GATE EXISTS AT ALL: `isSurvivorBenefit` is a THIRD question on
+    /// top of the twelve-row plan-type picker, and for 50 of 51 jurisdictions
+    /// the answer cannot change a single dollar. Asking everyone would be the
+    /// noise `shouldPromptForClassification` already declines to make.
+    static func residenceUsesSurvivorDimension(_ state: USState) -> Bool {
+        StateTaxData.config(for: state).retirementExemptions.perSourceExemptions
+            .contains { $0.matchIsSurvivorBenefit != nil }
+    }
 }
 
 struct IncomeSourcesView: View {
@@ -429,6 +450,48 @@ struct IncomeSourcesView: View {
         + "military retired pay, generally from age 65 or from age 62 for retired "
         + "service members. This app does not apply that deduction, so if you qualify "
         + "your Idaho state tax may be overstated."
+
+    /// Phase 5b Task 9. Vermont's two retirement exclusions.
+    ///
+    /// **PROPOSED COPY, AWAITING JOHN.** Two alternatives are recorded in the
+    /// Task 9 report. This one was recommended because it names both exclusions
+    /// and both income limits, so a reader can tell whether either applies to
+    /// them, and because Vermont's two are very differently sized: $10,000
+    /// capped for CSRS against an UNCAPPED exclusion for military retired pay.
+    /// A sentence that named only one would leave the larger gap invisible.
+    ///
+    /// WHY VERMONT SHIPS A CAPTION AND NO RULE, which is the same position
+    /// North Carolina and Idaho are in. Vermont's six pinned defects include the
+    /// single largest dollar gap measured in this phase, $5,211.50 a year at the
+    /// VT-6 fixture's shape, and a Vermont resident sees NOTHING about it today:
+    /// `shouldPromptForClassification` gates on `residenceHasPerSourceRules` and
+    /// Vermont ships none, and `UnclassifiedPensionDisclosure.text(for:
+    /// .vermont)` is nil because that string is in bidirectional lockstep with
+    /// the rules. This caption is the only surface that reaches the affected
+    /// user.
+    ///
+    /// It cannot be an `unclassifiedPensionDisclosure` sentence for the same two
+    /// reasons North Carolina's and Idaho's could not: the lockstep sweep would
+    /// fail it without a rule, and it would be false anyway, because a Vermont
+    /// pension can be perfectly classified through the picker and still be taxed
+    /// wrongly. Neither of the facts Vermont's Schedule IN-112 turns on is on
+    /// the classification: whether the CSRS-side earnings were covered by Social
+    /// Security, and the AGI phase-out band the exclusion sits in.
+    ///
+    /// DIRECTION: overstated. Vermont applies neither exclusion today, so every
+    /// error runs toward over-taxation, exactly like North Carolina, Idaho and
+    /// Hawaii and unlike Massachusetts. Harmonising this with the Massachusetts
+    /// caption would invert it.
+    ///
+    /// The durable record is Vermont's six `knownDefect` blocks in
+    /// `statetax-2026-VT.golden.json` and `Phase5bVermontDecisionTests`. Delete
+    /// all three together if Vermont's exclusions are ever modelled.
+    static let vermontRetirementExclusionCaption =
+        "Vermont exempts up to $10,000 of Civil Service Retirement System income for "
+        + "filers under $55,000 of income ($70,000 if married filing jointly), and under "
+        + "2025's Act 71 exempts military retired pay in full under $125,000 of income. "
+        + "This app applies neither exemption, so if you qualify your Vermont state tax "
+        + "may be overstated."
     @Environment(DataManager.self) var dataManager
     @State private var showingAddIncome = false
     @State private var selectedIncomeSource: IncomeSource?
@@ -1162,6 +1225,16 @@ struct IncomeSourcesView: View {
         /// when `incomeType == .pension` (see `saveIncome()`), so editing a
         /// non-pension row is byte-for-byte unaffected by this field.
         @State private var planChoice: PlanClassificationChoice
+        /// Phase 5b Task 9: the survivor-benefit answer, shown only where a
+        /// jurisdiction's rules actually consult it
+        /// (`PlanClassificationChoice.residenceUsesSurvivorDimension`).
+        ///
+        /// `Bool` here, `Bool?` on `IncomeSource`, and `saveIncome()` is where
+        /// the two meet. A SwiftUI `Toggle` has no third position, so an
+        /// unanswered question cannot be represented in the control; what
+        /// represents it is the question NOT BEING SHOWN. See `saveIncome()`
+        /// for the mapping, which never turns "never asked" into "no".
+        @State private var isSurvivorBenefit: Bool
 
         init(incomeToEdit: IncomeSource? = nil) {
             self.incomeToEdit = incomeToEdit
@@ -1214,6 +1287,11 @@ struct IncomeSourcesView: View {
                 structure: incomeToEdit?.planStructure ?? .unknown,
                 source: incomeToEdit?.planSource ?? .unknown)
             _planChoice = State(initialValue: PlanClassificationChoice.choice(for: existingClassification))
+            // Phase 5b Task 9. A row that has never been asked (nil) opens with
+            // the toggle OFF, which is the only thing a two-position control
+            // can show. It is NOT saved as `false` unless the question was
+            // actually on screen; see `saveIncome()`.
+            _isSurvivorBenefit = State(initialValue: incomeToEdit?.isSurvivorBenefit ?? false)
         }
 
         /// True when editing an existing Social Security source that has a
@@ -1400,6 +1478,26 @@ struct IncomeSourcesView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
+                            // Phase 5b Task 9. PROPOSED COPY, awaiting John.
+                            //
+                            // Shown only where a jurisdiction's shipped rules
+                            // consult the survivor dimension, which today is
+                            // the District of Columbia alone. Without this
+                            // control DC's rule would be UNREACHABLE: no
+                            // combination of the twelve picker rows can write
+                            // `isSurvivorBenefit`, so every DC golden case
+                            // would go green while a real survivor annuitant
+                            // received nothing. That is exactly the failure
+                            // Task 3 found for Kansas and the precedent it set
+                            // for adding an affordance here.
+                            if PlanClassificationChoice.residenceUsesSurvivorDimension(dataManager.selectedState) {
+                                Toggle("I receive this as a survivor or beneficiary",
+                                       isOn: $isSurvivorBenefit)
+                                Text("The District of Columbia excludes a DC or federal government survivor annuity from tax once the survivor is 62 or older, but taxes an annuitant's own pension in full. Turn this on only for a pension paid to you as someone else's survivor or beneficiary.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
                             if dataManager.selectedState == .hawaii {
                                 Label("Hawaii excludes the employer-funded portion of a pension from state tax. This app does not model the split between employer-funded and employee-contributed amounts, so your Hawaii state tax may be overstated.",
                                       systemImage: "info.circle")
@@ -1457,6 +1555,21 @@ struct IncomeSourcesView: View {
                             // all today.
                             if dataManager.selectedState == .idaho {
                                 Label(IncomeSourcesView.idahoRetirementBenefitsDeductionCaption,
+                                      systemImage: "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            // Phase 5b Task 9. PROPOSED COPY, awaiting John;
+                            // see IncomeSourcesView
+                            // .vermontRetirementExclusionCaption for why
+                            // Vermont ships a caption and no rule, and for the
+                            // two shapes that were measured and declined. Same
+                            // direction as North Carolina and Idaho above,
+                            // OVER-taxation: Vermont applies neither exclusion
+                            // today, and its gap is the largest in this phase.
+                            if dataManager.selectedState == .vermont {
+                                Label(IncomeSourcesView.vermontRetirementExclusionCaption,
                                       systemImage: "info.circle")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -1624,6 +1737,29 @@ struct IncomeSourcesView: View {
             let explicitStructure = classificationToSave?.structure
             let explicitSource = classificationToSave?.source
 
+            // Phase 5b Task 9: `Bool` control -> `Bool?` model, and the whole
+            // point is the third value.
+            //
+            //   question shown        -> save the toggle, true OR false. The
+            //                            user saw it and answered.
+            //   question NOT shown    -> keep whatever the row already carried,
+            //                            which is `nil` for every row that has
+            //                            never been asked.
+            //
+            // The second branch is what stops a Kansas resident's pension from
+            // being silently stamped "not a survivor benefit" by an editor that
+            // never asked, and what stops a DC resident who moves to Kansas from
+            // losing an answer they already gave. Also gated on `.pension`, the
+            // same way `classificationToSave` is: switching a row's type away
+            // from pension must not leave a stray survivor fact behind.
+            let survivorToSave: Bool?
+            if incomeType == .pension,
+               PlanClassificationChoice.residenceUsesSurvivorDimension(dataManager.selectedState) {
+                survivorToSave = isSurvivorBenefit
+            } else {
+                survivorToSave = incomeType == .pension ? incomeToEdit?.isSurvivorBenefit : nil
+            }
+
             if let existing = incomeToEdit,
                let index = dataManager.incomeSources.firstIndex(where: { $0.id == existing.id }) {
                 dataManager.incomeSources[index] = IncomeSource(
@@ -1631,7 +1767,8 @@ struct IncomeSourcesView: View {
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
                     ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
                     stateWithholdingMode: stMode, stateWithholdingPercent: statePercent,
-                    planStructure: explicitStructure, planSource: explicitSource
+                    planStructure: explicitStructure, planSource: explicitSource,
+                    isSurvivorBenefit: survivorToSave
                 )
             } else {
                 dataManager.incomeSources.append(IncomeSource(
@@ -1639,7 +1776,8 @@ struct IncomeSourcesView: View {
                     annualAmount: amount, federalWithholding: fedWH, stateWithholding: stateWH, owner: owner,
                     ssWithholdingRate: ssRate, federalWithholdingMode: whMode, federalWithholdingPercent: whPercent,
                     stateWithholdingMode: stMode, stateWithholdingPercent: statePercent,
-                    planStructure: explicitStructure, planSource: explicitSource
+                    planStructure: explicitStructure, planSource: explicitSource,
+                    isSurvivorBenefit: survivorToSave
                 ))
             }
             dataManager.saveAllData()

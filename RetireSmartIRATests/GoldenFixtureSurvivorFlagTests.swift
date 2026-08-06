@@ -96,7 +96,15 @@ struct GoldenFixtureSurvivorFlagTests {
         ("one spouse (65)", [true, nil]),
         // DC-5: the holder's OWN federal civilian pension. The designated
         // NEGATIVE of DC's survivor rule. It must never carry the flag.
-        ("OWN federal civil service pension", [nil])
+        ("OWN federal civil service pension", [nil]),
+        // DC-6: Phase 5b Task 9's Step 3 guard, a MARYLAND survivor annuity.
+        // It IS a survivor benefit and it IS flagged, deliberately: the whole
+        // point of the case is that the flag alone does not select the
+        // exclusion, because D.C. Code Section 47-1803.02(a)(2)(N)(ii) covers
+        // survivor benefits from the District or the federal government and
+        // from nowhere else. Un-flagging it would turn it into a second copy
+        // of DC-5 and it would stop guarding the SOURCE dimension.
+        ("MARYLAND state survivor annuity", [true])
     ]
 
     /// The fixture-level guard. The unit tests above prove the TYPE can carry

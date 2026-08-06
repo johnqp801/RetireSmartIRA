@@ -732,15 +732,99 @@ struct GoldenScenarioDefectCatalogueTests {
                 future task may legitimately reach a different conclusion here; it should
                 do so by pinning them first, not by shipping the rule and hoping.
 
+                UPDATED BY PHASE 5b TASK 9, WHICH RE-OPENED THIS AND RE-MEASURED IT. Task
+                9 added `matchMinAge` to `PerSourceExemptionRule` for D.C. Code Section
+                47-1803.02(a)(2)(N)(ii), and Task 8's reflective tripwire in
+                `Phase5bIdahoDecisionTests` fired on the first full-suite run, as designed.
+                A THIRD shape is now expressible and was measured against the shipped Idaho
+                config: `matchSources: ["uniformedServices"]`, `matchStructures:
+                ["definedBenefit"]`, `matchMinAge: 62`, treatment `full`. Result: ID-3 GOES
+                GREEN and NOTHING ELSE MOVES, with ID-7 (military at 55) still correctly
+                denied and ID-1 and ID-6 (civilians at 60 and 63) untouched. Reverted.
+                TWO of the three objections above are now GONE: the age gate exists, and
+                the household-attribution objection is gone too, because `matchMinAge` is
+                evaluated against the ROW OWNER's own age rather than the household
+                maximum. What survives is the FIRST and largest one, and it is decisive:
+                `treatment: full` is UNCAPPED, so this shape over-exempts a military
+                pension above the $48,216 / $72,324 maximum outright, on top of the
+                unmodelled Social Security offset, and a `.partial` per-source treatment is
+                banned phase-wide because `treatment` is evaluated inside the engine's
+                per-row loop. Both of those ARE pinnable, unlike the FERS collision, so
+                Step 3 requires the catching cases be ADDED, at which point the rule fails
+                them. Idaho still ships nothing.
+
                 RESOLVE IT with a product decision rather than research: a plan-detail axis
                 carrying the eligibility facts (pre-1984 CSRS eligibility; police-or-fire
                 service within a state system) for branch 1, and for branch 2 a
-                benefits-received offset on the pooled cap plus a per-source or
-                per-spouse age gate. Design the classification axis against Massachusetts
+                benefits-received offset on the pooled cap plus a HOUSEHOLD-level cap a
+                per-source rule can carry. The per-source age gate that half of this
+                sentence used to ask for now EXISTS: Task 9 shipped `matchMinAge`, and
+                that half is done. Design the classification axis against Massachusetts
                 and Hawaii too rather than from Idaho alone, per the precedent in the MA
                 entry above that a shared classification axis lands in the model task and
                 is consumed by the jurisdiction tasks. Until then Idaho's five pinned
                 defects and this entry are the record, and the caption is the disclosure.
+                """
+        ),
+        UnpinnedDefect(
+            state: "DC",
+            summary: """
+                A District of Columbia survivor annuitant whose pension row was saved
+                before Phase 5b Task 9 is over-taxed, silently, on every surface. Task 9
+                shipped DC's rule under D.C. Code Section 47-1803.02(a)(2)(N)(ii) keyed on
+                `isSurvivorBenefit == true`, and NO ROW SAVED BEFORE THAT FIELD EXISTED
+                CARRIES IT: the decoder resolves an absent key to `nil`, which is "never
+                asked" and deliberately satisfies neither a `true` nor a `false` rule
+                condition. So a DC survivor whose $50,000 annuity is already correctly
+                classified as a federal civilian pension keeps paying the full $1,924.00
+                that DC-2's fixture pins as the pre-correction figure, until they re-open
+                the row and answer the new toggle.
+
+                THE PART THAT MAKES IT A DEFECT RATHER THAN A MIGRATION IS THE SILENCE.
+                Both disclosure surfaces gate on the pension being UNCLASSIFIED:
+                `UnclassifiedPensionDisclosure.text(for:scope:)` composes a sentence only
+                for a household whose pension is unclassified, and
+                `PlanClassificationChoice.shouldPromptForClassification` requires
+                `planSource == .unknown` or a genuine mix. This user is fully classified,
+                so State Comparison shows nothing, the CPA briefing handed to a preparer
+                shows nothing, and the Income Sources prompt does not fire. The new
+                survivor toggle is visible only once they are already inside the editor,
+                which is the one place they have no reason to go. This is the
+                input-surface-only disclosure gap Phase 5b Task 4 routed to Phase 6,
+                reappearing in a form where the trigger is not a missing answer to a
+                question the user was asked, but a question that did not exist when they
+                answered.
+
+                DIRECTION: over-taxation, which is the safe one, and it is exactly the
+                figure the app produced before the rule shipped. Nobody is told a tax is
+                lower than it is.
+                """,
+            blockedOn: """
+                NO GOLDEN CASE CAN PIN IT, of either admissible kind, and specifically the
+                second: the household is describable, but not distinguishably from one the
+                District taxes differently. A fixture row either states
+                `isSurvivorBenefit` or omits it, and omitting it is EXACTLY what DC-5 (the
+                holder's own federal civilian pension, correctly fully taxable) already
+                does. A fixture for "a survivor benefit whose survivor fact was never
+                recorded" would carry inputs byte-identical to DC-5's with a contradictory
+                `expectedStateTax`, so the two cannot both be asserted. The distinction is
+                not in the data at all: it is between a `nil` that means "own pension" and
+                a `nil` that means "survivor benefit, not yet asked", and the model
+                deliberately does not tell them apart, because inventing the difference is
+                what would let an unanswered question claim an exclusion.
+
+                RESOLVE IT with a product decision, not research, and the same one
+                Massachusetts's and Idaho's entries are waiting on: a disclosure surface
+                that fires for a CLASSIFIED pension whose jurisdiction's rules turn on a
+                fact the row does not carry. Concretely, extend the
+                `UnclassifiedPensionDisclosure` gate from "planSource is unknown" to
+                "this jurisdiction's shipped rules consult a dimension this row leaves
+                nil", which for DC is `matchIsSurvivorBenefit` against
+                `IncomeSource.isSurvivorBenefit` and is already computable from live
+                config by `PlanClassificationChoice.residenceUsesSurvivorDimension`. A
+                one-time migration prompt for existing DC rows would close it faster and
+                is the narrower option. Until then this entry and the survivor toggle in
+                the pension editor are the record.
                 """
         )
     ]

@@ -23,8 +23,25 @@
     "pensionExemption" : {
       "kind" : "none"
     },
+    "perSourceExemptions" : [
+      {
+        "matchSources" : [
+          "federalCivilian",
+          "ownStateOrLocal"
+        ],
+        "matchStructures" : [
+          "definedBenefit"
+        ],
+        "matchIsSurvivorBenefit" : true,
+        "matchMinAge" : 62,
+        "treatment" : {
+          "kind" : "full"
+        }
+      }
+    ],
     "regularExemptionMinAge" : 0,
-    "socialSecurityExempt" : true
+    "socialSecurityExempt" : true,
+    "unclassifiedPensionDisclosure" : "The District of Columbia excludes a DC or federal government survivor benefit from tax with no dollar cap once the survivor is 62 or older, but {scope} taxes your pension in full until it is classified."
   },
   "safeHarborRule" : {
     "kind" : "mirrorsFederal"
