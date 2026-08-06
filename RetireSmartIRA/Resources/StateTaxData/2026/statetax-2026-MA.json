@@ -78,11 +78,19 @@
 
     ],
     "knownLimitations" : [
-      "Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated."
+      {
+        "text" : "Massachusetts excludes a contributory state or local pension but taxes a noncontributory one. This app does not model that distinction, so if your pension is noncontributory your Massachusetts state tax may be understated.",
+        "topic" : "pension"
+      },
+      {
+        "text" : "Massachusetts also excludes a contributory federal government pension and Railroad Retirement benefits from state tax, but this app taxes both in full, so if you receive either your Massachusetts state tax may be overstated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "Massachusetts Department of Revenue, Tax Treatment of Government Pensions in Massachusetts: https://www.mass.gov/info-details/tax-treatment-of-government-pensions-in-massachusetts"
+    ],
+    "taxYear" : 2026
   }
 }

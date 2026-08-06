@@ -1662,16 +1662,25 @@ struct IncomeSourcesView: View {
                             // and the static together, which is what those gates
                             // force.
                             //
-                            // SCOPE NOTE for whoever populates the remaining
-                            // covered jurisdictions: everything in a state's
-                            // `knownLimitations` renders HERE, inside "What kind
-                            // of pension is this?", and this loop does not
-                            // filter. A limitation about brackets or standard
-                            // deductions is true but does not belong under a
-                            // pension picker; if such a sentence is authored,
-                            // this loop needs a way to tell the two apart before
-                            // that state's config carries it.
-                            ForEach(StateAccuracyContent.limitations(for: dataManager.selectedState),
+                            // PENSION-TOPIC SENTENCES ONLY, which is the whole
+                            // reason `StateLimitation` carries a topic. This
+                            // loop rendered a state's ENTIRE `knownLimitations`
+                            // list unfiltered, which was fine while all six
+                            // stored sentences were about pensions but stopped
+                            // being fine once the remaining jurisdictions were
+                            // authored: Utah ships two tax CREDITS and New
+                            // Mexico an age-65 EXEMPTION, none of which turns
+                            // on how a pension is classified and all of which
+                            // change tax for a qualifying filer holding no
+                            // pension at all. They are true, they render in
+                            // full on the per-state accuracy page, and under
+                            // "What kind of pension is this?" they would imply
+                            // that answering the picker moves them.
+                            //
+                            // Still a data change to add a jurisdiction: the
+                            // filter reads each sentence's own topic and this
+                            // file names no state.
+                            ForEach(StateAccuracyContent.pensionLimitations(for: dataManager.selectedState),
                                     id: \.self) { limitation in
                                 Label(limitation, systemImage: "info.circle")
                                     .font(.caption)

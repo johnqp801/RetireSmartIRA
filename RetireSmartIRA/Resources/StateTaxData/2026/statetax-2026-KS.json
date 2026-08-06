@@ -88,11 +88,15 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "Kansas exempts federal retirement benefits including a Thrift Savings Plan, but this app applies that exemption only to a defined benefit pension, so if your federal retirement savings are in a TSP your Kansas state tax may be overstated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "Kansas Department of Revenue, 2025 Individual Income Tax Booklet: https://www.ksrevenue.gov/pdf/ip25.pdf"
+    ],
+    "taxYear" : 2026
   }
 }

@@ -46,11 +46,19 @@
 
     ],
     "knownLimitations" : [
-      "North Carolina exempts a state, local or federal government pension under the Bailey settlement if you had five or more years of creditable service by August 12, 1989. This app does not model that vesting date, so if you qualify your North Carolina state tax may be overstated."
+      {
+        "text" : "North Carolina exempts a state, local or federal government pension under the Bailey settlement if you had five or more years of creditable service by August 12, 1989. This app does not model that vesting date, so if you qualify your North Carolina state tax may be overstated.",
+        "topic" : "pension"
+      },
+      {
+        "text" : "North Carolina exempts military retired pay in full, and this app applies that exemption to money entered as military retirement income but not to a pension classified as military retired pay, so entering it as a pension may overstate your North Carolina state tax.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "North Carolina Department of Revenue, Bailey Decision Concerning Federal, State and Local Retirement Benefits: https://www.ncdor.gov/taxes-forms/individual-income-tax/filing-topics/bailey-decision-concerning-federal-state-and-local-retirement-benefits"
+    ],
+    "taxYear" : 2026
   }
 }

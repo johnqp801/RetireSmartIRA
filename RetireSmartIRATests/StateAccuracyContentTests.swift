@@ -138,8 +138,8 @@ struct StateAccuracyContentTests {
     func hawaiiSentenceServesBothSurfaces() throws {
         let stored = try #require(
             StateTaxData.config(for: .hawaii).verification.knownLimitations.first {
-                $0.contains(UnclassifiedPensionDisclosure.scopeToken)
-            },
+                $0.text.contains(UnclassifiedPensionDisclosure.scopeToken)
+            }?.text,
             "Hawaii ships no scope-token limitation, so it cannot serve both surfaces")
 
         let tokenCount = stored.components(
@@ -270,6 +270,131 @@ struct StateAccuracyContentTests {
         // No count assertion follows. Set equality already fixes the count,
         // and a bare `== 15` would put back the hardcoded number this test
         // exists to replace with a derivation, with no failure message.
+    }
+
+    // MARK: - Topic tagging, and the surface that filters on it
+
+    /// The pension editor renders `pensionLimitations(for:)`, not
+    /// `limitations(for:)`, and this is what makes that distinction real.
+    ///
+    /// THE DEFECT IT GUARDS. The editor's section is headed "What kind of
+    /// pension is this?" and once Utah's two tax credits and New Mexico's
+    /// age-65 Schedule PIT-ADJ exemption were authored, an unfiltered loop put
+    /// all three under that heading. None of them turns on how a pension is
+    /// classified; all three change tax for a qualifying filer who holds no
+    /// pension at all, so the placement implies the picker moves them.
+    ///
+    /// Asserted as a PROPERTY over every covered jurisdiction rather than
+    /// against Utah and New Mexico by name, so a non-pension sentence authored
+    /// for a different state later is caught without editing this test.
+    @Test("The pension editor sees pension sentences only, and every other topic still reaches the accuracy page")
+    func pensionEditorFiltersToPensionTopics() {
+        for state in StateAccuracyContent.coveredJurisdictions.sorted(by: { $0.abbreviation < $1.abbreviation }) {
+            let stored = StateTaxData.config(for: state).verification.knownLimitations
+            let all = StateAccuracyContent.limitations(for: state)
+            let pensionOnly = StateAccuracyContent.pensionLimitations(for: state)
+
+            #expect(all.count == stored.count,
+                    "\(state.abbreviation): the accuracy page must show every stored sentence")
+            #expect(pensionOnly.count == stored.filter { $0.topic == .pension }.count,
+                    "\(state.abbreviation): the pension editor showed a different number of sentences than it has pension-topic ones")
+            for line in pensionOnly {
+                #expect(all.contains(line),
+                        "\(state.abbreviation): the editor rendered a sentence the accuracy page does not")
+            }
+            for limitation in stored where limitation.topic != .pension {
+                let rendered = StateAccuracyContent.limitations(for: state)
+                    .first { $0.hasPrefix(String(limitation.text.prefix(30))) }
+                #expect(rendered != nil,
+                        "\(state.abbreviation): a \(limitation.topic.rawValue) sentence vanished from the accuracy page")
+                #expect(!pensionOnly.contains { $0.hasPrefix(String(limitation.text.prefix(30))) },
+                        "\(state.abbreviation): a \(limitation.topic.rawValue) sentence reached the pension editor")
+            }
+        }
+    }
+
+    /// Every topic in the enum is carried by a sentence that actually ships.
+    ///
+    /// A case no sentence uses is a distinction nothing has had to defend, and
+    /// the pension editor's filter would keep working while the vocabulary
+    /// drifted away from the copy. Fails in BOTH directions: an unused case
+    /// here, or a topic that decode produced but the enum does not name, are
+    /// both caught.
+    @Test("Every limitation topic is earned by a sentence that ships")
+    func everyTopicIsUsedBySomeShippedSentence() {
+        var used: Set<LimitationTopic> = []
+        for state in USState.allCases {
+            for limitation in StateTaxData.config(for: state).verification.knownLimitations {
+                used.insert(limitation.topic)
+            }
+        }
+        #expect(used == Set(LimitationTopic.allCases),
+                """
+                Unused topics: \(Set(LimitationTopic.allCases).subtracting(used).map(\.rawValue).sorted()). \
+                Add a case when a sentence needs one, not in advance.
+                """)
+    }
+
+    /// `StateLimitation` decodes a BARE JSON string as a robustness fallback,
+    /// resolving it to `.pension` so a mistyped entry keeps rendering rather
+    /// than disappearing. That fallback exists because a decode THROW is
+    /// converted by `StateTaxDataLoader` into a per-state fallback to the
+    /// frozen legacy table, whose `verification` is `.unverified`, which would
+    /// drop the state's disclosure entirely in release and trap the process in
+    /// debug.
+    ///
+    /// It is a fallback, not a second supported shape, and this reads the
+    /// shipped bytes off disk to prove no file relies on it. Decoding through
+    /// `StateVerification` could not tell the two forms apart, which is the
+    /// same reason Layer C inspects raw keys.
+    @Test("No shipped file relies on the untagged fallback form")
+    func everyShippedLimitationIsTaggedInTheFileItself() throws {
+        for state in USState.allCases {
+            let url = try StateTaxDataLoader.fileURL(for: state,
+                                                     taxYear: StateTaxDataLoader.defaultTaxYear)
+            let object = try JSONSerialization.jsonObject(with: try Data(contentsOf: url))
+            guard let root = object as? [String: Any],
+                  let verification = root["verification"] as? [String: Any],
+                  let limitations = verification["knownLimitations"] as? [Any] else {
+                Issue.record("\(state.abbreviation): could not read verification.knownLimitations")
+                continue
+            }
+            for (index, entry) in limitations.enumerated() {
+                guard let tagged = entry as? [String: Any] else {
+                    Issue.record("""
+                        \(state.abbreviation) knownLimitations[\(index)] ships as a bare string. \
+                        That still decodes, as a pension-topic sentence, but the topic decides \
+                        which surfaces render it and must be stated rather than inferred.
+                        """)
+                    continue
+                }
+                #expect(tagged["text"] is String,
+                        "\(state.abbreviation) knownLimitations[\(index)] has no text")
+                let raw = tagged["topic"] as? String
+                #expect(raw.flatMap(LimitationTopic.init(rawValue:)) != nil,
+                        "\(state.abbreviation) knownLimitations[\(index)] has an unknown topic \(raw ?? "<missing>")")
+            }
+        }
+    }
+
+    /// Every limitation sentence any user can see, on any surface, in both
+    /// scopes. The six captions have their own pin above; this one covers the
+    /// sentences authored afterwards, which have no other dash gate.
+    @Test("No shipped limitation sentence carries a dash, a doubled space or stray whitespace")
+    func everyShippedSentenceIsCleanCopy() {
+        for state in USState.allCases {
+            for scope in [StateAccuracyContent.LimitationScope.app, .plan] {
+                for line in StateAccuracyContent.limitations(for: state, scope: scope) {
+                    #expect(!line.contains("\u{2014}") && !line.contains("\u{2013}"),
+                            "\(state.abbreviation): em or en dash in user-facing copy: \(line)")
+                    #expect(!line.contains("  "),
+                            "\(state.abbreviation): doubled space in user-facing copy: \(line)")
+                    #expect(line == line.trimmingCharacters(in: .whitespacesAndNewlines),
+                            "\(state.abbreviation): stray leading or trailing whitespace: \(line)")
+                    #expect(!line.isEmpty, "\(state.abbreviation): empty limitation sentence")
+                }
+            }
+        }
     }
 
     // MARK: - The taxYear sentinel

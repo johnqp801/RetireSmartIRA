@@ -742,10 +742,12 @@ struct StateTaxJSONStructuralEquivalenceTests {
     /// per-state accuracy disclosure work moved four approved pension-editor
     /// captions into `verification.knownLimitations`, so that a limitation
     /// sentence is written in exactly one place and the editor renders it from
-    /// the resident's own config. `configs2026Legacy` builds every entry with
-    /// `verification` defaulted to `.unverified` and has no way to carry a
-    /// sentence, so the two documents necessarily differ. Massachusetts's
-    /// caption moved the same way and needs no entry here, being already on
+    /// the resident's own config, and then populated `taxYear`, `lastVerified`,
+    /// `primarySources` and further limitation sentences for the covered
+    /// jurisdictions. `configs2026Legacy` builds every entry with
+    /// `verification` defaulted to `.unverified` and has no way to carry any of
+    /// that, so the two documents necessarily differ. Massachusetts's caption
+    /// moved the same way and needs no entry here, being already on
     /// `phase5CorrectedJurisdictions`.
     ///
     /// WHY NOT ADD THESE FOUR TO `phase5CorrectedJurisdictions`. That set
@@ -763,11 +765,15 @@ struct StateTaxJSONStructuralEquivalenceTests {
     /// exists to remove, and because the frozen table is a snapshot of
     /// pre-JSON tax LAW, not a second home for disclosure copy.
     ///
-    /// FOR WHOEVER AUTHORS THE REMAINING SENTENCES: of the fifteen covered
-    /// jurisdictions, New York and Missouri are on neither set, so populating
-    /// their `knownLimitations` will fail Layer B until they are added here.
+    /// MISSOURI AND NEW YORK JOINED WHEN THE REMAINING SENTENCES WERE AUTHORED,
+    /// which the previous revision of this comment predicted. They were the
+    /// only two of the fifteen covered jurisdictions on neither divergence set:
+    /// the other eight covered states are Phase 5 corrections. Both now carry a
+    /// tax year, a verified date, a primary source and limitation sentences,
+    /// and NOTHING ELSE in either file moved, which the confinement assertion
+    /// below re-proves on every run rather than taking this comment's word.
     static let disclosureOnlyDivergentJurisdictions: Set<USState> = [
-        .hawaii, .northCarolina, .idaho, .vermont
+        .hawaii, .northCarolina, .idaho, .vermont, .missouri, .newYork
     ]
 
     /// A config re-encoded with `verification` stripped, so "the disclosure

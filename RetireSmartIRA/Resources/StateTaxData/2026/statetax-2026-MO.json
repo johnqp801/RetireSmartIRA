@@ -110,11 +110,19 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "Missouri caps its public pension exemption at each person's own maximum Social Security benefit, reduced by any Social Security deduction that person claims, but this app exempts a public pension in full with no cap, so your Missouri state tax may be understated.",
+        "topic" : "pension"
+      },
+      {
+        "text" : "Missouri limits its private pension, IRA and 401(k) exemption to $6,000 per taxpayer and phases it out above $25,000 of Missouri adjusted gross income ($32,000 married filing combined), but this app exempts that income in full, so your Missouri state tax may be understated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-04",
     "primarySources" : [
-
-    ]
+      "Missouri Department of Revenue, Form MO-A (2025): https://dor.mo.gov/forms/MO-A_2025.pdf"
+    ],
+    "taxYear" : 2026
   }
 }

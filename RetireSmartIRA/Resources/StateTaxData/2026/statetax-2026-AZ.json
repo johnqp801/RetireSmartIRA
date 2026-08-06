@@ -73,11 +73,19 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "Arizona may not tax Railroad Retirement benefits at all, but this app gives them only Arizona's $2,500 government pension allowance, so if that reading is right your Arizona state tax may be overstated.",
+        "topic" : "pension"
+      },
+      {
+        "text" : "Arizona allows each spouse a separate $2,500 government pension allowance, but this app applies a single $2,500 allowance to the household, so if both of you receive a qualifying pension your Arizona state tax may be overstated.",
+        "topic" : "pension"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-05",
     "primarySources" : [
-
-    ]
+      "Arizona Department of Revenue, Form 140 Instructions, Lines 29a and 29b: https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf"
+    ],
+    "taxYear" : 2026
   }
 }

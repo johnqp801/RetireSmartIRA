@@ -51,9 +51,10 @@
     "knownLimitations" : [
 
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-04",
     "primarySources" : [
-
-    ]
+      "Indiana Department of Revenue, Departmental Notice #1: https://www.in.gov/dor/files/dn01.pdf"
+    ],
+    "taxYear" : 2026
   }
 }

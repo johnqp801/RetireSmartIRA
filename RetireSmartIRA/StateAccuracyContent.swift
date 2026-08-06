@@ -86,7 +86,28 @@ enum StateAccuracyContent {
     static func limitations(for state: USState,
                             scope: LimitationScope = .app) -> [String] {
         StateTaxData.config(for: state).verification.knownLimitations
-            .map { render($0, scope: scope) }
+            .map { render($0.text, scope: scope) }
+    }
+
+    /// Only those of `state`'s limitation sentences that are about how a
+    /// pension or other retirement distribution is taxed, rendered for `scope`.
+    ///
+    /// THE PENSION EDITOR MUST USE THIS, NOT `limitations(for:)`. That section
+    /// is headed "What kind of pension is this?" and its whole job is to help a
+    /// user classify one plan. A state's full list also carries sentences about
+    /// credits and age exemptions, which are true, belong on the per-state
+    /// accuracy page, and are noise under a pension picker: Utah's taxpayer tax
+    /// credit and retirement credit and New Mexico's age-65 Schedule PIT-ADJ
+    /// exemption change tax for a qualifying filer who holds no pension at all,
+    /// so showing them there implies the picker affects them.
+    ///
+    /// The filter is on the sentence's OWN topic, so adding a jurisdiction
+    /// stays a data change. Nothing here enumerates states.
+    static func pensionLimitations(for state: USState,
+                                   scope: LimitationScope = .app) -> [String] {
+        StateTaxData.config(for: state).verification.knownLimitations
+            .filter { $0.topic == .pension }
+            .map { render($0.text, scope: scope) }
     }
 
     /// Only those of `state`'s limitation sentences whose wording differs
@@ -102,8 +123,8 @@ enum StateAccuracyContent {
     static func surfaceDependentLimitations(for state: USState,
                                             scope: LimitationScope) -> [String] {
         StateTaxData.config(for: state).verification.knownLimitations
-            .filter { $0.contains(UnclassifiedPensionDisclosure.scopeToken) }
-            .map { render($0, scope: scope) }
+            .filter { $0.text.contains(UnclassifiedPensionDisclosure.scopeToken) }
+            .map { render($0.text, scope: scope) }
     }
 
     private static func render(_ sentence: String, scope: LimitationScope) -> String {

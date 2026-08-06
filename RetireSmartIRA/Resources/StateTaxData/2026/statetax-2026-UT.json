@@ -43,11 +43,19 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "Utah reduces tax by a taxpayer tax credit worth up to 6% of your federal standard deduction, phased out above $18,213 of income ($36,426 if married filing jointly), but this app does not apply it, so your Utah state tax may be overstated.",
+        "topic" : "credit"
+      },
+      {
+        "text" : "Utah also gives a $450 retirement credit to each filer born on or before December 31, 1952, but this app does not apply it, so if you qualify your Utah state tax may be overstated.",
+        "topic" : "credit"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-04",
     "primarySources" : [
-
-    ]
+      "Utah State Tax Commission, TC-40 Instructions: https://tax.utah.gov/forms/current/tc-40inst.pdf"
+    ],
+    "taxYear" : 2026
   }
 }

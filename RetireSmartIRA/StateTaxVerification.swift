@@ -1,5 +1,95 @@
 import Foundation
 
+/// What part of a jurisdiction's tax treatment a limitation sentence is about.
+///
+/// EXISTS BECAUSE A SURFACE HAS TO CHOOSE. Every limitation a state ships
+/// rendered, unfiltered, inside the pension editor's "What kind of pension is
+/// this?" section. That was harmless while every stored sentence was about a
+/// pension, which was true of all six that existed before this field, Georgia's
+/// included: its $70,000 figure is the TY2027 RETIREMENT-INCOME EXCLUSION, not
+/// the $15,000/$30,000 standard deduction its wording suggests.
+///
+/// It stopped being true when the remaining jurisdictions were authored. Utah's
+/// taxpayer tax credit and retirement credit, and New Mexico's age-65 Schedule
+/// PIT-ADJ exemption, are not about pensions at all: they change tax for every
+/// filer who qualifies, including one with no pension. Rendering them under
+/// "What kind of pension is this?" would be true and misplaced, and would
+/// invite a user to think answering the picker changes them.
+///
+/// The topic names the MECHANISM the sentence is about, not the screen it
+/// belongs on. Surfaces choose: the pension editor asks for `.pension` alone,
+/// and the per-state accuracy page shows every topic. Naming a screen here
+/// would put a layout decision inside the tax data, and the same sentence is
+/// already read by three surfaces.
+///
+/// Every case below is used by a sentence that ships today. Add a case when a
+/// sentence needs one, not in advance; a case no sentence carries is a
+/// distinction nothing has had to defend.
+enum LimitationTopic: String, Codable, Equatable, Sendable, CaseIterable {
+    /// How a pension, annuity, IRA or other retirement distribution is taxed,
+    /// exempted or classified. Includes a cap on a retirement-income exclusion.
+    case pension
+    /// A credit against tax, computed after taxable income and therefore
+    /// unaffected by how any income is classified.
+    case credit
+    /// An exemption from income that does not turn on retirement
+    /// classification, such as an age-based personal exemption.
+    case exemption
+}
+
+/// One plain sentence describing something this app does not model for a
+/// jurisdiction, together with what it is about.
+///
+/// THE TEXT IS JOHN'S APPROVED COPY and is rendered verbatim. The topic is
+/// part of that editorial decision rather than an implementation detail,
+/// because it decides which surfaces show the sentence.
+struct StateLimitation: Codable, Equatable, Sendable {
+    /// Rendered verbatim to the user. May carry the `{scope}` token, which each
+    /// surface substitutes; see `StateAccuracyContent.LimitationScope`.
+    let text: String
+
+    /// What the sentence is about. Decides which surfaces render it.
+    let topic: LimitationTopic
+
+    enum CodingKeys: String, CodingKey {
+        case text
+        case topic
+    }
+
+    /// Accepts EITHER the tagged object form or a bare JSON string.
+    ///
+    /// The bare form resolves to `.pension`, which is the pre-tag behaviour:
+    /// the sentence keeps rendering everywhere it used to, including the
+    /// pension editor. That direction is deliberate. The alternative default
+    /// would silently REMOVE a disclosure from the one screen a pension holder
+    /// sees, and a disclosure disappearing is the dangerous direction in this
+    /// program; a true sentence shown under a slightly wrong heading is not.
+    ///
+    /// It is a robustness fallback, not a second supported shape. No bundled
+    /// file uses it, and `StateAccuracyContentTests
+    /// .everyShippedLimitationIsTaggedInTheFileItself` reads the files off disk
+    /// and fails if one ever does. Strict decoding was considered and rejected:
+    /// a throw here is converted by `StateTaxDataLoader` into a per-state
+    /// fallback to the frozen legacy table, whose `verification` is
+    /// `.unverified`, so a mistyped entry would drop the state's disclosure
+    /// entirely in release and trap the process in debug.
+    init(from decoder: Decoder) throws {
+        if let container = try? decoder.singleValueContainer(),
+           let bare = try? container.decode(String.self) {
+            self.init(text: bare, topic: .pension)
+            return
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(text: try container.decode(String.self, forKey: .text),
+                  topic: try container.decode(LimitationTopic.self, forKey: .topic))
+    }
+
+    init(text: String, topic: LimitationTopic) {
+        self.text = text
+        self.topic = topic
+    }
+}
+
 /// Provenance for one jurisdiction's tax configuration.
 ///
 /// Present on every state file. Its purpose is to make a verification claim
@@ -60,9 +150,15 @@ struct StateVerification: Codable, Equatable, Sendable {
     /// Bill numbers with their disposition, e.g. "SB25-136 (postponed indefinitely)".
     let billReferences: [String]
 
-    /// Plain sentences describing what this app does NOT model for this state.
-    /// Surfaced verbatim in the disclosure UI. Required, may be empty.
-    let knownLimitations: [String]
+    /// Plain sentences describing what this app does NOT model for this state,
+    /// each tagged with what it is about. Surfaced verbatim in the disclosure
+    /// UI. Required, may be empty.
+    ///
+    /// AN EMPTY LIST IS NOT A CLEAN BILL OF HEALTH. It records what has not
+    /// been FOUND for this jurisdiction, never what does not EXIST. Thirty-six
+    /// jurisdictions are outside the scope this release authored pages for and
+    /// carry an empty list for that reason alone.
+    let knownLimitations: [StateLimitation]
 
     var isVerified: Bool { !lastVerified.isEmpty }
 
@@ -109,7 +205,7 @@ extension StateVerification {
             lastVerified: try container.decode(String.self, forKey: .lastVerified),
             primarySources: try container.decode([String].self, forKey: .primarySources),
             billReferences: try container.decode([String].self, forKey: .billReferences),
-            knownLimitations: try container.decode([String].self, forKey: .knownLimitations)
+            knownLimitations: try container.decode([StateLimitation].self, forKey: .knownLimitations)
         )
     }
 }

@@ -12,7 +12,10 @@ struct StateTaxCodableRoundTripTests {
             lastVerified: "2026-08-02",
             primarySources: ["https://www.ksrevenue.gov/webfile/help/scheduleS_A.html"],
             billReferences: ["SB 1 (2024 special session)"],
-            knownLimitations: ["Public pensions are not distinguished from private."]
+            knownLimitations: [
+                StateLimitation(text: "Public pensions are not distinguished from private.",
+                                topic: .pension)
+            ]
         )
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(StateVerification.self, from: data)
@@ -508,7 +511,10 @@ struct StateTaxCodableRoundTripTests {
                 lastVerified: "2026-08-02",
                 primarySources: ["https://revenue.iowa.gov/"],
                 billReferences: ["HF 2317 (signed 2022-03-01)"],
-                knownLimitations: ["Roth conversion income is not yet exempted."]
+                knownLimitations: [
+                    StateLimitation(text: "Roth conversion income is not yet exempted.",
+                                    topic: .pension)
+                ]
             )
         )
         let data = try JSONEncoder().encode(original)

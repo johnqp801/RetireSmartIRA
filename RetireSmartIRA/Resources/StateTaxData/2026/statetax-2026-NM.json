@@ -95,11 +95,16 @@
 
     ],
     "knownLimitations" : [
-
+      {
+        "text" : "New Mexico gives each filer aged 65 or older an income-graduated exemption of up to $8,000 on Schedule PIT-ADJ, but this app does not apply it, so if you are 65 or older your New Mexico state tax may be overstated.",
+        "topic" : "exemption"
+      }
     ],
-    "lastVerified" : "",
+    "lastVerified" : "2026-08-04",
     "primarySources" : [
-
-    ]
+      "New Mexico House Bill 252 (2024 Regular Session), enrolled bill text: https://www.nmlegis.gov/Sessions/24%20Regular/bills/house/HB0252TRS.pdf",
+      "New Mexico Taxation and Revenue Department, 2025 Schedule PIT-ADJ Instructions: https://klvg4oyd4j.execute-api.us-west-2.amazonaws.com/prod/PublicFiles/34821a9573ca43e7b06dfad20f5183fd/61f8c5b0-b391-49b5-9d66-6605ef1f0c13/2025pit-adj-ins.pdf"
+    ],
+    "taxYear" : 2026
   }
 }
