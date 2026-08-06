@@ -420,4 +420,157 @@ struct StateAccuracyContentTests {
         #expect(StateTaxData.config(for: .georgia).verification.statedTaxYear
                 == StateTaxDataLoader.defaultTaxYear)
     }
+
+    // MARK: - Task 5: the factual half
+
+    /// The factual half is GENERATED, so the thing worth pinning is that it
+    /// reports the numbers the engine actually reads, for the filing status
+    /// asked for.
+    ///
+    /// Kansas is the right specimen. Its standard deduction and personal
+    /// exemption are both filing-status specific, and its personal exemption is
+    /// a Phase 5a correction that exists in the bundled JSON and NOT in the
+    /// frozen legacy table, so a run that silently fell back to the legacy
+    /// config would fail here rather than pass quietly.
+    @Test("The factual half states Kansas's configured deduction and exemption")
+    func kansasFactualStatementsMatchItsConfig() {
+        let statements = StateAccuracyContent.factualStatements(for: .kansas,
+                                                                filingStatus: .single)
+        let byLabel = Dictionary(uniqueKeysWithValues: statements.map { ($0.label, $0.value) })
+        #expect(byLabel["Standard deduction"] == "$3,605")
+        #expect(byLabel["Personal exemption"] == "$9,160")
+        #expect(byLabel["Social Security"] != nil)
+        #expect(byLabel["Pension exemption"] != nil)
+    }
+
+    /// The married column is a DIFFERENT column, and reading the wrong one is
+    /// the defect most likely to survive a single-filing-status test: every
+    /// value would still be a plausible dollar figure.
+    @Test("The factual half switches columns with the filing status")
+    func kansasFactualStatementsFollowTheFilingStatus() {
+        let joint = StateAccuracyContent.factualStatements(for: .kansas,
+                                                           filingStatus: .marriedFilingJointly)
+        let byLabel = Dictionary(uniqueKeysWithValues: joint.map { ($0.label, $0.value) })
+        #expect(byLabel["Standard deduction"] == "$8,240")
+        #expect(byLabel["Personal exemption"] == "$18,320")
+        // The bracket threshold doubles for a joint return in Kansas.
+        #expect(byLabel["Tax rates"]?.contains("$46,000") == true)
+    }
+
+    /// Labels are the identity of a statement: `Statement.id` is the label, the
+    /// accuracy page renders them in a `ForEach`, and the tests above build a
+    /// dictionary keyed by them. A duplicate label would crash
+    /// `Dictionary(uniqueKeysWithValues:)` and would give SwiftUI two rows with
+    /// one identity.
+    ///
+    /// This is why Kansas's two per-source rules, and Arizona's, are joined into
+    /// ONE statement rather than emitted one per rule.
+    @Test("No jurisdiction emits the same statement label twice")
+    func statementLabelsAreUniquePerJurisdiction() {
+        for state in USState.allCases {
+            for status in FilingStatus.allCases {
+                let labels = StateAccuracyContent
+                    .factualStatements(for: state, filingStatus: status)
+                    .map(\.label)
+                #expect(labels.count == Set(labels).count,
+                        "\(state.abbreviation) \(status.rawValue) repeated a label: \(labels)")
+            }
+        }
+    }
+
+    /// Every jurisdiction says SOMETHING, and nothing it says is malformed.
+    ///
+    /// The empty-list case matters: a state whose statements were all omitted
+    /// would render a page with a limitations section and no factual half at
+    /// all, which reads as though the app models nothing for that state.
+    @Test("Every jurisdiction and filing status produces well-formed statements")
+    func everyJurisdictionProducesCleanStatements() {
+        for state in USState.allCases {
+            for status in FilingStatus.allCases {
+                let statements = StateAccuracyContent.factualStatements(for: state,
+                                                                        filingStatus: status)
+                #expect(!statements.isEmpty,
+                        "\(state.abbreviation) \(status.rawValue) produced no factual statements")
+                for statement in statements {
+                    let context = "\(state.abbreviation) \(status.rawValue) \(statement.label)"
+                    #expect(!statement.label.isEmpty, "\(context): empty label")
+                    #expect(!statement.value.isEmpty, "\(context): empty value")
+                    for text in [statement.label, statement.value] {
+                        #expect(!text.contains("\u{2014}") && !text.contains("\u{2013}"),
+                                "\(context): em or en dash in user-facing copy: \(text)")
+                        #expect(!text.contains("  "), "\(context): doubled space: \(text)")
+                        #expect(text == text.trimmingCharacters(in: .whitespacesAndNewlines),
+                                "\(context): stray whitespace: \(text)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// A jurisdiction that levies no tax on the income this app models has no
+    /// deduction, bracket or exemption to describe, and describing one would be
+    /// worse than saying nothing: "Pension exemption: fully exempt" for Texas
+    /// implies a Texas income tax that grants an exemption.
+    ///
+    /// The engine agrees, and that is what makes this safe rather than merely
+    /// tidy: `TaxCalculationEngine.calculateStateTax` returns 0 for both
+    /// `.noIncomeTax` and `.specialLimited` before any bracket is consulted.
+    @Test("A jurisdiction with no tax on modelled income says exactly that, once")
+    func untaxedJurisdictionsMakeOneStatement() {
+        for state in USState.allCases {
+            let config = StateTaxData.config(for: state)
+            guard !config.taxSystem.hasIncomeTax else { continue }
+            let statements = StateAccuracyContent.factualStatements(for: state,
+                                                                    filingStatus: .single)
+            #expect(statements.count == 1,
+                    "\(state.abbreviation) has no tax on modelled income but made \(statements.count) statements")
+            #expect(statements.first?.label == "Tax rates")
+        }
+    }
+
+    /// The plan's fixed order, asserted as a RELATIVE order over whichever
+    /// statements a jurisdiction emits, because the optional ones (personal
+    /// exemption, per-source rules) are present for only a handful.
+    ///
+    /// Order is user-facing: rates before deductions before exemptions is the
+    /// sequence the tax is actually computed in, and a page that listed the
+    /// per-source carve-out before the general exemption it overrides would
+    /// invert the logic a reader is trying to follow.
+    @Test("Statements appear in the order the tax is computed in")
+    func statementsKeepTheirOrder() {
+        let expected = ["Tax rates", "Standard deduction", "Personal exemption",
+                        "Social Security", "Pension exemption",
+                        "IRA and 401(k) exemption", "Rules by pension source"]
+        for state in USState.allCases {
+            for status in FilingStatus.allCases {
+                let labels = StateAccuracyContent
+                    .factualStatements(for: state, filingStatus: status)
+                    .map(\.label)
+                let positions = labels.map { label -> Int in
+                    expected.firstIndex(of: label) ?? -1
+                }
+                #expect(!positions.contains(-1),
+                        "\(state.abbreviation) emitted a label outside the fixed order: \(labels)")
+                #expect(positions == positions.sorted(),
+                        "\(state.abbreviation) \(status.rawValue) emitted statements out of order: \(labels)")
+            }
+        }
+    }
+
+    /// A per-source rule is the ONLY thing standing between a Kansas KPERS
+    /// holder and a fully taxed pension, and the general pension exemption
+    /// reads `.none` for exactly that reason. Both halves of that have to
+    /// reach the page or it tells a KPERS holder their pension is taxable.
+    @Test("Kansas's per-source exclusion reaches the page in plain language")
+    func kansasPerSourceRuleIsStatedPlainly() throws {
+        let statements = StateAccuracyContent.factualStatements(for: .kansas,
+                                                                filingStatus: .single)
+        let rule = try #require(statements.first { $0.label == "Rules by pension source" })
+        #expect(rule.value == "Kansas government, federal civilian service, military and Railroad Retirement pensions are fully exempt.")
+        // And the general exemption does not contradict it by claiming nothing
+        // is excluded.
+        let general = try #require(statements.first { $0.label == "Pension exemption" })
+        #expect(general.value == "No general exemption.")
+    }
+
 }
