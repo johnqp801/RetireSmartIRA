@@ -386,6 +386,48 @@ struct IncomeSourcesView: View {
         + "Bailey settlement if you had five or more years of creditable service by "
         + "August 12, 1989. This app does not model that vesting date, so if you qualify "
         + "your North Carolina state tax may be overstated."
+
+    /// Phase 5b Task 8. Idaho's Retirement Benefits Deduction disclosure.
+    ///
+    /// **PROPOSED COPY, AWAITING JOHN'S APPROVAL**, on the same footing as the
+    /// North Carolina caption above and for the same reason: Idaho ships no rule,
+    /// so `shouldPromptForClassification` never fires for an Idaho resident (it
+    /// gates on `residenceHasPerSourceRules`) and
+    /// `UnclassifiedPensionDisclosure.text(for: .idaho)` is nil (it gates on the
+    /// config sentence, which is in bidirectional lockstep with the rules). That
+    /// leaves an Idaho resident with ZERO disclosure on every surface while
+    /// Idaho grants no Retirement Benefits Deduction at all, over-taxing a
+    /// qualifying retiree by up to $840.05 a year at the ID-2 fixture's shape.
+    ///
+    /// Two other wordings were drafted and are recorded in the Task 8 report; this
+    /// one was recommended because it names the three qualifying groups and BOTH
+    /// age gates, so a reader can tell whether it applies to them, rather than
+    /// warning vaguely that something may be wrong. Rewording is a one-line change
+    /// here plus the assertions in
+    /// `Phase5bIdahoDecisionTests.idahoCaptionNamesTheRightDirection`.
+    ///
+    /// DIRECTION: overstated. Idaho applies no part of the deduction today, so
+    /// every error runs toward over-taxation, exactly like North Carolina and
+    /// Hawaii and unlike Massachusetts. Harmonising this with the Massachusetts
+    /// caption would invert it.
+    ///
+    /// It cannot be an `unclassifiedPensionDisclosure` sentence, for the same two
+    /// reasons North Carolina's could not: that string is in bidirectional
+    /// lockstep with `perSourceExemptions`, which Idaho deliberately does not
+    /// ship, and it would be false anyway, because an Idaho pension can be
+    /// perfectly classified through the picker and still be taxed wrongly. The
+    /// facts Idaho's Form 39R Part Two needs, pre-1984 CSRS eligibility and
+    /// police-or-firefighter service within PERSI, are not on the classification
+    /// at all. The durable record is the ID entry in
+    /// `GoldenScenarioDefectCatalogueTests.knownButUnpinned`; this is the only
+    /// surface that reaches the affected user. Delete both together if those axes
+    /// are ever added.
+    static let idahoRetirementBenefitsDeductionCaption =
+        "Idaho deducts certain retirement benefits from state tax, including Civil "
+        + "Service (CSRS) annuities, some Idaho police and firefighter pensions, and "
+        + "military retired pay, generally from age 65 or from age 62 for retired "
+        + "service members. This app does not apply that deduction, so if you qualify "
+        + "your Idaho state tax may be overstated."
     @Environment(DataManager.self) var dataManager
     @State private var showingAddIncome = false
     @State private var selectedIncomeSource: IncomeSource?
@@ -1400,6 +1442,20 @@ struct IncomeSourcesView: View {
                             // OVER-taxation.
                             if dataManager.selectedState == .northCarolina {
                                 Label(IncomeSourcesView.northCarolinaBaileyCaption,
+                                      systemImage: "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            // Phase 5b Task 8. PROPOSED copy, awaiting John's
+                            // approval; see IncomeSourcesView
+                            // .idahoRetirementBenefitsDeductionCaption for why
+                            // Idaho ships a caption and no rule. Same direction
+                            // as North Carolina directly above, OVER-taxation:
+                            // Idaho applies no Retirement Benefits Deduction at
+                            // all today.
+                            if dataManager.selectedState == .idaho {
+                                Label(IncomeSourcesView.idahoRetirementBenefitsDeductionCaption,
                                       systemImage: "info.circle")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)

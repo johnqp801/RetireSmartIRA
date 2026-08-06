@@ -636,6 +636,89 @@ struct GoldenScenarioDefectCatalogueTests {
                 `PlanSource.uniformedServices` are two encodings of one fact and one of them
                 should eventually be derived from the other.
                 """
+        ),
+        UnpinnedDefect(
+            state: "ID",
+            summary: """
+                Idaho's Retirement Benefits Deduction (Form 39R Line 8) is granted only to
+                a CLOSED list of plans, and membership in that list turns on facts
+                `RetirementPlanClassification` does not carry, so Phase 5b Task 8 shipped
+                NO Idaho `perSourceExemptions` and Idaho still grants no deduction at all.
+                The four pinned defects ID-2 through ID-5 record the resulting
+                over-taxation and STAY. This entry records why they were not fixed.
+
+                TWO CONDITIONS, both quoted from the fixture's own Form 39R citations,
+                neither expressible. FIRST, the civilian grant is "Retirement annuities
+                paid by the U.S. Civil Service Retirement System (CSRS)" where "the
+                employee must have established eligibility before 1984". FERS is a
+                different system and is not on the list. The picker offers exactly one row
+                for both, "Government pension, federal civilian", writing
+                `(definedBenefit, federalCivilian)`, and there is no pre-1984 eligibility
+                field anywhere on the classification. SECOND, the own-state grant covers
+                PERSI FIREFIGHTERS and certain Idaho POLICE, not PERSI generally, while
+                the picker's "Government pension, my own state or locality" row writes
+                `(definedBenefit, ownStateOrLocal)` for every Idaho public retiree
+                including teachers and general state employees.
+
+                THE POPULATION IS WHAT DECIDED IT, exactly as for North Carolina's Bailey
+                entry above. A pre-1984 eligibility condition means the qualifying civilian
+                class CLOSED IN 1984 and can never gain a member; that is entailed by the
+                quoted condition itself, not imported from outside the fixture. Its
+                complement has grown with every federal civilian hire for forty-two years,
+                so a `federalCivilian` rule would be wrong for the majority of federal
+                civilian retirees in Idaho today and for a larger majority every year, in
+                the UNDER-taxation direction. Shipping would trade a bounded, disclosed
+                over-taxation of a closed and shrinking cohort for an undisclosed
+                under-taxation of a growing one.
+
+                REACHABLE, not theoretical: both over-matching rows are rows a real user
+                selects, and Task 8's caption
+                (`IncomeSourcesView.idahoRetirementBenefitsDeductionCaption`) is the only
+                surface that reaches them, since Idaho ships no rule and therefore gets
+                neither the classification prompt nor the unclassified-pension disclosure.
+                """,
+            blockedOn: """
+                NOT EXPRESSIBLE AS A GOLDEN CASE, the same blocker kind as the North
+                Carolina Bailey entry and the Massachusetts contributory entry above, and
+                the reason Step 3 of the shared procedure cannot be satisfied for the
+                Idaho rule that was declined. The case that would catch the over-match is a
+                FERS retiree at 65 or older: its inputs are byte-identical to ID-2's, the
+                same `(definedBenefit, federalCivilian)` row at the same amount, age,
+                filing status and AGI, with a contradictory `expectedStateTax` of $840.05
+                against ID-2's $0.00. A fixture can assert one or the other, never both.
+                The PERSI half has the same shape against a hypothetical Idaho
+                police-or-fire case. Step 3 is a requirement of the procedure rather than a
+                preference, so shipping is foreclosed procedurally, not as a judgement
+                call.
+
+                SEPARATELY AND INDEPENDENTLY, even if both conditions became expressible,
+                Idaho's remaining shape still does not fit the model: Line 8 is ONE
+                household cap ($48,216 single / $72,324 MFJ) shared across civilian and
+                military benefits, but the two carry DIFFERENT age gates (Part One's 65,
+                or 62 if disabled, against Line 8e's 62, or any age if disabled). The
+                pooled `pensionExemption` carries exactly one cap and one
+                `regularExemptionMinAge`, and `PerSourceExemptionRule` carries no age
+                field at all while a capped `treatment` is banned phase-wide because it
+                caps per row. So the two gates cannot share the one cap. Arizona's
+                workaround (route the cap through the pooled exemption, use per-source
+                rules only to keep non-qualifying sources out) generalises only to a
+                jurisdiction with ONE capped pool sharing ONE set of gates, which Idaho is
+                not. Neither fixture dimension is currently exercised: no Idaho case
+                reaches its cap (ID-4 is named a cap straddle but its own arithmetic floors
+                taxable income at $0 whether the deduction is capped or not), and no case
+                carries Social Security, so the Line 8a dollar-for-dollar reduction by
+                Social Security and Railroad Retirement benefits received is untested too.
+
+                RESOLVE IT with a product decision rather than research: a plan-detail axis
+                carrying the eligibility facts (pre-1984 CSRS eligibility; police-or-fire
+                service within a state system), plus an age gate on
+                `PerSourceExemptionRule` or a second gated pool, plus a shared-cap
+                mechanism spanning both. Design the axis against Massachusetts and Hawaii
+                too rather than from Idaho alone, per the precedent in the MA entry above
+                that a shared classification axis lands in the model task and is consumed
+                by the jurisdiction tasks. Until then Idaho's four pinned defects and this
+                entry are the record, and the caption is the disclosure.
+                """
         )
     ]
 
