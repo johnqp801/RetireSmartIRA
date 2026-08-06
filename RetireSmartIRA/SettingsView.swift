@@ -328,10 +328,13 @@ struct SettingsView: View {
         // NavigationStack so the numeric birth-year fields are covered even if a
         // TabView-ancestor toolbar would not propagate here (Alan feedback #1).
         .dismissableKeyboard()
-        // Trailing-aligned numeric fields here are pre-filled (local/city rate shows "0"),
-        // so a tap lands left of the digits and the next keystroke would insert IN FRONT
-        // of the value: typing 3 into "0" gives 30%. See CaretAtEnd.swift.
-        .caretAtEndOnFocus()
+        // Caret-at-end is NOT applied here any more, and its absence is not an
+        // oversight. It used to be, back when it covered this screen alone. It is now
+        // applied once at the WindowGroup root in RetireSmartIRAApp.swift, where a
+        // single process-wide observer covers this form's pre-filled trailing-aligned
+        // numeric fields (the local/city rate shows "0", so a tap lands left of the
+        // digit and typing 3 would give 30%) along with every other field in the app.
+        // Re-adding it here would install a second observer doing the same work.
         .onChange(of: dataManager.birthDate) { dataManager.saveAllData() }
         .onChange(of: dataManager.filingStatus) { dataManager.saveAllData() }
         .onChange(of: dataManager.selectedState) { dataManager.saveAllData() }

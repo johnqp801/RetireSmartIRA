@@ -17,11 +17,35 @@
 //  should not have to. Caret-at-end makes the common case (append, or backspace
 //  and retype) behave the way the field looks like it should.
 //
-//  Usage: apply `.caretAtEndOnFocus()` once per screen, like
-//  `.dismissableKeyboard()`. It keys off the system's begin-editing
-//  notification, so it covers every text field on that screen without
-//  per-field FocusState wiring. No-op on macOS, where tapping a field already
-//  places the caret sensibly and the accessory-bar problem does not exist.
+//  Usage: apply `.caretAtEndOnFocus()` ONCE, at the WindowGroup root in
+//  RetireSmartIRAApp.swift. It is already applied there and needs no further
+//  call sites.
+//
+//  It is NOT per-screen, whatever its earlier note here said, and it is not
+//  analogous to `.dismissableKeyboard()`. That one attaches a keyboard-placement
+//  toolbar, which really is scoped to the subtree it is applied to. This one
+//  subscribes to `UITextField.textDidBeginEditingNotification`, a process-wide
+//  notification carrying the field that began editing as its object. Nothing
+//  about the reach depends on where it is attached; the attachment point only
+//  decides how long the subscription lives, and at the scene root that is the
+//  whole session. Which is why fields inside sheets and popovers are covered
+//  even though those do not inherit modifiers from the presenting view.
+//
+//  Consequences worth knowing, since they are properties of the whole app:
+//
+//  * It fires on textDidBeginEditing, which is the moment a field becomes first
+//    responder. A second tap in an already-focused field posts no notification,
+//    so repositioning the caret mid-string still works normally. Only the first
+//    tap into a field is overridden.
+//  * It applies to every UITextField, including the non-numeric ones (name,
+//    institution, description). Caret-at-end is the right default there too:
+//    those are short single-line values, appending is the common edit, and
+//    landing at the end is what a trailing tap would have done anyway.
+//  * It does not reach UITextView, so `TextEditor` and any multiline
+//    `TextField(axis:)` are unaffected. There are none holding numbers.
+//
+//  No-op on macOS, where clicking a field already places the caret where the
+//  click landed and the tap-lands-left problem does not arise.
 //
 
 import SwiftUI
