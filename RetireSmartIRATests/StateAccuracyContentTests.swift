@@ -811,6 +811,485 @@ struct StateAccuracyContentTests {
             baselineAnnualExpenses: 0)
     }
 
+    // MARK: - Task 8, Gate 3: rendering fidelity against EFFECTIVE BEHAVIOUR
+
+    /// NOT AN ECHO TEST, and that is the whole point of this gate.
+    ///
+    /// If the page says the exclusion applies to each qualifying spouse, the
+    /// ENGINE must actually grant a second full cap when both spouses qualify,
+    /// and one when only one does. Reading `exemptionAppliesPerIndividual` and
+    /// `maxExempt` back out of the configuration would pass while the engine
+    /// ignored both, and the predecessor branch shipped several engine faults a
+    /// config echo would have missed.
+    ///
+    /// THREE PROBES, NOT TWO, and the third is what makes this an assertion
+    /// about the AMOUNT rather than only the direction:
+    ///
+    ///   1. one spouse qualifies,
+    ///   2. both spouses qualify,
+    ///   3. one spouse qualifies, on a pension smaller by exactly the
+    ///      configured cap.
+    ///
+    /// Probes 2 and 3 must produce the SAME tax. That holds only if the second
+    /// qualifying spouse moved the taxable base by exactly one more full cap:
+    /// a doubling that stopped short, or one that ran twice, breaks the
+    /// equality while `bothQualify < oneQualifies` would still pass. The
+    /// configured cap is read to build probe 3, but nothing here asserts the
+    /// configured value; what is asserted is how far the engine moved.
+    ///
+    /// Only ONE input differs between probes 1 and 2: the spouse's age. The
+    /// household's filing status, the standard deduction, the personal
+    /// exemption and the pooled exemption LEVEL are identical, because
+    /// `effectiveAge` is the household maximum and the primary is above every
+    /// gate in both. So a difference in the result can only come from
+    /// `perIndividualMultiplier`.
+    ///
+    /// Measured when this gate was written, by mutation: dropping the second
+    /// spouse to an age that does not qualify moves Georgia by $3,243.50, which
+    /// is its $65,000 cap at 4.99%, and New York by $1,080.00.
+    @Test("A per-spouse statement is backed by the engine actually doubling it")
+    func perSpouseStatementsMatchEngineBehaviour() {
+        let phrase = "the cap applies to each qualifying spouse"
+        var checked: [String] = []
+
+        for state in StateAccuracyContent.coveredJurisdictions.sorted(by: { $0.abbreviation < $1.abbreviation }) {
+            let config = StateTaxData.config(for: state)
+            let exemptions = config.retirementExemptions
+            let saysPerSpouse = StateAccuracyContent
+                .factualStatements(for: state, filingStatus: .marriedFilingJointly)
+                .contains { $0.value.contains(phrase) }
+
+            // The page and the configuration agree about WHETHER the claim is
+            // made. Both directions: a config flag with no sentence hides a
+            // rule the user is entitled to, and a sentence with no flag
+            // promises one the engine was never asked for.
+            #expect(saysPerSpouse == exemptions.exemptionAppliesPerIndividual,
+                    """
+                    \(state.abbreviation): the page \(saysPerSpouse ? "claims" : "does not claim") \
+                    a per-spouse cap while the configuration \
+                    \(exemptions.exemptionAppliesPerIndividual ? "sets" : "does not set") \
+                    exemptionAppliesPerIndividual.
+                    """)
+
+            guard exemptions.exemptionAppliesPerIndividual else { continue }
+            checked.append(state.abbreviation)
+
+            guard case .partial(let cap) = exemptions.pensionExemption else {
+                Issue.record("""
+                    \(state.abbreviation) claims a per-spouse cap on an exemption level this \
+                    test cannot size. Extend the probe rather than dropping the jurisdiction: \
+                    an unsized claim is an untested claim.
+                    """)
+                continue
+            }
+            if case .conformsToFederal = config.stateDeduction {
+                Issue.record("""
+                    \(state.abbreviation) conforms to the federal deduction, which this probe \
+                    does not reproduce, so its per-spouse claim would go untested.
+                    """)
+                continue
+            }
+
+            // Six caps of pension, so both the single and the doubled cap bind
+            // and neither probe is limited by `min(eligibleIncome, ...)`.
+            let pension = cap * 6
+            let oneQualifies = Self.perSpouseProbe(state: state, pension: pension, spouseAge: 50)
+            let bothQualify = Self.perSpouseProbe(state: state, pension: pension, spouseAge: 75)
+            let oneQualifiesOnACapLessPension =
+                Self.perSpouseProbe(state: state, pension: pension - cap, spouseAge: 50)
+
+            #expect(oneQualifies > 0,
+                    "\(state.abbreviation): the probe produced no tax at all, so nothing below is meaningful")
+            #expect(bothQualify < oneQualifies,
+                    "\(state.abbreviation) claims a per-spouse exclusion the engine does not double")
+            #expect(abs(bothQualify - oneQualifiesOnACapLessPension) < 0.01,
+                    """
+                    \(state.abbreviation): the second qualifying spouse moved the taxable base by \
+                    something other than one full cap. Both spouses qualifying gave \
+                    \(bothQualify); one spouse qualifying on a pension \(cap) smaller gave \
+                    \(oneQualifiesOnACapLessPension). Those are the same household's base and \
+                    must produce the same tax.
+                    """)
+        }
+
+        // Deliberately a literal, for the same reason `["IA", "IN"]` is one
+        // above: a jurisdiction that gains or loses a per-spouse cap has to be
+        // acknowledged here rather than quietly changing what this gate covers,
+        // and an empty sweep would otherwise pass in silence.
+        #expect(checked == ["GA", "NY"],
+                "the covered jurisdictions claiming a per-spouse cap changed: \(checked)")
+    }
+
+    /// The one probe, built from `GoldenScenarioSingleYearTests.singleYearStateTax`'s
+    /// own construction rather than an invented one.
+    ///
+    /// Married filing jointly with a spouse enabled, primary aged 75 so every
+    /// covered state's regular age gate is cleared, and one private-employer
+    /// defined-benefit pension so no per-source rule can match and change the
+    /// pooled figure underneath the comparison. New York's rule names
+    /// `nyStateOrLocal`, `federalCivilian` and `uniformedServices`, so a
+    /// private pension is left to the pooled cap this test is about.
+    ///
+    /// `postExemptionDeduction` is computed with BOTH ages qualifying and
+    /// passed unchanged to every probe. That is deliberate: a state granting a
+    /// per-filer senior addition would otherwise give the younger-spouse probe
+    /// a smaller exemption and therefore a higher tax, which biases the
+    /// comparison in the direction the test is trying to prove. Holding it
+    /// constant leaves the spouse's age affecting exactly one thing.
+    private static func perSpouseProbe(state: USState,
+                                       pension: Double,
+                                       spouseAge: Int) -> Double {
+        let config = StateTaxData.config(for: state)
+
+        let stateStandardDeduction: Double
+        switch config.stateDeduction {
+        case .fixed(_, let married): stateStandardDeduction = married
+        case .none: stateStandardDeduction = 0
+        // Unreachable: the caller records an issue and skips this case rather
+        // than reaching here, because reproducing the federal deduction is the
+        // whole of `singleYearStateTax`'s longest branch and a silent 0 would
+        // make the probe quietly wrong instead of loudly unsupported.
+        case .conformsToFederal: stateStandardDeduction = 0
+        }
+
+        let postExemptionDeduction = config.personalExemption?
+            .amount(filingStatus: .marriedFilingJointly, enableSpouse: true,
+                    primaryAge: 75, spouseAge: 75) ?? 0
+
+        return TaxCalculationEngine.calculateStateTax(
+            income: max(0, pension - stateStandardDeduction),
+            forState: state,
+            filingStatus: .marriedFilingJointly,
+            taxableSocialSecurity: 0,
+            incomeSources: [IncomeSource(name: "Pension", type: .pension,
+                                         annualAmount: pension,
+                                         planStructure: .definedBenefit,
+                                         planSource: .privateEmployer)],
+            currentAge: 75,
+            enableSpouse: true,
+            spouseBirthYear: 2026 - spouseAge,
+            currentYear: 2026,
+            scenarioRetirementDistributions: 0,
+            scenarioRothConversionAmount: 0,
+            postExemptionDeduction: postExemptionDeduction)
+    }
+
+    /// The Social Security line is the page's most-read sentence, and it is
+    /// also the one a config echo would validate most convincingly: the
+    /// statement is generated straight from `socialSecurityExempt`, so reading
+    /// that flag back would prove only that a boolean equals itself.
+    ///
+    /// What is asserted instead: feeding the engine taxable Social Security
+    /// must LOWER the tax for a jurisdiction whose page says the benefit is not
+    /// taxed, and must leave it UNCHANGED for one whose page says it is taxed
+    /// as ordinary income. Both directions, over every covered jurisdiction.
+    ///
+    /// The nine untaxed jurisdictions are outside this by construction: they
+    /// emit no Social Security statement at all (Task 6), so there is no claim
+    /// here to back, and asserting one would be asserting a Texas Social
+    /// Security exemption against a Texas income tax that does not exist.
+    @Test("The Social Security statement is backed by what the engine does with the benefit")
+    func socialSecurityStatementsMatchEngineBehaviour() {
+        for state in StateAccuracyContent.coveredJurisdictions.sorted(by: { $0.abbreviation < $1.abbreviation }) {
+            let statements = StateAccuracyContent.factualStatements(for: state, filingStatus: .single)
+            guard let line = statements.first(where: { $0.label == "Social Security" })?.value else {
+                #expect(!StateTaxData.config(for: state).taxSystem.hasIncomeTax,
+                        "\(state.abbreviation) taxes income but its page says nothing about Social Security")
+                continue
+            }
+            let saysExempt = line == "Not taxed by this state."
+
+            let withoutBenefit = Self.socialSecurityProbe(state: state, taxableSocialSecurity: 0)
+            let withBenefit = Self.socialSecurityProbe(state: state, taxableSocialSecurity: 30_000)
+
+            if saysExempt {
+                #expect(withBenefit < withoutBenefit,
+                        """
+                        \(state.abbreviation)'s page says Social Security is not taxed, but the \
+                        engine charged the same tax with a taxable benefit as without one \
+                        (\(withBenefit) against \(withoutBenefit)).
+                        """)
+            } else {
+                #expect(abs(withBenefit - withoutBenefit) < 0.01,
+                        """
+                        \(state.abbreviation)'s page says Social Security is taxed as ordinary \
+                        income, but the engine subtracted it: \(withBenefit) against \
+                        \(withoutBenefit).
+                        """)
+            }
+        }
+    }
+
+    /// Same construction as `perSpouseProbe`, single filer, varying only the
+    /// taxable Social Security handed to the engine. The state-taxable `income`
+    /// is held constant on purpose: the engine's Social Security subtraction
+    /// applies to the income it is already given, so varying both would test
+    /// arithmetic rather than the exemption.
+    private static func socialSecurityProbe(state: USState,
+                                            taxableSocialSecurity: Double) -> Double {
+        let config = StateTaxData.config(for: state)
+        let stateStandardDeduction: Double
+        switch config.stateDeduction {
+        case .fixed(let single, _): stateStandardDeduction = single
+        case .none, .conformsToFederal: stateStandardDeduction = 0
+        }
+        let postExemptionDeduction = config.personalExemption?
+            .amount(filingStatus: .single, enableSpouse: false,
+                    primaryAge: 75, spouseAge: 75) ?? 0
+
+        return TaxCalculationEngine.calculateStateTax(
+            income: max(0, 120_000 - stateStandardDeduction),
+            forState: state,
+            filingStatus: .single,
+            taxableSocialSecurity: taxableSocialSecurity,
+            incomeSources: [],
+            currentAge: 75,
+            enableSpouse: false,
+            spouseBirthYear: 1951,
+            currentYear: 2026,
+            scenarioRetirementDistributions: 0,
+            scenarioRothConversionAmount: 0,
+            postExemptionDeduction: postExemptionDeduction)
+    }
+
+    /// WHAT GATE 3 CANNOT SEE, recorded as an executable statement rather than
+    /// a comment, because the design names this exact risk and this branch
+    /// carries a live instance of it.
+    ///
+    /// `TaxCalculationEngine.calculateStateTax` subtracts
+    /// `californiaExemptionCredits(...)` behind a `state == .california` branch.
+    /// No field of `StateTaxConfig` carries it, so a page generated from that
+    /// config cannot mention it, and no behaviour probe written against the
+    /// config could discover it either: there is no claim to test, because the
+    /// page makes none. The page is not WRONG about California; it is silent
+    /// about a reduction California filers actually receive.
+    ///
+    /// So the gate this test can honestly hold is the SCOPE one: a jurisdiction
+    /// whose tax the engine changes by name, outside anything the configuration
+    /// expresses, must not be one this release publishes an accuracy page for.
+    /// California is outside `coveredJurisdictions` today, and this is what
+    /// makes adding it a deliberate act: it fails here until either the credits
+    /// gain a config representation or a limitation sentence discloses them.
+    ///
+    /// The literal is maintained by hand and cannot be derived, because the
+    /// thing it names is Swift source rather than data. It was compiled by
+    /// sweeping the production tree for a state compared by name inside a tax
+    /// computation; as of this commit `TaxCalculationEngine.swift:405` and its
+    /// single-year mirror `DataManager.swift:1229` are the only two, and both
+    /// name California.
+    static let jurisdictionsWithEngineLogicNoConfigExpresses: Set<USState> = [.california]
+
+    @Test("No covered jurisdiction's tax depends on engine logic its configuration cannot express")
+    func coveredJurisdictionsCarryNoUnrepresentedEngineLogic() {
+        let overlap = StateAccuracyContent.coveredJurisdictions
+            .intersection(Self.jurisdictionsWithEngineLogicNoConfigExpresses)
+        #expect(overlap.isEmpty,
+                """
+                \(overlap.map(\.abbreviation).sorted()) ship a generated accuracy page while \
+                their tax is changed by hardcoded engine logic no configuration field carries, \
+                so the page cannot state it and no behaviour probe can discover it. Give the \
+                logic a config representation, or a limitation sentence, before covering the \
+                jurisdiction.
+                """)
+    }
+
+    /// The literal above is not decorative: California really does receive a
+    /// reduction the page cannot see. Asserted so a future refactor that moves
+    /// the credits into config makes this fail and the literal get cleaned up,
+    /// rather than leaving a stale exclusion behind forever.
+    @Test("California's exemption credits are real, and the generated page states nothing about them")
+    func californiaCreditsAreInvisibleToAConfigGeneratedPage() {
+        let credit = TaxCalculationEngine.californiaExemptionCredits(
+            filingStatus: .marriedFilingJointly, agi: 120_000,
+            currentAge: 70, enableSpouse: true, spouseBirthYear: 1956, currentYear: 2026)
+        #expect(credit > 0, """
+            California's exemption credits are now zero for an ordinary joint household. If they \
+            were moved into StateTaxConfig, drop California from \
+            jurisdictionsWithEngineLogicNoConfigExpresses rather than leaving a stale exclusion.
+            """)
+
+        for status in FilingStatus.allCases {
+            for statement in StateAccuracyContent.factualStatements(for: .california,
+                                                                     filingStatus: status) {
+                #expect(!statement.value.lowercased().contains("credit"),
+                        """
+                        California's page now mentions a credit. It is generated from config, \
+                        which carries none, so either the credits moved into config or the page \
+                        started authoring prose.
+                        """)
+            }
+        }
+    }
+
+    // MARK: - Task 8, Gate 1: disclosure completeness, bidirectional
+
+    /// Why a covered jurisdiction is entitled to ship the sentences it ships.
+    ///
+    /// Traceability is per JURISDICTION, not per sentence, and that limit is
+    /// worth stating rather than glossing: `StateLimitation` carries `text` and
+    /// `topic` and no citation field, so nothing in the data links one sentence
+    /// to one catalogue entry. Adding such a field is a config schema change
+    /// and belongs with the disclosure taxonomy the design assigns to Phase 6.
+    /// What this gate can enforce is that every jurisdiction with a sentence
+    /// has a recorded reason to have one, that the reason survives being
+    /// checked against the live catalogue, and that the COUNT of sentences is
+    /// declared, so a correction cannot leave one behind unnoticed.
+    enum LimitationBasis {
+        /// At least one golden scenario for this jurisdiction carries a
+        /// `knownDefect` block. Verified against the live catalogue.
+        case pinnedDefect
+        /// At least one `GoldenScenarioDefectCatalogueTests.knownButUnpinned`
+        /// entry names this jurisdiction. Verified against the live list.
+        case unpinnedCatalogue
+        /// NEITHER, and therefore the category that has to be argued for. The
+        /// sentence is not about a defect against this tax year's law at all.
+        /// The reason is required and checked to be non-empty; the ABSENCE of a
+        /// defect is checked too, so this cannot be used to park a finding that
+        /// does trace and would otherwise be caught by direction 1.
+        case disclosureOnly(reason: String)
+    }
+
+    /// Every covered jurisdiction, its basis, and how many sentences it ships.
+    ///
+    /// THE COUNT IS THE FORCING FUNCTION the design asks for. "A corrected
+    /// defect forces removal or revision of its limitation" cannot be enforced
+    /// by the basis alone, because a jurisdiction with two findings keeps its
+    /// basis when one of them is fixed. The count fails, and someone has to
+    /// decide whether the surviving sentence is still true.
+    static let limitationBasis: [String: (basis: LimitationBasis, sentences: Int)] = [
+        "AZ": (.unpinnedCatalogue, 2),
+        "DC": (.unpinnedCatalogue, 2),
+        "GA": (.disclosureOnly(reason: """
+            Georgia's configuration is correct for TY2026 and no golden case disagrees with the \
+            state's own form. The sentence records that the retirement-income exclusion rises \
+            again in TY2027 and that this file does not encode the later year, which is a \
+            statement about the config's SCOPE rather than a defect in it. It belongs on a page \
+            that heads with a tax year, because that header is already telling the reader these \
+            rules are year-specific.
+            """), 1),
+        "HI": (.unpinnedCatalogue, 1),
+        "IA": (.disclosureOnly(reason: """
+            Iowa was a Phase 5a correction and ships NO sentence. It is here so the table covers \
+            the whole of coveredJurisdictions and a jurisdiction cannot escape this gate by being \
+            left out of it. Its zero is load-bearing: the empty-state wording is what an Iowa \
+            reader sees, and coveredJurisdictionsWithEmptyListsClaimNothing pins that it claims \
+            nothing.
+            """), 0),
+        "ID": (.unpinnedCatalogue, 1),
+        "IN": (.disclosureOnly(reason: """
+            Indiana, like Iowa: a Phase 5a correction shipping no sentence, listed so the table \
+            covers the covered set exactly.
+            """), 0),
+        "KS": (.unpinnedCatalogue, 1),
+        "MA": (.unpinnedCatalogue, 2),
+        "MO": (.unpinnedCatalogue, 2),
+        "NC": (.unpinnedCatalogue, 2),
+        "NM": (.pinnedDefect, 1),
+        "NY": (.unpinnedCatalogue, 1),
+        "UT": (.pinnedDefect, 2),
+        "VT": (.pinnedDefect, 1)
+    ]
+
+    /// Gate 1, all four directions, modelled on
+    /// `Phase5bUnclassifiedPensionDisclosureTests.rulesAndDisclosuresStayInLockstep`.
+    ///
+    ///   1. Every covered jurisdiction carrying a pinned `knownDefect` ships at
+    ///      least one limitation.
+    ///   2. Every limitation traces to a pinned defect, a `knownButUnpinned`
+    ///      catalogue entry, or a documented disclosure-only finding.
+    ///   3. A corrected defect forces removal or revision, through the declared
+    ///      sentence count and through the basis falling away.
+    ///   4. No orphan disclosure survives: a jurisdiction shipping a sentence
+    ///      whose basis no longer exists fails, and so does a jurisdiction
+    ///      OUTSIDE the covered set that ships one at all.
+    @Test("Limitations and the findings behind them stay in lockstep, both directions")
+    func limitationsAndFindingsStayInLockstep() throws {
+        let pinned = Set(try GoldenScenarioDefectCatalogueTests.catalogue().map(\.state))
+        let unpinned = Set(GoldenScenarioDefectCatalogueTests.knownButUnpinned.map(\.state))
+        let covered = StateAccuracyContent.coveredJurisdictions
+            .sorted { $0.abbreviation < $1.abbreviation }
+        let coveredAbbreviations = Set(covered.map(\.abbreviation))
+
+        // The table covers the covered set exactly, so a jurisdiction cannot
+        // escape this gate by being absent from the table.
+        #expect(Set(Self.limitationBasis.keys) == coveredAbbreviations,
+                """
+                The basis table and coveredJurisdictions disagree. Only in the table: \
+                \(Set(Self.limitationBasis.keys).subtracting(coveredAbbreviations).sorted()). \
+                Only in the covered set: \
+                \(coveredAbbreviations.subtracting(Self.limitationBasis.keys).sorted()).
+                """)
+
+        for state in covered {
+            let abbreviation = state.abbreviation
+            let sentences = StateAccuracyContent.limitations(for: state)
+            let declared = try #require(Self.limitationBasis[abbreviation],
+                                        "\(abbreviation) has no declared basis")
+
+            // DIRECTION 1: a pinned defect must produce a sentence.
+            if pinned.contains(abbreviation) {
+                #expect(!sentences.isEmpty,
+                        """
+                        \(abbreviation) carries a pinned knownDefect and ships no limitation, so \
+                        a user reading its accuracy page is told nothing about a disagreement \
+                        with the state's own published form that this repository has measured.
+                        """)
+            }
+
+            // DIRECTION 3: revision is forced by the count.
+            #expect(sentences.count == declared.sentences,
+                    """
+                    \(abbreviation) ships \(sentences.count) limitation sentences, the table \
+                    declares \(declared.sentences). If a finding was corrected, remove its \
+                    sentence and this count together; if one was added, record why it is \
+                    admissible.
+                    """)
+
+            // DIRECTIONS 2 and 4: the declared basis must still hold.
+            switch declared.basis {
+            case .pinnedDefect:
+                #expect(pinned.contains(abbreviation),
+                        """
+                        \(abbreviation)'s limitations are declared to rest on a pinned defect and \
+                        no golden scenario carries one any more. If the defect was fixed, its \
+                        sentence is now an ORPHAN telling users about a problem that no longer \
+                        exists: delete it, or re-declare the basis.
+                        """)
+            case .unpinnedCatalogue:
+                #expect(unpinned.contains(abbreviation),
+                        """
+                        \(abbreviation)'s limitations are declared to rest on a knownButUnpinned \
+                        catalogue entry and no entry names it any more. If the finding was \
+                        resolved, its sentence is now an ORPHAN: delete it, or re-declare the \
+                        basis.
+                        """)
+            case .disclosureOnly(let reason):
+                #expect(!reason.isEmpty, "\(abbreviation): disclosureOnly with no reason recorded")
+                #expect(!pinned.contains(abbreviation) && !unpinned.contains(abbreviation),
+                        """
+                        \(abbreviation) is declared disclosure-only but a defect now traces to it. \
+                        That category is for findings that are NOT defects against this tax year's \
+                        law; using it for one that is would hide the traceable finding from \
+                        direction 1. Re-declare the basis.
+                        """)
+            }
+        }
+
+        // DIRECTION 4, the outward half: nothing outside the covered set ships
+        // a sentence. A limitation on an uncovered jurisdiction would carry no
+        // verification date, no primary source and no entry in this table, so
+        // nothing would ever check it again.
+        for state in USState.allCases where !StateAccuracyContent.coveredJurisdictions.contains(state) {
+            #expect(StateAccuracyContent.limitations(for: state).isEmpty,
+                    """
+                    \(state.abbreviation) is outside coveredJurisdictions and ships a limitation. \
+                    Gate 4 does not require its verification metadata, so the sentence has no \
+                    date, no source and no recorded basis. Add the jurisdiction to the covered \
+                    set, with its provenance, or remove the sentence.
+                    """)
+        }
+    }
+
     /// Every jurisdiction's header is well formed, names itself, and claims
     /// nothing it has no basis for.
     @Test("Every jurisdiction's header is well formed and claims nothing unsupported")
