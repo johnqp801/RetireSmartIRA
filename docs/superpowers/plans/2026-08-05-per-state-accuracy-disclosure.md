@@ -31,7 +31,7 @@
 
 | File | Responsibility |
 |---|---|
-| `RetireSmartIRA/StateTaxVerification.swift` | Existing. Holds `StateVerification` (`lastVerified: String`, `primarySources: [String]`, `billReferences`, `knownLimitations: [String]`, `isVerified`, `.unverified`). Gains `taxYear` in Task 5. |
+| `RetireSmartIRA/StateTaxVerification.swift` | Existing. Holds `StateVerification` (`lastVerified: String`, `primarySources: [String]`, `billReferences`, `knownLimitations: [String]`, `isVerified`, `.unverified`). Gains `taxYear` in Task 2. |
 | `RetireSmartIRA/StateAccuracyContent.swift` | NEW. Pure, view-free. Turns a `StateTaxConfig` into the ordered factual statements and the limitation list. Testable without SwiftUI. |
 | `RetireSmartIRA/StateAccuracyView.swift` | NEW. Renders `StateAccuracyContent`. No formatting logic of its own. |
 | `RetireSmartIRA/IncomeSourcesView.swift` | Modified. Six caption literals removed; captions render from config. |
@@ -163,7 +163,10 @@ Add `"taxYear": 2026` to Georgia's `verification` block. Create `StateAccuracyCo
 ```swift
 enum StateAccuracyContent {
     /// Jurisdictions this release populates with limitation sentences.
-    /// Every member is traceable to a pinned defect or a knownButUnpinned entry.
+    /// The set is exactly phase5CorrectedJurisdictions UNION the knownButUnpinned
+    /// states UNION the six caption states. NOT "every member has a pinned defect":
+    /// GA, IA and IN were Phase 5 corrections with no pinned defect, and VT is
+    /// caption-only. A test checks this derivation against the live catalogue.
     static let coveredJurisdictions: Set<USState> = [
         .kansas, .massachusetts, .hawaii, .arizona, .northCarolina, .idaho,
         .vermont, .districtOfColumbia, .newYork, .missouri,
