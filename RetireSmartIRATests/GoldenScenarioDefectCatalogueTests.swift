@@ -644,8 +644,10 @@ struct GoldenScenarioDefectCatalogueTests {
                 a CLOSED list of plans, and membership in that list turns on facts
                 `RetirementPlanClassification` does not carry, so Phase 5b Task 8 shipped
                 NO Idaho `perSourceExemptions` and Idaho still grants no deduction at all.
-                The four pinned defects ID-2 through ID-5 record the resulting
-                over-taxation and STAY. This entry records why they were not fixed.
+                The five pinned defects ID-2, ID-3, ID-4, ID-5 and ID-8 record the
+                resulting over-taxation and STAY. This entry records why they were not
+                fixed, and `blockedOn` below distinguishes the branches that COULD NOT be
+                fixed from the one that was DECLINED.
 
                 TWO CONDITIONS, both quoted from the fixture's own Form 39R citations,
                 neither expressible. FIRST, the civilian grant is "Retirement annuities
@@ -678,46 +680,67 @@ struct GoldenScenarioDefectCatalogueTests {
                 neither the classification prompt nor the unclassified-pension disclosure.
                 """,
             blockedOn: """
-                NOT EXPRESSIBLE AS A GOLDEN CASE, the same blocker kind as the North
-                Carolina Bailey entry and the Massachusetts contributory entry above, and
-                the reason Step 3 of the shared procedure cannot be satisfied for the
-                Idaho rule that was declined. The case that would catch the over-match is a
-                FERS retiree at 65 or older: its inputs are byte-identical to ID-2's, the
-                same `(definedBenefit, federalCivilian)` row at the same amount, age,
-                filing status and AGI, with a contradictory `expectedStateTax` of $840.05
-                against ID-2's $0.00. A fixture can assert one or the other, never both.
-                The PERSI half has the same shape against a hypothetical Idaho
-                police-or-fire case. Step 3 is a requirement of the procedure rather than a
-                preference, so shipping is foreclosed procedurally, not as a judgement
-                call.
+                TWO BRANCHES WITH DIFFERENT ANSWERS, and conflating them is the mistake
+                this paragraph exists to prevent. An earlier version of this entry said
+                shipping was "foreclosed procedurally, not as a judgement call" without
+                qualification. That is TRUE of the civilian branches and FALSE of the
+                military one, and a future task that read only the unqualified claim would
+                stop looking at a rule that is actually available.
 
-                SEPARATELY AND INDEPENDENTLY, even if both conditions became expressible,
-                Idaho's remaining shape still does not fit the model: Line 8 is ONE
-                household cap ($48,216 single / $72,324 MFJ) shared across civilian and
-                military benefits, but the two carry DIFFERENT age gates (Part One's 65,
-                or 62 if disabled, against Line 8e's 62, or any age if disabled). The
-                pooled `pensionExemption` carries exactly one cap and one
-                `regularExemptionMinAge`, and `PerSourceExemptionRule` carries no age
-                field at all while a capped `treatment` is banned phase-wide because it
-                caps per row. So the two gates cannot share the one cap. Arizona's
-                workaround (route the cap through the pooled exemption, use per-source
-                rules only to keep non-qualifying sources out) generalises only to a
-                jurisdiction with ONE capped pool sharing ONE set of gates, which Idaho is
-                not. Neither fixture dimension is currently exercised: no Idaho case
-                reaches its cap (ID-4 is named a cap straddle but its own arithmetic floors
-                taxable income at $0 whether the deduction is capped or not), and no case
-                carries Social Security, so the Line 8a dollar-for-dollar reduction by
-                Social Security and Railroad Retirement benefits received is untested too.
+                BRANCH 1, `federalCivilian` and `ownStateOrLocal`, is
+                NOT EXPRESSIBLE AS A GOLDEN CASE: the same blocker kind as the North
+                Carolina Bailey entry and the Massachusetts contributory entry above,
+                which is why this phrase is kept on one line for the deletion guard that
+                greps it. The case that would catch the
+                over-match is a FERS retiree at 65 or older: its inputs are byte-identical
+                to ID-2's, the same `(definedBenefit, federalCivilian)` row at the same
+                amount, age, filing status and AGI, with a contradictory `expectedStateTax`
+                of $840.05 against ID-2's $0.00. A fixture can assert one or the other,
+                never both. The PERSI half has the same shape against a hypothetical Idaho
+                police-or-fire case. Step 3 is a requirement of the procedure rather than a
+                preference, so for THESE branches shipping is foreclosed procedurally.
+
+                BRANCH 2, `uniformedServices` ALONE: EXPRESSIBLE, and declined as a
+                JUDGEMENT CALL rather than foreclosed. Task 8's review found a partial
+                shape the task had not evaluated, in Arizona's actual shipped form: route
+                the cap through the pooled `pensionExemption` as
+                `.steppedPhaseoutByFilingStatus(48216, 72324, one 100% band)` with
+                `regularExemptionMinAge: 62`, and use ONE `.none` per-source rule
+                enumerating the nine non-military `PlanSource` cases so that military
+                retired pay is the only thing left in the pool. MEASURED against the
+                shipped Idaho config: ID-3 GOES GREEN and nothing else moves (ID-1, ID-6
+                and ID-7 stay correctly taxed, ID-2, ID-4, ID-5 and ID-8 stay pinned).
+                Idaho's cap IS expressible this way, since the MFJ maximum is 1.5x the
+                single one and `exemptionAppliesPerIndividual` can only double.
+
+                WHY BRANCH 2 WAS DECLINED ANYWAY, three reasons, none of them
+                expressibility. FIRST and largest, Line 8a reduces the maximum
+                DOLLAR-FOR-DOLLAR by Social Security and Railroad Retirement benefits
+                RECEIVED, and nothing in the model carries that reduction. A single
+                military retiree at 65 with a $60,000 pension and $30,000 of Social
+                Security has a real Idaho maximum of $18,216, not $48,216: measured, that
+                is $934.60 of tax against the $0.00 the rule would produce, so roughly $935
+                a year of UNDISCLOSED UNDER-TAXATION. That is the COMMON case rather than
+                an edge case, since most military retirees draw Social Security, and
+                under-taxation is the dangerous direction. SECOND, Idaho ships
+                `exemptionAttribution: .household`, so on a joint return an under-62
+                military spouse inherits a 62-plus spouse's gate and draws a deduction Line
+                8e denies them. THIRD, the `.none` rule must enumerate nine `PlanSource`
+                cases BY HAND, so any case added later silently falls INTO the pool and
+                receives Idaho's deduction with no test failing. Both the Social Security
+                offset and the split-age joint return ARE pinnable as golden cases, so a
+                future task may legitimately reach a different conclusion here; it should
+                do so by pinning them first, not by shipping the rule and hoping.
 
                 RESOLVE IT with a product decision rather than research: a plan-detail axis
                 carrying the eligibility facts (pre-1984 CSRS eligibility; police-or-fire
-                service within a state system), plus an age gate on
-                `PerSourceExemptionRule` or a second gated pool, plus a shared-cap
-                mechanism spanning both. Design the axis against Massachusetts and Hawaii
-                too rather than from Idaho alone, per the precedent in the MA entry above
-                that a shared classification axis lands in the model task and is consumed
-                by the jurisdiction tasks. Until then Idaho's four pinned defects and this
-                entry are the record, and the caption is the disclosure.
+                service within a state system) for branch 1, and for branch 2 a
+                benefits-received offset on the pooled cap plus a per-source or
+                per-spouse age gate. Design the classification axis against Massachusetts
+                and Hawaii too rather than from Idaho alone, per the precedent in the MA
+                entry above that a shared classification axis lands in the model task and
+                is consumed by the jurisdiction tasks. Until then Idaho's five pinned
+                defects and this entry are the record, and the caption is the disclosure.
                 """
         )
     ]

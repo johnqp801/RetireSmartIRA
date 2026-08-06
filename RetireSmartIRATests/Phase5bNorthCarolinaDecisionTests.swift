@@ -449,7 +449,7 @@ struct Phase5bNorthCarolinaDecisionTests {
 
     // MARK: - The disclosure that ships with this decision
 
-    /// The Income Sources caption, PROPOSED and awaiting John's approval.
+    /// The Income Sources caption, APPROVED by John on 2026-08-05 as written.
     ///
     /// North Carolina was the only jurisdiction this phase touched with ZERO
     /// disclosure on any surface. Task 4 shipped the Massachusetts caption three

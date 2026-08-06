@@ -1353,3 +1353,53 @@ DC all have capped exclusions.
 `ExemptionLevel`, so the sweep is a test-level guard on the configs, not a structural guarantee. The
 durable fix is either a narrower treatment type or grouping matched rows by rule and applying the
 treatment once per rule. Both are production Swift, which this phase's constraints restrict.
+
+---
+
+## 2026-08-05: Idaho and North Carolina ship no rule; four captions approved
+
+**Decisions.** Idaho ships NO per-source rule and keeps all four `knownDefect` blocks. North Carolina
+ships no Bailey rule and is recorded as remaining unsatisfiable. Both captions are approved as written.
+That makes THREE jurisdictions in Phase 5b that deliberately ship nothing (Hawaii, North Carolina,
+Idaho) and it is the correct outcome in each case, not a shortfall.
+
+**Idaho, and the reason the decline nearly went the other way.** A reviewer found a THIRD option the
+implementer never evaluated: a military-only PARTIAL correction in Arizona's shipped shape (pooled
+deduction gated at 62, plus `.none` rules keeping every non-military source out of the pool). Walked
+across all seven golden cases it turns ID-3 GREEN, leaves ID-2, ID-4 and ID-5 pinned, and breaks
+nothing. One golden case going green is the phase's stated deliverable, so declining was a JUDGEMENT
+CALL, not the procedural foreclosure the first record claimed.
+
+**Why the decline still stands.** Idaho's Line 8a deduction is reduced dollar-for-dollar by Social
+Security and Railroad Retirement received, and the app does not model that. A single military retiree at
+65 with a $60,000 pension and $30,000 of Social Security has a real deduction of $18,216 rather than
+$48,216: roughly $935 a year of UNDISCLOSED UNDER-TAXATION. That is the COMMON case, not an edge case,
+since most Idaho military retirees draw Social Security. Household exemption attribution adds a second
+over-grant, and the `.none` list would have to enumerate nine sources by hand so any `PlanSource` added
+later falls silently INTO the pool. Under-taxation is the direction that decided Hawaii and North
+Carolina too.
+
+**The correction that matters more than the decision.** The catalogue entry claimed shipping was
+"foreclosed procedurally, not as a judgement call." True for the `federalCivilian` and `ownStateOrLocal`
+branches, where no catching case can be pinned. FALSE for `uniformedServices`, where an SS-offset case
+and an MFJ split-age case are both pinnable. That entry outlives the report and a future task would have
+read it and stopped looking.
+
+**Captions approved 2026-08-05:** North Carolina's Bailey caption and Idaho's Retirement Benefits
+Deduction caption, joining Hawaii's and Massachusetts's.
+
+**Amended after the review landed.** Idaho now keeps FIVE `knownDefect` blocks, not four: the review
+also asked for a cap guard case, and ID-8 (MFJ 68/70, $140,000 of CSRS pensions, expected $1,069.33,
+measured `observedToday` $4,902.50) was added. It is the only Idaho case where the $72,324 maximum
+changes the answer, since every other case floors taxable income at $0.00 whether the deduction is
+capped or not, so an UNCAPPED rule would have passed all of them. ID-4's name was corrected in the same
+change: it claimed to test the cap straddle and arithmetically cannot.
+
+**Escalated to Phase 6.** THREE surfaces gate disclosure on a jurisdiction shipping rules or having no
+fixture (`shouldPromptForClassification`, `UnclassifiedPensionDisclosure.text`,
+`GoldenScenarioCoverageTests.cannotVerify`), so the "fixture exists, defects pinned, rules deliberately
+zero" case is missed by all three, which is now Hawaii, North Carolina AND Idaho. `knownButUnpinned` has
+no production consumer at all. The four captions are hand-written `if selectedState ==` branches in one
+view and render only inside the pension edit sheet, so a user who entered their pension before moving
+never sees one. Phase 6's disclosure taxonomy should read the defect catalogue rather than fixture
+presence.

@@ -7,42 +7,66 @@
 //  7), and this file is that decision made executable so it cannot quietly
 //  evaporate the way a report does.
 //
-//  THE DECISION: Idaho ships NO `perSourceExemptions`. Its four `knownDefect`
-//  blocks in statetax-2026-ID.golden.json STAY. Two new guard cases were ADDED,
+//  THE DECISION: Idaho ships NO `perSourceExemptions`. Its five `knownDefect`
+//  blocks in statetax-2026-ID.golden.json STAY. Three new guard cases were ADDED,
 //  and they are the deliverable: without them the wrong rules were available and
-//  the suite would have gone green on both.
+//  the suite would have gone green on them.
 //
-//  WHY, in two sentences a future contributor can check against the tests below.
-//  Idaho's Retirement Benefits Deduction is granted to a CLOSED list whose
-//  membership turns on facts `RetirementPlanClassification` does not carry:
-//  CSRS annuities where "the employee must have established eligibility before
-//  1984" (FERS is not on the list and shares one picker row with CSRS), and
-//  PERSI FIREFIGHTERS plus certain Idaho POLICE (not PERSI generally, which
-//  shares one picker row with them). Separately, even granting those, Line 8 is
-//  ONE household cap shared by civilian and military benefits carrying TWO
-//  DIFFERENT age gates, and the model has one gate per pool and no age field on
-//  a per-source rule at all.
+//  TWO BRANCHES, SETTLED DIFFERENTLY, and this is the distinction to carry away.
+//  A rule naming `federalCivilian` or `ownStateOrLocal` is foreclosed
+//  PROCEDURALLY. A rule naming `uniformedServices` ALONE is EXPRESSIBLE and was
+//  DECLINED AS A JUDGEMENT CALL. Anyone reading this file as "Idaho is
+//  impossible" has read it wrong, and the review that caught that reading is why
+//  this paragraph exists.
 //
-//  WHAT MAKES THIS MORE THAN AN OPINION, and the reason these tests exist: BOTH
-//  tempting rules were MEASURED, following Task 5's standard, and both were
-//  available as a green suite before this task added the cases that catch them.
+//  WHY BRANCH 1 IS FORECLOSED. Idaho's Retirement Benefits Deduction is granted
+//  to a CLOSED list whose membership turns on facts
+//  `RetirementPlanClassification` does not carry: CSRS annuities where "the
+//  employee must have established eligibility before 1984" (FERS is not on the
+//  list and shares one picker row with CSRS), and PERSI FIREFIGHTERS plus certain
+//  Idaho POLICE (not PERSI generally, which shares one picker row with them). The
+//  case that would catch either over-match carries inputs byte-identical to an
+//  existing fixture with a contradictory expected value, so Step 3 of the shared
+//  procedure cannot be satisfied.
+//
+//  WHY BRANCH 2 WAS DECLINED, which is a different kind of reason. Line 8a
+//  reduces the maximum dollar-for-dollar by Social Security and Railroad
+//  Retirement RECEIVED, and nothing in the model carries that: measured, a single
+//  military retiree at 65 with a $60,000 pension and $30,000 of Social Security
+//  owes $934.60 where the rule would produce $0.00, and that is the common
+//  household rather than an edge case. `exemptionAttribution: .household` also
+//  lets an under-62 military spouse inherit a 62-plus spouse's gate, and the
+//  accompanying `.none` rule must enumerate nine `PlanSource` cases by hand, so a
+//  case added later falls silently INTO the pool. The first two ARE pinnable, so
+//  a future task may legitimately decide differently; it should pin them first.
+//
+//  WHAT MAKES THIS MORE THAN AN OPINION, and the reason these tests exist: ALL
+//  THREE candidate rules were MEASURED, following Task 5's standard, against the
+//  really shipped config, and each was reverted.
 //
 //    1. A pooled `pensionExemption` of `.partial(48216)` at
-//       `regularExemptionMinAge: 62`, temporarily added to the shipped Idaho
-//       config, made ALL FIVE original cases pass (ID-1 correctly denied at 60;
-//       ID-2, ID-3, ID-4, ID-5 all reported as newly matching their published
-//       form). It encodes 62 as the CIVILIAN gate, and Part One's civilian gate
-//       is 65. The new ID-6 reported $0.00 against the $1,266.70 Idaho requires.
+//       `regularExemptionMinAge: 62` made ALL FIVE original cases pass (ID-1
+//       correctly denied at 60; ID-2, ID-3, ID-4, ID-5 all reported as newly
+//       matching their published form). It encodes 62 as the CIVILIAN gate, and
+//       Part One's civilian gate is 65. The new ID-6 reported $0.00 against the
+//       $1,266.70 Idaho requires. WRONG.
 //
 //    2. A `perSourceExemptions` rule of `matchSources: ["uniformedServices"]` at
-//       `matchStructures: ["definedBenefit"]`, treatment `full`, temporarily
-//       added the same way, made ID-3 pass. It exempts military retired pay at
-//       EVERY age, because the engine applies a matched rule "UNCONDITIONALLY
-//       (no age gate)" and `PerSourceExemptionRule` has no age field. The new
-//       ID-7 reported $0.00 against $1,266.70.
+//       `matchStructures: ["definedBenefit"]`, treatment `full`, made ID-3 pass.
+//       It exempts military retired pay at EVERY age, because the engine applies
+//       a matched rule "UNCONDITIONALLY (no age gate)" and `PerSourceExemptionRule`
+//       has no age field. The new ID-7 reported $0.00 against $1,266.70. WRONG.
 //
-//  Both mutations were reverted. These tests reproduce their consequences
-//  without shipping either.
+//    3. Arizona's actual shipped shape: the cap routed through the pool as
+//       `.steppedPhaseoutByFilingStatus(48216, 72324, one 100% band)` at
+//       `regularExemptionMinAge: 62`, plus ONE `.none` rule naming the nine
+//       non-military `PlanSource` cases so only military retired pay stays
+//       pooled. Measured: ID-3 GOES GREEN and nothing else moves. NOT WRONG, and
+//       declined for the three reasons above. Task 8 did not evaluate this shape;
+//       its review did, and the record was corrected rather than defended.
+//
+//  All three mutations were reverted. These tests reproduce their consequences
+//  without shipping any of them.
 //
 //  THE POPULATION, which is the fact that decided it, and which is entailed by
 //  the fixture's own quoted condition rather than imported from outside it: a
@@ -95,13 +119,28 @@ struct Phase5bIdahoDecisionTests {
     func idahoShipsNoPerSourceRule() {
         #expect(Self.idahoExemptions.perSourceExemptions.isEmpty,
                 """
-                Idaho now ships a per-source rule. Phase 5b Task 8 decided it should not, \
-                on two independent grounds: Idaho's qualifying list turns on a pre-1984 \
-                CSRS eligibility date and on police-or-firefighter service within PERSI, \
-                neither of which RetirementPlanClassification carries, and Line 8's single \
-                household cap is shared by two different age gates, which the model cannot \
-                express. Read noIdahoGoldenCaseCanCatchTheFERSOverMatch and \
-                theDeclinedMilitaryRuleHasNoAgeGateToGiveIt below before going further.
+                Idaho now ships a per-source rule. Before assuming that is wrong, note \
+                that Task 8's two branches were settled DIFFERENTLY, and only one of them \
+                is foreclosed.
+
+                A rule naming federalCivilian or ownStateOrLocal is foreclosed \
+                PROCEDURALLY: Idaho's list is CSRS with eligibility established before \
+                1984 (not FERS, which shares one picker row with it) and PERSI \
+                firefighters plus certain police (not PERSI generally, which shares one \
+                row with them), so the case that would catch the over-match has inputs \
+                byte-identical to ID-2's and a contradictory expected value. Step 3 cannot \
+                be satisfied. See noIdahoGoldenCaseCanCatchTheFERSOverMatch.
+
+                A rule naming uniformedServices ALONE is EXPRESSIBLE and was declined as a \
+                JUDGEMENT CALL, not foreclosed. Measured, it makes ID-3 green and moves \
+                nothing else. It was declined because Line 8a's dollar-for-dollar \
+                reduction by Social Security and Railroad Retirement RECEIVED is \
+                unmodelled (about $935 a year of under-taxation for a common household), \
+                because exemptionAttribution .household lets an under-62 military spouse \
+                inherit a 62-plus spouse's gate, and because the accompanying .none rule \
+                must enumerate nine PlanSource cases by hand. All three are recorded in \
+                the ID entry of GoldenScenarioDefectCatalogueTests.knownButUnpinned, and \
+                the first two ARE pinnable. If you are shipping this rule, pin them first.
                 """)
     }
 
@@ -134,17 +173,30 @@ struct Phase5bIdahoDecisionTests {
     func idahoShipsNoPooledExemptionEither() {
         if case .none = Self.idahoExemptions.pensionExemption {} else {
             Issue.record("""
-                Idaho now ships a pooled pensionExemption. Declined rule 1 was exactly \
-                this: `.partial(48216)` at `regularExemptionMinAge: 62` made all five \
-                original golden cases pass while encoding 62 as the CIVILIAN gate, when \
-                Form 39R Part One's civilian gate is 65. ID-6 is the case that catches it.
+                Idaho now ships a pooled pensionExemption. TWO different rules have this \
+                shape and they are not equally wrong.
+
+                Declined rule 1, `.partial(48216)` at `regularExemptionMinAge: 62` with NO \
+                per-source rules, is simply WRONG: measured, it made all five original \
+                golden cases pass while encoding 62 as the CIVILIAN gate, when Form 39R \
+                Part One's civilian gate is 65. ID-6 is the case that catches it.
+
+                Declined rule 3 is DEFENSIBLE and was a judgement call: the same pool as \
+                `.steppedPhaseoutByFilingStatus(48216, 72324, one 100% band)` at \
+                `regularExemptionMinAge: 62`, PLUS a `.none` rule naming the nine \
+                non-military PlanSource cases so only military retired pay remains \
+                pooled. That one makes ID-3 green and moves nothing else. If that is what \
+                just arrived, this test is the wrong thing to fix: read the ID entry in \
+                GoldenScenarioDefectCatalogueTests.knownButUnpinned for the three reasons \
+                it was declined (unmodelled Social Security offset, household attribution, \
+                hand-enumerated denial list) and pin the first two before shipping.
                 """)
         }
         #expect(Self.idahoExemptions.regularExemptionMinAge == 0,
                 """
                 Idaho's regularExemptionMinAge moved off 0. With pensionExemption at \
-                .none this changes no tax, but it is half of declined rule 1 and should \
-                not arrive on its own.
+                .none this changes no tax, but it is half of both declined pooled rules \
+                and should not arrive on its own.
                 """)
     }
 
@@ -206,16 +258,31 @@ struct Phase5bIdahoDecisionTests {
     @Test("One pool carries one cap and one age gate, so Idaho's two gates cannot share it")
     func theTwoAgeGatesCannotShareTheOneCap() {
         let exemptions = RetirementIncomeExemptions()
-        let fields = Mirror(reflecting: exemptions).children.compactMap(\.label)
+        let fields = Set(Mirror(reflecting: exemptions).children.compactMap(\.label))
 
-        // Exactly one pooled pension cap and exactly one regular age gate.
-        #expect(fields.filter { $0 == "pensionExemption" }.count == 1)
-        #expect(fields.filter { $0 == "regularExemptionMinAge" }.count == 1,
+        // The WHOLE stored-property set, not a count of one name. A second age
+        // gate would arrive as a NEW, differently named property, which a
+        // `filter { $0 == "regularExemptionMinAge" }.count == 1` check could
+        // never see: that only catches a rename. Review MINOR 1.
+        let known: Set<String> = [
+            "socialSecurityExempt", "pensionExemption", "iraWithdrawalExemption",
+            "exemptionAppliesPerIndividual", "regularExemptionMinAge",
+            "exemptionAttribution", "distributionMinAge", "earlyAgeTier",
+            "pensionAndIRAShareSingleCap", "otherRetirementIncomeExclusion",
+            "agiPhaseout", "rothConversionExemption", "capitalGainsTreatment",
+            "perSourceExemptions", "unclassifiedPensionDisclosure"
+        ]
+        #expect(fields == known,
                 """
-                RetirementIncomeExemptions now carries more than one regular age gate. \
-                Idaho needs two (Part One's 65 for civilians, Line 8e's 62 for retired \
-                service members) over ONE shared Line 8a cap. If a second gate was added, \
-                re-open Idaho against it.
+                RetirementIncomeExemptions' stored properties changed. Added: \
+                \(fields.subtracting(known)). Removed: \(known.subtracting(fields)).
+
+                Task 8 relied on this type carrying exactly ONE pooled pension cap \
+                (`pensionExemption`) and exactly ONE regular age gate \
+                (`regularExemptionMinAge`), because Idaho needs TWO gates (Part One's 65 \
+                for civilians, Line 8e's 62 for retired service members) over ONE shared \
+                Line 8a cap. If a second age gate or a second cap was just added, re-open \
+                Idaho against it. If the change is unrelated, add the property here.
                 """)
 
         // And the only second age dimension, `earlyAgeTier`, is source-blind:
@@ -247,30 +314,39 @@ struct Phase5bIdahoDecisionTests {
     func noIdahoGoldenCaseCanCatchTheFERSOverMatch() throws {
         let file = try GoldenScenario.load(abbreviation: "ID")
 
-        // Every all-federalCivilian household at 65 or over expects $0.00. A
-        // FERS household at the same shape expects a positive tax, on inputs
-        // this fixture format cannot tell apart from these.
-        let civilianAtOrOver65 = file.scenarios.filter { scenario in
+        // Every all-federalCivilian household at 65 or over whose pensions sit
+        // UNDER the deduction maximum expects $0.00. A FERS household at the
+        // same shape expects a positive tax, on inputs this fixture format
+        // cannot tell apart from these.
+        //
+        // The cap filter is load-bearing and was added when ID-8 was: ID-8 is an
+        // all-federalCivilian household at 68/70 that expects a POSITIVE
+        // $1,069.33, but for a reason that has nothing to do with source. Its
+        // $140,000 of pensions exceeds the $72,324 MFJ maximum, so tax survives
+        // the deduction. Including it here would have made this test read as
+        // "Idaho already distinguishes CSRS from FERS", which is false.
+        let uncappedCivilianAtOrOver65 = file.scenarios.filter { scenario in
             let rows = scenario.classifiedPensionSources ?? []
-            return scenario.primaryAge >= 65 && !rows.isEmpty && rows.allSatisfy {
-                $0.planSource == PlanSource.federalCivilian.rawValue
-            }
+            let total = rows.reduce(0.0) { $0 + $1.amount }
+            let maximum = scenario.filingStatus == "marriedFilingJointly" ? 72_324.0 : 48_216.0
+            return scenario.primaryAge >= 65 && !rows.isEmpty && total <= maximum
+                && rows.allSatisfy { $0.planSource == PlanSource.federalCivilian.rawValue }
         }
-        #expect(!civilianAtOrOver65.isEmpty,
+        #expect(!uncappedCivilianAtOrOver65.isEmpty,
                 "ID-2 and ID-4 are the federal-civilian households this blocker is about; they are gone.")
-        #expect(civilianAtOrOver65.allSatisfy { $0.expectedStateTax == 0.0 },
+        #expect(uncappedCivilianAtOrOver65.allSatisfy { $0.expectedStateTax == 0.0 },
                 """
                 An Idaho golden case now asserts a TAXABLE all-federalCivilian household at \
-                65 or over alongside the exempt ones: \
-                \(civilianAtOrOver65.map(\.name)). Those inputs are identical, so either \
-                something can now distinguish CSRS from FERS, in which case Task 8's \
-                decision should be revisited against it, or a fixture is asserting a fact \
-                its own inputs do not carry.
+                65 or over whose pensions are UNDER the deduction maximum, alongside the \
+                exempt ones: \(uncappedCivilianAtOrOver65.map(\.name)). Those inputs are \
+                identical, so either something can now distinguish CSRS from FERS, in which \
+                case Task 8's decision should be revisited against it, or a fixture is \
+                asserting a fact its own inputs do not carry.
                 """)
 
         // And every one of them still carries a knownDefect. A green suite must
         // not be readable as "Idaho is fine".
-        #expect(civilianAtOrOver65.allSatisfy { $0.knownDefect != nil },
+        #expect(uncappedCivilianAtOrOver65.allSatisfy { $0.knownDefect != nil },
                 """
                 An Idaho CSRS case lost its knownDefect block without a rule shipping. \
                 Idaho still grants no Retirement Benefits Deduction at all.
@@ -354,6 +430,48 @@ struct Phase5bIdahoDecisionTests {
                 """
                 The military-under-62 guard gained a knownDefect. The engine is CORRECT \
                 here today and must stay correct.
+                """)
+    }
+
+    /// ID-8, the cap guard, added by Task 8's review. The third indistinguishability
+    /// this task found and the only one that turned out to be PINNABLE.
+    ///
+    /// ID-4 is named a cap straddle but cannot test one: at its $80,000 of
+    /// pensions, taxable income before the deduction is $32,500, so it floors at
+    /// $0.00 whether the deduction is capped at $72,324 or left uncapped. ID-8
+    /// raises the pensions to $140,000 so the difference reaches the tax line:
+    /// $1,069.33 capped against $0.00 uncapped.
+    @Test("The cap guard case exists and separates a capped deduction from an uncapped one")
+    func theCapGuardCaseStaysInTheFixture() throws {
+        let file = try GoldenScenario.load(abbreviation: "ID")
+        let capCase = try #require(
+            file.scenarios.first { scenario in
+                (scenario.classifiedPensionSources ?? []).reduce(0) { $0 + $1.amount } > 100_000
+            },
+            """
+            Idaho's cap guard case is gone. It is the ONLY Idaho case where the $72,324 \
+            MFJ maximum changes the answer: every other case floors taxable income at \
+            $0.00 whether the deduction is capped or not, so an UNCAPPED rule passes all \
+            of them. Restore it.
+            """)
+
+        #expect(capCase.expectedStateTax == 1_069.33,
+                """
+                The cap guard expects \(capCase.expectedStateTax). Form 39R Line 8a caps \
+                the MFJ deduction at $72,324, so $92,500 of post-standard-deduction income \
+                less $72,324 leaves $20,176 at the 5.3% flat rate.
+                """)
+        let defect = try #require(capCase.knownDefect,
+                                  """
+                                  The cap guard lost its knownDefect block. Idaho grants no \
+                                  Retirement Benefits Deduction at all, so this case is still \
+                                  over-taxed; a missing block would mean a rule shipped.
+                                  """)
+        #expect(defect.observedToday == 4_902.50,
+                """
+                The cap guard's pinned observedToday moved to \(defect.observedToday). \
+                MEASURED at $4,902.50, the whole $92,500 at 5.3%. Diagnose what changed \
+                before touching this pin.
                 """)
     }
 
@@ -518,8 +636,8 @@ struct Phase5bIdahoDecisionTests {
 
     // MARK: - The disclosure that ships with this decision
 
-    /// The Income Sources caption, PROPOSED and awaiting John's approval, on the
-    /// same footing as North Carolina's.
+    /// The Income Sources caption, APPROVED by John on 2026-08-05 as written,
+    /// together with North Carolina's.
     ///
     /// Idaho is the second jurisdiction this phase touched with ZERO disclosure
     /// on any surface, and for a structural reason worth stating: both existing

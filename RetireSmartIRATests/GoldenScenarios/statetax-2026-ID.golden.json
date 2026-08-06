@@ -64,7 +64,7 @@
       }
     },
     {
-      "name": "MFJ, both spouses 68/70 with CSRS pensions totaling $80,000: exceeds the $72,324 MFJ deduction cap -- tests the income-limited cap straddle",
+      "name": "MFJ, both spouses 68/70 with CSRS pensions totaling $80,000, which is above the $72,324 MFJ maximum but the cap DOES NOT BIND observably here because taxable income floors at $0 either way -- see ID-8 for the case that does bind",
       "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7, Line 8a: 'Married filing jointly...$72,324' maximum for 2025. Arithmetic: standard deduction (both 65+, MAGI $80,000 under $150,000 MFJ threshold) = $32,200 base + $1,650 x 2 age-65 additions + $6,000 x 2 full OBBBA senior bonuses = $47,500. $80,000 - $47,500 = $32,500 before the retirement deduction. Combined CSRS pensions of $80,000 are eligible only up to the $72,324 MFJ cap, which still exceeds the $32,500 remaining and floors taxable income at $0. Tax = $0.00.",
       "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
       "filingStatus": "marriedFilingJointly",
@@ -142,6 +142,29 @@
       "iraWithdrawals": 0,
       "rothConversion": 0,
       "expectedStateTax": 1266.70
+    },
+    {
+      "name": "MFJ, both spouses 68/70 with CSRS pensions totaling $140,000: the cap BINDS observably, separating a correct $72,324 maximum from an uncapped deduction",
+      "source": "Idaho Form 39R Instructions 2025 (EFO00088), page 7, Line 8a: 'Married filing jointly...$72,324' maximum for 2025. ADDED BY TASK 8 REVIEW under shared-procedure Step 3. ID-4 is NAMED a cap straddle but cannot test one: at its $80,000 of pensions, taxable income before the deduction is only $32,500, so it floors at $0 whether the deduction is capped at $72,324 or left uncapped at $80,000, and both a correct rule and a cap-less rule produce ID-4's published $0.00. This case raises the pensions until the difference is visible on the tax line. Arithmetic: standard deduction (both 65+, MAGI $140,000 under the $150,000 MFJ threshold, so both OBBBA senior bonuses are full) = $32,200 base + $1,650 x 2 age-65 additions + $6,000 x 2 senior bonuses = $47,500. $140,000 - $47,500 = $92,500 before the retirement deduction. Combined CSRS pensions of $140,000 are eligible only up to the $72,324 MFJ maximum, so $92,500 - $72,324 = $20,176 taxable x 5.3% flat rate = $1,069.33. An UNCAPPED rule would subtract the full $140,000 and floor taxable income at $0.00, so this case is what separates the two. The engine grants no Idaho retirement deduction at all today, so it currently taxes the whole $92,500.",
+      "sourceURL": "https://tax.idaho.gov/wp-content/uploads/forms/EFO00088/EFO00088_03-02-2026.pdf",
+      "filingStatus": "marriedFilingJointly",
+      "primaryAge": 68,
+      "spouseAge": 70,
+      "federalAGI": 140000,
+      "taxableSocialSecurity": 0,
+      "pensionIncome": 0,
+      "classifiedPensionSources": [
+        {"amount": 80000, "planStructure": "definedBenefit", "planSource": "federalCivilian"},
+        {"amount": 60000, "planStructure": "definedBenefit", "planSource": "federalCivilian"}
+      ],
+      "iraWithdrawals": 0,
+      "rothConversion": 0,
+      "expectedStateTax": 1069.33,
+      "knownDefect": {
+        "tier": "tier2",
+        "summary": "Both spouses' CSRS pensions qualify for the MFJ Retirement Benefits Deduction, capped at $72,324; the engine grants nothing, taxing the full $92,500 of post-standard-deduction income. Same mechanism as ID-4, but this case additionally pins the CAP: a rule that granted the deduction UNCAPPED would report $0.00 here and would still pass ID-4, so this is the only Idaho case that can tell a correct $72,324 maximum from no maximum at all.",
+        "observedToday": 4902.50
+      }
     }
   ]
 }

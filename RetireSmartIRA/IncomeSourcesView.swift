@@ -359,14 +359,15 @@ struct IncomeSourcesView: View {
 
     /// Phase 5b Task 7. North Carolina's Bailey disclosure.
     ///
-    /// **PROPOSED COPY, AWAITING JOHN'S APPROVAL.** Every other caption in this
-    /// section is approved (Hawaii pre-dates Phase 5b; Massachusetts's was
-    /// approved 2026-08-05). This one is not, and it ships now only because
-    /// North Carolina was the ONLY jurisdiction this phase touched carrying zero
-    /// disclosure on any surface: a Bailey-vested retiree is over-taxed by
-    /// $1,486.27 a year at the NC-1 fixture's shape with nothing on screen
-    /// telling them. Rewording it is a one-line change here plus the assertions
-    /// in `Phase5bNorthCarolinaDecisionTests.northCarolinaCaptionNamesTheRightDirection`.
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with Idaho's
+    /// caption below. Every caption in this section is now approved copy (Hawaii
+    /// pre-dates Phase 5b; Massachusetts's was approved the same day). It ships
+    /// because North Carolina was the first jurisdiction this phase touched
+    /// carrying zero disclosure on any surface: a Bailey-vested retiree is
+    /// over-taxed by $1,486.27 a year at the NC-1 fixture's shape with nothing on
+    /// screen telling them. Rewording it is a one-line change here plus the
+    /// assertions in
+    /// `Phase5bNorthCarolinaDecisionTests.northCarolinaCaptionNamesTheRightDirection`.
     ///
     /// HOISTED to a static rather than written inline like the Hawaii and
     /// Massachusetts captions, so it has a test seam. Task 5 recorded the
@@ -389,8 +390,8 @@ struct IncomeSourcesView: View {
 
     /// Phase 5b Task 8. Idaho's Retirement Benefits Deduction disclosure.
     ///
-    /// **PROPOSED COPY, AWAITING JOHN'S APPROVAL**, on the same footing as the
-    /// North Carolina caption above and for the same reason: Idaho ships no rule,
+    /// **APPROVED BY JOHN ON 2026-08-05**, as written, together with the North
+    /// Carolina caption above, whose situation Idaho's repeats: Idaho ships no rule,
     /// so `shouldPromptForClassification` never fires for an Idaho resident (it
     /// gates on `residenceHasPerSourceRules`) and
     /// `UnclassifiedPensionDisclosure.text(for: .idaho)` is nil (it gates on the
@@ -1432,8 +1433,8 @@ struct IncomeSourcesView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            // Phase 5b Task 7. PROPOSED copy, awaiting John's
-                            // approval; see IncomeSourcesView
+                            // Phase 5b Task 7. Copy APPROVED by John on
+                            // 2026-08-05; see IncomeSourcesView
                             // .northCarolinaBaileyCaption for why it ships
                             // unapproved and what it must not be turned into.
                             // Direction is the opposite of Massachusetts's
@@ -1447,8 +1448,8 @@ struct IncomeSourcesView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            // Phase 5b Task 8. PROPOSED copy, awaiting John's
-                            // approval; see IncomeSourcesView
+                            // Phase 5b Task 8. Copy APPROVED by John on
+                            // 2026-08-05; see IncomeSourcesView
                             // .idahoRetirementBenefitsDeductionCaption for why
                             // Idaho ships a caption and no rule. Same direction
                             // as North Carolina directly above, OVER-taxation:
