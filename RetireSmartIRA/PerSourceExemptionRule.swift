@@ -92,11 +92,21 @@ struct PerSourceExemptionRule: Codable, Sendable {
     /// `nil` so every call site written before this task compiles and means
     /// exactly what it meant: a rule carrying neither `matchIsSurvivorBenefit`
     /// nor `matchMinAge` ignores both arguments entirely, which is what all
-    /// four rules shipped before this task (NY, KS, MA, AZ) require. The two
-    /// PRODUCTION call sites reach this through
-    /// `RetirementIncomeExemptions.matchedPerSourceRule`, whose parameters are
-    /// deliberately NOT defaulted, so an engine or DataManager site cannot
-    /// silently omit a fact it has.
+    /// four rules shipped before this task (NY, KS, MA, AZ) require.
+    ///
+    /// Every PRODUCTION call site reaches this through
+    /// `RetirementIncomeExemptions.matchedPerSourceRule`: three in
+    /// `TaxCalculationEngine.applyRetirementExemptions` (pension rows, `.rmd`
+    /// rows, distribution components) and three mirroring them in
+    /// `DataManager.stateTaxBreakdown`. Those parameters are ALSO defaulted,
+    /// and the reasoning is on `matchedPerSourceRule` itself: a required
+    /// parameter forces a site to write something, not the right thing, and the
+    /// failure direction of omitting one is that a gated rule matches NOTHING,
+    /// so an exclusion goes unapplied and the taxpayer is over-taxed rather
+    /// than under-taxed. What actually guards the six sites is behavioural,
+    /// `Phase5bDCSurvivorTests.breakdownMirrorAgreesWithTheEngineForDC` and
+    /// `theMirrorMovesOnBothNewAxes`, both proven capable of failing by a
+    /// reverted mutation.
     func matches(structure: PlanStructure, source: PlanSource,
                  isSurvivorBenefit: Bool? = nil, age: Int? = nil) -> Bool {
         let sourceMatches = matchSources.isEmpty || matchSources.contains(source)

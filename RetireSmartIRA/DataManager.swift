@@ -868,8 +868,12 @@ class DataManager {
 
         // Phase 3b Task 4 (design doc 3.4a): partition BEFORE any pooling or
         // cap logic runs, mirroring the engine's identical partition. A
-        // matched row is excluded per its own rule's `treatment`,
-        // UNCONDITIONALLY (no age gate), and contributes NOTHING to the
+        // matched row is excluded per its own rule's `treatment`, with no age
+        // gate UNLESS THE RULE ITSELF CARRIES ONE (Phase 5b Task 9's
+        // `matchMinAge`, nil for New York, Kansas, Massachusetts and Arizona
+        // and 62 for the District of Columbia; evaluated against the ROW
+        // OWNER's age via `ageOf` below, mirroring the engine), and
+        // contributes NOTHING to the
         // pooled figures below. Single pass over the rows, never a cap
         // evaluated per row. Empty `exemptions.perSourceExemptions` (every
         // jurisdiction except New York) makes this reduce to exactly the old

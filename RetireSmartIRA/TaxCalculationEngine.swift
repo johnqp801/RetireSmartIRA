@@ -619,8 +619,7 @@ struct TaxCalculationEngine {
         // Phase 3b Task 4 (design doc 3.4a): partition BEFORE any pooling or
         // cap logic runs. Each qualifying `.pension` row is tested against
         // `exemptions.perSourceExemptions`; a match is excluded per its own
-        // rule's `treatment`, UNCONDITIONALLY (no age gate -- New York's Line
-        // 26 government-pension exclusion has none), and contributes NOTHING
+        // rule's `treatment`, and contributes NOTHING
         // to `pensionIncome`, the pooled figure the cap machinery below
         // consumes. This is a single pass over the rows, never a cap
         // evaluated inside a loop -- see RetirementDistributionComponent.swift's
@@ -629,6 +628,20 @@ struct TaxCalculationEngine {
         // `exemptions.perSourceExemptions` is empty (every jurisdiction
         // except New York), `matchedPerSourceRule` returns `nil` for every
         // row and this reduces to exactly the old single `.reduce`.
+        //
+        // NO AGE GATE UNLESS THE RULE ASKS FOR ONE. Phase 3b Task 4 stated this
+        // partition as unconditional on age outright, because New York's Line
+        // 26 government-pension exclusion has none, and Kansas's,
+        // Massachusetts's and Arizona's do not either. Phase 5b Task 9 made it
+        // conditional on the RULE: `PerSourceExemptionRule.matchMinAge` is nil
+        // for all four of those, so they are unchanged, and it is 62 for the
+        // District of Columbia, whose survivor exclusion under D.C. Code
+        // 47-1803.02(a)(2)(N)(ii) grants nothing below that age. The age passed
+        // is the ROW OWNER's, not `effectiveAge`: the statute conditions on the
+        // age of the person RECEIVING the benefit, so a 55-year-old widow does
+        // not qualify on a 65-year-old spouse's age. Deliberately NOT
+        // `regularExemptionMinAge`, which gates the POOLED levels through
+        // `resolveLevel` and is household-wide.
         let qualifyingPensionRows = incomeSources.filter { $0.type == .pension && ownerQualifies($0.owner) }
         var pensionIncome = 0.0
         var perSourceExcludedPension = 0.0

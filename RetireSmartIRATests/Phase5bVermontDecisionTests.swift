@@ -295,10 +295,12 @@ struct Phase5bVermontDecisionTests {
                 """)
         #expect(vt1.expectedStateTax == 742.03,
                 """
-                VT-1 expects \(vt1.expectedStateTax), not the $742.03 the CSRS shape was \
-                measured producing. A FERS household at this same shape expects the \
-                UNRELIEVED $1,077.03 that VT-1's knownDefect pins as today's output, on \
-                inputs this schema cannot tell apart from VT-1's. That is the collision.
+                VT-1's published figure is now \(vt1.expectedStateTax) rather than the \
+                $742.03 the declined CSRS shape was measured producing. That figure is \
+                half of the collision this decision rests on: a FERS household at the same \
+                shape owes the UNRELIEVED $1,077.03 VT-1's knownDefect pins as today's \
+                output, on inputs this schema cannot tell apart from VT-1's. If the \
+                published figure moved, re-derive both halves before trusting this file.
                 """)
         #expect(vt1.knownDefect?.observedToday == 1077.03)
     }

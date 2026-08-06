@@ -491,6 +491,173 @@ struct Phase5bDCSurvivorTests {
         #expect(ownPension.totalStateTax > survivorOver.totalStateTax)
     }
 
+    // MARK: - The Multi-Year path
+
+    /// REVIEW FINDING IMPORTANT 1, and the regression test it asked for.
+    ///
+    /// The District's rule is the FIRST whose discriminant is not fully described
+    /// by `(structure, source)`. New York's, Kansas's, Massachusetts's and
+    /// Arizona's all are, so all four reached Multi-Year for free. DC's did not:
+    /// `MultiYearInputAdapter.pensionClassification` built a
+    /// `RetirementPlanClassification` from structure and source alone and dropped
+    /// the survivor flag Task 1 had put on that very type, and
+    /// `ProjectionEngine.computeStateTax` then reconstructed an `IncomeSource`
+    /// without it.
+    ///
+    /// The consequence was the two-surface divergence class this phase has been
+    /// chasing throughout: a DC survivor annuitant at 62 or over who answered the
+    /// new toggle saw State Comparison and the income breakdown drop the annuity
+    /// to $0, while EVERY YEAR of the multi-year projection kept taxing it in
+    /// full. Over-taxation, so not Critical, but it perturbs the optimiser's
+    /// conversion recommendations.
+    ///
+    /// This test covers the SECOND of the two pass-throughs, in
+    /// `ProjectionEngine`. It is deliberately written against the projection
+    /// rather than against the private `computeStateTax`, so it exercises the
+    /// real path a Multi-Year Plan takes.
+    @Test("A survivor annuity is excluded in the multi-year projection, not only in single-year")
+    func theProjectionAppliesTheSurvivorExclusion() throws {
+        func yearOneStateTax(isSurvivorBenefit: Bool?, age: Int) throws -> Double {
+            let baseYear = 2026
+            let inputs = MultiYearStaticInputs(
+                // Mirrors GoldenScenarioMultiYearTests' own runner: the projection
+                // needs a nonzero balance to produce a path at all. At 66 with no
+                // expenses and no lever actions nothing is withdrawn from it, so it
+                // contributes $0 to year-1 income and cannot perturb these figures.
+                startingBalances: AccountSnapshot(traditional: 100_000, roth: 0, taxable: 0, hsa: 0),
+                baseYear: baseYear,
+                primaryCurrentAge: age,
+                spouseCurrentAge: nil,
+                filingStatus: .single,
+                state: "DC",
+                primarySSClaimAge: 70,
+                spouseSSClaimAge: nil,
+                primaryExpectedBenefitAtFRA: 0,
+                spouseExpectedBenefitAtFRA: nil,
+                primaryBirthYear: baseYear - age,
+                spouseBirthYear: nil,
+                primaryWageIncome: 0,
+                spouseWageIncome: 0,
+                primaryPensionIncome: 50_000,
+                spousePensionIncome: 0,
+                acaEnrolled: false,
+                acaHouseholdSize: 1,
+                primaryMedicareEnrollmentAge: 65,
+                spouseMedicareEnrollmentAge: nil,
+                baselineAnnualExpenses: 0,
+                primaryPensionClassification: RetirementPlanClassification(
+                    structure: .definedBenefit, source: .federalCivilian,
+                    isSurvivorBenefit: isSurvivorBenefit)
+            )
+            // `project` returns [] for an empty `actionsPerYear`, so year 1 has to be
+            // present as a key even with no lever actions in it.
+            let path = ProjectionEngine().project(
+                inputs: inputs, assumptions: MultiYearAssumptions(),
+                actionsPerYear: [baseYear: []])
+            return try #require(path.first).taxBreakdown.state
+        }
+
+        let survivorAt66 = try yearOneStateTax(isSurvivorBenefit: true, age: 66)
+        let ownPensionAt66 = try yearOneStateTax(isSurvivorBenefit: false, age: 66)
+        let neverAskedAt66 = try yearOneStateTax(isSurvivorBenefit: nil, age: 66)
+        let survivorAt55 = try yearOneStateTax(isSurvivorBenefit: true, age: 55)
+        let ownPensionAt55 = try yearOneStateTax(isSurvivorBenefit: false, age: 55)
+
+        // NOT ASSERTED AS $0.00, and the residual is not a defect. This household
+        // has no taxable balance and no expenses, so it owes federal tax with no
+        // funding source, and ProjectionEngine's Step 7 tax-funding cascade grosses
+        // up an extra traditional withdrawal to pay it. That withdrawal is itself
+        // DC-taxable ordinary income, so year 1 keeps a small state figure even with
+        // the whole annuity excluded. It is the same structural term
+        // `GoldenScenarioCrossPathTests.newJerseyCrossPathGapPinnedAsObserved`
+        // decomposes, and the single-year runner cannot produce it by construction.
+        // So this asserts the SIZE of the effect against the unexcluded case rather
+        // than an absolute figure.
+        #expect(survivorAt66 < ownPensionAt66 / 10,
+                """
+                Multi-year year 1 taxes a 66-year-old's DC/federal survivor annuity \
+                \(survivorAt66) against \(ownPensionAt66) for the same household holding \
+                its OWN pension. The annuity is excluded in full, so the survivor figure \
+                should be a small tax-funding residual, not the same order of magnitude. \
+                If the two are equal, the survivor flag was dropped again: check \
+                MultiYearInputAdapter.pensionClassification and \
+                ProjectionEngine.computeStateTax, which are the two places it can fall out.
+                """)
+        #expect(ownPensionAt66 > 0,
+                """
+                Multi-year excluded a 66-year-old's OWN federal civilian pension. D.C. Code \
+                47-1803.02(a)(2)(N)(i)'s $3,000 exclusion expired after tax year 2014, so \
+                nothing is owed here.
+                """)
+        #expect(neverAskedAt66 == ownPensionAt66,
+                """
+                A row whose survivor question was never asked must be taxed exactly like an \
+                own pension in multi-year, the same as in single-year. Got \
+                \(neverAskedAt66) against \(ownPensionAt66).
+                """)
+
+        // The age half, isolated: at 55 the flag must make NO difference at all,
+        // and this is an exact equality because both sides are the same household
+        // at the same age, differing only in the flag.
+        #expect(survivorAt55 == ownPensionAt55,
+                """
+                A 55-year-old survivor was taxed \(survivorAt55) against \
+                \(ownPensionAt55) for an own pension. Below D.C. Code \
+                47-1803.02(a)(2)(N)(ii)'s age-62 gate the flag must change nothing, so \
+                `matchMinAge` is not reaching the projection even though the survivor flag \
+                is. The ages ProjectionEngine passes are the real projected ages, so this \
+                gate must re-evaluate correctly as a household ages through 62.
+                """)
+        #expect(survivorAt55 > survivorAt66 * 10,
+                "the same flagged annuity must be taxed far more at 55 than at 66")
+    }
+
+    /// The FIRST of the two pass-throughs, in `MultiYearInputAdapter`. Asserted
+    /// separately from the projection above so a failure names which half broke.
+    @MainActor
+    @Test("The multi-year adapter carries the survivor flag off the income row")
+    func theAdapterCarriesTheSurvivorFlag() {
+        func classification(rows: [IncomeSource]) -> RetirementPlanClassification? {
+            let dm = DataManager(skipPersistence: true)
+            dm.selectedState = .districtOfColumbia
+            dm.incomeSources = rows
+            return MultiYearInputAdapter.build(
+                from: dm, scenarioState: dm.scenario, assumptions: MultiYearAssumptions()
+            ).primaryPensionClassification
+        }
+        func survivorRow(_ flag: Bool?, amount: Double = 50_000) -> IncomeSource {
+            IncomeSource(name: "Annuity", type: .pension, annualAmount: amount, owner: .primary,
+                         planStructure: .definedBenefit, planSource: .federalCivilian,
+                         isSurvivorBenefit: flag)
+        }
+
+        #expect(classification(rows: [survivorRow(true)])?.isSurvivorBenefit == true,
+                """
+                The adapter dropped the survivor flag. RetirementPlanClassification has \
+                carried this field since Task 1 and this is the site that has to fill it, \
+                or DC's rule is unreachable from the Multi-Year Plan.
+                """)
+        #expect(classification(rows: [survivorRow(false)])?.isSurvivorBenefit == false)
+        #expect(classification(rows: [survivorRow(nil)])?.isSurvivorBenefit == nil)
+
+        // Two rows agreeing on structure and source but DISAGREEING on the
+        // survivor fact pass `hasMixedPensionClassification`, which compares only
+        // those two. Applying either row's flag to the POOLED total would
+        // misattribute the other row's dollars, so this must fall back to nil.
+        let mixed = classification(rows: [survivorRow(true, amount: 30_000),
+                                          survivorRow(false, amount: 20_000)])
+        #expect(mixed?.source == .federalCivilian,
+                "structure and source still agree, so the classification itself must survive")
+        #expect(mixed?.isSurvivorBenefit == nil,
+                """
+                An owner holding both a survivor annuity and their own pension from the \
+                same system had one row's survivor fact applied to the combined amount. \
+                That would exempt the own pension or tax the survivor annuity, depending \
+                on row order. nil ("never asked") claims no exclusion, which is the same \
+                conservative fallback the structure/source guard directly above uses.
+                """)
+    }
+
     // MARK: - Picker reachability
 
     /// A rule no real user can select is a green suite and an undelivered fix.

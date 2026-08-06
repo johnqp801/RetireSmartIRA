@@ -1616,7 +1616,17 @@ struct ProjectionEngine {
         // `matchedPerSourceRule` matches per row, so a nil classification (the default,
         // unchanged from before this task) resolves to `.unknown`/`.unknown` via
         // `IncomeSource.init`'s own inference, matching every jurisdiction other than New
-        // York exactly. Splitting by owner is otherwise numerically inert: every exemption
+        // York exactly.
+        //
+        // Phase 5b Task 9 review, IMPORTANT 1: the SURVIVOR FLAG is forwarded here too.
+        // The District of Columbia's rule (D.C. Code 47-1803.02(a)(2)(N)(ii)) is the
+        // first whose discriminant is not fully described by (structure, source), and
+        // dropping the flag here made it unreachable from Multi-Year while single-year
+        // applied it, so the two surfaces disagreed for the same household. The age half
+        // of that rule needs no work here: `matchMinAge` is evaluated against the ROW
+        // OWNER's age, and the `currentAge`/`spouseBirthYear` passed below are the real
+        // projected ages, so it re-evaluates correctly in every projected year as the
+        // household ages through 62. Splitting by owner is otherwise numerically inert: every exemption
         // below this point pools all `.pension` rows before applying any cap (Task 3/4), and
         // `ownerQualifies` treats every owner identically under `.household` attribution,
         // the only mode any jurisdiction ships (RetirementDistributionComponent.swift's file
@@ -1629,7 +1639,8 @@ struct ProjectionEngine {
                 annualAmount: primaryPensionIncome,
                 owner: .primary,
                 planStructure: primaryPensionClassification?.structure,
-                planSource: primaryPensionClassification?.source
+                planSource: primaryPensionClassification?.source,
+                isSurvivorBenefit: primaryPensionClassification?.isSurvivorBenefit
             ))
         }
         if spousePensionIncome > 0 {
@@ -1639,7 +1650,8 @@ struct ProjectionEngine {
                 annualAmount: spousePensionIncome,
                 owner: .spouse,
                 planStructure: spousePensionClassification?.structure,
-                planSource: spousePensionClassification?.source
+                planSource: spousePensionClassification?.source,
+                isSurvivorBenefit: spousePensionClassification?.isSurvivorBenefit
             ))
         }
         if totalTradWithdrawals > 0 {
