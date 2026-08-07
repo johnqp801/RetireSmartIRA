@@ -18,6 +18,12 @@ Dianne is a composite. Florida and California are the same profile with only the
 *"a two point gap does not survive a seventeen percent incremental cost"* removed; 24 percent made
 unmistakably the illustration's own election.
 
+**Round 3 (final):** Dianne is "a composite rather than a **real person**", not "rather than a
+client." John's call. He has no clients, and the old phrasing implied an advisory relationship he does
+not have. The archived two-angle file still carries the original wording as the record of what was
+drafted; **do not copy the persona sentence from there.** The published website article says "She is a
+composite, not a client" and is a candidate for the same change.
+
 **Round 2 (tighten):** opening cut from six paragraphs to five short ones and led with the
 condition-not-advice distinction; *"What I found first was not what I expected"* and the other
 template phrases removed; "The stranger part" folded into the first case at half the length;
@@ -105,7 +111,7 @@ has to leave the IRA. Here is what those three cost, on one household.
 
 **A cautious conversion**
 
-Meet Dianne, a composite rather than a client. She is 66, single, retired to Florida, with $1,000,000
+Meet Dianne, a composite rather than a real person. She is 66, single, retired to Florida, with $1,000,000
 in a traditional IRA and nothing outside it. Social Security pays her $28,000 a year. She is past 59
 and a half and already on Medicare. Florida keeps state income tax out of the arithmetic for now.
 
