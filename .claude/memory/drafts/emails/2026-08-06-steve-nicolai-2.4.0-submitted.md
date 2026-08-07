@@ -1,6 +1,8 @@
 # Email to Steve Nicolai: 2.4.0 submitted to Apple
 
-**Sent 2026-08-06** (John's edit of the controller draft, with three corrections applied).
+**SENT 2026-08-07, 4:57 PM**, from Support, subject "RetireSmartIRA 2.4.0 submitted to Apple".
+John's edit of the controller draft, with three corrections applied. It went out BEFORE macOS was
+approved, so it says both platforms are awaiting review. That was true when sent.
 Subject: RetireSmartIRA 2.4.0 submitted to Apple
 
 ---
