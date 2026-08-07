@@ -4,6 +4,28 @@ Append-only. Newest entries at top. Each entry: `## YYYY-MM-DD: <Title>` + decis
 
 ---
 
+## 2026-08-07: acknowledge a missed promise in the sentence that delivers the fix
+
+**Decision (John):** the note telling Alan Levy that 2.4.0 is live drops the standalone apology
+paragraph. The draft spent four sentences on the caret fix having been promised for the previous
+release and missed. The sent version carries it in one word: *"The cursor fix you requested in July is
+**finally** in."*
+
+**Rationale:** it credits him for asking, dates the ask, and concedes the delay, without making a
+tester read a paragraph about a mistake he already lived through. **Standing guidance for tester
+notes: put the acknowledgment inside the sentence that delivers the fix.**
+
+Also settled in the same note: the per-year income item, told to Alan as "next on my list" on
+2026-07-18 and now two releases late, is described as *"important and on my list but I could not get
+to it in this latest release cycle"*. Real work, named honestly, with no third date attached.
+
+**Corrected in the durable record on this date:** the release-status doc claimed "the partial caret
+fix that shipped in 2.3.0 was session-order dependent." **Nothing caret-related shipped in 2.3.0.**
+`af45404` is not an ancestor of `v2.3.0-build63`; it and `35f2d47` both ship first in
+`v2.4.0-build64`. Writing that to Alan would have described an experience he never had.
+
+---
+
 ## 2026-08-06: the modelling caveat ships on EVERY state page, and two follow-ups are recorded
 
 **Decision (John):** the accuracy page's limitations section closes with one more approved sentence,
